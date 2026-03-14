@@ -573,25 +573,27 @@ func (h *IntegrationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
+type integrationProviderInfo struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	AuthMode    string `json:"auth_mode"`
+}
+
 // ListProviders handles GET /v1/integrations/providers.
 //
 // @Summary List available providers
 // @Description Returns all Nango providers available for creating integrations.
 // @Tags integrations
 // @Produce json
-// @Success 200 {array} object
+// @Success 200 {array} integrationProviderInfo
 // @Security BearerAuth
 // @Router /v1/integrations/providers [get]
+// @Router /v1/widget/integrations/providers [get]
 func (h *IntegrationHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	providers := h.nango.GetProviders()
-	type providerInfo struct {
-		Name        string `json:"name"`
-		DisplayName string `json:"display_name"`
-		AuthMode    string `json:"auth_mode"`
-	}
-	resp := make([]providerInfo, len(providers))
+	resp := make([]integrationProviderInfo, len(providers))
 	for i, p := range providers {
-		resp[i] = providerInfo{Name: p.Name, DisplayName: p.DisplayName, AuthMode: p.AuthMode}
+		resp[i] = integrationProviderInfo{Name: p.Name, DisplayName: p.DisplayName, AuthMode: p.AuthMode}
 	}
 	slog.Info("listed integration providers", "count", len(resp))
 	writeJSON(w, http.StatusOK, resp)

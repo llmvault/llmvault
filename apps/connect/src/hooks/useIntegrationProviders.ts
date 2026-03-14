@@ -1,30 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
+import { $api, createWidgetApi } from '../api/client'
 import { useConnect } from './useConnect'
-import type { NangoProvider } from '../types'
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.dev.llmvault.dev'
 
 export function useIntegrationProviders() {
   const { sessionId, preview } = useConnect()
 
-  const path = !preview && sessionId
-    ? '/v1/widget/integrations/providers'
-    : '/v1/integrations/providers'
-
-  const headers: Record<string, string> = {}
   if (!preview && sessionId) {
-    headers['Authorization'] = `Bearer ${sessionId}`
+    const widgetApi = createWidgetApi(sessionId)
+    return widgetApi.useQuery('get', '/v1/widget/integrations/providers', undefined, {
+      staleTime: 5 * 60 * 1000,
+    })
   }
 
-  return useQuery<NangoProvider[]>({
-    queryKey: ['integration-providers', path],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}${path}`, { headers })
-      if (!res.ok) {
-        throw new Error(`${res.status} ${res.statusText}`)
-      }
-      return res.json()
-    },
+  return $api.useQuery('get', '/v1/integrations/providers', undefined, {
     staleTime: 5 * 60 * 1000,
   })
 }

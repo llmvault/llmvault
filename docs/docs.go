@@ -1097,7 +1097,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "object"
+                                "$ref": "#/definitions/internal_handler.integrationProviderInfo"
                             }
                         }
                     }
@@ -2114,6 +2114,174 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/widget/integrations/providers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all Nango providers available for creating integrations.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "integrations"
+                ],
+                "summary": "List available providers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_handler.integrationProviderInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/widget/integrations/{id}/connect-session": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a Nango connect session scoped to a specific integration.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "widget"
+                ],
+                "summary": "Create a connect session for an integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Integration ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.connectSessionTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/widget/integrations/{id}/connections": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Stores a new connection record after a successful Nango auth flow.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "widget"
+                ],
+                "summary": "Create a connection via the widget",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Integration ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Connection details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.createIntegrationConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.integConnResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/widget/providers": {
             "get": {
                 "security": [
@@ -2409,6 +2577,17 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.connectSessionTokenResponse": {
+            "type": "object",
+            "properties": {
+                "provider_config_key": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.connectSettingsRequest": {
             "type": "object",
             "properties": {
@@ -2603,6 +2782,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/internal_handler.identityRateLimitParams"
                     }
+                }
+            }
+        },
+        "internal_handler.createIntegrationConnectionRequest": {
+            "type": "object",
+            "properties": {
+                "nango_connection_id": {
+                    "type": "string"
                 }
             }
         },
@@ -2805,6 +2992,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.integrationProviderInfo": {
+            "type": "object",
+            "properties": {
+                "auth_mode": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }

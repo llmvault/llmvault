@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { popularIntegrationNames } from '../data/integrations'
 import { useIntegrationProviders } from '../hooks/useIntegrationProviders'
+import type { IntegrationProvider, IntegrationProviderInfo } from '../types'
 import { Error } from './Error'
 import { Footer } from './Footer'
 import { IntegrationProviderLogo } from './IntegrationProviderLogo'
@@ -26,8 +28,17 @@ function formatAuthMode(mode: string): string {
   }
 }
 
+function toIntegrationProvider(p: IntegrationProviderInfo): IntegrationProvider {
+  return {
+    id: '',
+    provider: p.name ?? '',
+    display_name: p.display_name ?? '',
+    auth_mode: p.auth_mode ?? '',
+  }
+}
+
 interface Props {
-  onSelect: (providerName: string) => void
+  onSelect: (integration: IntegrationProvider) => void
   onBack?: () => void
   onClose: () => void
 }
@@ -37,7 +48,7 @@ export function IntegrationProviderSelection({ onSelect, onBack, onClose }: Prop
   const { data: providers = [], isLoading, isError, refetch } = useIntegrationProviders()
 
   const popular = useMemo(
-    () => providers.filter((p) => popularIntegrationNames.includes(p.name)),
+    () => providers.filter((p) => popularIntegrationNames.includes(p.name ?? '')),
     [providers]
   )
 
@@ -46,11 +57,19 @@ export function IntegrationProviderSelection({ onSelect, onBack, onClose }: Prop
       search.trim()
         ? providers.filter((p) => {
             const q = search.toLowerCase()
-            return p.name.toLowerCase().includes(q) || p.display_name.toLowerCase().includes(q)
+            return (p.name ?? '').toLowerCase().includes(q) || (p.display_name ?? '').toLowerCase().includes(q)
           })
         : providers,
     [search, providers]
   )
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 52,
+    overscan: 20,
+  })
 
   if (isError) {
     return (
@@ -103,10 +122,10 @@ export function IntegrationProviderSelection({ onSelect, onBack, onClose }: Prop
             {popular.map((p) => (
               <button
                 key={p.name}
-                onClick={() => onSelect(p.name)}
+                onClick={() => onSelect(toIntegrationProvider(p))}
                 className="flex items-center rounded-lg py-2.5 px-4 gap-2 bg-cw-surface border border-solid border-cw-border cursor-pointer hover:border-cw-placeholder transition-colors"
               >
-                <IntegrationProviderLogo providerName={p.name} size="size-5.5" />
+                <IntegrationProviderLogo providerName={p.name ?? ''} size="size-5.5" />
                 <div className="text-sm text-cw-heading font-medium leading-4.5">{p.display_name || p.name}</div>
               </button>
             ))}
@@ -116,7 +135,7 @@ export function IntegrationProviderSelection({ onSelect, onBack, onClose }: Prop
             {popular.slice(0, 3).map((p) => (
               <button
                 key={p.name}
-                onClick={() => onSelect(p.name)}
+                onClick={() => onSelect(toIntegrationProvider(p))}
                 className="flex items-center rounded-full py-1.5 px-3 gap-1.5 bg-cw-surface border border-solid border-cw-border cursor-pointer hover:border-cw-placeholder transition-colors"
               >
                 <div className="text-xs text-cw-heading font-medium leading-4">{p.display_name || p.name}</div>
@@ -126,7 +145,7 @@ export function IntegrationProviderSelection({ onSelect, onBack, onClose }: Prop
         </div>
       )}
 
-      <div className="flex flex-col cw-mobile:mt-5 cw-desktop:mt-5 grow shrink basis-0 overflow-y-auto cw-mobile:gap-0.5">
+      <div ref={scrollRef} className="flex flex-col cw-mobile:mt-5 cw-desktop:mt-5 grow shrink basis-0 overflow-y-auto cw-mobile:gap-0.5">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <SpinnerIcon className="cw-spinner" />
@@ -136,24 +155,32 @@ export function IntegrationProviderSelection({ onSelect, onBack, onClose }: Prop
             <div className="hidden cw-desktop:block text-2xs tracking-wider uppercase mb-2 text-cw-secondary font-semibold leading-3.5">
               All Integrations
             </div>
-            {filtered.map((p, i) => (
-              <button
-                key={p.name}
-                onClick={() => onSelect(p.name)}
-                className={`flex items-center cw-mobile:py-3.5 cw-desktop:py-3 gap-3.5 bg-transparent border-0 cursor-pointer w-full text-left hover:bg-cw-surface transition-colors ${
-                  i < filtered.length - 1 ? 'border-b border-b-solid border-b-cw-divider' : ''
-                }`}
-              >
-                <IntegrationProviderLogo providerName={p.name} size="cw-mobile:size-10 cw-desktop:size-9" />
-                <div className="flex flex-col grow shrink basis-0 gap-0.5">
-                  <div className="text-[15px] text-cw-heading font-semibold leading-4.5">{p.display_name || p.name}</div>
-                  <div className="text-xs text-cw-secondary leading-4">
-                    {formatAuthMode(p.auth_mode)}
-                  </div>
-                </div>
-                <ChevronRightIcon />
-              </button>
-            ))}
+            <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const p = filtered[virtualRow.index]
+                return (
+                  <button
+                    key={p.name}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    onClick={() => onSelect(toIntegrationProvider(p))}
+                    className={`absolute top-0 left-0 w-full flex items-center cw-mobile:py-3.5 cw-desktop:py-3 gap-3.5 bg-transparent border-0 cursor-pointer text-left hover:bg-cw-surface transition-colors ${
+                      virtualRow.index < filtered.length - 1 ? 'border-b border-b-solid border-b-cw-divider' : ''
+                    }`}
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <IntegrationProviderLogo providerName={p.name ?? ''} size="cw-mobile:size-10 cw-desktop:size-9" />
+                    <div className="flex flex-col grow shrink basis-0 gap-0.5">
+                      <div className="text-[15px] text-cw-heading font-semibold leading-4.5">{p.display_name || p.name}</div>
+                      <div className="text-xs text-cw-secondary leading-4">
+                        {formatAuthMode(p.auth_mode ?? '')}
+                      </div>
+                    </div>
+                    <ChevronRightIcon />
+                  </button>
+                )
+              })}
+            </div>
           </>
         )}
       </div>

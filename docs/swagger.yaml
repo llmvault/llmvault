@@ -150,6 +150,13 @@ definitions:
       session_token:
         type: string
     type: object
+  internal_handler.connectSessionTokenResponse:
+    properties:
+      provider_config_key:
+        type: string
+      token:
+        type: string
+    type: object
   internal_handler.connectSettingsRequest:
     properties:
       allowed_origins:
@@ -278,6 +285,11 @@ definitions:
         items:
           $ref: '#/definitions/internal_handler.identityRateLimitParams'
         type: array
+    type: object
+  internal_handler.createIntegrationConnectionRequest:
+    properties:
+      nango_connection_id:
+        type: string
     type: object
   internal_handler.createIntegrationRequest:
     properties:
@@ -409,6 +421,15 @@ definitions:
       revoked_at:
         type: string
       updated_at:
+        type: string
+    type: object
+  internal_handler.integrationProviderInfo:
+    properties:
+      auth_mode:
+        type: string
+      display_name:
+        type: string
+      name:
         type: string
     type: object
   internal_handler.integrationResponse:
@@ -1619,7 +1640,7 @@ paths:
           description: OK
           schema:
             items:
-              type: object
+              $ref: '#/definitions/internal_handler.integrationProviderInfo'
             type: array
       security:
       - BearerAuth: []
@@ -2059,6 +2080,113 @@ paths:
       summary: Verify a connection
       tags:
       - widget
+  /v1/widget/integrations/{id}/connect-session:
+    post:
+      description: Creates a Nango connect session scoped to a specific integration.
+      parameters:
+      - description: Integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.connectSessionTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a connect session for an integration
+      tags:
+      - widget
+  /v1/widget/integrations/{id}/connections:
+    post:
+      consumes:
+      - application/json
+      description: Stores a new connection record after a successful Nango auth flow.
+      parameters:
+      - description: Integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Connection details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.createIntegrationConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_handler.integConnResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a connection via the widget
+      tags:
+      - widget
+  /v1/widget/integrations/providers:
+    get:
+      description: Returns all Nango providers available for creating integrations.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler.integrationProviderInfo'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List available providers
+      tags:
+      - integrations
   /v1/widget/providers:
     get:
       description: Returns providers available to the current session, filtered by

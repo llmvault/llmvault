@@ -10,6 +10,7 @@ import { ConnectedList } from './ConnectedList'
 import { ProviderDetail } from './ProviderDetail'
 import { RevokeConfirm } from './RevokeConfirm'
 import { EmptyState } from './EmptyState'
+import { IntegrationAuth } from './IntegrationAuth'
 
 interface Props {
   view: View
@@ -31,7 +32,7 @@ export function ViewRouter({ view, canGoBack, navigate, onClose }: Props) {
     case 'integration-selection':
       return (
         <IntegrationProviderSelection
-          onSelect={(providerName) => navigate({ type: 'SELECT_INTEGRATION_PROVIDER', providerName })}
+          onSelect={(integration) => navigate({ type: 'SELECT_INTEGRATION_PROVIDER', integration })}
           onBack={canGoBack ? () => navigate({ type: 'BACK' }) : undefined}
           onClose={onClose}
         />
@@ -103,6 +104,33 @@ export function ViewRouter({ view, canGoBack, navigate, onClose }: Props) {
         <EmptyState
           onConnect={() => navigate({ type: 'CONNECT_NEW' })}
           onClose={onClose}
+        />
+      )
+    case 'integration-auth':
+      return (
+        <IntegrationAuth
+          integration={view.integration}
+          navigate={navigate}
+          onBack={canGoBack ? () => navigate({ type: 'BACK' }) : undefined}
+          onClose={onClose}
+        />
+      )
+    case 'integration-success':
+      return (
+        <Success
+          providerId={view.integration.provider}
+          title="Connected"
+          message={`${view.integration.display_name} has been connected successfully.`}
+          onDone={() => navigate({ type: 'DONE' })}
+        />
+      )
+    case 'integration-error':
+      return (
+        <Error
+          title="Connection failed"
+          message={view.error || 'Something went wrong while connecting. Please try again.'}
+          onRetry={() => navigate({ type: 'BACK' })}
+          onCancel={onClose}
         />
       )
   }
