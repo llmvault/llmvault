@@ -48,6 +48,18 @@ func TestE2E_Integration_CRUD(t *testing.T) {
 		t.Fatalf("expected meta.team=engineering, got %v", meta["team"])
 	}
 
+	// Verify nango_config is populated on create
+	nangoConfig, hasConfig := createResp["nango_config"].(map[string]any)
+	if !hasConfig || nangoConfig == nil {
+		t.Fatal("expected nango_config to be populated on create")
+	}
+	if nangoConfig["callback_url"] == nil {
+		t.Fatal("expected nango_config.callback_url to be set")
+	}
+	if nangoConfig["auth_mode"] == nil {
+		t.Fatal("expected nango_config.auth_mode to be set")
+	}
+
 	// 2. Get integration
 	req = httptest.NewRequest(http.MethodGet, "/v1/integrations/"+integID, nil)
 	req = middleware.WithOrg(req, &org)
@@ -102,6 +114,50 @@ func TestE2E_Integration_CRUD(t *testing.T) {
 	updatedMeta := updateResp["meta"].(map[string]any)
 	if updatedMeta["team"] != "platform" {
 		t.Fatalf("expected updated meta.team=platform, got %v", updatedMeta["team"])
+	}
+
+	// 4b. Update credentials — pushes to Nango, re-fetches config, saves to DB
+	credUpdateBody := `{"credentials":{"type":"OAUTH2","client_id":"new-id","client_secret":"new-secret","scopes":"channels:read"}}`
+	req = httptest.NewRequest(http.MethodPut, "/v1/integrations/"+integID, strings.NewReader(credUpdateBody))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithOrg(req, &org)
+	rr = httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("update credentials: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var credUpdateResp map[string]any
+	json.NewDecoder(rr.Body).Decode(&credUpdateResp)
+
+	// Verify nango_config is rebuilt after credential update
+	updatedConfig, hasUpdatedConfig := credUpdateResp["nango_config"].(map[string]any)
+	if !hasUpdatedConfig || updatedConfig == nil {
+		t.Fatal("expected nango_config to be populated after credential update")
+	}
+	if updatedConfig["callback_url"] == nil {
+		t.Fatal("expected nango_config.callback_url after credential update")
+	}
+	if updatedConfig["auth_mode"] == nil {
+		t.Fatal("expected nango_config.auth_mode after credential update")
+	}
+
+	// Verify the config persisted to DB by re-fetching via GET
+	req = httptest.NewRequest(http.MethodGet, "/v1/integrations/"+integID, nil)
+	req = middleware.WithOrg(req, &org)
+	rr = httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("get after cred update: expected 200, got %d", rr.Code)
+	}
+	var getAfterUpdate map[string]any
+	json.NewDecoder(rr.Body).Decode(&getAfterUpdate)
+	persistedConfig, hasPersisted := getAfterUpdate["nango_config"].(map[string]any)
+	if !hasPersisted || persistedConfig == nil {
+		t.Fatal("nango_config not persisted to DB after credential update")
+	}
+	if persistedConfig["auth_mode"] == nil {
+		t.Fatal("expected persisted nango_config.auth_mode")
 	}
 
 	// 5. Delete integration

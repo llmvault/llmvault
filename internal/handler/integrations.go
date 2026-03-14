@@ -45,6 +45,7 @@ type integrationResponse struct {
 	Provider    string     `json:"provider"`
 	DisplayName string     `json:"display_name"`
 	Meta        model.JSON `json:"meta,omitempty"`
+	NangoConfig model.JSON `json:"nango_config,omitempty"`
 	CreatedAt   string     `json:"created_at"`
 	UpdatedAt   string     `json:"updated_at"`
 }
@@ -55,9 +56,46 @@ func toIntegrationResponse(integ model.Integration) integrationResponse {
 		Provider:    integ.Provider,
 		DisplayName: integ.DisplayName,
 		Meta:        integ.Meta,
+		NangoConfig: integ.NangoConfig,
 		CreatedAt:   integ.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:   integ.UpdatedAt.Format(time.RFC3339),
 	}
+}
+
+// buildNangoConfig assembles a curated, non-sensitive config blob from Nango
+// integration response data and the cached provider template.
+func buildNangoConfig(integResp map[string]any, template map[string]any, callbackURL string) model.JSON {
+	config := model.JSON{}
+
+	// Extract fields from the integration response (nested under "data")
+	if data, ok := integResp["data"].(map[string]any); ok {
+		for _, key := range []string{"logo", "webhook_url", "forward_webhooks"} {
+			if v, exists := data[key]; exists {
+				config[key] = v
+			}
+		}
+	}
+
+	// Extract non-sensitive fields from provider template
+	if template != nil {
+		for _, key := range []string{
+			"auth_mode", "authorization_url", "docs", "setup_guide_url",
+			"docs_connect", "categories", "connection_config", "webhook_routing_script",
+		} {
+			if v, exists := template[key]; exists {
+				config[key] = v
+			}
+		}
+		// Rename "credentials" to "credentials_schema" (schema only, not actual secrets)
+		if v, exists := template["credentials"]; exists {
+			config["credentials_schema"] = v
+		}
+	}
+
+	// Computed
+	config["callback_url"] = callbackURL
+
+	return config
 }
 
 // nangoKey returns the org-namespaced provider config key for Nango.
@@ -217,6 +255,16 @@ func (h *IntegrationHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("nango integration created", "org_id", org.ID, "provider", req.Provider, "nango_key", nk)
 
+	// Fetch Nango config (best-effort — don't fail create if this errors)
+	var nangoConfig model.JSON
+	integResp, err := h.nango.GetIntegration(r.Context(), nk)
+	if err != nil {
+		slog.Warn("failed to fetch nango integration details for config", "error", err, "nango_key", nk)
+	} else {
+		template, _ := h.nango.GetProviderTemplate(req.Provider)
+		nangoConfig = buildNangoConfig(integResp, template, h.nango.CallbackURL())
+	}
+
 	integ := model.Integration{
 		ID:          integID,
 		OrgID:       org.ID,
@@ -224,6 +272,7 @@ func (h *IntegrationHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Provider:    req.Provider,
 		DisplayName: req.DisplayName,
 		Meta:        req.Meta,
+		NangoConfig: nangoConfig,
 	}
 
 	if err := h.db.Create(&integ).Error; err != nil {
@@ -370,6 +419,15 @@ func (h *IntegrationHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		slog.Info("nango integration credentials updated", "org_id", org.ID, "integration_id", integ.ID)
+
+		// Rebuild NangoConfig after credential update (best-effort)
+		integResp, fetchErr := h.nango.GetIntegration(r.Context(), nk)
+		if fetchErr != nil {
+			slog.Warn("failed to fetch nango integration details for config rebuild", "error", fetchErr, "nango_key", nk)
+		} else {
+			template, _ := h.nango.GetProviderTemplate(integ.Provider)
+			integ.NangoConfig = buildNangoConfig(integResp, template, h.nango.CallbackURL())
+		}
 	}
 
 	updates := map[string]any{}
@@ -378,6 +436,9 @@ func (h *IntegrationHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Meta != nil {
 		updates["meta"] = req.Meta
+	}
+	if integ.NangoConfig != nil {
+		updates["nango_config"] = integ.NangoConfig
 	}
 	if len(updates) > 0 {
 		if err := h.db.Model(&integ).Updates(updates).Error; err != nil {
