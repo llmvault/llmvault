@@ -782,10 +782,23 @@ func (h *ConnectAPIHandler) DeleteIntegrationConnection(w http.ResponseWriter, r
 		return
 	}
 
+	// Get integration ID from URL and verify it matches the connection
+	integID := chi.URLParam(r, "id")
+	if integID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "integration id required"})
+		return
+	}
+
+	integUUID, err := uuid.Parse(integID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid integration id"})
+		return
+	}
+
 	// Look up the connection (with its integration) to get Nango IDs
 	var conn model.Connection
-	if err := h.db.Preload("Integration").Where("id = ? AND org_id = ? AND identity_id = ? AND revoked_at IS NULL",
-		connID, org.ID, *sess.IdentityID).First(&conn).Error; err != nil {
+	if err := h.db.Preload("Integration").Where("id = ? AND org_id = ? AND integration_id = ? AND identity_id = ? AND revoked_at IS NULL",
+		connID, org.ID, integUUID, *sess.IdentityID).First(&conn).Error; err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "connection not found"})
 		return
 	}
@@ -802,7 +815,7 @@ func (h *ConnectAPIHandler) DeleteIntegrationConnection(w http.ResponseWriter, r
 	// Soft-delete locally
 	now := time.Now()
 	result := h.db.Model(&model.Connection{}).
-		Where("id = ? AND revoked_at IS NULL", conn.ID).
+		Where("id = ? AND revoked_at IS NULL", connID).
 		Update("revoked_at", &now)
 	if result.Error != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete connection"})
