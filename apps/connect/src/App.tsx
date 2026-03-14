@@ -22,6 +22,7 @@ function getInitialView(): View {
     case 'error':               return { type: 'error', providerId: 'openai' }
     case 'connected-list':      return { type: 'connected-list' }
     case 'empty-state':         return { type: 'empty-state' }
+    case 'integration-selection': return { type: 'integration-selection' }
     default:                    return { type: 'provider-selection' }
   }
 }

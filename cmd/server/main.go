@@ -323,6 +323,7 @@ func run() error {
 
 		r.Get("/session", connectAPIHandler.SessionInfo)
 		r.Get("/providers", connectAPIHandler.ListProviders)
+		r.Get("/integrations/providers", integrationHandler.ListProviders)
 		r.Get("/connections", connectAPIHandler.ListConnections)
 		r.Post("/connections", connectAPIHandler.CreateConnection)
 		r.Delete("/connections/{id}", connectAPIHandler.DeleteConnection)

@@ -28,7 +28,6 @@ export function ProviderDetail({ connection, onRevoke, onBack, onClose }: Props)
 
   return (
     <div className="flex flex-col h-full pb-8">
-      {/* Header */}
       <div className="flex items-center shrink-0 gap-3">
         <IconButton onClick={onBack}>
           <BackIcon />
@@ -46,7 +45,6 @@ export function ProviderDetail({ connection, onRevoke, onBack, onClose }: Props)
         </IconButton>
       </div>
 
-      {/* Detail rows */}
       <div className="flex flex-col mt-7">
         {rows.map((row, i) => (
           <div
@@ -61,7 +59,6 @@ export function ProviderDetail({ connection, onRevoke, onBack, onClose }: Props)
         ))}
       </div>
 
-      {/* Revoke button */}
       <Button
         variant="danger"
         onClick={onRevoke}

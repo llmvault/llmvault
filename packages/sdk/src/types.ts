@@ -1,0 +1,57 @@
+import type { components } from "./generated/schema.js";
+
+export interface LLMVaultConfig {
+  apiKey: string;
+  baseUrl?: string;
+}
+
+// Re-export schema types with friendly aliases
+type Schemas = components["schemas"];
+
+export type ApiKeyResponse = Schemas["apiKeyResponse"];
+export type CreateAPIKeyRequest = Schemas["createAPIKeyRequest"];
+export type CreateAPIKeyResponse = Schemas["createAPIKeyResponse"];
+
+export type CredentialResponse = Schemas["credentialResponse"];
+export type CreateCredentialRequest = Schemas["createCredentialRequest"];
+
+export type MintTokenRequest = Schemas["mintTokenRequest"];
+export type MintTokenResponse = Schemas["mintTokenResponse"];
+export type TokenScope = Schemas["github_com_useportal_llmvault_internal_mcp.TokenScope"];
+
+export type IdentityResponse = Schemas["identityResponse"];
+export type CreateIdentityRequest = Schemas["createIdentityRequest"];
+export type UpdateIdentityRequest = Schemas["updateIdentityRequest"];
+export type IdentityRateLimitParams = Schemas["identityRateLimitParams"];
+
+export type ConnectSessionResponse = Schemas["connectSessionResponse"];
+export type CreateConnectSessionRequest = Schemas["createConnectSessionRequest"];
+export type ConnectSettingsRequest = Schemas["connectSettingsRequest"];
+export type ConnectSettingsResponse = Schemas["connectSettingsResponse"];
+
+export type IntegrationResponse = Schemas["integrationResponse"];
+export type CreateIntegrationRequest = Schemas["createIntegrationRequest"];
+export type UpdateIntegrationRequest = Schemas["updateIntegrationRequest"];
+export type NangoCredentials = Schemas["github_com_useportal_llmvault_internal_nango.Credentials"];
+
+export type IntegConnResponse = Schemas["integConnResponse"];
+export type IntegConnCreateRequest = Schemas["integConnCreateRequest"];
+
+export type UsageResponse = Schemas["usageResponse"];
+export type AuditEntryResponse = Schemas["auditEntryResponse"];
+
+export type OrgResponse = Schemas["orgResponse"];
+
+export type ProviderSummary = Schemas["providerSummary"];
+export type ProviderDetail = Schemas["providerDetail"];
+export type ModelSummary = Schemas["modelSummary"];
+
+export type PaginatedApiKeys = Schemas["paginatedResponse-apiKeyResponse"];
+export type PaginatedCredentials = Schemas["paginatedResponse-credentialResponse"];
+export type PaginatedIdentities = Schemas["paginatedResponse-identityResponse"];
+export type PaginatedAuditEntries = Schemas["paginatedResponse-auditEntryResponse"];
+export type PaginatedIntegrations = Schemas["paginatedResponse-integrationResponse"];
+export type PaginatedIntegConns = Schemas["paginatedResponse-integConnResponse"];
+
+export type ErrorResponse = Schemas["errorResponse"];
+export type JSON = Schemas["JSON"];

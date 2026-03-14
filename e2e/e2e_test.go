@@ -83,6 +83,7 @@ func loadEnv(t *testing.T) {
 
 func newHarness(t *testing.T) *testHarness {
 	t.Helper()
+	loadEnv(t)
 
 	// Allow loopback addresses for test httptest servers
 	proxy.AllowLoopback = true
@@ -156,17 +157,17 @@ func newHarness(t *testing.T) *testHarness {
 	connectAPIHandler := handler.NewConnectAPIHandler(db, kms, reg)
 	settingsHandler := handler.NewSettingsHandler(db)
 
-	// Nango client (optional — only if NANGO_ENDPOINT is set)
-	var nangoClient *nango.Client
+	// Nango client (REQUIRED — matches server startup behavior)
 	nangoEndpoint := envOr("NANGO_ENDPOINT", "")
 	nangoSecretKey := envOr("NANGO_SECRET_KEY", "")
-	if nangoEndpoint != "" && nangoSecretKey != "" {
-		nangoClient = nango.NewClient(nangoEndpoint, nangoSecretKey)
-		if err := nangoClient.FetchProviders(context.Background()); err != nil {
-			t.Fatalf("failed to fetch Nango providers: %v", err)
-		}
-		t.Logf("Nango provider cache loaded: %d providers", len(nangoClient.GetProviders()))
+	if nangoEndpoint == "" || nangoSecretKey == "" {
+		t.Fatal("NANGO_ENDPOINT and NANGO_SECRET_KEY must be set")
 	}
+	nangoClient := nango.NewClient(nangoEndpoint, nangoSecretKey)
+	if err := nangoClient.FetchProviders(context.Background()); err != nil {
+		t.Fatalf("failed to fetch Nango providers: %v", err)
+	}
+	t.Logf("Nango provider cache loaded: %d providers", len(nangoClient.GetProviders()))
 
 	// Integration + connection handlers
 	integrationHandler := handler.NewIntegrationHandler(db, nangoClient)
@@ -210,6 +211,7 @@ func newHarness(t *testing.T) *testHarness {
 
 		r.Get("/session", connectAPIHandler.SessionInfo)
 		r.Get("/providers", connectAPIHandler.ListProviders)
+		r.Get("/integrations/providers", integrationHandler.ListProviders)
 		r.Get("/connections", connectAPIHandler.ListConnections)
 		r.Post("/connections", connectAPIHandler.CreateConnection)
 		r.Delete("/connections/{id}", connectAPIHandler.DeleteConnection)

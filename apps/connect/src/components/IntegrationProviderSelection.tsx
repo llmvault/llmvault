@@ -1,31 +1,53 @@
 import { useState, useMemo } from 'react'
-import { popularProviderIds } from '../data/providers'
-import { useProviders } from '../hooks/useProviders'
+import { popularIntegrationNames } from '../data/integrations'
+import { useIntegrationProviders } from '../hooks/useIntegrationProviders'
 import { Error } from './Error'
 import { Footer } from './Footer'
-import { ProviderLogo } from './ProviderLogo'
+import { IntegrationProviderLogo } from './IntegrationProviderLogo'
 import { IconButton } from './IconButton'
 import { BackIcon, CloseIcon, SearchIcon, ChevronRightIcon, SpinnerIcon } from './icons'
 
+function formatAuthMode(mode: string): string {
+  switch (mode) {
+    case 'OAUTH2': return 'OAuth 2.0'
+    case 'OAUTH1': return 'OAuth 1.0'
+    case 'OAUTH2_CC': return 'OAuth 2.0 (Client Credentials)'
+    case 'API_KEY': return 'API Key'
+    case 'BASIC': return 'Basic Auth'
+    case 'APP_STORE': return 'App Store'
+    case 'CUSTOM': return 'Custom'
+    case 'TBA': return 'Token-Based Auth'
+    case 'TABLEAU': return 'Tableau'
+    case 'JWT': return 'JWT'
+    case 'BILL': return 'Bill'
+    case 'TWO_STEP': return 'Two-Step'
+    case 'SIGNATURE': return 'Signature'
+    default: return mode
+  }
+}
+
 interface Props {
-  onSelect: (providerId: string) => void
+  onSelect: (providerName: string) => void
   onBack?: () => void
   onClose: () => void
 }
 
-export function ProviderSelection({ onSelect, onBack, onClose }: Props) {
+export function IntegrationProviderSelection({ onSelect, onBack, onClose }: Props) {
   const [search, setSearch] = useState('')
-  const { data: providers = [], isLoading, isError, refetch } = useProviders()
+  const { data: providers = [], isLoading, isError, refetch } = useIntegrationProviders()
 
   const popular = useMemo(
-    () => providers.filter((p) => popularProviderIds.includes(p.id!)),
+    () => providers.filter((p) => popularIntegrationNames.includes(p.name)),
     [providers]
   )
 
   const filtered = useMemo(
     () =>
       search.trim()
-        ? providers.filter((p) => p.name?.toLowerCase().includes(search.toLowerCase()))
+        ? providers.filter((p) => {
+            const q = search.toLowerCase()
+            return p.name.toLowerCase().includes(q) || p.display_name.toLowerCase().includes(q)
+          })
         : providers,
     [search, providers]
   )
@@ -33,8 +55,8 @@ export function ProviderSelection({ onSelect, onBack, onClose }: Props) {
   if (isError) {
     return (
       <Error
-        title="Unable to load providers"
-        message="We couldn't reach the server to load available providers. Please check your connection and try again."
+        title="Unable to load integrations"
+        message="We couldn't reach the server to load available integrations. Please check your connection and try again."
         retryLabel="Retry"
         onRetry={() => refetch()}
         onCancel={onClose}
@@ -51,7 +73,7 @@ export function ProviderSelection({ onSelect, onBack, onClose }: Props) {
           </IconButton>
         )}
         <div className="grow text-xl tracking-tight text-cw-heading cw-mobile:font-semibold cw-desktop:font-bold leading-6">
-          Connect a provider
+          Connect an integration
         </div>
         <IconButton onClick={onClose}>
           <CloseIcon />
@@ -65,10 +87,11 @@ export function ProviderSelection({ onSelect, onBack, onClose }: Props) {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search providers..."
+          placeholder="Search integrations..."
           className="text-sm bg-transparent border-none outline-none text-cw-heading leading-4.5 w-full placeholder:text-cw-input-placeholder"
         />
       </div>
+
 
       {!search && !isLoading && (
         <div className="flex items-center cw-mobile:mt-4 cw-desktop:mt-5 shrink-0 cw-mobile:gap-2 cw-desktop:flex-col cw-desktop:gap-2.5">
@@ -79,12 +102,12 @@ export function ProviderSelection({ onSelect, onBack, onClose }: Props) {
           <div className="hidden cw-desktop:flex flex-wrap gap-2">
             {popular.map((p) => (
               <button
-                key={p.id}
-                onClick={() => onSelect(p.id!)}
+                key={p.name}
+                onClick={() => onSelect(p.name)}
                 className="flex items-center rounded-lg py-2.5 px-4 gap-2 bg-cw-surface border border-solid border-cw-border cursor-pointer hover:border-cw-placeholder transition-colors"
               >
-                <ProviderLogo providerId={p.id!} size="size-5.5" />
-                <div className="text-sm text-cw-heading font-medium leading-4.5">{p.name}</div>
+                <IntegrationProviderLogo providerName={p.name} size="size-5.5" />
+                <div className="text-sm text-cw-heading font-medium leading-4.5">{p.display_name || p.name}</div>
               </button>
             ))}
           </div>
@@ -92,11 +115,11 @@ export function ProviderSelection({ onSelect, onBack, onClose }: Props) {
           <div className="flex cw-desktop:hidden flex-wrap gap-2">
             {popular.slice(0, 3).map((p) => (
               <button
-                key={p.id}
-                onClick={() => onSelect(p.id!)}
+                key={p.name}
+                onClick={() => onSelect(p.name)}
                 className="flex items-center rounded-full py-1.5 px-3 gap-1.5 bg-cw-surface border border-solid border-cw-border cursor-pointer hover:border-cw-placeholder transition-colors"
               >
-                <div className="text-xs text-cw-heading font-medium leading-4">{p.name}</div>
+                <div className="text-xs text-cw-heading font-medium leading-4">{p.display_name || p.name}</div>
               </button>
             ))}
           </div>
@@ -111,21 +134,21 @@ export function ProviderSelection({ onSelect, onBack, onClose }: Props) {
         ) : (
           <>
             <div className="hidden cw-desktop:block text-2xs tracking-wider uppercase mb-2 text-cw-secondary font-semibold leading-3.5">
-              All Providers
+              All Integrations
             </div>
             {filtered.map((p, i) => (
               <button
-                key={p.id}
-                onClick={() => onSelect(p.id!)}
+                key={p.name}
+                onClick={() => onSelect(p.name)}
                 className={`flex items-center cw-mobile:py-3.5 cw-desktop:py-3 gap-3.5 bg-transparent border-0 cursor-pointer w-full text-left hover:bg-cw-surface transition-colors ${
                   i < filtered.length - 1 ? 'border-b border-b-solid border-b-cw-divider' : ''
                 }`}
               >
-                <ProviderLogo providerId={p.id!} size="cw-mobile:size-10 cw-desktop:size-9" />
+                <IntegrationProviderLogo providerName={p.name} size="cw-mobile:size-10 cw-desktop:size-9" />
                 <div className="flex flex-col grow shrink basis-0 gap-0.5">
-                  <div className="text-[15px] text-cw-heading font-semibold leading-4.5">{p.name}</div>
+                  <div className="text-[15px] text-cw-heading font-semibold leading-4.5">{p.display_name || p.name}</div>
                   <div className="text-xs text-cw-secondary leading-4">
-                    {p.model_count} {p.model_count === 1 ? 'model' : 'models'}
+                    {formatAuthMode(p.auth_mode)}
                   </div>
                 </div>
                 <ChevronRightIcon />

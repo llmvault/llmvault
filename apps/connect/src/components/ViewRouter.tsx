@@ -1,6 +1,7 @@
 import type { View } from '../types'
 import type { Action } from '../hooks/useWidget'
 import { ProviderSelection } from './ProviderSelection'
+import { IntegrationProviderSelection } from './IntegrationProviderSelection'
 import { ApiKeyInput } from './ApiKeyInput'
 import { Validating } from './Validating'
 import { Success } from './Success'
@@ -23,6 +24,14 @@ export function ViewRouter({ view, canGoBack, navigate, onClose }: Props) {
       return (
         <ProviderSelection
           onSelect={(providerId) => navigate({ type: 'SELECT_PROVIDER', providerId })}
+          onBack={canGoBack ? () => navigate({ type: 'BACK' }) : undefined}
+          onClose={onClose}
+        />
+      )
+    case 'integration-selection':
+      return (
+        <IntegrationProviderSelection
+          onSelect={(providerName) => navigate({ type: 'SELECT_INTEGRATION_PROVIDER', providerName })}
           onBack={canGoBack ? () => navigate({ type: 'BACK' }) : undefined}
           onClose={onClose}
         />
