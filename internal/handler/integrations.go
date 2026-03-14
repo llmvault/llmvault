@@ -201,6 +201,20 @@ func validateCredentials(provider nango.Provider, creds *nango.Credentials) erro
 }
 
 // Create handles POST /v1/integrations.
+//
+// @Summary Create an integration
+// @Description Creates a new integration backed by a Nango provider.
+// @Tags integrations
+// @Accept json
+// @Produce json
+// @Param body body createIntegrationRequest true "Integration parameters"
+// @Success 201 {object} integrationResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 502 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/integrations [post]
 func (h *IntegrationHandler) Create(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -286,6 +300,19 @@ func (h *IntegrationHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get handles GET /v1/integrations/{id}.
+//
+// @Summary Get an integration
+// @Description Returns a single integration by ID.
+// @Tags integrations
+// @Produce json
+// @Param id path string true "Integration ID"
+// @Success 200 {object} integrationResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/integrations/{id} [get]
 func (h *IntegrationHandler) Get(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -313,6 +340,21 @@ func (h *IntegrationHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // List handles GET /v1/integrations.
+//
+// @Summary List integrations
+// @Description Returns integrations for the current organization with cursor pagination.
+// @Tags integrations
+// @Produce json
+// @Param limit query int false "Max items per page (1-100, default 50)"
+// @Param cursor query string false "Pagination cursor from previous response"
+// @Param provider query string false "Filter by provider name"
+// @Param meta query string false "Filter by JSONB meta (PostgreSQL @> operator)"
+// @Success 200 {object} paginatedResponse[integrationResponse]
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/integrations [get]
 func (h *IntegrationHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -367,6 +409,22 @@ func (h *IntegrationHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles PUT /v1/integrations/{id}.
+//
+// @Summary Update an integration
+// @Description Updates an integration's display name, credentials, or metadata.
+// @Tags integrations
+// @Accept json
+// @Produce json
+// @Param id path string true "Integration ID"
+// @Param body body updateIntegrationRequest true "Fields to update"
+// @Success 200 {object} integrationResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 502 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/integrations/{id} [put]
 func (h *IntegrationHandler) Update(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -456,6 +514,20 @@ func (h *IntegrationHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /v1/integrations/{id}.
+//
+// @Summary Delete an integration
+// @Description Soft-deletes an integration and removes it from Nango.
+// @Tags integrations
+// @Produce json
+// @Param id path string true "Integration ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 502 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/integrations/{id} [delete]
 func (h *IntegrationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -502,6 +574,14 @@ func (h *IntegrationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListProviders handles GET /v1/integrations/providers.
+//
+// @Summary List available providers
+// @Description Returns all Nango providers available for creating integrations.
+// @Tags integrations
+// @Produce json
+// @Success 200 {array} object
+// @Security BearerAuth
+// @Router /v1/integrations/providers [get]
 func (h *IntegrationHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	providers := h.nango.GetProviders()
 	type providerInfo struct {

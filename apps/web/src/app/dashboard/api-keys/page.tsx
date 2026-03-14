@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, KeyRound, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -217,10 +217,30 @@ export default function APIKeysPage() {
       <section className="flex shrink-0 flex-col px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 lg:px-8">
         {isLoading ? (
           <TableSkeleton columns={skeletonColumns} rows={6} />
+        ) : keys.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="flex flex-col items-center gap-6 max-w-sm text-center">
+              <div className="flex size-16 items-center justify-center rounded-full border border-border bg-card">
+                <KeyRound className="size-7 text-dim" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <span className="font-mono text-[15px] font-medium text-foreground">
+                  No API keys yet
+                </span>
+                <span className="text-[13px] leading-5 text-muted-foreground">
+                  Create an API key to authenticate requests to the management API.
+                </span>
+              </div>
+              <Button size="lg" onClick={() => setModal("create")}>
+                Create API Key
+                <ArrowRight className="ml-1.5 size-3.5" />
+              </Button>
+            </div>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16">
             <span className="text-sm text-muted-foreground">
-              {keys.length === 0 ? "No API keys yet. Create one to get started." : "No keys match your filters."}
+              No keys match your filters.
             </span>
           </div>
         ) : (

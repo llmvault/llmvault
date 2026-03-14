@@ -1,159 +1,206 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
-import { Search, Plus } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Users, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { TableSkeleton } from "@/components/table-skeleton";
+import { $api } from "@/api/client";
+import type { components } from "@/api/schema";
 
-type RateLimit = {
-  type: string;
-  value: string;
-};
+type IdentityResponse = components["schemas"]["identityResponse"];
+type RateLimitParam = components["schemas"]["identityRateLimitParams"];
 
-type Identity = {
-  externalId: string;
-  rateLimits: RateLimit[];
-  credentials: number;
-  meta: Record<string, string>;
-  created: string;
-};
+const PAGE_SIZE = 20;
 
-const identities: Identity[] = [
-  { externalId: "customer_42", rateLimits: [{ type: "requests", value: "100/60s" }, { type: "tokens", value: "50k/60s" }], credentials: 3, meta: { plan: "pro", region: "us" }, created: "Mar 1, 2026" },
-  { externalId: "user_alex_morgan", rateLimits: [{ type: "requests", value: "50/60s" }], credentials: 2, meta: { plan: "enterprise", team: "backend" }, created: "Feb 28, 2026" },
-  { externalId: "org_acme_staging", rateLimits: [], credentials: 5, meta: { env: "staging" }, created: "Feb 25, 2026" },
-  { externalId: "svc_data_pipeline", rateLimits: [{ type: "requests", value: "500/60s" }, { type: "tokens", value: "200k/60s" }], credentials: 1, meta: { plan: "pro", type: "service" }, created: "Feb 20, 2026" },
-  { externalId: "demo_user_trial", rateLimits: [{ type: "requests", value: "10/60s" }], credentials: 1, meta: { plan: "trial" }, created: "Feb 18, 2026" },
-  { externalId: "ci_runner_main", rateLimits: [], credentials: 4, meta: {}, created: "Feb 14, 2026" },
-  { externalId: "partner_widget_co", rateLimits: [{ type: "requests", value: "200/60s" }], credentials: 2, meta: { plan: "pro", partner: "true" }, created: "Feb 10, 2026" },
+const skeletonColumns = [
+  { width: "20%" },
+  { width: "28%" },
+  { width: "10%" },
+  { width: "26%" },
+  { width: "16%" },
 ];
 
-type LimitsFilter = "All" | "With Limits" | "No Limits";
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-const limitsCounts: Record<LimitsFilter, number> = {
-  All: 156,
-  "With Limits": 89,
-  "No Limits": 67,
-};
+function formatDuration(ms: number): string {
+  if (ms >= 3_600_000) return `${Math.round(ms / 3_600_000)}h`;
+  if (ms >= 60_000) return `${Math.round(ms / 60_000)}m`;
+  return `${Math.round(ms / 1_000)}s`;
+}
 
-function RateLimitBadge({ type, value }: RateLimit) {
+function RateLimitBadge({ rl }: { rl: RateLimitParam }) {
+  const value = rl.limit != null && rl.duration != null
+    ? `${rl.limit}/${formatDuration(rl.duration)}`
+    : "—";
   return (
-    <Badge variant="outline" className="h-auto border-primary/20 bg-primary/8 px-2 py-0.5 font-mono text-[11px] font-normal text-chart-2">
-      {type}: {value}
+    <Badge
+      variant="outline"
+      className="h-auto border-primary/20 bg-primary/8 px-2 py-0.5 font-mono text-[11px] font-normal text-chart-2"
+    >
+      {rl.name ?? "rate"}: {value}
     </Badge>
   );
 }
 
 function MetaBadge({ label }: { label: string }) {
   return (
-    <Badge variant="outline" className="h-auto border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-normal text-muted-foreground">
+    <Badge
+      variant="outline"
+      className="h-auto border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-normal text-muted-foreground"
+    >
       {label}
     </Badge>
   );
 }
 
-const columns: DataTableColumn<Identity>[] = [
-  {
-    id: "externalId",
-    header: "External ID",
-    width: "20%",
-    cellClassName: "font-mono text-[13px] text-foreground",
-    cell: (row) => (
-      <Link href={`/dashboard/identities/${row.externalId}`} className="hover:underline">
-        {row.externalId}
-      </Link>
-    ),
-  },
-  {
-    id: "rateLimits",
-    header: "Rate Limits",
-    width: "28%",
-    cell: (row) =>
-      row.rateLimits.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {row.rateLimits.map((rl) => (
-            <RateLimitBadge key={rl.type} {...rl} />
-          ))}
-        </div>
-      ) : (
-        <span className="text-[13px] text-dim">&mdash;</span>
-      ),
-  },
-  {
-    id: "credentials",
-    header: "Credentials",
-    width: "10%",
-    cellClassName: "text-[13px] text-foreground",
-    cell: (row) => row.credentials,
-  },
-  {
-    id: "meta",
-    header: "Meta",
-    width: "26%",
-    cell: (row) => {
-      const entries = Object.entries(row.meta);
-      return entries.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {entries.map(([k, v]) => (
-            <MetaBadge key={k} label={`${k}: ${v}`} />
-          ))}
-        </div>
-      ) : (
-        <span className="text-[13px] text-dim">&mdash;</span>
-      );
-    },
-  },
-  {
-    id: "created",
-    header: "Created",
-    width: "16%",
-    cellClassName: "text-[13px] text-muted-foreground",
-    cell: (row) => row.created,
-  },
-];
+function IdentityMobileCard({ identity }: { identity: IdentityResponse }) {
+  const ratelimits = identity.ratelimits ?? [];
+  const meta = (identity.meta ?? {}) as Record<string, unknown>;
+  const metaEntries = Object.entries(meta);
 
-function IdentityMobileCard({ identity }: { identity: Identity }) {
   return (
     <Link
-      href={`/dashboard/identities/${identity.externalId}`}
+      href={`/dashboard/identities/${identity.id}`}
       className="flex flex-col gap-3 border border-border bg-card p-4 transition-colors hover:bg-secondary/30"
     >
       <div className="flex items-start justify-between">
-        <span className="font-mono text-[13px] font-medium text-foreground">{identity.externalId}</span>
-        <span className="text-[13px] text-muted-foreground">{identity.credentials} creds</span>
+        <span className="font-mono text-[13px] font-medium text-foreground">
+          {identity.external_id}
+        </span>
+        <span className="font-mono text-[13px] text-foreground">
+          {identity.request_count ?? 0} reqs
+        </span>
       </div>
-      {identity.rateLimits.length > 0 && (
+      {ratelimits.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {identity.rateLimits.map((rl) => (
-            <RateLimitBadge key={rl.type} {...rl} />
+          {ratelimits.map((rl) => (
+            <RateLimitBadge key={rl.name} rl={rl} />
           ))}
         </div>
       )}
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap gap-1.5">
-          {Object.entries(identity.meta).map(([k, v]) => (
-            <MetaBadge key={k} label={`${k}: ${v}`} />
+          {metaEntries.map(([k, v]) => (
+            <MetaBadge key={k} label={`${k}: ${String(v)}`} />
           ))}
         </div>
-        <span className="text-xs text-dim">{identity.created}</span>
+        <span className="text-xs text-dim">
+          {identity.created_at ? formatDate(identity.created_at) : ""}
+        </span>
       </div>
     </Link>
   );
 }
 
 export default function IdentitiesPage() {
-  const [filter, setFilter] = useState<LimitsFilter>("All");
   const [search, setSearch] = useState("");
+  const [cursors, setCursors] = useState<string[]>([]);
+  const currentCursor = cursors[cursors.length - 1];
 
-  const filtered = identities.filter((id) => {
-    if (filter === "With Limits" && id.rateLimits.length === 0) return false;
-    if (filter === "No Limits" && id.rateLimits.length > 0) return false;
-    if (search && !id.externalId.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
+  const { data: page, isLoading } = $api.useQuery("get", "/v1/identities", {
+    params: {
+      query: {
+        limit: PAGE_SIZE,
+        ...(currentCursor ? { cursor: currentCursor } : {}),
+      },
+    },
   });
+
+  const identities = page?.data ?? [];
+  const hasMore = page?.has_more ?? false;
+  const pageNumber = cursors.length + 1;
+
+  const filtered = search
+    ? identities.filter((id) =>
+        (id.external_id ?? "").toLowerCase().includes(search.toLowerCase()),
+      )
+    : identities;
+
+  const goNext = useCallback(() => {
+    if (page?.next_cursor) {
+      setCursors((prev) => [...prev, page.next_cursor!]);
+    }
+  }, [page]);
+
+  const goPrev = useCallback(() => {
+    setCursors((prev) => prev.slice(0, -1));
+  }, []);
+
+  const columns: DataTableColumn<IdentityResponse>[] = [
+    {
+      id: "external_id",
+      header: "External ID",
+      width: "20%",
+      cellClassName: "font-mono text-[13px] text-foreground",
+      cell: (row) => (
+        <Link
+          href={`/dashboard/identities/${row.id}`}
+          className="hover:underline"
+        >
+          {row.external_id}
+        </Link>
+      ),
+    },
+    {
+      id: "ratelimits",
+      header: "Rate Limits",
+      width: "28%",
+      cell: (row) => {
+        const ratelimits = row.ratelimits ?? [];
+        return ratelimits.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {ratelimits.map((rl) => (
+              <RateLimitBadge key={rl.name} rl={rl} />
+            ))}
+          </div>
+        ) : (
+          <span className="text-[13px] text-dim">&mdash;</span>
+        );
+      },
+    },
+    {
+      id: "requests",
+      header: "Requests",
+      width: "10%",
+      cellClassName: "font-mono text-[13px] text-foreground",
+      cell: (row) => row.request_count ?? 0,
+    },
+    {
+      id: "meta",
+      header: "Meta",
+      width: "26%",
+      cell: (row) => {
+        const meta = (row.meta ?? {}) as Record<string, unknown>;
+        const entries = Object.entries(meta);
+        return entries.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {entries.map(([k, v]) => (
+              <MetaBadge key={k} label={`${k}: ${String(v)}`} />
+            ))}
+          </div>
+        ) : (
+          <span className="text-[13px] text-dim">&mdash;</span>
+        );
+      },
+    },
+    {
+      id: "created_at",
+      header: "Created",
+      width: "16%",
+      cellClassName: "text-[13px] text-muted-foreground",
+      cell: (row) => (row.created_at ? formatDate(row.created_at) : ""),
+    },
+  ];
 
   return (
     <>
@@ -172,10 +219,7 @@ export default function IdentitiesPage() {
               className="w-50 pl-9 font-mono text-[13px]"
             />
           </div>
-          <Button size="lg" className="gap-1.5">
-            <Plus className="size-4" />
-            Create Identity
-          </Button>
+          <Button size="lg">Create Identity</Button>
         </div>
       </header>
 
@@ -192,43 +236,77 @@ export default function IdentitiesPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <section className="flex shrink-0 flex-wrap items-center gap-3 px-4 pt-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-1">
-          {(["All", "With Limits", "No Limits"] as LimitsFilter[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                filter === tab
-                  ? "bg-primary/8 text-chart-2"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab} ({limitsCounts[tab]})
-            </button>
-          ))}
-        </div>
-        <div className="hidden h-5 w-px bg-border sm:block" />
-        <div className="hidden items-center gap-2 sm:flex">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
-            Meta Filter
-            <svg className="size-3" viewBox="0 0 12 12" fill="none">
-              <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-      </section>
-
       {/* Table */}
       <section className="flex shrink-0 flex-col px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 lg:px-8">
-        <DataTable
-          columns={columns}
-          data={filtered}
-          keyExtractor={(row) => row.externalId}
-          rowClassName="hover:bg-secondary/30"
-          mobileCard={(row) => <IdentityMobileCard identity={row} />}
-        />
+        {isLoading ? (
+          <TableSkeleton columns={skeletonColumns} rows={6} />
+        ) : identities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="flex flex-col items-center gap-6 max-w-sm text-center">
+              <div className="flex size-16 items-center justify-center rounded-full border border-border bg-card">
+                <Users className="size-7 text-dim" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <span className="font-mono text-[15px] font-medium text-foreground">
+                  No identities yet
+                </span>
+                <span className="text-[13px] leading-5 text-muted-foreground">
+                  Identities represent your end-users. Attach them to
+                  credentials to enforce per-user rate limits and track usage.
+                </span>
+              </div>
+              <Button size="lg">
+                Create Identity
+                <ArrowRight className="ml-1.5 size-3.5" />
+              </Button>
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16">
+            <span className="text-sm text-muted-foreground">
+              No identities match your search.
+            </span>
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={filtered}
+            keyExtractor={(row) => row.id ?? ""}
+            rowClassName="hover:bg-secondary/30"
+            mobileCard={(row) => <IdentityMobileCard identity={row} />}
+          />
+        )}
+
+        {/* Pagination */}
+        {!isLoading && identities.length > 0 && (
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+            <span className="text-[13px] text-muted-foreground">
+              Page {pageNumber}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={cursors.length === 0}
+                onClick={goPrev}
+                className="h-8 gap-1 text-[13px]"
+              >
+                <ChevronLeft className="size-3.5" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!hasMore}
+                onClick={goNext}
+                className="h-8 gap-1 text-[13px]"
+              >
+                Next
+                <ChevronRight className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
     </>
   );

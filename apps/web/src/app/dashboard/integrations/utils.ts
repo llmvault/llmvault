@@ -1,24 +1,12 @@
-import type { Status } from "@/components/status-badge";
+import type { components } from "@/api/schema";
+
+export type IntegrationResponse = components["schemas"]["integrationResponse"];
+export type ConnectionResponse = components["schemas"]["integConnResponse"];
 
 export interface NangoProvider {
   name: string;
   display_name: string;
   auth_mode: string;
-}
-
-export interface IntegrationResponse {
-  id: string;
-  provider: string;
-  display_name: string;
-  meta?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  has_more: boolean;
-  next_cursor?: string;
 }
 
 export type ModalState = "closed" | "create" | "edit" | "delete-confirm";

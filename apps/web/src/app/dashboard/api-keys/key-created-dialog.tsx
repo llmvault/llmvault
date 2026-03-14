@@ -44,7 +44,7 @@ export function KeyCreatedDialog({ keyResult, onClose }: { keyResult: CreateAPIK
         </button>
       </div>
 
-      <div className="flex items-center gap-2 border border-warning/[0.13] bg-warning/5 px-3 py-2.5">
+      <div className="flex items-center gap-2 border border-warning/13 bg-warning/5 px-3 py-2.5">
         <CircleAlert className="size-3.5 shrink-0 text-warning-foreground" />
         <span className="text-xs text-warning-foreground">This key is shown only once. Copy it now — you won&apos;t be able to see it again.</span>
       </div>

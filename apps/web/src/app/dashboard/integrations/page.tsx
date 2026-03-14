@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Search, ChevronLeft, ChevronRight, Cable, ArrowRight } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { ProviderBadge } from "@/components/provider-badge";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { $api } from "@/api/client";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { EditIntegrationDialog } from "./edit-integration-dialog";
 import { DeleteIntegrationDialog } from "./delete-integration-dialog";
 import { IntegrationMobileCard } from "./integration-mobile-card";
 import { ProviderLogo } from "./provider-logo";
-import { listIntegrations, deleteIntegration } from "./api";
+import { deleteIntegration } from "./api";
 import { formatDate, type IntegrationResponse, type ModalState } from "./utils";
 
 const PAGE_SIZE = 20;
@@ -28,6 +31,7 @@ const skeletonColumns = [
 ];
 
 export default function IntegrationsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [cursors, setCursors] = useState<string[]>([]);
   const currentCursor = cursors[cursors.length - 1];
@@ -41,13 +45,13 @@ export default function IntegrationsPage() {
   const [deleteTarget, setDeleteTarget] =
     useState<IntegrationResponse | null>(null);
 
-  const { data: page, isLoading } = useQuery({
-    queryKey: ["integrations", currentCursor],
-    queryFn: () =>
-      listIntegrations({
+  const { data: page, isLoading } = $api.useQuery("get", "/v1/integrations", {
+    params: {
+      query: {
         limit: PAGE_SIZE,
-        cursor: currentCursor,
-      }),
+        ...(currentCursor ? { cursor: currentCursor } : {}),
+      },
+    },
   });
 
   const integrations = page?.data ?? [];
@@ -57,8 +61,8 @@ export default function IntegrationsPage() {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
-      integ.display_name.toLowerCase().includes(q) ||
-      integ.provider.toLowerCase().includes(q)
+      (integ.display_name ?? "").toLowerCase().includes(q) ||
+      (integ.provider ?? "").toLowerCase().includes(q)
     );
   });
 
@@ -83,7 +87,7 @@ export default function IntegrationsPage() {
 
   function handleDelete() {
     if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget.id);
+    deleteMutation.mutate(deleteTarget.id!);
   }
 
   const columns: DataTableColumn<IntegrationResponse>[] = [
@@ -93,17 +97,20 @@ export default function IntegrationsPage() {
       width: "35%",
       cellClassName: "text-[13px] font-medium text-foreground",
       cell: (row) => (
-        <div className="flex items-center gap-3">
-          <ProviderLogo providerId={row.provider} size="size-7" />
+        <Link
+          href={`/dashboard/integrations/${row.id}`}
+          className="flex items-center gap-3"
+        >
+          <ProviderLogo providerId={row.provider ?? ""} size="size-7" />
           <span>{row.display_name}</span>
-        </div>
+        </Link>
       ),
     },
     {
       id: "provider",
       header: "Provider",
       width: "15%",
-      cell: (row) => <ProviderBadge provider={row.provider} />,
+      cell: (row) => <ProviderBadge provider={row.provider ?? ""} />,
     },
     {
       id: "created_at",
@@ -192,19 +199,38 @@ export default function IntegrationsPage() {
       <section className="flex shrink-0 flex-col px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 lg:px-8">
         {isLoading ? (
           <TableSkeleton columns={skeletonColumns} rows={6} />
+        ) : integrations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="flex flex-col items-center gap-6 max-w-sm text-center">
+              <div className="flex size-16 items-center justify-center rounded-full border border-border bg-card">
+                <Cable className="size-7 text-dim" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <span className="font-mono text-[15px] font-medium text-foreground">
+                  No integrations yet
+                </span>
+                <span className="text-[13px] leading-5 text-muted-foreground">
+                  Connect third-party services to enable OAuth flows and manage
+                  connections for your users.
+                </span>
+              </div>
+              <Button size="lg" onClick={() => setModal("create")}>
+                Add Integration
+                <ArrowRight className="ml-1.5 size-3.5" />
+              </Button>
+            </div>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16">
             <span className="text-sm text-muted-foreground">
-              {integrations.length === 0
-                ? "No integrations yet. Add one to get started."
-                : "No integrations match your search."}
+              No integrations match your search.
             </span>
           </div>
         ) : (
           <DataTable
             columns={columns}
             data={filtered}
-            keyExtractor={(row) => row.id}
+            keyExtractor={(row) => row.id ?? ""}
             mobileCard={(row) => (
               <IntegrationMobileCard
                 integration={row}
@@ -260,9 +286,10 @@ export default function IntegrationsPage() {
       >
         <CreateIntegrationDialog
           onCancel={() => setModal("closed")}
-          onSuccess={() => {
+          onSuccess={(result) => {
             queryClient.invalidateQueries({ queryKey: ["integrations"] });
             setModal("closed");
+            router.push(`/dashboard/integrations/${result.id}`);
           }}
         />
       </Dialog>
