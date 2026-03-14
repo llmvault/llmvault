@@ -61,6 +61,21 @@ func toIntegConnResponse(conn model.Connection) integConnResponse {
 }
 
 // Create handles POST /v1/integrations/{id}/connections.
+//
+// @Summary Create a connection
+// @Description Creates a new connection for an integration.
+// @Tags connections
+// @Accept json
+// @Produce json
+// @Param id path string true "Integration ID"
+// @Param body body integConnCreateRequest true "Connection parameters"
+// @Success 201 {object} integConnResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/integrations/{id}/connections [post]
 func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -138,6 +153,21 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // List handles GET /v1/integrations/{id}/connections.
+//
+// @Summary List connections
+// @Description Returns connections for an integration with cursor pagination.
+// @Tags connections
+// @Produce json
+// @Param id path string true "Integration ID"
+// @Param limit query int false "Max items per page (1-100, default 50)"
+// @Param cursor query string false "Pagination cursor from previous response"
+// @Success 200 {object} paginatedResponse[integConnResponse]
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/integrations/{id}/connections [get]
 func (h *ConnectionHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -207,6 +237,19 @@ func (h *ConnectionHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get handles GET /v1/connections/{id}.
+//
+// @Summary Get a connection
+// @Description Returns a single connection by ID.
+// @Tags connections
+// @Produce json
+// @Param id path string true "Connection ID"
+// @Success 200 {object} integConnResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/connections/{id} [get]
 func (h *ConnectionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -234,6 +277,19 @@ func (h *ConnectionHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // Revoke handles DELETE /v1/connections/{id}.
+//
+// @Summary Revoke a connection
+// @Description Soft-deletes a connection by setting revoked_at.
+// @Tags connections
+// @Produce json
+// @Param id path string true "Connection ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/connections/{id} [delete]
 func (h *ConnectionHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {

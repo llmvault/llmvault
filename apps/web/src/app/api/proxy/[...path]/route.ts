@@ -33,7 +33,6 @@ async function proxy(req: NextRequest) {
     method: req.method,
     path,
     url,
-    token,
     resource,
     orgId: orgId ?? "(none)",
     hasToken: !!token,
