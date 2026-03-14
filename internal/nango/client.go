@@ -19,7 +19,8 @@ type Client struct {
 	secretKey  string
 	httpClient *http.Client
 	mu         sync.RWMutex
-	providers  map[string]Provider // cached provider catalog
+	providers  map[string]Provider        // cached provider catalog
+	templates  map[string]map[string]any  // raw provider templates for config extraction
 }
 
 // Provider represents a Nango integration provider from the catalog.
@@ -71,6 +72,7 @@ func NewClient(endpoint, secretKey string) *Client {
 		secretKey:  secretKey,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		providers:  make(map[string]Provider),
+		templates:  make(map[string]map[string]any),
 	}
 }
 
@@ -104,8 +106,21 @@ func (c *Client) FetchProviders(ctx context.Context) error {
 		catalog[p.Name] = p
 	}
 
+	// Also store raw templates for config extraction
+	var rawProviders []map[string]any
+	if err := json.Unmarshal(b, &rawProviders); err != nil {
+		return fmt.Errorf("unmarshaling raw provider templates: %w", err)
+	}
+	templates := make(map[string]map[string]any, len(rawProviders))
+	for _, rp := range rawProviders {
+		if name, ok := rp["name"].(string); ok {
+			templates[name] = rp
+		}
+	}
+
 	c.mu.Lock()
 	c.providers = catalog
+	c.templates = templates
 	c.mu.Unlock()
 
 	slog.Info("nango providers fetched", "count", len(catalog))
@@ -118,6 +133,19 @@ func (c *Client) GetProvider(name string) (Provider, bool) {
 	defer c.mu.RUnlock()
 	p, ok := c.providers[name]
 	return p, ok
+}
+
+// GetProviderTemplate returns the raw provider template for config extraction.
+func (c *Client) GetProviderTemplate(name string) (map[string]any, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	t, ok := c.templates[name]
+	return t, ok
+}
+
+// CallbackURL returns the Nango OAuth callback URL.
+func (c *Client) CallbackURL() string {
+	return c.endpoint + "/oauth/callback"
 }
 
 // GetProviders returns all cached providers as a slice.
@@ -158,9 +186,9 @@ func (c *Client) UpdateIntegration(ctx context.Context, uniqueKey string, req Up
 }
 
 // GetIntegration fetches an integration by its unique key.
-// GET /integrations/{uniqueKey}
+// GET /integrations/{uniqueKey}?include=webhook
 func (c *Client) GetIntegration(ctx context.Context, uniqueKey string) (map[string]any, error) {
-	return c.doJSON(ctx, http.MethodGet, "/integrations/"+uniqueKey, nil)
+	return c.doJSON(ctx, http.MethodGet, "/integrations/"+uniqueKey+"?include=webhook", nil)
 }
 
 // DeleteIntegration removes an integration by its unique key.

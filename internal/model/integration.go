@@ -14,6 +14,7 @@ type Integration struct {
 	Provider    string     `gorm:"not null"`
 	DisplayName string     `gorm:"not null"`
 	Meta        JSON       `gorm:"type:jsonb;default:'{}'"`
+	NangoConfig JSON       `gorm:"type:jsonb;default:'{}'" json:"nango_config"`
 	DeletedAt   *time.Time `gorm:"index"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
