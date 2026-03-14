@@ -19,10 +19,10 @@ export function KeyCreatedDialog({ keyResult, onClose }: { keyResult: CreateAPIK
     setTimeout(() => setCopied(null), 2000);
   }
 
-  const exampleCode = `curl -H "Authorization: Bearer ${keyResult.key}" \\
+  const exampleCode = `curl -X POST -H "Authorization: Bearer ${keyResult.key}" \\
     https://api.llmvault.dev/v1/connect/sessions \\
     -H "Content-Type: application/json" \\
-    -d '{"allowed_providers":["openai"]}'`;
+    -d '{}'`;
 
   return (
     <DialogContent className="sm:max-w-140 gap-6 overflow-hidden p-7" showCloseButton={false}>

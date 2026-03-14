@@ -115,7 +115,7 @@ function PlanUsage() {
                   {formatCompact(item.current)} / {formatCompact(item.max)}
                 </span>
               </div>
-              <div className="h-[3px] w-full bg-secondary">
+              <div className="h-0.75 w-full bg-secondary">
                 <div className="h-full" style={{ width: `${percent}%`, backgroundColor: item.color }} />
               </div>
             </div>
