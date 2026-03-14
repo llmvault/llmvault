@@ -17,8 +17,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@nangohq/frontend": "^0.69.44",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.90.21",
+    "@tanstack/react-virtual": "^3.13.22",
     "motion": "^12.35.1",
     "openapi-fetch": "^0.17.0",
     "openapi-react-query": "^0.5.4",

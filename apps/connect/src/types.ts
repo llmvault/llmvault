@@ -2,8 +2,11 @@ import type { components } from './api/schema'
 
 export type Connection = components['schemas']['connectionResponse']
 
-export interface NangoProvider {
-  name: string
+export type IntegrationProviderInfo = components['schemas']['integrationProviderInfo']
+
+export interface IntegrationProvider {
+  id: string
+  provider: string
   display_name: string
   auth_mode: string
 }
@@ -20,5 +23,8 @@ export type View =
   | { type: 'revoke-success'; providerId: string }
   | { type: 'empty-state' }
   | { type: 'integration-selection' }
+  | { type: 'integration-auth'; integration: IntegrationProvider }
+  | { type: 'integration-success'; integration: IntegrationProvider }
+  | { type: 'integration-error'; integration: IntegrationProvider; error: string }
 
 export type ThemeMode = 'light' | 'dark' | 'system'

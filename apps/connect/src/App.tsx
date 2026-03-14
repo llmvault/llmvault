@@ -23,6 +23,9 @@ function getInitialView(): View {
     case 'connected-list':      return { type: 'connected-list' }
     case 'empty-state':         return { type: 'empty-state' }
     case 'integration-selection': return { type: 'integration-selection' }
+    case 'integration-auth':      return { type: 'integration-auth', integration: { id: '', provider: 'slack', display_name: 'Slack', auth_mode: 'OAUTH2' } }
+    case 'integration-success':   return { type: 'integration-success', integration: { id: '', provider: 'slack', display_name: 'Slack', auth_mode: 'OAUTH2' } }
+    case 'integration-error':     return { type: 'integration-error', integration: { id: '', provider: 'slack', display_name: 'Slack', auth_mode: 'OAUTH2' }, error: 'Preview error' }
     default:                    return { type: 'provider-selection' }
   }
 }

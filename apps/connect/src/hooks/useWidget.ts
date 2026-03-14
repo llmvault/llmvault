@@ -1,9 +1,11 @@
 import { useReducer, useCallback } from 'react'
-import type { View, Connection } from '../types'
+import type { View, Connection, IntegrationProvider } from '../types'
 
 type Action =
   | { type: 'SELECT_PROVIDER'; providerId: string }
-  | { type: 'SELECT_INTEGRATION_PROVIDER'; providerName: string }
+  | { type: 'SELECT_INTEGRATION_PROVIDER'; integration: IntegrationProvider }
+  | { type: 'INTEGRATION_SUCCESS' }
+  | { type: 'INTEGRATION_ERROR'; error: string }
   | { type: 'SUBMIT_KEY' }
   | { type: 'CONNECTION_SUCCESS' }
   | { type: 'CONNECTION_ERROR' }
@@ -59,7 +61,17 @@ function reducer(state: State, action: Action): State {
     case 'SELECT_PROVIDER':
       return push({ type: 'api-key-input', providerId: action.providerId })
     case 'SELECT_INTEGRATION_PROVIDER':
-      return state  // Future: push to integration-specific flow
+      return push({ type: 'integration-auth', integration: action.integration })
+    case 'INTEGRATION_SUCCESS': {
+      const c = state.current
+      if (c.type !== 'integration-auth') return state
+      return reset({ type: 'integration-success', integration: c.integration })
+    }
+    case 'INTEGRATION_ERROR': {
+      const c = state.current
+      if (c.type !== 'integration-auth') return state
+      return reset({ type: 'integration-error', integration: c.integration, error: action.error })
+    }
     case 'SUBMIT_KEY': {
       const c = state.current
       if (c.type !== 'api-key-input') return state

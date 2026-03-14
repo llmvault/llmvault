@@ -154,9 +154,6 @@ func newHarness(t *testing.T) *testHarness {
 
 	// Connect handlers
 	connectSessionHandler := handler.NewConnectSessionHandler(db, reg)
-	connectAPIHandler := handler.NewConnectAPIHandler(db, kms, reg)
-	settingsHandler := handler.NewSettingsHandler(db)
-
 	// Nango client (REQUIRED — matches server startup behavior)
 	nangoEndpoint := envOr("NANGO_ENDPOINT", "")
 	nangoSecretKey := envOr("NANGO_SECRET_KEY", "")
@@ -167,6 +164,9 @@ func newHarness(t *testing.T) *testHarness {
 	if err := nangoClient.FetchProviders(context.Background()); err != nil {
 		t.Fatalf("failed to fetch Nango providers: %v", err)
 	}
+
+	connectAPIHandler := handler.NewConnectAPIHandler(db, kms, reg, nangoClient)
+	settingsHandler := handler.NewSettingsHandler(db)
 	t.Logf("Nango provider cache loaded: %d providers", len(nangoClient.GetProviders()))
 
 	// Integration + connection handlers

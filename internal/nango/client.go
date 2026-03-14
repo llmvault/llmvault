@@ -51,6 +51,17 @@ type Credentials struct {
 	Password string `json:"password,omitempty"`
 }
 
+// CreateConnectSessionRequest is the payload for creating a connect session in Nango.
+type CreateConnectSessionRequest struct {
+	AllowedIntegrations []string `json:"allowed_integrations,omitempty"`
+}
+
+// ConnectSessionResponse represents the response from creating a connect session.
+type ConnectSessionResponse struct {
+	Token     string `json:"token"`
+	ExpiresAt string `json:"expires_at"`
+}
+
 // CreateIntegrationRequest is the payload for creating an integration in Nango.
 type CreateIntegrationRequest struct {
 	UniqueKey   string       `json:"unique_key"`
@@ -202,6 +213,32 @@ func (c *Client) DeleteIntegration(ctx context.Context, uniqueKey string) error 
 	}
 	slog.Info("nango: integration deleted", "unique_key", uniqueKey)
 	return nil
+}
+
+// CreateConnectSession creates a Nango connect session.
+// POST /connect/sessions
+func (c *Client) CreateConnectSession(ctx context.Context, req CreateConnectSessionRequest) (*ConnectSessionResponse, error) {
+	slog.Info("nango: creating connect session", "allowed_integrations", req.AllowedIntegrations)
+	resp, err := c.doJSON(ctx, http.MethodPost, "/connect/sessions", req)
+	if err != nil {
+		slog.Error("nango: create connect session failed", "error", err)
+		return nil, err
+	}
+
+	// Nango returns {"data": {"token": "...", "expires_at": "..."}}
+	data, ok := resp["data"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("unexpected connect session response: missing 'data' key")
+	}
+
+	token, _ := data["token"].(string)
+	expiresAt, _ := data["expires_at"].(string)
+	if token == "" {
+		return nil, fmt.Errorf("unexpected connect session response: missing 'token'")
+	}
+
+	slog.Info("nango: connect session created")
+	return &ConnectSessionResponse{Token: token, ExpiresAt: expiresAt}, nil
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path string, payload any) (map[string]any, error) {

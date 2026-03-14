@@ -13,20 +13,22 @@ import (
 	"github.com/useportal/llmvault/internal/crypto"
 	"github.com/useportal/llmvault/internal/middleware"
 	"github.com/useportal/llmvault/internal/model"
+	"github.com/useportal/llmvault/internal/nango"
 	"github.com/useportal/llmvault/internal/proxy"
 	"github.com/useportal/llmvault/internal/registry"
 )
 
 // ConnectAPIHandler serves the Connect widget's API endpoints.
 type ConnectAPIHandler struct {
-	db  *gorm.DB
-	kms *crypto.KeyWrapper
-	reg *registry.Registry
+	db    *gorm.DB
+	kms   *crypto.KeyWrapper
+	reg   *registry.Registry
+	nango *nango.Client
 }
 
 // NewConnectAPIHandler creates a new connect API handler.
-func NewConnectAPIHandler(db *gorm.DB, kms *crypto.KeyWrapper, reg *registry.Registry) *ConnectAPIHandler {
-	return &ConnectAPIHandler{db: db, kms: kms, reg: reg}
+func NewConnectAPIHandler(db *gorm.DB, kms *crypto.KeyWrapper, reg *registry.Registry, nangoClient *nango.Client) *ConnectAPIHandler {
+	return &ConnectAPIHandler{db: db, kms: kms, reg: reg, nango: nangoClient}
 }
 
 // knownBaseURLs provides base URLs for providers that lack an API field in the registry.
@@ -510,6 +512,153 @@ func (h *ConnectAPIHandler) VerifyConnection(w http.ResponseWriter, r *http.Requ
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+type connectSessionTokenResponse struct {
+	Token             string `json:"token"`
+	ProviderConfigKey string `json:"provider_config_key"`
+}
+
+type createIntegrationConnectionRequest struct {
+	NangoConnectionID string `json:"nango_connection_id"`
+}
+
+// CreateIntegrationConnectSession handles POST /v1/widget/integrations/{id}/connect-session.
+// @Summary Create a connect session for an integration
+// @Description Creates a Nango connect session scoped to a specific integration.
+// @Tags widget
+// @Produce json
+// @Param id path string true "Integration ID"
+// @Success 200 {object} connectSessionTokenResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 502 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/widget/integrations/{id}/connect-session [post]
+func (h *ConnectAPIHandler) CreateIntegrationConnectSession(w http.ResponseWriter, r *http.Request) {
+	sess, ok := middleware.ConnectSessionFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing session"})
+		return
+	}
+
+	if !hasPermission(sess, "create") {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "permission denied"})
+		return
+	}
+
+	org, _ := middleware.OrgFromContext(r.Context())
+
+	integID := chi.URLParam(r, "id")
+	if integID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "integration id required"})
+		return
+	}
+
+	integUUID, err := uuid.Parse(integID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid integration id"})
+		return
+	}
+
+	var integ model.Integration
+	if err := h.db.Where("id = ? AND org_id = ? AND deleted_at IS NULL", integUUID, org.ID).First(&integ).Error; err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "integration not found"})
+		return
+	}
+
+	// Build the org-namespaced Nango unique key
+	nangoUniqueKey := fmt.Sprintf("%s_%s", org.ID.String(), integ.UniqueKey)
+
+	sessionResp, err := h.nango.CreateConnectSession(r.Context(), nango.CreateConnectSessionRequest{
+		AllowedIntegrations: []string{nangoUniqueKey},
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to create connect session: " + err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, connectSessionTokenResponse{
+		Token:             sessionResp.Token,
+		ProviderConfigKey: nangoUniqueKey,
+	})
+}
+
+// CreateIntegrationConnection handles POST /v1/widget/integrations/{id}/connections.
+// @Summary Create a connection via the widget
+// @Description Stores a new connection record after a successful Nango auth flow.
+// @Tags widget
+// @Accept json
+// @Produce json
+// @Param id path string true "Integration ID"
+// @Param body body createIntegrationConnectionRequest true "Connection details"
+// @Success 201 {object} integConnResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/widget/integrations/{id}/connections [post]
+func (h *ConnectAPIHandler) CreateIntegrationConnection(w http.ResponseWriter, r *http.Request) {
+	sess, ok := middleware.ConnectSessionFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing session"})
+		return
+	}
+
+	if !hasPermission(sess, "create") {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "permission denied"})
+		return
+	}
+
+	org, _ := middleware.OrgFromContext(r.Context())
+
+	integID := chi.URLParam(r, "id")
+	if integID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "integration id required"})
+		return
+	}
+
+	integUUID, err := uuid.Parse(integID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid integration id"})
+		return
+	}
+
+	var integ model.Integration
+	if err := h.db.Where("id = ? AND org_id = ? AND deleted_at IS NULL", integUUID, org.ID).First(&integ).Error; err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "integration not found"})
+		return
+	}
+
+	var req createIntegrationConnectionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.NangoConnectionID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "nango_connection_id is required"})
+		return
+	}
+
+	conn := model.Connection{
+		ID:                uuid.New(),
+		OrgID:             org.ID,
+		IntegrationID:     integ.ID,
+		NangoConnectionID: req.NangoConnectionID,
+		IdentityID:        sess.IdentityID,
+	}
+
+	if err := h.db.Create(&conn).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create connection"})
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, toIntegConnResponse(conn))
 }
 
 // hasPermission checks if the session has a specific permission.
