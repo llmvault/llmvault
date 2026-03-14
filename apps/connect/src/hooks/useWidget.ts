@@ -3,6 +3,7 @@ import type { View, Connection } from '../types'
 
 type Action =
   | { type: 'SELECT_PROVIDER'; providerId: string }
+  | { type: 'SELECT_INTEGRATION_PROVIDER'; providerName: string }
   | { type: 'SUBMIT_KEY' }
   | { type: 'CONNECTION_SUCCESS' }
   | { type: 'CONNECTION_ERROR' }
@@ -57,6 +58,8 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SELECT_PROVIDER':
       return push({ type: 'api-key-input', providerId: action.providerId })
+    case 'SELECT_INTEGRATION_PROVIDER':
+      return state  // Future: push to integration-specific flow
     case 'SUBMIT_KEY': {
       const c = state.current
       if (c.type !== 'api-key-input') return state

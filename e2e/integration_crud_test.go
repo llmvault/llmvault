@@ -438,9 +438,6 @@ func TestE2E_Integration_Pagination(t *testing.T) {
 
 func TestE2E_Integration_NangoSync(t *testing.T) {
 	h := newHarness(t)
-	if h.nangoClient == nil {
-		t.Fatal("NANGO_ENDPOINT must be set")
-	}
 	org := h.createOrg(t)
 
 	// Create integration
@@ -506,9 +503,6 @@ func TestE2E_Integration_NangoSync(t *testing.T) {
 
 func TestE2E_Integration_InvalidProvider(t *testing.T) {
 	h := newHarness(t)
-	if h.nangoClient == nil {
-		t.Fatal("NANGO_ENDPOINT must be set")
-	}
 	org := h.createOrg(t)
 
 	body := `{"provider":"nonexistent-xyz-12345","display_name":"Bad Provider"}`
@@ -535,9 +529,6 @@ func TestE2E_Integration_InvalidProvider(t *testing.T) {
 
 func TestE2E_Integration_CredentialValidation(t *testing.T) {
 	h := newHarness(t)
-	if h.nangoClient == nil {
-		t.Fatal("NANGO_ENDPOINT must be set")
-	}
 	org := h.createOrg(t)
 
 	// OAUTH2 provider without client_id — should fail
@@ -565,9 +556,6 @@ func TestE2E_Integration_CredentialValidation(t *testing.T) {
 
 func TestE2E_Integration_NoCredentialAuthMode(t *testing.T) {
 	h := newHarness(t)
-	if h.nangoClient == nil {
-		t.Fatal("NANGO_ENDPOINT must be set")
-	}
 	org := h.createOrg(t)
 
 	// Find an API_KEY auth mode provider from the cache
@@ -609,14 +597,104 @@ func TestE2E_Integration_NoCredentialAuthMode(t *testing.T) {
 }
 
 // --------------------------------------------------------------------------
+// E2E: ListProviders — returns Nango provider catalog
+// --------------------------------------------------------------------------
+
+func TestE2E_Integration_ListProviders(t *testing.T) {
+	h := newHarness(t)
+	org := h.createOrg(t)
+
+	// 1. Management API route: GET /v1/integrations/providers
+	req := httptest.NewRequest(http.MethodGet, "/v1/integrations/providers", nil)
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("list providers: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var providers []map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&providers); err != nil {
+		t.Fatalf("decode providers: %v", err)
+	}
+	if len(providers) == 0 {
+		t.Fatal("expected non-empty provider list")
+	}
+
+	// Verify response shape
+	first := providers[0]
+	if _, ok := first["name"].(string); !ok {
+		t.Fatal("expected name field to be a string")
+	}
+	if _, ok := first["display_name"].(string); !ok {
+		t.Fatal("expected display_name field to be a string")
+	}
+	if _, ok := first["auth_mode"].(string); !ok {
+		t.Fatal("expected auth_mode field to be a string")
+	}
+
+	// Verify well-known provider is present (slack is OAUTH2)
+	foundSlack := false
+	for _, p := range providers {
+		if p["name"] == "slack" {
+			foundSlack = true
+			if p["auth_mode"] != "OAUTH2" {
+				t.Fatalf("expected slack auth_mode=OAUTH2, got %v", p["auth_mode"])
+			}
+			break
+		}
+	}
+	if !foundSlack {
+		t.Fatal("expected slack in provider list")
+	}
+
+	// 2. Widget API route: GET /v1/widget/integrations/providers (session-authenticated)
+	//    Create a connect session to authenticate
+	integ := h.createIntegration(t, org, "slack", "Widget Provider Test")
+	sessionBody := fmt.Sprintf(`{"integration_id":%q,"external_id":"widget-test-user"}`, integ.ID.String())
+	req = httptest.NewRequest(http.MethodPost, "/v1/connect/sessions", strings.NewReader(sessionBody))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithOrg(req, &org)
+	rr = httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create session: expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var sessionResp map[string]any
+	json.NewDecoder(rr.Body).Decode(&sessionResp)
+	sessionToken := sessionResp["session_token"].(string)
+
+	// Use session token to call widget providers endpoint
+	req = httptest.NewRequest(http.MethodGet, "/v1/widget/integrations/providers", nil)
+	req.Header.Set("Authorization", "Bearer "+sessionToken)
+	rr = httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("widget list providers: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var widgetProviders []map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&widgetProviders); err != nil {
+		t.Fatalf("decode widget providers: %v", err)
+	}
+	if len(widgetProviders) == 0 {
+		t.Fatal("expected non-empty provider list from widget route")
+	}
+	// Should return same count as management API
+	if len(widgetProviders) != len(providers) {
+		t.Fatalf("widget route returned %d providers vs management API %d", len(widgetProviders), len(providers))
+	}
+}
+
+// --------------------------------------------------------------------------
 // E2E: APP auth mode — github-app with app_id/app_link/private_key succeeds
 // --------------------------------------------------------------------------
 
 func TestE2E_Integration_AppAuthMode(t *testing.T) {
 	h := newHarness(t)
-	if h.nangoClient == nil {
-		t.Fatal("NANGO_ENDPOINT must be set")
-	}
 	org := h.createOrg(t)
 
 	// Find an APP auth mode provider from the cache
