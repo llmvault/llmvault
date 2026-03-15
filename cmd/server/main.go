@@ -199,7 +199,7 @@ func run() error {
 	connectAPIHandler := handler.NewConnectAPIHandler(database, kms, reg, nangoClient, actionsCatalog)
 	settingsHandler := handler.NewSettingsHandler(database)
 	integrationHandler := handler.NewIntegrationHandler(database, nangoClient)
-	connectionHandler := handler.NewConnectionHandler(database)
+	connectionHandler := handler.NewConnectionHandler(database, nangoClient)
 	orgHandler := handler.NewOrgHandler(database, logtoClient)
 	apiKeyHandler := handler.NewAPIKeyHandler(database, apiKeyCache, cacheManager)
 	usageHandler := handler.NewUsageHandler(database)

@@ -203,16 +203,18 @@ func (c *Catalog) ValidateResources(provider string, actions []string, requested
 			return fmt.Errorf("resource type %q does not match any listed action for provider %q", resourceType, provider)
 		}
 
-		// Check each requested ID is in the allowed set
-		allowedIDs := allowedResources[resourceType]
-		allowedSet := make(map[string]bool, len(allowedIDs))
-		for _, id := range allowedIDs {
-			allowedSet[id] = true
-		}
+		// Check each requested ID is in the allowed set (nil means no restrictions)
+		if allowedResources != nil {
+			allowedIDs := allowedResources[resourceType]
+			allowedSet := make(map[string]bool, len(allowedIDs))
+			for _, id := range allowedIDs {
+				allowedSet[id] = true
+			}
 
-		for _, reqID := range requestedIDs {
-			if !allowedSet[reqID] {
-				return fmt.Errorf("resource %q of type %q not configured for this connection", reqID, resourceType)
+			for _, reqID := range requestedIDs {
+				if !allowedSet[reqID] {
+					return fmt.Errorf("resource %q of type %q not configured for this connection", reqID, resourceType)
+				}
 			}
 		}
 	}

@@ -94,7 +94,7 @@ function InviteMemberModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: Invite user via Logto Management API and assign org role
+
     onOpenChange(false);
   }
 

@@ -820,6 +820,19 @@ func (h *ConnectAPIHandler) CreateIntegrationConnection(w http.ResponseWriter, r
 		}
 	}
 
+	// Verify connection exists in Nango before storing reference
+	nangoProviderConfigKey := fmt.Sprintf("%s_%s", org.ID.String(), integ.UniqueKey)
+	if _, err := h.nango.GetConnection(r.Context(), req.NangoConnectionID, nangoProviderConfigKey); err != nil {
+		logger.Warn("nango_connection_id not found in Nango",
+			"error", err.Error(),
+			"nango_provider_config_key", nangoProviderConfigKey,
+		)
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "nango_connection_id not found — complete the auth flow before storing the connection",
+		})
+		return
+	}
+
 	meta := model.JSON{}
 	if len(req.Resources) > 0 {
 		meta["resources"] = req.Resources

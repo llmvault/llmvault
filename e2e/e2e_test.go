@@ -171,7 +171,7 @@ func newHarness(t *testing.T) *testHarness {
 
 	// Integration + connection handlers
 	integrationHandler := handler.NewIntegrationHandler(db, nangoClient)
-	connectionHandler := handler.NewConnectionHandler(db)
+	connectionHandler := handler.NewConnectionHandler(db, nangoClient)
 
 	// Management routes (no Logto auth in E2E — we set org on context directly)
 	r.Route("/v1", func(r chi.Router) {
