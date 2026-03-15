@@ -10,7 +10,7 @@ export function useAvailableResources(
 ) {
   const { sessionId } = useConnect()
 
-  return useQuery<DiscoveryResult, string>({
+  return useQuery<DiscoveryResult, Error>({
     queryKey: [
       'get',
       '/v1/widget/integrations/{id}/resources/{type}/available',
@@ -36,12 +36,17 @@ export function useAvailableResources(
       )
 
       if (error) {
-        throw typeof error === 'string' ? error : 'Failed to fetch resources'
+        const message =
+          typeof error === 'string'
+            ? error
+            : (error as { error?: string })?.error ?? 'Failed to fetch resources'
+        throw new Error(message)
       }
 
       return data as DiscoveryResult
     },
     enabled: !!sessionId && !!integrationId && !!resourceType && !!nangoConnectionId,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: false,
   })
 }

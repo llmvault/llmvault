@@ -14,6 +14,7 @@ import { IntegrationAuth } from './IntegrationAuth'
 import { IntegrationResourceSelection } from './IntegrationResourceSelection'
 import { IntegrationDetail } from './IntegrationDetail'
 import { IntegrationDisconnectConfirm } from './IntegrationDisconnectConfirm'
+import { IntegrationSuccess } from './IntegrationSuccess'
 
 interface Props {
   view: View
@@ -126,17 +127,16 @@ export function ViewRouter({ view, canGoBack, navigate, onClose }: Props) {
           connectionId={view.connectionId}
           nangoConnectionId={view.nangoConnectionId}
           navigate={navigate}
-          onBack={canGoBack ? () => navigate({ type: 'BACK' }) : undefined}
+          onBack={() => navigate({ type: 'VIEW_INTEGRATION_DETAIL', integration: view.integration })}
           onClose={onClose}
         />
       )
     case 'integration-success':
       return (
-        <Success
-          providerId={view.integration.provider ?? ''}
-          title="Connected"
-          message={`${view.integration.display_name ?? view.integration.provider} has been connected successfully.`}
+        <IntegrationSuccess
+          integration={view.integration}
           onDone={() => navigate({ type: 'DONE' })}
+          onManage={() => navigate({ type: 'VIEW_INTEGRATION_DETAIL', integration: view.integration })}
         />
       )
     case 'integration-error':
@@ -153,7 +153,7 @@ export function ViewRouter({ view, canGoBack, navigate, onClose }: Props) {
         <IntegrationDetail
           integration={view.integration}
           onDisconnect={() => navigate({ type: 'DISCONNECT_INTEGRATION', integration: view.integration })}
-          onBack={() => navigate({ type: 'BACK' })}
+          onBack={() => navigate({ type: 'VIEW_INTEGRATIONS' })}
           onClose={onClose}
           onSelectResource={(resource) => navigate({ type: 'SELECT_RESOURCE_TYPE', resourceType: resource.type ?? '' })}
         />

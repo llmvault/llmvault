@@ -1,4 +1,4 @@
-import { ProviderLogo } from './ProviderLogo'
+import { IntegrationProviderLogo } from './IntegrationProviderLogo'
 
 interface Props {
   providerName: string
@@ -7,5 +7,5 @@ interface Props {
 }
 
 export function IntegrationResourceSelectionLogo({ providerName, size = 'size-10', rounded = 'rounded-lg' }: Props) {
-  return <ProviderLogo providerId={providerName} size={size} rounded={rounded} />
+  return <IntegrationProviderLogo providerName={providerName} size={size} rounded={rounded} />
 }

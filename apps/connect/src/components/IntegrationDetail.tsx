@@ -2,6 +2,7 @@ import type { IntegrationProvider, IntegrationResource } from '../types'
 import { Button } from './Button'
 import { Footer } from './Footer'
 import { IntegrationProviderLogo } from './IntegrationProviderLogo'
+import { ResourceIcon } from './ResourceIcon'
 import { IconButton } from './IconButton'
 import { BackIcon, CloseIcon, ChevronRightIcon } from './icons'
 
@@ -43,7 +44,6 @@ export function IntegrationDetail({ integration, onDisconnect, onBack, onClose, 
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center shrink-0 gap-3">
         <IconButton onClick={onBack}>
           <BackIcon />
@@ -61,9 +61,7 @@ export function IntegrationDetail({ integration, onDisconnect, onBack, onClose, 
         </IconButton>
       </div>
 
-      {/* Scrollable content */}
       <div className="flex flex-col grow overflow-y-auto -mx-4 px-4">
-        {/* Provider info section */}
         <div className="flex flex-col mt-7">
           {rows.map((row, i) => (
             <div
@@ -78,10 +76,9 @@ export function IntegrationDetail({ integration, onDisconnect, onBack, onClose, 
           ))}
         </div>
 
-        {/* Granular permissions section */}
         {resources.length > 0 && (
           <div className="flex flex-col mt-8">
-            <div className="text-2xs tracking-wider uppercase mb-3 text-cw-secondary font-semibold leading-3.5">
+            <div className="text-xs tracking-wider mb-3 uppercase text-cw-secondary font-semibold leading-3.5">
               Granular permissions
             </div>
             <div className="flex flex-col gap-2">
@@ -91,17 +88,7 @@ export function IntegrationDetail({ integration, onDisconnect, onBack, onClose, 
                   onClick={() => onSelectResource?.(resource)}
                   className="flex items-center gap-3 p-3 bg-cw-surface rounded-xl border border-solid border-cw-border hover:border-cw-placeholder transition-colors text-left cursor-pointer"
                 >
-                  {resource.icon ? (
-                    <img 
-                      src={resource.icon} 
-                      alt={resource.display_name || resource.type}
-                      className="size-10 rounded-lg object-contain bg-white p-1"
-                    />
-                  ) : (
-                    <div className="size-10 rounded-lg bg-cw-surface border border-solid border-cw-border flex items-center justify-center">
-                      <span className="text-lg">📁</span>
-                    </div>
-                  )}
+                  <ResourceIcon iconName={resource.icon} size={20} className="size-10 shrink-0" />
                   <div className="flex flex-col grow gap-0.5">
                     <div className="text-sm text-cw-heading font-medium leading-4.5">
                       {resource.display_name || resource.type}
@@ -119,10 +106,8 @@ export function IntegrationDetail({ integration, onDisconnect, onBack, onClose, 
           </div>
         )}
 
-        {/* Spacer to push footer content down */}
         <div className="grow min-h-8" />
 
-        {/* Footer and disconnect button container */}
         <div className="flex flex-col gap-4 pt-4 pb-8">
           <Button
             variant="danger"

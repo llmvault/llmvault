@@ -26,6 +26,7 @@ type Action =
   | { type: 'VIEW_INTEGRATION_DETAIL'; integration: IntegrationProvider }
   | { type: 'DISCONNECT_INTEGRATION'; integration: IntegrationProvider }
   | { type: 'CONFIRM_INTEGRATION_DISCONNECT' }
+  | { type: 'VIEW_INTEGRATIONS' }
 
 export interface ResourceTypeInfo {
   type?: string
@@ -165,6 +166,8 @@ function reducer(state: State, action: Action): State {
       if (c.type !== 'integration-disconnect-confirm') return state
       return reset({ type: 'integration-selection' })
     }
+    case 'VIEW_INTEGRATIONS':
+      return reset({ type: 'integration-selection' })
     default:
       return state
   }
