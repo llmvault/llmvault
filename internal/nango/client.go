@@ -405,7 +405,22 @@ func (c *Client) ProxyRequestWithHeaders(ctx context.Context, method, providerCo
 		"connection_id_set", connectionID != "",
 	)
 
-	logger.Info("executing HTTP request to Nango proxy")
+	// Dump full outgoing request for debugging
+	reqHeaders := make(map[string]string)
+	for k, v := range req.Header {
+		if k == "Authorization" {
+			reqHeaders[k] = "Bearer [REDACTED]"
+		} else {
+			reqHeaders[k] = strings.Join(v, ", ")
+		}
+	}
+	reqHeadersJSON, _ := json.Marshal(reqHeaders)
+	logger.Info("full nango proxy request dump",
+		"method", method,
+		"url", fullURL,
+		"headers", string(reqHeadersJSON),
+		"body", bodyContent,
+	)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
