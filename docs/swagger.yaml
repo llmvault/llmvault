@@ -773,6 +773,12 @@ definitions:
         items:
           $ref: '#/definitions/internal_handler.widgetResourceResponse'
         type: array
+      selected_resources:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
     type: object
   internal_handler.widgetResourceResponse:
     properties:

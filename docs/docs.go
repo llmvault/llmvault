@@ -3799,6 +3799,15 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/internal_handler.widgetResourceResponse"
                     }
+                },
+                "selected_resources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },

@@ -535,6 +535,7 @@ type widgetIntegrationResponse struct {
 	ConnectionID      *string                  `json:"connection_id"`
 	NangoConnectionID *string                  `json:"nango_connection_id,omitempty"`
 	Resources         []widgetResourceResponse `json:"resources"`
+	SelectedResources map[string][]string      `json:"selected_resources,omitempty"`
 }
 
 // ListIntegrations handles GET /v1/widget/integrations.
@@ -589,6 +590,29 @@ func (h *ConnectAPIHandler) ListIntegrations(w http.ResponseWriter, r *http.Requ
 			connID := conn.ID.String()
 			item.ConnectionID = &connID
 			item.NangoConnectionID = &conn.NangoConnectionID
+
+			// Extract selected resources from connection meta
+			if conn.Meta != nil {
+				if raw, exists := conn.Meta["resources"]; exists {
+					if resMap, ok := raw.(map[string]interface{}); ok {
+						selected := make(map[string][]string, len(resMap))
+						for k, v := range resMap {
+							if arr, ok := v.([]interface{}); ok {
+								ids := make([]string, 0, len(arr))
+								for _, id := range arr {
+									if s, ok := id.(string); ok {
+										ids = append(ids, s)
+									}
+								}
+								selected[k] = ids
+							}
+						}
+						if len(selected) > 0 {
+							item.SelectedResources = selected
+						}
+					}
+				}
+			}
 		}
 
 		// Add resource configurations from catalog
