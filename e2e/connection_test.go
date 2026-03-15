@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/llmvault/llmvault/internal/mcp/catalog"
 	"github.com/llmvault/llmvault/internal/middleware"
 	"github.com/llmvault/llmvault/internal/model"
+	"github.com/llmvault/llmvault/internal/nango"
 	"github.com/llmvault/llmvault/internal/token"
 )
 
@@ -20,25 +22,109 @@ import (
 // Helpers — create integration + connection in the e2e harness
 // --------------------------------------------------------------------------
 
-// createIntegration creates a Slack integration (no Nango call in e2e, provider
-// validation is skipped when nangoClient is nil).
-func (h *testHarness) createIntegration(t *testing.T, org model.Org, provider, displayName string) model.Integration {
+// createNangoIntegration creates an integration via the management API (POST /v1/integrations).
+// The integration exists in both our DB and Nango (real round-trip).
+// Uses an API_KEY provider by default (no credentials needed).
+func (h *testHarness) createNangoIntegration(t *testing.T, org model.Org, displayName string) model.Integration {
 	t.Helper()
-	integ := model.Integration{
-		ID:          uuid.New(),
-		OrgID:       org.ID,
-		UniqueKey:   fmt.Sprintf("%s-%s", provider, uuid.New().String()[:8]),
-		Provider:    provider,
-		DisplayName: displayName,
+	var provider string
+	for _, p := range h.nangoClient.GetProviders() {
+		if p.AuthMode == "API_KEY" {
+			provider = p.Name
+			break
+		}
 	}
-	if err := h.db.Create(&integ).Error; err != nil {
-		t.Fatalf("create integration: %v", err)
+	if provider == "" {
+		t.Fatal("no API_KEY auth mode provider found in Nango catalog")
+	}
+	body := fmt.Sprintf(`{"provider":%q,"display_name":%q}`, provider, displayName)
+	req := httptest.NewRequest(http.MethodPost, "/v1/integrations", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("createNangoIntegration: expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	json.NewDecoder(rr.Body).Decode(&resp)
+	var integ model.Integration
+	if err := h.db.Where("id = ?", resp["id"]).First(&integ).Error; err != nil {
+		t.Fatalf("createNangoIntegration: lookup failed: %v", err)
 	}
 	return integ
 }
 
-// createConnection creates a connection via the API handler.
-func (h *testHarness) createConnection(t *testing.T, org model.Org, integID uuid.UUID, nangoConnID string) string {
+// createNangoIntegrationForProvider creates an integration for a specific provider via the management API.
+// For OAUTH2/OAUTH1/TBA providers, passes dummy credentials.
+func (h *testHarness) createNangoIntegrationForProvider(t *testing.T, org model.Org, providerName, displayName string) model.Integration {
+	t.Helper()
+	provider, found := h.nangoClient.GetProvider(providerName)
+	if !found {
+		t.Fatalf("provider %q not found", providerName)
+	}
+	var credsJSON string
+	switch provider.AuthMode {
+	case "OAUTH2", "OAUTH1", "TBA":
+		credsJSON = fmt.Sprintf(`,"credentials":{"type":%q,"client_id":"test-id","client_secret":"test-secret"}`, provider.AuthMode)
+	case "APP":
+		credsJSON = `,"credentials":{"type":"APP","app_id":"test-app","app_link":"https://example.com/app","private_key":"test-key"}`
+	}
+	body := fmt.Sprintf(`{"provider":%q,"display_name":%q%s}`, providerName, displayName, credsJSON)
+	req := httptest.NewRequest(http.MethodPost, "/v1/integrations", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("createNangoIntegrationForProvider(%s): expected 201, got %d: %s", providerName, rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	json.NewDecoder(rr.Body).Decode(&resp)
+	var integ model.Integration
+	if err := h.db.Where("id = ?", resp["id"]).First(&integ).Error; err != nil {
+		t.Fatalf("createNangoIntegrationForProvider: lookup failed: %v", err)
+	}
+	return integ
+}
+
+// createNangoConnection creates a real connection in Nango via nangoClient.CreateConnection(),
+// then stores the reference via the management API (POST /v1/integrations/{id}/connections).
+// Only works for API_KEY providers.
+func (h *testHarness) createNangoConnection(t *testing.T, org model.Org, integ model.Integration) string {
+	t.Helper()
+	nangoProviderConfigKey := fmt.Sprintf("%s_%s", org.ID.String(), integ.UniqueKey)
+	nangoConnID := fmt.Sprintf("test-conn-%s", uuid.New().String()[:8])
+
+	// Create real connection in Nango
+	if err := h.nangoClient.CreateConnection(context.Background(), nango.CreateConnectionRequest{
+		ProviderConfigKey: nangoProviderConfigKey,
+		ConnectionID:      nangoConnID,
+		APIKey:            "test-api-key-e2e",
+	}); err != nil {
+		t.Fatalf("createNangoConnection: Nango create failed: %v", err)
+	}
+
+	// Store reference via management API
+	body := fmt.Sprintf(`{"nango_connection_id":%q}`, nangoConnID)
+	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integ.ID.String()+"/connections", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("createNangoConnection: expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	json.NewDecoder(rr.Body).Decode(&resp)
+	return resp["id"].(string)
+}
+
+// createLocalConnection stores a connection reference via the management API.
+// The nango_connection_id is NOT validated against Nango — use only for tests
+// that exercise local-only logic (scoped tokens, scope hashes).
+// For tests that need a real Nango round-trip, use createNangoConnection.
+func (h *testHarness) createLocalConnection(t *testing.T, org model.Org, integID uuid.UUID, nangoConnID string) string {
 	t.Helper()
 	body := fmt.Sprintf(`{"nango_connection_id":%q}`, nangoConnID)
 	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integID.String()+"/connections", strings.NewReader(body))
@@ -47,7 +133,7 @@ func (h *testHarness) createConnection(t *testing.T, org model.Org, integID uuid
 	rr := httptest.NewRecorder()
 	h.router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusCreated {
-		t.Fatalf("create connection: expected 201, got %d: %s", rr.Code, rr.Body.String())
+		t.Fatalf("createLocalConnection: expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
 	var resp map[string]any
 	json.NewDecoder(rr.Body).Decode(&resp)
@@ -68,16 +154,16 @@ func (h *testHarness) mintScopedToken(t *testing.T, org model.Org, credID uuid.U
 }
 
 // --------------------------------------------------------------------------
-// E2E: Connection CRUD lifecycle
+// E2E: Connection CRUD lifecycle (real Nango round-trip)
 // --------------------------------------------------------------------------
 
 func TestE2E_Connection_CRUD(t *testing.T) {
 	h := newHarness(t)
 	org := h.createOrg(t)
-	integ := h.createIntegration(t, org, "slack", "Slack Test")
+	integ := h.createNangoIntegration(t, org, "CRUD Test")
 
-	// 1. Create connection
-	connID := h.createConnection(t, org, integ.ID, "nango-conn-123")
+	// 1. Create connection (real Nango connection)
+	connID := h.createNangoConnection(t, org, integ)
 	if connID == "" {
 		t.Fatal("connection ID is empty")
 	}
@@ -98,9 +184,9 @@ func TestE2E_Connection_CRUD(t *testing.T) {
 	if getResp["integration_id"] != integ.ID.String() {
 		t.Fatalf("wrong integration_id: %v", getResp["integration_id"])
 	}
-	if getResp["nango_connection_id"] != "nango-conn-123" {
-		t.Fatalf("wrong nango_connection_id: %v", getResp["nango_connection_id"])
-	}
+
+	// Get the nango_connection_id for later verification
+	nangoConnID := getResp["nango_connection_id"].(string)
 
 	// 3. List connections for integration
 	req = httptest.NewRequest(http.MethodGet, "/v1/integrations/"+integ.ID.String()+"/connections", nil)
@@ -118,7 +204,7 @@ func TestE2E_Connection_CRUD(t *testing.T) {
 		t.Fatalf("list returned wrong connection")
 	}
 
-	// 4. Revoke connection
+	// 4. Revoke connection (should also delete from Nango)
 	req = httptest.NewRequest(http.MethodDelete, "/v1/connections/"+connID, nil)
 	req = middleware.WithOrg(req, &org)
 	rr = httptest.NewRecorder()
@@ -148,6 +234,13 @@ func TestE2E_Connection_CRUD(t *testing.T) {
 	if len(list) != 0 {
 		t.Fatalf("expected 0 connections after revoke, got %d", len(list))
 	}
+
+	// 7. Verify Nango connection is gone
+	nangoProviderConfigKey := fmt.Sprintf("%s_%s", org.ID.String(), integ.UniqueKey)
+	_, err := h.nangoClient.GetConnection(context.Background(), nangoConnID, nangoProviderConfigKey)
+	if err == nil {
+		t.Fatal("connection should be gone from Nango after revoke")
+	}
 }
 
 // --------------------------------------------------------------------------
@@ -157,7 +250,7 @@ func TestE2E_Connection_CRUD(t *testing.T) {
 func TestE2E_Connection_WithIdentity(t *testing.T) {
 	h := newHarness(t)
 	org := h.createOrg(t)
-	integ := h.createIntegration(t, org, "github", "GitHub Test")
+	integ := h.createNangoIntegration(t, org, "Identity Test")
 
 	// Create identity first
 	identBody := `{"external_id":"user-456","meta":{"name":"Test User"}}`
@@ -173,8 +266,19 @@ func TestE2E_Connection_WithIdentity(t *testing.T) {
 	json.NewDecoder(rr.Body).Decode(&identResp)
 	identID := identResp["id"].(string)
 
-	// Create connection with identity
-	body := fmt.Sprintf(`{"nango_connection_id":"nango-gh-789","identity_id":%q}`, identID)
+	// Create real Nango connection first
+	nangoProviderConfigKey := fmt.Sprintf("%s_%s", org.ID.String(), integ.UniqueKey)
+	nangoConnID := fmt.Sprintf("test-conn-%s", uuid.New().String()[:8])
+	if err := h.nangoClient.CreateConnection(context.Background(), nango.CreateConnectionRequest{
+		ProviderConfigKey: nangoProviderConfigKey,
+		ConnectionID:      nangoConnID,
+		APIKey:            "test-api-key-e2e",
+	}); err != nil {
+		t.Fatalf("create Nango connection: %v", err)
+	}
+
+	// Create connection with identity via management API
+	body := fmt.Sprintf(`{"nango_connection_id":%q,"identity_id":%q}`, nangoConnID, identID)
 	req = httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integ.ID.String()+"/connections", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = middleware.WithOrg(req, &org)
@@ -199,8 +303,8 @@ func TestE2E_Connection_TenantIsolation(t *testing.T) {
 	org1 := h.createOrg(t)
 	org2 := h.createOrg(t)
 
-	integ := h.createIntegration(t, org1, "slack", "Org1 Slack")
-	connID := h.createConnection(t, org1, integ.ID, "nango-isolated")
+	integ := h.createNangoIntegration(t, org1, "Org1 Isolation")
+	connID := h.createNangoConnection(t, org1, integ)
 
 	// org2 should NOT see the connection via GET
 	req := httptest.NewRequest(http.MethodGet, "/v1/connections/"+connID, nil)
@@ -228,9 +332,9 @@ func TestE2E_Connection_TenantIsolation(t *testing.T) {
 func TestE2E_Connection_DeletedIntegration(t *testing.T) {
 	h := newHarness(t)
 	org := h.createOrg(t)
-	integ := h.createIntegration(t, org, "slack", "Slack Soon Deleted")
+	integ := h.createNangoIntegration(t, org, "Soon Deleted")
 
-	// Soft-delete the integration
+	// Soft-delete the integration locally (keep in Nango)
 	h.db.Model(&integ).Update("deleted_at", "2026-01-01")
 
 	// Attempt to create connection on deleted integration
@@ -254,9 +358,9 @@ func TestE2E_ScopedToken_ValidScopes(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	// Create integration and connection (Slack — has curated actions)
-	integ := h.createIntegration(t, org, "slack", "Slack Scoped")
-	connID := h.createConnection(t, org, integ.ID, "nango-scoped-1")
+	// Create integration (Slack — has curated actions) and local connection
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Scoped")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-scoped-1")
 
 	// Mint token with valid scopes
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["list_channels","read_messages"],"resources":{"channel":["C123","C456"]}}]`, connID)
@@ -301,19 +405,19 @@ func TestE2E_ScopedToken_MultipleConnections(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	// Create Slack integration + connection
-	slackInteg := h.createIntegration(t, org, "slack", "Slack Multi")
-	slackConnID := h.createConnection(t, org, slackInteg.ID, "nango-slack-multi")
+	// Create Slack integration + local connection
+	slackInteg := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Multi")
+	slackConnID := h.createLocalConnection(t, org, slackInteg.ID, "nango-slack-multi")
 
-	// Create GitHub integration + connection
-	githubInteg := h.createIntegration(t, org, "github", "GitHub Multi")
-	githubConnID := h.createConnection(t, org, githubInteg.ID, "nango-github-multi")
+	// Create Notion integration + local connection (OAUTH2, has catalog actions)
+	notionInteg := h.createNangoIntegrationForProvider(t, org, "notion", "Notion Multi")
+	notionConnID := h.createLocalConnection(t, org, notionInteg.ID, "nango-notion-multi")
 
 	// Mint with both scopes
 	scopesJSON := fmt.Sprintf(`[
 		{"connection_id":%q,"actions":["list_channels","send_message"],"resources":{"channel":["C001"]}},
-		{"connection_id":%q,"actions":["list_repos","list_issues"],"resources":{"repo":["org/repo-a"]}}
-	]`, slackConnID, githubConnID)
+		{"connection_id":%q,"actions":["search","get_page"]}
+	]`, slackConnID, notionConnID)
 
 	rr := h.mintScopedToken(t, org, cred.ID, scopesJSON)
 	if rr.Code != http.StatusCreated {
@@ -344,8 +448,8 @@ func TestE2E_ScopedToken_InvalidAction(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Invalid Action")
-	connID := h.createConnection(t, org, integ.ID, "nango-invalid-action")
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Invalid Action")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-invalid-action")
 
 	// Mint with nonexistent action
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["nonexistent_action"]}]`, connID)
@@ -370,8 +474,8 @@ func TestE2E_ScopedToken_WildcardRejected(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Wildcard")
-	connID := h.createConnection(t, org, integ.ID, "nango-wildcard")
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Wildcard")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-wildcard")
 
 	// Mint with wildcard — must be rejected
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["*"]}]`, connID)
@@ -419,10 +523,10 @@ func TestE2E_ScopedToken_RevokedConnection(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Revoked Conn")
-	connID := h.createConnection(t, org, integ.ID, "nango-revoked")
+	integ := h.createNangoIntegration(t, org, "Revoked Conn")
+	connID := h.createNangoConnection(t, org, integ)
 
-	// Revoke the connection
+	// Revoke the connection (also deletes from Nango)
 	req := httptest.NewRequest(http.MethodDelete, "/v1/connections/"+connID, nil)
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
@@ -451,8 +555,8 @@ func TestE2E_ScopedToken_CrossOrgConnection(t *testing.T) {
 	cred := h.storeCredential(t, org2, "https://api.example.com", "bearer", "sk-fake-key")
 
 	// Create connection in org1
-	integ := h.createIntegration(t, org1, "slack", "Slack Org1")
-	connID := h.createConnection(t, org1, integ.ID, "nango-crossorg")
+	integ := h.createNangoIntegrationForProvider(t, org1, "slack", "Slack Org1")
+	connID := h.createLocalConnection(t, org1, integ.ID, "nango-crossorg")
 
 	// Try to mint in org2 using org1's connection
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["list_channels"]}]`, connID)
@@ -471,8 +575,8 @@ func TestE2E_ScopedToken_InvalidResourceType(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Bad Resource")
-	connID := h.createConnection(t, org, integ.ID, "nango-bad-resource")
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Bad Resource")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-bad-resource")
 
 	// list_channels has resource_type="" — providing a "repo" resource is invalid
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["list_channels"],"resources":{"repo":["org/repo"]}}]`, connID)
@@ -497,8 +601,8 @@ func TestE2E_ScopedToken_ValidResourceScoping(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Resource Scope")
-	connID := h.createConnection(t, org, integ.ID, "nango-resource-scope")
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Resource Scope")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-resource-scope")
 
 	// read_messages has resource_type="channel" — providing channel resources is valid
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["read_messages"],"resources":{"channel":["C001","C002"]}}]`, connID)
@@ -555,8 +659,8 @@ func TestE2E_ScopedToken_EmptyActions(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Empty Actions")
-	connID := h.createConnection(t, org, integ.ID, "nango-empty-actions")
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Empty Actions")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-empty-actions")
 
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":[]}]`, connID)
 	rr := h.mintScopedToken(t, org, cred.ID, scopesJSON)
@@ -574,9 +678,9 @@ func TestE2E_ScopedToken_ProviderWithNoActions(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	// asana has no actions defined in the catalog
-	integ := h.createIntegration(t, org, "asana", "Asana No Actions")
-	connID := h.createConnection(t, org, integ.ID, "nango-asana")
+	// asana has no actions defined in the catalog — use API_KEY provider
+	integ := h.createNangoIntegration(t, org, "Asana No Actions")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-asana")
 
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["list_tasks"]}]`, connID)
 	rr := h.mintScopedToken(t, org, cred.ID, scopesJSON)
@@ -594,8 +698,8 @@ func TestE2E_ScopedToken_DeletedIntegration(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Deleted Integ")
-	connID := h.createConnection(t, org, integ.ID, "nango-deleted-integ")
+	integ := h.createNangoIntegration(t, org, "Deleted Integ")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-deleted-integ")
 
 	// Soft-delete the integration
 	h.db.Model(&integ).Update("deleted_at", "2026-01-01")
@@ -692,19 +796,19 @@ func TestE2E_ScopedToken_ScopeHashDeterminism(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.example.com", "bearer", "sk-fake-key")
 
-	integ := h.createIntegration(t, org, "slack", "Slack Determinism")
-	connID := h.createConnection(t, org, integ.ID, "nango-determinism")
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Slack Determinism")
+	connID := h.createLocalConnection(t, org, integ.ID, "nango-determinism")
 
 	scopesJSON := fmt.Sprintf(`[{"connection_id":%q,"actions":["list_channels","read_messages"],"resources":{"channel":["C001"]}}]`, connID)
 
 	// Mint twice with identical scopes
 	rr1 := h.mintScopedToken(t, org, cred.ID, scopesJSON)
 	if rr1.Code != http.StatusCreated {
-		t.Fatalf("mint 1: expected 201, got %d", rr1.Code)
+		t.Fatalf("mint 1: expected 201, got %d: %s", rr1.Code, rr1.Body.String())
 	}
 	rr2 := h.mintScopedToken(t, org, cred.ID, scopesJSON)
 	if rr2.Code != http.StatusCreated {
-		t.Fatalf("mint 2: expected 201, got %d", rr2.Code)
+		t.Fatalf("mint 2: expected 201, got %d: %s", rr2.Code, rr2.Body.String())
 	}
 
 	// Extract scope hashes
@@ -746,12 +850,12 @@ func TestE2E_ScopedToken_MissingConnectionID(t *testing.T) {
 func TestE2E_Connection_MultiplePerIntegration(t *testing.T) {
 	h := newHarness(t)
 	org := h.createOrg(t)
-	integ := h.createIntegration(t, org, "slack", "Slack Multi Conn")
+	integ := h.createNangoIntegration(t, org, "Multi Conn")
 
-	// Create 3 connections
+	// Create 3 real Nango connections
 	var connIDs []string
 	for i := 0; i < 3; i++ {
-		connID := h.createConnection(t, org, integ.ID, fmt.Sprintf("nango-multi-%d", i))
+		connID := h.createNangoConnection(t, org, integ)
 		connIDs = append(connIDs, connID)
 	}
 

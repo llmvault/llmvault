@@ -121,9 +121,9 @@ func nangoKey(orgID uuid.UUID, uniqueKey string) string {
 }
 
 // validateCredentials validates the credentials object against the provider's auth_mode.
-// When isUpdate is true, only the type field is required — all other fields are optional
-// (Nango's PATCH accepts partial credential updates).
-func validateCredentials(provider nango.Provider, creds *nango.Credentials, isUpdate bool) error {
+// Both create and update require all mandatory fields — Nango does not support partial
+// credential updates.
+func validateCredentials(provider nango.Provider, creds *nango.Credentials) error {
 	mode := provider.AuthMode
 
 	switch mode {
@@ -134,13 +134,11 @@ func validateCredentials(provider nango.Provider, creds *nango.Credentials, isUp
 		if creds.Type != mode {
 			return fmt.Errorf("credentials.type must be %q for provider %q", mode, provider.Name)
 		}
-		if !isUpdate {
-			if creds.ClientID == "" {
-				return fmt.Errorf("client_id is required for %s auth mode", mode)
-			}
-			if creds.ClientSecret == "" {
-				return fmt.Errorf("client_secret is required for %s auth mode", mode)
-			}
+		if creds.ClientID == "" {
+			return fmt.Errorf("client_id is required for %s auth mode", mode)
+		}
+		if creds.ClientSecret == "" {
+			return fmt.Errorf("client_secret is required for %s auth mode", mode)
 		}
 
 	case "APP":
@@ -150,16 +148,14 @@ func validateCredentials(provider nango.Provider, creds *nango.Credentials, isUp
 		if creds.Type != "APP" {
 			return fmt.Errorf("credentials.type must be \"APP\" for provider %q", provider.Name)
 		}
-		if !isUpdate {
-			if creds.AppID == "" {
-				return fmt.Errorf("app_id is required for APP auth mode")
-			}
-			if creds.AppLink == "" {
-				return fmt.Errorf("app_link is required for APP auth mode")
-			}
-			if creds.PrivateKey == "" {
-				return fmt.Errorf("private_key is required for APP auth mode")
-			}
+		if creds.AppID == "" {
+			return fmt.Errorf("app_id is required for APP auth mode")
+		}
+		if creds.AppLink == "" {
+			return fmt.Errorf("app_link is required for APP auth mode")
+		}
+		if creds.PrivateKey == "" {
+			return fmt.Errorf("private_key is required for APP auth mode")
 		}
 
 	case "CUSTOM":
@@ -169,10 +165,8 @@ func validateCredentials(provider nango.Provider, creds *nango.Credentials, isUp
 		if creds.Type != "CUSTOM" {
 			return fmt.Errorf("credentials.type must be \"CUSTOM\" for provider %q", provider.Name)
 		}
-		if !isUpdate {
-			if creds.ClientID == "" || creds.ClientSecret == "" || creds.AppID == "" || creds.AppLink == "" || creds.PrivateKey == "" {
-				return fmt.Errorf("client_id, client_secret, app_id, app_link, and private_key are all required for CUSTOM auth mode")
-			}
+		if creds.ClientID == "" || creds.ClientSecret == "" || creds.AppID == "" || creds.AppLink == "" || creds.PrivateKey == "" {
+			return fmt.Errorf("client_id, client_secret, app_id, app_link, and private_key are all required for CUSTOM auth mode")
 		}
 
 	case "MCP_OAUTH2":
@@ -182,7 +176,7 @@ func validateCredentials(provider nango.Provider, creds *nango.Credentials, isUp
 		if creds.Type != "MCP_OAUTH2" {
 			return fmt.Errorf("credentials.type must be \"MCP_OAUTH2\" for provider %q", provider.Name)
 		}
-		if !isUpdate && provider.ClientRegistration == "static" {
+		if provider.ClientRegistration == "static" {
 			if creds.ClientID == "" {
 				return fmt.Errorf("client_id is required for MCP_OAUTH2 with static client registration")
 			}
@@ -204,7 +198,7 @@ func validateCredentials(provider nango.Provider, creds *nango.Credentials, isUp
 		if creds.Type != "INSTALL_PLUGIN" {
 			return fmt.Errorf("credentials.type must be \"INSTALL_PLUGIN\" for provider %q", provider.Name)
 		}
-		if !isUpdate && creds.AppLink == "" {
+		if creds.AppLink == "" {
 			return fmt.Errorf("app_link is required for INSTALL_PLUGIN auth mode")
 		}
 
@@ -269,7 +263,7 @@ func (h *IntegrationHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate credentials against provider's auth_mode
-	if err := validateCredentials(provider, req.Credentials, false); err != nil {
+	if err := validateCredentials(provider, req.Credentials); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
@@ -521,7 +515,7 @@ func (h *IntegrationHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("unknown provider %q", integ.Provider)})
 			return
 		}
-		if err := validateCredentials(provider, req.Credentials, true); err != nil {
+		if err := validateCredentials(provider, req.Credentials); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}

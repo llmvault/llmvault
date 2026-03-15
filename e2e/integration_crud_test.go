@@ -653,7 +653,7 @@ func TestE2E_Integration_ListProviders(t *testing.T) {
 
 	// 2. Widget API route: GET /v1/widget/integrations/providers (session-authenticated)
 	//    Create a connect session to authenticate
-	integ := h.createIntegration(t, org, "slack", "Widget Provider Test")
+	integ := h.createNangoIntegrationForProvider(t, org, "slack", "Widget Provider Test")
 	sessionBody := fmt.Sprintf(`{"integration_id":%q,"external_id":"widget-test-user"}`, integ.ID.String())
 	req = httptest.NewRequest(http.MethodPost, "/v1/connect/sessions", strings.NewReader(sessionBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -1268,6 +1268,49 @@ func TestE2E_Integration_GetIntegration_NangoResponse(t *testing.T) {
 
 	t.Logf("Nango GetIntegration data keys: %v", mapKeys(data))
 	t.Logf("Nango credentials keys: %v", mapKeys(creds))
+}
+
+// --------------------------------------------------------------------------
+// E2E: Partial credential update is rejected (Nango requires all fields)
+// --------------------------------------------------------------------------
+
+func TestE2E_Integration_PartialCredentialUpdate_Rejected(t *testing.T) {
+	h := newHarness(t)
+	org := h.createOrg(t)
+
+	// 1. Create OAUTH2 integration with full credentials
+	body := `{"provider":"slack","display_name":"Partial Cred Test","credentials":{"type":"OAUTH2","client_id":"full-id","client_secret":"full-secret","scopes":"channels:read"}}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/integrations", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create: expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var createResp map[string]any
+	json.NewDecoder(rr.Body).Decode(&createResp)
+	integID := createResp["id"].(string)
+
+	// 2. Try partial credential update — only scopes, no client_id/client_secret
+	updateBody := `{"credentials":{"type":"OAUTH2","scopes":"new-scope"}}`
+	req = httptest.NewRequest(http.MethodPut, "/v1/integrations/"+integID, strings.NewReader(updateBody))
+	req.Header.Set("Content-Type", "application/json")
+	req = middleware.WithOrg(req, &org)
+	rr = httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("partial credential update: expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var errResp map[string]string
+	json.NewDecoder(rr.Body).Decode(&errResp)
+	if errResp["error"] != "client_id is required for OAUTH2 auth mode" {
+		t.Fatalf("expected client_id required error, got: %s", errResp["error"])
+	}
 }
 
 func mapKeys(m map[string]any) []string {

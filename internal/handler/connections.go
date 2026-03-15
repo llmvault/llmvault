@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -11,16 +13,18 @@ import (
 
 	"github.com/llmvault/llmvault/internal/middleware"
 	"github.com/llmvault/llmvault/internal/model"
+	"github.com/llmvault/llmvault/internal/nango"
 )
 
 // ConnectionHandler manages connection CRUD operations.
 type ConnectionHandler struct {
-	db *gorm.DB
+	db    *gorm.DB
+	nango *nango.Client
 }
 
 // NewConnectionHandler creates a new connection handler.
-func NewConnectionHandler(db *gorm.DB) *ConnectionHandler {
-	return &ConnectionHandler{db: db}
+func NewConnectionHandler(db *gorm.DB, nangoClient *nango.Client) *ConnectionHandler {
+	return &ConnectionHandler{db: db, nango: nangoClient}
 }
 
 type integConnCreateRequest struct {
@@ -303,9 +307,30 @@ func (h *ConnectionHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch connection with its integration to get Nango IDs
+	var conn model.Connection
+	if err := h.db.Preload("Integration").
+		Where("id = ? AND org_id = ? AND revoked_at IS NULL", connID, org.ID).
+		First(&conn).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "connection not found or already revoked"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to revoke connection"})
+		return
+	}
+
+	// Delete from Nango (best-effort: log error but proceed with local revoke)
+	nangoProviderConfigKey := fmt.Sprintf("%s_%s", org.ID.String(), conn.Integration.UniqueKey)
+	if err := h.nango.DeleteConnection(r.Context(), conn.NangoConnectionID, nangoProviderConfigKey); err != nil {
+		slog.Error("nango: delete connection failed, proceeding with local revocation",
+			"error", err, "connection_id", connID, "nango_connection_id", conn.NangoConnectionID)
+	}
+
+	// Soft-delete locally
 	now := time.Now()
 	result := h.db.Model(&model.Connection{}).
-		Where("id = ? AND org_id = ? AND revoked_at IS NULL", connID, org.ID).
+		Where("id = ? AND revoked_at IS NULL", connID).
 		Update("revoked_at", &now)
 
 	if result.Error != nil {
