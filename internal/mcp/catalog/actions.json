@@ -69,15 +69,13 @@
         "id_field": "full_name",
         "name_field": "name",
         "icon": "repo",
-        "list_action": "/user/repos",
+        "list_action": "/installation/repositories",
         "request_config": {
           "method": "GET",
           "query_params": {
-            "sort": "updated",
-            "direction": "desc",
             "per_page": "100"
           },
-          "response_path": ""
+          "response_path": "repositories"
         }
       }
     },
