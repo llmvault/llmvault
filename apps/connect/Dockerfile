@@ -10,6 +10,10 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Accept API URLs as build args (Vite embeds these at build time)
+ARG VITE_API_URL
+ARG VITE_INTEGRATIONS_API
+
 # Build the app (production mode by default)
 RUN npm run build
 
