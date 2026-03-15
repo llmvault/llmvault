@@ -46,7 +46,7 @@ func ConnectCORS() func(http.Handler) http.Handler {
 			sess, ok := ConnectSessionFromContext(r.Context())
 			if ok && containsOrigin(sess.AllowedOrigins, origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 				w.Header().Set("Access-Control-Max-Age", "300")
 				w.Header().Set("Vary", "Origin")
