@@ -151,8 +151,11 @@ func (d *Discovery) Discover(
 		return nil, fmt.Errorf("discovery request failed: %w", err)
 	}
 
-	logger.Info("nango proxy request successful",
+	// Dump the full Nango response for debugging
+	respJSON, _ := json.MarshalIndent(resp, "", "  ")
+	logger.Info("nango proxy response dump",
 		"response_keys", getMapKeys(resp),
+		"response_body", string(respJSON),
 	)
 
 	// Extract the data array from response
