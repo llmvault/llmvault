@@ -60,7 +60,7 @@
       }
     }
   },
-  "github": {
+  "github-app": {
     "display_name": "GitHub",
     "resources": {
       "repo": {
