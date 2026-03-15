@@ -4,6 +4,8 @@ export type Connection = components['schemas']['connectionResponse']
 
 export type IntegrationProvider = components['schemas']['widgetIntegrationResponse']
 
+export type IntegrationResource = components['schemas']['widgetResourceResponse']
+
 export type AvailableResource = components['schemas']['github_com_llmvault_llmvault_internal_resources.AvailableResource']
 
 export type DiscoveryResult = components['schemas']['github_com_llmvault_llmvault_internal_resources.DiscoveryResult']

@@ -3788,6 +3788,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "nango_connection_id": {
+                    "type": "string"
+                },
                 "provider": {
                     "type": "string"
                 },

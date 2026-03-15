@@ -528,12 +528,13 @@ type widgetResourceResponse struct {
 }
 
 type widgetIntegrationResponse struct {
-	ID           string                   `json:"id"`
-	Provider     string                   `json:"provider"`
-	DisplayName  string                   `json:"display_name"`
-	AuthMode     string                   `json:"auth_mode"`
-	ConnectionID *string                  `json:"connection_id"`
-	Resources    []widgetResourceResponse `json:"resources"`
+	ID                string                   `json:"id"`
+	Provider          string                   `json:"provider"`
+	DisplayName       string                   `json:"display_name"`
+	AuthMode          string                   `json:"auth_mode"`
+	ConnectionID      *string                  `json:"connection_id"`
+	NangoConnectionID *string                  `json:"nango_connection_id,omitempty"`
+	Resources         []widgetResourceResponse `json:"resources"`
 }
 
 // ListIntegrations handles GET /v1/widget/integrations.
@@ -560,13 +561,13 @@ func (h *ConnectAPIHandler) ListIntegrations(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Build a map of integration_id → connection_id for the current identity
-	connectionMap := make(map[uuid.UUID]string)
+	// Build a map of integration_id → connection for the current identity
+	connectionMap := make(map[uuid.UUID]model.Connection)
 	if sess.IdentityID != nil {
 		var conns []model.Connection
 		if err := h.db.Where("org_id = ? AND identity_id = ? AND revoked_at IS NULL", org.ID, *sess.IdentityID).Find(&conns).Error; err == nil {
 			for _, c := range conns {
-				connectionMap[c.IntegrationID] = c.ID.String()
+				connectionMap[c.IntegrationID] = c
 			}
 		}
 	}
@@ -584,8 +585,10 @@ func (h *ConnectAPIHandler) ListIntegrations(w http.ResponseWriter, r *http.Requ
 			AuthMode:    authMode,
 			Resources:   []widgetResourceResponse{},
 		}
-		if connID, ok := connectionMap[integ.ID]; ok {
+		if conn, ok := connectionMap[integ.ID]; ok {
+			connID := conn.ID.String()
 			item.ConnectionID = &connID
+			item.NangoConnectionID = &conn.NangoConnectionID
 		}
 
 		// Add resource configurations from catalog

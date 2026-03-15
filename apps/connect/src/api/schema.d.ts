@@ -3532,6 +3532,7 @@ export interface components {
             connection_id?: string;
             display_name?: string;
             id?: string;
+            nango_connection_id?: string;
             provider?: string;
             resources?: components["schemas"]["widgetResourceResponse"][];
         };
