@@ -26,6 +26,9 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Limit worker processes — auto spawns one per CPU core, wasteful for a static SPA
+RUN sed -i 's/worker_processes\s*auto;/worker_processes 2;/' /etc/nginx/nginx.conf
+
 # Expose port 80
 EXPOSE 80
 
