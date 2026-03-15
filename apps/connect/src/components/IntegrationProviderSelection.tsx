@@ -212,11 +212,16 @@ export function IntegrationProviderSelection({ onSelect, onViewDetail, onBack, o
                     <IntegrationProviderLogo providerName={p.provider ?? ''} size="cw-mobile:size-10 cw-desktop:size-9" />
                     <div className="flex flex-col grow shrink basis-0 gap-0.5">
                       <div className="text-[15px] text-cw-heading font-semibold leading-4.5">{p.display_name || p.provider}</div>
-                      <div className="text-xs text-cw-secondary leading-4">
-                        {connected ? 'Connected' : formatAuthMode(p.auth_mode ?? '')}
-                      </div>
+                      {connected ? (
+                        <div className="flex items-center gap-1.25">
+                          <div className="rounded-full bg-cw-success shrink-0 size-1.5" />
+                          <div className="text-xs text-cw-success leading-4">Connected</div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-cw-secondary leading-4">{formatAuthMode(p.auth_mode ?? '')}</div>
+                      )}
                     </div>
-                    {connected ? <CheckIcon size={20} /> : <ChevronRightIcon />}
+                    <ChevronRightIcon />
                   </button>
                 )
               })}

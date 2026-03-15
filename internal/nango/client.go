@@ -435,7 +435,9 @@ func (c *Client) ProxyRequestWithHeaders(ctx context.Context, method, providerCo
 		return nil, fmt.Errorf("nango proxy error %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	logger.Info("provider API request successful")
+	logger.Info("provider API request successful",
+		"response_body", truncate(string(respBody), 5000),
+	)
 
 	if len(respBody) == 0 {
 		logger.Debug("empty response body")
