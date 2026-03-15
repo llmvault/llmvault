@@ -152,7 +152,7 @@ func TestValidateCredentials_OAUTH2_AllowsWebhookSecret(t *testing.T) {
 		WebhookSecret: "user-webhook-secret",
 	}
 
-	err := validateCredentials(provider, creds)
+	err := validateCredentials(provider, creds, false)
 	if err != nil {
 		t.Fatalf("OAUTH2 with webhook_secret should pass validation, got: %v", err)
 	}
@@ -166,9 +166,30 @@ func TestValidateCredentials_OAUTH2_WithoutWebhookSecret(t *testing.T) {
 		ClientSecret: "secret",
 	}
 
-	err := validateCredentials(provider, creds)
+	err := validateCredentials(provider, creds, false)
 	if err != nil {
 		t.Fatalf("OAUTH2 without webhook_secret should pass validation, got: %v", err)
+	}
+}
+
+func TestValidateCredentials_OAUTH2_PartialUpdate(t *testing.T) {
+	provider := nango.Provider{Name: "slack", AuthMode: "OAUTH2"}
+
+	// Update with only scopes — no client_id/client_secret
+	creds := &nango.Credentials{
+		Type:   "OAUTH2",
+		Scopes: "channels:read,chat:write",
+	}
+
+	err := validateCredentials(provider, creds, true)
+	if err != nil {
+		t.Fatalf("partial OAUTH2 update should pass, got: %v", err)
+	}
+
+	// Create with only scopes — should fail
+	err = validateCredentials(provider, creds, false)
+	if err == nil {
+		t.Fatal("OAUTH2 create without client_id should fail")
 	}
 }
 
