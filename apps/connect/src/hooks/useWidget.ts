@@ -9,6 +9,7 @@ type Action =
   | { type: 'INTEGRATION_REQUIRES_RESOURCE_SELECTION'; connectionId: string; nangoConnectionId: string }
   | { type: 'RESOURCE_SELECTION_COMPLETE' }
   | { type: 'RESOURCE_SELECTION_SKIP' }
+  | { type: 'SELECT_RESOURCE_TYPE'; resourceType: string }
   | { type: 'SUBMIT_KEY' }
   | { type: 'CONNECTION_SUCCESS' }
   | { type: 'CONNECTION_ERROR' }
@@ -100,6 +101,20 @@ function reducer(state: State, action: Action): State {
       const c = state.current
       if (c.type !== 'integration-resource-selection') return state
       return reset({ type: 'integration-success', integration: c.integration })
+    }
+    case 'SELECT_RESOURCE_TYPE': {
+      const c = state.current
+      if (c.type !== 'integration-detail') return state
+      // Navigate to resource selection for the selected resource type
+      // Requires connection_id and nango_connection_id from the integration
+      const integration = c.integration
+      if (!integration.connection_id || !integration.nango_connection_id) return state
+      return push({
+        type: 'integration-resource-selection',
+        integration: integration,
+        connectionId: integration.connection_id,
+        nangoConnectionId: integration.nango_connection_id,
+      })
     }
     case 'SUBMIT_KEY': {
       const c = state.current

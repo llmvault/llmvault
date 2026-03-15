@@ -30,7 +30,6 @@ export function ConnectedList({ onViewDetail, onConnectNew, onClose }: Props) {
         <ConnectionsEmpty onConnectNew={onConnectNew} />
       ) : (
         <>
-          {/* Connection cards */}
           <div className={`flex flex-col mt-6 min-h-0 overflow-y-auto ${isDark ? 'gap-3' : 'gap-2.5'}`}>
             {connections.map((conn) => (
               <ConnectionCard
@@ -42,7 +41,6 @@ export function ConnectedList({ onViewDetail, onConnectNew, onClose }: Props) {
             ))}
           </div>
 
-          {/* Add button */}
           <Button onClick={onConnectNew} className="mt-auto shrink-0 gap-2">
             <PlusIcon />
             Connect new provider

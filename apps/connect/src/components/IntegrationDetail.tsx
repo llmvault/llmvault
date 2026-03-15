@@ -1,9 +1,9 @@
-import type { IntegrationProvider } from '../types'
+import type { IntegrationProvider, IntegrationResource } from '../types'
 import { Button } from './Button'
 import { Footer } from './Footer'
 import { IntegrationProviderLogo } from './IntegrationProviderLogo'
 import { IconButton } from './IconButton'
-import { BackIcon, CloseIcon } from './icons'
+import { BackIcon, CloseIcon, ChevronRightIcon } from './icons'
 
 function formatAuthMode(mode: string): string {
   switch (mode) {
@@ -29,10 +29,12 @@ interface Props {
   onDisconnect: () => void
   onBack: () => void
   onClose: () => void
+  onSelectResource?: (resource: IntegrationResource) => void
 }
 
-export function IntegrationDetail({ integration, onDisconnect, onBack, onClose }: Props) {
+export function IntegrationDetail({ integration, onDisconnect, onBack, onClose, onSelectResource }: Props) {
   const name = integration.display_name || integration.provider || ''
+  const resources = integration.resources ?? []
 
   const rows = [
     { label: 'Provider', value: integration.provider ?? '—' },
@@ -40,7 +42,8 @@ export function IntegrationDetail({ integration, onDisconnect, onBack, onClose }
   ]
 
   return (
-    <div className="flex flex-col h-full pb-8">
+    <div className="flex flex-col h-full">
+      {/* Header */}
       <div className="flex items-center shrink-0 gap-3">
         <IconButton onClick={onBack}>
           <BackIcon />
@@ -58,29 +61,79 @@ export function IntegrationDetail({ integration, onDisconnect, onBack, onClose }
         </IconButton>
       </div>
 
-      <div className="flex flex-col mt-7">
-        {rows.map((row, i) => (
-          <div
-            key={row.label}
-            className={`flex justify-between py-3.5 ${
-              i < rows.length - 1 ? 'border-b border-b-solid border-b-cw-divider' : ''
-            }`}
-          >
-            <div className="text-[13px] text-cw-secondary leading-4">{row.label}</div>
-            <div className="text-[13px] text-cw-heading font-medium leading-4">{row.value}</div>
+      {/* Scrollable content */}
+      <div className="flex flex-col grow overflow-y-auto -mx-4 px-4">
+        {/* Provider info section */}
+        <div className="flex flex-col mt-7">
+          {rows.map((row, i) => (
+            <div
+              key={row.label}
+              className={`flex justify-between py-3.5 ${
+                i < rows.length - 1 ? 'border-b border-b-solid border-b-cw-divider' : ''
+              }`}
+            >
+              <div className="text-[13px] text-cw-secondary leading-4">{row.label}</div>
+              <div className="text-[13px] text-cw-heading font-medium leading-4">{row.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Granular permissions section */}
+        {resources.length > 0 && (
+          <div className="flex flex-col mt-8">
+            <div className="text-2xs tracking-wider uppercase mb-3 text-cw-secondary font-semibold leading-3.5">
+              Granular permissions
+            </div>
+            <div className="flex flex-col gap-2">
+              {resources.map((resource) => (
+                <button
+                  key={resource.type}
+                  onClick={() => onSelectResource?.(resource)}
+                  className="flex items-center gap-3 p-3 bg-cw-surface rounded-xl border border-solid border-cw-border hover:border-cw-placeholder transition-colors text-left cursor-pointer"
+                >
+                  {resource.icon ? (
+                    <img 
+                      src={resource.icon} 
+                      alt={resource.display_name || resource.type}
+                      className="size-10 rounded-lg object-contain bg-white p-1"
+                    />
+                  ) : (
+                    <div className="size-10 rounded-lg bg-cw-surface border border-solid border-cw-border flex items-center justify-center">
+                      <span className="text-lg">📁</span>
+                    </div>
+                  )}
+                  <div className="flex flex-col grow gap-0.5">
+                    <div className="text-sm text-cw-heading font-medium leading-4.5">
+                      {resource.display_name || resource.type}
+                    </div>
+                    {resource.description && (
+                      <div className="text-xs text-cw-secondary leading-4">
+                        {resource.description}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRightIcon className="text-cw-secondary shrink-0" />
+                </button>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
+
+        {/* Spacer to push footer content down */}
+        <div className="grow min-h-8" />
+
+        {/* Footer and disconnect button container */}
+        <div className="flex flex-col gap-4 pt-4 pb-8">
+          <Button
+            variant="danger"
+            onClick={onDisconnect}
+            className="w-full bg-cw-error-bg border border-solid border-cw-error-bg text-cw-error hover:bg-cw-error-bg hover:opacity-80"
+          >
+            Disconnect
+          </Button>
+          <Footer />
+        </div>
       </div>
-
-      <Button
-        variant="danger"
-        onClick={onDisconnect}
-        className="mt-6 bg-cw-error-bg border border-solid border-cw-error-bg text-cw-error hover:bg-cw-error-bg hover:opacity-80"
-      >
-        Disconnect
-      </Button>
-
-      <Footer />
     </div>
   )
 }

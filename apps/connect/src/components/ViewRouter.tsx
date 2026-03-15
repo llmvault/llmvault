@@ -155,6 +155,7 @@ export function ViewRouter({ view, canGoBack, navigate, onClose }: Props) {
           onDisconnect={() => navigate({ type: 'DISCONNECT_INTEGRATION', integration: view.integration })}
           onBack={() => navigate({ type: 'BACK' })}
           onClose={onClose}
+          onSelectResource={(resource) => navigate({ type: 'SELECT_RESOURCE_TYPE', resourceType: resource.type ?? '' })}
         />
       )
     case 'integration-disconnect-confirm':
