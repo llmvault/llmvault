@@ -31,7 +31,19 @@ export function IntegrationResourceSelection({
   onClose,
 }: Props) {
   const resourceTypes = integration.resources ?? []
-  const [selectedResources, setSelectedResources] = useState<Record<string, string[]>>({})
+  const [selectedResources, setSelectedResources] = useState<Record<string, string[]>>(
+    () => {
+      const initial: Record<string, string[]> = {}
+      if (integration.selected_resources) {
+        for (const [key, ids] of Object.entries(integration.selected_resources)) {
+          if (Array.isArray(ids)) {
+            initial[key] = [...ids]
+          }
+        }
+      }
+      return initial
+    }
+  )
   const [activeResourceType, setActiveResourceType] = useState<string>(resourceTypes[0]?.type ?? '')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -239,7 +251,7 @@ export function IntegrationResourceSelection({
               disabled={updateMutation.isPending}
               className="w-full py-2 text-sm text-cw-secondary hover:text-cw-heading transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
-              Skip (Full Access)
+              Skip
             </button>
           </div>
 

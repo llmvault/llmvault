@@ -914,3 +914,100 @@ func TestE2E_Widget_DeleteIntegrationConnection_AllowsReconnect(t *testing.T) {
 		t.Fatalf("expected 201 after disconnect, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
+
+// --------------------------------------------------------------------------
+// E2E: Widget ListIntegrations — selected_resources returned from connection meta
+// --------------------------------------------------------------------------
+
+func TestE2E_Widget_ListIntegrations_SelectedResources(t *testing.T) {
+	h := newHarness(t)
+	org := h.createOrg(t)
+	token, _ := h.createConnectSession(t, org, `{"external_id":"u1","ttl":"15m"}`)
+
+	integ := h.createIntegration(t, org, "slack", "Slack")
+
+	// Before connection: selected_resources should be absent
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/integrations", token, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var list []map[string]any
+	json.NewDecoder(rr.Body).Decode(&list)
+	if len(list) != 1 {
+		t.Fatalf("expected 1 integration, got %d", len(list))
+	}
+	if list[0]["selected_resources"] != nil {
+		t.Errorf("expected selected_resources to be absent before connecting, got %v", list[0]["selected_resources"])
+	}
+
+	// Create a connection
+	body := `{"nango_connection_id":"nango-conn-selres"}`
+	rr = h.connectRequest(t, http.MethodPost,
+		"/v1/widget/integrations/"+integ.ID.String()+"/connections",
+		token, strings.NewReader(body))
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var connResp map[string]any
+	json.NewDecoder(rr.Body).Decode(&connResp)
+	connID := connResp["id"].(string)
+
+	// After connection but before resource selection: selected_resources should be absent
+	rr = h.connectRequest(t, http.MethodGet, "/v1/widget/integrations", token, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	json.NewDecoder(rr.Body).Decode(&list)
+	if list[0]["selected_resources"] != nil {
+		t.Errorf("expected selected_resources to be absent before selecting, got %v", list[0]["selected_resources"])
+	}
+
+	// PATCH to set selected resources
+	patchBody := `{"resources":{"channel":["C111","C222"],"user":["U333"]}}`
+	rr = h.connectRequest(t, http.MethodPatch,
+		"/v1/widget/integrations/"+integ.ID.String()+"/connections/"+connID,
+		token, strings.NewReader(patchBody))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 from PATCH, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// After PATCH: selected_resources should be populated
+	rr = h.connectRequest(t, http.MethodGet, "/v1/widget/integrations", token, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	json.NewDecoder(rr.Body).Decode(&list)
+	if len(list) != 1 {
+		t.Fatalf("expected 1 integration, got %d", len(list))
+	}
+
+	selRes, ok := list[0]["selected_resources"].(map[string]any)
+	if !ok || selRes == nil {
+		t.Fatalf("expected selected_resources to be a map, got %v (%T)", list[0]["selected_resources"], list[0]["selected_resources"])
+	}
+
+	// Verify channel resources
+	channels, ok := selRes["channel"].([]any)
+	if !ok {
+		t.Fatalf("expected channel to be an array, got %T", selRes["channel"])
+	}
+	if len(channels) != 2 {
+		t.Errorf("expected 2 channels, got %d", len(channels))
+	}
+	channelSet := map[string]bool{}
+	for _, c := range channels {
+		channelSet[c.(string)] = true
+	}
+	if !channelSet["C111"] || !channelSet["C222"] {
+		t.Errorf("expected channels C111 and C222, got %v", channels)
+	}
+
+	// Verify user resources
+	users, ok := selRes["user"].([]any)
+	if !ok {
+		t.Fatalf("expected user to be an array, got %T", selRes["user"])
+	}
+	if len(users) != 1 || users[0].(string) != "U333" {
+		t.Errorf("expected user [U333], got %v", users)
+	}
+}
