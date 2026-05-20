@@ -1,4 +1,4 @@
-package hiveloop
+package hivy
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package hiveloop
+package hivy
 
 import (
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehiveloop/hiveloop/internal/model"
-	"github.com/usehiveloop/hiveloop/internal/registry"
+	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/registry"
 )
 
 // CredentialWithModel pairs a credential with the selected model ID.

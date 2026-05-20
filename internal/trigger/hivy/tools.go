@@ -1,4 +1,4 @@
-package hiveloop
+package hivy
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/usehiveloop/hiveloop/internal/mcp/catalog"
-	"github.com/usehiveloop/hiveloop/internal/model"
+	"github.com/usehivy/hivy/internal/mcp/catalog"
+	"github.com/usehivy/hivy/internal/model"
 )
 
 // ToolHandler processes a single tool call from the LLM. It returns a

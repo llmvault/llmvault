@@ -1,11 +1,11 @@
-// Package hiveloop implements Hiveloop's routing brain — the LLM-powered triage and
+// Package hivy implements Hivy's routing brain — the LLM-powered triage and
 // enrichment layer that decides which specialist agent handles each inbound
 // event and what cross-connection context to gather before dispatch.
 //
 // The package is provider-agnostic: it defines a CompletionClient interface
 // with adapters for OpenAI-compatible providers and Anthropic. Tests use a
 // mock that scripts deterministic tool-call sequences.
-package hiveloop
+package hivy
 
 import (
 	"context"
@@ -34,11 +34,11 @@ type CompletionRequest struct {
 // Content is empty and ToolCalls is populated. For tool results, ToolCallID
 // identifies which call this result answers.
 type Message struct {
-	Role       string     `json:"role"`                  // system, user, assistant, tool
-	Content    string     `json:"content,omitempty"`     // text content
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`  // assistant's tool invocations
+	Role       string     `json:"role"`                   // system, user, assistant, tool
+	Content    string     `json:"content,omitempty"`      // text content
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // assistant's tool invocations
 	ToolCallID string     `json:"tool_call_id,omitempty"` // for role=tool: which call this answers
-	Name       string     `json:"name,omitempty"`        // for role=tool: tool name
+	Name       string     `json:"name,omitempty"`         // for role=tool: tool name
 }
 
 // ToolDef describes a tool the LLM can call. Parameters is a JSON Schema

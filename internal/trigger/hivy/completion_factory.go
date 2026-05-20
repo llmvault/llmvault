@@ -1,6 +1,6 @@
-package hiveloop
+package hivy
 
-import "github.com/usehiveloop/hiveloop/internal/model"
+import "github.com/usehivy/hivy/internal/model"
 
 // NewCompletionClient returns the appropriate CompletionClient adapter for
 // the given credential's provider. Anthropic gets its own adapter; all other

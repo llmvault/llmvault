@@ -1,12 +1,12 @@
-package hiveloop
+package hivy
 
 import (
 	"encoding/json"
 
 	"github.com/google/uuid"
 
-	"github.com/usehiveloop/hiveloop/internal/mcp/catalog"
-	"github.com/usehiveloop/hiveloop/internal/model"
+	"github.com/usehivy/hivy/internal/mcp/catalog"
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func testConnections() []ConnectionWithActions {
