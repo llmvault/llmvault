@@ -1,4 +1,4 @@
-package hiveloop
+package hivy
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/usehiveloop/hiveloop/internal/mcp/catalog"
+	"github.com/usehivy/hivy/internal/mcp/catalog"
 )
 
 // NewFinalizeHandler creates a tool handler that signals the routing session

@@ -1,4 +1,4 @@
-package hiveloop
+package hivy
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/usehiveloop/hiveloop/internal/mcp/catalog"
+	"github.com/usehivy/hivy/internal/mcp/catalog"
 )
 
 type planEnrichmentArgs struct {

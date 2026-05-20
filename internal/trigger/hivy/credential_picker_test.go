@@ -1,11 +1,11 @@
-package hiveloop
+package hivy
 
 import (
 	"testing"
 
 	"github.com/google/uuid"
 
-	"github.com/usehiveloop/hiveloop/internal/registry"
+	"github.com/usehivy/hivy/internal/registry"
 )
 
 // Credential picker tests use the real registry (curated models) to verify
