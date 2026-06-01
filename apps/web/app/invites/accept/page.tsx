@@ -4,6 +4,7 @@ import * as React from "react"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Logo } from "@/components/logo"
@@ -60,12 +61,14 @@ function AcceptInviteContents() {
   const signinHref = `/auth/signin?next=${encodeURIComponent(returnPath)}`
   const signupHref = `/auth/signup?next=${encodeURIComponent(returnPath)}`
 
+  const queryClient = useQueryClient()
   const setActiveOrgAndRedirect = useCallback((orgID?: string, fallback = "/w") => {
     if (orgID) {
       document.cookie = `hivy_active_org=${encodeURIComponent(orgID)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
     }
+    queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
     setTimeout(() => router.replace(fallback), 1500)
-  }, [router])
+  }, [router, queryClient])
 
   const handleAccept = useCallback(() => {
     acceptMutation.mutate(
