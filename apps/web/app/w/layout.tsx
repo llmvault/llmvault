@@ -84,7 +84,7 @@ const footerLinks = [
     icon: CustomerService01Icon,
   },
   { label: "Get free credits", href: "#", icon: AwardIcon },
-  { label: "Invite team members", href: "#", icon: UserAdd01Icon },
+  { label: "Teams", href: "/w/teams", icon: UserAdd01Icon },
 ]
 
 function GhostLogo({
