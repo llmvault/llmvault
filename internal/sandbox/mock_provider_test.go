@@ -19,6 +19,7 @@ type mockProvider struct {
 	setAutoStopCalls    []autoPolicyCall
 	setAutoArchiveCalls []autoPolicyCall
 	archivedIDs         []string
+	restartedIDs        []string
 	stoppedIDs          []string
 	deletedIDs          []string
 	createCalls         []CreateSandboxOpts // captured for integration assertions
@@ -109,6 +110,19 @@ func (m *mockProvider) StopSandbox(_ context.Context, externalID string) error {
 	}
 	sb.status = StatusStopped
 	m.stoppedIDs = append(m.stoppedIDs, externalID)
+	return nil
+}
+
+func (m *mockProvider) RestartSandbox(_ context.Context, externalID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sb, ok := m.sandboxes[externalID]
+	if !ok {
+		return fmt.Errorf("sandbox not found: %s", externalID)
+	}
+	sb.status = StatusRunning
+	m.restartedIDs = append(m.restartedIDs, externalID)
 	return nil
 }
 

@@ -8,6 +8,7 @@ use chrono::{DateTime, Utc};
 use domain::{AgentDefinition, SessionId, SessionStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::Duration;
 use storage::{SessionListCursor, SessionListFilter};
@@ -26,6 +27,14 @@ pub struct ConfigResponse {
     secret_rotated: bool,
 }
 
+#[derive(Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct HealthResponse {
+    status: &'static str,
+    sentry_enabled: bool,
+    sentry_dsn_set: bool,
+}
+
 const MAX_RUNTIME_ENV_KEYS: usize = 128;
 const MAX_RUNTIME_ENV_KEY_LENGTH: usize = 128;
 const MAX_RUNTIME_ENV_VALUE_LENGTH: usize = 8192;
@@ -35,6 +44,28 @@ const MAX_CONTROL_COMMAND_LENGTH: usize = 8 * 1024;
 const MAX_CONTROL_COMMAND_PAYLOAD_BYTES: usize = 128 * 1024;
 const MAX_CONTROL_COMMAND_TIMEOUT_SECONDS: u64 = 300;
 const MAX_CONTROL_COMMAND_OUTPUT_BYTES: u64 = 64 * 1024;
+const INTERNAL_RETRY_MESSAGE: &str =
+    "An internal runtime error occurred. Please retry. The Hivy team has been notified of this error.";
+
+fn capture_internal_error(context: &'static str, error: impl Display) {
+    let error = error.to_string();
+    warn!(context, error = %error, "runtime API internal error captured");
+    sentry::with_scope(
+        |scope| {
+            scope.set_tag("runtime.api_context", context);
+            scope.set_extra("internal_error", error.into());
+        },
+        || sentry::capture_message("runtime API internal error", sentry::Level::Error),
+    );
+}
+
+fn internal_error_response(context: &'static str, error: impl Display) -> (StatusCode, String) {
+    capture_internal_error(context, error);
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        INTERNAL_RETRY_MESSAGE.to_string(),
+    )
+}
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
@@ -212,12 +243,7 @@ async fn apply_definition(
         .config_repo
         .upsert(&definition)
         .await
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("persist: {error}"),
-            )
-        })?;
+        .map_err(|error| internal_error_response("config.persist", error))?;
     state.skill_writer.sync(&definition.skills);
     for sub_agent in definition.sub_agents.values() {
         state.skill_writer.sync(&sub_agent.skills);
@@ -232,12 +258,7 @@ async fn apply_definition(
         reloader
             .reload_outbound_channels(&definition.outbound_channels)
             .await
-            .map_err(|error| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("reload outbound channels: {error}"),
-                )
-            })?;
+            .map_err(|error| internal_error_response("config.reload_outbound_channels", error))?;
     }
     state.config_store.replace(definition);
     state.mark_config_loaded();
@@ -283,12 +304,7 @@ pub async fn post_control_commands(
                 },
             )
             .await
-            .map_err(|error| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("execute command: {error}"),
-                )
-            })?;
+            .map_err(|error| internal_error_response("control_commands.execute", error))?;
         let output = String::from_utf8_lossy(&result.stdout_combined).to_string();
         let command_ok = result.exit_code == Some(0) && !result.timed_out;
         if !command_ok {
@@ -359,12 +375,9 @@ fn resolve_control_workdir(
     workspace_root: &FsPath,
     requested: Option<&str>,
 ) -> Result<PathBuf, (StatusCode, String)> {
-    let root = workspace_root.canonicalize().map_err(|error| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("workspace: {error}"),
-        )
-    })?;
+    let root = workspace_root
+        .canonicalize()
+        .map_err(|error| internal_error_response("control_commands.workspace_root", error))?;
     let path = requested
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -476,7 +489,7 @@ pub async fn list_sessions(
             limit + 1,
         )
         .await
-        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, format!("list: {error}")))?;
+        .map_err(|error| internal_error_response("sessions.list", error))?;
 
     let has_more = sessions.len() > limit as usize;
     if has_more {
@@ -523,13 +536,19 @@ pub async fn get_session_detail(
         .session_repo
         .get(&session_id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|error| {
+            capture_internal_error("sessions.get", error);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
         .ok_or(StatusCode::NOT_FOUND)?;
     let events = state
         .event_repo
         .list_recent(&session_id, 100)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|error| {
+            capture_internal_error("sessions.events", error);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
     Ok(Json(SessionDetailResponse { session, events }))
 }
 
@@ -537,12 +556,16 @@ pub async fn get_session_detail(
     get,
     path = "/healthz",
     responses(
-        (status = 200, description = "Runtime process is alive")
+        (status = 200, description = "Runtime process is alive", body = HealthResponse)
     ),
     security(())
 ))]
-pub async fn healthz() -> impl IntoResponse {
-    StatusCode::OK
+pub async fn healthz(State(state): State<ApiState>) -> impl IntoResponse {
+    Json(HealthResponse {
+        status: "ok",
+        sentry_enabled: state.sentry_enabled,
+        sentry_dsn_set: state.sentry_dsn_set,
+    })
 }
 
 #[cfg_attr(feature = "openapi", utoipa::path(
@@ -587,12 +610,7 @@ pub async fn post_http_message(
         .inject_message(request)
         .await
         .map(Json)
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("inject message: {error}"),
-            )
-        })
+        .map_err(|error| internal_error_response("http_gateway.inject_message", error))
 }
 
 #[cfg_attr(feature = "openapi", utoipa::path(
@@ -698,6 +716,17 @@ mod tests {
             sub_agents: Default::default(),
             safety: Default::default(),
         }
+    }
+
+    #[test]
+    fn internal_error_response_does_not_expose_details() {
+        let (status, body) =
+            internal_error_response("test.context", "database is readonly and token missing");
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body, INTERNAL_RETRY_MESSAGE);
+        assert!(!body.contains("readonly"));
+        assert!(!body.contains("token"));
     }
 
     #[test]

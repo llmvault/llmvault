@@ -116,6 +116,15 @@ func (d *Driver) StartSandbox(context.Context, string) error { return nil }
 
 func (d *Driver) StopSandbox(context.Context, string) error { return nil }
 
+func (d *Driver) RestartSandbox(ctx context.Context, externalID string) error {
+	return d.client.RestartLatestDeployment(ctx, railwayapi.DeploymentListInput{
+		ProjectID:     d.projectID,
+		EnvironmentID: d.environmentID,
+		ServiceID:     externalID,
+		First:         1,
+	})
+}
+
 func (d *Driver) ArchiveSandbox(context.Context, string) error { return nil }
 
 func (d *Driver) DeleteSandbox(ctx context.Context, externalID string) error {

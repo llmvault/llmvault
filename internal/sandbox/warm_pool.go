@@ -201,6 +201,7 @@ func (p *WarmPool) provision(ctx context.Context, mode string) (uuid.UUID, error
 		RuntimeImage:  image,
 		RuntimePort:   p.cfg.RailwayRuntimePort,
 		RuntimeSecret: runtimeSecret,
+		EnvVars:       p.warmSlotEnvVars(),
 		Labels: map[string]string{
 			"mode":     mode,
 			"provider": p.provider.ID(),
@@ -277,6 +278,15 @@ func (p *WarmPool) runtimeImage(mode string) string {
 
 func (p *WarmPool) slotName(mode string) string {
 	return fmt.Sprintf("hivy-%s-warm-%s", mode, strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
+}
+
+func (p *WarmPool) warmSlotEnvVars() map[string]string {
+	envVars := map[string]string{}
+	if p == nil || p.cfg == nil {
+		return envVars
+	}
+	setSandboxSentryEnvVars(envVars, p.cfg, p.cfg.AgentSandboxSentryDSN)
+	return envVars
 }
 
 func containsUUID(items []uuid.UUID, target uuid.UUID) bool {

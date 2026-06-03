@@ -28,6 +28,9 @@ use session::ensure_session_persisted;
 
 use crate::session_coordinator::{SessionCoordinator, Submission};
 
+const USER_RETRY_MESSAGE: &str =
+    "Something went wrong while generating that response. Please retry. The Hivy team has been notified of this error.";
+
 #[async_trait]
 pub trait TurnEventSink: Send + Sync + 'static {
     async fn activate_session_stream(&self, _session_id: &SessionId, _stream_id: &str) {}
@@ -887,12 +890,13 @@ async fn consume_agent_stream(
     let mut sequence: u64 = 0;
     while let Some(event) = stream.next().await {
         sequence += 1;
+        let client_event = sanitize_agent_event_for_clients(&event, session_id, source, sequence);
         if let Some(stream_id) = stream_id.as_deref() {
             event_sink
-                .publish_agent_event(stream_id, session_id, &event)
+                .publish_agent_event(stream_id, session_id, &client_event)
                 .await;
         }
-        emit_agent_stream_event(emitter, session_id, source, sequence, &event).await;
+        emit_agent_stream_event(emitter, session_id, source, sequence, &client_event).await;
         match event {
             AgentEvent::ThinkingChunk { .. } => {}
             AgentEvent::TokenChunk { text } => accumulated.push_str(&text),
@@ -907,6 +911,92 @@ async fn consume_agent_stream(
         text: accumulated,
         error: error_message,
     }
+}
+
+fn sanitize_agent_event_for_clients(
+    event: &AgentEvent,
+    session_id: &SessionId,
+    source: &'static str,
+    sequence: u64,
+) -> AgentEvent {
+    match event {
+        AgentEvent::Error { message } => {
+            capture_agent_internal_error(session_id, source, sequence, "agent.error", message);
+            AgentEvent::Error {
+                message: USER_RETRY_MESSAGE.to_string(),
+            }
+        }
+        AgentEvent::RunEvent { event, payload } => {
+            let mut next = payload.clone();
+            if let Some(error) = payload.get("error").and_then(Value::as_str) {
+                capture_agent_internal_error(session_id, source, sequence, event, error);
+                if let Some(map) = next.as_object_mut() {
+                    map.insert(
+                        "error".to_string(),
+                        Value::String("internal error captured".to_string()),
+                    );
+                    map.insert("team_notified".to_string(), Value::Bool(true));
+                }
+            }
+            AgentEvent::RunEvent {
+                event: event.clone(),
+                payload: next,
+            }
+        }
+        AgentEvent::ToolResult { id, result } => {
+            let mut next = result.clone();
+            if let Some(error) = result.get("error").and_then(Value::as_str) {
+                capture_agent_internal_error(
+                    session_id,
+                    source,
+                    sequence,
+                    "agent.tool.result",
+                    error,
+                );
+                if let Some(map) = next.as_object_mut() {
+                    map.insert(
+                        "error".to_string(),
+                        Value::String(USER_RETRY_MESSAGE.to_string()),
+                    );
+                    map.insert("team_notified".to_string(), Value::Bool(true));
+                }
+            }
+            AgentEvent::ToolResult {
+                id: id.clone(),
+                result: next,
+            }
+        }
+        _ => event.clone(),
+    }
+}
+
+fn capture_agent_internal_error(
+    session_id: &SessionId,
+    source: &'static str,
+    sequence: u64,
+    event: &str,
+    error: &str,
+) {
+    let (channel, thread_ts) = derive_channel_and_thread(session_id);
+    warn!(session_id = %session_id.as_str(), source, sequence, event, error = %error, "agent internal error captured");
+    sentry::with_scope(
+        |scope| {
+            scope.set_tag("runtime.error_source", source);
+            scope.set_tag("runtime.agent_event", event);
+            scope.set_tag("runtime.session_id", session_id.as_str());
+            if !channel.is_empty() {
+                scope.set_tag("runtime.channel", channel.as_str());
+            }
+            if !thread_ts.is_empty() {
+                scope.set_tag("runtime.thread_ts", thread_ts.as_str());
+            }
+            scope.set_extra("sequence", sequence.into());
+            scope.set_extra("internal_error", error.into());
+        },
+        || {
+            sentry::capture_message("agent turn internal error", sentry::Level::Error);
+        },
+    );
 }
 
 async fn emit_agent_stream_event(
@@ -972,20 +1062,29 @@ fn session_stream_id(inbound: &InboundEvent) -> Option<String> {
 
 fn format_final_message(outcome: &StreamOutcome) -> String {
     if let Some(internal_error) = &outcome.error {
-        warn!(error = %internal_error, "agent turn errored; replying with error detail");
-        return format!("An error occurred: {internal_error}");
+        warn!(error = %internal_error, "agent turn errored; replying with generic error");
+        sentry::with_scope(
+            |scope| scope.set_extra("internal_error", internal_error.clone().into()),
+            || sentry::capture_message("agent turn final response error", sentry::Level::Error),
+        );
+        return USER_RETRY_MESSAGE.to_string();
     }
     if outcome.text.trim().is_empty() {
         warn!("agent produced no response after recovery attempts");
-        return "I could not produce a response after retrying the model. Please try again."
-            .to_string();
+        sentry::capture_message("agent produced empty final response", sentry::Level::Error);
+        return USER_RETRY_MESSAGE.to_string();
     }
     outcome.text.clone()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{format_final_message, StreamOutcome};
+    use super::{
+        format_final_message, sanitize_agent_event_for_clients, StreamOutcome, USER_RETRY_MESSAGE,
+    };
+    use agent::AgentEvent;
+    use domain::SessionId;
+    use serde_json::json;
 
     #[test]
     fn empty_outcome_does_not_use_generic_apology() {
@@ -995,6 +1094,75 @@ mod tests {
         });
 
         assert!(!text.contains("Sorry, something went wrong"));
-        assert!(text.contains("retrying the model"));
+        assert_eq!(text, USER_RETRY_MESSAGE);
+    }
+
+    #[test]
+    fn error_outcome_does_not_expose_internal_details() {
+        let text = format_final_message(&StreamOutcome {
+            text: String::new(),
+            error: Some(
+                "error returned from database: attempt to write a readonly database".into(),
+            ),
+        });
+
+        assert!(!text.contains("readonly database"));
+        assert!(!text.contains("error returned from database"));
+        assert_eq!(text, USER_RETRY_MESSAGE);
+    }
+
+    #[test]
+    fn client_agent_error_event_does_not_expose_internal_details() {
+        let event = AgentEvent::Error {
+            message: "model error: env var HIVY_PROXY_API_KEY not set".to_string(),
+        };
+        let sanitized =
+            sanitize_agent_event_for_clients(&event, &SessionId::from("session-1"), "http", 1);
+
+        match sanitized {
+            AgentEvent::Error { message } => {
+                assert_eq!(message, USER_RETRY_MESSAGE);
+                assert!(!message.contains("HIVY_PROXY_API_KEY"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn client_run_event_redacts_error_payload() {
+        let event = AgentEvent::RunEvent {
+            event: "model_request_failed".to_string(),
+            payload: json!({"error": "database is readonly", "model": "test"}),
+        };
+        let sanitized =
+            sanitize_agent_event_for_clients(&event, &SessionId::from("session-1"), "http", 1);
+
+        match sanitized {
+            AgentEvent::RunEvent { payload, .. } => {
+                assert_eq!(payload["error"], "internal error captured");
+                assert_eq!(payload["team_notified"], true);
+                assert!(!payload.to_string().contains("readonly"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn client_tool_result_redacts_error_payload() {
+        let event = AgentEvent::ToolResult {
+            id: "tool-1".to_string(),
+            result: json!({"error": "secret storage failure"}),
+        };
+        let sanitized =
+            sanitize_agent_event_for_clients(&event, &SessionId::from("session-1"), "http", 1);
+
+        match sanitized {
+            AgentEvent::ToolResult { result, .. } => {
+                assert_eq!(result["error"], USER_RETRY_MESSAGE);
+                assert_eq!(result["team_notified"], true);
+                assert!(!result.to_string().contains("secret storage"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
     }
 }

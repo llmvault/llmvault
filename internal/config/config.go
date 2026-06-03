@@ -75,9 +75,9 @@ type Config struct {
 	CORSOrigins []string `env:"HIVY_CORS_ORIGINS" envSeparator:","`
 
 	// Nango (OAuth integration proxy)
-	NangoEndpoint         string `env:"HIVY_NANGO_ENDPOINT"`            // e.g. http://localhost:3004
-	NangoSecretKey        string `env:"HIVY_NANGO_SECRET_KEY"`          // Nango secret key for API auth
-	NangoWebhooksSecret   string `env:"HIVY_NANGO_WEBHOOKS_SECRET"`     // Nango secret key for webhook signature verification
+	NangoEndpoint       string `env:"HIVY_NANGO_ENDPOINT"`        // e.g. http://localhost:3004
+	NangoSecretKey      string `env:"HIVY_NANGO_SECRET_KEY"`      // Nango secret key for API auth
+	NangoWebhooksSecret string `env:"HIVY_NANGO_WEBHOOKS_SECRET"` // Nango secret key for webhook signature verification
 
 	// GitHub API token used by the skill hydrator. Optional — raises the
 	// anonymous rate limit from 60 req/hr to 5000 req/hr per token.
@@ -95,11 +95,11 @@ type Config struct {
 	SandboxDockerContainerLabelPrefix string `env:"HIVY_SANDBOX_DOCKER_CONTAINER_LABEL_PREFIX" envDefault:"hivy"`
 
 	// Railway sandbox provider.
-	RailwayAPIToken      string `env:"HIVY_RAILWAY_API_TOKEN"`
-	RailwayProjectID     string `env:"HIVY_RAILWAY_PROJECT_ID"`
-	RailwayEnvironmentID string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
-	RailwayRegion        string `env:"HIVY_RAILWAY_REGION"`
-	RailwayRuntimePort   int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
+	RailwayAPIToken               string `env:"HIVY_RAILWAY_API_TOKEN"`
+	RailwayProjectID              string `env:"HIVY_RAILWAY_PROJECT_ID"`
+	RailwayEnvironmentID          string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
+	RailwayRegion                 string `env:"HIVY_RAILWAY_REGION"`
+	RailwayRuntimePort            int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
 	SandboxWarmPoolEmployeeSize   int    `env:"HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE" envDefault:"0"`
 	SandboxWarmPoolSpecialistSize int    `env:"HIVY_SANDBOX_WARM_POOL_SPECIALIST_SIZE" envDefault:"0"`
 
@@ -167,13 +167,12 @@ type Config struct {
 	// asynq (per-task transactions), GORM (db.sql spans), go-redis (db.redis
 	// spans), outbound HTTP transports, and slog (Error+ records become
 	// Sentry events). See internal/observability/sentry.
-	SentryDSN                 string  `env:"HIVY_SENTRY_DSN"`
-	SentryEnabled             bool    `env:"HIVY_SENTRY_ENABLED" envDefault:"false"`
-	SentryRelease             string  `env:"HIVY_SENTRY_RELEASE"`
-	SentryTracesSampleRate    float64 `env:"HIVY_SENTRY_TRACES_SAMPLE_RATE" envDefault:"0.1"`
-	SentryProfilesSampleRate  float64 `env:"HIVY_SENTRY_PROFILES_SAMPLE_RATE" envDefault:"0.0"`
-	SandboxesRuntimeSentryDSN string  `env:"HIVY_SANDBOXES_RUNTIME_SENTRY_DSN"`
-	AgentSandboxSentryDSN     string  `env:"HIVY_AGENT_SANDBOX_SENTRY_DSN"`
+	SentryDSN                string  `env:"HIVY_SENTRY_DSN"`
+	SentryEnabled            bool    `env:"HIVY_SENTRY_ENABLED" envDefault:"false"`
+	SentryRelease            string  `env:"HIVY_SENTRY_RELEASE"`
+	SentryTracesSampleRate   float64 `env:"HIVY_SENTRY_TRACES_SAMPLE_RATE" envDefault:"0.1"`
+	SentryProfilesSampleRate float64 `env:"HIVY_SENTRY_PROFILES_SAMPLE_RATE" envDefault:"0.0"`
+	AgentSandboxSentryDSN    string  `env:"HIVY_AGENT_SANDBOX_SENTRY_DSN"`
 
 	// Qdrant (vector store, gRPC). Empty QdrantHost disables RAG.
 	QdrantHost       string `env:"HIVY_QDRANT_HOST"`
