@@ -2,8 +2,12 @@
 set -euo pipefail
 
 manifest="${1:?usage: update-railway-runtime-config.sh <release-manifest.json>}"
-environment="${RAILWAY_ENVIRONMENT:-production}"
-services="${RAILWAY_SERVICES:-api.usehivy.com asynq.usehivy.com}"
+: "${RAILWAY_TOKEN:?RAILWAY_TOKEN is required}"
+: "${RAILWAY_ENVIRONMENT:?RAILWAY_ENVIRONMENT is required}"
+: "${RAILWAY_SERVICES:?RAILWAY_SERVICES is required}"
+
+environment="${RAILWAY_ENVIRONMENT}"
+services="${RAILWAY_SERVICES}"
 wait_seconds="${RAILWAY_DEPLOY_WAIT_SECONDS:-900}"
 poll_seconds="${RAILWAY_DEPLOY_POLL_SECONDS:-10}"
 
@@ -20,10 +24,6 @@ command -v railway >/dev/null || {
   echo "railway CLI is required" >&2
   exit 1
 }
-
-if [[ -n "${RAILWAY_PROJECT_ID:-}" ]]; then
-  railway link --project "${RAILWAY_PROJECT_ID}" >/dev/null
-fi
 
 specialist_sandbox_runtime_version="$(jq -r '.runtimeConfig.HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION' "${manifest}")"
 sandboxes_runtime_base_image="$(jq -r '.runtimeConfig.HIVY_SANDBOXES_RUNTIME_BASE_IMAGE' "${manifest}")"
