@@ -213,10 +213,8 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.LogoURL != nil {
 		updates["logo_url"] = strings.TrimSpace(*req.LogoURL)
 	}
-	var websiteChanged bool
 	if req.Website != nil {
 		updates["website"] = strings.TrimSpace(*req.Website)
-		websiteChanged = ctxOrg.Website == "" && *req.Website != ""
 	}
 	if req.PromptCompany != nil {
 		updates["prompt_company"] = strings.TrimSpace(*req.PromptCompany)
@@ -257,9 +255,7 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if websiteChanged {
-		h.autoCreateWebsiteRAGSource(r.Context(), &org)
-	}
+	h.ensureWebsiteRAGSource(r.Context(), &org)
 
 	writeJSON(w, http.StatusOK, h.buildOrgResponse(org))
 }

@@ -12,15 +12,20 @@ import (
 )
 
 func buildEmployeeRetainItem(agent *model.Employee, payload EmployeeMemoryRetainPayload, events []model.EmployeeSessionEvent) (hindsight.RetainItem, bool) {
+	item, ok, _ := buildEmployeeRetainItemWithReason(agent, payload, events)
+	return item, ok
+}
+
+func buildEmployeeRetainItemWithReason(agent *model.Employee, payload EmployeeMemoryRetainPayload, events []model.EmployeeSessionEvent) (hindsight.RetainItem, bool, string) {
 	if agent == nil || agent.OrgID == nil || len(events) == 0 {
-		return hindsight.RetainItem{}, false
+		return hindsight.RetainItem{}, false, "missing_context_or_events"
 	}
 	if employeeSessionEventsContainSecret(events) {
-		return hindsight.RetainItem{}, false
+		return hindsight.RetainItem{}, false, "secret_detected"
 	}
 	digest := employeeMemoryRetentionDigest(agent.Name, events)
 	if !meaningfulEmployeeMemoryTranscript(digest, events) {
-		return hindsight.RetainItem{}, false
+		return hindsight.RetainItem{}, false, "not_meaningful"
 	}
 	source := dominantEmployeeMemorySource(events)
 	tags := employeeMemoryTags(agent, source)
@@ -37,7 +42,7 @@ func buildEmployeeRetainItem(agent *model.Employee, payload EmployeeMemoryRetain
 		Timestamp:         events[0].EventAt.UTC().Format(time.RFC3339),
 		Metadata:          employeeMemoryRetainMetadata(agent, payload, events),
 		ObservationScopes: observationScopes,
-	}, true
+	}, true, ""
 }
 
 func employeeMemoryRetentionContext(source string) string {
