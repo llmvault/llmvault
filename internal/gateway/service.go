@@ -15,12 +15,13 @@ import (
 )
 
 type Service struct {
-	db       *gorm.DB
-	runtime  RuntimeMessenger
-	encKey   *crypto.SymmetricKey
-	adapters map[string]Adapter
-	preload  precontext.Builder
-	now      func() time.Time
+	db                          *gorm.DB
+	runtime                     RuntimeMessenger
+	encKey                      *crypto.SymmetricKey
+	adapters                    map[string]Adapter
+	preload                     precontext.Builder
+	onConnectionInboundAccepted func(context.Context, ConnectionInboundAccepted)
+	now                         func() time.Time
 }
 
 func NewService(db *gorm.DB, runtime RuntimeMessenger, encKey *crypto.SymmetricKey, adapters ...Adapter) *Service {
@@ -39,6 +40,10 @@ func NewService(db *gorm.DB, runtime RuntimeMessenger, encKey *crypto.SymmetricK
 
 func (s *Service) SetPreContextBuilder(builder precontext.Builder) {
 	s.preload = builder
+}
+
+func (s *Service) SetConnectionInboundAcceptedHook(hook func(context.Context, ConnectionInboundAccepted)) {
+	s.onConnectionInboundAccepted = hook
 }
 
 func (s *Service) RegisterAdapter(adapter Adapter) {

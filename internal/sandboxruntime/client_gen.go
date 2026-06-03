@@ -530,18 +530,20 @@ func (e ToolSpec11Type) Valid() bool {
 
 // AgentDefinition defines model for AgentDefinition.
 type AgentDefinition struct {
-	Agent             AgentMeta              `json:"agent"`
-	Context           *ContextConfig         `json:"context,omitempty"`
-	Limits            *Limits                `json:"limits,omitempty"`
-	McpServers        *[]McpSpec             `json:"mcp_servers,omitempty"`
-	Mode              *RuntimeMode           `json:"mode,omitempty"`
-	Model             ModelConfig            `json:"model"`
-	MultimodalModel   *ModelConfig           `json:"multimodal_model,omitempty"`
-	OutboundChannels  *[]OutboundChannelSpec `json:"outbound_channels,omitempty"`
-	Skills            *[]SkillSpec           `json:"skills,omitempty"`
-	SpecialistProfile *SpecialistProfile     `json:"specialist_profile,omitempty"`
-	SystemPrompt      *SystemPromptConfig    `json:"system_prompt,omitempty"`
-	Tools             *[]ToolSpec            `json:"tools,omitempty"`
+	Agent             AgentMeta                   `json:"agent"`
+	Context           *ContextConfig              `json:"context,omitempty"`
+	Limits            *Limits                     `json:"limits,omitempty"`
+	McpServers        *[]McpSpec                  `json:"mcp_servers,omitempty"`
+	Mode              *RuntimeMode                `json:"mode,omitempty"`
+	Model             ModelConfig                 `json:"model"`
+	MultimodalModel   *ModelConfig                `json:"multimodal_model,omitempty"`
+	OutboundChannels  *[]OutboundChannelSpec      `json:"outbound_channels,omitempty"`
+	Safety            *SafetyConfig               `json:"safety,omitempty"`
+	Skills            *[]SkillSpec                `json:"skills,omitempty"`
+	SpecialistProfile *SpecialistProfile          `json:"specialist_profile,omitempty"`
+	SubAgents         *map[string]AgentDefinition `json:"sub_agents,omitempty"`
+	SystemPrompt      *SystemPromptConfig         `json:"system_prompt,omitempty"`
+	Tools             *[]ToolSpec                 `json:"tools,omitempty"`
 }
 
 // AgentMeta defines model for AgentMeta.
@@ -570,11 +572,16 @@ type BashConfig struct {
 
 // CompactionConfig defines model for CompactionConfig.
 type CompactionConfig struct {
-	CharsPerToken     *int32      `json:"chars_per_token,omitempty"`
-	Enabled           bool        `json:"enabled"`
-	OverlapEventCount *int32      `json:"overlap_event_count,omitempty"`
-	SummarizerModel   ModelConfig `json:"summarizer_model"`
-	TokenThreshold    int32       `json:"token_threshold"`
+	CharsPerToken            *int32   `json:"chars_per_token,omitempty"`
+	Enabled                  bool     `json:"enabled"`
+	EvictionWindow           *float64 `json:"eviction_window,omitempty"`
+	MessageThreshold         *int32   `json:"message_threshold,omitempty"`
+	OnTurnEnd                *bool    `json:"on_turn_end,omitempty"`
+	OverlapEventCount        *int32   `json:"overlap_event_count,omitempty"`
+	RetentionWindow          *int32   `json:"retention_window,omitempty"`
+	TokenThreshold           *int32   `json:"token_threshold,omitempty"`
+	TokenThresholdPercentage *float64 `json:"token_threshold_percentage,omitempty"`
+	TurnThreshold            *int32   `json:"turn_threshold,omitempty"`
 }
 
 // ConfigResponse defines model for ConfigResponse.
@@ -622,6 +629,12 @@ type ControlCommandsResponse struct {
 	Results []ControlCommandResult `json:"results"`
 }
 
+// DelegateConfig defines model for DelegateConfig.
+type DelegateConfig struct {
+	// Agents Allowlist of sub-agent names. Empty = all sub-agents available.
+	Agents *[]string `json:"agents,omitempty"`
+}
+
 // DynamicContextPromptSegment defines model for DynamicContextPromptSegment.
 type DynamicContextPromptSegment struct {
 	ItemTemplate *string `json:"item_template,omitempty"`
@@ -642,6 +655,13 @@ type EventTimings struct {
 	ToolMs      *int64     `json:"tool_ms,omitempty"`
 }
 
+// HealthResponse defines model for HealthResponse.
+type HealthResponse struct {
+	SentryDsnSet  bool   `json:"sentry_dsn_set"`
+	SentryEnabled bool   `json:"sentry_enabled"`
+	Status        string `json:"status"`
+}
+
 // HttpMessageRequest defines model for HttpMessageRequest.
 type HttpMessageRequest struct {
 	Attachments     *[]Attachment           `json:"attachments,omitempty"`
@@ -655,11 +675,13 @@ type HttpMessageRequest struct {
 
 // HttpMessageResponse defines model for HttpMessageResponse.
 type HttpMessageResponse struct {
-	SessionId string `json:"session_id"`
-	StreamId  string `json:"stream_id"`
-	StreamUrl string `json:"stream_url"`
-	TraceId   string `json:"trace_id"`
-	TurnId    string `json:"turn_id"`
+	ResponseStreamId  string `json:"response_stream_id"`
+	ResponseStreamUrl string `json:"response_stream_url"`
+	SessionId         string `json:"session_id"`
+	StreamId          string `json:"stream_id"`
+	StreamUrl         string `json:"stream_url"`
+	TraceId           string `json:"trace_id"`
+	TurnId            string `json:"turn_id"`
 }
 
 // Limits defines model for Limits.
@@ -835,6 +857,14 @@ type OutboundChannelSpec0 struct {
 // OutboundChannelSpec0Type defines model for OutboundChannelSpec.0.Type.
 type OutboundChannelSpec0Type string
 
+// OverthinkingConfig defines model for OverthinkingConfig.
+type OverthinkingConfig struct {
+	Enabled         *bool  `json:"enabled,omitempty"`
+	MaxDurationSecs *int64 `json:"max_duration_secs,omitempty"`
+	MaxTokens       *int64 `json:"max_tokens,omitempty"`
+	StallThreshold  *int64 `json:"stall_threshold,omitempty"`
+}
+
 // ReadFileConfig defines model for ReadFileConfig.
 type ReadFileConfig struct {
 	AllowedRoots     []string  `json:"allowed_roots"`
@@ -845,8 +875,24 @@ type ReadFileConfig struct {
 // ReasoningEffort defines model for ReasoningEffort.
 type ReasoningEffort string
 
+// RepeatDetectionConfig defines model for RepeatDetectionConfig.
+type RepeatDetectionConfig struct {
+	Enabled        *bool `json:"enabled,omitempty"`
+	MaxConsecutive *int  `json:"max_consecutive,omitempty"`
+	MaxTotal       *int  `json:"max_total,omitempty"`
+}
+
 // RuntimeMode defines model for RuntimeMode.
 type RuntimeMode string
+
+// SafetyConfig defines model for SafetyConfig.
+type SafetyConfig struct {
+	JsonRepair      *bool                  `json:"json_repair,omitempty"`
+	Overthinking    *OverthinkingConfig    `json:"overthinking,omitempty"`
+	RepeatDetection *RepeatDetectionConfig `json:"repeat_detection,omitempty"`
+	ThinkingStrip   *bool                  `json:"thinking_strip,omitempty"`
+	XmlToolRepair   *bool                  `json:"xml_tool_repair,omitempty"`
+}
 
 // Session defines model for Session.
 type Session struct {
@@ -1038,7 +1084,8 @@ type ToolSpec3Type string
 
 // ToolSpec4 defines model for .
 type ToolSpec4 struct {
-	Type ToolSpec4Type `json:"type"`
+	Config DelegateConfig `json:"config"`
+	Type   ToolSpec4Type  `json:"type"`
 }
 
 // ToolSpec4Type defines model for ToolSpec.4.Type.
@@ -2026,6 +2073,9 @@ type ClientInterface interface {
 
 	PostHttpMessage(ctx context.Context, body PostHttpMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetHttpResponseStream request
+	GetHttpResponseStream(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetHttpStream request
 	GetHttpStream(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2122,6 +2172,18 @@ func (c *Client) PostHttpMessageWithBody(ctx context.Context, contentType string
 
 func (c *Client) PostHttpMessage(ctx context.Context, body PostHttpMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostHttpMessageRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetHttpResponseStream(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetHttpResponseStreamRequest(c.Server, streamId)
 	if err != nil {
 		return nil, err
 	}
@@ -2359,6 +2421,40 @@ func NewPostHttpMessageRequestWithBody(server string, contentType string, body i
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetHttpResponseStreamRequest generates requests for GetHttpResponseStream
+func NewGetHttpResponseStreamRequest(server string, streamId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "stream_id", streamId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gateway/http/response-streams/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -2752,6 +2848,9 @@ type ClientWithResponsesInterface interface {
 
 	PostHttpMessageWithResponse(ctx context.Context, body PostHttpMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostHttpMessageResp, error)
 
+	// GetHttpResponseStreamWithResponse request
+	GetHttpResponseStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpResponseStreamResp, error)
+
 	// GetHttpStreamWithResponse request
 	GetHttpStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpStreamResp, error)
 
@@ -2894,6 +2993,35 @@ func (r PostHttpMessageResp) ContentType() string {
 	return ""
 }
 
+type GetHttpResponseStreamResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetHttpResponseStreamResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetHttpResponseStreamResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetHttpResponseStreamResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetHttpStreamResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2926,6 +3054,7 @@ func (r GetHttpStreamResp) ContentType() string {
 type HealthzResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *HealthResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -3161,6 +3290,15 @@ func (c *ClientWithResponses) PostHttpMessageWithResponse(ctx context.Context, b
 	return ParsePostHttpMessageResp(rsp)
 }
 
+// GetHttpResponseStreamWithResponse request returning *GetHttpResponseStreamResp
+func (c *ClientWithResponses) GetHttpResponseStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpResponseStreamResp, error) {
+	rsp, err := c.GetHttpResponseStream(ctx, streamId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetHttpResponseStreamResp(rsp)
+}
+
 // GetHttpStreamWithResponse request returning *GetHttpStreamResp
 func (c *ClientWithResponses) GetHttpStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpStreamResp, error) {
 	rsp, err := c.GetHttpStream(ctx, streamId, reqEditors...)
@@ -3328,6 +3466,22 @@ func ParsePostHttpMessageResp(rsp *http.Response) (*PostHttpMessageResp, error) 
 	return response, nil
 }
 
+// ParseGetHttpResponseStreamResp parses an HTTP response from a GetHttpResponseStreamWithResponse call
+func ParseGetHttpResponseStreamResp(rsp *http.Response) (*GetHttpResponseStreamResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetHttpResponseStreamResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
 // ParseGetHttpStreamResp parses an HTTP response from a GetHttpStreamWithResponse call
 func ParseGetHttpStreamResp(rsp *http.Response) (*GetHttpStreamResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -3355,6 +3509,16 @@ func ParseHealthzResp(rsp *http.Response) (*HealthzResp, error) {
 	response := &HealthzResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HealthResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil

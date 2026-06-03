@@ -162,6 +162,44 @@
         ]
       }
     },
+    "/gateway/http/response-streams/{stream_id}": {
+      "get": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "operationId": "get_http_response_stream",
+        "parameters": [
+          {
+            "name": "stream_id",
+            "in": "path",
+            "description": "HTTP response-only stream identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response-only server-sent event stream",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "404": {
+            "description": "Stream not found"
+          },
+          "503": {
+            "description": "HTTP gateway is not enabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/gateway/http/streams/{stream_id}": {
       "get": {
         "tags": [
@@ -208,7 +246,14 @@
         "operationId": "healthz",
         "responses": {
           "200": {
-            "description": "Runtime process is alive"
+            "description": "Runtime process is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -508,6 +553,9 @@
               "$ref": "#/components/schemas/OutboundChannelSpec"
             }
           },
+          "safety": {
+            "$ref": "#/components/schemas/SafetyConfig"
+          },
           "skills": {
             "type": "array",
             "items": {
@@ -523,6 +571,15 @@
                 "$ref": "#/components/schemas/SpecialistProfile"
               }
             ]
+          },
+          "sub_agents": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AgentDefinition"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           },
           "system_prompt": {
             "$ref": "#/components/schemas/SystemPromptConfig"
@@ -617,9 +674,7 @@
       "CompactionConfig": {
         "type": "object",
         "required": [
-          "enabled",
-          "token_threshold",
-          "summarizer_model"
+          "enabled"
         ],
         "properties": {
           "chars_per_token": {
@@ -630,16 +685,54 @@
           "enabled": {
             "type": "boolean"
           },
+          "eviction_window": {
+            "type": "number",
+            "format": "double"
+          },
+          "message_threshold": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "on_turn_end": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "overlap_event_count": {
             "type": "integer",
             "format": "int32",
             "minimum": 0
           },
-          "summarizer_model": {
-            "$ref": "#/components/schemas/ModelConfig"
+          "retention_window": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
           "token_threshold": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "token_threshold_percentage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "turn_threshold": {
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "minimum": 0
           }
@@ -816,6 +909,12 @@
           "created_by_session"
         ],
         "properties": {
+          "agent_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "channel": {
             "type": "string"
           },
@@ -827,6 +926,12 @@
             "type": "string"
           },
           "cron_expression": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "delegate_stream_id": {
             "type": [
               "string",
               "null"
@@ -853,6 +958,12 @@
             "minimum": 0
           },
           "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_result": {
             "type": [
               "string",
               "null"
@@ -919,6 +1030,18 @@
           "paused",
           "completed"
         ]
+      },
+      "DelegateConfig": {
+        "type": "object",
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowlist of sub-agent names. Empty = all sub-agents available."
+          }
+        }
       },
       "DynamicContextPromptSegment": {
         "type": "object",
@@ -997,6 +1120,25 @@
           }
         }
       },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "sentry_enabled",
+          "sentry_dsn_set"
+        ],
+        "properties": {
+          "sentry_dsn_set": {
+            "type": "boolean"
+          },
+          "sentry_enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "HistoryMessage": {
         "type": "object",
         "required": [
@@ -1038,17 +1180,17 @@
               "$ref": "#/components/schemas/Attachment"
             }
           },
-          "dynamic_context": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "conversation_id": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "dynamic_context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "raw": {
             "type": "object"
@@ -1073,10 +1215,18 @@
           "session_id",
           "stream_id",
           "stream_url",
+          "response_stream_id",
+          "response_stream_url",
           "trace_id",
           "turn_id"
         ],
         "properties": {
+          "response_stream_id": {
+            "type": "string"
+          },
+          "response_stream_url": {
+            "type": "string"
+          },
           "session_id": {
             "type": "string"
           },
@@ -1754,6 +1904,29 @@
           "payload": {}
         }
       },
+      "OverthinkingConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "max_duration_secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "max_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "stall_threshold": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "ReadFileConfig": {
         "type": "object",
         "required": [
@@ -1788,12 +1961,48 @@
           "high"
         ]
       },
+      "RepeatDetectionConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "max_consecutive": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "RuntimeMode": {
         "type": "string",
         "enum": [
           "employee",
           "specialist"
         ]
+      },
+      "SafetyConfig": {
+        "type": "object",
+        "properties": {
+          "json_repair": {
+            "type": "boolean"
+          },
+          "overthinking": {
+            "$ref": "#/components/schemas/OverthinkingConfig"
+          },
+          "repeat_detection": {
+            "$ref": "#/components/schemas/RepeatDetectionConfig"
+          },
+          "thinking_strip": {
+            "type": "boolean"
+          },
+          "xml_tool_repair": {
+            "type": "boolean"
+          }
+        }
       },
       "Session": {
         "type": "object",
@@ -2230,9 +2439,13 @@
           {
             "type": "object",
             "required": [
+              "config",
               "type"
             ],
             "properties": {
+              "config": {
+                "$ref": "#/components/schemas/DelegateConfig"
+              },
               "type": {
                 "type": "string",
                 "enum": [
