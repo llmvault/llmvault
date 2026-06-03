@@ -17,6 +17,8 @@ type WebhookEnvelope struct {
 	EmployeeID   uuid.UUID
 	Provider     string
 	RouteID      uuid.UUID
+	ProviderKey  string
+	NangoConnID  string
 	Headers      map[string]string
 	Body         []byte
 }
@@ -99,14 +101,22 @@ type RuntimeMessage struct {
 }
 
 type RuntimeDelivery struct {
-	SessionID string
-	StreamID  string
-	TraceID   string
-	TurnID    string
+	SessionID         string
+	StreamID          string
+	ResponseStreamID  string
+	ResponseStreamURL string
+	TraceID           string
+	TurnID            string
 }
 
 type RuntimeMessenger interface {
 	Send(context.Context, RuntimeMessage) (*RuntimeDelivery, error)
+}
+
+type ConnectionInboundAccepted struct {
+	Envelope WebhookEnvelope
+	Inbound  InboundEnvelope
+	Event    model.EmployeeGatewayEvent
 }
 
 type ReceiveResult struct {

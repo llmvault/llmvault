@@ -289,6 +289,18 @@ pub async fn handle_inbound(
                 .publish_done(&stream_id, &inbound.session_id)
                 .await;
         }
+        if let Some(stream_id) = session_response_stream_id(&inbound) {
+            turn_event_sink
+                .publish_final(
+                    &stream_id,
+                    &inbound.session_id,
+                    "Queued. I will process this after the current turn finishes.",
+                )
+                .await;
+            turn_event_sink
+                .publish_done(&stream_id, &inbound.session_id)
+                .await;
+        }
         return Ok(());
     }
 
@@ -364,6 +376,11 @@ pub async fn handle_inbound(
                 if let Some(stream_id) = http_stream_id.as_deref() {
                     turn_event_sink
                         .publish_done(stream_id, &current_inbound.session_id)
+                        .await;
+                }
+                if let Some(stream_id) = session_response_stream_id(&current_inbound) {
+                    turn_event_sink
+                        .publish_done(&stream_id, &current_inbound.session_id)
                         .await;
                 }
                 break 'turns;
@@ -611,6 +628,7 @@ async fn process_single_turn(
     }
 
     let http_stream_id = session_stream_id(inbound);
+    let response_stream_id = session_response_stream_id(inbound);
     if let Some(stream_id) = http_stream_id.as_deref() {
         turn_event_sink
             .activate_session_stream(&session_id, stream_id)
@@ -625,6 +643,7 @@ async fn process_single_turn(
             consume_agent_stream(
                 stream,
                 http_stream_id.clone(),
+                response_stream_id.clone(),
                 &session_id,
                 &emitter,
                 event_source,
@@ -640,6 +659,11 @@ async fn process_single_turn(
 
     let final_text = format_final_message(&outcome);
     let reply_text_for_event = final_text.clone();
+    if let Some(stream_id) = response_stream_id.as_deref() {
+        turn_event_sink
+            .publish_final(stream_id, &session_id, &final_text)
+            .await;
+    }
     if let Some(stream_id) = http_stream_id.as_deref() {
         turn_event_sink
             .publish_final(stream_id, &session_id, &final_text)
@@ -836,6 +860,7 @@ fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
     };
     for key in [
         "http_stream_id",
+        "http_response_stream_id",
         "trace_id",
         "turn_id",
         "conversation_id",
@@ -885,6 +910,7 @@ pub(crate) struct StreamOutcome {
 async fn consume_agent_stream(
     mut stream: futures::stream::BoxStream<'static, AgentEvent>,
     stream_id: Option<String>,
+    response_stream_id: Option<String>,
     session_id: &SessionId,
     emitter: &OutboundEmitter,
     source: &'static str,
@@ -901,6 +927,16 @@ async fn consume_agent_stream(
                 .publish_agent_event(stream_id, session_id, &client_event)
                 .await;
         }
+        if let Some(stream_id) = response_stream_id.as_deref() {
+            if matches!(
+                &client_event,
+                AgentEvent::TokenChunk { .. } | AgentEvent::Error { .. }
+            ) {
+                event_sink
+                    .publish_agent_event(stream_id, session_id, &client_event)
+                    .await;
+            }
+        }
         emit_agent_stream_event(emitter, session_id, source, sequence, &client_event).await;
         match event {
             AgentEvent::ThinkingChunk { .. } => {}
@@ -911,7 +947,9 @@ async fn consume_agent_stream(
             _ => {}
         }
     }
-    emitter.flush_streams_for_session(session_id.as_str()).await;
+    emitter
+        .flush_streams_for_session_background(session_id.as_str())
+        .await;
     StreamOutcome {
         text: accumulated,
         error: error_message,
@@ -1132,6 +1170,14 @@ fn session_stream_id(inbound: &InboundEvent) -> Option<String> {
         .map(ToString::to_string)
 }
 
+fn session_response_stream_id(inbound: &InboundEvent) -> Option<String> {
+    inbound
+        .raw
+        .get("http_response_stream_id")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
 fn format_final_message(outcome: &StreamOutcome) -> String {
     if let Some(internal_error) = &outcome.error {
         warn!(error = %internal_error, "agent turn errored; replying with generic error");
@@ -1270,5 +1316,134 @@ mod tests {
             }
             other => panic!("unexpected event: {other:?}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod stream_tests {
+    use super::{consume_agent_stream, TurnEventSink};
+    use agent::AgentEvent;
+    use async_trait::async_trait;
+    use chrono::{DateTime, Utc};
+    use domain::SessionId;
+    use futures::StreamExt;
+    use outbound::{OutboundEmitter, OutboundRegistry};
+    use serde_json::json;
+    use std::sync::{Arc, Mutex};
+    use storage::{OutboxRepo, OutboxRow};
+    use tokio::sync::RwLock;
+
+    #[derive(Default)]
+    struct RecordingSink {
+        events: Mutex<Vec<(String, String)>>,
+    }
+
+    #[async_trait]
+    impl TurnEventSink for RecordingSink {
+        async fn publish_agent_event(
+            &self,
+            stream_id: &str,
+            _session_id: &SessionId,
+            event: &AgentEvent,
+        ) {
+            let name = match event {
+                AgentEvent::ThinkingChunk { .. } => "thinking",
+                AgentEvent::TokenChunk { .. } => "token",
+                AgentEvent::ToolCall { .. } => "tool_call",
+                AgentEvent::ToolResult { .. } => "tool_result",
+                AgentEvent::RunEvent { event, .. } => event.as_str(),
+                AgentEvent::Error { .. } => "error",
+                AgentEvent::FinalMessage { .. } => "final_message",
+            };
+            self.events
+                .lock()
+                .expect("events lock")
+                .push((stream_id.to_string(), name.to_string()));
+        }
+    }
+
+    #[derive(Default)]
+    struct NoopOutbox;
+
+    #[async_trait]
+    impl OutboxRepo for NoopOutbox {
+        async fn enqueue(
+            &self,
+            _channel_name: &str,
+            _event_type: &str,
+            _payload: serde_json::Value,
+        ) -> storage::Result<i64> {
+            Ok(1)
+        }
+
+        async fn claim_due(&self, _limit: u32) -> storage::Result<Vec<OutboxRow>> {
+            Ok(Vec::new())
+        }
+
+        async fn mark_delivered(&self, _id: i64) -> storage::Result<()> {
+            Ok(())
+        }
+
+        async fn schedule_retry(
+            &self,
+            _id: i64,
+            _attempts: i32,
+            _next_retry_at: DateTime<Utc>,
+        ) -> storage::Result<()> {
+            Ok(())
+        }
+
+        async fn mark_failed(&self, _id: i64) -> storage::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn response_stream_receives_only_user_visible_events() {
+        let emitter = OutboundEmitter::new(
+            Arc::new(NoopOutbox),
+            Arc::new(RwLock::new(OutboundRegistry::new())),
+        );
+        let sink = RecordingSink::default();
+        let session_id = SessionId::from("http-thread-1");
+        let stream = futures::stream::iter(vec![
+            AgentEvent::ThinkingChunk {
+                text: "thinking".to_string(),
+            },
+            AgentEvent::ToolCall {
+                id: "call-1".to_string(),
+                tool: "search".to_string(),
+                args: json!({}),
+            },
+            AgentEvent::TokenChunk {
+                text: "hello".to_string(),
+            },
+        ])
+        .boxed();
+
+        let outcome = consume_agent_stream(
+            stream,
+            Some("full-stream".to_string()),
+            Some("response-stream".to_string()),
+            &session_id,
+            &emitter,
+            "gateway",
+            &sink,
+        )
+        .await;
+
+        assert_eq!(outcome.text, "hello");
+        let events = sink.events.lock().expect("events lock").clone();
+        assert!(events.contains(&("full-stream".to_string(), "thinking".to_string())));
+        assert!(events.contains(&("full-stream".to_string(), "tool_call".to_string())));
+        assert!(events.contains(&("full-stream".to_string(), "token".to_string())));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|(stream_id, _)| stream_id == "response-stream")
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![("response-stream".to_string(), "token".to_string())]
+        );
     }
 }

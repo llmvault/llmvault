@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,6 +42,9 @@ func NewNangoWebhookHandler(db *gorm.DB, nangoSecret string, encKey *crypto.Symm
 	}
 	if len(enqueuer) > 0 {
 		h.enqueuer = enqueuer[0]
+	}
+	if h.gatewayService != nil && h.enqueuer != nil {
+		h.gatewayService.SetConnectionInboundAcceptedHook(h.enqueueGatewaySlackStatus)
 	}
 	return h
 }
@@ -130,11 +134,14 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		providerKey := nangoProviderConfigKey(wctx.connection.Integration.UniqueKey)
 		envelope := gateway.WebhookEnvelope{
 			ConnectionID: wctx.connection.ID,
 			OrgID:        wctx.connection.OrgID,
 			EmployeeID:   employee.ID,
 			Provider:     wctx.connection.Integration.Provider,
+			ProviderKey:  providerKey,
+			NangoConnID:  wctx.connection.NangoConnectionID,
 			Headers:      normalizedHeaders(r.Header),
 			Body:         wh.Payload,
 		}
@@ -165,8 +172,6 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{"status": status})
 			return
 		}
-
-		providerKey := nangoProviderConfigKey(wctx.connection.Integration.UniqueKey)
 
 		task, err := tasks.NewGatewaySlackTask(gatewaySlackPayload(envelope, result, wctx.connection, providerKey))
 		if err != nil {
@@ -217,7 +222,7 @@ func gatewaySlackPayload(envelope gateway.WebhookEnvelope, result *gateway.Recei
 		ChannelID:      result.Inbound.ChannelID,
 		ThreadTS:       result.Inbound.ThreadID,
 		TeamID:         slackInboundTeamID(result.Inbound.Raw),
-		StreamURL:      result.StreamURL,
+		StreamURL:      firstNonEmpty(result.ResponseStreamURL, result.StreamURL),
 		RuntimeURL:     result.RuntimeURL,
 		RuntimeAPIKey:  result.RuntimeAPIKey,
 		SessionID:      result.Session.ID.String(),
@@ -228,6 +233,38 @@ func gatewaySlackPayload(envelope gateway.WebhookEnvelope, result *gateway.Recei
 		ActionToken:    result.ActionToken,
 		NangoConnID:    conn.NangoConnectionID,
 		ProviderKey:    providerKey,
+	}
+}
+
+func (h *NangoWebhookHandler) enqueueGatewaySlackStatus(ctx context.Context, accepted gateway.ConnectionInboundAccepted) {
+	if accepted.Envelope.Provider != gateway.SlackProvider || h.enqueuer == nil {
+		return
+	}
+	fields := map[string]any{
+		"connection_id": accepted.Envelope.ConnectionID.String(),
+		"org_id":        accepted.Envelope.OrgID.String(),
+		"employee_id":   accepted.Envelope.EmployeeID.String(),
+		"channel_id":    accepted.Inbound.ChannelID,
+		"thread_ts":     accepted.Inbound.ThreadID,
+		"event_id":      accepted.Event.ID.String(),
+	}
+	task, err := tasks.NewGatewaySlackStatusTask(tasks.GatewaySlackStatusPayload{
+		ConnectionID: accepted.Envelope.ConnectionID.String(),
+		OrgID:        accepted.Envelope.OrgID.String(),
+		EmployeeID:   accepted.Envelope.EmployeeID.String(),
+		ChannelID:    accepted.Inbound.ChannelID,
+		ThreadTS:     accepted.Inbound.ThreadID,
+		TeamID:       slackInboundTeamID(accepted.Inbound.Raw),
+		EventID:      accepted.Event.ID.String(),
+		NangoConnID:  accepted.Envelope.NangoConnID,
+		ProviderKey:  accepted.Envelope.ProviderKey,
+	})
+	if err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("slack webhook: build status task: %w", err), fields)
+		return
+	}
+	if _, err := h.enqueuer.EnqueueContext(ctx, task); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("slack webhook: enqueue status task: %w", err), fields)
 	}
 }
 

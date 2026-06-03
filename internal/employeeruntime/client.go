@@ -48,11 +48,13 @@ type HTTPMessageRequest struct {
 }
 
 type HTTPMessageResponse struct {
-	SessionID string `json:"session_id"`
-	StreamID  string `json:"stream_id"`
-	StreamURL string `json:"stream_url"`
-	TraceID   string `json:"trace_id"`
-	TurnID    string `json:"turn_id"`
+	SessionID         string `json:"session_id"`
+	StreamID          string `json:"stream_id"`
+	StreamURL         string `json:"stream_url"`
+	ResponseStreamID  string `json:"response_stream_id"`
+	ResponseStreamURL string `json:"response_stream_url"`
+	TraceID           string `json:"trace_id"`
+	TurnID            string `json:"turn_id"`
 }
 
 func NewClient(baseURL, apiKey string) *Client {

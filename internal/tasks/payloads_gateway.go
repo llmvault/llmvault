@@ -28,6 +28,18 @@ type GatewaySlackPayload struct {
 	ProviderKey    string `json:"provider_config_key"`
 }
 
+type GatewaySlackStatusPayload struct {
+	ConnectionID string `json:"connection_id"`
+	OrgID        string `json:"org_id"`
+	EmployeeID   string `json:"employee_id"`
+	ChannelID    string `json:"channel_id"`
+	ThreadTS     string `json:"thread_ts"`
+	TeamID       string `json:"team_id,omitempty"`
+	EventID      string `json:"event_id,omitempty"`
+	NangoConnID  string `json:"nango_connection_id"`
+	ProviderKey  string `json:"provider_config_key"`
+}
+
 func NewGatewaySlackTask(payload GatewaySlackPayload) (*asynq.Task, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -39,5 +51,19 @@ func NewGatewaySlackTask(payload GatewaySlackPayload) (*asynq.Task, error) {
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(2),
 		asynq.Timeout(610*time.Second),
+	), nil
+}
+
+func NewGatewaySlackStatusTask(payload GatewaySlackStatusPayload) (*asynq.Task, error) {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal gateway slack status payload: %w", err)
+	}
+	return asynq.NewTask(
+		TypeGatewaySlackStatus,
+		encoded,
+		asynq.Queue(QueueCritical),
+		asynq.MaxRetry(1),
+		asynq.Timeout(30*time.Second),
 	), nil
 }

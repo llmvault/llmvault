@@ -123,3 +123,16 @@ func TestReceiveConnectionResultFields(t *testing.T) {
 		t.Errorf("ActionToken = %q, want %q", result.ActionToken, "test-token")
 	}
 }
+
+func TestAbsoluteRuntimeURLNormalizesRelativeStreamPath(t *testing.T) {
+	got := absoluteRuntimeURL("https://runtime.example.com/", "/gateway/http/response-streams/abc")
+	want := "https://runtime.example.com/gateway/http/response-streams/abc"
+	if got != want {
+		t.Fatalf("absoluteRuntimeURL = %q, want %q", got, want)
+	}
+
+	alreadyAbsolute := "https://other.example.com/gateway/http/response-streams/abc"
+	if got := absoluteRuntimeURL("https://runtime.example.com", alreadyAbsolute); got != alreadyAbsolute {
+		t.Fatalf("absoluteRuntimeURL absolute = %q, want %q", got, alreadyAbsolute)
+	}
+}

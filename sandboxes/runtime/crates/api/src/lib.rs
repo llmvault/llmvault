@@ -34,6 +34,7 @@ mod openapi {
             crate::handlers::readyz,
             crate::handlers::post_http_message,
             crate::handlers::get_http_stream,
+            crate::handlers::get_http_response_stream,
             crate::observability_handlers::get_trace_events,
             crate::observability_handlers::get_trace_summary,
         ),
@@ -143,6 +144,10 @@ pub fn build_router(state: ApiState) -> Router {
             get(handlers::get_http_stream),
         )
         .route(
+            "/gateway/http/response-streams/:stream_id",
+            get(handlers::get_http_response_stream),
+        )
+        .route(
             "/observability/traces/:trace_id/events",
             get(observability_handlers::get_trace_events),
         )
@@ -203,13 +208,14 @@ mod openapi_tests {
             "/config".to_string(),
             "/control/commands".to_string(),
             "/gateway/http/messages".to_string(),
+            "/gateway/http/response-streams/{stream_id}".to_string(),
             "/gateway/http/streams/{stream_id}".to_string(),
             "/healthz".to_string(),
             "/observability/traces/{trace_id}/events".to_string(),
             "/observability/traces/{trace_id}/summary".to_string(),
             "/readyz".to_string(),
             "/sessions".to_string(),
-            "/sessions/{channel}/{thread_ts}".to_string(),
+            "/sessions/{session_id}".to_string(),
         ]);
 
         assert_eq!(actual, expected);

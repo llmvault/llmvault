@@ -80,6 +80,33 @@ func (h *GatewaySlackHandler) Handle(ctx context.Context, t *asynq.Task) error {
 	return err
 }
 
+func (h *GatewaySlackHandler) HandleStatus(ctx context.Context, t *asynq.Task) error {
+	var payload GatewaySlackStatusPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("gateway slack status: unmarshal payload: %w", err), map[string]any{
+			"task_type": t.Type(),
+		})
+		return err
+	}
+	fields := map[string]any{
+		"connection_id": payload.ConnectionID,
+		"org_id":        payload.OrgID,
+		"employee_id":   payload.EmployeeID,
+		"channel_id":    payload.ChannelID,
+		"thread_ts":     payload.ThreadTS,
+		"event_id":      payload.EventID,
+	}
+
+	botToken, err := h.loadBotToken(ctx, payload.NangoConnID, payload.ProviderKey)
+	if err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("gateway slack status: load bot token: %w", err), fields)
+		return err
+	}
+
+	h.setStatus(ctx, h.newSlackClient(botToken), payload.ChannelID, payload.ThreadTS, fields)
+	return nil
+}
+
 func (h *GatewaySlackHandler) newSlackClient(botToken string) slackGatewayClient {
 	if h.slackClientFactory != nil {
 		return h.slackClientFactory(botToken)
