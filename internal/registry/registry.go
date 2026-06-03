@@ -60,8 +60,10 @@ type Modalities struct {
 
 // Cost holds per-million-token pricing.
 type Cost struct {
-	Input  float64 `json:"input,omitempty"`
-	Output float64 `json:"output,omitempty"`
+	Input      float64 `json:"input,omitempty"`
+	Output     float64 `json:"output,omitempty"`
+	CacheRead  float64 `json:"cache_read,omitempty"`
+	CacheWrite float64 `json:"cache_write,omitempty"`
 }
 
 // Limit holds token limits.

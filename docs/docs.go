@@ -2486,6 +2486,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/employees/models": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the OpenRouter-backed model allowlist supported for Hivy employees.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "List employee-selectable models",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/modelSummary"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/employees/{id}": {
             "get": {
                 "security": [
@@ -6306,6 +6340,12 @@ const docTemplate = `{
         "Cost": {
             "type": "object",
             "properties": {
+                "cache_read": {
+                    "type": "number"
+                },
+                "cache_write": {
+                    "type": "number"
+                },
                 "input": {
                     "type": "number"
                 },
