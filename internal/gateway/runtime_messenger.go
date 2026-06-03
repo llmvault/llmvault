@@ -44,6 +44,7 @@ func (m *OrchestratedRuntimeMessenger) Send(ctx context.Context, message Runtime
 		ConversationID:  message.ConversationID,
 		User:            message.User,
 		UserDisplayName: message.UserDisplayName,
+		DynamicContext:  message.DynamicContext,
 		Raw:             runtimeRaw(message),
 	})
 	if err != nil {

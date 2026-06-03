@@ -43,6 +43,7 @@ type HTTPMessageRequest struct {
 	User            string         `json:"user,omitempty"`
 	UserDisplayName string         `json:"user_display_name,omitempty"`
 	Attachments     []any          `json:"attachments,omitempty"`
+	DynamicContext  []string       `json:"dynamic_context,omitempty"`
 	Raw             map[string]any `json:"raw,omitempty"`
 }
 

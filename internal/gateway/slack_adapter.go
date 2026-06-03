@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
 
 const SlackProvider = "slack"
+
+var slackMentionRE = regexp.MustCompile(`<@[^>]+>`)
 
 type SlackAdapter struct{}
 
@@ -21,23 +24,25 @@ func (a *SlackAdapter) Provider() string {
 }
 
 type slackEventCallback struct {
-	Type      string     `json:"type"`
-	TeamID    string     `json:"team_id"`
-	EventID   string     `json:"event_id"`
-	Event     slackEvent `json:"event"`
+	Type    string     `json:"type"`
+	TeamID  string     `json:"team_id"`
+	EventID string     `json:"event_id"`
+	Event   slackEvent `json:"event"`
 }
 
 type slackEvent struct {
-	Type           string                    `json:"type"`
-	Team           string                    `json:"team"`
-	Channel        string                    `json:"channel"`
-	User           string                    `json:"user"`
-	Text           string                    `json:"text"`
-	TS             string                    `json:"ts"`
-	ThreadTS       string                    `json:"thread_ts"`
-	BotID          string                    `json:"bot_id"`
-	Subtype        string                    `json:"subtype"`
-	AssistantThread *slackAssistantThread    `json:"assistant_thread,omitempty"`
+	Type            string                `json:"type"`
+	Team            string                `json:"team"`
+	Channel         string                `json:"channel"`
+	User            string                `json:"user"`
+	Text            string                `json:"text"`
+	TS              string                `json:"ts"`
+	ThreadTS        string                `json:"thread_ts"`
+	BotID           string                `json:"bot_id"`
+	Subtype         string                `json:"subtype"`
+	ChannelType     string                `json:"channel_type"`
+	Hidden          bool                  `json:"hidden"`
+	AssistantThread *slackAssistantThread `json:"assistant_thread,omitempty"`
 }
 
 type slackAssistantThread struct {
@@ -67,6 +72,17 @@ func (a *SlackAdapter) DecodeInbound(_ context.Context, envelope WebhookEnvelope
 	if event.BotID != "" || event.Subtype == "bot_message" {
 		return InboundEnvelope{}, false, nil
 	}
+	if event.Hidden {
+		return InboundEnvelope{}, false, nil
+	}
+	if event.Type == "message" {
+		if event.Subtype != "" {
+			return InboundEnvelope{}, false, nil
+		}
+		if strings.TrimSpace(event.ThreadTS) == "" {
+			return InboundEnvelope{}, false, nil
+		}
+	}
 
 	if strings.TrimSpace(event.Channel) == "" {
 		return InboundEnvelope{}, false, fmt.Errorf("slack event missing channel")
@@ -83,10 +99,20 @@ func (a *SlackAdapter) DecodeInbound(_ context.Context, envelope WebhookEnvelope
 
 	threadKey := event.Channel + ":" + threadTS
 
+	teamID := callback.TeamID
+	if teamID == "" {
+		teamID = event.Team
+	}
 	raw := map[string]any{
-		"team_id":  callback.TeamID,
-		"event_id": callback.EventID,
-		"ts":       event.TS,
+		"team_id":       teamID,
+		"event_id":      callback.EventID,
+		"ts":            event.TS,
+		"thread_ts":     threadTS,
+		"event_type":    event.Type,
+		"event_subtype": event.Subtype,
+		"channel_type":  event.ChannelType,
+		"is_thread_reply": event.ThreadTS != "" &&
+			event.ThreadTS != event.TS,
 	}
 	if event.AssistantThread != nil && event.AssistantThread.ActionToken != "" {
 		raw["action_token"] = event.AssistantThread.ActionToken
@@ -107,17 +133,24 @@ func (a *SlackAdapter) DecodeInbound(_ context.Context, envelope WebhookEnvelope
 }
 
 func (a *SlackAdapter) FormatAgentRequest(_ context.Context, inbound InboundEnvelope) (AgentRequest, error) {
-	text := strings.TrimSpace(inbound.Text)
+	text := cleanSlackPromptText(inbound.Text)
 	if text == "" {
 		return AgentRequest{}, fmt.Errorf("format slack message: text is required")
 	}
-	sender := firstNonEmpty(inbound.SenderID, "unknown")
 	return AgentRequest{
-		Markdown: fmt.Sprintf("From %s in %s:\n\n%s", sender, inbound.ChannelID, text),
+		Markdown: fmt.Sprintf("Slack message:\n\n%s", text),
 		Metadata: map[string]any{
-			"sender_id": inbound.SenderID,
+			"sender_id":  inbound.SenderID,
+			"channel_id": inbound.ChannelID,
+			"thread_ts":  inbound.ThreadID,
+			"provider":   SlackProvider,
 		},
 	}, nil
+}
+
+func cleanSlackPromptText(text string) string {
+	text = slackMentionRE.ReplaceAllString(text, "")
+	return strings.Join(strings.Fields(text), " ")
 }
 
 func (a *SlackAdapter) RenderResponse(_ context.Context, response AgentResponse) (ProviderResponsePayload, error) {

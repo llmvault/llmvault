@@ -17,6 +17,7 @@ import (
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 )
 
 const (
@@ -29,10 +30,15 @@ type EmployeeMemoryRetainHandler struct {
 	db       *gorm.DB
 	memory   *hindsight.Client
 	enqueuer enqueue.TaskEnqueuer
+	cache    precontext.Cache
 }
 
-func NewEmployeeMemoryRetainHandler(db *gorm.DB, memory *hindsight.Client, enqueuer enqueue.TaskEnqueuer) *EmployeeMemoryRetainHandler {
-	return &EmployeeMemoryRetainHandler{db: db, memory: memory, enqueuer: enqueuer}
+func NewEmployeeMemoryRetainHandler(db *gorm.DB, memory *hindsight.Client, enqueuer enqueue.TaskEnqueuer, caches ...precontext.Cache) *EmployeeMemoryRetainHandler {
+	h := &EmployeeMemoryRetainHandler{db: db, memory: memory, enqueuer: enqueuer}
+	if len(caches) > 0 {
+		h.cache = caches[0]
+	}
+	return h
 }
 
 func (h *EmployeeMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Task) error {
@@ -130,6 +136,7 @@ func (h *EmployeeMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Ta
 		fields["hindsight_async"] = result.Async
 		fields["hindsight_operation_id"] = result.OperationID
 	}
+	precontext.InvalidateMemories(ctx, h.cache, *agent.OrgID, agent.ID)
 
 	now := time.Now().UTC()
 	update := h.db.WithContext(ctx).

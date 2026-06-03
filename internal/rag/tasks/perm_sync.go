@@ -8,6 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
@@ -57,6 +58,7 @@ func (d *Deps) HandlePermSync(ctx context.Context, t *asynq.Task) error {
 		}).Error; err != nil {
 		return fmt.Errorf("perm_sync %s: advance last_time_perm_sync: %w", src.ID, err)
 	}
+	precontext.InvalidateKnowledge(ctx, deps.PreContextCache, src.OrgIDValue)
 	return nil
 }
 

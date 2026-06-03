@@ -20,6 +20,7 @@ import (
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
+	"github.com/usehivy/hivy/internal/precontext"
 	// Blank import populates interfaces.Registry via init().
 	_ "github.com/usehivy/hivy/internal/rag/connectors"
 	ragscheduler "github.com/usehivy/hivy/internal/rag/scheduler"
@@ -55,7 +56,8 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		Cfg: ragscheduler.NewConfig(),
 	}
 
-	ragDeps := buildRagDeps(ctx, cfg, deps.DB, deps.NangoClient, deps.SpiderClient, deps.KMS)
+	preContextCache := precontext.NewRedisCache(deps.Redis)
+	ragDeps := buildRagDeps(ctx, cfg, deps.DB, deps.NangoClient, deps.SpiderClient, deps.KMS, preContextCache)
 
 	workerDeps := &tasks.WorkerDeps{
 		DB:           deps.DB,
@@ -78,14 +80,15 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 				IdempotencyKey: idempotencyKey,
 			})
 		},
-		SkillFetcher:  skills.NewGitFetcher(cfg.GitHubToken),
-		NangoClient:   deps.NangoClient,
-		CacheManager:  deps.CacheManager,
-		Credits:       deps.Credits,
-		Subscriptions: deps.Subscriptions,
-		Enqueuer:      enqueuer,
-		Hindsight:     deps.HindsightClient,
-		S3Client:      deps.S3Client,
+		SkillFetcher:    skills.NewGitFetcher(cfg.GitHubToken),
+		NangoClient:     deps.NangoClient,
+		CacheManager:    deps.CacheManager,
+		Credits:         deps.Credits,
+		Subscriptions:   deps.Subscriptions,
+		Enqueuer:        enqueuer,
+		Hindsight:       deps.HindsightClient,
+		PreContextCache: preContextCache,
+		S3Client:        deps.S3Client,
 		EmployeeCompile: employeeruntime.CompileDeps{
 			DB:          deps.DB,
 			Picker:      credentials.NewPickerWithRegistry(deps.DB, deps.Registry),

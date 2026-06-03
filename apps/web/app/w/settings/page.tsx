@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Alert02Icon,
@@ -11,10 +13,12 @@ import {
 import { ModelCombobox } from "@/components/model-combobox"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import { EmployeeUpgradeDialog } from "../_components/employee-upgrade-dialog"
 
 export default function SettingsPage() {
+  const queryClient = useQueryClient()
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
 
@@ -23,13 +27,45 @@ export default function SettingsPage() {
   })
 
   const employee = employeesQuery.data?.data?.[0]
+  const employeeID = employee?.id ?? ""
   const canUpgrade = employee?.upgrade_available && employee?.id
   const isUpgrading = employee?.sandbox?.status?.toLowerCase() === "upgrading"
   const modelChanged = !!employee?.model && selectedModel !== employee.model
+  const updateModel = $api.useMutation("patch", "/v1/employees/{id}/model")
 
   useEffect(() => {
     setSelectedModel(employee?.model ?? null)
   }, [employee?.model])
+
+  function refreshEmployee() {
+    queryClient.invalidateQueries({ queryKey: ["get", "/v1/employees"] })
+    if (employeeID) {
+      queryClient.invalidateQueries({ queryKey: ["get", "/v1/employees/{id}"] })
+    }
+  }
+
+  function saveModel() {
+    if (!employeeID || !selectedModel || !modelChanged) return
+    updateModel.mutate(
+      {
+        params: { path: { id: employeeID } },
+        body: { model: selectedModel } as never,
+      },
+      {
+        onSuccess: (data) => {
+          setSelectedModel(data.employee?.model ?? selectedModel)
+          toast.success("Employee model saved and synced")
+          refreshEmployee()
+        },
+        onError: (error) => {
+          toast.error(
+            extractErrorMessage(error, "Failed to save employee model")
+          )
+          refreshEmployee()
+        },
+      }
+    )
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-7">
@@ -62,13 +98,21 @@ export default function SettingsPage() {
               <EmployeeModelsCombobox
                 value={selectedModel}
                 onSelect={setSelectedModel}
+                disabled={updateModel.isPending || isUpgrading}
               />
               <Button
                 type="button"
-                disabled={!modelChanged}
+                disabled={
+                  !employeeID ||
+                  !selectedModel ||
+                  !modelChanged ||
+                  updateModel.isPending ||
+                  isUpgrading
+                }
+                onClick={saveModel}
                 className="w-full lg:w-auto h-14"
               >
-                Save changes
+                {updateModel.isPending ? "Saving..." : "Save changes"}
               </Button>
             </div>
           </div>
@@ -149,9 +193,11 @@ export default function SettingsPage() {
 function EmployeeModelsCombobox({
   value,
   onSelect,
+  disabled,
 }: {
   value?: string | null
   onSelect?: (model: string) => void
+  disabled?: boolean
 }) {
   const { data, isLoading } = $api.useQuery("get", "/v1/employees/models", {})
 
@@ -161,7 +207,7 @@ function EmployeeModelsCombobox({
       value={value}
       onSelect={onSelect}
       loading={isLoading}
-      disabled={isLoading}
+      disabled={isLoading || disabled}
     />
   )
 }

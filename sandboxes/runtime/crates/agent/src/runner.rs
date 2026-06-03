@@ -21,7 +21,10 @@ use tools::{JsonTool, ToolBuildContext};
 use tracing::warn;
 
 use crate::compaction;
-use crate::history::{append_model_message, load_model_history, seed_model_history_from_gateway};
+use crate::history::{
+    append_model_message, load_model_history, load_preloaded_context, persist_preloaded_context,
+    seed_model_history_from_gateway,
+};
 use crate::model_client::{ChatModelClient, ModelClientConfig};
 use crate::primitives::{
     AgentMessage, FinishReason, MessagePart, ModelRequest, ModelStreamEvent, ToolCall,
@@ -665,7 +668,22 @@ async fn build_initial_messages(
     event_repo: Option<&dyn storage::EventRepo>,
     mcp_registry: Option<&McpRegistry>,
 ) -> Result<Vec<AgentMessage>> {
-    let dynamic_context = input.dynamic_context.clone();
+    let dynamic_context = if input.dynamic_context.is_empty() {
+        match load_preloaded_context(event_repo, session_id).await {
+            Ok(context) => context,
+            Err(error) => {
+                capture_preloaded_context_error(session_id, "load", &error.to_string());
+                Vec::new()
+            }
+        }
+    } else {
+        if let Err(error) =
+            persist_preloaded_context(event_repo, session_id, &input.dynamic_context).await
+        {
+            capture_preloaded_context_error(session_id, "persist", &error.to_string());
+        }
+        input.dynamic_context.clone()
+    };
     let mut messages = vec![
         AgentMessage::system(render_cacheable_system_prompt(snapshot)),
         AgentMessage::system(
@@ -1176,6 +1194,33 @@ fn capture_tool_error(
         },
         || {
             sentry::capture_message("agent tool error", sentry::Level::Error);
+        },
+    );
+}
+
+fn capture_preloaded_context_error(session_id: &SessionId, operation: &str, error: &str) {
+    let (channel, thread_ts) = derive_channel_and_thread(session_id);
+    warn!(
+        session_id = %session_id.as_str(),
+        operation,
+        error = %error,
+        "agent preloaded context error captured"
+    );
+    sentry::with_scope(
+        |scope| {
+            scope.set_tag("runtime.agent_event", "agent.preloaded_context.error");
+            scope.set_tag("runtime.session_id", session_id.as_str());
+            scope.set_tag("runtime.preloaded_context.operation", operation);
+            if !channel.is_empty() {
+                scope.set_tag("runtime.channel", channel.as_str());
+            }
+            if !thread_ts.is_empty() {
+                scope.set_tag("runtime.thread_ts", thread_ts.as_str());
+            }
+            scope.set_extra("internal_error", error.to_string().into());
+        },
+        || {
+            sentry::capture_message("agent preloaded context error", sentry::Level::Error);
         },
     );
 }

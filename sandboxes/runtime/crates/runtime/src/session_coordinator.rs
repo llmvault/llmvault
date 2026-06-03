@@ -73,6 +73,7 @@ mod tests {
                 name: "log.txt".to_string(),
                 size_bytes: Some(42),
             }],
+            dynamic_context: Vec::new(),
             raw: serde_json::json!({"source": "test"}),
             inbound_handle: MessageHandle {
                 channel: "C123".to_string(),

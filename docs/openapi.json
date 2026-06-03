@@ -3078,6 +3078,124 @@
         }
       }
     },
+    "/v1/employees/{id}/model": {
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Persists Hivy's employee model and pushes the full runtime config to the live sandbox.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Update an employee model",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateEmployeeModelRequest"
+              }
+            }
+          },
+          "description": "Employee model update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/updateEmployeeModelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/employees/{id}/sandbox/upgrade": {
       "post": {
         "security": [
@@ -8750,6 +8868,65 @@
           }
         }
       },
+      "employeeResponse": {
+        "type": "object",
+        "properties": {
+          "attached_skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeSkillSummary"
+            }
+          },
+          "avatar_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_memory_refreshed_at": {
+            "type": "string"
+          },
+          "memory_refresh_error": {
+            "type": "string"
+          },
+          "memory_refresh_status": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sandbox_template_id": {
+            "type": "string"
+          },
+          "specialist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeTriggerResponse"
+            }
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "employeeSandboxSummary": {
         "type": "object",
         "properties": {
@@ -11284,6 +11461,25 @@
         "properties": {
           "bundle": {
             "$ref": "#/components/schemas/Bundle"
+          }
+        }
+      },
+      "updateEmployeeModelRequest": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          }
+        }
+      },
+      "updateEmployeeModelResponse": {
+        "type": "object",
+        "properties": {
+          "employee": {
+            "$ref": "#/components/schemas/employeeResponse"
+          },
+          "sync": {
+            "$ref": "#/components/schemas/syncEmployeeResponse"
           }
         }
       },

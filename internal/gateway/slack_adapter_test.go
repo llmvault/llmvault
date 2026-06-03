@@ -55,7 +55,7 @@ func TestSlackAdapterDecodeInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("message without thread", func(t *testing.T) {
+	t.Run("message without thread ignored", func(t *testing.T) {
 		payload := json.RawMessage(`{
 			"type": "event_callback",
 			"team_id": "T123",
@@ -74,11 +74,40 @@ func TestSlackAdapterDecodeInbound(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+		if ok {
+			t.Fatalf("top-level plain message should be ignored, got %#v", inbound)
+		}
+	})
+
+	t.Run("message thread reply", func(t *testing.T) {
+		payload := json.RawMessage(`{
+			"type": "event_callback",
+			"team_id": "T123",
+			"event_id": "Ev456",
+			"event": {
+				"type": "message",
+				"channel": "C456",
+				"channel_type": "channel",
+				"user": "U789",
+				"text": "continue this thread",
+				"ts": "1234567891.123456",
+				"thread_ts": "1234567890.123456"
+			}
+		}`)
+		envelope := WebhookEnvelope{Body: payload}
+
+		inbound, ok, err := adapter.DecodeInbound(context.Background(), envelope)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		if !ok {
-			t.Fatal("expected event to be decoded")
+			t.Fatal("expected threaded message to be decoded")
 		}
 		if inbound.ThreadKey != "C456:1234567890.123456" {
-			t.Errorf("ThreadKey = %q, want %q (should use ts when no thread_ts)", inbound.ThreadKey, "C456:1234567890.123456")
+			t.Errorf("ThreadKey = %q", inbound.ThreadKey)
+		}
+		if inbound.Raw["event_type"] != "message" || inbound.Raw["is_thread_reply"] != true {
+			t.Fatalf("missing slack raw metadata: %#v", inbound.Raw)
 		}
 	})
 
@@ -178,7 +207,7 @@ func TestSlackAdapterFormatAgentRequest(t *testing.T) {
 	adapter := NewSlackAdapter()
 
 	inbound := InboundEnvelope{
-		SenderID: "U789",
+		SenderID:  "U789",
 		ChannelID: "C456",
 		Text:      "hello bot",
 	}
@@ -187,11 +216,14 @@ func TestSlackAdapterFormatAgentRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if req.Markdown == "" {
-		t.Error("expected non-empty markdown")
+	if req.Markdown != "Slack message:\n\nhello bot" {
+		t.Errorf("markdown = %q", req.Markdown)
 	}
 	if req.Metadata["sender_id"] != "U789" {
 		t.Errorf("metadata sender_id = %q, want %q", req.Metadata["sender_id"], "U789")
+	}
+	if req.Metadata["channel_id"] != "C456" {
+		t.Errorf("metadata channel_id = %q, want %q", req.Metadata["channel_id"], "C456")
 	}
 }
 
@@ -224,9 +256,9 @@ func TestSlackAdapterRenderResponse(t *testing.T) {
 
 	t.Run("valid response", func(t *testing.T) {
 		response := AgentResponse{
-			Text: "Hello world",
+			Text:      "Hello world",
 			ChannelID: "C456",
-			ThreadID: "1234567890.000000",
+			ThreadID:  "1234567890.000000",
 		}
 
 		payload, err := adapter.RenderResponse(context.Background(), response)
