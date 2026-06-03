@@ -164,9 +164,9 @@ export default function WorkspaceV2Layout({
               className="pointer-events-none absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full opacity-30 blur-[120px]"
               style={{ backgroundColor: "var(--glow-right)" }}
             />
-            <main className="relative z-10 flex h-full flex-1 flex-col overflow-y-auto p-6 md:p-8">
+            <main className="relative z-10 flex h-full flex-1 flex-col overflow-y-auto">
               <UpgradeBanner />
-              {children}
+              <div className="flex flex-1 flex-col p-6 md:p-8">{children}</div>
             </main>
           </SidebarInset>
         </SidebarProvider>
