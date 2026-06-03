@@ -167,6 +167,48 @@ func TestGatewaySlackHandler_PostsAccumulatedTokensOnDone(t *testing.T) {
 	}
 }
 
+func TestGatewaySlackHandler_PrefersStreamedTokensOverFinalText(t *testing.T) {
+	var calls []slackAPICall
+	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		call := recordSlackAPICall(t, r)
+		calls = append(calls, call)
+		switch r.URL.Path {
+		case "/assistant.threads.setStatus":
+			writeSlackOK(t, w, "")
+		case "/chat.postMessage":
+			wantText := "notion railway Deploy Hivy's Vercel rollbacks"
+			if call.Form.Get("text") != wantText {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
+			}
+			assertSlackMarkdownBlockText(t, call, wantText)
+			writeSlackOK(t, w, "1710000002.789")
+		default:
+			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	text, delivered, _, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+		context.Background(),
+		gatewaySlackTestPayload(),
+		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
+		gatewaySlackEvents(
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"not"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"ion rail"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"way Deploy Hiv"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"y's Vercel rollbacks"}`)},
+			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"not ion rail way De ploy Hiv y's Verc el roll backs"}`)},
+		),
+		map[string]any{},
+	)
+	if err != nil {
+		t.Fatalf("deliver slack response: %v", err)
+	}
+	if !delivered || text != "notion railway Deploy Hivy's Vercel rollbacks" {
+		t.Fatalf("delivered=%v text=%q", delivered, text)
+	}
+}
+
 func TestGatewaySlackHandler_PostsFriendlyMessageOnStreamError(t *testing.T) {
 	var calls []slackAPICall
 	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {

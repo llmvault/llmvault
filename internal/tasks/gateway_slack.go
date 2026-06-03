@@ -148,7 +148,7 @@ func (h *GatewaySlackHandler) deliverSlackResponse(ctx context.Context, payload 
 				h.clearStatus(ctx, client, payload.ChannelID, payload.ThreadTS, fields)
 			}
 
-			text := firstNonEmpty(data.Text, streamedText.String())
+			text := firstNonEmpty(streamedText.String(), data.Text)
 			if text == "" {
 				text = "No response generated."
 			}
