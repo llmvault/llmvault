@@ -960,25 +960,11 @@ fn push_visible_delta(accumulated: &mut String, delta: &str) {
     if delta.is_empty() {
         return;
     }
-    if needs_inserted_space(accumulated, delta) {
-        accumulated.push(' ');
-    }
     accumulated.push_str(delta);
 }
 
 fn normalize_visible_text(text: &str) -> String {
-    let mut normalized = String::new();
-    for ch in text.chars() {
-        if normalized
-            .chars()
-            .next_back()
-            .is_some_and(|prev| matches!(prev, '.' | '!' | '?') && ch.is_ascii_alphabetic())
-        {
-            normalized.push(' ');
-        }
-        normalized.push(ch);
-    }
-    normalized
+    text.to_string()
 }
 
 fn merge_final_text(accumulated: &mut String, final_text: &str) {
@@ -990,37 +976,6 @@ fn merge_final_text(accumulated: &mut String, final_text: &str) {
     if normalized.starts_with(accumulated.as_str()) && normalized.len() > accumulated.len() {
         accumulated.push_str(&normalized[accumulated.len()..]);
     }
-}
-
-fn needs_inserted_space(accumulated: &str, delta: &str) -> bool {
-    let Some(prev) = accumulated.chars().next_back() else {
-        return false;
-    };
-    let Some(next) = delta.chars().next() else {
-        return false;
-    };
-    if prev.is_whitespace() || next.is_whitespace() {
-        return false;
-    }
-    if matches!(
-        next,
-        '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '}' | '\'' | '"' | '’'
-    ) {
-        return false;
-    }
-    if matches!(
-        prev,
-        '(' | '[' | '{' | '/' | '-' | '—' | '\'' | '"' | '‘' | '“'
-    ) {
-        return false;
-    }
-    if matches!(prev, '.' | '!' | '?') && next.is_ascii_alphabetic() {
-        return true;
-    }
-    if prev.is_ascii_alphabetic() && next.is_ascii_alphabetic() {
-        return true;
-    }
-    false
 }
 
 fn sanitize_agent_event_for_clients(
@@ -1217,12 +1172,12 @@ mod tests {
     }
 
     #[test]
-    fn visible_delta_spacing_recovers_missing_provider_spaces() {
+    fn visible_delta_preserves_provider_token_boundaries() {
         let mut text = String::new();
-        for delta in ["Hey!", "What's", "up?"] {
+        for delta in ["not", "ion", " rail", "way", " De", "ploy", " Hiv", "y's"] {
             push_visible_delta(&mut text, delta);
         }
-        assert_eq!(text, "Hey! What's up?");
+        assert_eq!(text, "notion railway Deploy Hivy's");
     }
 
     #[test]
@@ -1235,17 +1190,17 @@ mod tests {
     }
 
     #[test]
-    fn visible_final_text_is_normalized_for_glued_words() {
-        assert_eq!(normalize_visible_text("Hey!What'sup?"), "Hey! What'sup?");
+    fn visible_final_text_is_not_rewritten() {
+        assert_eq!(normalize_visible_text("Hey!What'sup?"), "Hey!What'sup?");
     }
 
     #[test]
-    fn final_event_does_not_overwrite_spaced_stream_tokens() {
+    fn final_event_keeps_stream_tokens_when_final_repeats_text() {
         let mut text = String::new();
-        for delta in ["Hey!", "What's", "up?"] {
+        for delta in ["Hey! ", "What's ", "up?"] {
             push_visible_delta(&mut text, delta);
         }
-        merge_final_text(&mut text, "Hey!What'sup?");
+        merge_final_text(&mut text, "Hey! What's up?");
         assert_eq!(text, "Hey! What's up?");
     }
 

@@ -64,9 +64,11 @@ func TestGatewaySlackHandler_PostsFinalThreadReplyWithoutSlackStream(t *testing.
 			if call.Form.Get("thread_ts") != "1710000000.123" {
 				t.Fatalf("postMessage thread_ts = %q", call.Form.Get("thread_ts"))
 			}
-			if call.Form.Get("text") != "Hello there" {
+			wantText := "I have **notion** and [docs](https://example.com)."
+			if call.Form.Get("text") != wantText {
 				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
 			}
+			assertSlackMarkdownBlockText(t, call, wantText)
 			writeSlackOK(t, w, "1710000002.789")
 		default:
 			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
@@ -80,16 +82,16 @@ func TestGatewaySlackHandler_PostsFinalThreadReplyWithoutSlackStream(t *testing.
 		payload,
 		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
 		gatewaySlackEvents(
-			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"Hello "}`)},
-			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"there"}`)},
-			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"Hello there"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"I have **notion** "}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"and [docs](https://example.com)."}`)},
+			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"I have **notion** and [docs](https://example.com)."}`)},
 		),
 		map[string]any{},
 	)
 	if err != nil {
 		t.Fatalf("deliver slack response: %v", err)
 	}
-	if !delivered || text != "Hello there" {
+	if !delivered || text != "I have **notion** and [docs](https://example.com)." {
 		t.Fatalf("delivered=%v text=%q", delivered, text)
 	}
 	if providerMessageID != "1710000002.789" {
