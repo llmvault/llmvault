@@ -320,6 +320,7 @@ fn stream_response(response: Response, json_repair: &JsonRepair) -> ModelEventSt
         let mut buffer = String::new();
         let mut tool_accumulator = ToolCallAccumulator::default();
         let mut last_finish_reason: Option<FinishReason> = None;
+        let mut saw_event = false;
         futures::pin_mut!(bytes);
         while let Some(chunk) = bytes.next().await {
             let chunk = match chunk {
@@ -336,6 +337,7 @@ fn stream_response(response: Response, json_repair: &JsonRepair) -> ModelEventSt
                 if data.is_empty() || data.starts_with(':') {
                     continue;
                 }
+                saw_event = true;
                 if data == "[DONE]" {
                     let calls = tool_accumulator.finish(&json_repair);
                     if !calls.is_empty() {
@@ -376,6 +378,12 @@ fn stream_response(response: Response, json_repair: &JsonRepair) -> ModelEventSt
                 }
             }
         }
+        let reason = if saw_event {
+            "model stream ended without [DONE]"
+        } else {
+            "model stream ended without events"
+        };
+        yield Err(AgentError::Model(format!("{reason} (transport)")));
     })
 }
 
@@ -912,6 +920,21 @@ mod tests {
         events
     }
 
+    #[tokio::test]
+    async fn stream_errors_when_upstream_ends_without_done() {
+        let server = FakeModelServer::spawn(vec![FakeResponse::sse_without_done("")]).await;
+        let client = ChatModelClient::new(server.base_url(), "test-key");
+        let mut stream = client.stream(test_request("test-model")).await.unwrap();
+
+        let err = stream
+            .next()
+            .await
+            .expect("stream should emit an error")
+            .expect_err("truncated SSE must not complete cleanly");
+
+        assert!(err.to_string().contains("ended without [DONE]"));
+    }
+
     struct FakeModelServer {
         addr: SocketAddr,
         state: Arc<FakeState>,
@@ -978,6 +1001,16 @@ mod tests {
                 status: StatusCode::OK,
                 body: format!(
                     "data: {{\"choices\":[{{\"delta\":{{\"content\":{}}}}}]}}\n\ndata: [DONE]\n\n",
+                    serde_json::to_string(text).unwrap()
+                ),
+            }
+        }
+
+        fn sse_without_done(text: &str) -> Self {
+            Self {
+                status: StatusCode::OK,
+                body: format!(
+                    "data: {{\"choices\":[{{\"delta\":{{\"content\":{}}}}}]}}\n\n",
                     serde_json::to_string(text).unwrap()
                 ),
             }

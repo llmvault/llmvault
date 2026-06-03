@@ -81,6 +81,23 @@ func TestBuildEmployeeRetainItem_SkipsNoCheckpointAndSecrets(t *testing.T) {
 	}
 }
 
+func TestBuildEmployeeRetainItemWithReason_ReportsSkipReasons(t *testing.T) {
+	orgID := uuid.New()
+	agentID := uuid.New()
+	sandboxID := uuid.New()
+	agent := &model.Employee{ID: agentID, OrgID: &orgID, Name: "Aria"}
+	onlyUser := []model.EmployeeSessionEvent{
+		memoryEvent(t, orgID, agentID, sandboxID, "S1", "user.message.received", map[string]any{"text": "remember this later"}),
+	}
+	if _, ok, reason := buildEmployeeRetainItemWithReason(agent, EmployeeMemoryRetainPayload{EmployeeID: agentID, SandboxID: sandboxID, SessionID: "S1"}, onlyUser); ok || reason != "not_meaningful" {
+		t.Fatalf("reason = %q ok=%t, want not_meaningful false", reason, ok)
+	}
+	withSecret := append(onlyUser, memoryEvent(t, orgID, agentID, sandboxID, "S1", "agent.message.sent", map[string]any{"text": "api_key=sk-secret"}))
+	if _, ok, reason := buildEmployeeRetainItemWithReason(agent, EmployeeMemoryRetainPayload{EmployeeID: agentID, SandboxID: sandboxID, SessionID: "S1"}, withSecret); ok || reason != "secret_detected" {
+		t.Fatalf("reason = %q ok=%t, want secret_detected false", reason, ok)
+	}
+}
+
 func TestBuildEmployeeRetainItem_PreservesExplicitRememberFactsWithoutTools(t *testing.T) {
 	orgID := uuid.New()
 	agentID := uuid.New()
