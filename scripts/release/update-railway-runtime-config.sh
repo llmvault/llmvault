@@ -10,6 +10,9 @@ environment="${RAILWAY_ENVIRONMENT}"
 services="${RAILWAY_SERVICES}"
 wait_seconds="${RAILWAY_DEPLOY_WAIT_SECONDS:-900}"
 poll_seconds="${RAILWAY_DEPLOY_POLL_SECONDS:-10}"
+railway_attempts=3
+railway_attempt_timeout_seconds=120
+railway_retry_sleep_seconds=10
 
 if [[ ! -f "${manifest}" ]]; then
   echo "manifest not found: ${manifest}" >&2
@@ -23,6 +26,48 @@ command -v jq >/dev/null || {
 command -v railway >/dev/null || {
   echo "railway CLI is required" >&2
   exit 1
+}
+
+run_with_timeout() {
+  local timeout_seconds="${1}"
+  shift
+
+  "$@" &
+  local pid="${!}"
+  local elapsed=0
+
+  while kill -0 "${pid}" 2>/dev/null; do
+    if ((elapsed >= timeout_seconds)); then
+      kill "${pid}" 2>/dev/null || true
+      wait "${pid}" 2>/dev/null || true
+      return 124
+    fi
+
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  wait "${pid}"
+}
+
+railway_with_retry() {
+  local attempt
+  local exit_code
+
+  for ((attempt = 1; attempt <= railway_attempts; attempt++)); do
+    if run_with_timeout "${railway_attempt_timeout_seconds}" railway "$@"; then
+      return 0
+    else
+      exit_code="${?}"
+    fi
+
+    if ((attempt == railway_attempts)); then
+      return "${exit_code}"
+    fi
+
+    echo "Railway command failed with exit ${exit_code}; retrying in ${railway_retry_sleep_seconds}s (${attempt}/${railway_attempts})..." >&2
+    sleep "${railway_retry_sleep_seconds}"
+  done
 }
 
 specialist_sandbox_runtime_version="$(jq -r '.runtimeConfig.HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION' "${manifest}")"
@@ -48,7 +93,7 @@ fi
 
 for service in "${service_list[@]}"; do
   echo "Updating Railway runtime config on ${service}..."
-  railway variable set \
+  railway_with_retry variable set \
     "HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION=${specialist_sandbox_runtime_version}" \
     "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=${sandboxes_runtime_base_image}" \
     "HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE=${sandboxes_runtime_specialist_image}" \
@@ -61,7 +106,7 @@ while true; do
   all_success=true
   for service in "${service_list[@]}"; do
     status="$(
-      railway deployment list \
+      railway_with_retry deployment list \
         --environment "${environment}" \
         --service "${service}" \
         --limit 1 \
