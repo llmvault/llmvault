@@ -300,6 +300,18 @@ fn runtime_sentry_tags() -> Vec<(&'static str, String)> {
     if let Some(sandbox_id) = non_empty_env("HIVY_SANDBOX_ID") {
         tags.push(("sandbox_id", sandbox_id));
     }
+    for (env_key, tag_key) in [
+        ("HIVY_RUNTIME_MODE", "runtime_mode"),
+        ("RAILWAY_PROJECT_ID", "railway.project_id"),
+        ("RAILWAY_ENVIRONMENT_ID", "railway.environment_id"),
+        ("RAILWAY_SERVICE_ID", "railway.service_id"),
+        ("RAILWAY_SERVICE_NAME", "railway.service_name"),
+        ("RAILWAY_DEPLOYMENT_ID", "railway.deployment_id"),
+    ] {
+        if let Some(value) = non_empty_env(env_key) {
+            tags.push((tag_key, value));
+        }
+    }
     tags
 }
 
@@ -357,6 +369,9 @@ mod tests {
         std::env::set_var("HIVY_EMPLOYEE_ID", "employee-123");
         std::env::set_var("EMPLOYEE_ID", "runtime-employee-123");
         std::env::set_var("HIVY_SANDBOX_ID", "sandbox-123");
+        std::env::set_var("HIVY_RUNTIME_MODE", "employee");
+        std::env::set_var("RAILWAY_SERVICE_ID", "service-123");
+        std::env::set_var("RAILWAY_DEPLOYMENT_ID", "deployment-123");
 
         let tags = runtime_sentry_tags();
 
@@ -364,6 +379,9 @@ mod tests {
         assert!(tags.contains(&("employee_id", "employee-123".to_string())));
         assert!(tags.contains(&("runtime_employee_id", "runtime-employee-123".to_string())));
         assert!(tags.contains(&("sandbox_id", "sandbox-123".to_string())));
+        assert!(tags.contains(&("runtime_mode", "employee".to_string())));
+        assert!(tags.contains(&("railway.service_id", "service-123".to_string())));
+        assert!(tags.contains(&("railway.deployment_id", "deployment-123".to_string())));
     }
 
     #[test]
@@ -450,6 +468,12 @@ mod tests {
                 "HIVY_EMPLOYEE_ID",
                 "EMPLOYEE_ID",
                 "HIVY_SANDBOX_ID",
+                "HIVY_RUNTIME_MODE",
+                "RAILWAY_PROJECT_ID",
+                "RAILWAY_ENVIRONMENT_ID",
+                "RAILWAY_SERVICE_ID",
+                "RAILWAY_SERVICE_NAME",
+                "RAILWAY_DEPLOYMENT_ID",
             ] {
                 std::env::remove_var(key);
             }

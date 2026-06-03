@@ -57,6 +57,10 @@ func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, 
 		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime health: %v", err))
 		return fmt.Errorf("waiting for claimed runtime: %w", err)
 	}
+	if err := o.pushEmployeeRuntimeConfig(ctx, sb, "warm claim"); err != nil {
+		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime config push: %v", err))
+		return err
+	}
 	if err := o.warmPool.MarkClaimed(ctx, claimed.ID); err != nil {
 		return fmt.Errorf("mark warm slot claimed: %w", err)
 	}

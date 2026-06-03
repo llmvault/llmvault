@@ -171,6 +171,30 @@ mutation DeleteRailwaySandboxService($environmentId: String!, $serviceId: String
 	}, &out)
 }
 
+func (c *Client) RestartLatestDeployment(ctx context.Context, input DeploymentListInput) error {
+	deployments, err := c.Deployments(ctx, DeploymentListInput{
+		ProjectID:     input.ProjectID,
+		EnvironmentID: input.EnvironmentID,
+		ServiceID:     input.ServiceID,
+		First:         1,
+	})
+	if err != nil {
+		return err
+	}
+	if len(deployments) == 0 {
+		return fmt.Errorf("railway service %s has no deployments to restart", input.ServiceID)
+	}
+	var out struct {
+		DeploymentRestart bool `json:"deploymentRestart"`
+	}
+	return c.request(ctx, "RestartRailwaySandboxDeployment", `
+mutation RestartRailwaySandboxDeployment($id: String!) {
+  deploymentRestart(id: $id)
+}`, map[string]any{
+		"id": deployments[0].ID,
+	}, &out)
+}
+
 func (c *Client) Deployments(ctx context.Context, input DeploymentListInput) ([]Deployment, error) {
 	var out struct {
 		Deployments struct {

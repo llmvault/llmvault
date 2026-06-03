@@ -22,6 +22,7 @@ import (
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/middleware"
+	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/specialisttasks"
@@ -84,6 +85,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		Specialists: deps.Specialists,
 	}
 	if orchestrator != nil {
+		orchestrator.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
+			return employeeruntime.PushEmployeeRuntimeConfigForSandbox(ctx, runtimeCompileDeps, sb)
+		})
 		specialistService := specialisttasks.NewService(database, orchestrator, runtimeCompileDeps, deps.Specialists)
 		mcpHandler.SetSpecialistTools(specialisttasks.NewToolsFunc(specialistService))
 	}
