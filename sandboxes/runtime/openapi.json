@@ -1038,6 +1038,12 @@
               "$ref": "#/components/schemas/Attachment"
             }
           },
+          "dynamic_context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "conversation_id": {
             "type": [
               "string",

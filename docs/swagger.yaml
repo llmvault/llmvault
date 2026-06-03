@@ -786,6 +786,45 @@ definitions:
       upgrade_available:
         type: boolean
     type: object
+  employeeResponse:
+    properties:
+      attached_skills:
+        items:
+          $ref: '#/definitions/employeeSkillSummary'
+        type: array
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      last_memory_refreshed_at:
+        type: string
+      memory_refresh_error:
+        type: string
+      memory_refresh_status:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      sandbox_template_id:
+        type: string
+      specialist_ids:
+        items:
+          type: string
+        type: array
+      status:
+        type: string
+      triggers:
+        items:
+          $ref: '#/definitions/employeeTriggerResponse'
+        type: array
+      updated_at:
+        type: string
+    type: object
   employeeSandboxSummary:
     properties:
       created_at:
@@ -2447,6 +2486,18 @@ definitions:
     properties:
       bundle:
         $ref: '#/definitions/Bundle'
+    type: object
+  updateEmployeeModelRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  updateEmployeeModelResponse:
+    properties:
+      employee:
+        $ref: '#/definitions/employeeResponse'
+      sync:
+        $ref: '#/definitions/syncEmployeeResponse'
     type: object
   updateEmployeeSpecialistRequest:
     properties:
@@ -4264,6 +4315,64 @@ paths:
       security:
       - BearerAuth: []
       summary: Get an AI employee
+      tags:
+      - employees
+  /v1/employees/{id}/model:
+    patch:
+      consumes:
+      - application/json
+      description: Persists Hivy's employee model and pushes the full runtime config
+        to the live sandbox.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Employee model update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateEmployeeModelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/updateEmployeeModelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an employee model
       tags:
       - employees
   /v1/employees/{id}/sandbox/upgrade:

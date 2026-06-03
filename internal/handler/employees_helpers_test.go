@@ -229,9 +229,9 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 
 	cfg := &config.Config{
 		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
-		SpecialistSandboxHost:           "cp.hivy.test",
-		ProxyHost:                       "proxy.hivy.test",
-		MCPBaseURL:                      "https://mcp.hivy.test",
+		SpecialistSandboxHost:     "cp.hivy.test",
+		ProxyHost:                 "proxy.hivy.test",
+		MCPBaseURL:                "https://mcp.hivy.test",
 	}
 	orch := sandbox.NewOrchestrator(db, provider, encKey, cfg)
 	nangoSrv := httptest.NewServer(newNangoConnMock(&nangoConnMockConfig{}))
@@ -259,6 +259,7 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 		r.Patch("/{id}/specialists/{slug}", h.UpdateSpecialist)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireOrgAdmin(db))
+			r.Patch("/{id}/model", h.UpdateModel)
 			r.Post("/{id}/sync", h.Sync)
 			r.Post("/{id}/sandbox/upgrade", h.StartSandboxUpgrade)
 			r.Get("/{id}/sandbox/upgrades/{upgradeID}", h.GetSandboxUpgrade)

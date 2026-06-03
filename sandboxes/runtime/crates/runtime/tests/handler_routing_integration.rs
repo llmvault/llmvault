@@ -8,6 +8,7 @@ fn make_event(session_id: &str, user: &str) -> InboundEvent {
         user_display_name: None,
         text: "test".into(),
         attachments: vec![],
+        dynamic_context: vec![],
         raw: serde_json::json!({}),
         inbound_handle: MessageHandle {
             channel: "C123".into(),

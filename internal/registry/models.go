@@ -1480,6 +1480,7 @@ var curatedProviders = []Provider{
 				ToolCall:         true,
 				StructuredOutput: true,
 				ReleaseDate:      "2026-05-28",
+				Description:      "Best when you need fast reasoning with strong vision and video support.",
 				Modalities: &Modalities{
 					Input:  []string{"text", "image", "video"},
 					Output: []string{"text"},
@@ -1501,6 +1502,7 @@ var curatedProviders = []Provider{
 				ToolCall:         true,
 				StructuredOutput: true,
 				ReleaseDate:      "2026-04-23",
+				Description:      "Choose for low-cost everyday work that still needs reliable tool use.",
 				Modalities: &Modalities{
 					Input:  []string{"text"},
 					Output: []string{"text"},
@@ -1901,6 +1903,7 @@ var curatedProviders = []Provider{
 				OpenWeights:      true,
 				Knowledge:        "2024-12",
 				ReleaseDate:      "2026-04-22",
+				Description:      "Pick for deep reasoning, very long context, and complex multi-step tasks.",
 				Modalities: &Modalities{
 					Input:  []string{"text"},
 					Output: []string{"text"},

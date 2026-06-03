@@ -10,6 +10,7 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/nango"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
@@ -23,6 +24,7 @@ func buildRagDeps(
 	nangoClient *nango.Client,
 	spiderClient *spider.Client,
 	kms *crypto.KeyWrapper,
+	preContextCache precontext.Cache,
 ) *ragtasks.Deps {
 	if cfg.QdrantHost == "" {
 		slog.Warn("rag worker: HIVY_QDRANT_HOST not set — rag:* handlers disabled")
@@ -63,14 +65,15 @@ func buildRagDeps(
 		"collection", cfg.QdrantCollection,
 		"vector_dim", cfg.LLMEmbeddingDim)
 	return &ragtasks.Deps{
-		DB:         db,
-		Qdrant:     qd,
-		Embedder:   embedder,
-		Nango:      nangoClient,
-		Spider:     spiderClient,
-		KMS:        kms,
-		Credits:    billing.NewCreditsService(db),
-		Collection: cfg.QdrantCollection,
-		BatchSize:  cfg.RagBatchSize,
+		DB:              db,
+		Qdrant:          qd,
+		Embedder:        embedder,
+		Nango:           nangoClient,
+		Spider:          spiderClient,
+		KMS:             kms,
+		Credits:         billing.NewCreditsService(db),
+		PreContextCache: preContextCache,
+		Collection:      cfg.QdrantCollection,
+		BatchSize:       cfg.RagBatchSize,
 	}
 }

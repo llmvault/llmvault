@@ -10,6 +10,7 @@ import (
 	qdrantgo "github.com/qdrant/go-client/qdrant"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
@@ -53,7 +54,11 @@ func (d *Deps) HandlePrune(ctx context.Context, t *asynq.Task) error {
 			return fmt.Errorf("prune %s: qdrant delete: %w", src.ID, err)
 		}
 	}
-	return touchLastPruned(ctx, deps.DB, src.ID)
+	if err := touchLastPruned(ctx, deps.DB, src.ID); err != nil {
+		return err
+	}
+	precontext.InvalidateKnowledge(ctx, deps.PreContextCache, src.OrgIDValue)
+	return nil
 }
 
 func drainSlim(

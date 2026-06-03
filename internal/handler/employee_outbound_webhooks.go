@@ -22,6 +22,7 @@ import (
 	"github.com/usehivy/hivy/internal/gateway"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 )
 
 type EmployeeOutboundWebhookHandler struct {
@@ -30,6 +31,7 @@ type EmployeeOutboundWebhookHandler struct {
 	enqueuer      enqueue.TaskEnqueuer
 	writer        *EmployeeEventWriter
 	gateway       *gateway.Service
+	preloadCache  precontext.Cache
 	now           func() time.Time
 	maxBytes      int64
 	maxBatchBytes int64
@@ -54,6 +56,17 @@ func NewEmployeeOutboundWebhookHandler(db *gorm.DB, encKey *crypto.SymmetricKey,
 		h.writer = writers[0]
 	}
 	return h
+}
+
+func (h *EmployeeOutboundWebhookHandler) SetPreContextCache(cache precontext.Cache) {
+	h.preloadCache = cache
+	if h.writer != nil {
+		h.writer.SetAfterWrite(func(ctx context.Context, events []model.EmployeeSessionEvent) {
+			for _, event := range events {
+				precontext.InvalidateSessions(ctx, cache, event.OrgID, event.EmployeeID)
+			}
+		})
+	}
 }
 
 func (h *EmployeeOutboundWebhookHandler) SetGatewayService(service *gateway.Service) {
@@ -170,6 +183,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 			return
 		}
 		if createdSession {
+			precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
 			h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
 		}
 		return
@@ -183,6 +197,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		return
 	}
 	if createdSession {
+		precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
 		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
 	}
 	stored, ok := employeeSessionEventFromOutbound(sb, event, payload, session.ID, sessionID)
@@ -213,6 +228,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 			captureEmployeeSessionEventFailure(ctx, "store_memory_event", stored, err)
 			return
 		}
+		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.EmployeeID)
 	}
 	if event.EventType == "agent.message.sent" && source == gateway.Source && h.gateway != nil && !isSlackGatewayEvent(payload) {
 		if _, err := h.gateway.HandleRuntimeFinal(ctx, gateway.AgentResponse{

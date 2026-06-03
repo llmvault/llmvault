@@ -162,6 +162,7 @@ func setupV1Routes(
 					r.Get("/employees/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
+						r.Patch("/employees/{id}/model", employeeHandler.UpdateModel)
 						r.Post("/employees/{id}/sync", employeeHandler.Sync)
 						r.Post("/employees/{id}/sandbox/upgrade", employeeHandler.StartSandboxUpgrade)
 						r.Get("/employees/{id}/sandbox/upgrades/{upgradeID}", employeeHandler.GetSandboxUpgrade)

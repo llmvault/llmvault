@@ -99,6 +99,26 @@ for service in "${service_list[@]}"; do
     "HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE=${sandboxes_runtime_specialist_image}" \
     --environment "${environment}" \
     --service "${service}"
+
+  variables="$(
+    railway_with_retry variable list \
+      --environment "${environment}" \
+      --service "${service}" \
+      --json
+  )"
+  for key_and_expected in \
+    "HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION=${specialist_sandbox_runtime_version}" \
+    "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=${sandboxes_runtime_base_image}" \
+    "HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE=${sandboxes_runtime_specialist_image}"
+  do
+    key="${key_and_expected%%=*}"
+    expected="${key_and_expected#*=}"
+    actual="$(jq -r --arg key "${key}" '.[$key] // ""' <<<"${variables}")"
+    if [[ "${actual}" != "${expected}" ]]; then
+      echo "Railway variable verification failed for ${service}: ${key}=${actual}, expected ${expected}" >&2
+      exit 1
+    fi
+  done
 done
 
 deadline=$((SECONDS + wait_seconds))

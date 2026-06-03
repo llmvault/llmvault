@@ -12,6 +12,7 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/nango"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/scheduler"
 	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -36,6 +37,7 @@ type WorkerDeps struct {
 	Subscriptions     *subscription.Service   // required for renewal worker
 	Enqueuer          enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
 	Hindsight         *hindsight.Client       // nil if Hindsight not configured
+	PreContextCache   precontext.Cache        // nil disables employee pre-context cache invalidation
 	EmployeeCompile   employeeruntime.CompileDeps
 	S3Client          *storage.S3Client
 
@@ -113,7 +115,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	}
 
 	if deps.Hindsight != nil {
-		mux.HandleFunc(TypeEmployeeMemoryRetain, NewEmployeeMemoryRetainHandler(deps.DB, deps.Hindsight, deps.Enqueuer).Handle)
+		mux.HandleFunc(TypeEmployeeMemoryRetain, NewEmployeeMemoryRetainHandler(deps.DB, deps.Hindsight, deps.Enqueuer, deps.PreContextCache).Handle)
 		mux.HandleFunc(TypeEmployeeMemoryRefresh, NewEmployeeMemoryRefreshHandler(deps.DB, deps.EmployeeCompile).Handle)
 	}
 	if deps.Orchestrator != nil && deps.S3Client != nil && deps.EmployeeCompile.EncKey != nil && deps.EmployeeCompile.KMS != nil {

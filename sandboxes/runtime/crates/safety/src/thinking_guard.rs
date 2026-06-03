@@ -37,7 +37,7 @@ impl ThinkingGuard {
             stripped = stripped[m.end()..].to_string();
         }
 
-        (stripped.trim().to_string(), had_tags)
+        (stripped, had_tags)
     }
 
     pub fn extract_thinking_content(&self, text: &str) -> Option<String> {
@@ -190,6 +190,14 @@ mod tests {
         let guard = ThinkingGuard::new();
         let (result, had_tags) = guard.strip_thinking("regular output without tags");
         assert_eq!(result, "regular output without tags");
+        assert!(!had_tags);
+    }
+
+    #[test]
+    fn preserves_clean_delta_boundary_whitespace() {
+        let guard = ThinkingGuard::new();
+        let (result, had_tags) = guard.strip_thinking(" visible delta ");
+        assert_eq!(result, " visible delta ");
         assert!(!had_tags);
     }
 
