@@ -637,6 +637,30 @@ pub async fn get_http_stream(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/gateway/http/response-streams/{stream_id}",
+    params(("stream_id" = String, Path, description = "HTTP response-only stream identifier")),
+    responses(
+        (status = 200, description = "Response-only server-sent event stream", content_type = "text/event-stream"),
+        (status = 404, description = "Stream not found"),
+        (status = 503, description = "HTTP gateway is not enabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn get_http_response_stream(
+    State(state): State<ApiState>,
+    Path(stream_id): Path<String>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let Some(http_gateway) = state.http_gateway.as_ref() else {
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+    stream_response(http_gateway.broker.clone(), stream_id)
+        .await
+        .map(IntoResponse::into_response)
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
 fn parse_cursor(raw: &str) -> Result<DateTime<Utc>, String> {
     DateTime::parse_from_rfc3339(raw)
         .map(|dt| dt.with_timezone(&Utc))

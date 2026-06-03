@@ -27,10 +27,11 @@ func (r *recordingRuntime) Send(_ context.Context, message RuntimeMessage) (*Run
 	defer r.mu.Unlock()
 	r.messages = append(r.messages, message)
 	return &RuntimeDelivery{
-		SessionID: runtimeSessionID(message.ConversationID),
-		StreamID:  "stream-" + message.GatewayExternalMsgID,
-		TraceID:   "trace-" + message.GatewayExternalMsgID,
-		TurnID:    "turn-" + message.GatewayExternalMsgID,
+		SessionID:        runtimeSessionID(message.ConversationID),
+		StreamID:         "stream-" + message.GatewayExternalMsgID,
+		ResponseStreamID: "response-stream-" + message.GatewayExternalMsgID,
+		TraceID:          "trace-" + message.GatewayExternalMsgID,
+		TurnID:           "turn-" + message.GatewayExternalMsgID,
 	}, nil
 }
 

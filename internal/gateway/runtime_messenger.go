@@ -51,10 +51,12 @@ func (m *OrchestratedRuntimeMessenger) Send(ctx context.Context, message Runtime
 		return nil, fmt.Errorf("send gateway message to runtime: %w", err)
 	}
 	return &RuntimeDelivery{
-		SessionID: resp.SessionID,
-		StreamID:  resp.StreamID,
-		TraceID:   resp.TraceID,
-		TurnID:    resp.TurnID,
+		SessionID:         resp.SessionID,
+		StreamID:          resp.StreamID,
+		ResponseStreamID:  resp.ResponseStreamID,
+		ResponseStreamURL: resp.ResponseStreamURL,
+		TraceID:           resp.TraceID,
+		TurnID:            resp.TurnID,
 	}, nil
 }
 

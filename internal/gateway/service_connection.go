@@ -19,6 +19,7 @@ type ReceiveConnectionResult struct {
 	RuntimeConversationID string
 	RuntimeSessionID      string
 	StreamURL             string
+	ResponseStreamURL     string
 	RuntimeURL            string
 	RuntimeAPIKey         string
 	TraceID               string
@@ -82,6 +83,13 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 	}
 	if duplicate {
 		return &ReceiveConnectionResult{Inbound: inbound, Duplicate: true, IgnoreReason: "duplicate_event"}, nil
+	}
+	if s.onConnectionInboundAccepted != nil {
+		s.onConnectionInboundAccepted(ctx, ConnectionInboundAccepted{
+			Envelope: envelope,
+			Inbound:  inbound,
+			Event:    event,
+		})
 	}
 
 	req, err := adapter.FormatAgentRequest(ctx, inbound)
@@ -157,6 +165,10 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 	if sandbox.RuntimeURL != "" {
 		runtimeURL = sandbox.RuntimeURL
 	}
+	responseStreamURL := absoluteRuntimeURL(runtimeURL, delivery.ResponseStreamURL)
+	if responseStreamURL == "" && delivery.ResponseStreamID != "" {
+		responseStreamURL = runtimeURL + "/gateway/http/response-streams/" + delivery.ResponseStreamID
+	}
 
 	return &ReceiveConnectionResult{
 		Inbound:               inbound,
@@ -164,12 +176,23 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		RuntimeConversationID: conversationID,
 		RuntimeSessionID:      delivery.SessionID,
 		StreamURL:             runtimeURL + "/gateway/http/streams/" + delivery.StreamID,
+		ResponseStreamURL:     responseStreamURL,
 		RuntimeURL:            runtimeURL,
 		RuntimeAPIKey:         runtimeAPIKey,
 		TraceID:               delivery.TraceID,
 		TurnID:                delivery.TurnID,
 		ActionToken:           actionToken,
 	}, nil
+}
+
+func absoluteRuntimeURL(runtimeURL, pathOrURL string) string {
+	if strings.TrimSpace(pathOrURL) == "" {
+		return ""
+	}
+	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
+		return pathOrURL
+	}
+	return strings.TrimRight(runtimeURL, "/") + "/" + strings.TrimLeft(pathOrURL, "/")
 }
 
 func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope WebhookEnvelope, threadKey string) (model.EmployeeSession, string, bool, error) {
