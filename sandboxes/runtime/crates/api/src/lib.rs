@@ -86,6 +86,7 @@ mod openapi {
             observability::TraceSummary,
             crate::handlers::ConfigUpdateRequest,
             crate::handlers::ConfigResponse,
+            crate::handlers::HealthResponse,
             crate::handlers::ControlCommandsRequest,
             crate::handlers::ControlCommandsResponse,
             crate::handlers::ControlCommandResult,

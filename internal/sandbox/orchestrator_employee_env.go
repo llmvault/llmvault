@@ -47,7 +47,7 @@ func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.
 	setEmployeeDriveUploadURL(envVars, cfg, agent.ID, "employee")
 	employeeSentryDSN := ""
 	if cfg != nil {
-		employeeSentryDSN = cfg.SandboxesRuntimeSentryDSN
+		employeeSentryDSN = cfg.AgentSandboxSentryDSN
 	}
 	setSandboxSentryEnvVars(envVars, cfg, employeeSentryDSN)
 	return envVars

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	slacksdk "github.com/slack-go/slack"
@@ -267,94 +265,4 @@ func TestGatewaySlackHandler_FinalizesAccumulatedStreamWhenTerminalEventMissing(
 	if countSlackPath(calls, "/chat.postMessage") != 0 {
 		t.Fatalf("unexpected postMessage fallback: %#v", calls)
 	}
-}
-
-type slackAPICall struct {
-	Path string
-	Form url.Values
-}
-
-func newGatewaySlackAPIServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(handler))
-}
-
-func recordSlackAPICall(t *testing.T, r *http.Request) slackAPICall {
-	t.Helper()
-	if err := r.ParseForm(); err != nil {
-		t.Fatalf("parse Slack form: %v", err)
-	}
-	return slackAPICall{Path: r.URL.Path, Form: cloneURLValues(r.Form)}
-}
-
-func cloneURLValues(values url.Values) url.Values {
-	out := make(url.Values, len(values))
-	for key, val := range values {
-		out[key] = append([]string(nil), val...)
-	}
-	return out
-}
-
-func writeSlackOK(t *testing.T, w http.ResponseWriter, ts string) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	body := map[string]any{"ok": true, "channel": "C123"}
-	if ts != "" {
-		body["ts"] = ts
-	}
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		t.Fatalf("write Slack response: %v", err)
-	}
-}
-
-func writeSlackError(t *testing.T, w http.ResponseWriter, code string) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": code}); err != nil {
-		t.Fatalf("write Slack error: %v", err)
-	}
-}
-
-func gatewaySlackEvents(events ...gateway.SSEEvent) <-chan gateway.SSEEvent {
-	ch := make(chan gateway.SSEEvent, len(events))
-	for _, event := range events {
-		ch <- event
-	}
-	close(ch)
-	return ch
-}
-
-func gatewaySlackTestPayload() GatewaySlackPayload {
-	return GatewaySlackPayload{
-		ConnectionID: "conn-1",
-		OrgID:        "org-1",
-		EmployeeID:   "employee-1",
-		ChannelID:    "C123",
-		ThreadTS:     "1710000000.123",
-		TeamID:       "T123",
-		SessionID:    "session-1",
-		TraceID:      "trace-1",
-		TurnID:       "turn-1",
-		SenderID:     "U123",
-	}
-}
-
-func countSlackPath(calls []slackAPICall, path string) int {
-	count := 0
-	for _, call := range calls {
-		if call.Path == path {
-			count++
-		}
-	}
-	return count
-}
-
-func slackCallsForPath(calls []slackAPICall, path string) []slackAPICall {
-	var out []slackAPICall
-	for _, call := range calls {
-		if call.Path == path {
-			out = append(out, call)
-		}
-	}
-	return out
 }

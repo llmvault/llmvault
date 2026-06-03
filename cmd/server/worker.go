@@ -18,6 +18,7 @@ import (
 	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
+	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	// Blank import populates interfaces.Registry via init().
 	_ "github.com/usehivy/hivy/internal/rag/connectors"
@@ -97,6 +98,11 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		},
 		Rag:          ragDeps,
 		RagScheduler: ragSched,
+	}
+	if deps.Orchestrator != nil && workerDeps.EmployeeCompile.EncKey != nil {
+		deps.Orchestrator.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
+			return employeeruntime.PushEmployeeRuntimeConfigForSandbox(ctx, workerDeps.EmployeeCompile, sb)
+		})
 	}
 
 	mux := tasks.NewServeMux(workerDeps)

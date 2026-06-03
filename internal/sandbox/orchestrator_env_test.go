@@ -38,3 +38,27 @@ func TestEmployeeSandboxEnvVarsUseAPIWebhookBaseURL(t *testing.T) {
 		}
 	}
 }
+
+func TestEmployeeSandboxEnvVarsUseAgentSandboxSentryDSN(t *testing.T) {
+	cfg := &config.Config{
+		APIWebhookBaseURL:      "https://api.example",
+		ProxyHost:              "proxy.example",
+		Environment:            "production",
+		SentryTracesSampleRate: 0.25,
+		AgentSandboxSentryDSN:  "https://agent@example.com/2",
+	}
+	agent := &model.Employee{ID: uuid.New()}
+	sb := &model.Sandbox{ID: uuid.New()}
+
+	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &employeeruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "")
+
+	if got := env[employeeruntime.EmployeeEnvSentryDSN]; got != cfg.AgentSandboxSentryDSN {
+		t.Fatalf("sentry dsn = %q, want agent sandbox dsn", got)
+	}
+	if got := env[employeeruntime.EmployeeEnvSentryEnvironment]; got != "production" {
+		t.Fatalf("sentry environment = %q", got)
+	}
+	if got := env[employeeruntime.EmployeeEnvSentryEnableLogs]; got != "true" {
+		t.Fatalf("sentry enable logs = %q", got)
+	}
+}

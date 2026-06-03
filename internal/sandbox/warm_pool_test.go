@@ -29,6 +29,9 @@ func TestWarmPoolReconcileCreatesWarmSlotAndClaimMarksClaiming(t *testing.T) {
 		SandboxWarmPoolEmployeeSize: 1,
 		RailwayRuntimePort:          7080,
 		SandboxesRuntimeBaseImage:   "runtime:test",
+		Environment:                 "production",
+		SentryTracesSampleRate:      0.25,
+		AgentSandboxSentryDSN:       "https://agent@example.com/2",
 	})
 	if pool == nil {
 		t.Fatal("warm pool is nil")
@@ -43,6 +46,16 @@ func TestWarmPoolReconcileCreatesWarmSlotAndClaimMarksClaiming(t *testing.T) {
 	}
 	if len(provider.warmCreateCalls) != 1 {
 		t.Fatalf("warm create calls = %d, want 1", len(provider.warmCreateCalls))
+	}
+	warmEnv := provider.warmCreateCalls[0].EnvVars
+	if got := warmEnv["SENTRY_DSN"]; got != "https://agent@example.com/2" {
+		t.Fatalf("warm slot sentry dsn = %q, want agent sandbox dsn", got)
+	}
+	if got := warmEnv["SENTRY_ENVIRONMENT"]; got != "production" {
+		t.Fatalf("warm slot sentry environment = %q", got)
+	}
+	if got := warmEnv["SENTRY_ENABLE_LOGS"]; got != "true" {
+		t.Fatalf("warm slot sentry enable logs = %q", got)
 	}
 	result, err := pool.CheckWarmSlot(context.Background(), created[0])
 	if err != nil {

@@ -129,6 +129,13 @@ func (o *Orchestrator) CreateEmployeeSandbox(ctx context.Context, agent *model.E
 		})
 		return nil, fmt.Errorf("waiting for employee runtime: %w", err)
 	}
+	if err := o.pushEmployeeRuntimeConfig(ctx, &sb, "create"); err != nil {
+		o.markSandboxError(ctx, &sb, map[string]any{
+			"status":        "error",
+			"error_message": "employee runtime config push failed",
+		})
+		return nil, err
+	}
 
 	if err := o.cloneEmployeeSelectedRepositories(ctx, &sb, agent); err != nil {
 		o.markSandboxError(ctx, &sb, map[string]any{

@@ -18,6 +18,7 @@ use safety::thinking_guard::ThinkingGuard;
 use safety::{overthinking_feedback, xml_repair_reminder, SafetyHarness, TurnSafety};
 use storage::CronJobRepo;
 use tools::{JsonTool, ToolBuildContext};
+use tracing::warn;
 
 use crate::compaction;
 use crate::history::{append_model_message, load_model_history, seed_model_history_from_gateway};
@@ -572,7 +573,9 @@ impl AgentRunner for RigAgentRunner {
                     }
 
                     let Some(tool) = available_tools.iter().find(|tool| tool.definition().name == call.name).cloned() else {
-                        let result = json_error(&format!("tool '{}' not found", call.name));
+                        let error_msg = format!("tool '{}' not found", call.name);
+                        capture_tool_error(&session_id, &call.name, &call.arguments, &error_msg);
+                        let result = json_error(&error_msg);
                         let message = AgentMessage::tool_result(call.id, result.to_string());
                         if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
                             yield AgentEvent::Error { message: error.to_string() };
@@ -595,7 +598,9 @@ impl AgentRunner for RigAgentRunner {
                         }
                         Err(error) => {
                             error_tracker.record_failure(&call.name);
-                            let error_msg = error_tracker.format_retry_hint(&call.name, &error.to_string());
+                            let raw_error = error.to_string();
+                            capture_tool_error(&session_id, &call.name, &call.arguments, &raw_error);
+                            let error_msg = error_tracker.format_retry_hint(&call.name, &raw_error);
                             emit_tool_error(emitter.clone(), &session_id, &call.name, &call.arguments, &error_msg).await;
                             let result = json_error(&error_msg);
                             yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
@@ -969,6 +974,19 @@ mod tests {
     }
 
     #[test]
+    fn tool_argument_summary_keeps_keys_without_values() {
+        let summary = summarize_tool_arguments(&serde_json::json!({
+            "query": "secret customer question",
+            "api_key": "should not be sent",
+        }));
+
+        assert!(summary.contains("api_key"));
+        assert!(summary.contains("query"));
+        assert!(!summary.contains("secret customer question"));
+        assert!(!summary.contains("should not be sent"));
+    }
+
+    #[test]
     fn cacheable_prompt_uses_control_plane_segments_and_ignores_legacy_fields() {
         let prompt = render_cacheable_system_prompt(&test_definition());
 
@@ -1126,6 +1144,75 @@ fn build_all_tools(
     let mut tools: Vec<_> = by_name.into_values().collect();
     tools.sort_by(|a, b| a.definition().name.cmp(&b.definition().name));
     tools
+}
+
+fn capture_tool_error(
+    session_id: &SessionId,
+    tool_name: &str,
+    arguments: &serde_json::Value,
+    error: &str,
+) {
+    let (channel, thread_ts) = derive_channel_and_thread(session_id);
+    let argument_summary = summarize_tool_arguments(arguments);
+    warn!(
+        session_id = %session_id.as_str(),
+        tool = tool_name,
+        error = %error,
+        "agent tool error captured"
+    );
+    sentry::with_scope(
+        |scope| {
+            scope.set_tag("runtime.agent_event", "agent.tool.error");
+            scope.set_tag("runtime.session_id", session_id.as_str());
+            scope.set_tag("runtime.tool_name", tool_name);
+            if !channel.is_empty() {
+                scope.set_tag("runtime.channel", channel.as_str());
+            }
+            if !thread_ts.is_empty() {
+                scope.set_tag("runtime.thread_ts", thread_ts.as_str());
+            }
+            scope.set_extra("tool_arguments", argument_summary.into());
+            scope.set_extra("internal_error", error.to_string().into());
+        },
+        || {
+            sentry::capture_message("agent tool error", sentry::Level::Error);
+        },
+    );
+}
+
+fn derive_channel_and_thread(session_id: &SessionId) -> (String, String) {
+    let raw = session_id.as_str();
+    match raw.split_once('-') {
+        Some((channel, thread_ts)) => (channel.to_string(), thread_ts.to_string()),
+        None => (raw.to_string(), String::new()),
+    }
+}
+
+fn summarize_tool_arguments(arguments: &serde_json::Value) -> String {
+    match arguments {
+        serde_json::Value::Object(map) => {
+            let mut keys: Vec<&str> = map.keys().map(String::as_str).collect();
+            keys.sort_unstable();
+            serde_json::json!({
+                "kind": "object",
+                "keys": keys,
+            })
+            .to_string()
+        }
+        serde_json::Value::Array(items) => serde_json::json!({
+            "kind": "array",
+            "length": items.len(),
+        })
+        .to_string(),
+        serde_json::Value::Null => serde_json::json!({"kind": "null"}).to_string(),
+        serde_json::Value::Bool(_) => serde_json::json!({"kind": "bool"}).to_string(),
+        serde_json::Value::Number(_) => serde_json::json!({"kind": "number"}).to_string(),
+        serde_json::Value::String(value) => serde_json::json!({
+            "kind": "string",
+            "length": value.len(),
+        })
+        .to_string(),
+    }
 }
 
 fn json_error(message: &str) -> serde_json::Value {
