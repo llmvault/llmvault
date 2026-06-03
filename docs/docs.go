@@ -2578,6 +2578,94 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/employees/{id}/model": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persists Hivy's employee model and pushes the full runtime config to the live sandbox.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Update an employee model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Employee model update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateEmployeeModelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/updateEmployeeModelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/employees/{id}/sandbox/upgrade": {
             "post": {
                 "security": [
@@ -7431,6 +7519,65 @@ const docTemplate = `{
                 }
             }
         },
+        "employeeResponse": {
+            "type": "object",
+            "properties": {
+                "attached_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/employeeSkillSummary"
+                    }
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_memory_refreshed_at": {
+                    "type": "string"
+                },
+                "memory_refresh_error": {
+                    "type": "string"
+                },
+                "memory_refresh_status": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sandbox_template_id": {
+                    "type": "string"
+                },
+                "specialist_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/employeeTriggerResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "employeeSandboxSummary": {
             "type": "object",
             "properties": {
@@ -9965,6 +10112,25 @@ const docTemplate = `{
             "properties": {
                 "bundle": {
                     "$ref": "#/definitions/Bundle"
+                }
+            }
+        },
+        "updateEmployeeModelRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "updateEmployeeModelResponse": {
+            "type": "object",
+            "properties": {
+                "employee": {
+                    "$ref": "#/definitions/employeeResponse"
+                },
+                "sync": {
+                    "$ref": "#/definitions/syncEmployeeResponse"
                 }
             }
         },

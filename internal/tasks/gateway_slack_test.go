@@ -52,7 +52,7 @@ func TestGatewaySlackPayloadStreamURL(t *testing.T) {
 	}
 }
 
-func TestGatewaySlackHandler_UsesStartedStreamTimestamp(t *testing.T) {
+func TestGatewaySlackHandler_PostsFinalThreadReplyWithoutSlackStream(t *testing.T) {
 	var calls []slackAPICall
 	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
 		call := recordSlackAPICall(t, r)
@@ -60,30 +60,14 @@ func TestGatewaySlackHandler_UsesStartedStreamTimestamp(t *testing.T) {
 		switch r.URL.Path {
 		case "/assistant.threads.setStatus":
 			writeSlackOK(t, w, "")
-		case "/chat.startStream":
+		case "/chat.postMessage":
 			if call.Form.Get("thread_ts") != "1710000000.123" {
-				t.Fatalf("startStream thread_ts = %q", call.Form.Get("thread_ts"))
+				t.Fatalf("postMessage thread_ts = %q", call.Form.Get("thread_ts"))
 			}
-			if call.Form.Get("recipient_user_id") != "U123" {
-				t.Fatalf("startStream recipient_user_id = %q", call.Form.Get("recipient_user_id"))
+			if call.Form.Get("text") != "Hello there" {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
 			}
-			if call.Form.Get("recipient_team_id") != "T123" {
-				t.Fatalf("startStream recipient_team_id = %q", call.Form.Get("recipient_team_id"))
-			}
-			writeSlackOK(t, w, "1710000001.456")
-		case "/chat.appendStream":
-			if call.Form.Get("ts") != "1710000001.456" {
-				t.Fatalf("appendStream ts = %q, want stream timestamp", call.Form.Get("ts"))
-			}
-			writeSlackOK(t, w, "1710000001.456")
-		case "/chat.stopStream":
-			if call.Form.Get("ts") != "1710000001.456" {
-				t.Fatalf("stopStream ts = %q, want stream timestamp", call.Form.Get("ts"))
-			}
-			if call.Form.Get("markdown_text") != "" {
-				t.Fatalf("stopStream markdown_text = %q, want empty after appended stream", call.Form.Get("markdown_text"))
-			}
-			writeSlackOK(t, w, "1710000001.456")
+			writeSlackOK(t, w, "1710000002.789")
 		default:
 			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
 		}
@@ -91,7 +75,7 @@ func TestGatewaySlackHandler_UsesStartedStreamTimestamp(t *testing.T) {
 	defer server.Close()
 
 	payload := gatewaySlackTestPayload()
-	text, delivered, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
 		context.Background(),
 		payload,
 		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
@@ -108,8 +92,16 @@ func TestGatewaySlackHandler_UsesStartedStreamTimestamp(t *testing.T) {
 	if !delivered || text != "Hello there" {
 		t.Fatalf("delivered=%v text=%q", delivered, text)
 	}
-	if countSlackPath(calls, "/chat.postMessage") != 0 {
-		t.Fatalf("unexpected postMessage fallback: %#v", calls)
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.startStream") != 0 ||
+		countSlackPath(calls, "/chat.appendStream") != 0 ||
+		countSlackPath(calls, "/chat.stopStream") != 0 {
+		t.Fatalf("Slack stream methods should not be used: %#v", calls)
+	}
+	if countSlackPath(calls, "/chat.postMessage") != 1 {
+		t.Fatalf("postMessage count = %d, want 1", countSlackPath(calls, "/chat.postMessage"))
 	}
 	statusCalls := slackCallsForPath(calls, "/assistant.threads.setStatus")
 	if len(statusCalls) != 2 {
@@ -121,16 +113,9 @@ func TestGatewaySlackHandler_UsesStartedStreamTimestamp(t *testing.T) {
 	if statusCalls[1].Form.Get("status") != "" {
 		t.Fatalf("clear status = %q, want empty", statusCalls[1].Form.Get("status"))
 	}
-	appends := slackCallsForPath(calls, "/chat.appendStream")
-	if len(appends) != 1 {
-		t.Fatalf("append count = %d, want 1", len(appends))
-	}
-	if appends[0].Form.Get("markdown_text") != "Hello there" {
-		t.Fatalf("append markdown_text = %q, want full coalesced answer", appends[0].Form.Get("markdown_text"))
-	}
 }
 
-func TestGatewaySlackHandler_PostsThreadReplyWhenStartStreamFails(t *testing.T) {
+func TestGatewaySlackHandler_PostsAccumulatedTokensOnDone(t *testing.T) {
 	var calls []slackAPICall
 	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
 		call := recordSlackAPICall(t, r)
@@ -138,13 +123,11 @@ func TestGatewaySlackHandler_PostsThreadReplyWhenStartStreamFails(t *testing.T) 
 		switch r.URL.Path {
 		case "/assistant.threads.setStatus":
 			writeSlackOK(t, w, "")
-		case "/chat.startStream":
-			writeSlackError(t, w, "not_allowed_token_type")
 		case "/chat.postMessage":
 			if call.Form.Get("thread_ts") != "1710000000.123" {
 				t.Fatalf("postMessage thread_ts = %q", call.Form.Get("thread_ts"))
 			}
-			if call.Form.Get("text") != "Fallback answer" {
+			if call.Form.Get("text") != "partial answer" {
 				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
 			}
 			writeSlackOK(t, w, "1710000002.789")
@@ -154,31 +137,35 @@ func TestGatewaySlackHandler_PostsThreadReplyWhenStartStreamFails(t *testing.T) 
 	})
 	defer server.Close()
 
-	text, delivered, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
 		context.Background(),
 		gatewaySlackTestPayload(),
 		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
 		gatewaySlackEvents(
-			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"partial"}`)},
-			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"Fallback answer"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"partial "}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"answer"}`)},
+			gateway.SSEEvent{Type: "done", Data: json.RawMessage(`{}`)},
 		),
 		map[string]any{},
 	)
 	if err != nil {
 		t.Fatalf("deliver slack response: %v", err)
 	}
-	if !delivered || text != "Fallback answer" {
+	if !delivered || text != "partial answer" {
 		t.Fatalf("delivered=%v text=%q", delivered, text)
 	}
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
 	if countSlackPath(calls, "/chat.appendStream") != 0 || countSlackPath(calls, "/chat.stopStream") != 0 {
-		t.Fatalf("stream methods should not be used after start failure: %#v", calls)
+		t.Fatalf("stream methods should not be used: %#v", calls)
 	}
 	if countSlackPath(calls, "/chat.postMessage") != 1 {
-		t.Fatalf("postMessage fallback count = %d", countSlackPath(calls, "/chat.postMessage"))
+		t.Fatalf("postMessage count = %d", countSlackPath(calls, "/chat.postMessage"))
 	}
 }
 
-func TestGatewaySlackHandler_DoesNotPostDuplicateReplyWhenStopStreamFailsAfterAppend(t *testing.T) {
+func TestGatewaySlackHandler_PostsFriendlyMessageOnStreamError(t *testing.T) {
 	var calls []slackAPICall
 	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
 		call := recordSlackAPICall(t, r)
@@ -186,30 +173,23 @@ func TestGatewaySlackHandler_DoesNotPostDuplicateReplyWhenStopStreamFailsAfterAp
 		switch r.URL.Path {
 		case "/assistant.threads.setStatus":
 			writeSlackOK(t, w, "")
-		case "/chat.startStream":
-			writeSlackOK(t, w, "1710000001.456")
-		case "/chat.appendStream":
-			writeSlackOK(t, w, "1710000001.456")
-		case "/chat.stopStream":
-			if call.Form.Get("ts") != "1710000001.456" {
-				t.Fatalf("stopStream ts = %q, want stream timestamp", call.Form.Get("ts"))
-			}
-			writeSlackError(t, w, "message_not_owned_by_app")
 		case "/chat.postMessage":
-			t.Fatalf("postMessage should not be used after stream text was appended")
+			if call.Form.Get("text") != "Something went wrong. Please try again." {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
+			}
+			writeSlackOK(t, w, "1710000002.789")
 		default:
 			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
 		}
 	})
 	defer server.Close()
 
-	_, delivered, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
 		context.Background(),
 		gatewaySlackTestPayload(),
 		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
 		gatewaySlackEvents(
-			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"Hello"}`)},
-			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"Hello"}`)},
+			gateway.SSEEvent{Type: "error", Data: json.RawMessage(`{"message":"internal"}`)},
 		),
 		map[string]any{},
 	)
@@ -217,14 +197,20 @@ func TestGatewaySlackHandler_DoesNotPostDuplicateReplyWhenStopStreamFailsAfterAp
 		t.Fatalf("deliver slack response: %v", err)
 	}
 	if !delivered {
-		t.Fatal("expected fallback delivery")
+		t.Fatal("expected friendly error delivery")
 	}
-	if countSlackPath(calls, "/chat.postMessage") != 0 {
-		t.Fatalf("postMessage fallback count = %d", countSlackPath(calls, "/chat.postMessage"))
+	if text != "Something went wrong. Please try again." {
+		t.Fatalf("text = %q", text)
+	}
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.postMessage") != 1 {
+		t.Fatalf("postMessage count = %d", countSlackPath(calls, "/chat.postMessage"))
 	}
 }
 
-func TestGatewaySlackHandler_FinalizesAccumulatedStreamWhenTerminalEventMissing(t *testing.T) {
+func TestGatewaySlackHandler_PostsAccumulatedTokensWhenTerminalEventMissing(t *testing.T) {
 	var calls []slackAPICall
 	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
 		call := recordSlackAPICall(t, r)
@@ -232,22 +218,18 @@ func TestGatewaySlackHandler_FinalizesAccumulatedStreamWhenTerminalEventMissing(
 		switch r.URL.Path {
 		case "/assistant.threads.setStatus":
 			writeSlackOK(t, w, "")
-		case "/chat.startStream":
-			writeSlackOK(t, w, "1710000001.456")
-		case "/chat.appendStream":
-			writeSlackOK(t, w, "1710000001.456")
-		case "/chat.stopStream":
-			if call.Form.Get("markdown_text") != "" {
-				t.Fatalf("stopStream markdown_text = %q, want empty", call.Form.Get("markdown_text"))
+		case "/chat.postMessage":
+			if call.Form.Get("text") != "partial answer" {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
 			}
-			writeSlackOK(t, w, "1710000001.456")
+			writeSlackOK(t, w, "1710000002.789")
 		default:
 			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
 		}
 	})
 	defer server.Close()
 
-	text, delivered, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
 		context.Background(),
 		gatewaySlackTestPayload(),
 		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
@@ -262,7 +244,12 @@ func TestGatewaySlackHandler_FinalizesAccumulatedStreamWhenTerminalEventMissing(
 	if !delivered || text != "partial answer" {
 		t.Fatalf("delivered=%v text=%q", delivered, text)
 	}
-	if countSlackPath(calls, "/chat.postMessage") != 0 {
-		t.Fatalf("unexpected postMessage fallback: %#v", calls)
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.startStream") != 0 ||
+		countSlackPath(calls, "/chat.appendStream") != 0 ||
+		countSlackPath(calls, "/chat.stopStream") != 0 {
+		t.Fatalf("Slack stream methods should not be used: %#v", calls)
 	}
 }

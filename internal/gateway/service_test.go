@@ -176,12 +176,12 @@ func seedGatewayRoute(t *testing.T, db *gorm.DB) model.EmployeeGatewayRoute {
 		t.Fatalf("create employee: %v", err)
 	}
 	sandbox := model.Sandbox{
-		OrgID:                 &org.ID,
-		EmployeeID:            &employee.ID,
-		ExternalID:            "gateway-test-" + uuid.NewString(),
+		OrgID:                  &org.ID,
+		EmployeeID:             &employee.ID,
+		ExternalID:             "gateway-test-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:1",
 		EncryptedRuntimeSecret: []byte("test-key"),
-		Status:                "running",
+		Status:                 "running",
 	}
 	if err := db.Create(&sandbox).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)

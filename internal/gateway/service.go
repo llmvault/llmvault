@@ -11,6 +11,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 )
 
 type Service struct {
@@ -18,6 +19,7 @@ type Service struct {
 	runtime  RuntimeMessenger
 	encKey   *crypto.SymmetricKey
 	adapters map[string]Adapter
+	preload  precontext.Builder
 	now      func() time.Time
 }
 
@@ -33,6 +35,10 @@ func NewService(db *gorm.DB, runtime RuntimeMessenger, encKey *crypto.SymmetricK
 		s.RegisterAdapter(adapter)
 	}
 	return s
+}
+
+func (s *Service) SetPreContextBuilder(builder precontext.Builder) {
+	s.preload = builder
 }
 
 func (s *Service) RegisterAdapter(adapter Adapter) {
@@ -100,11 +106,21 @@ func (s *Service) Receive(ctx context.Context, inbound InboundEnvelope) (*Receiv
 		_ = s.markEventFailed(ctx, event.ID, err)
 		return nil, err
 	}
-	session, conversationID, err := s.findOrCreateSession(ctx, route, inbound.ThreadKey)
+	session, conversationID, created, err := s.findOrCreateSession(ctx, route, inbound.ThreadKey)
 	if err != nil {
 		_ = s.markEventFailed(ctx, event.ID, err)
 		return nil, err
 	}
+	dynamicContext := s.buildPreContext(ctx, created, precontext.Request{
+		OrgID:                 route.OrgID,
+		EmployeeID:            route.EmployeeID,
+		CurrentSessionID:      session.ID,
+		RuntimeConversationID: conversationID,
+		Text:                  req.Markdown,
+		UserID:                inbound.SenderID,
+		UserDisplayName:       inbound.SenderName,
+		Source:                inbound.Provider,
+	})
 	delivery, err := s.runtime.Send(ctx, RuntimeMessage{
 		Route:                route,
 		Session:              session,
@@ -119,6 +135,7 @@ func (s *Service) Receive(ctx context.Context, inbound InboundEnvelope) (*Receiv
 		GatewayThreadID:      inbound.ThreadID,
 		GatewayExternalMsgID: inbound.ExternalMessageID,
 		GatewayProvider:      route.Provider,
+		DynamicContext:       dynamicContext,
 		Metadata:             req.Metadata,
 	})
 	if err != nil {
@@ -139,6 +156,17 @@ func (s *Service) Receive(ctx context.Context, inbound InboundEnvelope) (*Receiv
 	event.RuntimeTurnID = delivery.TurnID
 	event.Status = "delivered"
 	return &ReceiveResult{Event: event, Session: session, Runtime: *delivery}, nil
+}
+
+func (s *Service) buildPreContext(ctx context.Context, created bool, req precontext.Request) []string {
+	if !created || s.preload == nil {
+		return nil
+	}
+	dynamicContext, err := s.preload.Build(ctx, req)
+	if err != nil {
+		return nil
+	}
+	return dynamicContext
 }
 
 func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse) (*model.EmployeeGatewayDelivery, error) {

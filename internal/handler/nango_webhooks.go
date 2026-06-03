@@ -109,21 +109,23 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isSlackProvider(wctx.connection) && wh.Type == "forward" {
+		slackFields := slackWebhookSentryFields("start", &wh, wctx.connection, wh.Payload)
 		employee, err := ensureHivyEmployee(r.Context(), h.db, wctx.connection.OrgID)
 		if err != nil {
 			logging.FromContext(r.Context()).ErrorContext(r.Context(), "slack_webhook_failed_to_ensure_employee",
 				"org_id", wctx.connection.OrgID.String(),
 				"error", err,
 			)
-			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: ensure employee: %w", err), map[string]any{
-				"org_id": wctx.connection.OrgID.String(),
-			})
+			slackFields["stage"] = "ensure_employee"
+			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: ensure employee: %w", err), slackFields)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load employee"})
 			return
 		}
 
 		if h.gatewayService == nil || h.nangoClient == nil || h.enqueuer == nil {
 			logging.FromContext(r.Context()).ErrorContext(r.Context(), "slack_webhook_missing_dependencies")
+			slackFields["stage"] = "dependencies"
+			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: missing gateway dependencies"), slackFields)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "slack gateway not configured"})
 			return
 		}
@@ -139,11 +141,28 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 		result, err := h.gatewayService.ReceiveWebhookFromConnection(r.Context(), envelope)
 		if err != nil {
-			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: receive: %w", err), map[string]any{
-				"connection_id": envelope.ConnectionID.String(),
-				"org_id":        envelope.OrgID.String(),
-			})
+			slackFields["stage"] = "gateway_receive"
+			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: receive: %w", err), slackFields)
 			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			return
+		}
+		if result == nil || result.Ignored || result.Duplicate {
+			status := "ignored"
+			reason := "nil_result"
+			if result != nil {
+				reason = result.IgnoreReason
+				if result.Duplicate {
+					status = "duplicate"
+				}
+			}
+			logging.FromContext(r.Context()).InfoContext(r.Context(), "slack_webhook_skipped",
+				"connection_id", envelope.ConnectionID.String(),
+				"org_id", envelope.OrgID.String(),
+				"employee_id", envelope.EmployeeID.String(),
+				"status", status,
+				"reason", reason,
+			)
+			writeJSON(w, http.StatusOK, map[string]string{"status": status})
 			return
 		}
 
@@ -151,17 +170,15 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 		task, err := tasks.NewGatewaySlackTask(gatewaySlackPayload(envelope, result, wctx.connection, providerKey))
 		if err != nil {
-			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: build task: %w", err), map[string]any{
-				"connection_id": envelope.ConnectionID.String(),
-			})
+			slackFields["stage"] = "build_task"
+			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: build task: %w", err), slackFields)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to build task"})
 			return
 		}
 
 		if _, err := h.enqueuer.EnqueueContext(r.Context(), task); err != nil {
-			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: enqueue task: %w", err), map[string]any{
-				"connection_id": envelope.ConnectionID.String(),
-			})
+			slackFields["stage"] = "enqueue_task"
+			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: enqueue task: %w", err), slackFields)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enqueue task"})
 			return
 		}

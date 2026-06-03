@@ -304,6 +304,8 @@ pub struct HttpMessageRequest {
     #[serde(default)]
     pub attachments: Vec<Attachment>,
     #[serde(default)]
+    pub dynamic_context: Vec<String>,
+    #[serde(default)]
     #[cfg_attr(feature = "openapi", schema(value_type = Object))]
     pub raw: Value,
 }
@@ -355,6 +357,7 @@ impl HttpGatewayState {
             user_display_name: request.user_display_name,
             text: request.text,
             attachments: request.attachments,
+            dynamic_context: request.dynamic_context,
             raw,
             inbound_handle: MessageHandle {
                 channel: "http".to_string(),
@@ -440,6 +443,7 @@ mod tests {
                 user: "user-1".to_string(),
                 user_display_name: Some("User One".to_string()),
                 attachments: Vec::new(),
+                dynamic_context: vec!["## Recent sessions\n- prior context".to_string()],
                 raw: json!({"source": "test"}),
             })
             .await
@@ -458,6 +462,10 @@ mod tests {
         assert_eq!(inbound.session_id.as_str(), "http-conversation-1");
         assert_eq!(inbound.user, "user-1");
         assert_eq!(inbound.text, "hello");
+        assert_eq!(
+            inbound.dynamic_context,
+            vec!["## Recent sessions\n- prior context"]
+        );
         assert_eq!(inbound.raw["http_stream_id"], response.stream_id);
         assert_eq!(inbound.raw["trace_id"], response.trace_id);
         assert_eq!(inbound.raw["turn_id"], response.turn_id);
@@ -491,6 +499,7 @@ mod tests {
                 user: "U123".to_string(),
                 user_display_name: Some("Ada".to_string()),
                 attachments: Vec::new(),
+                dynamic_context: Vec::new(),
                 raw: json!({
                     "source": "gateway",
                     "provider": "fake-slack",

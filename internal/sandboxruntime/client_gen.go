@@ -646,6 +646,7 @@ type EventTimings struct {
 type HttpMessageRequest struct {
 	Attachments     *[]Attachment           `json:"attachments,omitempty"`
 	ConversationId  *string                 `json:"conversation_id,omitempty"`
+	DynamicContext  *[]string               `json:"dynamic_context,omitempty"`
 	Raw             *map[string]interface{} `json:"raw,omitempty"`
 	Text            string                  `json:"text"`
 	User            *string                 `json:"user,omitempty"`

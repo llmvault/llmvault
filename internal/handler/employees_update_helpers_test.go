@@ -31,6 +31,23 @@ func (h *employeeHarness) putEmployee(t *testing.T, m orgWithMember, agentID uui
 	return rr
 }
 
+func (h *employeeHarness) patchEmployeeModel(t *testing.T, m orgWithMember, agentID uuid.UUID, body any, role string) *httptest.ResponseRecorder {
+	t.Helper()
+	buf := new(bytes.Buffer)
+	_ = json.NewEncoder(buf).Encode(body)
+	req := httptest.NewRequest(http.MethodPatch, "/v1/employees/"+agentID.String()+"/model", buf)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Org-ID", m.org.ID.String())
+	req = middleware.WithAuthClaims(req, &auth.AuthClaims{
+		UserID: m.user.ID.String(),
+		OrgID:  m.org.ID.String(),
+		Role:   role,
+	})
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+	return rr
+}
+
 func (h *employeeHarness) getEmployeeAvailableConnections(t *testing.T, m orgWithMember, agentID uuid.UUID, role string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/v1/employees/"+agentID.String()+"/connections/available", nil)

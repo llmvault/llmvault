@@ -3308,6 +3308,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employees/{id}/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update an employee model
+         * @description Persists Hivy's employee model and pushes the full runtime config to the live sandbox.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Employee model update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateEmployeeModelRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["updateEmployeeModelResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/v1/employees/{id}/sandbox/upgrade": {
         parameters: {
             query?: never;
@@ -7965,6 +8075,23 @@ export interface components {
             updated_at?: string;
             upgrade_available?: boolean;
         };
+        employeeResponse: {
+            attached_skills?: components["schemas"]["employeeSkillSummary"][];
+            avatar_url?: string;
+            created_at?: string;
+            description?: string;
+            id?: string;
+            last_memory_refreshed_at?: string;
+            memory_refresh_error?: string;
+            memory_refresh_status?: string;
+            model?: string;
+            name?: string;
+            sandbox_template_id?: string;
+            specialist_ids?: string[];
+            status?: string;
+            triggers?: components["schemas"]["employeeTriggerResponse"][];
+            updated_at?: string;
+        };
         employeeSandboxSummary: {
             created_at?: string;
             error_message?: string;
@@ -8820,6 +8947,13 @@ export interface components {
         };
         updateContentRequest: {
             bundle?: components["schemas"]["Bundle"];
+        };
+        updateEmployeeModelRequest: {
+            model?: string;
+        };
+        updateEmployeeModelResponse: {
+            employee?: components["schemas"]["employeeResponse"];
+            sync?: components["schemas"]["syncEmployeeResponse"];
         };
         updateEmployeeSpecialistRequest: {
             model?: number[];

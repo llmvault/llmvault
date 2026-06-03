@@ -94,6 +94,7 @@ type RuntimeMessage struct {
 	GatewayThreadID      string
 	GatewayExternalMsgID string
 	GatewayProvider      string
+	DynamicContext       []string
 	Metadata             map[string]any
 }
 

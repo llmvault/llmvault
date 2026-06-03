@@ -469,6 +469,7 @@ mod queue_tests {
                 name: "evidence.txt".to_string(),
                 size_bytes: Some(128),
             }],
+            dynamic_context: Vec::new(),
             raw,
             inbound_handle: MessageHandle {
                 channel: "C123".to_string(),
@@ -602,6 +603,9 @@ async fn process_single_turn(
 
     let DownloadResults { images, .. } = media;
     let mut turn_input = TurnInput::text(annotated_text);
+    for context in &inbound.dynamic_context {
+        turn_input = turn_input.with_dynamic_context(context.clone());
+    }
     for (mime, bytes) in images {
         turn_input = turn_input.with_image(mime, bytes);
     }
@@ -735,6 +739,7 @@ async fn process_single_turn(
                     agent_name, job_id, result_text
                 ),
                 attachments: Vec::new(),
+                dynamic_context: Vec::new(),
                 raw: serde_json::json!({
                     "source": "delegate_result",
                     "job_id": job_id,
@@ -899,8 +904,8 @@ async fn consume_agent_stream(
         emit_agent_stream_event(emitter, session_id, source, sequence, &client_event).await;
         match event {
             AgentEvent::ThinkingChunk { .. } => {}
-            AgentEvent::TokenChunk { text } => accumulated.push_str(&text),
-            AgentEvent::FinalMessage { text } => accumulated = text,
+            AgentEvent::TokenChunk { text } => push_visible_delta(&mut accumulated, &text),
+            AgentEvent::FinalMessage { text } => merge_final_text(&mut accumulated, &text),
             AgentEvent::Error { message } => error_message = Some(message),
             AgentEvent::RunEvent { .. } => {}
             _ => {}
@@ -911,6 +916,73 @@ async fn consume_agent_stream(
         text: accumulated,
         error: error_message,
     }
+}
+
+fn push_visible_delta(accumulated: &mut String, delta: &str) {
+    if delta.is_empty() {
+        return;
+    }
+    if needs_inserted_space(accumulated, delta) {
+        accumulated.push(' ');
+    }
+    accumulated.push_str(delta);
+}
+
+fn normalize_visible_text(text: &str) -> String {
+    let mut normalized = String::new();
+    for ch in text.chars() {
+        if normalized
+            .chars()
+            .next_back()
+            .is_some_and(|prev| matches!(prev, '.' | '!' | '?') && ch.is_ascii_alphabetic())
+        {
+            normalized.push(' ');
+        }
+        normalized.push(ch);
+    }
+    normalized
+}
+
+fn merge_final_text(accumulated: &mut String, final_text: &str) {
+    let normalized = normalize_visible_text(final_text);
+    if accumulated.trim().is_empty() {
+        *accumulated = normalized;
+        return;
+    }
+    if normalized.starts_with(accumulated.as_str()) && normalized.len() > accumulated.len() {
+        accumulated.push_str(&normalized[accumulated.len()..]);
+    }
+}
+
+fn needs_inserted_space(accumulated: &str, delta: &str) -> bool {
+    let Some(prev) = accumulated.chars().next_back() else {
+        return false;
+    };
+    let Some(next) = delta.chars().next() else {
+        return false;
+    };
+    if prev.is_whitespace() || next.is_whitespace() {
+        return false;
+    }
+    if matches!(
+        next,
+        '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '}' | '\'' | '"' | '’'
+    ) {
+        return false;
+    }
+    if matches!(
+        prev,
+        '(' | '[' | '{' | '/' | '-' | '—' | '\'' | '"' | '‘' | '“'
+    ) {
+        return false;
+    }
+    if matches!(prev, '.' | '!' | '?') && next.is_ascii_alphabetic() {
+        return true;
+    }
+    if prev.is_ascii_alphabetic() && next.is_ascii_alphabetic() {
+        return true;
+    }
+    false
 }
 
 fn sanitize_agent_event_for_clients(
@@ -1080,7 +1152,8 @@ fn format_final_message(outcome: &StreamOutcome) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        format_final_message, sanitize_agent_event_for_clients, StreamOutcome, USER_RETRY_MESSAGE,
+        format_final_message, merge_final_text, normalize_visible_text, push_visible_delta,
+        sanitize_agent_event_for_clients, StreamOutcome, USER_RETRY_MESSAGE,
     };
     use agent::AgentEvent;
     use domain::SessionId;
@@ -1095,6 +1168,39 @@ mod tests {
 
         assert!(!text.contains("Sorry, something went wrong"));
         assert_eq!(text, USER_RETRY_MESSAGE);
+    }
+
+    #[test]
+    fn visible_delta_spacing_recovers_missing_provider_spaces() {
+        let mut text = String::new();
+        for delta in ["Hey!", "What's", "up?"] {
+            push_visible_delta(&mut text, delta);
+        }
+        assert_eq!(text, "Hey! What's up?");
+    }
+
+    #[test]
+    fn visible_delta_spacing_preserves_existing_spaces() {
+        let mut text = String::new();
+        for delta in ["Hello ", "there", "."] {
+            push_visible_delta(&mut text, delta);
+        }
+        assert_eq!(text, "Hello there.");
+    }
+
+    #[test]
+    fn visible_final_text_is_normalized_for_glued_words() {
+        assert_eq!(normalize_visible_text("Hey!What'sup?"), "Hey! What'sup?");
+    }
+
+    #[test]
+    fn final_event_does_not_overwrite_spaced_stream_tokens() {
+        let mut text = String::new();
+        for delta in ["Hey!", "What's", "up?"] {
+            push_visible_delta(&mut text, delta);
+        }
+        merge_final_text(&mut text, "Hey!What'sup?");
+        assert_eq!(text, "Hey! What's up?");
     }
 
     #[test]

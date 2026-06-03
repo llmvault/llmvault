@@ -9,6 +9,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/precontext"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 )
 
@@ -94,6 +95,7 @@ func finalizeAttempt(
 		Updates(srcUpd).Error; err != nil {
 		return fmt.Errorf("finalize source %s: %w", src.ID, err)
 	}
+	precontext.InvalidateKnowledge(ctx, deps.PreContextCache, src.OrgIDValue)
 	debitWebsiteCredits(ctx, deps, src, a, stats)
 	return nil
 }
