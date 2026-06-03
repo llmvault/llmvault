@@ -76,6 +76,7 @@ func (h *GatewaySlackHandler) clearStatus(ctx context.Context, client slackGatew
 func (h *GatewaySlackHandler) postThreadReply(ctx context.Context, client slackGatewayClient, channelID, threadTS, text string, fields map[string]any) (string, error) {
 	_, messageTS, err := client.PostMessageContext(ctx, channelID,
 		slacksdk.MsgOptionText(text, false),
+		slacksdk.MsgOptionBlocks(slacksdk.NewMarkdownBlock("", text)),
 		slacksdk.MsgOptionTS(threadTS),
 	)
 	if err != nil {

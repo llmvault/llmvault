@@ -56,6 +56,23 @@ func writeSlackError(t *testing.T, w http.ResponseWriter, code string) {
 	}
 }
 
+func assertSlackMarkdownBlockText(t *testing.T, call slackAPICall, want string) {
+	t.Helper()
+	var blocks []map[string]any
+	if err := json.Unmarshal([]byte(call.Form.Get("blocks")), &blocks); err != nil {
+		t.Fatalf("decode Slack blocks: %v", err)
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("blocks len = %d, want 1: %#v", len(blocks), blocks)
+	}
+	if blocks[0]["type"] != "markdown" {
+		t.Fatalf("block type = %q, want markdown", blocks[0]["type"])
+	}
+	if blocks[0]["text"] != want {
+		t.Fatalf("markdown block text = %q, want %q", blocks[0]["text"], want)
+	}
+}
+
 func gatewaySlackEvents(events ...gateway.SSEEvent) <-chan gateway.SSEEvent {
 	ch := make(chan gateway.SSEEvent, len(events))
 	for _, event := range events {
