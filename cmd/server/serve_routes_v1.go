@@ -146,6 +146,7 @@ func setupV1Routes(
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
 				if employeeHandler != nil {
 					r.Get("/employees", employeeHandler.List)
+					r.Get("/employees/models", employeeHandler.ListModels)
 					r.Get("/employees/{id}", employeeHandler.Get)
 					r.Get("/employees/{id}/sessions", employeeHandler.ListSessions)
 					r.Get("/employees/{id}/specialists", employeeHandler.ListSpecialists)

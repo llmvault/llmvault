@@ -40,13 +40,16 @@ func CalculateCost(reg *registry.Registry, providerID, modelID string, usage Usa
 	}
 	inputCost := float64(nonCachedInput) * inputPrice / 1_000_000
 
-	// Calculate cached token cost (discounted input rate)
-	discount := cachedTokenDiscount[providerID]
-	if discount == 0 && usage.CachedTokens > 0 {
-		// Unknown provider with cached tokens — assume full input price
-		discount = 1.0
+	cacheReadPrice := model.Cost.CacheRead
+	if cacheReadPrice == 0 && usage.CachedTokens > 0 {
+		discount := cachedTokenDiscount[providerID]
+		if discount == 0 {
+			// Unknown provider with cached tokens — assume full input price.
+			discount = 1.0
+		}
+		cacheReadPrice = inputPrice * discount
 	}
-	cachedCost := float64(usage.CachedTokens) * inputPrice * discount / 1_000_000
+	cachedCost := float64(usage.CachedTokens) * cacheReadPrice / 1_000_000
 
 	// Calculate output cost (reasoning tokens are part of output tokens, same price)
 	outputCost := float64(usage.OutputTokens) * outputPrice / 1_000_000

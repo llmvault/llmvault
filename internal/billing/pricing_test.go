@@ -2,6 +2,7 @@ package billing_test
 
 import (
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/usehivy/hivy/internal/billing"
@@ -34,6 +35,18 @@ func TestEstimateCostUSD_UsesRegistryRouteAndCachedTokens(t *testing.T) {
 	}
 	if cost <= 0 {
 		t.Fatalf("estimated cost = %f, want positive", cost)
+	}
+}
+
+func TestEstimateCostUSD_UsesRegistryCacheReadPrice(t *testing.T) {
+	cost, err := billing.EstimateCostUSD(nil, "openrouter", "deepseek-v4-flash", 1000, 500, 800)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD: %v", err)
+	}
+
+	expected := (200*0.0983 + 800*0.0197 + 500*0.1966) / 1_000_000
+	if math.Abs(cost-expected) > 0.000000001 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, expected)
 	}
 }
 

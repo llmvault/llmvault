@@ -86,6 +86,21 @@ func TestCalculateCost_WithCachedTokens_OpenAI(t *testing.T) {
 	}
 }
 
+func TestCalculateCost_UsesRegistryCacheReadPrice(t *testing.T) {
+	reg := registry.Global()
+	usage := UsageData{
+		InputTokens:  1000,
+		OutputTokens: 500,
+		CachedTokens: 800,
+	}
+
+	cost := CalculateCost(reg, "openrouter", "deepseek-v4-flash", usage)
+	expected := (200*0.0983 + 800*0.0197 + 500*0.1966) / 1_000_000
+	if math.Abs(cost-expected) > 0.000000001 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, expected)
+	}
+}
+
 func TestCalculateCost_ZeroTokens(t *testing.T) {
 	reg := registry.Global()
 

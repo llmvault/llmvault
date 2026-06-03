@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Alert02Icon,
@@ -8,12 +8,15 @@ import {
   Tick02Icon,
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
+import { ModelCombobox } from "@/components/model-combobox"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { $api } from "@/lib/api/hooks"
 import { EmployeeUpgradeDialog } from "../_components/employee-upgrade-dialog"
 
 export default function SettingsPage() {
   const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<string | null>(null)
 
   const employeesQuery = $api.useQuery("get", "/v1/employees", {
     params: { query: { limit: 1 } },
@@ -22,77 +25,115 @@ export default function SettingsPage() {
   const employee = employeesQuery.data?.data?.[0]
   const canUpgrade = employee?.upgrade_available && employee?.id
   const isUpgrading = employee?.sandbox?.status?.toLowerCase() === "upgrading"
+  const modelChanged = !!employee?.model && selectedModel !== employee.model
+
+  useEffect(() => {
+    setSelectedModel(employee?.model ?? null)
+  }, [employee?.model])
 
   return (
-    <div className="flex flex-1 flex-col gap-8">
-      <div>
-        <h1 className="font-heading text-3xl font-normal tracking-[-0.02em] text-foreground">
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-7">
+      <div className="max-w-2xl">
+        <h1 className="font-heading text-3xl font-normal tracking-[-0.02em] text-foreground md:text-4xl">
           Settings
         </h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Manage your workspace preferences.
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Manage workspace preferences and employee runtime behavior.
         </p>
       </div>
 
-      <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-6">
-        <div>
-          <h2 className="font-heading text-lg font-medium text-foreground">
-            Sandbox runtime
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your employee sandbox runs on a dedicated runtime image. Upgrades
-            recreate the sandbox with the newest image while preserving the
-            runtime database.
-          </p>
-        </div>
+      <Tabs defaultValue="general" className="gap-6">
+        <TabsList className="w-fit">
+          <TabsTrigger value="general">General</TabsTrigger>
+        </TabsList>
 
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-            {isUpgrading ? (
-              <HugeiconsIcon
-                icon={Loading03Icon}
-                className="size-5 animate-spin text-primary"
+        <TabsContent value="general" className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-6">
+            <div>
+              <h2 className="font-heading text-lg font-medium text-foreground">
+                Employee model
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Choose the model Hivy uses for workspace conversations.
+              </p>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <EmployeeModelsCombobox
+                value={selectedModel}
+                onSelect={setSelectedModel}
               />
-            ) : canUpgrade ? (
-              <HugeiconsIcon
-                icon={Alert02Icon}
-                className="size-5 text-primary"
-              />
-            ) : (
-              <HugeiconsIcon
-                icon={Tick02Icon}
-                className="size-5 text-success"
-              />
-            )}
+              <Button
+                type="button"
+                disabled={!modelChanged}
+                className="w-full lg:w-auto h-14"
+              >
+                Save changes
+              </Button>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p className="text-sm font-medium text-foreground">
-              {isUpgrading
-                ? "Upgrade in progress"
-                : canUpgrade
-                  ? "Upgrade available"
-                  : "Sandbox is up to date"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {isUpgrading
-                ? "Your sandbox is being upgraded. This may take a few minutes."
-                : canUpgrade
-                  ? "A newer runtime image is available for your sandbox."
-                  : "Your sandbox is running the latest runtime image."}
-            </p>
+
+          <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-6">
+            <div>
+              <h2 className="font-heading text-lg font-medium text-foreground">
+                Sandbox runtime
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Your employee sandbox runs on a dedicated runtime image.
+                Upgrades recreate the sandbox with the newest image while
+                preserving the runtime database.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                {isUpgrading ? (
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="size-5 animate-spin text-primary"
+                  />
+                ) : canUpgrade ? (
+                  <HugeiconsIcon
+                    icon={Alert02Icon}
+                    className="size-5 text-primary"
+                  />
+                ) : (
+                  <HugeiconsIcon
+                    icon={Tick02Icon}
+                    className="size-5 text-success"
+                  />
+                )}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-sm font-medium text-foreground">
+                  {isUpgrading
+                    ? "Upgrade in progress"
+                    : canUpgrade
+                      ? "Upgrade available"
+                      : "Sandbox is up to date"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isUpgrading
+                    ? "Your sandbox is being upgraded. This may take a few minutes."
+                    : canUpgrade
+                      ? "A newer runtime image is available for your sandbox."
+                      : "Your sandbox is running the latest runtime image."}
+                </p>
+              </div>
+              {canUpgrade ? (
+                <Button
+                  size="sm"
+                  onClick={() => setUpgradeOpen(true)}
+                  className="shrink-0 gap-1.5"
+                >
+                  Upgrade
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
           </div>
-          {canUpgrade ? (
-            <Button
-              size="sm"
-              onClick={() => setUpgradeOpen(true)}
-              className="shrink-0 gap-1.5"
-            >
-              Upgrade
-              <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {employee ? (
         <EmployeeUpgradeDialog
@@ -102,5 +143,25 @@ export default function SettingsPage() {
         />
       ) : null}
     </div>
+  )
+}
+
+function EmployeeModelsCombobox({
+  value,
+  onSelect,
+}: {
+  value?: string | null
+  onSelect?: (model: string) => void
+}) {
+  const { data, isLoading } = $api.useQuery("get", "/v1/employees/models", {})
+
+  return (
+    <ModelCombobox
+      models={data ?? []}
+      value={value}
+      onSelect={onSelect}
+      loading={isLoading}
+      disabled={isLoading}
+    />
   )
 }

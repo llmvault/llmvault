@@ -3180,6 +3180,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employees/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List employee-selectable models
+         * @description Returns the OpenRouter-backed model allowlist supported for Hivy employees.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["modelSummary"][];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employees/{id}": {
         parameters: {
             query?: never;
@@ -7540,6 +7588,8 @@ export interface components {
             type?: string;
         };
         Cost: {
+            cache_read?: number;
+            cache_write?: number;
             input?: number;
             output?: number;
         };
