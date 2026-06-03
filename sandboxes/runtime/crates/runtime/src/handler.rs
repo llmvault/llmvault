@@ -28,9 +28,6 @@ use session::ensure_session_persisted;
 
 use crate::session_coordinator::{SessionCoordinator, Submission};
 
-const GENERIC_ERROR_REPLY: &str =
-    "Sorry, something went wrong while generating that response. Please try again.";
-
 #[async_trait]
 pub trait TurnEventSink: Send + Sync + 'static {
     async fn activate_session_stream(&self, _session_id: &SessionId, _stream_id: &str) {}
@@ -979,8 +976,25 @@ fn format_final_message(outcome: &StreamOutcome) -> String {
         return format!("An error occurred: {internal_error}");
     }
     if outcome.text.trim().is_empty() {
-        warn!("agent produced no response; replying with generic message");
-        return GENERIC_ERROR_REPLY.to_string();
+        warn!("agent produced no response after recovery attempts");
+        return "I could not produce a response after retrying the model. Please try again."
+            .to_string();
     }
     outcome.text.clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_final_message, StreamOutcome};
+
+    #[test]
+    fn empty_outcome_does_not_use_generic_apology() {
+        let text = format_final_message(&StreamOutcome {
+            text: String::new(),
+            error: None,
+        });
+
+        assert!(!text.contains("Sorry, something went wrong"));
+        assert!(text.contains("retrying the model"));
+    }
 }

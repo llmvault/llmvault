@@ -20,6 +20,7 @@ type mockProvider struct {
 	setAutoArchiveCalls []autoPolicyCall
 	archivedIDs         []string
 	stoppedIDs          []string
+	deletedIDs          []string
 	createCalls         []CreateSandboxOpts // captured for integration assertions
 	endpointPorts       []int               // captured port arg of every GetEndpoint call
 	warmEndpoint        string
@@ -117,6 +118,7 @@ func (m *mockProvider) DeleteSandbox(_ context.Context, externalID string) error
 
 	delete(m.sandboxes, externalID)
 	delete(m.endpoints, externalID)
+	m.deletedIDs = append(m.deletedIDs, externalID)
 	return nil
 }
 

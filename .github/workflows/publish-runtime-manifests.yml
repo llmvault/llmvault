@@ -81,3 +81,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ steps.version.outputs.RELEASE_TAG }}" release-manifest.json --clobber
+
+      - name: install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: update Railway runtime config
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT: production
+          RAILWAY_SERVICES: "api.usehivy.com asynq.usehivy.com"
+        run: ./scripts/release/update-railway-runtime-config.sh release-manifest.json

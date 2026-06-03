@@ -54,10 +54,14 @@ func (p *WarmPool) Claim(ctx context.Context, mode string, sandboxID uuid.UUID) 
 	if p == nil {
 		return nil, fmt.Errorf("warm pool is not configured")
 	}
+	image := p.runtimeImage(mode)
+	if image == "" {
+		return nil, fmt.Errorf("runtime image for warm %s sandbox is not configured", mode)
+	}
 	var slot model.SandboxWarmSlot
 	err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Where("provider_id = ? AND mode = ? AND status = ?", p.provider.ID(), mode, model.SandboxWarmSlotStatusWarm).
+			Where("provider_id = ? AND mode = ? AND status = ? AND runtime_image = ?", p.provider.ID(), mode, model.SandboxWarmSlotStatusWarm, image).
 			Order("created_at ASC").
 			First(&slot).Error; err != nil {
 			return err
@@ -120,8 +124,15 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 	}
 	logger := logging.FromContext(ctx)
 	var available int64
+	image := p.runtimeImage(mode)
+	if image == "" {
+		return nil, fmt.Errorf("runtime image for warm %s sandbox is not configured", mode)
+	}
+	if err := p.deleteStaleAvailableSlots(ctx, mode, image); err != nil {
+		return nil, err
+	}
 	if err := p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
-		Where("provider_id = ? AND mode = ? AND status IN ?", p.provider.ID(), mode, []string{
+		Where("provider_id = ? AND mode = ? AND runtime_image = ? AND status IN ?", p.provider.ID(), mode, image, []string{
 			model.SandboxWarmSlotStatusWarm,
 			model.SandboxWarmSlotStatusWarming,
 		}).
@@ -129,7 +140,8 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 		return nil, err
 	}
 	logger.InfoContext(ctx, "sandbox warm pool reconcile",
-		"provider", p.provider.ID(), "mode", mode, "desired", desired, "available", available)
+		"provider", p.provider.ID(), "mode", mode, "desired", desired, "available", available,
+		"runtime_image", image)
 	createCount := int64(desired) - available
 	if createCount < 0 {
 		createCount = 0
@@ -149,7 +161,7 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 	}
 	var warming []model.SandboxWarmSlot
 	if err := p.db.WithContext(ctx).
-		Where("provider_id = ? AND mode = ? AND status = ?", p.provider.ID(), mode, model.SandboxWarmSlotStatusWarming).
+		Where("provider_id = ? AND mode = ? AND runtime_image = ? AND status = ?", p.provider.ID(), mode, image, model.SandboxWarmSlotStatusWarming).
 		Find(&warming).Error; err != nil {
 		return created, err
 	}
@@ -216,6 +228,44 @@ func (p *WarmPool) provision(ctx context.Context, mode string) (uuid.UUID, error
 		return uuid.Nil, err
 	}
 	return slot.ID, nil
+}
+
+func (p *WarmPool) deleteStaleAvailableSlots(ctx context.Context, mode, image string) error {
+	var stale []model.SandboxWarmSlot
+	if err := p.db.WithContext(ctx).
+		Where("provider_id = ? AND mode = ? AND runtime_image <> ? AND status IN ?", p.provider.ID(), mode, image, []string{
+			model.SandboxWarmSlotStatusWarm,
+			model.SandboxWarmSlotStatusWarming,
+		}).
+		Find(&stale).Error; err != nil {
+		return err
+	}
+	if len(stale) == 0 {
+		return nil
+	}
+	logger := logging.FromContext(ctx)
+	for _, slot := range stale {
+		logger.InfoContext(ctx, "deleting stale sandbox warm slot",
+			"provider", p.provider.ID(), "mode", mode, "slot_id", slot.ID,
+			"external_id", slot.ExternalID, "runtime_image", slot.RuntimeImage,
+			"expected_runtime_image", image)
+		if err := p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
+			Where("id = ? AND status IN ?", slot.ID, []string{
+				model.SandboxWarmSlotStatusWarm,
+				model.SandboxWarmSlotStatusWarming,
+			}).
+			Update("status", model.SandboxWarmSlotStatusDeleting).Error; err != nil {
+			return err
+		}
+		if err := p.provider.DeleteSandbox(ctx, slot.ExternalID); err != nil {
+			_ = p.MarkError(context.WithoutCancel(ctx), slot.ID, fmt.Sprintf("delete stale warm slot: %v", err))
+			return fmt.Errorf("delete stale warm slot %s: %w", slot.ExternalID, err)
+		}
+		if err := p.MarkError(ctx, slot.ID, fmt.Sprintf("stale runtime image %s; expected %s", slot.RuntimeImage, image)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *WarmPool) runtimeImage(mode string) string {
