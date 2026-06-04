@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -82,6 +83,32 @@ func TestRailwayProxy_ForwardsRequestAndToken(t *testing.T) {
 	}
 	if me["name"] != "Test User" {
 		t.Fatalf("expected name=Test User, got %v", me["name"])
+	}
+}
+
+func TestRailwayProxy_DeniesDestructiveMutationBeforeCredentialFetch(t *testing.T) {
+	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("nango should not be called for denied railway mutation")
+	})
+	railwayHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("railway should not be called for denied railway mutation")
+	})
+
+	harness := newRailwayHarness(t, nangoHandler, railwayHandler)
+
+	req := httptest.NewRequest(http.MethodPost,
+		"/internal/railway-proxy/"+harness.agentID.String(),
+		bytes.NewReader([]byte(`{"query":"mutation { serviceDelete(id: \"svc\") }"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+harness.runtimeSecret)
+	recorder := httptest.NewRecorder()
+	harness.router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "provider proxy safety policy") {
+		t.Fatalf("expected safety policy message, got %s", recorder.Body.String())
 	}
 }
 

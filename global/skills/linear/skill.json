@@ -5,5 +5,9 @@
   "root": "./SKILL.md",
   "tags": ["linear", "issues", "projects", "planning"],
   "integration_ids": ["linear"],
+  "required_environment_variables": [
+    "HIVY_LINEAR_URL",
+    "HIVY_LINEAR_TOKEN"
+  ],
   "files": []
 }

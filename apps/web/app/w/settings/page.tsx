@@ -112,7 +112,7 @@ export default function SettingsPage() {
         <TabsContent value="general" className="flex flex-col gap-6">
           <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-6">
             <div>
-              <h2 className="font-heading text-lg font-medium text-foreground">
+              <h2 className="font-sans text-lg font-medium text-foreground">
                 Employee model
               </h2>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -145,7 +145,7 @@ export default function SettingsPage() {
 
           <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-6">
             <div>
-              <h2 className="font-heading text-lg font-medium text-foreground">
+              <h2 className="font-sans text-lg font-medium text-foreground">
                 Sandbox runtime
               </h2>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">

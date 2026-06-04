@@ -129,7 +129,7 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 	db := connectTestDB(t)
 	defaultSkillNames := []string{
 		"git-github",
-		"asset-uploads",
+		"drive",
 		"agent-browser",
 	}
 	db.Unscoped().

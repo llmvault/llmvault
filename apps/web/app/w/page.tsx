@@ -143,7 +143,7 @@ export default function DashboardV2Page() {
                 <span className="text-sm text-muted-foreground">Credits used</span>
               </div>
               <div className="mt-4">
-                <p className="font-heading text-2xl font-medium tracking-tight text-foreground">
+                <p className="font-sans text-2xl font-medium tracking-tight text-foreground">
                   {formatK(credits?.spent_this_period ?? 0)}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -160,7 +160,7 @@ export default function DashboardV2Page() {
                 <span className="text-sm text-muted-foreground">Active connections</span>
               </div>
               <div className="mt-4">
-                <p className="font-heading text-2xl font-medium tracking-tight text-foreground">
+                <p className="font-sans text-2xl font-medium tracking-tight text-foreground">
                   {connections?.total ?? 0}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -178,7 +178,7 @@ export default function DashboardV2Page() {
                 <span className="text-sm text-muted-foreground">Schedules</span>
               </div>
               <div className="mt-4">
-                <p className="font-heading text-2xl font-medium tracking-tight text-foreground">
+                <p className="font-sans text-2xl font-medium tracking-tight text-foreground">
                   {schedules?.total ?? 0}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">Active schedules</p>
@@ -215,7 +215,7 @@ export default function DashboardV2Page() {
       <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-heading text-xl font-medium tracking-[-0.02em] text-foreground">
+            <h2 className="font-sans text-xl font-medium tracking-[-0.02em] text-foreground">
               Getting started
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">

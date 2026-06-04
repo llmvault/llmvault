@@ -108,8 +108,8 @@ func (o *Orchestrator) CreateSpecialistSandboxWithEnv(ctx context.Context, agent
 	return o.createSandbox(ctx, &org, agent, extraEnv)
 }
 
-func (o *Orchestrator) EmployeeTaskDriveUploadURL(employeeID, taskID uuid.UUID) string {
-	return employeeDriveUploadURL(o.cfg, employeeID, "tasks/"+taskID.String())
+func (o *Orchestrator) EmployeeDriveUploadURL(employeeID uuid.UUID) string {
+	return employeeDriveUploadURL(o.cfg, employeeID)
 }
 
 // StartHealthChecker runs a background goroutine that periodically syncs sandbox

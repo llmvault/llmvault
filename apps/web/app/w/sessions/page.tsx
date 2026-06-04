@@ -170,9 +170,9 @@ export default function SessionsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 border-t border-border bg-background">
-      <aside className="flex w-[360px] shrink-0 flex-col border-r border-border bg-sidebar/40">
+      <aside className="flex w-90 shrink-0 flex-col border-r border-border bg-sidebar/40">
         <div className="border-b border-border p-4">
-          <h1 className="font-heading text-xl font-medium text-foreground">
+          <h1 className="font-sans text-xl font-medium text-foreground">
             Sessions
           </h1>
           <div className="relative mt-4">
@@ -334,7 +334,7 @@ function SessionHeader({ session }: { session?: EmployeeSession }) {
   return (
     <div className="flex min-h-16 items-center justify-between gap-4 border-b border-border px-6">
       <div className="min-w-0">
-        <h2 className="truncate font-heading text-lg font-medium text-foreground">
+        <h2 className="truncate font-sans text-lg font-medium text-foreground">
           {session ? sessionTitle(session) : "Session"}
         </h2>
         {session ? (
