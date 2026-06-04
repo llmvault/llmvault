@@ -49,7 +49,7 @@ export function ModelCombobox({ models, value, onSelect, loading, disabled }: Mo
             <button
               type="button"
               disabled={disabled}
-              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-input bg-input/50 px-3 py-2 text-sm transition-colors hover:bg-input/70 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex w-full items-center justify-between gap-3 rounded-md h-14 border border-input bg-input/50 px-3 py-2 text-sm transition-colors hover:bg-input/70 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="flex flex-1 min-w-0 flex-col items-start gap-0.5">
                 {selectedModel ? (
@@ -84,7 +84,7 @@ export function ModelCombobox({ models, value, onSelect, loading, disabled }: Mo
             }}
           >
             <CommandInput placeholder="Search models..." />
-            <CommandList className="max-h-[420px]">
+            <CommandList className="max-h-105">
               <CommandEmpty>No models found.</CommandEmpty>
               <CommandGroup>
                 {sorted.map((model) => {
@@ -153,7 +153,7 @@ function ModelBadges({ model }: { model: ModelSummary }) {
 
 function ModelBadgeLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[10px] text-muted-foreground">
       <LegendEntry tone="green" icon={FlashIcon} label="Fast" />
       <LegendEntry tone="amber" icon={Clock01Icon} label="Balanced" />
       <LegendEntry tone="red" icon={Clock01Icon} label="Slow" />

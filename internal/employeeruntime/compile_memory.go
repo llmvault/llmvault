@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/usehivy/hivy/internal/hindsight"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -15,11 +16,16 @@ func buildMemoryContext(ctx context.Context, deps CompileDeps, agent *model.Empl
 	if deps.Hindsight == nil || agent == nil || agent.OrgID == nil {
 		return memory
 	}
+	bankID := hindsight.OrgBankID(*agent.OrgID)
+	if err := hindsight.RequireBank(ctx, deps.DB, bankID); err != nil {
+		logging.Capture(ctx, err)
+		return memory
+	}
 	recallCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	query := "Durable company, people, project, decision, policy, preference, technical, customer, and communication-behavior memories relevant to this employee's current work."
-	result, err := deps.Hindsight.Recall(recallCtx, hindsight.OrgBankID(*agent.OrgID), &hindsight.RecallRequest{
+	result, err := deps.Hindsight.Recall(recallCtx, bankID, &hindsight.RecallRequest{
 		Query:     query,
 		Budget:    "mid",
 		TagGroups: employeeMemoryTagGroups(agent),

@@ -6,11 +6,19 @@ use crate::primitives::{AgentMessage, AgentMessageRole};
 use crate::{HistoryEntry, HistoryRole, Result};
 
 const HISTORY_PAYLOAD_VERSION: u32 = 1;
+const PRELOADED_CONTEXT_PAYLOAD_VERSION: u32 = 1;
+const PRELOADED_CONTEXT_IDEMPOTENCY_KEY: &str = "session-preloaded-context";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelHistoryPayload {
     pub version: u32,
     pub message: AgentMessage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PreloadedContextPayload {
+    version: u32,
+    dynamic_context: Vec<String>,
 }
 
 pub async fn load_model_history(
@@ -45,6 +53,57 @@ pub async fn append_model_message(
         .await
         .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     Ok(())
+}
+
+pub async fn persist_preloaded_context(
+    repo: Option<&dyn EventRepo>,
+    session_id: &SessionId,
+    dynamic_context: &[String],
+) -> Result<()> {
+    let Some(repo) = repo else {
+        return Ok(());
+    };
+    let dynamic_context: Vec<String> = dynamic_context
+        .iter()
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(ToString::to_string)
+        .collect();
+    if dynamic_context.is_empty() {
+        return Ok(());
+    }
+    let payload = serde_json::to_value(PreloadedContextPayload {
+        version: PRELOADED_CONTEXT_PAYLOAD_VERSION,
+        dynamic_context,
+    })
+    .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    repo.append_idempotent(
+        session_id,
+        EventKind::RunEvent,
+        payload,
+        PRELOADED_CONTEXT_IDEMPOTENCY_KEY,
+    )
+    .await
+    .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    Ok(())
+}
+
+pub async fn load_preloaded_context(
+    repo: Option<&dyn EventRepo>,
+    session_id: &SessionId,
+) -> Result<Vec<String>> {
+    let Some(repo) = repo else {
+        return Ok(Vec::new());
+    };
+    let events = repo
+        .list_chronological(session_id, 1000)
+        .await
+        .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    Ok(events
+        .into_iter()
+        .filter_map(preloaded_context_from_event)
+        .next_back()
+        .unwrap_or_default())
 }
 
 pub async fn seed_model_history_from_gateway(
@@ -88,6 +147,27 @@ fn message_from_event(event: SessionEvent) -> Option<AgentMessage> {
         return None;
     }
     Some(payload.message)
+}
+
+fn preloaded_context_from_event(event: SessionEvent) -> Option<Vec<String>> {
+    if event.kind != EventKind::RunEvent {
+        return None;
+    }
+    let payload: PreloadedContextPayload = serde_json::from_value(event.payload).ok()?;
+    if payload.version != PRELOADED_CONTEXT_PAYLOAD_VERSION {
+        return None;
+    }
+    let dynamic_context: Vec<String> = payload
+        .dynamic_context
+        .into_iter()
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+        .collect();
+    if dynamic_context.is_empty() {
+        None
+    } else {
+        Some(dynamic_context)
+    }
 }
 
 fn event_kind_for_message(message: &AgentMessage) -> EventKind {
@@ -153,8 +233,25 @@ mod tests {
             session_id: &SessionId,
             kind: EventKind,
             payload: serde_json::Value,
-            _idempotency_key: &str,
+            idempotency_key: &str,
         ) -> storage::Result<Option<i64>> {
+            let mut payload = payload;
+            if let Some(object) = payload.as_object_mut() {
+                object.insert(
+                    "_idempotency_key".to_string(),
+                    serde_json::Value::String(idempotency_key.to_string()),
+                );
+            }
+            if self.events.lock().await.iter().any(|event| {
+                event.session_id == *session_id
+                    && event
+                        .payload
+                        .get("_idempotency_key")
+                        .and_then(|v| v.as_str())
+                        == Some(idempotency_key)
+            }) {
+                return Ok(None);
+            }
             self.append(session_id, kind, payload).await.map(Some)
         }
 
@@ -223,6 +320,38 @@ mod tests {
         assert_eq!(loaded[1].tool_calls[0].name, "lookup");
         assert_eq!(loaded[2].role, AgentMessageRole::Tool);
         assert_eq!(loaded[3].role, AgentMessageRole::Assistant);
+    }
+
+    #[tokio::test]
+    async fn preloaded_context_persists_per_session_without_becoming_model_history() {
+        let repo = Arc::new(MemoryEventRepo::default());
+        let session_id = SessionId::from("s-preloaded");
+        persist_preloaded_context(
+            Some(repo.as_ref()),
+            &session_id,
+            &[
+                "## Recent sessions\n- Previous Slack thread".to_string(),
+                "  ".to_string(),
+            ],
+        )
+        .await
+        .unwrap();
+        persist_preloaded_context(
+            Some(repo.as_ref()),
+            &session_id,
+            &["## Recent sessions\n- Duplicate should be ignored".to_string()],
+        )
+        .await
+        .unwrap();
+
+        let loaded = load_preloaded_context(Some(repo.as_ref()), &session_id)
+            .await
+            .unwrap();
+        assert_eq!(loaded, vec!["## Recent sessions\n- Previous Slack thread"]);
+        assert!(load_model_history(Some(repo.as_ref()), &session_id, 100)
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]

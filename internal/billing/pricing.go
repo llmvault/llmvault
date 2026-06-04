@@ -64,11 +64,15 @@ func EstimateCostUSD(reg *registry.Registry, providerID, modelID string, inputTo
 	}
 	nonCachedInput := inputTokens - cachedTokens
 	inputCost := float64(nonCachedInput) * route.Model.Cost.Input / 1_000_000
-	discount := cachedTokenDiscount[providerID]
-	if discount == 0 && cachedTokens > 0 {
-		discount = 1
+	cacheReadPrice := route.Model.Cost.CacheRead
+	if cacheReadPrice == 0 && cachedTokens > 0 {
+		discount := cachedTokenDiscount[providerID]
+		if discount == 0 {
+			discount = 1
+		}
+		cacheReadPrice = route.Model.Cost.Input * discount
 	}
-	cachedCost := float64(cachedTokens) * route.Model.Cost.Input * discount / 1_000_000
+	cachedCost := float64(cachedTokens) * cacheReadPrice / 1_000_000
 	outputCost := float64(outputTokens) * route.Model.Cost.Output / 1_000_000
 	return inputCost + cachedCost + outputCost, nil
 }

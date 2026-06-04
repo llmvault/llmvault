@@ -21,7 +21,7 @@ export function UpgradeBanner() {
 
   return (
     <>
-      <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3">
+      <div className="flex w-full items-center gap-3 border-b border-primary/20 bg-primary/10 px-6 py-3 md:px-8">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
           <HugeiconsIcon
             icon={Alert02Icon}
@@ -29,7 +29,7 @@ export function UpgradeBanner() {
             strokeWidth={2}
           />
         </span>
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
           <p className="text-sm font-medium text-foreground">
             A sandbox upgrade is available.
           </p>

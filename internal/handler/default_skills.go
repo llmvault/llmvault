@@ -12,8 +12,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-const defaultAssetUploadSkillName = "asset-uploads"
-
 func attachPublishedGlobalSkills(ctx context.Context, db *gorm.DB, agentID uuid.UUID, names []string) {
 	if db == nil || len(names) == 0 {
 		return

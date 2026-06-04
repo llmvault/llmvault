@@ -22,7 +22,9 @@ import (
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/middleware"
+	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/specialisttasks"
 	"github.com/usehivy/hivy/internal/spider"
@@ -65,8 +67,10 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	mcpHandler := handler.NewMCPHandler(database, signingKey, actionsCatalog, nangoClient, ctr)
 	var hindsightClient *hindsight.Client
+	var hindsightBanks *hindsight.BankProvisioner
 	if cfg.HindsightAPIURL != "" {
 		hindsightClient = hindsight.NewClient(cfg.HindsightAPIURL)
+		hindsightBanks = hindsight.NewBankProvisioner(database, hindsightClient)
 		mcpHandler.SetMemoryTools(hindsight.NewMemoryToolsFunc(hindsightClient, hindsightMemoryRefresh(enqueuer)))
 	}
 	if deps.SpiderClient != nil {
@@ -84,16 +88,21 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		Specialists: deps.Specialists,
 	}
 	if orchestrator != nil {
+		orchestrator.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
+			return employeeruntime.PushEmployeeRuntimeConfigForSandbox(ctx, runtimeCompileDeps, sb)
+		})
 		specialistService := specialisttasks.NewService(database, orchestrator, runtimeCompileDeps, deps.Specialists)
 		mcpHandler.SetSpecialistTools(specialisttasks.NewToolsFunc(specialistService))
 	}
 	credHandler := handler.NewCredentialHandler(database, deps.KMS, cacheManager, ctr)
+	databaseIntegrationHandler := handler.NewDatabaseIntegrationHandler(database, deps.KMS)
 	tokenHandler := handler.NewTokenHandler(database, signingKey, cacheManager, ctr, actionsCatalog, cfg.MCPBaseURL, mcpHandler.ServerCache)
 	providerHandler := handler.NewProviderHandler(reg, database)
 	customDomainHandler := handler.NewCustomDomainHandler(database, cfg)
 	integrationHandler := handler.NewIntegrationHandler(database, nangoClient, actionsCatalog)
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
+	orgHandler.SetMemoryProvisioner(hindsightBanks)
 	plansHandler := handler.NewPlansHandler(database)
 	var emailSender email.Sender = &email.LogSender{}
 	if enqueuer != nil && cfg.ResendAPIKey != "" {
@@ -106,6 +115,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if cfg.PlatformAdminEmails != "" {
 		authHandler.SetPlatformAdminEmails(strings.Split(cfg.PlatformAdminEmails, ","))
 	}
+	authHandler.SetMemoryProvisioner(hindsightBanks)
 	authHandler.StartCleanup(ctx)
 	oauthHandler := handler.NewOAuthHandler(database, rsaKey, signingKey,
 		cfg.AuthIssuer, cfg.AuthAudience, cfg.AuthAccessTokenTTL, cfg.AuthRefreshTokenTTL,
@@ -114,6 +124,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		cfg.OAuthGoogleClientID, cfg.OAuthGoogleClientSecret,
 		cfg.OAuthXClientID, cfg.OAuthXClientSecret,
 		deps.Credits)
+	oauthHandler.SetMemoryProvisioner(hindsightBanks)
 	apiKeyHandler := handler.NewAPIKeyHandler(database, apiKeyCache, cacheManager)
 	usageHandler := handler.NewUsageHandler(database)
 	auditHandler := handler.NewAuditHandler(database)
@@ -121,13 +132,32 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	reportingHandler := handler.NewReportingHandler(database)
 	proxyHandler := handler.NewProxyHandler(cacheManager, &proxy.CaptureTransport{Inner: sentryobs.WrapTransport(proxy.NewTransport())})
 
+	ragRuntime, err := setupRAGRuntime(cfg, database, enqueuer, mcpHandler)
+	if err != nil {
+		return err
+	}
+	preContextCache := precontext.NewRedisCache(redisClient)
 	employeeEventWriter := handler.NewEmployeeEventWriter(ctx, database, 20000)
 	employeeOutboundWebhookHandler := handler.NewEmployeeOutboundWebhookHandler(database, sandboxEncKey, enqueuer, employeeEventWriter)
+	employeeOutboundWebhookHandler.SetPreContextCache(preContextCache)
 	var gatewayHTTPHandler *handler.GatewayHTTPHandler
 	var gatewayService *gateway.Service
 	if orchestrator != nil {
 		gatewayRuntime := gateway.NewOrchestratedRuntimeMessenger(database, orchestrator)
 		gatewayService = gateway.NewService(database, gatewayRuntime, sandboxEncKey, gateway.NewFakeSlackAdapter(), gateway.NewHTTPAdapter(nil), gateway.NewSlackAdapter())
+		gatewayService.SetPreContextBuilder(precontext.NewService(precontext.Config{
+			DB:         database,
+			Cache:      preContextCache,
+			Memory:     hindsightClient,
+			MemoryBank: hindsightBanks,
+			Searcher:   ragRuntime.qd,
+			Embedder:   ragRuntime.embedder,
+			Reranker:   ragRuntime.reranker,
+			Collection: cfg.QdrantCollection,
+		}))
+		gatewayService.SetSessionCreatedHook(func(ctx context.Context, session model.EmployeeSession, reason, sourceEvent string) {
+			enqueueGatewayEmployeeMemoryRetain(ctx, enqueuer, session, reason, sourceEvent)
+		})
 		employeeOutboundWebhookHandler.SetGatewayService(gatewayService)
 		gatewayHTTPHandler = handler.NewGatewayHTTPHandler(gatewayService)
 	}
@@ -146,6 +176,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	var employeeHandler *handler.EmployeeHandler
 	if orchestrator != nil {
 		employeeHandler = handler.NewEmployeeHandler(database, orchestrator, runtimeCompileDeps, reg, deps.Specialists)
+		employeeHandler.SetMemoryProvisioner(hindsightBanks)
 		if deps.S3Client != nil {
 			employeeHandler.SetEnqueuer(enqueuer)
 		}
@@ -205,16 +236,12 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	rsaPub := rsaKey.Public().(*rsa.PublicKey)
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, nangoClient, sandboxEncKey, uploadsHandler, sqliteBackupHandler)
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler)
 
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
-	ragSourceHandler, ragSearchHandler, err := setupRAGRuntime(cfg, database, enqueuer, mcpHandler)
-	if err != nil {
-		return err
-	}
 	systemTaskHandler := buildSystemTaskHandler(database, deps, redisClient)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, customDomainHandler, ragSourceHandler, ragSearchHandler, uploadsHandler, systemTaskHandler, employeeHandler, orchestrator, auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, databaseIntegrationHandler, customDomainHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, systemTaskHandler, employeeHandler, orchestrator, auditWriter)
 
 	var platformAdminEmails []string
 	if cfg.PlatformAdminEmails != "" {

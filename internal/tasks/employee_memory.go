@@ -17,6 +17,7 @@ import (
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 )
 
 const (
@@ -29,47 +30,64 @@ type EmployeeMemoryRetainHandler struct {
 	db       *gorm.DB
 	memory   *hindsight.Client
 	enqueuer enqueue.TaskEnqueuer
+	cache    precontext.Cache
+	banks    *hindsight.BankProvisioner
 }
 
-func NewEmployeeMemoryRetainHandler(db *gorm.DB, memory *hindsight.Client, enqueuer enqueue.TaskEnqueuer) *EmployeeMemoryRetainHandler {
-	return &EmployeeMemoryRetainHandler{db: db, memory: memory, enqueuer: enqueuer}
+func NewEmployeeMemoryRetainHandler(db *gorm.DB, memory *hindsight.Client, enqueuer enqueue.TaskEnqueuer, caches ...precontext.Cache) *EmployeeMemoryRetainHandler {
+	h := &EmployeeMemoryRetainHandler{db: db, memory: memory, enqueuer: enqueuer, banks: hindsight.NewBankProvisioner(db, memory)}
+	if len(caches) > 0 {
+		h.cache = caches[0]
+	}
+	return h
 }
 
 func (h *EmployeeMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Task) error {
 	if h == nil || h.db == nil || h.memory == nil {
+		logging.FromContext(ctx).WarnContext(ctx, "employee memory retain skipped: handler dependencies missing")
 		return nil
 	}
 	var payload EmployeeMemoryRetainPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("unmarshal employee memory retain payload: %w", err)
 	}
+	fields := employeeMemoryRetainFields(payload)
+	start := time.Now()
+	logging.FromContext(ctx).InfoContext(ctx, "employee memory retain started", fieldsToArgs(fields)...)
 	if payload.EmployeeID == uuid.Nil || payload.SandboxID == uuid.Nil {
+		logEmployeeMemoryRetainSkip(ctx, fields, "missing_employee_or_sandbox_id")
 		return nil
 	}
 
 	var agent model.Employee
 	if err := h.db.WithContext(ctx).Where("id = ?", payload.EmployeeID).First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logEmployeeMemoryRetainSkip(ctx, fields, "employee_not_found")
 			return nil
 		}
 		return fmt.Errorf("load employee for memory retain: %w", err)
 	}
 	if agent.OrgID == nil {
+		logEmployeeMemoryRetainSkip(ctx, fields, "employee_missing_org")
 		return nil
 	}
+	fields["org_id"] = agent.OrgID.String()
 
 	session, err := h.loadSession(ctx, payload)
 	if err != nil {
 		return err
 	}
 	if session == nil {
+		logEmployeeMemoryRetainSkip(ctx, fields, "session_not_found")
 		return nil
 	}
 	if payload.EmployeeSessionID == uuid.Nil {
 		payload.EmployeeSessionID = session.ID
+		fields["employee_session_id"] = session.ID.String()
 	}
 	if strings.TrimSpace(payload.SessionID) == "" {
 		payload.SessionID = session.RuntimeConversationID
+		fields["runtime_session_id"] = payload.SessionID
 	}
 	latest, err := h.latestSessionActivity(ctx, session.ID)
 	if err != nil {
@@ -79,6 +97,9 @@ func (h *EmployeeMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Ta
 		latest = session.CreatedAt
 	}
 	if time.Since(latest) < employeeMemoryQuietWindow {
+		fields["latest_event_at"] = latest.Format(time.RFC3339Nano)
+		fields["quiet_window_seconds"] = int(employeeMemoryQuietWindow.Seconds())
+		logging.FromContext(ctx).InfoContext(ctx, "employee memory retain deferred: session still active", fieldsToArgs(fields)...)
 		h.enqueueRetainCheck(ctx, payload)
 		return nil
 	}
@@ -87,30 +108,48 @@ func (h *EmployeeMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Ta
 	if err != nil {
 		return err
 	}
-	item, ok := buildEmployeeRetainItem(&agent, payload, events)
+	fields["event_count"] = len(events)
+	fields["memory_candidate_event_count"] = countEmployeeMemoryCandidateEvents(events)
+	item, ok, reason := buildEmployeeRetainItemWithReason(&agent, payload, events)
 	if !ok {
+		logEmployeeMemoryRetainSkip(ctx, fields, reason)
 		return nil
 	}
+	fields["document_id"] = item.DocumentID
+	fields["source"] = dominantEmployeeMemorySource(events)
 
 	bankID := hindsight.OrgBankID(*agent.OrgID)
-	if err := h.memory.ConfigureBank(ctx, bankID, hindsight.DefaultMemoryConfig().ToBankConfigUpdate()); err != nil {
-		logging.Capture(ctx, fmt.Errorf("employee memory retain: configure bank %s: %w", bankID, err))
+	fields["bank_id"] = bankID
+	if err := h.banks.EnsureOrgBank(ctx, *agent.OrgID); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain: ensure bank %s: %w", bankID, err), fields)
 		return fmt.Errorf("configure memory bank: %w", err)
 	}
 	retainCtx, cancel := context.WithTimeout(ctx, employeeMemoryRetainTimeout)
 	defer cancel()
-	if _, err := h.memory.Retain(retainCtx, bankID, &hindsight.RetainRequest{Items: []hindsight.RetainItem{item}, Async: true}); err != nil {
-		logging.Capture(ctx, fmt.Errorf("employee memory retain: retain bank_id=%s employee_id=%s: %w", bankID, agent.ID, err))
+	result, err := h.memory.Retain(retainCtx, bankID, &hindsight.RetainRequest{Items: []hindsight.RetainItem{item}, Async: true})
+	if err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain: retain bank_id=%s employee_id=%s: %w", bankID, agent.ID, err), fields)
 		return fmt.Errorf("retain employee memory: %w", err)
 	}
+	if result != nil {
+		fields["hindsight_success"] = result.Success
+		fields["hindsight_items_count"] = result.ItemsCount
+		fields["hindsight_async"] = result.Async
+		fields["hindsight_operation_id"] = result.OperationID
+	}
+	precontext.InvalidateMemories(ctx, h.cache, *agent.OrgID, agent.ID)
 
 	now := time.Now().UTC()
-	if err := h.db.WithContext(ctx).
+	update := h.db.WithContext(ctx).
 		Model(&model.EmployeeSessionEvent{}).
 		Where("id IN ?", employeeSessionEventIDs(events)).
-		Update("retained_at", now).Error; err != nil {
-		return fmt.Errorf("mark employee session events retained: %w", err)
+		Update("retained_at", now)
+	if update.Error != nil {
+		return fmt.Errorf("mark employee session events retained: %w", update.Error)
 	}
+	fields["retained_event_count"] = update.RowsAffected
+	fields["duration_ms"] = time.Since(start).Milliseconds()
+	logging.FromContext(ctx).InfoContext(ctx, "employee memory retain completed", fieldsToArgs(fields)...)
 
 	h.enqueueRefresh(ctx, payload.EmployeeID, payload.SandboxID)
 	return nil
@@ -178,57 +217,30 @@ func (h *EmployeeMemoryRetainHandler) loadSessionEvents(ctx context.Context, emp
 
 func (h *EmployeeMemoryRetainHandler) enqueueRetainCheck(ctx context.Context, payload EmployeeMemoryRetainPayload) {
 	if h.enqueuer == nil {
+		logging.FromContext(ctx).WarnContext(ctx, "employee memory retain requeue skipped: enqueuer missing", fieldsToArgs(employeeMemoryRetainFields(payload))...)
 		return
 	}
 	payload.Reason = "session_still_active"
+	taskID := EmployeeMemoryRetainTaskID(payload)
 	task, err := NewEmployeeMemoryRetainTask(payload)
 	if err != nil {
 		logging.Capture(ctx, err)
 		return
 	}
-	taskID := "employee-memory-retain:" + payload.EmployeeSessionID.String()
-	if payload.EmployeeSessionID == uuid.Nil {
-		taskID = "employee-memory-retain:" + payload.SandboxID.String() + ":" + payload.SessionID
-	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task,
+	_, err = h.enqueuer.EnqueueContext(ctx, task,
 		asynq.ProcessIn(employeeMemoryCheckDelay),
 		asynq.TaskID(taskID),
-	); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
-		logging.Capture(ctx, fmt.Errorf("employee memory retain: requeue quiet check: %w", err))
-	}
-}
-
-func (h *EmployeeMemoryRetainHandler) enqueueRefresh(ctx context.Context, agentID, sandboxID uuid.UUID) {
-	if h.enqueuer == nil {
-		return
-	}
-	h.updateAgentMemoryRefreshStatus(ctx, agentID, "queued", "")
-	task, err := NewEmployeeMemoryRefreshTask(EmployeeMemoryRefreshPayload{
-		EmployeeID: agentID,
-		SandboxID:  sandboxID,
-		Reason:     "hindsight_retain",
-	})
-	if err != nil {
-		logging.Capture(ctx, err)
-		return
-	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task,
-		asynq.Unique(2*time.Minute),
-		asynq.TaskID("employee-memory-refresh:"+agentID.String()),
-	); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
-		logging.Capture(ctx, fmt.Errorf("employee memory retain: enqueue refresh: %w", err))
-	}
-}
-
-func (h *EmployeeMemoryRetainHandler) updateAgentMemoryRefreshStatus(ctx context.Context, agentID uuid.UUID, status, message string) {
-	if h == nil || h.db == nil || agentID == uuid.Nil {
-		return
-	}
-	updates := map[string]any{
-		"memory_refresh_status": status,
-		"memory_refresh_error":  truncateMemoryRefreshError(message),
-	}
-	if err := h.db.WithContext(ctx).Model(&model.Employee{}).Where("id = ?", agentID).Updates(updates).Error; err != nil {
-		logging.Capture(ctx, fmt.Errorf("employee memory retain: update refresh status: %w", err))
+	)
+	duplicate := errors.Is(err, asynq.ErrDuplicateTask)
+	if err != nil && !duplicate {
+		fields := employeeMemoryRetainFields(payload)
+		fields["task_id"] = taskID
+		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain: requeue quiet check: %w", err), fields)
+	} else {
+		fields := employeeMemoryRetainFields(payload)
+		fields["task_id"] = taskID
+		fields["delay_seconds"] = int(employeeMemoryCheckDelay.Seconds())
+		fields["duplicate"] = duplicate
+		logging.FromContext(ctx).InfoContext(ctx, "employee memory retain requeued", fieldsToArgs(fields)...)
 	}
 }

@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/usehivy/hivy/internal/auth"
+	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/middleware"
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func (h *employeeHarness) getEmployee(t *testing.T, m orgWithMember, agentID string) *httptest.ResponseRecorder {
@@ -52,6 +55,42 @@ func TestIntegration_EmployeesGet_HappyPath_LoadsSpecialistsAndSandbox(t *testin
 	specialists := item["specialists"].([]any)
 	if len(specialists) != 2 {
 		t.Fatalf("specialists len = %d, want 2", len(specialists))
+	}
+}
+
+func TestIntegration_EmployeesGet_EnsuresMissingMemoryBank(t *testing.T) {
+	h := newEmployeeHarness(t)
+	h.platformCredCleanup(t)
+	m := h.createOrg(t)
+	emp := h.seedEmployeeAgent(t, m)
+
+	var configCalls int
+	var mentalModelCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPatch && strings.HasSuffix(r.URL.Path, "/config"):
+			configCalls++
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/mental-models"):
+			mentalModelCalls++
+			w.WriteHeader(http.StatusCreated)
+		default:
+			t.Fatalf("unexpected hindsight request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	h.handler.SetMemoryProvisioner(hindsight.NewBankProvisioner(h.db, hindsight.NewClient(srv.URL)))
+
+	rr := h.getEmployee(t, m, emp.ID.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rr.Code, rr.Body.String())
+	}
+	if configCalls != 1 || mentalModelCalls != 1 {
+		t.Fatalf("hindsight calls config=%d mental_model=%d, want 1/1", configCalls, mentalModelCalls)
+	}
+	var bank model.HindsightBank
+	if err := h.db.First(&bank, "bank_id = ?", hindsight.OrgBankID(m.org.ID)).Error; err != nil {
+		t.Fatalf("load memory bank tracker: %v", err)
 	}
 }
 

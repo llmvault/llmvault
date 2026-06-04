@@ -100,7 +100,7 @@ func (h *OAuthHandler) handleCallback(w http.ResponseWriter, r *http.Request, pr
 		profile.Email = strings.ToLower(name) + placeholderEmailDomain
 	}
 
-	user, err := h.findOrCreateUser(provider, profile)
+	user, err := h.findOrCreateUser(r.Context(), provider, profile)
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "oauth user creation failed", "provider", provider, "error", err)
 		h.redirectError(w, r, "account_creation_failed")

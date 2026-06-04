@@ -60,7 +60,7 @@ func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGa
 	return event, false, nil
 }
 
-func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeGatewayRoute, threadKey string) (model.EmployeeSession, string, error) {
+func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeGatewayRoute, threadKey string) (model.EmployeeSession, string, bool, error) {
 	conversationID := stableConversationID(route.ID, threadKey)
 	sessionID := runtimeSessionID(conversationID)
 	var sandbox model.Sandbox
@@ -68,10 +68,11 @@ func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeG
 		Where("org_id = ? AND employee_id = ? AND status <> ?", route.OrgID, route.EmployeeID, "error").
 		Order("created_at DESC").
 		First(&sandbox).Error; err != nil {
-		return model.EmployeeSession{}, "", fmt.Errorf("load employee sandbox: %w", err)
+		return model.EmployeeSession{}, "", false, fmt.Errorf("load employee sandbox: %w", err)
 	}
 	sourceID := route.ID
 	session := model.EmployeeSession{}
+	created := false
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		err := tx.Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
 			route.OrgID, route.EmployeeID, Source, route.ID, threadKey, "active").
@@ -94,12 +95,16 @@ func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeG
 			Name:                  "Gateway: " + threadKey,
 			IntegrationScopes:     model.JSON{},
 		}
-		return tx.Create(&session).Error
+		if err := tx.Create(&session).Error; err != nil {
+			return err
+		}
+		created = true
+		return nil
 	})
 	if err != nil {
-		return model.EmployeeSession{}, "", fmt.Errorf("find or create gateway session: %w", err)
+		return model.EmployeeSession{}, "", false, fmt.Errorf("find or create gateway session: %w", err)
 	}
-	return session, conversationID, nil
+	return session, conversationID, created, nil
 }
 
 func (s *Service) markEventDelivered(ctx context.Context, eventID, sessionID uuid.UUID, conversationID string, delivery *RuntimeDelivery) error {

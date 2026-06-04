@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -74,7 +76,7 @@ func TestCreateEmployeeSandbox_NoGitHubSelectionSkipsRepositoryClone(t *testing.
 		t.Run(tt.name, func(t *testing.T) {
 			orch, provider, db := setupOrchestrator(t)
 			provider.endpointOverride = employeeRuntimeEndpoint(t)
-	orch.cfg.SandboxesRuntimeBaseImage = "ghcr.io/usehivy/hivy-sandboxes-runtime:test-v1"
+			orch.cfg.SandboxesRuntimeBaseImage = "ghcr.io/usehivy/hivy-sandboxes-runtime:test-v1"
 
 			org := createTestOrg(t, db)
 			cred := createTestCred(t, db, org.ID)
@@ -151,6 +153,44 @@ func TestCreateEmployeeSandbox_RepositoryCloneFailureMarksSandboxError(t *testin
 	}
 	if stored.ErrorMessage == nil || !strings.Contains(*stored.ErrorMessage, "repository cloning failed") {
 		t.Fatalf("stored sandbox error_message = %v, want repository cloning failure", stored.ErrorMessage)
+	}
+}
+
+func TestRestartEmployeeSandbox_UsesProviderRestartWhenAvailable(t *testing.T) {
+	orch, provider, db := setupOrchestrator(t)
+	provider.endpointOverride = employeeRuntimeEndpoint(t)
+	encryptedSecret, err := orch.encKey.EncryptString("restart-runtime-secret")
+	if err != nil {
+		t.Fatalf("encrypt runtime secret: %v", err)
+	}
+	sb := model.Sandbox{
+		ID:                     uuid.New(),
+		ExternalID:             "restartable-sandbox",
+		EncryptedRuntimeSecret: encryptedSecret,
+		Status:                 string(StatusRunning),
+		ProviderID:             ProviderDaytona,
+	}
+	if err := db.Create(&sb).Error; err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
+	provider.registerSandbox(sb.ExternalID, StatusRunning)
+
+	if err := orch.RestartEmployeeSandbox(context.Background(), &sb); err != nil {
+		t.Fatalf("RestartEmployeeSandbox: %v", err)
+	}
+	if !reflect.DeepEqual(provider.restartedIDs, []string{"restartable-sandbox"}) {
+		t.Fatalf("restartedIDs = %#v", provider.restartedIDs)
+	}
+	if len(provider.stoppedIDs) != 0 {
+		t.Fatalf("stoppedIDs = %#v, want provider restart path", provider.stoppedIDs)
+	}
+
+	var stored model.Sandbox
+	if err := db.First(&stored, "id = ?", sb.ID).Error; err != nil {
+		t.Fatalf("load sandbox: %v", err)
+	}
+	if stored.Status != string(StatusRunning) || stored.RuntimeURL == "" {
+		t.Fatalf("stored sandbox status/url = %q/%q", stored.Status, stored.RuntimeURL)
 	}
 }
 

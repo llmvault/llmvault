@@ -33,6 +33,7 @@ pub struct AgentDefinition {
     #[serde(default)]
     pub outbound_channels: Vec<OutboundChannelSpec>,
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", schema(no_recursion))]
     pub sub_agents: HashMap<String, AgentDefinition>,
     #[serde(default)]
     pub safety: SafetyConfig,

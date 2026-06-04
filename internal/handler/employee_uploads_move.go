@@ -15,14 +15,14 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// MoveEmployeeAsset relabels an asset's folder. Only the database `path`
+// MoveEmployeeAsset relabels a drive file's folder. Only the database `path`
 // column is touched — the S3 key (and therefore the asset URL) stays put.
 //
-//	POST /internal/employees/{employeeID}/assets/move
+//	POST /internal/employees/{employeeID}/drive/move
 //	body: {"asset":"<asset_url|folder/filename>","new_path":"archive"}
 func (h *UploadsHandler) MoveEmployeeAsset(w http.ResponseWriter, r *http.Request) {
 	if h.encKey == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "asset endpoints not configured"})
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "drive endpoints not configured"})
 		return
 	}
 

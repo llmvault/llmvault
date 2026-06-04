@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -29,10 +29,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { FullPageLoader } from "@/components/full-page-loader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DashboardThemeProvider,
+  DashboardThemeSwitcher,
+} from "@/components/dashboard-theme-switcher"
 import { toast } from "sonner"
 import { $api } from "@/lib/api/hooks"
 import { AuthProvider, useAuth } from "@/lib/auth/auth-context"
@@ -84,6 +89,15 @@ const footerLinks = [
   { label: "Teams", href: "/w/teams", icon: UserAdd01Icon },
 ]
 
+const collapsedSidebarRoutes = ["/w/sessions"]
+const fullHeightWorkspaceRoutes = ["/w/sessions"]
+
+function isWorkspaceRoute(pathname: string, routes: string[]) {
+  return routes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  )
+}
+
 function GhostLogo({
   className,
   size = 24,
@@ -126,23 +140,92 @@ export default function WorkspaceV2Layout({
   return (
     <AuthProvider>
       <WorkspaceGate>
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset className="relative h-screen overflow-hidden">
-            {/* Subtle top-right blur glow */}
-            <div
-              className="pointer-events-none absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full opacity-30 blur-[120px]"
-              style={{ backgroundColor: "var(--glow-right)" }}
-            />
-            <main className="relative z-10 flex h-full flex-1 flex-col overflow-y-auto p-6 md:p-8">
-              <UpgradeBanner />
-              {children}
-            </main>
-          </SidebarInset>
-        </SidebarProvider>
+        <DashboardThemeProvider>
+          <SidebarProvider>
+            <WorkspaceRouteSidebarState />
+            <AppSidebar />
+            <WorkspaceFrame>{children}</WorkspaceFrame>
+          </SidebarProvider>
+        </DashboardThemeProvider>
       </WorkspaceGate>
     </AuthProvider>
   )
+}
+
+function WorkspaceFrame({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const fullHeight = isWorkspaceRoute(pathname, fullHeightWorkspaceRoutes)
+
+  return (
+    <SidebarInset className="relative h-screen overflow-hidden">
+      {/* Subtle top-right blur glow */}
+      <div
+        className="pointer-events-none absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full opacity-30 blur-[120px]"
+        style={{ backgroundColor: "var(--glow-right)" }}
+      />
+      <main
+        className={cn(
+          "relative z-10 flex h-full flex-1 flex-col",
+          fullHeight ? "overflow-hidden" : "overflow-y-auto"
+        )}
+      >
+        <UpgradeBanner />
+        <div
+          className={cn(
+            "flex flex-1 flex-col",
+            fullHeight ? "min-h-0 overflow-hidden" : "p-6 md:p-8"
+          )}
+        >
+          {children}
+        </div>
+      </main>
+    </SidebarInset>
+  )
+}
+
+function WorkspaceRouteSidebarState() {
+  const pathname = usePathname()
+  const { open, setOpen, isMobile } = useSidebar()
+  const restoreOpenRef = useRef<boolean | null>(null)
+  const setOpenRef = useRef(setOpen)
+  const shouldCollapse = isWorkspaceRoute(pathname, collapsedSidebarRoutes)
+
+  useEffect(() => {
+    setOpenRef.current = setOpen
+  }, [setOpen])
+
+  useEffect(() => {
+    if (isMobile) return
+
+    if (shouldCollapse) {
+      if (restoreOpenRef.current === null) {
+        restoreOpenRef.current = open
+      }
+      if (open) {
+        setOpen(false)
+      }
+      return
+    }
+
+    if (restoreOpenRef.current !== null) {
+      const restoreOpen = restoreOpenRef.current
+      restoreOpenRef.current = null
+      if (open !== restoreOpen) {
+        setOpen(restoreOpen)
+      }
+    }
+  }, [isMobile, open, setOpen, shouldCollapse])
+
+  useEffect(() => {
+    return () => {
+      if (restoreOpenRef.current !== null) {
+        setOpenRef.current(restoreOpenRef.current)
+        restoreOpenRef.current = null
+      }
+    }
+  }, [])
+
+  return null
 }
 
 function WorkspaceGate({ children }: { children: React.ReactNode }) {
@@ -269,14 +352,13 @@ function AppSidebar() {
 
   return (
     <Sidebar
-      collapsible="none"
+      collapsible="icon"
       className="h-svh min-h-svh border-r border-border"
-      style={{ width: 268, minWidth: 268 }}
     >
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-4 py-4">
           <GhostLogo className="text-primary" />
-          <span className="font-heading text-lg font-medium tracking-tight text-sidebar-foreground">
+          <span className="font-heading text-lg font-medium tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
             hivy
           </span>
         </div>
@@ -285,7 +367,7 @@ function AppSidebar() {
       <SidebarContent className="gap-5 px-3 py-2">
         {navSections.map((section) => (
           <div key={section.label}>
-            <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wide text-sidebar-foreground/40 uppercase">
+            <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wide text-sidebar-foreground/40 uppercase group-data-[collapsible=icon]:hidden">
               {section.label}
             </p>
             <SidebarMenu>
@@ -299,6 +381,7 @@ function AppSidebar() {
                     <SidebarMenuButton
                       render={<Link href={item.href} />}
                       isActive={active}
+                      tooltip={item.label}
                       className={cn(
                         "h-11 cursor-pointer items-center gap-3 rounded-md font-display text-base",
                         active && "text-primary"
@@ -316,11 +399,15 @@ function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="gap-0 px-3 py-4">
+        <div className="mb-3">
+          <DashboardThemeSwitcher />
+        </div>
         <SidebarMenu>
           {footerLinks.map((link) => (
             <SidebarMenuItem key={link.label}>
               <SidebarMenuButton
                 render={<Link href={link.href} />}
+                tooltip={link.label}
                 className={cn(
                   "h-11 cursor-pointer items-center gap-3 rounded-md font-display text-base"
                 )}

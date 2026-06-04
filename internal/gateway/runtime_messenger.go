@@ -44,16 +44,19 @@ func (m *OrchestratedRuntimeMessenger) Send(ctx context.Context, message Runtime
 		ConversationID:  message.ConversationID,
 		User:            message.User,
 		UserDisplayName: message.UserDisplayName,
+		DynamicContext:  message.DynamicContext,
 		Raw:             runtimeRaw(message),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("send gateway message to runtime: %w", err)
 	}
 	return &RuntimeDelivery{
-		SessionID: resp.SessionID,
-		StreamID:  resp.StreamID,
-		TraceID:   resp.TraceID,
-		TurnID:    resp.TurnID,
+		SessionID:         resp.SessionID,
+		StreamID:          resp.StreamID,
+		ResponseStreamID:  resp.ResponseStreamID,
+		ResponseStreamURL: resp.ResponseStreamURL,
+		TraceID:           resp.TraceID,
+		TurnID:            resp.TurnID,
 	}, nil
 }
 

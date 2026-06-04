@@ -1,7 +1,14 @@
 package tasks
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
 	"testing"
+
+	slacksdk "github.com/slack-go/slack"
+
+	"github.com/usehivy/hivy/internal/gateway"
 )
 
 func TestGatewaySlackPayloadStreamURL(t *testing.T) {
@@ -42,5 +49,251 @@ func TestGatewaySlackPayloadStreamURL(t *testing.T) {
 				t.Errorf("StreamURL = %q, want %q", tt.payload.StreamURL, tt.wantURL)
 			}
 		})
+	}
+}
+
+func TestGatewaySlackHandler_PostsFinalThreadReplyWithoutSlackStream(t *testing.T) {
+	var calls []slackAPICall
+	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		call := recordSlackAPICall(t, r)
+		calls = append(calls, call)
+		switch r.URL.Path {
+		case "/assistant.threads.setStatus":
+			writeSlackOK(t, w, "")
+		case "/chat.postMessage":
+			if call.Form.Get("thread_ts") != "1710000000.123" {
+				t.Fatalf("postMessage thread_ts = %q", call.Form.Get("thread_ts"))
+			}
+			wantText := "I have **notion** and [docs](https://example.com)."
+			if call.Form.Get("text") != wantText {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
+			}
+			assertSlackMarkdownBlockText(t, call, wantText)
+			writeSlackOK(t, w, "1710000002.789")
+		default:
+			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	payload := gatewaySlackTestPayload()
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+		context.Background(),
+		payload,
+		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
+		gatewaySlackEvents(
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"I have **notion** "}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"and [docs](https://example.com)."}`)},
+			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"I have **notion** and [docs](https://example.com)."}`)},
+		),
+		map[string]any{},
+	)
+	if err != nil {
+		t.Fatalf("deliver slack response: %v", err)
+	}
+	if !delivered || text != "I have **notion** and [docs](https://example.com)." {
+		t.Fatalf("delivered=%v text=%q", delivered, text)
+	}
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.startStream") != 0 ||
+		countSlackPath(calls, "/chat.appendStream") != 0 ||
+		countSlackPath(calls, "/chat.stopStream") != 0 {
+		t.Fatalf("Slack stream methods should not be used: %#v", calls)
+	}
+	if countSlackPath(calls, "/chat.postMessage") != 1 {
+		t.Fatalf("postMessage count = %d, want 1", countSlackPath(calls, "/chat.postMessage"))
+	}
+	statusCalls := slackCallsForPath(calls, "/assistant.threads.setStatus")
+	if len(statusCalls) != 2 {
+		t.Fatalf("status call count = %d, want 2", len(statusCalls))
+	}
+	if statusCalls[0].Form.Get("status") != slackAssistantStatus {
+		t.Fatalf("initial status = %q, want %q", statusCalls[0].Form.Get("status"), slackAssistantStatus)
+	}
+	if statusCalls[1].Form.Get("status") != "" {
+		t.Fatalf("clear status = %q, want empty", statusCalls[1].Form.Get("status"))
+	}
+}
+
+func TestGatewaySlackHandler_PostsAccumulatedTokensOnDone(t *testing.T) {
+	var calls []slackAPICall
+	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		call := recordSlackAPICall(t, r)
+		calls = append(calls, call)
+		switch r.URL.Path {
+		case "/assistant.threads.setStatus":
+			writeSlackOK(t, w, "")
+		case "/chat.postMessage":
+			if call.Form.Get("thread_ts") != "1710000000.123" {
+				t.Fatalf("postMessage thread_ts = %q", call.Form.Get("thread_ts"))
+			}
+			if call.Form.Get("text") != "partial answer" {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
+			}
+			writeSlackOK(t, w, "1710000002.789")
+		default:
+			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+		context.Background(),
+		gatewaySlackTestPayload(),
+		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
+		gatewaySlackEvents(
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"partial "}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"answer"}`)},
+			gateway.SSEEvent{Type: "done", Data: json.RawMessage(`{}`)},
+		),
+		map[string]any{},
+	)
+	if err != nil {
+		t.Fatalf("deliver slack response: %v", err)
+	}
+	if !delivered || text != "partial answer" {
+		t.Fatalf("delivered=%v text=%q", delivered, text)
+	}
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.appendStream") != 0 || countSlackPath(calls, "/chat.stopStream") != 0 {
+		t.Fatalf("stream methods should not be used: %#v", calls)
+	}
+	if countSlackPath(calls, "/chat.postMessage") != 1 {
+		t.Fatalf("postMessage count = %d", countSlackPath(calls, "/chat.postMessage"))
+	}
+}
+
+func TestGatewaySlackHandler_PrefersStreamedTokensOverFinalText(t *testing.T) {
+	var calls []slackAPICall
+	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		call := recordSlackAPICall(t, r)
+		calls = append(calls, call)
+		switch r.URL.Path {
+		case "/assistant.threads.setStatus":
+			writeSlackOK(t, w, "")
+		case "/chat.postMessage":
+			wantText := "notion railway Deploy Hivy's Vercel rollbacks"
+			if call.Form.Get("text") != wantText {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
+			}
+			assertSlackMarkdownBlockText(t, call, wantText)
+			writeSlackOK(t, w, "1710000002.789")
+		default:
+			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	text, delivered, _, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+		context.Background(),
+		gatewaySlackTestPayload(),
+		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
+		gatewaySlackEvents(
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"not"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"ion rail"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"way Deploy Hiv"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"y's Vercel rollbacks"}`)},
+			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"not ion rail way De ploy Hiv y's Verc el roll backs"}`)},
+		),
+		map[string]any{},
+	)
+	if err != nil {
+		t.Fatalf("deliver slack response: %v", err)
+	}
+	if !delivered || text != "notion railway Deploy Hivy's Vercel rollbacks" {
+		t.Fatalf("delivered=%v text=%q", delivered, text)
+	}
+}
+
+func TestGatewaySlackHandler_PostsFriendlyMessageOnStreamError(t *testing.T) {
+	var calls []slackAPICall
+	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		call := recordSlackAPICall(t, r)
+		calls = append(calls, call)
+		switch r.URL.Path {
+		case "/assistant.threads.setStatus":
+			writeSlackOK(t, w, "")
+		case "/chat.postMessage":
+			if call.Form.Get("text") != "Something went wrong. Please try again." {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
+			}
+			writeSlackOK(t, w, "1710000002.789")
+		default:
+			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+		context.Background(),
+		gatewaySlackTestPayload(),
+		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
+		gatewaySlackEvents(
+			gateway.SSEEvent{Type: "error", Data: json.RawMessage(`{"message":"internal"}`)},
+		),
+		map[string]any{},
+	)
+	if err != nil {
+		t.Fatalf("deliver slack response: %v", err)
+	}
+	if !delivered {
+		t.Fatal("expected friendly error delivery")
+	}
+	if text != "Something went wrong. Please try again." {
+		t.Fatalf("text = %q", text)
+	}
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.postMessage") != 1 {
+		t.Fatalf("postMessage count = %d", countSlackPath(calls, "/chat.postMessage"))
+	}
+}
+
+func TestGatewaySlackHandler_PostsAccumulatedTokensWhenTerminalEventMissing(t *testing.T) {
+	var calls []slackAPICall
+	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		call := recordSlackAPICall(t, r)
+		calls = append(calls, call)
+		switch r.URL.Path {
+		case "/assistant.threads.setStatus":
+			writeSlackOK(t, w, "")
+		case "/chat.postMessage":
+			if call.Form.Get("text") != "partial answer" {
+				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
+			}
+			writeSlackOK(t, w, "1710000002.789")
+		default:
+			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+		context.Background(),
+		gatewaySlackTestPayload(),
+		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
+		gatewaySlackEvents(
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"partial answer"}`)},
+		),
+		map[string]any{},
+	)
+	if err != nil {
+		t.Fatalf("deliver slack response: %v", err)
+	}
+	if !delivered || text != "partial answer" {
+		t.Fatalf("delivered=%v text=%q", delivered, text)
+	}
+	if providerMessageID != "1710000002.789" {
+		t.Fatalf("providerMessageID = %q", providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.startStream") != 0 ||
+		countSlackPath(calls, "/chat.appendStream") != 0 ||
+		countSlackPath(calls, "/chat.stopStream") != 0 {
+		t.Fatalf("Slack stream methods should not be used: %#v", calls)
 	}
 }

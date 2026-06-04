@@ -157,6 +157,18 @@ var supportedHivyModels = []HivyModel{
 		},
 	},
 	{
+		ID: "step-3.7-flash",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "stepfun/step-3.7-flash"},
+		},
+	},
+	{
+		ID: "ling-2.6-1t",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "inclusionai/ling-2.6-1t"},
+		},
+	},
+	{
 		ID: "qwen3.7-max",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.7-max"},

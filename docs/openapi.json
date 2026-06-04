@@ -2999,6 +2999,429 @@
         }
       }
     },
+    "/v1/database-integrations": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists active database integrations for the current organization.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "List database integrations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/databaseConnectionResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Stores encrypted database credentials for the current organization.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Create database integration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/databaseConnectionRequest"
+              }
+            }
+          },
+          "description": "Database integration details",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}": {
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Revokes a database integration without exposing stored credentials.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Disconnect database integration",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}/introspect": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Introspects and stores the visible database schema snapshot.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Introspect database integration",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}/policy": {
+      "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Saves table, collection, field mask, and result limit policy for a database integration.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Update database access policy",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Policy"
+              }
+            }
+          },
+          "description": "Access policy",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}/test": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Verifies that stored database credentials can connect.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Test database integration",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/employees": {
       "get": {
         "security": [
@@ -3054,6 +3477,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/models": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns the OpenRouter-backed model allowlist supported for Hivy employees.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "List employee-selectable models",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/modelSummary"
+                  }
                 }
               }
             }
@@ -3137,6 +3599,231 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/model": {
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Persists Hivy's employee model and pushes the full runtime config to the live sandbox.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Update an employee model",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateEmployeeModelRequest"
+              }
+            }
+          },
+          "description": "Employee model update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/updateEmployeeModelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/sandbox/reboot": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Restarts the employee sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Reboot an employee sandbox",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rebootEmployeeSandboxResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
             "content": {
               "application/json": {
                 "schema": {
@@ -3338,7 +4025,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns employee runtime sessions with optional trigger delivery metadata.",
+        "description": "Returns persisted employee sessions with optional trigger delivery metadata.",
         "tags": [
           "employees"
         ],
@@ -3394,7 +4081,7 @@
             }
           },
           {
-            "description": "Prefix search over session identifiers",
+            "description": "Search over session title, source key, or runtime conversation ID",
             "name": "q",
             "in": "query",
             "schema": {
@@ -3425,6 +4112,108 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/paginatedResponse-handler_employeeSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/sessions/{sessionID}/events": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns persisted employee session events ordered newest-first with cursor pagination.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "List persisted session events",
+        "parameters": [
+          {
+            "description": "Employee agent ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Employee session ID",
+            "name": "sessionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size",
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination cursor",
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/paginatedResponse-handler_employeeSessionEventResponse"
                 }
               }
             }
@@ -7747,6 +8536,12 @@
       "Cost": {
         "type": "object",
         "properties": {
+          "cache_read": {
+            "type": "number"
+          },
+          "cache_write": {
+            "type": "number"
+          },
           "input": {
             "type": "number"
           },
@@ -7855,6 +8650,38 @@
           },
           "webhook_user_defined_secret": {
             "type": "boolean"
+          }
+        }
+      },
+      "Policy": {
+        "type": "object",
+        "properties": {
+          "allowed_collections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_schemas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "masked_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_rows": {
+            "type": "integer"
           }
         }
       },
@@ -8747,6 +9574,56 @@
           }
         }
       },
+      "databaseConnectionRequest": {
+        "type": "object",
+        "properties": {
+          "access_policy": {
+            "$ref": "#/components/schemas/Policy"
+          },
+          "connection_url": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "employee_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
+      "databaseConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "access_policy": {
+            "$ref": "#/components/schemas/JSON"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "employee_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "revoked_at": {
+            "type": "string"
+          },
+          "schema_snapshot": {},
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "dnsRecord": {
         "type": "object",
         "properties": {
@@ -8832,6 +9709,65 @@
           }
         }
       },
+      "employeeResponse": {
+        "type": "object",
+        "properties": {
+          "attached_skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeSkillSummary"
+            }
+          },
+          "avatar_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_memory_refreshed_at": {
+            "type": "string"
+          },
+          "memory_refresh_error": {
+            "type": "string"
+          },
+          "memory_refresh_status": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sandbox_template_id": {
+            "type": "string"
+          },
+          "specialist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeTriggerResponse"
+            }
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "employeeSandboxSummary": {
         "type": "object",
         "properties": {
@@ -8896,6 +9832,53 @@
           }
         }
       },
+      "employeeSessionEventResponse": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "employee_session_id": {
+            "type": "string"
+          },
+          "event_at": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "runtime_session_id": {
+            "type": "string"
+          },
+          "sequence_number": {
+            "type": "integer"
+          },
+          "source": {
+            "type": "string"
+          },
+          "specialist_slug": {
+            "type": "string"
+          },
+          "specialist_task_id": {
+            "type": "string"
+          }
+        }
+      },
       "employeeSessionResponse": {
         "type": "object",
         "properties": {
@@ -8908,10 +9891,28 @@
           "created_at": {
             "type": "string"
           },
+          "ended_at": {
+            "type": "string"
+          },
+          "event_count": {
+            "type": "integer"
+          },
           "id": {
             "type": "string"
           },
           "last_activity_at": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "runtime_conversation_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_resource_key": {
             "type": "string"
           },
           "status": {
@@ -8922,6 +9923,9 @@
           },
           "trigger_delivery": {
             "$ref": "#/components/schemas/triggerDeliveryResponse"
+          },
+          "updated_at": {
+            "type": "string"
           }
         }
       },
@@ -9833,6 +10837,23 @@
           }
         }
       },
+      "paginatedResponse-handler_employeeSessionEventResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeSessionEventResponse"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
       "paginatedResponse-handler_employeeSessionResponse": {
         "type": "object",
         "properties": {
@@ -10493,6 +11514,20 @@
           },
           "updated_at": {
             "type": "string"
+          }
+        }
+      },
+      "rebootEmployeeSandboxResponse": {
+        "type": "object",
+        "properties": {
+          "employee": {
+            "$ref": "#/components/schemas/employeeResponse"
+          },
+          "sandbox_id": {
+            "type": "string"
+          },
+          "sync": {
+            "$ref": "#/components/schemas/syncEmployeeResponse"
           }
         }
       },
@@ -11392,6 +12427,25 @@
         "properties": {
           "bundle": {
             "$ref": "#/components/schemas/Bundle"
+          }
+        }
+      },
+      "updateEmployeeModelRequest": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          }
+        }
+      },
+      "updateEmployeeModelResponse": {
+        "type": "object",
+        "properties": {
+          "employee": {
+            "$ref": "#/components/schemas/employeeResponse"
+          },
+          "sync": {
+            "$ref": "#/components/schemas/syncEmployeeResponse"
           }
         }
       },
