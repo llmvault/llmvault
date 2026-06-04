@@ -29,9 +29,9 @@ const (
 func baseEnvVars(cfg *config.Config, runtimeSecret string, sandboxID uuid.UUID, webhookURL string) map[string]string {
 	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
 	envVars := map[string]string{
-		employeeruntime.EmployeeEnvRuntimeSecret:   runtimeSecret,
-		employeeruntime.EmployeeEnvUploadBearer:    runtimeSecret,
-		employeeruntime.EmployeeEnvRuntimeBindAddr: fmt.Sprintf("0.0.0.0:%d", RuntimePort),
+		employeeruntime.EmployeeEnvRuntimeSecret:     runtimeSecret,
+		employeeruntime.EmployeeEnvDriveUploadBearer: runtimeSecret,
+		employeeruntime.EmployeeEnvRuntimeBindAddr:   fmt.Sprintf("0.0.0.0:%d", RuntimePort),
 		"HIVY_WEB_URL":                       controlPlaneBaseURL + "/spider",
 		employeeruntime.EmployeeEnvSandboxID: sandboxID.String(),
 		employeeruntime.EmployeeEnvHome:      "/work",
@@ -75,15 +75,7 @@ func setAgentEnvVars(envVars map[string]string, agent *model.Employee, cfg *conf
 	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
 	envVars[employeeruntime.EmployeeEnvEmployeeID] = agent.ID.String()
 	envVars[employeeruntime.EmployeeEnvGitCredentialsURL] = fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID)
-	envVars[employeeruntime.EmployeeEnvBugsinkURL] = fmt.Sprintf("%s/internal/bugsink-proxy/%s", controlPlaneBaseURL, agent.ID)
-	envVars[employeeruntime.EmployeeEnvBugsinkToken] = envVars[employeeruntime.EmployeeEnvRuntimeSecret]
-	envVars[employeeruntime.EmployeeEnvLinearURL] = fmt.Sprintf("%s/internal/linear-proxy/%s", controlPlaneBaseURL, agent.ID)
-	envVars[employeeruntime.EmployeeEnvLinearToken] = envVars[employeeruntime.EmployeeEnvRuntimeSecret]
-	envVars[employeeruntime.EmployeeEnvNotionAPIURL] = fmt.Sprintf("%s/internal/notion-proxy/%s", controlPlaneBaseURL, agent.ID)
-	envVars[employeeruntime.EmployeeEnvNotionToken] = envVars[employeeruntime.EmployeeEnvRuntimeSecret]
-	envVars["HIVY_RAILWAY_API_URL"] = fmt.Sprintf("%s/internal/railway-proxy/%s", controlPlaneBaseURL, agent.ID)
-	envVars["HIVY_RAILWAY_API_KEY"] = envVars[employeeruntime.EmployeeEnvRuntimeSecret]
-	envVars["HIVY_VERCEL_API_KEY"] = envVars[employeeruntime.EmployeeEnvRuntimeSecret]
+	employeeruntime.ApplyServiceProxyEnv(envVars, controlPlaneBaseURL, agent.ID, envVars[employeeruntime.EmployeeEnvRuntimeSecret])
 	envVars[employeeruntime.EmployeeEnvGitHubNoKeyring] = "1"
 }
 
@@ -104,21 +96,16 @@ func setAssetsUploadURL(envVars map[string]string, cfg *config.Config) {
 	envVars["HIVY_EMPLOYEE_ASSETS_UPLOAD_URL"] = controlPlaneBaseURL + "/internal/employees"
 }
 
-func employeeDriveUploadURL(cfg *config.Config, employeeID uuid.UUID, folder string) string {
-	base := fmt.Sprintf("%s/internal/employees/%s/assets", cfg.RuntimeControlPlaneBaseURL(), employeeID)
-	folder = strings.Trim(strings.TrimSpace(folder), "/")
-	if folder == "" {
-		return base
-	}
-	return base + "/" + folder
+func employeeDriveUploadURL(cfg *config.Config, employeeID uuid.UUID) string {
+	return employeeruntime.EmployeeDriveUploadURL(cfg.RuntimeControlPlaneBaseURL(), employeeID)
 }
 
-func setEmployeeDriveUploadURL(envVars map[string]string, cfg *config.Config, employeeID uuid.UUID, folder string) {
-	envVars[employeeruntime.EmployeeEnvDriveUploadURL] = employeeDriveUploadURL(cfg, employeeID, folder)
+func setEmployeeDriveUploadURL(envVars map[string]string, cfg *config.Config, employeeID uuid.UUID) {
+	envVars[employeeruntime.EmployeeEnvDriveUploadURL] = employeeDriveUploadURL(cfg, employeeID)
 }
 
-func setUploadBearer(envVars map[string]string, bearer string) {
-	envVars[employeeruntime.EmployeeEnvUploadBearer] = bearer
+func setDriveUploadBearer(envVars map[string]string, bearer string) {
+	envVars[employeeruntime.EmployeeEnvDriveUploadBearer] = bearer
 }
 
 type repoResource struct {

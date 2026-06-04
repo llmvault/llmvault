@@ -36,6 +36,7 @@ func setupV1Routes(
 	tokenHandler *handler.TokenHandler,
 	sandboxTemplateHandler *handler.SandboxTemplateHandler,
 	skillHandler *handler.SkillHandler,
+	databaseIntegrationHandler *handler.DatabaseIntegrationHandler,
 	customDomainHandler *handler.CustomDomainHandler,
 	ragSourceHandler *handler.RAGSourceHandler,
 	ragSearchHandler *handler.RAGSearchHandler,
@@ -80,6 +81,9 @@ func setupV1Routes(
 			r.Get("/reporting", reportingHandler.Get)
 			r.Get("/generations", generationHandler.List)
 			r.Get("/generations/{id}", generationHandler.Get)
+			if databaseIntegrationHandler != nil {
+				r.Get("/database-integrations", databaseIntegrationHandler.List)
+			}
 
 			r.Post("/api-keys", apiKeyHandler.Create)
 			r.Get("/api-keys", apiKeyHandler.List)
@@ -124,6 +128,16 @@ func setupV1Routes(
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("employees"))
+				if databaseIntegrationHandler != nil {
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.RequireOrgAdmin(database))
+						r.Post("/database-integrations", databaseIntegrationHandler.Create)
+						r.Post("/database-integrations/{id}/test", databaseIntegrationHandler.Test)
+						r.Post("/database-integrations/{id}/introspect", databaseIntegrationHandler.Introspect)
+						r.Put("/database-integrations/{id}/policy", databaseIntegrationHandler.UpdatePolicy)
+						r.Delete("/database-integrations/{id}", databaseIntegrationHandler.Revoke)
+					})
+				}
 				r.Route("/sandbox-templates", func(r chi.Router) {
 					r.Post("/", sandboxTemplateHandler.Create)
 					r.Get("/", sandboxTemplateHandler.List)
@@ -146,8 +160,10 @@ func setupV1Routes(
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
 				if employeeHandler != nil {
 					r.Get("/employees", employeeHandler.List)
+					r.Get("/employees/models", employeeHandler.ListModels)
 					r.Get("/employees/{id}", employeeHandler.Get)
 					r.Get("/employees/{id}/sessions", employeeHandler.ListSessions)
+					r.Get("/employees/{id}/sessions/{sessionID}/events", employeeHandler.ListSessionEvents)
 					r.Get("/employees/{id}/specialists", employeeHandler.ListSpecialists)
 					r.Patch("/employees/{id}/specialists/{slug}", employeeHandler.UpdateSpecialist)
 					r.Post("/employees/{id}/specialists/{slug}", employeeHandler.EnableSpecialist)
@@ -161,7 +177,9 @@ func setupV1Routes(
 					r.Get("/employees/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
+						r.Patch("/employees/{id}/model", employeeHandler.UpdateModel)
 						r.Post("/employees/{id}/sync", employeeHandler.Sync)
+						r.Post("/employees/{id}/sandbox/reboot", employeeHandler.RebootSandbox)
 						r.Post("/employees/{id}/sandbox/upgrade", employeeHandler.StartSandboxUpgrade)
 						r.Get("/employees/{id}/sandbox/upgrades/{upgradeID}", employeeHandler.GetSandboxUpgrade)
 					})

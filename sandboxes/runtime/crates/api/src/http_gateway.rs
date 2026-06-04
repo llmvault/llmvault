@@ -304,6 +304,8 @@ pub struct HttpMessageRequest {
     #[serde(default)]
     pub attachments: Vec<Attachment>,
     #[serde(default)]
+    pub dynamic_context: Vec<String>,
+    #[serde(default)]
     #[cfg_attr(feature = "openapi", schema(value_type = Object))]
     pub raw: Value,
 }
@@ -314,6 +316,8 @@ pub struct HttpMessageResponse {
     pub session_id: String,
     pub stream_id: String,
     pub stream_url: String,
+    pub response_stream_id: String,
+    pub response_stream_url: String,
     pub trace_id: String,
     pub turn_id: String,
 }
@@ -321,6 +325,7 @@ pub struct HttpMessageResponse {
 impl HttpGatewayState {
     pub async fn inject_message(&self, request: HttpMessageRequest) -> Result<HttpMessageResponse> {
         let stream_id = self.broker.create_stream().await;
+        let response_stream_id = self.broker.create_stream().await;
         let conversation_id = request
             .conversation_id
             .clone()
@@ -343,6 +348,7 @@ impl HttpGatewayState {
         let raw = json!({
             "source": source,
             "http_stream_id": stream_id,
+            "http_response_stream_id": response_stream_id,
             "trace_id": trace_id,
             "turn_id": turn_id,
             "conversation_id": conversation_id,
@@ -355,6 +361,7 @@ impl HttpGatewayState {
             user_display_name: request.user_display_name,
             text: request.text,
             attachments: request.attachments,
+            dynamic_context: request.dynamic_context,
             raw,
             inbound_handle: MessageHandle {
                 channel: "http".to_string(),
@@ -370,6 +377,8 @@ impl HttpGatewayState {
             session_id: session_id.as_str().to_string(),
             stream_id: stream_id.clone(),
             stream_url: format!("/gateway/http/streams/{stream_id}"),
+            response_stream_id: response_stream_id.clone(),
+            response_stream_url: format!("/gateway/http/response-streams/{response_stream_id}"),
             trace_id,
             turn_id,
         })
@@ -440,6 +449,7 @@ mod tests {
                 user: "user-1".to_string(),
                 user_display_name: Some("User One".to_string()),
                 attachments: Vec::new(),
+                dynamic_context: vec!["## Recent sessions\n- prior context".to_string()],
                 raw: json!({"source": "test"}),
             })
             .await
@@ -449,6 +459,10 @@ mod tests {
         assert!(response.trace_id.starts_with("trace-http-stream-"));
         assert!(response.turn_id.starts_with("turn-http-stream-"));
         assert!(response.stream_url.ends_with(&response.stream_id));
+        assert!(response
+            .response_stream_url
+            .ends_with(&response.response_stream_id));
+        assert_ne!(response.stream_id, response.response_stream_id);
         assert_eq!(
             broker.stream_id_for_session("http-conversation-1").await,
             Some(response.stream_id.clone())
@@ -458,7 +472,15 @@ mod tests {
         assert_eq!(inbound.session_id.as_str(), "http-conversation-1");
         assert_eq!(inbound.user, "user-1");
         assert_eq!(inbound.text, "hello");
+        assert_eq!(
+            inbound.dynamic_context,
+            vec!["## Recent sessions\n- prior context"]
+        );
         assert_eq!(inbound.raw["http_stream_id"], response.stream_id);
+        assert_eq!(
+            inbound.raw["http_response_stream_id"],
+            response.response_stream_id
+        );
         assert_eq!(inbound.raw["trace_id"], response.trace_id);
         assert_eq!(inbound.raw["turn_id"], response.turn_id);
         assert!(inbound.is_direct_message);
@@ -491,6 +513,7 @@ mod tests {
                 user: "U123".to_string(),
                 user_display_name: Some("Ada".to_string()),
                 attachments: Vec::new(),
+                dynamic_context: Vec::new(),
                 raw: json!({
                     "source": "gateway",
                     "provider": "fake-slack",

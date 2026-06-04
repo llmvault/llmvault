@@ -15,21 +15,35 @@ import (
 	ragscheduler "github.com/usehivy/hivy/internal/rag/scheduler"
 )
 
+type ragRuntime struct {
+	sourceHandler *handler.RAGSourceHandler
+	searchHandler *handler.RAGSearchHandler
+	qd            *qdrant.Client
+	embedder      *embedclient.Embedder
+	reranker      *embedclient.Reranker
+}
+
 func setupRAGRuntime(
 	cfg *config.Config,
 	db *gorm.DB,
 	enqueuer enqueue.TaskEnqueuer,
 	mcpHandler *handler.MCPHandler,
-) (*handler.RAGSourceHandler, *handler.RAGSearchHandler, error) {
+) (*ragRuntime, error) {
 	sourceHandler := handler.NewRAGSourceHandler(db, enqueuer, ragscheduler.HasPermSyncCapability, billing.NewCreditsService(db))
 	searchHandler, qd, embedder, reranker, err := buildRAGSearch(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if qd != nil && embedder != nil && mcpHandler != nil {
 		mcpHandler.SetKnowledgeTools(ragtools.NewKnowledgeToolsFunc(qd, embedder, reranker, cfg.QdrantCollection))
 	}
-	return sourceHandler, searchHandler, nil
+	return &ragRuntime{
+		sourceHandler: sourceHandler,
+		searchHandler: searchHandler,
+		qd:            qd,
+		embedder:      embedder,
+		reranker:      reranker,
+	}, nil
 }
 
 func buildRAGSearch(cfg *config.Config) (*handler.RAGSearchHandler, *qdrant.Client, *embedclient.Embedder, *embedclient.Reranker, error) {

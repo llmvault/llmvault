@@ -78,11 +78,14 @@ pub async fn init_sqlite_store(
 
 fn sqlite_options(path: &Path, mode: &str) -> Result<SqliteConnectOptions> {
     let url = format!("sqlite://{}?mode={mode}", path.display());
-    Ok(SqliteConnectOptions::from_str(&url)?
-        .journal_mode(SqliteJournalMode::Wal)
+    let mut options = SqliteConnectOptions::from_str(&url)?
         .synchronous(SqliteSynchronous::Normal)
         .busy_timeout(std::time::Duration::from_secs(30))
-        .create_if_missing(mode == "rwc"))
+        .create_if_missing(mode == "rwc");
+    if mode != "ro" {
+        options = options.journal_mode(SqliteJournalMode::Wal);
+    }
+    Ok(options)
 }
 
 async fn configure_setup_pool(pool: &SqlitePool) -> Result<()> {
@@ -91,4 +94,34 @@ async fn configure_setup_pool(pool: &SqlitePool) -> Result<()> {
     pool.execute("PRAGMA foreign_keys = ON").await?;
     pool.execute("PRAGMA busy_timeout = 30000").await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn read_only_options_do_not_attempt_to_enable_wal() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db_path = dir.path().join("restored-delete-mode.db");
+        let setup_url = format!("sqlite://{}?mode=rwc", db_path.display());
+        let setup_pool = SqlitePool::connect(&setup_url).await.expect("setup pool");
+        setup_pool
+            .execute("CREATE TABLE items (id INTEGER PRIMARY KEY)")
+            .await
+            .expect("create table");
+        setup_pool.close().await;
+
+        let options = sqlite_options(&db_path, "ro").expect("read options");
+        let read_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .expect("read pool");
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM items")
+            .fetch_one(&read_pool)
+            .await
+            .expect("read count");
+        assert_eq!(count, 0);
+    }
 }

@@ -23,7 +23,7 @@ import (
 // it writes the JSON error response and returns false — callers must return.
 func (h *UploadsHandler) authEmployee(w http.ResponseWriter, r *http.Request) (*model.Employee, *model.Sandbox, bool) {
 	if h.encKey == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "asset endpoints not configured"})
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "drive endpoints not configured"})
 		return nil, nil, false
 	}
 
@@ -85,7 +85,7 @@ func (h *UploadsHandler) bearerMatchesEmployeeSpecialistSandbox(r *http.Request,
 		Joins("JOIN specialist_tasks ON specialist_tasks.sandbox_id = sandboxes.id").
 		Where("specialist_tasks.employee_id = ? AND sandboxes.status NOT IN (?, ?)", employeeID, "archived", "error").
 		Find(&sandboxes).Error; err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load employee specialist sandboxes for asset auth", "employee_id", employeeID, "error", err)
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load employee specialist sandboxes for drive auth", "employee_id", employeeID, "error", err)
 		return false
 	}
 	for _, sandbox := range sandboxes {
@@ -108,11 +108,11 @@ func buildEmployeeAssetKey(agentID uuid.UUID, folder, filename string) string {
 	return fmt.Sprintf("pub/e/%s/%s/%s", agentID, folder, filename)
 }
 
-// StreamEmployeeAsset accepts a streamed PUT body and stores it under the
-// employee's drive. Auth: bearer must equal the employee sandbox's runtime
-// API key.
+// StreamEmployeeAsset accepts a streamed PUT body and stores it in the
+// employee drive. Auth: bearer must equal the employee sandbox's runtime API
+// key.
 //
-//	PUT /internal/employees/{employeeID}/assets/*
+//	PUT /internal/employees/{employeeID}/drive/*
 func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Request) {
 	if h.streamer == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "streaming uploads not configured"})
@@ -144,7 +144,7 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 
 	stored, err := h.streamer.Stream(r.Context(), key, contentType, r.Body)
 	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "employee asset stream failed", "employee_id", agent.ID, "key", key, "error", err)
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "employee drive stream failed", "employee_id", agent.ID, "key", key, "error", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "upload failed"})
 		return
 	}
@@ -171,7 +171,7 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 		"bytes":               stored.Bytes,
 		"updated_at":          time.Now(),
 	}).FirstOrCreate(&asset).Error; err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "persist employee asset", "employee_id", agent.ID, "key", stored.Key, "error", err)
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "persist employee drive file", "employee_id", agent.ID, "key", stored.Key, "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to save asset"})
 		return
 	}
@@ -189,10 +189,10 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 
 // DeleteEmployeeAsset removes both the S3 object and the DB row.
 //
-//	DELETE /internal/employees/{employeeID}/assets/*
+//	DELETE /internal/employees/{employeeID}/drive/*
 func (h *UploadsHandler) DeleteEmployeeAsset(w http.ResponseWriter, r *http.Request) {
 	if h.streamer == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "asset endpoints not configured"})
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "drive endpoints not configured"})
 		return
 	}
 

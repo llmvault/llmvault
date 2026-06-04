@@ -1,0 +1,13 @@
+{
+  "name": "drive",
+  "description": "Write sandbox-produced files into the employee drive using HIVY_DRIVE_UPLOAD_URL and HIVY_DRIVE_UPLOAD_BEARER, then return stable file URLs. Use for images, videos, screenshots, charts, exports, PDFs, archives, reports, and PR/demo artifacts.",
+  "category": "Files",
+  "hidden": true,
+  "root": "./SKILL.md",
+  "tags": ["drive", "files", "sharing"],
+  "required_environment_variables": [
+    "HIVY_DRIVE_UPLOAD_URL",
+    "HIVY_DRIVE_UPLOAD_BEARER"
+  ],
+  "files": []
+}

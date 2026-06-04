@@ -158,3 +158,7 @@ type RuntimeCommandContext struct {
 type RuntimeCommandExecutor interface {
 	ExecuteCommandViaRuntime(ctx context.Context, cmdCtx RuntimeCommandContext, command string, timeout time.Duration) (string, error)
 }
+
+type RestartableProvider interface {
+	RestartSandbox(ctx context.Context, externalID string) error
+}

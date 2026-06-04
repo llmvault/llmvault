@@ -207,6 +207,7 @@ impl CronScheduler {
             user_display_name: Some("Scheduler".to_string()),
             text: job.task_prompt.clone(),
             attachments: Vec::new(),
+            dynamic_context: Vec::new(),
             raw,
             inbound_handle: MessageHandle {
                 channel: job.channel.clone(),

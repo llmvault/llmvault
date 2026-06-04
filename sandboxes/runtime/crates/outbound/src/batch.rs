@@ -27,6 +27,7 @@ pub struct StreamBatcher {
     http: HttpClient,
 }
 
+#[derive(Clone)]
 struct BatchWebhookSink {
     name: String,
     url: String,
@@ -111,9 +112,13 @@ impl StreamBatcher {
         }
         let mut state = self.state.lock().await;
         state.add_stream_delta(event);
+        let mut events = Vec::new();
         if state.pending.len() >= MAX_BATCH_EVENTS || state.pending_bytes >= MAX_BATCH_BYTES {
-            self.flush_locked(&mut state).await?;
+            state.finish_all();
+            events = state.drain_pending();
         }
+        drop(state);
+        self.spawn_send(events);
         Ok(true)
     }
 
@@ -132,6 +137,19 @@ impl StreamBatcher {
         Ok(())
     }
 
+    pub async fn flush_before_event_background(&self, event: &OutboundEvent) {
+        if is_stream_delta(&event.event_type)
+            || string_field(&event.payload, "session_id").is_none()
+        {
+            return;
+        }
+        let mut state = self.state.lock().await;
+        state.finish_streams_before_event(event);
+        let events = state.drain_pending();
+        drop(state);
+        self.spawn_send(events);
+    }
+
     pub async fn flush_session(&self, session_id: &str) -> Result<()> {
         let mut state = self.state.lock().await;
         state.finish_session(session_id);
@@ -141,55 +159,82 @@ impl StreamBatcher {
         Ok(())
     }
 
+    pub async fn flush_session_background(&self, session_id: &str) {
+        let mut state = self.state.lock().await;
+        state.finish_session(session_id);
+        let events = state.drain_pending();
+        drop(state);
+        self.spawn_send(events);
+    }
+
     async fn flush_locked(&self, state: &mut BatchState) -> Result<()> {
         state.finish_all();
-        if state.pending.is_empty() {
-            return Ok(());
-        }
-        let events = state.pending.clone();
-        for sink in &self.sinks {
-            let accepted = events
-                .iter()
-                .filter(|event| sink.accepts(&event.event_type))
-                .collect::<Vec<_>>();
-            if accepted.is_empty() {
-                continue;
-            }
-            let mut ndjson = Vec::new();
-            for event in accepted {
-                serde_json::to_writer(&mut ndjson, event)
-                    .map_err(|e| OutboundError::Delivery(format!("serialize batch event: {e}")))?;
-                ndjson.push(b'\n');
-            }
-            let body = gzip_bytes(&ndjson)?;
-            let signature = compute_signature(&sink.secret, &body);
-            let mut request = self
-                .http
-                .post(&sink.url)
-                .header("X-Hivy-Signature", format!("sha256={signature}"))
-                .header(reqwest::header::CONTENT_TYPE, "application/x-ndjson")
-                .header(reqwest::header::CONTENT_ENCODING, "gzip");
-            for (header_name, header_value) in &sink.extra_headers {
-                request = request.header(header_name.as_str(), header_value.as_str());
-            }
-            let response =
-                request.body(body).send().await.map_err(|e| {
-                    OutboundError::Delivery(format!("send batch {}: {e}", sink.url))
-                })?;
-            let status = response.status();
-            if !status.is_success() {
-                let body = response.text().await.unwrap_or_default();
-                warn!(channel = %sink.name, %status, body = %body, "webhook batch non-2xx");
-                return Err(OutboundError::Delivery(format!(
-                    "{} returned {status}",
-                    sink.url
-                )));
-            }
-        }
-        state.pending.clear();
-        state.pending_bytes = 0;
-        Ok(())
+        let events = state.drain_pending();
+        send_batch_events(self.http.clone(), self.sinks.clone(), events).await
     }
+
+    fn spawn_send(&self, events: Vec<OutboundEvent>) {
+        if events.is_empty() {
+            return;
+        }
+        let http = self.http.clone();
+        let sinks = self.sinks.clone();
+        tokio::spawn(async move {
+            if let Err(error) = send_batch_events(http, sinks, events).await {
+                warn!(%error, "stream batch background flush failed");
+            }
+        });
+    }
+}
+
+async fn send_batch_events(
+    http: HttpClient,
+    sinks: Vec<BatchWebhookSink>,
+    events: Vec<OutboundEvent>,
+) -> Result<()> {
+    if events.is_empty() {
+        return Ok(());
+    }
+    for sink in &sinks {
+        let accepted = events
+            .iter()
+            .filter(|event| sink.accepts(&event.event_type))
+            .collect::<Vec<_>>();
+        if accepted.is_empty() {
+            continue;
+        }
+        let mut ndjson = Vec::new();
+        for event in accepted {
+            serde_json::to_writer(&mut ndjson, event)
+                .map_err(|e| OutboundError::Delivery(format!("serialize batch event: {e}")))?;
+            ndjson.push(b'\n');
+        }
+        let body = gzip_bytes(&ndjson)?;
+        let signature = compute_signature(&sink.secret, &body);
+        let mut request = http
+            .post(&sink.url)
+            .header("X-Hivy-Signature", format!("sha256={signature}"))
+            .header(reqwest::header::CONTENT_TYPE, "application/x-ndjson")
+            .header(reqwest::header::CONTENT_ENCODING, "gzip");
+        for (header_name, header_value) in &sink.extra_headers {
+            request = request.header(header_name.as_str(), header_value.as_str());
+        }
+        let response = request
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| OutboundError::Delivery(format!("send batch {}: {e}", sink.url)))?;
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            warn!(channel = %sink.name, %status, body = %body, "webhook batch non-2xx");
+            return Err(OutboundError::Delivery(format!(
+                "{} returned {status}",
+                sink.url
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl BatchWebhookSink {
@@ -312,6 +357,12 @@ impl BatchState {
     fn push_event(&mut self, event: OutboundEvent) {
         self.pending_bytes += serde_json::to_vec(&event).map(|v| v.len() + 1).unwrap_or(0);
         self.pending.push(event);
+    }
+
+    fn drain_pending(&mut self) -> Vec<OutboundEvent> {
+        let events = std::mem::take(&mut self.pending);
+        self.pending_bytes = 0;
+        events
     }
 }
 

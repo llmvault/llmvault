@@ -20,7 +20,7 @@ type memoryRetainToolResponse struct {
 	DocumentID  string `json:"document_id"`
 }
 
-func addRetainTool(server *mcp.Server, agent *model.Employee, client *Client, bankID string, memoryTags []string) {
+func addRetainTool(server *mcp.Server, agent *model.Employee, client *Client, banks *BankProvisioner, bankID string, memoryTags []string) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "memory_retain",
@@ -74,6 +74,11 @@ Write the content as a clear, specific factual statement. Bad: "User talked abou
 			}
 			if params.Type != "" && !IsSupportedMemoryType(params.Type) {
 				return toolError("unsupported memory_type: " + params.Type), nil
+			}
+			if banks != nil && agent != nil && agent.OrgID != nil {
+				if err := banks.EnsureOrgBank(ctx, *agent.OrgID); err != nil {
+					return toolError("memory retain failed: " + err.Error()), nil
+				}
 			}
 
 			tags := append([]string{}, memoryTags...)

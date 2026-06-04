@@ -21,6 +21,7 @@ type EmployeeEventWriter struct {
 	entries       chan model.EmployeeSessionEvent
 	wg            sync.WaitGroup
 	flushInterval time.Duration
+	afterWrite    func(context.Context, []model.EmployeeSessionEvent)
 }
 
 func NewEmployeeEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, flushInterval ...time.Duration) *EmployeeEventWriter {
@@ -36,6 +37,12 @@ func NewEmployeeEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, fl
 	w.wg.Add(1)
 	go w.drain(ctx)
 	return w
+}
+
+func (w *EmployeeEventWriter) SetAfterWrite(fn func(context.Context, []model.EmployeeSessionEvent)) {
+	if w != nil {
+		w.afterWrite = fn
+	}
 }
 
 func (w *EmployeeEventWriter) drain(ctx context.Context) {
@@ -79,6 +86,8 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 		if err != nil {
 			logging.CaptureWithFields(ctx, fmt.Errorf("employee event batch write failed: %w", err), employeeEventBatchSentryFields("batch_write", batch))
 			logging.FromContext(ctx).ErrorContext(ctx, "employee event batch write failed", "error", err, "count", len(batch))
+		} else if w.afterWrite != nil {
+			w.afterWrite(ctx, append([]model.EmployeeSessionEvent(nil), batch...))
 		}
 		batch = batch[:0]
 	}
@@ -132,6 +141,8 @@ func (w *EmployeeEventWriter) Write(ctx context.Context, entry model.EmployeeSes
 		if err != nil {
 			captureEmployeeSessionEventFailure(ctx, "direct_write", entry, err)
 			logging.FromContext(ctx).ErrorContext(ctx, "employee event direct write failed", "error", err, "event_type", entry.EventType)
+		} else if w.afterWrite != nil {
+			w.afterWrite(ctx, []model.EmployeeSessionEvent{entry})
 		}
 	}
 }

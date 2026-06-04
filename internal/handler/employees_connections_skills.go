@@ -15,17 +15,33 @@ import (
 )
 
 func employeeRequiredSkills(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (map[uuid.UUID]model.Skill, []string, error) {
+	requiredNames := make(map[string]bool, len(defaultEmployeeSkills))
+	for _, name := range defaultEmployeeSkills {
+		requiredNames[name] = true
+	}
+	defaultSkills, err := loadPublishedGlobalSkillsByName(ctx, db, requiredNames)
+	if err != nil {
+		return nil, nil, err
+	}
+	skills := make(map[uuid.UUID]model.Skill, len(defaultSkills))
+	for _, skill := range defaultSkills {
+		skills[skill.ID] = skill
+	}
+
 	providers, displays, err := activeEmployeeConnectionProviders(ctx, db, orgID)
 	if err != nil {
 		return nil, nil, err
 	}
 	if len(providers) == 0 {
-		return map[uuid.UUID]model.Skill{}, nil, nil
+		return skills, nil, nil
 	}
 
-	skills, err := loadPublishedGlobalSkillsByIntegrationIDs(ctx, db, providers)
+	integrationSkills, err := loadPublishedGlobalSkillsByIntegrationIDs(ctx, db, providers)
 	if err != nil {
 		return nil, nil, err
+	}
+	for _, skill := range integrationSkills {
+		skills[skill.ID] = skill
 	}
 
 	warnings := make([]string, 0)
@@ -73,6 +89,21 @@ func activeEmployeeConnectionProviders(ctx context.Context, db *gorm.DB, orgID u
 		seen[provider] = true
 		providers = append(providers, provider)
 		displays[provider] = conn.Integration.DisplayName
+	}
+	var databaseConnections []model.DatabaseConnection
+	if err := db.WithContext(ctx).
+		Where("org_id = ? AND revoked_at IS NULL", orgID).
+		Find(&databaseConnections).Error; err != nil {
+		return nil, nil, fmt.Errorf("load employee database connection providers: %w", err)
+	}
+	for _, conn := range databaseConnections {
+		provider := conn.Provider
+		if provider == "" || seen[provider] {
+			continue
+		}
+		seen[provider] = true
+		providers = append(providers, provider)
+		displays[provider] = conn.DisplayName
 	}
 	sort.Strings(providers)
 	return providers, displays, nil

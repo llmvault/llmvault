@@ -59,6 +59,14 @@ func (h *EmployeeHandler) SyncOrgHivyEmployee(ctx context.Context, orgID uuid.UU
 	if err := attachEmployeeRequiredSkillsForAgent(ctx, h.db, orgID, agent); err != nil {
 		return fmt.Errorf("attach employee required skills: %w", err)
 	}
+	if h.memoryBanks != nil {
+		if err := h.memoryBanks.EnsureOrgBank(ctx, orgID); err != nil {
+			logging.CaptureWithFields(ctx, fmt.Errorf("sync org Hivy employee: ensure memory bank: %w", err), map[string]any{
+				"org_id":      orgID.String(),
+				"employee_id": agent.ID.String(),
+			})
+		}
+	}
 	if _, _, err := h.SyncEmployee(ctx, agent); err != nil {
 		return err
 	}
@@ -81,6 +89,11 @@ func (h *EmployeeHandler) SyncEmployee(ctx context.Context, agent *model.Employe
 }
 
 func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Employee, sb *model.Sandbox) (*employeeruntime.SyncResponse, error) {
+	if agent != nil && agent.OrgID != nil {
+		if err := attachEmployeeRequiredSkillsForAgent(ctx, h.db, *agent.OrgID, agent); err != nil {
+			return nil, fmt.Errorf("reconcile employee skills: %w", err)
+		}
+	}
 	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt runtime secret: %w", err)

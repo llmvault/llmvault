@@ -3,6 +3,8 @@ package employeeruntime
 import (
 	"reflect"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestEmployeeEnvCatalogGolden(t *testing.T) {
@@ -22,7 +24,7 @@ func TestEmployeeEnvCatalogGolden(t *testing.T) {
 		EmployeeEnvAgentMultimodalAPIKeyEnv,
 		EmployeeEnvEmployeeID,
 		EmployeeEnvCloudControlPlaneURL,
-		EmployeeEnvUploadBearer,
+		EmployeeEnvDriveUploadBearer,
 		EmployeeEnvWorkspaceRoot,
 		EmployeeEnvDBPath,
 		EmployeeEnvRuntimeBindAddr,
@@ -41,6 +43,18 @@ func TestEmployeeEnvCatalogGolden(t *testing.T) {
 		EmployeeEnvLinearToken,
 		EmployeeEnvNotionAPIURL,
 		EmployeeEnvNotionToken,
+		EmployeeEnvRailwayAPIURL,
+		EmployeeEnvRailwayAPIKey,
+		EmployeeEnvVercelAPIURL,
+		EmployeeEnvVercelAPIKey,
+		EmployeeEnvSlackAPIURL,
+		EmployeeEnvSlackToken,
+		EmployeeEnvPostgresURL,
+		EmployeeEnvPostgresToken,
+		EmployeeEnvMySQLURL,
+		EmployeeEnvMySQLToken,
+		EmployeeEnvMongoDBURL,
+		EmployeeEnvMongoDBToken,
 		EmployeeEnvSentryDSN,
 		EmployeeEnvSentryEnvironment,
 		EmployeeEnvSentrySampleRate,
@@ -54,6 +68,36 @@ func TestEmployeeEnvCatalogGolden(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gotKeys(got), want) {
 		t.Fatalf("employee env catalog keys changed\ngot:  %#v\nwant: %#v", keys, want)
+	}
+}
+
+func TestApplyServiceProxyEnvSetsAllProviderProxyVariables(t *testing.T) {
+	employeeID := mustParseUUID(t, "11111111-1111-1111-1111-111111111111")
+	env := map[string]string{}
+	ApplyServiceProxyEnv(env, "https://api.example.test/", employeeID, "runtime-secret")
+
+	want := map[string]string{
+		EmployeeEnvBugsinkURL:    "https://api.example.test/internal/bugsink-proxy/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvBugsinkToken:  "runtime-secret",
+		EmployeeEnvLinearURL:     "https://api.example.test/internal/linear-proxy/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvLinearToken:   "runtime-secret",
+		EmployeeEnvNotionAPIURL:  "https://api.example.test/internal/notion-proxy/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvNotionToken:   "runtime-secret",
+		EmployeeEnvRailwayAPIURL: "https://api.example.test/internal/railway-proxy/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvRailwayAPIKey: "runtime-secret",
+		EmployeeEnvVercelAPIURL:  "https://api.example.test/internal/vercel-proxy/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvVercelAPIKey:  "runtime-secret",
+		EmployeeEnvSlackAPIURL:   "https://api.example.test/internal/slack-proxy/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvSlackToken:    "runtime-secret",
+		EmployeeEnvPostgresURL:   "https://api.example.test/internal/database-proxy/postgres/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvPostgresToken: "runtime-secret",
+		EmployeeEnvMySQLURL:      "https://api.example.test/internal/database-proxy/mysql/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvMySQLToken:    "runtime-secret",
+		EmployeeEnvMongoDBURL:    "https://api.example.test/internal/database-proxy/mongodb/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvMongoDBToken:  "runtime-secret",
+	}
+	if !reflect.DeepEqual(env, want) {
+		t.Fatalf("proxy env = %#v, want %#v", env, want)
 	}
 }
 
@@ -98,4 +142,13 @@ func gotKeys(specs []EmployeeEnvSpec) []string {
 		keys = append(keys, spec.Key)
 	}
 	return keys
+}
+
+func mustParseUUID(t *testing.T, value string) uuid.UUID {
+	t.Helper()
+	id, err := uuid.Parse(value)
+	if err != nil {
+		t.Fatalf("parse uuid: %v", err)
+	}
+	return id
 }

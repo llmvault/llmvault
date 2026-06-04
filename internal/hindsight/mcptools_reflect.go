@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 )
 
-func addReflectTool(server *mcp.Server, client *Client, bankID string, tagGroups []any) {
+func addReflectTool(server *mcp.Server, client *Client, db *gorm.DB, bankID string, tagGroups []any) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "memory_reflect",
@@ -40,6 +41,9 @@ Reflect is slower than recall (1-3 seconds) but produces deeper, more nuanced an
 			}
 			if params.Query == "" {
 				return toolError("query is required"), nil
+			}
+			if err := RequireBank(ctx, db, bankID); err != nil {
+				return toolError("memory reflect failed: " + err.Error()), nil
 			}
 
 			result, err := client.Reflect(ctx, bankID, &ReflectRequest{

@@ -7,6 +7,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -21,7 +22,7 @@ const (
 	hivyEmployeeAvatarURL     = "/assets/hivy-avatar.png"
 )
 
-var defaultEmployeeSkills = []string{"asset-uploads"}
+var defaultEmployeeSkills = []string{"drive"}
 
 type EmployeeHandler struct {
 	db           *gorm.DB
@@ -31,6 +32,7 @@ type EmployeeHandler struct {
 	specialists  *specialists.Catalog
 	enqueuer     enqueue.TaskEnqueuer
 	taskCleaner  enqueue.TaskCleaner
+	memoryBanks  *hindsight.BankProvisioner
 }
 
 func NewEmployeeHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps employeeruntime.CompileDeps, reg *registry.Registry, catalog ...*specialists.Catalog) *EmployeeHandler {
@@ -59,6 +61,10 @@ func (h *EmployeeHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {
 	if cleaner, ok := enq.(enqueue.TaskCleaner); ok {
 		h.taskCleaner = cleaner
 	}
+}
+
+func (h *EmployeeHandler) SetMemoryProvisioner(banks *hindsight.BankProvisioner) {
+	h.memoryBanks = banks
 }
 
 type employeeProviderChoice struct {

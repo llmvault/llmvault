@@ -12,22 +12,26 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/auth"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 )
 
 type orgUpdateHarness struct {
 	db         *gorm.DB
 	orgHandler *handler.OrgHandler
 	router     *chi.Mux
+	enqueuer   *enqueue.MockClient
 }
 
 func newOrgUpdateHarness(t *testing.T) *orgUpdateHarness {
 	t.Helper()
 	db := connectTestDB(t)
 
-	orgHandler := handler.NewOrgHandler(db, nil)
+	enq := &enqueue.MockClient{}
+	orgHandler := handler.NewOrgHandler(db, enq)
 
 	r := chi.NewRouter()
 	r.Route("/v1/orgs", func(r chi.Router) {
@@ -38,7 +42,7 @@ func newOrgUpdateHarness(t *testing.T) *orgUpdateHarness {
 		})
 	})
 
-	return &orgUpdateHarness{db: db, orgHandler: orgHandler, router: r}
+	return &orgUpdateHarness{db: db, orgHandler: orgHandler, router: r, enqueuer: enq}
 }
 
 func (h *orgUpdateHarness) createOrg(t *testing.T, role string) (model.Org, model.User) {
@@ -56,6 +60,7 @@ func (h *orgUpdateHarness) createOrg(t *testing.T, role string) (model.Org, mode
 		t.Fatalf("create membership: %v", err)
 	}
 	t.Cleanup(func() {
+		h.db.Where("org_id = ?", org.ID).Delete(&ragmodel.RAGSource{})
 		h.db.Where("user_id = ?", user.ID).Delete(&model.OrgMembership{})
 		h.db.Where("id = ?", org.ID).Delete(&model.Org{})
 		h.db.Where("id = ?", user.ID).Delete(&model.User{})

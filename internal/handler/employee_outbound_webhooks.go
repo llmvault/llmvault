@@ -15,7 +15,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
@@ -23,7 +22,7 @@ import (
 	"github.com/usehivy/hivy/internal/gateway"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/tasks"
+	"github.com/usehivy/hivy/internal/precontext"
 )
 
 type EmployeeOutboundWebhookHandler struct {
@@ -32,6 +31,7 @@ type EmployeeOutboundWebhookHandler struct {
 	enqueuer      enqueue.TaskEnqueuer
 	writer        *EmployeeEventWriter
 	gateway       *gateway.Service
+	preloadCache  precontext.Cache
 	now           func() time.Time
 	maxBytes      int64
 	maxBatchBytes int64
@@ -56,6 +56,17 @@ func NewEmployeeOutboundWebhookHandler(db *gorm.DB, encKey *crypto.SymmetricKey,
 		h.writer = writers[0]
 	}
 	return h
+}
+
+func (h *EmployeeOutboundWebhookHandler) SetPreContextCache(cache precontext.Cache) {
+	h.preloadCache = cache
+	if h.writer != nil {
+		h.writer.SetAfterWrite(func(ctx context.Context, events []model.EmployeeSessionEvent) {
+			for _, event := range events {
+				precontext.InvalidateSessions(ctx, cache, event.OrgID, event.EmployeeID)
+			}
+		})
+	}
 }
 
 func (h *EmployeeOutboundWebhookHandler) SetGatewayService(service *gateway.Service) {
@@ -172,6 +183,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 			return
 		}
 		if createdSession {
+			precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
 			h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
 		}
 		return
@@ -185,6 +197,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		return
 	}
 	if createdSession {
+		precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
 		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
 	}
 	stored, ok := employeeSessionEventFromOutbound(sb, event, payload, session.ID, sessionID)
@@ -215,8 +228,12 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 			captureEmployeeSessionEventFailure(ctx, "store_memory_event", stored, err)
 			return
 		}
+		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.EmployeeID)
 	}
-	if event.EventType == "agent.message.sent" && source == gateway.Source && h.gateway != nil {
+	if event.EventType == "agent.message.sent" {
+		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "agent_message_sent", "agent.message.sent")
+	}
+	if event.EventType == "agent.message.sent" && source == gateway.Source && h.gateway != nil && !isSlackGatewayEvent(payload) {
 		if _, err := h.gateway.HandleRuntimeFinal(ctx, gateway.AgentResponse{
 			EmployeeSession:  *session,
 			RuntimeSessionID: sessionID,
@@ -235,37 +252,6 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	}
 }
 
-func (h *EmployeeOutboundWebhookHandler) enqueueEmployeeMemoryRetain(ctx context.Context, sb *model.Sandbox, session *model.EmployeeSession, sessionID, reason, sourceEvent string) {
-	if h.enqueuer == nil || sb == nil || session == nil || sb.EmployeeID == nil || sessionID == "" {
-		return
-	}
-	task, err := tasks.NewEmployeeMemoryRetainTask(tasks.EmployeeMemoryRetainPayload{
-		EmployeeID:        *sb.EmployeeID,
-		SandboxID:         sb.ID,
-		EmployeeSessionID: session.ID,
-		SessionID:         sessionID,
-		Reason:            reason,
-		SourceEvent:       sourceEvent,
-	})
-	if err != nil {
-		captureEmployeeWebhookIngest(ctx, "build_memory_retain_task", sb, nil, sessionID, session.Source, err)
-		return
-	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task,
-		asynq.ProcessIn(10*time.Minute),
-		asynq.TaskID("employee-memory-retain:"+session.ID.String()),
-	); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
-		captureEmployeeWebhookIngest(ctx, "enqueue_memory_retain", sb, nil, sessionID, session.Source, err)
-	}
-}
-
-func (h *EmployeeOutboundWebhookHandler) specialistTaskForSandbox(ctx context.Context, sandboxID uuid.UUID) (*model.SpecialistTask, bool) {
-	var task model.SpecialistTask
-	if err := h.db.WithContext(ctx).
-		Where("sandbox_id = ?", sandboxID).
-		Order("created_at DESC").
-		First(&task).Error; err != nil {
-		return nil, false
-	}
-	return &task, true
+func isSlackGatewayEvent(payload map[string]any) bool {
+	return strings.EqualFold(strings.TrimSpace(stringValue(payload, "provider")), gateway.SlackProvider)
 }

@@ -109,14 +109,28 @@ func (h *RailwayProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	railwayToken, err := h.getRailwayToken(w, r, &agent, agentID)
-	if err != nil {
-		return
-	}
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to read request body"})
+		return
+	}
+	orgID := uuid.Nil
+	if agent.OrgID != nil {
+		orgID = *agent.OrgID
+	}
+	if enforceProviderProxyPolicy(w, r.Context(), providerProxyPolicyContext{
+		Provider:      railwayProvider,
+		OrgID:         orgID,
+		CallerAgentID: agentID,
+		EmployeeID:    agentID,
+		Method:        r.Method,
+		Path:          "/graphql/v2",
+	}, body) {
+		return
+	}
+
+	railwayToken, err := h.getRailwayToken(w, r, &agent, agentID)
+	if err != nil {
 		return
 	}
 

@@ -27,10 +27,11 @@ func (r *recordingRuntime) Send(_ context.Context, message RuntimeMessage) (*Run
 	defer r.mu.Unlock()
 	r.messages = append(r.messages, message)
 	return &RuntimeDelivery{
-		SessionID: runtimeSessionID(message.ConversationID),
-		StreamID:  "stream-" + message.GatewayExternalMsgID,
-		TraceID:   "trace-" + message.GatewayExternalMsgID,
-		TurnID:    "turn-" + message.GatewayExternalMsgID,
+		SessionID:        runtimeSessionID(message.ConversationID),
+		StreamID:         "stream-" + message.GatewayExternalMsgID,
+		ResponseStreamID: "response-stream-" + message.GatewayExternalMsgID,
+		TraceID:          "trace-" + message.GatewayExternalMsgID,
+		TurnID:           "turn-" + message.GatewayExternalMsgID,
 	}, nil
 }
 
@@ -47,6 +48,12 @@ func TestServiceReceiveWebhookCreatesAndReusesGatewaySession(t *testing.T) {
 	route := seedGatewayRoute(t, db)
 	runtime := &recordingRuntime{}
 	service := NewService(db, runtime, nil, NewFakeSlackAdapter())
+	var createdSessions []model.EmployeeSession
+	var createdReasons []string
+	service.SetSessionCreatedHook(func(_ context.Context, session model.EmployeeSession, reason, sourceEvent string) {
+		createdSessions = append(createdSessions, session)
+		createdReasons = append(createdReasons, reason+":"+sourceEvent)
+	})
 
 	first, err := service.ReceiveWebhook(t.Context(), WebhookEnvelope{
 		RouteID: route.ID,
@@ -99,6 +106,12 @@ func TestServiceReceiveWebhookCreatesAndReusesGatewaySession(t *testing.T) {
 	db.Model(&model.EmployeeSession{}).Where("source = ? AND source_id = ?", Source, route.ID).Count(&sessions)
 	if sessions != 1 {
 		t.Fatalf("gateway sessions = %d, want 1", sessions)
+	}
+	if len(createdSessions) != 1 || createdSessions[0].ID != first.Session.ID {
+		t.Fatalf("session-created hook calls = %#v, want first session only", createdSessions)
+	}
+	if len(createdReasons) != 1 || createdReasons[0] != "gateway_session_created:gateway.session.created" {
+		t.Fatalf("session-created hook reason = %#v", createdReasons)
 	}
 }
 
@@ -176,12 +189,12 @@ func seedGatewayRoute(t *testing.T, db *gorm.DB) model.EmployeeGatewayRoute {
 		t.Fatalf("create employee: %v", err)
 	}
 	sandbox := model.Sandbox{
-		OrgID:                 &org.ID,
-		EmployeeID:            &employee.ID,
-		ExternalID:            "gateway-test-" + uuid.NewString(),
+		OrgID:                  &org.ID,
+		EmployeeID:             &employee.ID,
+		ExternalID:             "gateway-test-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:1",
 		EncryptedRuntimeSecret: []byte("test-key"),
-		Status:                "running",
+		Status:                 "running",
 	}
 	if err := db.Create(&sandbox).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)
