@@ -20,9 +20,11 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   CreditCardIcon,
   LogoutIcon,
+  UserIcon,
   Settings05Icon,
   UnfoldMoreIcon,
 } from "@hugeicons/core-free-icons"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth/auth-context"
 
 function initials(name?: string | null) {
@@ -49,9 +51,12 @@ export function NavUser() {
               <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
             }
           >
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-[11px] font-medium text-primary">
-              {initials(name)}
-            </div>
+            <Avatar className="size-8">
+              <AvatarImage src={user?.avatar_url} alt={name} />
+              <AvatarFallback className="bg-primary/15 font-mono text-[11px] font-medium text-primary">
+                {initials(name)}
+              </AvatarFallback>
+            </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{name}</span>
               {email ? (
@@ -75,9 +80,12 @@ export function NavUser() {
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-[11px] font-medium text-primary">
-                    {initials(name)}
-                  </div>
+                  <Avatar className="size-8">
+                    <AvatarImage src={user?.avatar_url} alt={name} />
+                    <AvatarFallback className="bg-primary/15 font-mono text-[11px] font-medium text-primary">
+                      {initials(name)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{name}</span>
                     {email ? (
@@ -91,6 +99,12 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem
+                render={<Link href="/w/settings/general" />}
+              >
+                <HugeiconsIcon icon={UserIcon} strokeWidth={2} />
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuItem
                 render={<Link href="/w/settings/general" />}
               >

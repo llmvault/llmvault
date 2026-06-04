@@ -21,7 +21,7 @@ export default function OrgInvite({
     <HivyEmail
       preview={`${inviterName} invited you to ${orgName} on Hivy`}
       eyebrow="Workspace invitation"
-      title={`${firstName}, join ${orgName}`}
+      title={`You're invited to ${orgName}`}
     >
       <Paragraph>
         {inviterName} invited you to collaborate in {orgName} on Hivy.
@@ -29,8 +29,7 @@ export default function OrgInvite({
       <Detail label="Role" value={role} />
       <PrimaryButton href={inviteUrl}>Accept invitation</PrimaryButton>
       <Paragraph>
-        This invitation expires in {expiresIn}. Hivy workspaces bring your team, connected tools, and
-        AI employee context into one place.
+        This invitation expires in {expiresIn}.
       </Paragraph>
     </HivyEmail>
   )
