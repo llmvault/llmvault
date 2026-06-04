@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -114,7 +113,25 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	eventCtx.ConnectionID = conn.ID
 
-	resp, err := h.nango.RawProxyRequest(ctx, r.Method, nangoProviderConfigKey(conn.Integration.UniqueKey), conn.NangoConnectionID, forwardPath, r.URL.RawQuery, proxyRequestBody(r), r.Header.Get("Content-Type"))
+	body, err := readProxyBody(r)
+	if err != nil {
+		h.captureProxyFailure(ctx, eventCtx, http.StatusBadRequest, "failed to read request body")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to read request body"})
+		return
+	}
+	if enforceProviderProxyPolicy(w, ctx, providerProxyPolicyContext{
+		Provider:      bugsinkProvider,
+		OrgID:         eventCtx.OrgID,
+		CallerAgentID: eventCtx.CallerAgentID,
+		EmployeeID:    eventCtx.EmployeeID,
+		ConnectionID:  eventCtx.ConnectionID,
+		Method:        eventCtx.Method,
+		Path:          eventCtx.Path,
+	}, body) {
+		return
+	}
+
+	resp, err := h.nango.RawProxyRequest(ctx, r.Method, nangoProviderConfigKey(conn.Integration.UniqueKey), conn.NangoConnectionID, forwardPath, r.URL.RawQuery, proxyRequestBodyFromBytes(r.Method, body), r.Header.Get("Content-Type"))
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "bugsink-proxy: nango proxy failed",
 			"employee_id", agentID,
@@ -232,13 +249,6 @@ func (h *BugsinkProxyHandler) captureProxyFailure(ctx context.Context, eventCtx 
 		}
 		hub.CaptureException(fmt.Errorf("bugsink proxy %d: %s", status, reason))
 	})
-}
-
-func proxyRequestBody(r *http.Request) io.Reader {
-	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		return nil
-	}
-	return r.Body
 }
 
 func copyProxyHeaders(dst, src http.Header) {

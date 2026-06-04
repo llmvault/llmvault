@@ -1,15 +1,17 @@
 ---
 name: notion
-description: Use whenever the user asks to read, search, create, edit, summarize, organize, or manage Notion pages, blocks, databases, data sources, comments, files, icons, custom emojis, templates, users, or markdown content. Provides verified curl and jq commands through the Hivy-provided Notion API proxy using NOTION_API_URL and NOTION_TOKEN, including safe patterns for Notion API version 2026-03-11 and human-facing Notion links that never use the proxy URL.
+description: Use whenever the user asks to read, search, create, edit, summarize, organize, or manage Notion pages, blocks, databases, data sources, comments, files, icons, custom emojis, templates, users, or markdown content. Provides verified curl and jq commands through the Hivy Notion API proxy using HIVY_NOTION_API_URL and HIVY_NOTION_TOKEN, including safe patterns for Notion API version 2026-03-11 and human-facing Notion links that never use the proxy URL.
 ---
 
 # Notion REST API
 
-Use Notion through the Hivy-provided Notion API proxy at `$NOTION_API_URL`.
+Use Notion through the Hivy-provided Notion API proxy at `$HIVY_NOTION_API_URL`.
 
-`NOTION_API_URL` and `NOTION_TOKEN` are provided by the Hivy runtime for the employee's configured Notion profile. Always call the provided `NOTION_API_URL` exactly; it is not expected to be `https://api.notion.com`, and the runtime handles forwarding to Notion for the selected profile connection. Do not substitute another workspace, base URL, or token.
+You are running inside the Hivy runtime. All external Notion API calls must go through the Hivy proxy for security, credential isolation, and tracking.
 
-Never use `NOTION_API_URL` to construct human-facing Notion dashboard links. It is an API proxy, not the Notion UI host. For links shown to users, use the `url` or `public_url` fields returned by Notion page, database, or data source responses. If no Notion response URL is available, provide the object ID and say the UI URL is unavailable instead of inventing one from the proxy.
+`HIVY_NOTION_API_URL` and `HIVY_NOTION_TOKEN` are provided by the Hivy runtime for the employee's configured Notion profile. Always call the provided `HIVY_NOTION_API_URL` exactly; it is not expected to be `https://api.notion.com`, and the runtime handles forwarding to Notion for the selected profile connection. Do not substitute another workspace, base URL, or token.
+
+Never use `HIVY_NOTION_API_URL` to construct human-facing Notion dashboard links. It is an API proxy, not the Notion UI host. For links shown to users, use the `url` or `public_url` fields returned by Notion page, database, or data source responses. If no Notion response URL is available, provide the object ID and say the UI URL is unavailable instead of inventing one from the proxy.
 
 ## Environment
 
@@ -17,15 +19,15 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `NOTION_API_URL` | Hivy-provided Notion API proxy base URL |
-| `NOTION_TOKEN` | Bearer token for the configured Notion connection |
+| `HIVY_NOTION_API_URL` | Hivy-provided Notion API proxy base URL |
+| `HIVY_NOTION_TOKEN` | Bearer token for the configured Notion connection |
 
 Initialize once:
 
 ```bash
-test -n "$NOTION_API_URL" || { echo "NOTION_API_URL is not set" >&2; exit 1; }
-test -n "$NOTION_TOKEN" || { echo "NOTION_TOKEN is not set" >&2; exit 1; }
-NOTION_API_URL="${NOTION_API_URL%/}"
+test -n "$HIVY_NOTION_API_URL" || { echo "HIVY_NOTION_API_URL is not set" >&2; exit 1; }
+test -n "$HIVY_NOTION_TOKEN" || { echo "HIVY_NOTION_TOKEN is not set" >&2; exit 1; }
+HIVY_NOTION_API_URL="${HIVY_NOTION_API_URL%/}"
 NOTION_VERSION="${NOTION_VERSION:-2026-03-11}"
 ```
 
@@ -43,15 +45,15 @@ notion_api() {
   for attempt in 1 2 3; do
     if test -n "$body"; then
       http_status="$(curl -sS -o "$tmp_body" -D "$tmp_headers" -w "%{http_code}" \
-        -X "$method" "$NOTION_API_URL$api_path" \
-        -H "Authorization: Bearer $NOTION_TOKEN" \
+        -X "$method" "$HIVY_NOTION_API_URL$api_path" \
+        -H "Authorization: Bearer $HIVY_NOTION_TOKEN" \
         -H "Notion-Version: $NOTION_VERSION" \
         -H "Content-Type: application/json" \
         --data-binary "$body")"
     else
       http_status="$(curl -sS -o "$tmp_body" -D "$tmp_headers" -w "%{http_code}" \
-        -X "$method" "$NOTION_API_URL$api_path" \
-        -H "Authorization: Bearer $NOTION_TOKEN" \
+        -X "$method" "$HIVY_NOTION_API_URL$api_path" \
+        -H "Authorization: Bearer $HIVY_NOTION_TOKEN" \
         -H "Notion-Version: $NOTION_VERSION")"
     fi
 
@@ -77,9 +79,10 @@ For file upload content, call `curl` directly with the same headers.
 ## Rules
 
 - Always filter API JSON with `jq` before reading or returning results.
-- Never print `$NOTION_TOKEN`.
-- Always call `$NOTION_API_URL` for API requests. Do not call `https://api.notion.com` directly in runtime work unless the user is explicitly debugging Notion outside Hivy.
-- Never construct a human-facing Notion URL from `$NOTION_API_URL`. Use `url` or `public_url` fields from Notion responses, or report the ID when no UI URL is available.
+- Never print `$HIVY_NOTION_TOKEN`.
+- Always call `$HIVY_NOTION_API_URL` for API requests. Do not call `https://api.notion.com` directly in runtime work unless the user is explicitly debugging Notion outside Hivy.
+- Never construct a human-facing Notion URL from `$HIVY_NOTION_API_URL`. Use `url` or `public_url` fields from Notion responses, or report the ID when no UI URL is available.
+- Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Notion.
 - Use `Notion-Version: 2026-03-11` unless the user explicitly requests another version.
 - Prefer the markdown endpoints for broad document reading and editing. Use block endpoints when you need precise block structure, media blocks, tables, toggles, or block IDs.
 - Use data source endpoints for table rows and schemas. Current Notion databases are containers; data sources hold the schema and rows.
@@ -116,7 +119,7 @@ notion_api GET "/v1/data_sources/$DATA_SOURCE_ID" \
   | jq '{id, title: ([.title[]?.plain_text] | join("")), url, public_url}'
 ```
 
-Do not transform `$NOTION_API_URL/v1/pages/...` into a browser link. `NOTION_API_URL` is the Hivy runtime proxy and is not suitable for teammates to open in a browser.
+Do not transform `$HIVY_NOTION_API_URL/v1/pages/...` into a browser link. `HIVY_NOTION_API_URL` is the Hivy runtime proxy and is not suitable for teammates to open in a browser.
 
 ## Search accessible content
 
@@ -368,7 +371,7 @@ notion_api PATCH "/v1/pages/$PAGE_ID/markdown" "$(jq -n '{
 
 Markdown matching is case-sensitive. `update_content.old_str` must match exactly one location unless `replace_all_matches: true` is set. Do not provide both `insert_content.after` and `insert_content.position`.
 
-## Edit page properties, icon, cover, trash, move
+## Edit page properties, icon, cover, move
 
 ```bash
 PAGE_ID="..."
@@ -387,13 +390,6 @@ External cover:
 notion_api PATCH "/v1/pages/$PAGE_ID" "$(jq -n '{
   cover: {type: "external", external: {url: "https://www.notion.so/images/page-cover/woodcuts_1.jpg"}}
 }')" | jq '{id, cover}'
-```
-
-Trash or restore:
-
-```bash
-notion_api PATCH "/v1/pages/$PAGE_ID" '{"in_trash":true}' | jq '{id, in_trash}'
-notion_api PATCH "/v1/pages/$PAGE_ID" '{"in_trash":false}' | jq '{id, in_trash}'
 ```
 
 Move a page:
@@ -454,13 +450,6 @@ notion_api PATCH "/v1/blocks/$BLOCK_ID" "$(jq -n '{
     rich_text: [{type: "text", text: {content: "Updated paragraph text"}}]
   }
 }')" | jq '{id, type, content: .[.type]}'
-```
-
-Delete a block:
-
-```bash
-BLOCK_ID="..."
-notion_api DELETE "/v1/blocks/$BLOCK_ID" | jq '{id, type, in_trash}'
 ```
 
 Common block types: `paragraph`, `heading_1`, `heading_2`, `heading_3`, `bulleted_list_item`, `numbered_list_item`, `to_do`, `toggle`, `quote`, `callout`, `code`, `divider`, `image`, `file`, `video`, `pdf`, `embed`, `bookmark`, `table`, `table_row`, `column_list`, `column`, `synced_block`, `meeting_notes`.
@@ -646,13 +635,6 @@ notion_api PATCH "/v1/comments/$COMMENT_ID" "$(jq -n '{
 }')" | jq '{id, rich_text}'
 ```
 
-Delete a comment created by this connection:
-
-```bash
-COMMENT_ID="..."
-notion_api DELETE "/v1/comments/$COMMENT_ID" | jq '{id, in_trash}'
-```
-
 Create comment with an uploaded file attachment:
 
 ```json
@@ -686,8 +668,8 @@ UPLOAD_ID="$(notion_api POST "/v1/file_uploads" "$(jq -n --arg filename "$FILE_N
   content_type: $content_type
 }')" | jq -r '.id')"
 
-curl -fsS -X POST "$NOTION_API_URL/v1/file_uploads/$UPLOAD_ID/send" \
-  -H "Authorization: Bearer $NOTION_TOKEN" \
+curl -fsS -X POST "$HIVY_NOTION_API_URL/v1/file_uploads/$UPLOAD_ID/send" \
+  -H "Authorization: Bearer $HIVY_NOTION_TOKEN" \
   -H "Notion-Version: $NOTION_VERSION" \
   -F "file=@$FILE_PATH" \
   | jq '{id, status, filename, content_type}'
@@ -761,7 +743,7 @@ Common responses:
 
 ## API discovery
 
-When this skill does not cover an operation, check the official docs or OpenAPI before guessing. Use these docs only for reference; runtime API calls still go through `$NOTION_API_URL`.
+When this skill does not cover an operation, check the official docs or OpenAPI before guessing. Use these docs only for reference; runtime API calls still go through `$HIVY_NOTION_API_URL`.
 
 ```bash
 curl -fsS https://developers.notion.com/openapi.json -o /tmp/notion-openapi.json

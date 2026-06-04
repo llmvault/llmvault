@@ -1,13 +1,15 @@
 ---
 name: linear
-description: Use when reading or triaging Linear issues, projects, teams, workflow states, users, comments, labels, or planning data through Linear GraphQL. Provides verified curl and jq commands using LINEAR_URL and LINEAR_TOKEN, with strict response filtering to avoid dumping large GraphQL payloads into context.
+description: Use when reading or triaging Linear issues, projects, teams, workflow states, users, comments, labels, or planning data through Linear GraphQL. Provides verified curl and jq commands through the Hivy Linear proxy using HIVY_LINEAR_URL and HIVY_LINEAR_TOKEN, with strict response filtering to avoid dumping large GraphQL payloads into context.
 ---
 
 # Linear GraphQL
 
-Use Linear through the Hivy-provided GraphQL endpoint at `$LINEAR_URL`.
+Use Linear through the Hivy-provided GraphQL endpoint at `$HIVY_LINEAR_URL`.
 
-`LINEAR_URL` and `LINEAR_TOKEN` are provided by the runtime for the configured Linear connection. Always call the provided `LINEAR_URL` exactly; do not substitute another workspace or token.
+You are running inside the Hivy runtime. All external Linear API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+
+`HIVY_LINEAR_URL` and `HIVY_LINEAR_TOKEN` are provided by the runtime for the configured Linear connection. Always call the provided `HIVY_LINEAR_URL` exactly; do not substitute another workspace or token.
 
 ## Environment
 
@@ -15,15 +17,15 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `LINEAR_URL` | Linear GraphQL endpoint provided by Hivy |
-| `LINEAR_TOKEN` | Bearer token for the provided Linear endpoint |
+| `HIVY_LINEAR_URL` | Linear GraphQL endpoint provided by Hivy |
+| `HIVY_LINEAR_TOKEN` | Bearer token for the provided Linear endpoint |
 
 Initialize once:
 
 ```bash
-test -n "$LINEAR_URL" || { echo "LINEAR_URL is not set" >&2; exit 1; }
-test -n "$LINEAR_TOKEN" || { echo "LINEAR_TOKEN is not set" >&2; exit 1; }
-LINEAR_URL="${LINEAR_URL%/}"
+test -n "$HIVY_LINEAR_URL" || { echo "HIVY_LINEAR_URL is not set" >&2; exit 1; }
+test -n "$HIVY_LINEAR_TOKEN" || { echo "HIVY_LINEAR_TOKEN is not set" >&2; exit 1; }
+HIVY_LINEAR_URL="${HIVY_LINEAR_URL%/}"
 ```
 
 Use this helper for every GraphQL call:
@@ -39,8 +41,8 @@ linear_graphql() {
   fi
   jq -n --arg query "$query" --argjson vars "$vars_json" \
     '{query: $query, variables: $vars}' \
-    | curl -fsS "$LINEAR_URL" \
-        -H "Authorization: Bearer $LINEAR_TOKEN" \
+    | curl -fsS "$HIVY_LINEAR_URL" \
+        -H "Authorization: Bearer $HIVY_LINEAR_TOKEN" \
         -H "Content-Type: application/json" \
         --data-binary @-
 }
@@ -54,7 +56,8 @@ linear_graphql() {
 - Use `identifier` like `ENG-123` for human-facing issue references. The `issue(id:)` query accepts either the UUID or the identifier.
 - Use Relay pagination: request `pageInfo { hasNextPage endCursor }`, then pass `after: endCursor` only when more results are needed.
 - For writes, first read the relevant object and schema input type, then make the smallest mutation that satisfies the task.
-- Do not print `$LINEAR_TOKEN`.
+- Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Linear.
+- Do not print `$HIVY_LINEAR_TOKEN`.
 - When reporting results to a teammate, summarize only user-relevant fields and outcomes. Do not mention proxy URLs, bearer-token mechanics, schema probing, GraphQL filtering steps, or internal query details unless troubleshooting the Linear integration itself.
 
 ## API schema discovery
@@ -736,7 +739,7 @@ linear_graphql 'mutation UnassignIssue($id: String!, $input: IssueUpdateInput!) 
   }'
 ```
 
-### Add or remove labels
+### Add labels
 
 Find labels by name:
 
@@ -772,37 +775,6 @@ linear_graphql 'mutation AddIssueLabel($id: String!, $labelId: String!) {
   | jq '{
     success: .data.issueAddLabel.success,
     issue: .data.issueAddLabel.issue | {
-      id,
-      identifier,
-      title,
-      url,
-      labels: [.labels.nodes[] | {id, name}]
-    }
-  }'
-```
-
-Remove a single label:
-
-```bash
-ISSUE_ID="ENG-17"
-LABEL_ID="3ff660d1-3e04-4d24-8f1f-50e3b0719648"
-
-linear_graphql 'mutation RemoveIssueLabel($id: String!, $labelId: String!) {
-  issueRemoveLabel(id: $id, labelId: $labelId) {
-    success
-    issue {
-      id
-      identifier
-      title
-      url
-      labels(first: 20) { nodes { id name color } }
-    }
-  }
-}' "$(jq -n --arg id "$ISSUE_ID" --arg labelId "$LABEL_ID" \
-      '{id: $id, labelId: $labelId}')" \
-  | jq '{
-    success: .data.issueRemoveLabel.success,
-    issue: .data.issueRemoveLabel.issue | {
       id,
       identifier,
       title,

@@ -22,7 +22,7 @@ const (
 	hivyEmployeeAvatarURL     = "/assets/hivy-avatar.png"
 )
 
-var defaultEmployeeSkills = []string{"asset-uploads"}
+var defaultEmployeeSkills = []string{"drive"}
 
 type EmployeeHandler struct {
 	db           *gorm.DB

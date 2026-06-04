@@ -9,6 +9,8 @@ description: Use when deploying services, managing environments, reading logs, o
 
 Manage Railway cloud infrastructure through a pre-authenticated GraphQL API proxy. All requests go to `${HIVY_RAILWAY_API_URL}` with `Authorization: Bearer $HIVY_RAILWAY_API_KEY`.
 
+You are running inside the Hivy runtime. All external Railway API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+
 ## When to Use
 
 - Deploying or redeploying services on Railway
@@ -49,25 +51,21 @@ Every call is `curl -s -X POST ${HIVY_RAILWAY_API_URL} -H "Authorization: Bearer
 
 ### Mutations
 
+Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in the Railway dashboard.
+
 | Operation | Key Variables | Purpose |
 |-----------|--------------|---------|
 | `ProjectCreate` | `name?, workspaceId?` | Create project |
-| `ProjectScheduleDelete` | `id!` | Soft-delete project |
 | `ServiceCreate` | `projectId!, environmentId!, source?, variables?` | Create service from image/repo |
-| `ServiceDelete` | `environmentId!, serviceId!` | Delete service |
 | `ServiceInstanceUpdate` | `serviceId!, environmentId?, input!` | Configure service (replicas, health checks, commands, regions, cron) |
 | `ServiceInstanceDeploy` | `environmentId!, serviceId!` | Trigger deploy |
 | `DeploymentRedeploy` | `id!` | Rebuild and redeploy |
 | `DeploymentRestart` | `id!` | Restart without rebuild |
-| `DeploymentRemove` | `id!` | Stop/remove deployment |
 | `VariableCollectionUpsert` | `projectId!, serviceId!, environmentId!, variables!, skipDeploys?` | Set env vars |
-| `VariableDelete` | `projectId!, environmentId!, name!, serviceId?` | Delete env var |
 | `EnvironmentCreate` | `projectId!, name!, sourceId?` | Create/clone environment |
-| `EnvironmentDelete` | `id!` | Delete environment |
 | `ServiceDomainCreate` | `environmentId!, serviceId!` | Generate *.railway.app domain |
 | `CustomDomainCreate` | `input{domain,environmentId,projectId,serviceId}` | Attach custom domain |
 | `VolumeCreate` | `projectId!, environmentId!, serviceId!, mountPath!` | Create persistent volume |
-| `VolumeDelete` | `id!` | Delete volume |
 | `VolumeAttach` | `environmentId!, volumeId!, serviceId!` | Attach volume to service |
 | `VolumeDetach` | `environmentId!, volumeId!` | Detach volume |
 | `TemplateDeploy` | `projectId!, environmentId!, templateId!, serializedConfig!` | Deploy template (Postgres, Redis, etc.) |
@@ -540,16 +538,6 @@ mutation ProjectCreate($name: String, $description: String, $workspaceId: String
 
 Variables: `{ "name": "my-project", "description": "optional", "workspaceId": "optional" }`
 
-### ProjectScheduleDelete
-
-```graphql
-mutation ProjectScheduleDelete($id: String!) {
-  projectScheduleDelete(id: $id)
-}
-```
-
-Variables: `{ "id": "project-id" }`
-
 ### ServiceCreate
 
 ```graphql
@@ -561,16 +549,6 @@ mutation ServiceCreate($name: String, $projectId: String!, $environmentId: Strin
 From image: `{ "name": "api", "projectId": "...", "environmentId": "...", "source": { "image": "nginx:latest" }, "variables": { "PORT": "8080" } }`
 
 From repo: `{ "name": "api", "projectId": "...", "environmentId": "...", "source": { "repo": "owner/repo" }, "branch": "main" }`
-
-### ServiceDelete
-
-```graphql
-mutation ServiceDelete($environmentId: String!, $serviceId: String!) {
-  serviceDelete(environmentId: $environmentId, id: $serviceId)
-}
-```
-
-Variables: `{ "environmentId": "...", "serviceId": "..." }`
 
 ### ServiceInstanceUpdate
 
@@ -614,16 +592,6 @@ mutation DeploymentRestart($id: String!) {
 
 Variables: `{ "id": "deployment-id" }`
 
-### DeploymentRemove
-
-```graphql
-mutation DeploymentRemove($id: String!) {
-  deploymentRemove(id: $id)
-}
-```
-
-Variables: `{ "id": "deployment-id" }`
-
 ### VariableCollectionUpsert
 
 ```graphql
@@ -633,16 +601,6 @@ mutation VariableCollectionUpsert($projectId: String!, $serviceId: String!, $env
 ```
 
 Variables: `{ "projectId": "...", "serviceId": "...", "environmentId": "...", "variables": { "DATABASE_URL": "postgres://...", "NODE_ENV": "production" }, "skipDeploys": true }`
-
-### VariableDelete
-
-```graphql
-mutation VariableDelete($projectId: String!, $environmentId: String!, $name: String!, $serviceId: String) {
-  variableDelete(input: { projectId: $projectId, environmentId: $environmentId, name: $name, serviceId: $serviceId })
-}
-```
-
-Variables: `{ "projectId": "...", "environmentId": "...", "name": "OLD_API_KEY", "serviceId": "..." }`
 
 ### EnvironmentCreate
 
@@ -655,16 +613,6 @@ mutation EnvironmentCreate($projectId: String!, $name: String!, $sourceId: Strin
 Clone: `{ "projectId": "...", "name": "staging", "sourceId": "production-env-id" }`
 
 New: `{ "projectId": "...", "name": "staging" }`
-
-### EnvironmentDelete
-
-```graphql
-mutation EnvironmentDelete($id: String!) {
-  environmentDelete(id: $id)
-}
-```
-
-Variables: `{ "id": "environment-id" }`
 
 ### ServiceDomainCreate
 
@@ -701,16 +649,6 @@ mutation VolumeCreate($projectId: String!, $environmentId: String!, $serviceId: 
 ```
 
 Variables: `{ "projectId": "...", "environmentId": "...", "serviceId": "...", "mountPath": "/data" }`
-
-### VolumeDelete
-
-```graphql
-mutation VolumeDelete($id: String!) {
-  volumeDelete(volumeId: $id)
-}
-```
-
-Variables: `{ "id": "volume-id" }`
 
 ### VolumeAttach
 

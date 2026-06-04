@@ -117,7 +117,7 @@ func TestSeedGlobalSkills_PreservesRequiredEnvironmentVariables(t *testing.T) {
 	if err := json.Unmarshal(body, &manifest); err != nil {
 		t.Fatalf("decode manifest: %v", err)
 	}
-	manifest["required_environment_variables"] = []string{"HIVY_DRIVE_UPLOAD_URL", "HIVY_UPLOAD_BEARER"}
+	manifest["required_environment_variables"] = []string{"HIVY_DRIVE_UPLOAD_URL", "HIVY_DRIVE_UPLOAD_BEARER"}
 	body, err = json.Marshal(manifest)
 	if err != nil {
 		t.Fatalf("marshal manifest: %v", err)
@@ -137,7 +137,7 @@ func TestSeedGlobalSkills_PreservesRequiredEnvironmentVariables(t *testing.T) {
 	if err := json.Unmarshal(skill.Bundle, &bundle); err != nil {
 		t.Fatalf("decode bundle: %v", err)
 	}
-	want := []string{"HIVY_DRIVE_UPLOAD_URL", "HIVY_UPLOAD_BEARER"}
+	want := []string{"HIVY_DRIVE_UPLOAD_URL", "HIVY_DRIVE_UPLOAD_BEARER"}
 	if !reflect.DeepEqual(bundle.RequiredEnvironmentVariables, want) {
 		t.Fatalf("required env vars = %#v, want %#v", bundle.RequiredEnvironmentVariables, want)
 	}
@@ -221,14 +221,14 @@ func TestSeedGlobalSkills_PreservesTagsAndIntegrationIDs(t *testing.T) {
 	}
 }
 
-func TestBundledAssetUploadsSkillDeclaresUploadEnv(t *testing.T) {
+func TestBundledDriveSkillDeclaresDriveEnv(t *testing.T) {
 	dir, err := skillsForRepoTest()
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := os.ReadFile(filepath.Join(dir, "global/skills", "asset-uploads", "skill.json"))
+	manifest, err := os.ReadFile(filepath.Join(dir, "global/skills", "drive", "skill.json"))
 	if err != nil {
-		t.Fatalf("read bundled asset uploads manifest: %v", err)
+		t.Fatalf("read bundled drive manifest: %v", err)
 	}
 	var parsed struct {
 		RequiredEnvironmentVariables []string `json:"required_environment_variables"`
@@ -236,18 +236,18 @@ func TestBundledAssetUploadsSkillDeclaresUploadEnv(t *testing.T) {
 	if err := json.Unmarshal(manifest, &parsed); err != nil {
 		t.Fatalf("decode manifest: %v", err)
 	}
-	want := []string{"HIVY_DRIVE_UPLOAD_URL", "HIVY_UPLOAD_BEARER"}
+	want := []string{"HIVY_DRIVE_UPLOAD_URL", "HIVY_DRIVE_UPLOAD_BEARER"}
 	if !reflect.DeepEqual(parsed.RequiredEnvironmentVariables, want) {
-		t.Fatalf("asset upload env vars = %#v, want %#v", parsed.RequiredEnvironmentVariables, want)
+		t.Fatalf("drive env vars = %#v, want %#v", parsed.RequiredEnvironmentVariables, want)
 	}
 }
 
-func TestSeedGlobalSkills_ArchivesObsoleteUploadSkillNames(t *testing.T) {
+func TestSeedGlobalSkills_ArchivesObsoleteDriveSkillNames(t *testing.T) {
 	db := connectDB(t)
 	dir := t.TempDir()
-	writeGlobalSkill(t, dir, "asset-uploads", "new uploads", "# Asset uploads\n", nil)
+	writeGlobalSkill(t, dir, "drive", "new drive", "# Drive\n", nil)
 
-	for _, name := range []string{"public-assets-uploads", "employee-public-assets-uploads", "employee-assets-uploads"} {
+	for _, name := range []string{"asset-uploads", "public-assets-uploads", "employee-public-assets-uploads", "employee-assets-uploads"} {
 		skill := model.Skill{
 			OrgID:      nil,
 			Slug:       model.GenerateSlug(name) + "-" + uuid.New().String()[:8],
@@ -267,7 +267,7 @@ func TestSeedGlobalSkills_ArchivesObsoleteUploadSkillNames(t *testing.T) {
 
 	var publishedOld int64
 	if err := db.Model(&model.Skill{}).
-		Where("org_id IS NULL AND name IN ? AND status = ?", []string{"public-assets-uploads", "employee-public-assets-uploads", "employee-assets-uploads"}, model.SkillStatusPublished).
+		Where("org_id IS NULL AND name IN ? AND status = ?", []string{"asset-uploads", "public-assets-uploads", "employee-public-assets-uploads", "employee-assets-uploads"}, model.SkillStatusPublished).
 		Count(&publishedOld).Error; err != nil {
 		t.Fatalf("count obsolete skills: %v", err)
 	}

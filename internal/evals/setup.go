@@ -175,7 +175,7 @@ func createTrialEmployee(ctx context.Context, deps *bootstrap.Deps, suite *Suite
 	if err := deps.DB.WithContext(ctx).Create(&employee).Error; err != nil {
 		return employee, fmt.Errorf("create eval employee: %w", err)
 	}
-	if err := attachGlobalSkill(ctx, deps.DB, employee.ID, "asset-uploads"); err != nil {
+	if err := attachGlobalSkill(ctx, deps.DB, employee.ID, "drive"); err != nil {
 		return employee, err
 	}
 	return employee, nil
