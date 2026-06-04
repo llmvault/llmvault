@@ -20,6 +20,7 @@ type Service struct {
 	encKey                      *crypto.SymmetricKey
 	adapters                    map[string]Adapter
 	preload                     precontext.Builder
+	onSessionCreated            func(context.Context, model.EmployeeSession, string, string)
 	onConnectionInboundAccepted func(context.Context, ConnectionInboundAccepted)
 	now                         func() time.Time
 }
@@ -40,6 +41,10 @@ func NewService(db *gorm.DB, runtime RuntimeMessenger, encKey *crypto.SymmetricK
 
 func (s *Service) SetPreContextBuilder(builder precontext.Builder) {
 	s.preload = builder
+}
+
+func (s *Service) SetSessionCreatedHook(hook func(context.Context, model.EmployeeSession, string, string)) {
+	s.onSessionCreated = hook
 }
 
 func (s *Service) SetConnectionInboundAcceptedHook(hook func(context.Context, ConnectionInboundAccepted)) {
@@ -115,6 +120,9 @@ func (s *Service) Receive(ctx context.Context, inbound InboundEnvelope) (*Receiv
 	if err != nil {
 		_ = s.markEventFailed(ctx, event.ID, err)
 		return nil, err
+	}
+	if created {
+		s.notifySessionCreated(ctx, session, "gateway_session_created", "gateway.session.created")
 	}
 	dynamicContext := s.buildPreContext(ctx, created, precontext.Request{
 		OrgID:                 route.OrgID,

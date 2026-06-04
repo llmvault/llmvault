@@ -82,6 +82,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create account"})
 		return
 	}
+	ensureOrgMemoryBank(r.Context(), h.memoryBanks, org.ID, "auth_register")
 
 	if h.autoConfirmEmail {
 

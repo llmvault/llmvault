@@ -9,6 +9,7 @@ import {
   ArrowRight01Icon,
   Tick02Icon,
   Loading03Icon,
+  RefreshIcon,
 } from "@hugeicons/core-free-icons"
 import { ModelCombobox } from "@/components/model-combobox"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,10 @@ export default function SettingsPage() {
   const isUpgrading = employee?.sandbox?.status?.toLowerCase() === "upgrading"
   const modelChanged = !!employee?.model && selectedModel !== employee.model
   const updateModel = $api.useMutation("patch", "/v1/employees/{id}/model")
+  const rebootSandbox = $api.useMutation(
+    "post",
+    "/v1/employees/{id}/sandbox/reboot"
+  )
 
   useEffect(() => {
     setSelectedModel(employee?.model ?? null)
@@ -60,6 +65,27 @@ export default function SettingsPage() {
         onError: (error) => {
           toast.error(
             extractErrorMessage(error, "Failed to save employee model")
+          )
+          refreshEmployee()
+        },
+      }
+    )
+  }
+
+  function rebootEmployee() {
+    if (!employeeID) return
+    rebootSandbox.mutate(
+      {
+        params: { path: { id: employeeID } },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Employee sandbox rebooted and synced")
+          refreshEmployee()
+        },
+        onError: (error) => {
+          toast.error(
+            extractErrorMessage(error, "Failed to reboot employee sandbox")
           )
           refreshEmployee()
         },
@@ -174,6 +200,30 @@ export default function SettingsPage() {
                   <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
                 </Button>
               ) : null}
+            </div>
+
+            <div className="flex flex-col gap-4 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="max-w-xl">
+                <p className="text-sm font-medium text-foreground">
+                  Reboot employee
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Restart the sandbox, mint fresh proxy credentials, push the
+                  full runtime config, and verify readiness.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={rebootEmployee}
+                disabled={!employeeID || isUpgrading || updateModel.isPending}
+                loading={rebootSandbox.isPending}
+                className="w-full gap-1.5 sm:w-auto"
+              >
+                <HugeiconsIcon icon={RefreshIcon} className="size-3.5" />
+                Reboot
+              </Button>
             </div>
           </div>
         </TabsContent>

@@ -48,6 +48,12 @@ func TestServiceReceiveWebhookCreatesAndReusesGatewaySession(t *testing.T) {
 	route := seedGatewayRoute(t, db)
 	runtime := &recordingRuntime{}
 	service := NewService(db, runtime, nil, NewFakeSlackAdapter())
+	var createdSessions []model.EmployeeSession
+	var createdReasons []string
+	service.SetSessionCreatedHook(func(_ context.Context, session model.EmployeeSession, reason, sourceEvent string) {
+		createdSessions = append(createdSessions, session)
+		createdReasons = append(createdReasons, reason+":"+sourceEvent)
+	})
 
 	first, err := service.ReceiveWebhook(t.Context(), WebhookEnvelope{
 		RouteID: route.ID,
@@ -100,6 +106,12 @@ func TestServiceReceiveWebhookCreatesAndReusesGatewaySession(t *testing.T) {
 	db.Model(&model.EmployeeSession{}).Where("source = ? AND source_id = ?", Source, route.ID).Count(&sessions)
 	if sessions != 1 {
 		t.Fatalf("gateway sessions = %d, want 1", sessions)
+	}
+	if len(createdSessions) != 1 || createdSessions[0].ID != first.Session.ID {
+		t.Fatalf("session-created hook calls = %#v, want first session only", createdSessions)
+	}
+	if len(createdReasons) != 1 || createdReasons[0] != "gateway_session_created:gateway.session.created" {
+		t.Fatalf("session-created hook reason = %#v", createdReasons)
 	}
 }
 

@@ -34,6 +34,7 @@ type stubEmployeeProvider struct {
 	failOnCreate   bool
 	createdCount   int
 	deletedCount   int
+	restartCount   int
 	lastCreateOpts sandbox.CreateSandboxOpts
 }
 
@@ -73,8 +74,14 @@ func (s *stubEmployeeProvider) DeleteSandbox(_ context.Context, _ string) error 
 	return nil
 }
 
-func (s *stubEmployeeProvider) StartSandbox(context.Context, string) error   { return nil }
-func (s *stubEmployeeProvider) StopSandbox(context.Context, string) error    { return nil }
+func (s *stubEmployeeProvider) StartSandbox(context.Context, string) error { return nil }
+func (s *stubEmployeeProvider) StopSandbox(context.Context, string) error  { return nil }
+func (s *stubEmployeeProvider) RestartSandbox(context.Context, string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.restartCount++
+	return nil
+}
 func (s *stubEmployeeProvider) ArchiveSandbox(context.Context, string) error { return nil }
 func (s *stubEmployeeProvider) GetStatus(context.Context, string) (sandbox.SandboxStatus, error) {
 	return sandbox.StatusRunning, nil
@@ -261,6 +268,7 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 			r.Use(middleware.RequireOrgAdmin(db))
 			r.Patch("/{id}/model", h.UpdateModel)
 			r.Post("/{id}/sync", h.Sync)
+			r.Post("/{id}/sandbox/reboot", h.RebootSandbox)
 			r.Post("/{id}/sandbox/upgrade", h.StartSandboxUpgrade)
 			r.Get("/{id}/sandbox/upgrades/{upgradeID}", h.GetSandboxUpgrade)
 		})
