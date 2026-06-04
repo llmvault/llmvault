@@ -2426,6 +2426,339 @@
                 }
             }
         },
+        "/v1/database-integrations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists active database integrations for the current organization.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "database-integrations"
+                ],
+                "summary": "List database integrations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/databaseConnectionResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Stores encrypted database credentials for the current organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "database-integrations"
+                ],
+                "summary": "Create database integration",
+                "parameters": [
+                    {
+                        "description": "Database integration details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/databaseConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/databaseConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/database-integrations/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Revokes a database integration without exposing stored credentials.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "database-integrations"
+                ],
+                "summary": "Disconnect database integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database integration ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/databaseConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/database-integrations/{id}/introspect": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Introspects and stores the visible database schema snapshot.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "database-integrations"
+                ],
+                "summary": "Introspect database integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database integration ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/databaseConnectionResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/database-integrations/{id}/policy": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves table, collection, field mask, and result limit policy for a database integration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "database-integrations"
+                ],
+                "summary": "Update database access policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database integration ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Access policy",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Policy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/databaseConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/database-integrations/{id}/test": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Verifies that stored database credentials can connect.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "database-integrations"
+                ],
+                "summary": "Test database integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database integration ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statusResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/employees": {
             "get": {
                 "security": [
@@ -6695,6 +7028,38 @@
                 }
             }
         },
+        "Policy": {
+            "type": "object",
+            "properties": {
+                "allowed_collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allowed_schemas": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allowed_tables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "masked_fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_rows": {
+                    "type": "integer"
+                }
+            }
+        },
         "Reference": {
             "type": "object",
             "properties": {
@@ -7581,6 +7946,56 @@
             "properties": {
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "databaseConnectionRequest": {
+            "type": "object",
+            "properties": {
+                "access_policy": {
+                    "$ref": "#/definitions/Policy"
+                },
+                "connection_url": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "employee_id": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                }
+            }
+        },
+        "databaseConnectionResponse": {
+            "type": "object",
+            "properties": {
+                "access_policy": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "employee_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "schema_snapshot": {},
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
