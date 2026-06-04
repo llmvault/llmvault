@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -31,6 +31,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { FullPageLoader } from "@/components/full-page-loader"
 import { Button } from "@/components/ui/button"
@@ -86,6 +87,15 @@ const footerLinks = [
   { label: "Get free credits", href: "#", icon: AwardIcon },
   { label: "Invite team members", href: "#", icon: UserAdd01Icon },
 ]
+
+const collapsedSidebarRoutes = ["/w/sessions"]
+const fullHeightWorkspaceRoutes = ["/w/sessions"]
+
+function isWorkspaceRoute(pathname: string, routes: string[]) {
+  return routes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  )
+}
 
 function GhostLogo({
   className,
@@ -157,22 +167,80 @@ export default function WorkspaceV2Layout({
     <AuthProvider>
       <WorkspaceGate>
         <SidebarProvider>
+          <WorkspaceRouteSidebarState />
           <AppSidebar />
-          <SidebarInset className="relative h-screen overflow-hidden">
-            {/* Subtle top-right blur glow */}
-            <div
-              className="pointer-events-none absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full opacity-30 blur-[120px]"
-              style={{ backgroundColor: "var(--glow-right)" }}
-            />
-            <main className="relative z-10 flex h-full flex-1 flex-col overflow-y-auto">
-              <UpgradeBanner />
-              <div className="flex flex-1 flex-col p-6 md:p-8">{children}</div>
-            </main>
-          </SidebarInset>
+          <WorkspaceFrame>{children}</WorkspaceFrame>
         </SidebarProvider>
       </WorkspaceGate>
     </AuthProvider>
   )
+}
+
+function WorkspaceFrame({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const fullHeight = isWorkspaceRoute(pathname, fullHeightWorkspaceRoutes)
+
+  return (
+    <SidebarInset className="relative h-screen overflow-hidden">
+      {/* Subtle top-right blur glow */}
+      <div
+        className="pointer-events-none absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full opacity-30 blur-[120px]"
+        style={{ backgroundColor: "var(--glow-right)" }}
+      />
+      <main
+        className={cn(
+          "relative z-10 flex h-full flex-1 flex-col",
+          fullHeight ? "overflow-hidden" : "overflow-y-auto"
+        )}
+      >
+        <UpgradeBanner />
+        <div
+          className={cn(
+            "flex flex-1 flex-col",
+            fullHeight ? "min-h-0 overflow-hidden" : "p-6 md:p-8"
+          )}
+        >
+          {children}
+        </div>
+      </main>
+    </SidebarInset>
+  )
+}
+
+function WorkspaceRouteSidebarState() {
+  const pathname = usePathname()
+  const { open, setOpen, isMobile } = useSidebar()
+  const restoreOpenRef = useRef<boolean | null>(null)
+  const shouldCollapse = isWorkspaceRoute(pathname, collapsedSidebarRoutes)
+
+  useEffect(() => {
+    if (isMobile) return
+
+    if (shouldCollapse) {
+      if (restoreOpenRef.current === null) {
+        restoreOpenRef.current = open
+      }
+      if (open) {
+        setOpen(false)
+      }
+      return
+    }
+
+    if (restoreOpenRef.current !== null) {
+      setOpen(restoreOpenRef.current)
+      restoreOpenRef.current = null
+    }
+  }, [isMobile, open, setOpen, shouldCollapse])
+
+  useEffect(() => {
+    return () => {
+      if (restoreOpenRef.current !== null) {
+        setOpen(restoreOpenRef.current)
+      }
+    }
+  }, [setOpen])
+
+  return null
 }
 
 function WorkspaceGate({ children }: { children: React.ReactNode }) {
@@ -313,14 +381,13 @@ function AppSidebar() {
 
   return (
     <Sidebar
-      collapsible="none"
+      collapsible="icon"
       className="h-svh min-h-svh border-r border-border"
-      style={{ width: 268, minWidth: 268 }}
     >
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-4 py-4">
           <GhostLogo className="text-primary" />
-          <span className="font-heading text-lg font-medium tracking-tight text-sidebar-foreground">
+          <span className="font-heading text-lg font-medium tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
             hivy
           </span>
         </div>
@@ -329,7 +396,7 @@ function AppSidebar() {
       <SidebarContent className="gap-5 px-3 py-2">
         {navSections.map((section) => (
           <div key={section.label}>
-            <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wide text-sidebar-foreground/40 uppercase">
+            <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wide text-sidebar-foreground/40 uppercase group-data-[collapsible=icon]:hidden">
               {section.label}
             </p>
             <SidebarMenu>
@@ -343,6 +410,7 @@ function AppSidebar() {
                     <SidebarMenuButton
                       render={<Link href={item.href} />}
                       isActive={active}
+                      tooltip={item.label}
                       className={cn(
                         "h-11 cursor-pointer items-center gap-3 rounded-md font-display text-base",
                         active && "text-primary"
@@ -365,6 +433,7 @@ function AppSidebar() {
             <SidebarMenuItem key={link.label}>
               <SidebarMenuButton
                 render={<Link href={link.href} />}
+                tooltip={link.label}
                 className={cn(
                   "h-11 cursor-pointer items-center gap-3 rounded-md font-display text-base"
                 )}
@@ -378,6 +447,7 @@ function AppSidebar() {
             <SidebarMenuButton
               onClick={handleLogout}
               disabled={isLoggingOut}
+              tooltip={isLoggingOut ? "Signing out..." : "Sign out"}
               className={cn(
                 "h-11 cursor-pointer items-center gap-3 rounded-md font-display text-base"
               )}
@@ -388,9 +458,9 @@ function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <div className="mt-4 flex items-center gap-3 rounded-md border border-sidebar-border/50 bg-sidebar-accent/30 px-2 py-1.5">
+        <div className="mt-4 flex items-center gap-3 rounded-md border border-sidebar-border/50 bg-sidebar-accent/30 px-2 py-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0">
           <UserAvatar name={displayName} email={displayEmail} />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate font-display text-sm text-sidebar-foreground">
               {displayName}
             </p>

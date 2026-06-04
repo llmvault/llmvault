@@ -149,6 +149,7 @@ func setupV1Routes(
 					r.Get("/employees/models", employeeHandler.ListModels)
 					r.Get("/employees/{id}", employeeHandler.Get)
 					r.Get("/employees/{id}/sessions", employeeHandler.ListSessions)
+					r.Get("/employees/{id}/sessions/{sessionID}/events", employeeHandler.ListSessionEvents)
 					r.Get("/employees/{id}/specialists", employeeHandler.ListSpecialists)
 					r.Patch("/employees/{id}/specialists/{slug}", employeeHandler.UpdateSpecialist)
 					r.Post("/employees/{id}/specialists/{slug}", employeeHandler.EnableSpecialist)

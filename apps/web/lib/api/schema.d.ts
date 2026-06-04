@@ -3711,7 +3711,7 @@ export interface paths {
         };
         /**
          * List sessions for an employee
-         * @description Returns employee runtime sessions with optional trigger delivery metadata.
+         * @description Returns persisted employee sessions with optional trigger delivery metadata.
          */
         get: {
             parameters: {
@@ -3726,7 +3726,7 @@ export interface paths {
                     thread_ts?: string;
                     /** @description Exact agent session ID filter */
                     agent_session_id?: string;
-                    /** @description Prefix search over session identifiers */
+                    /** @description Search over session title, source key, or runtime conversation ID */
                     q?: string;
                     /** @description Page size */
                     limit?: number;
@@ -3749,6 +3749,91 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["paginatedResponse-handler_employeeSessionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employees/{id}/sessions/{sessionID}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List persisted session events
+         * @description Returns persisted employee session events ordered newest-first with cursor pagination.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page size */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path: {
+                    /** @description Employee agent ID */
+                    id: string;
+                    /** @description Employee session ID */
+                    sessionID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_employeeSessionEventResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -8219,15 +8304,37 @@ export interface components {
             updated_at?: string;
             upgrade_id?: string;
         };
+        employeeSessionEventResponse: {
+            created_at?: string;
+            employee_session_id?: string;
+            event_at?: string;
+            event_id?: string;
+            event_type?: string;
+            id?: string;
+            mode?: string;
+            payload?: number[];
+            runtime_session_id?: string;
+            sequence_number?: number;
+            source?: string;
+            specialist_slug?: string;
+            specialist_task_id?: string;
+        };
         employeeSessionResponse: {
             agent_session_id?: string;
             channel?: string;
             created_at?: string;
+            ended_at?: string;
+            event_count?: number;
             id?: string;
             last_activity_at?: string;
+            name?: string;
+            runtime_conversation_id?: string;
+            source?: string;
+            source_resource_key?: string;
             status?: string;
             thread_ts?: string;
             trigger_delivery?: components["schemas"]["triggerDeliveryResponse"];
+            updated_at?: string;
         };
         employeeSkillResponse: {
             created_at?: string;
@@ -8533,6 +8640,11 @@ export interface components {
         };
         "paginatedResponse-handler_employeeListItem": {
             data?: components["schemas"]["employeeListItem"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_employeeSessionEventResponse": {
+            data?: components["schemas"]["employeeSessionEventResponse"][];
             has_more?: boolean;
             next_cursor?: string;
         };
