@@ -33,6 +33,7 @@ func setupPublicRoutes(
 	gatewayHTTPHandler *handler.GatewayHTTPHandler,
 	nangoClient *nango.Client,
 	sandboxEncKey *crypto.SymmetricKey,
+	kms *crypto.KeyWrapper,
 	uploadsHandler *handler.UploadsHandler,
 	sqliteBackupHandler *handler.EmployeeSQLiteBackupHandler,
 ) {
@@ -89,6 +90,12 @@ func setupPublicRoutes(
 
 		slackProxyHandler := handler.NewSlackProxyHandler(database, sandboxEncKey, nangoClient)
 		r.Handle("/internal/slack-proxy/{employeeID}/*", http.HandlerFunc(slackProxyHandler.Handle))
+	}
+	if sandboxEncKey != nil && kms != nil {
+		databaseProxyHandler := handler.NewDatabaseProxyHandler(database, sandboxEncKey, kms)
+		r.Post("/internal/database-proxy/postgres/{employeeID}", databaseProxyHandler.Handle("postgres"))
+		r.Post("/internal/database-proxy/mysql/{employeeID}", databaseProxyHandler.Handle("mysql"))
+		r.Post("/internal/database-proxy/mongodb/{employeeID}", databaseProxyHandler.Handle("mongodb"))
 	}
 
 	// Direct incoming webhooks for providers requiring manual webhook configuration

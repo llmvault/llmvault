@@ -148,6 +148,27 @@ definitions:
       webhook_user_defined_secret:
         type: boolean
     type: object
+  Policy:
+    properties:
+      allowed_collections:
+        items:
+          type: string
+        type: array
+      allowed_schemas:
+        items:
+          type: string
+        type: array
+      allowed_tables:
+        items:
+          type: string
+        type: array
+      masked_fields:
+        items:
+          type: string
+        type: array
+      max_rows:
+        type: integer
+    type: object
   Reference:
     properties:
       body:
@@ -729,6 +750,39 @@ definitions:
     properties:
       total:
         type: integer
+    type: object
+  databaseConnectionRequest:
+    properties:
+      access_policy:
+        $ref: '#/definitions/Policy'
+      connection_url:
+        type: string
+      display_name:
+        type: string
+      employee_id:
+        type: string
+      provider:
+        type: string
+    type: object
+  databaseConnectionResponse:
+    properties:
+      access_policy:
+        $ref: '#/definitions/JSON'
+      created_at:
+        type: string
+      display_name:
+        type: string
+      employee_id:
+        type: string
+      id:
+        type: string
+      provider:
+        type: string
+      revoked_at:
+        type: string
+      schema_snapshot: {}
+      updated_at:
+        type: string
     type: object
   dnsRecord:
     properties:
@@ -4303,6 +4357,219 @@ paths:
       summary: Get dashboard summary
       tags:
       - dashboard
+  /v1/database-integrations:
+    get:
+      description: Lists active database integrations for the current organization.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/databaseConnectionResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List database integrations
+      tags:
+      - database-integrations
+    post:
+      consumes:
+      - application/json
+      description: Stores encrypted database credentials for the current organization.
+      parameters:
+      - description: Database integration details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/databaseConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create database integration
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}:
+    delete:
+      description: Revokes a database integration without exposing stored credentials.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Disconnect database integration
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}/introspect:
+    post:
+      description: Introspects and stores the visible database schema snapshot.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Introspect database integration
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}/policy:
+    put:
+      consumes:
+      - application/json
+      description: Saves table, collection, field mask, and result limit policy for
+        a database integration.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Access policy
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/Policy'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update database access policy
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}/test:
+    post:
+      description: Verifies that stored database credentials can connect.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Test database integration
+      tags:
+      - database-integrations
   /v1/employees:
     get:
       description: |-

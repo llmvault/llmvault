@@ -47,6 +47,12 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 		EmployeeEnvVercelAPIKey:   "runtime-secret",
 		EmployeeEnvSlackAPIURL:    "https://api.example.test/internal/slack-proxy/" + employeeID.String(),
 		EmployeeEnvSlackToken:     "runtime-secret",
+		EmployeeEnvPostgresURL:    "https://api.example.test/internal/database-proxy/postgres/" + employeeID.String(),
+		EmployeeEnvPostgresToken:  "runtime-secret",
+		EmployeeEnvMySQLURL:       "https://api.example.test/internal/database-proxy/mysql/" + employeeID.String(),
+		EmployeeEnvMySQLToken:     "runtime-secret",
+		EmployeeEnvMongoDBURL:     "https://api.example.test/internal/database-proxy/mongodb/" + employeeID.String(),
+		EmployeeEnvMongoDBToken:   "runtime-secret",
 	}
 	for key, value := range want {
 		if env[key] != value {

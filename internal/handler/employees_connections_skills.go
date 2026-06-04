@@ -74,6 +74,21 @@ func activeEmployeeConnectionProviders(ctx context.Context, db *gorm.DB, orgID u
 		providers = append(providers, provider)
 		displays[provider] = conn.Integration.DisplayName
 	}
+	var databaseConnections []model.DatabaseConnection
+	if err := db.WithContext(ctx).
+		Where("org_id = ? AND revoked_at IS NULL", orgID).
+		Find(&databaseConnections).Error; err != nil {
+		return nil, nil, fmt.Errorf("load employee database connection providers: %w", err)
+	}
+	for _, conn := range databaseConnections {
+		provider := conn.Provider
+		if provider == "" || seen[provider] {
+			continue
+		}
+		seen[provider] = true
+		providers = append(providers, provider)
+		displays[provider] = conn.DisplayName
+	}
 	sort.Strings(providers)
 	return providers, displays, nil
 }

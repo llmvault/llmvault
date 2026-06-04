@@ -49,6 +49,12 @@ func TestEmployeeEnvCatalogGolden(t *testing.T) {
 		EmployeeEnvVercelAPIKey,
 		EmployeeEnvSlackAPIURL,
 		EmployeeEnvSlackToken,
+		EmployeeEnvPostgresURL,
+		EmployeeEnvPostgresToken,
+		EmployeeEnvMySQLURL,
+		EmployeeEnvMySQLToken,
+		EmployeeEnvMongoDBURL,
+		EmployeeEnvMongoDBToken,
 		EmployeeEnvSentryDSN,
 		EmployeeEnvSentryEnvironment,
 		EmployeeEnvSentrySampleRate,
@@ -83,6 +89,12 @@ func TestApplyServiceProxyEnvSetsAllProviderProxyVariables(t *testing.T) {
 		EmployeeEnvVercelAPIKey:  "runtime-secret",
 		EmployeeEnvSlackAPIURL:   "https://api.example.test/internal/slack-proxy/11111111-1111-1111-1111-111111111111",
 		EmployeeEnvSlackToken:    "runtime-secret",
+		EmployeeEnvPostgresURL:   "https://api.example.test/internal/database-proxy/postgres/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvPostgresToken: "runtime-secret",
+		EmployeeEnvMySQLURL:      "https://api.example.test/internal/database-proxy/mysql/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvMySQLToken:    "runtime-secret",
+		EmployeeEnvMongoDBURL:    "https://api.example.test/internal/database-proxy/mongodb/11111111-1111-1111-1111-111111111111",
+		EmployeeEnvMongoDBToken:  "runtime-secret",
 	}
 	if !reflect.DeepEqual(env, want) {
 		t.Fatalf("proxy env = %#v, want %#v", env, want)
