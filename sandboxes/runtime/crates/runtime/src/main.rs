@@ -47,8 +47,20 @@ async fn main() -> Result<()> {
     let _ = dotenvy::dotenv();
 
     let sentry_guard = sentry_support::init_sentry();
-    sentry_support::init_tracing(sentry_guard.is_some());
-    if sentry_guard.is_some() {
+    let sentry_enabled = sentry_guard.is_some();
+    let sentry_dsn_set = std::env::var("SENTRY_DSN")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .is_some();
+    sentry_support::init_tracing(sentry_enabled);
+    if sentry_enabled {
+        sentry::add_breadcrumb(sentry::Breadcrumb {
+            ty: "default".into(),
+            category: Some("runtime.startup".into()),
+            message: Some("sentry reporting enabled".into()),
+            level: sentry::Level::Info,
+            ..Default::default()
+        });
         info!("sentry reporting enabled");
     } else {
         info!("sentry reporting disabled; set SENTRY_DSN or SENTRY_SPOTLIGHT=true to enable");
@@ -96,10 +108,8 @@ async fn main() -> Result<()> {
         Arc::new(SqliteInboundDedupeRepo::new(&sqlite_store));
     let cron_repo: Arc<dyn storage::CronJobRepo> = Arc::new(SqliteCronJobRepo::new(&sqlite_store));
 
-    let mut persisted_definition_loaded = false;
     let initial_definition = match config_repo.load().await? {
         Some(persisted) => {
-            persisted_definition_loaded = true;
             info!("loaded agent definition from database");
             persisted
         }
@@ -152,12 +162,11 @@ async fn main() -> Result<()> {
         Some(mcp_registry.clone()),
         Some(outbound_reloader),
         tunnel_password,
+        sentry_enabled,
+        sentry_dsn_set,
     );
     let (api_handle, api_cancel) = api::serve(bind_addr, api_state.clone()).await;
     api_state.mark_gateway_ready();
-    if persisted_definition_loaded {
-        api_state.mark_config_loaded();
-    }
 
     api_state.wait_for_config_loaded().await;
     let active_definition = config.snapshot();
@@ -258,6 +267,15 @@ async fn main() -> Result<()> {
                 .await
                 {
                     error!(error = %e, "handler::handle_inbound failed");
+                    sentry::with_scope(
+                        |scope| scope.set_extra("internal_error", e.to_string().into()),
+                        || {
+                            sentry::capture_message(
+                                "handler::handle_inbound failed",
+                                sentry::Level::Error,
+                            )
+                        },
+                    );
                 }
             });
         }
@@ -272,9 +290,27 @@ async fn main() -> Result<()> {
     let _ = dispatcher_handle.await;
     if let Err(error) = database_event_queue.flush().await {
         warn!(%error, "database event queue final flush failed");
+        sentry::with_scope(
+            |scope| scope.set_extra("internal_error", error.to_string().into()),
+            || {
+                sentry::capture_message(
+                    "database event queue final flush failed",
+                    sentry::Level::Error,
+                )
+            },
+        );
     }
     if let Err(error) = sqlite_store.flush_writes().await {
         warn!(%error, "sqlite write gateway final flush failed");
+        sentry::with_scope(
+            |scope| scope.set_extra("internal_error", error.to_string().into()),
+            || {
+                sentry::capture_message(
+                    "sqlite write gateway final flush failed",
+                    sentry::Level::Error,
+                )
+            },
+        );
     }
     let _ = api_cancel.send(());
     let _ = api_handle.await;

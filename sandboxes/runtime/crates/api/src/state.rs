@@ -31,6 +31,8 @@ pub struct ApiState {
     pub outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
     pub observability: ObservabilityRecorder,
     pub tunnel_password: Option<String>,
+    pub sentry_enabled: bool,
+    pub sentry_dsn_set: bool,
 }
 
 #[async_trait]
@@ -53,6 +55,8 @@ impl ApiState {
         mcp_registry: Option<Arc<McpRegistry>>,
         outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
         tunnel_password: Option<String>,
+        sentry_enabled: bool,
+        sentry_dsn_set: bool,
     ) -> Self {
         let observability = http_gateway
             .as_ref()
@@ -75,6 +79,8 @@ impl ApiState {
             outbound_reloader,
             observability,
             tunnel_password,
+            sentry_enabled,
+            sentry_dsn_set,
         }
     }
 

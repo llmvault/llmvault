@@ -1,15 +1,17 @@
 ---
 name: bugsink
-description: Use when investigating Bugsink errors, issues, projects, events, stacktraces, regressions, or production exceptions. Provides verified curl and jq commands for the canonical Bugsink API using BUGSINK_URL and BUGSINK_TOKEN, and explains how to construct dashboard links using BUGSINK_DASHBOARD_BASE_URL instead of the proxy URL.
+description: Use when investigating Bugsink errors, issues, projects, events, stacktraces, regressions, or production exceptions. Provides verified curl and jq commands through the Hivy Bugsink proxy using HIVY_BUGSINK_URL and HIVY_BUGSINK_TOKEN, and explains how to construct dashboard links using HIVY_BUGSINK_DASHBOARD_BASE_URL instead of the proxy URL.
 ---
 
 # Bugsink issue investigation
 
-Use Bugsink through the Hivy-provided Bugsink proxy at `$BUGSINK_URL/api/canonical/0`.
+Use Bugsink through the Hivy-provided Bugsink proxy at `$HIVY_BUGSINK_URL/api/canonical/0`.
 
-`BUGSINK_URL` is provided by the Hivy runtime. Always call the provided `BUGSINK_URL` exactly; the runtime handles forwarding for the configured Bugsink connection.
+You are running inside the Hivy runtime. All external Bugsink API calls must go through the Hivy proxy for security, credential isolation, and tracking.
 
-`BUGSINK_DASHBOARD_BASE_URL` is the real Bugsink dashboard base URL. Use it only for human-facing links. Never construct dashboard links from `BUGSINK_URL`; `BUGSINK_URL` is a Hivy API proxy and is not the Bugsink UI host.
+`HIVY_BUGSINK_URL` is provided by the Hivy runtime. Always call the provided `HIVY_BUGSINK_URL` exactly; the runtime handles forwarding for the configured Bugsink connection.
+
+`HIVY_BUGSINK_DASHBOARD_BASE_URL` is the real Bugsink dashboard base URL. Use it only for human-facing links. Never construct dashboard links from `HIVY_BUGSINK_URL`; `HIVY_BUGSINK_URL` is a Hivy API proxy and is not the Bugsink UI host.
 
 ## Environment
 
@@ -17,30 +19,30 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `BUGSINK_URL` | Hivy-provided Bugsink proxy base URL |
-| `BUGSINK_TOKEN` | Bearer token for the provided Bugsink endpoint |
+| `HIVY_BUGSINK_URL` | Hivy-provided Bugsink proxy base URL |
+| `HIVY_BUGSINK_TOKEN` | Bearer token for the provided Bugsink endpoint |
 
 Optional:
 
 | Variable | Purpose |
 |---|---|
-| `BUGSINK_DASHBOARD_BASE_URL` | Real Bugsink dashboard base URL for links shown to users |
+| `HIVY_BUGSINK_DASHBOARD_BASE_URL` | Real Bugsink dashboard base URL for links shown to users |
 
 Normalize the URL once before calling the API:
 
 ```bash
-test -n "$BUGSINK_URL" || { echo "BUGSINK_URL is not set" >&2; exit 1; }
-test -n "$BUGSINK_TOKEN" || { echo "BUGSINK_TOKEN is not set" >&2; exit 1; }
-BUGSINK_URL="${BUGSINK_URL%/}"
-BUGSINK_API="$BUGSINK_URL/api/canonical/0"
-BUGSINK_DASHBOARD_BASE_URL="${BUGSINK_DASHBOARD_BASE_URL%/}"
+test -n "$HIVY_BUGSINK_URL" || { echo "HIVY_BUGSINK_URL is not set" >&2; exit 1; }
+test -n "$HIVY_BUGSINK_TOKEN" || { echo "HIVY_BUGSINK_TOKEN is not set" >&2; exit 1; }
+HIVY_BUGSINK_URL="${HIVY_BUGSINK_URL%/}"
+BUGSINK_API="$HIVY_BUGSINK_URL/api/canonical/0"
+HIVY_BUGSINK_DASHBOARD_BASE_URL="${HIVY_BUGSINK_DASHBOARD_BASE_URL%/}"
 ```
 
 Every API call must include the bearer token:
 
 ```bash
 curl -fsS "$BUGSINK_API/projects/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '{project_count: (.results | length)}'
 ```
 
@@ -51,53 +53,54 @@ curl -fsS "$BUGSINK_API/projects/" \
 - Prefer list endpoints first, then retrieve the single project, issue, or event needed.
 - Use Bugsink internal event `id` for `/events/{id}/` and `/events/{id}/stacktrace/`; `event_id` is the event id from the client payload.
 - Treat `next` and `previous` as pagination cursors/links. Follow `next` only when the user needs more results.
-- Do not print `$BUGSINK_TOKEN`.
+- Do not print `$HIVY_BUGSINK_TOKEN`.
+- Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Bugsink.
 - When reporting results to a teammate, summarize only user-relevant fields and outcomes. Do not mention proxy URLs, bearer-token mechanics, schema probing, filtering commands, or internal API path discovery unless troubleshooting the Bugsink integration itself.
 
 ## Dashboard links
 
-Construct human-facing Bugsink links with `BUGSINK_DASHBOARD_BASE_URL`, not `BUGSINK_URL`.
+Construct human-facing Bugsink links with `HIVY_BUGSINK_DASHBOARD_BASE_URL`, not `HIVY_BUGSINK_URL`.
 
-If `BUGSINK_DASHBOARD_BASE_URL` is unset, say that the dashboard base URL is unavailable and provide the issue/project/event IDs instead. Do not substitute the Hivy proxy URL.
+If `HIVY_BUGSINK_DASHBOARD_BASE_URL` is unset, say that the dashboard base URL is unavailable and provide the issue/project/event IDs instead. Do not substitute the Hivy proxy URL.
 
 Known link patterns:
 
 ```text
 Projects / teams:
-$BUGSINK_DASHBOARD_BASE_URL/projects/teams/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/projects/teams/
 
 Issue latest event:
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/event/last/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/event/last/
 
 Specific issue event:
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/event/<event_uuid>/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/event/<event_uuid>/
 
 Issue event details:
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/event/<event_uuid>/details/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/event/<event_uuid>/details/
 
 Issue events list:
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/events/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/events/
 
 Issue tags:
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/tags/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/tags/
 
 Issue history:
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/history/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/history/
 
 Issue grouping:
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/grouping/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/<issue_uuid>/grouping/
 ```
 
 Example:
 
 ```text
-$BUGSINK_DASHBOARD_BASE_URL/issues/issue/878164f1-b936-4470-8341-ebbbe49a0a05/event/last/
+$HIVY_BUGSINK_DASHBOARD_BASE_URL/issues/issue/878164f1-b936-4470-8341-ebbbe49a0a05/event/last/
 ```
 
-When returning an issue summary, include a `dashboard_url` field if `BUGSINK_DASHBOARD_BASE_URL` is set:
+When returning an issue summary, include a `dashboard_url` field if `HIVY_BUGSINK_DASHBOARD_BASE_URL` is set:
 
 ```bash
-jq --arg base "$BUGSINK_DASHBOARD_BASE_URL" '
+jq --arg base "$HIVY_BUGSINK_DASHBOARD_BASE_URL" '
   .results[]
   | {
       id,
@@ -113,14 +116,14 @@ jq --arg base "$BUGSINK_DASHBOARD_BASE_URL" '
 If this skill does not cover an operation you need, inspect the machine-readable API schema before guessing:
 
 ```text
-$BUGSINK_URL/api/canonical/0/schema/
+$HIVY_BUGSINK_URL/api/canonical/0/schema/
 ```
 
 Fetch the schema and inspect only the relevant paths/components:
 
 ```bash
 curl -fsS "$BUGSINK_API/schema/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   -o /tmp/bugsink-openapi.yaml
 ```
 
@@ -150,7 +153,7 @@ sed -n '/    ProjectDetail:/,/    ProjectList:/p' /tmp/bugsink-openapi.yaml
 
 ```bash
 curl -fsS "$BUGSINK_API/teams/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '[.results[] | {id, name, visibility}]'
 ```
 
@@ -160,7 +163,7 @@ Use this first when the user gives a project name, service name, or asks "what p
 
 ```bash
 curl -fsS "$BUGSINK_API/projects/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '[.results[] | {
       id,
       name,
@@ -177,7 +180,7 @@ Find one project by name or slug:
 ```bash
 PROJECT_QUERY="api"
 curl -fsS "$BUGSINK_API/projects/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq --arg q "$PROJECT_QUERY" -r '
       .results[]
       | select((.name // "" | ascii_downcase) == ($q | ascii_downcase)
@@ -191,7 +194,7 @@ Get project details after you know the numeric project id:
 ```bash
 PROJECT_ID=2
 curl -fsS "$BUGSINK_API/projects/$PROJECT_ID/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '{
       id,
       name,
@@ -214,7 +217,7 @@ The issues list endpoint requires `project=<numeric_project_id>`.
 ```bash
 PROJECT_ID=2
 curl -fsS "$BUGSINK_API/issues/?project=$PROJECT_ID&sort=last_seen&order=desc" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '{
       next,
       previous,
@@ -249,7 +252,7 @@ Filter issue list results locally by error text, type, value, or transaction:
 PROJECT_ID=2
 QUERY="context canceled"
 curl -fsS "$BUGSINK_API/issues/?project=$PROJECT_ID&sort=last_seen&order=desc" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq --arg q "$QUERY" '{
       matches: [
         .results[]
@@ -283,7 +286,7 @@ Use an issue UUID from the issue list.
 ```bash
 ISSUE_ID="bc66f84f-0657-40dd-b3fc-d280acc52c27"
 curl -fsS "$BUGSINK_API/issues/$ISSUE_ID/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '{
       id,
       project,
@@ -307,7 +310,7 @@ The events list endpoint requires `issue=<issue_uuid>`. List results are lightwe
 ```bash
 ISSUE_ID="bc66f84f-0657-40dd-b3fc-d280acc52c27"
 curl -fsS "$BUGSINK_API/events/?issue=$ISSUE_ID&order=desc" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '{
       next,
       previous,
@@ -333,7 +336,7 @@ Retrieve event detail only for one event id. The response includes the full `dat
 ```bash
 EVENT_ID="5f6b3d20-9ac4-4c8f-ad23-e5e6c12c69d7"
 curl -fsS "$BUGSINK_API/events/$EVENT_ID/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '{
       id,
       event_id,
@@ -391,7 +394,7 @@ If you need SDK/runtime context, request only key names or a narrow allowlist:
 ```bash
 EVENT_ID="5f6b3d20-9ac4-4c8f-ad23-e5e6c12c69d7"
 curl -fsS "$BUGSINK_API/events/$EVENT_ID/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '{
       sdk: .data.sdk,
       contexts: {
@@ -411,7 +414,7 @@ The stacktrace endpoint returns Markdown-like text and is safe to inspect direct
 ```bash
 EVENT_ID="a6c8658f-3884-472c-bdd9-13f46c73a5bb"
 curl -fsS "$BUGSINK_API/events/$EVENT_ID/stacktrace/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | sed -n '1,160p'
 ```
 
@@ -422,13 +425,13 @@ Use this sequence for most investigations:
 ```bash
 # 1. Find the project id.
 curl -fsS "$BUGSINK_API/projects/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '[.results[] | {id, name, slug, stored_event_count}]'
 
 # 2. List recent unresolved issues.
 PROJECT_ID=2
 curl -fsS "$BUGSINK_API/issues/?project=$PROJECT_ID&sort=last_seen&order=desc" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '[.results[]
       | select(.is_resolved == false and .is_muted == false)
       | {
@@ -444,13 +447,13 @@ curl -fsS "$BUGSINK_API/issues/?project=$PROJECT_ID&sort=last_seen&order=desc" \
 # 3. Pick an issue and list recent events.
 ISSUE_ID="bc66f84f-0657-40dd-b3fc-d280acc52c27"
 curl -fsS "$BUGSINK_API/events/?issue=$ISSUE_ID&order=desc" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | jq '[.results[] | {id, timestamp, event_id, digest_order}][0:5]'
 
 # 4. Pick one event and read the stacktrace.
 EVENT_ID="a6c8658f-3884-472c-bdd9-13f46c73a5bb"
 curl -fsS "$BUGSINK_API/events/$EVENT_ID/stacktrace/" \
-  -H "Authorization: Bearer $BUGSINK_TOKEN" \
+  -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
   | sed -n '1,160p'
 ```
 
@@ -472,13 +475,13 @@ If `next` is non-null and the user needs more records, fetch it directly with th
 PROJECT_ID=2
 NEXT_URL=$(
   curl -fsS "$BUGSINK_API/issues/?project=$PROJECT_ID&sort=last_seen&order=desc" \
-    -H "Authorization: Bearer $BUGSINK_TOKEN" \
+    -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
     | jq -r '.next // empty'
 )
 
 if test -n "$NEXT_URL"; then
   curl -fsS "$NEXT_URL" \
-    -H "Authorization: Bearer $BUGSINK_TOKEN" \
+    -H "Authorization: Bearer $HIVY_BUGSINK_TOKEN" \
     | jq '{next, previous, count: (.results | length)}'
 else
   echo "No next page"

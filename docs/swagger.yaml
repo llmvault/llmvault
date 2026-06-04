@@ -71,6 +71,10 @@ definitions:
     type: object
   Cost:
     properties:
+      cache_read:
+        type: number
+      cache_write:
+        type: number
       input:
         type: number
       output:
@@ -143,6 +147,27 @@ definitions:
         type: string
       webhook_user_defined_secret:
         type: boolean
+    type: object
+  Policy:
+    properties:
+      allowed_collections:
+        items:
+          type: string
+        type: array
+      allowed_schemas:
+        items:
+          type: string
+        type: array
+      allowed_tables:
+        items:
+          type: string
+        type: array
+      masked_fields:
+        items:
+          type: string
+        type: array
+      max_rows:
+        type: integer
     type: object
   Reference:
     properties:
@@ -726,6 +751,39 @@ definitions:
       total:
         type: integer
     type: object
+  databaseConnectionRequest:
+    properties:
+      access_policy:
+        $ref: '#/definitions/Policy'
+      connection_url:
+        type: string
+      display_name:
+        type: string
+      employee_id:
+        type: string
+      provider:
+        type: string
+    type: object
+  databaseConnectionResponse:
+    properties:
+      access_policy:
+        $ref: '#/definitions/JSON'
+      created_at:
+        type: string
+      display_name:
+        type: string
+      employee_id:
+        type: string
+      id:
+        type: string
+      provider:
+        type: string
+      revoked_at:
+        type: string
+      schema_snapshot: {}
+      updated_at:
+        type: string
+    type: object
   dnsRecord:
     properties:
       name:
@@ -782,6 +840,45 @@ definitions:
       upgrade_available:
         type: boolean
     type: object
+  employeeResponse:
+    properties:
+      attached_skills:
+        items:
+          $ref: '#/definitions/employeeSkillSummary'
+        type: array
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      last_memory_refreshed_at:
+        type: string
+      memory_refresh_error:
+        type: string
+      memory_refresh_status:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      sandbox_template_id:
+        type: string
+      specialist_ids:
+        items:
+          type: string
+        type: array
+      status:
+        type: string
+      triggers:
+        items:
+          $ref: '#/definitions/employeeTriggerResponse'
+        type: array
+      updated_at:
+        type: string
+    type: object
   employeeSandboxSummary:
     properties:
       created_at:
@@ -824,6 +921,37 @@ definitions:
       upgrade_id:
         type: string
     type: object
+  employeeSessionEventResponse:
+    properties:
+      created_at:
+        type: string
+      employee_session_id:
+        type: string
+      event_at:
+        type: string
+      event_id:
+        type: string
+      event_type:
+        type: string
+      id:
+        type: string
+      mode:
+        type: string
+      payload:
+        items:
+          type: integer
+        type: array
+      runtime_session_id:
+        type: string
+      sequence_number:
+        type: integer
+      source:
+        type: string
+      specialist_slug:
+        type: string
+      specialist_task_id:
+        type: string
+    type: object
   employeeSessionResponse:
     properties:
       agent_session_id:
@@ -832,9 +960,21 @@ definitions:
         type: string
       created_at:
         type: string
+      ended_at:
+        type: string
+      event_count:
+        type: integer
       id:
         type: string
       last_activity_at:
+        type: string
+      name:
+        type: string
+      runtime_conversation_id:
+        type: string
+      source:
+        type: string
+      source_resource_key:
         type: string
       status:
         type: string
@@ -842,6 +982,8 @@ definitions:
         type: string
       trigger_delivery:
         $ref: '#/definitions/triggerDeliveryResponse'
+      updated_at:
+        type: string
     type: object
   employeeSkillResponse:
     properties:
@@ -1438,6 +1580,17 @@ definitions:
       next_cursor:
         type: string
     type: object
+  paginatedResponse-handler_employeeSessionEventResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/employeeSessionEventResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
   paginatedResponse-handler_employeeSessionResponse:
     properties:
       data:
@@ -1871,6 +2024,15 @@ definitions:
         type: integer
       updated_at:
         type: string
+    type: object
+  rebootEmployeeSandboxResponse:
+    properties:
+      employee:
+        $ref: '#/definitions/employeeResponse'
+      sandbox_id:
+        type: string
+      sync:
+        $ref: '#/definitions/syncEmployeeResponse'
     type: object
   refreshRequest:
     properties:
@@ -2460,6 +2622,18 @@ definitions:
     properties:
       bundle:
         $ref: '#/definitions/Bundle'
+    type: object
+  updateEmployeeModelRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  updateEmployeeModelResponse:
+    properties:
+      employee:
+        $ref: '#/definitions/employeeResponse'
+      sync:
+        $ref: '#/definitions/syncEmployeeResponse'
     type: object
   updateEmployeeSpecialistRequest:
     properties:
@@ -4273,6 +4447,219 @@ paths:
       summary: Get dashboard summary
       tags:
       - dashboard
+  /v1/database-integrations:
+    get:
+      description: Lists active database integrations for the current organization.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/databaseConnectionResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List database integrations
+      tags:
+      - database-integrations
+    post:
+      consumes:
+      - application/json
+      description: Stores encrypted database credentials for the current organization.
+      parameters:
+      - description: Database integration details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/databaseConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create database integration
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}:
+    delete:
+      description: Revokes a database integration without exposing stored credentials.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Disconnect database integration
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}/introspect:
+    post:
+      description: Introspects and stores the visible database schema snapshot.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Introspect database integration
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}/policy:
+    put:
+      consumes:
+      - application/json
+      description: Saves table, collection, field mask, and result limit policy for
+        a database integration.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Access policy
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/Policy'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/databaseConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update database access policy
+      tags:
+      - database-integrations
+  /v1/database-integrations/{id}/test:
+    post:
+      description: Verifies that stored database credentials can connect.
+      parameters:
+      - description: Database integration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Test database integration
+      tags:
+      - database-integrations
   /v1/employees:
     get:
       description: |-
@@ -4350,6 +4737,114 @@ paths:
       security:
       - BearerAuth: []
       summary: Get an AI employee
+      tags:
+      - employees
+  /v1/employees/{id}/model:
+    patch:
+      consumes:
+      - application/json
+      description: Persists Hivy's employee model and pushes the full runtime config
+        to the live sandbox.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Employee model update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateEmployeeModelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/updateEmployeeModelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an employee model
+      tags:
+      - employees
+  /v1/employees/{id}/sandbox/reboot:
+    post:
+      description: Restarts the employee sandbox, pushes fresh runtime config, mints
+        fresh proxy credentials, and verifies readiness.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rebootEmployeeSandboxResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reboot an employee sandbox
       tags:
       - employees
   /v1/employees/{id}/sandbox/upgrade:
@@ -4447,7 +4942,7 @@ paths:
       - employees
   /v1/employees/{id}/sessions:
     get:
-      description: Returns employee runtime sessions with optional trigger delivery
+      description: Returns persisted employee sessions with optional trigger delivery
         metadata.
       parameters:
       - description: Employee agent ID
@@ -4475,7 +4970,8 @@ paths:
         in: query
         name: agent_session_id
         type: string
-      - description: Prefix search over session identifiers
+      - description: Search over session title, source key, or runtime conversation
+          ID
         in: query
         name: q
         type: string
@@ -4513,6 +5009,57 @@ paths:
       security:
       - BearerAuth: []
       summary: List sessions for an employee
+      tags:
+      - employees
+  /v1/employees/{id}/sessions/{sessionID}/events:
+    get:
+      description: Returns persisted employee session events ordered newest-first
+        with cursor pagination.
+      parameters:
+      - description: Employee agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Employee session ID
+        in: path
+        name: sessionID
+        required: true
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-handler_employeeSessionEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List persisted session events
       tags:
       - employees
   /v1/employees/{id}/skills:
@@ -4836,6 +5383,28 @@ paths:
       security:
       - BearerAuth: []
       summary: Push compiled config to an employee sandbox
+      tags:
+      - employees
+  /v1/employees/models:
+    get:
+      description: Returns the OpenRouter-backed model allowlist supported for Hivy
+        employees.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/modelSummary'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List employee-selectable models
       tags:
       - employees
   /v1/generations:

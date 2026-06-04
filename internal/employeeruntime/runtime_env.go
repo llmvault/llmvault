@@ -29,6 +29,30 @@ func BuildRuntimeEnv(ctx context.Context, deps CompileDeps, agent *model.Employe
 	return BuildRuntimeEnvWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
 }
 
+func BuildEmployeeRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent *model.Employee, sb *model.Sandbox, runtimeSecret string) (ConfigUpdateRequest, *ProxyTokenResult, error) {
+	sandboxID := uuid.Nil
+	if sb != nil {
+		sandboxID = sb.ID
+	}
+	token, err := MintProxyToken(ctx, deps, agent, sandboxID)
+	if err != nil {
+		return ConfigUpdateRequest{}, nil, err
+	}
+	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
+	if err != nil {
+		return ConfigUpdateRequest{}, token, err
+	}
+	def, err := CompileWithProxyToken(ctx, deps, agent, token)
+	if err != nil {
+		return ConfigUpdateRequest{}, token, err
+	}
+	def.OutboundChannels = ControlPlaneOutboundChannels(deps.Cfg, sandboxID)
+	return ConfigUpdateRequest{
+		Definition: def,
+		RuntimeEnv: env,
+	}, token, nil
+}
+
 func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (map[string]string, error) {
 	env := make(map[string]string)
 	if agent == nil {
@@ -41,7 +65,7 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 		env[EmployeeEnvSandboxID] = sb.ID.String()
 	}
 	env[EmployeeEnvRuntimeSecret] = runtimeSecret
-	env[EmployeeEnvUploadBearer] = runtimeSecret
+	env[EmployeeEnvDriveUploadBearer] = runtimeSecret
 	env[EmployeeEnvEmployeeID] = agent.ID.String()
 	if agent.OrgID != nil {
 		env[EmployeeEnvOrgID] = agent.OrgID.String()
@@ -96,13 +120,9 @@ func addControlPlaneRuntimeEnv(ctx context.Context, deps CompileDeps, env map[st
 		return
 	}
 	controlPlaneBaseURL := deps.Cfg.RuntimeControlPlaneBaseURL()
-	env[EmployeeEnvBugsinkURL] = fmt.Sprintf("%s/internal/bugsink-proxy/%s", controlPlaneBaseURL, agent.ID)
+	ApplyServiceProxyEnv(env, controlPlaneBaseURL, agent.ID, runtimeSecret)
+	env[EmployeeEnvDriveUploadURL] = EmployeeDriveUploadURL(controlPlaneBaseURL, agent.ID)
 	if deps.DB != nil && agent.OrgID != nil {
 		env[EmployeeEnvBugsinkDashboardBaseURL] = BugsinkDashboardBaseURL(ctx, deps.DB, *agent.OrgID, *agent)
 	}
-	env[EmployeeEnvBugsinkToken] = runtimeSecret
-	env[EmployeeEnvLinearURL] = fmt.Sprintf("%s/internal/linear-proxy/%s", controlPlaneBaseURL, agent.ID)
-	env[EmployeeEnvLinearToken] = runtimeSecret
-	env[EmployeeEnvNotionAPIURL] = fmt.Sprintf("%s/internal/notion-proxy/%s", controlPlaneBaseURL, agent.ID)
-	env[EmployeeEnvNotionToken] = runtimeSecret
 }

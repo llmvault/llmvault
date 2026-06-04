@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SafetyConfig {
     #[serde(default = "default_true")]
     pub xml_tool_repair: bool,
@@ -28,6 +29,7 @@ impl Default for SafetyConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct OverthinkingConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -51,6 +53,7 @@ impl Default for OverthinkingConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RepeatDetectionConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,

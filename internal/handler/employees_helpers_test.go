@@ -34,6 +34,7 @@ type stubEmployeeProvider struct {
 	failOnCreate   bool
 	createdCount   int
 	deletedCount   int
+	restartCount   int
 	lastCreateOpts sandbox.CreateSandboxOpts
 }
 
@@ -73,8 +74,14 @@ func (s *stubEmployeeProvider) DeleteSandbox(_ context.Context, _ string) error 
 	return nil
 }
 
-func (s *stubEmployeeProvider) StartSandbox(context.Context, string) error   { return nil }
-func (s *stubEmployeeProvider) StopSandbox(context.Context, string) error    { return nil }
+func (s *stubEmployeeProvider) StartSandbox(context.Context, string) error { return nil }
+func (s *stubEmployeeProvider) StopSandbox(context.Context, string) error  { return nil }
+func (s *stubEmployeeProvider) RestartSandbox(context.Context, string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.restartCount++
+	return nil
+}
 func (s *stubEmployeeProvider) ArchiveSandbox(context.Context, string) error { return nil }
 func (s *stubEmployeeProvider) GetStatus(context.Context, string) (sandbox.SandboxStatus, error) {
 	return sandbox.StatusRunning, nil
@@ -122,7 +129,7 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 	db := connectTestDB(t)
 	defaultSkillNames := []string{
 		"git-github",
-		"asset-uploads",
+		"drive",
 		"agent-browser",
 	}
 	db.Unscoped().
@@ -229,9 +236,9 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 
 	cfg := &config.Config{
 		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
-		SpecialistSandboxHost:           "cp.hivy.test",
-		ProxyHost:                       "proxy.hivy.test",
-		MCPBaseURL:                      "https://mcp.hivy.test",
+		SpecialistSandboxHost:     "cp.hivy.test",
+		ProxyHost:                 "proxy.hivy.test",
+		MCPBaseURL:                "https://mcp.hivy.test",
 	}
 	orch := sandbox.NewOrchestrator(db, provider, encKey, cfg)
 	nangoSrv := httptest.NewServer(newNangoConnMock(&nangoConnMockConfig{}))
@@ -255,11 +262,15 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 		r.Use(middleware.ResolveOrgFromHeader(db))
 		r.Get("/", h.List)
 		r.Get("/{id}", h.Get)
+		r.Get("/{id}/sessions", h.ListSessions)
+		r.Get("/{id}/sessions/{sessionID}/events", h.ListSessionEvents)
 		r.Get("/{id}/specialists", h.ListSpecialists)
 		r.Patch("/{id}/specialists/{slug}", h.UpdateSpecialist)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireOrgAdmin(db))
+			r.Patch("/{id}/model", h.UpdateModel)
 			r.Post("/{id}/sync", h.Sync)
+			r.Post("/{id}/sandbox/reboot", h.RebootSandbox)
 			r.Post("/{id}/sandbox/upgrade", h.StartSandboxUpgrade)
 			r.Get("/{id}/sandbox/upgrades/{upgradeID}", h.GetSandboxUpgrade)
 		})

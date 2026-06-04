@@ -5,5 +5,9 @@
   "root": "./SKILL.md",
   "tags": ["bugsink", "errors", "monitoring", "debugging"],
   "integration_ids": ["bugsink"],
+  "required_environment_variables": [
+    "HIVY_BUGSINK_URL",
+    "HIVY_BUGSINK_TOKEN"
+  ],
   "files": []
 }

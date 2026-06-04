@@ -3,12 +3,15 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/hindsight"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -90,6 +93,7 @@ func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 	if hasMore {
 		agents = agents[:limit]
 	}
+	h.ensureReturnedEmployeeMemoryBanks(r.Context(), org.ID, agents)
 
 	agentIDs := make([]uuid.UUID, len(agents))
 	for i, a := range agents {
@@ -168,6 +172,7 @@ func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get employee"})
 		return
 	}
+	h.ensureReturnedEmployeeMemoryBanks(r.Context(), org.ID, []model.Employee{agent})
 
 	base := toEmployeeResponse(agent)
 	base.Triggers = h.loadEmployeeTriggers(agent.ID)[agent.ID]
@@ -186,6 +191,19 @@ func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		Specialists:      specialists,
 		Sandbox:          sandbox,
 	})
+}
+
+func (h *EmployeeHandler) ensureReturnedEmployeeMemoryBanks(ctx context.Context, orgID uuid.UUID, agents []model.Employee) {
+	if h == nil || h.memoryBanks == nil || orgID == uuid.Nil || len(agents) == 0 {
+		return
+	}
+	if err := h.memoryBanks.EnsureOrgBank(ctx, orgID); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("ensure returned employee memory bank: %w", err), map[string]any{
+			"org_id":         orgID.String(),
+			"employee_count": len(agents),
+			"bank_id":        hindsight.OrgBankID(orgID),
+		})
+	}
 }
 
 func (h *EmployeeHandler) currentEmployeeSandboxSnapshotID() string {

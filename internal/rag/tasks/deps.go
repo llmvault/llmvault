@@ -9,20 +9,22 @@ import (
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/nango"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 	"github.com/usehivy/hivy/internal/spider"
 )
 
 type Deps struct {
-	DB         *gorm.DB
-	Qdrant     *qdrant.Client
-	Embedder   *embedclient.Embedder
-	Nango      *nango.Client
-	Spider     *spider.Client
-	KMS        *crypto.KeyWrapper
-	Credits    *billing.CreditsService
-	Collection string
+	DB              *gorm.DB
+	Qdrant          *qdrant.Client
+	Embedder        *embedclient.Embedder
+	Nango           *nango.Client
+	Spider          *spider.Client
+	KMS             *crypto.KeyWrapper
+	Credits         *billing.CreditsService
+	PreContextCache precontext.Cache
+	Collection      string
 
 	// HeartbeatTick: the watchdog timeout must be at least 2× this value.
 	HeartbeatTick time.Duration

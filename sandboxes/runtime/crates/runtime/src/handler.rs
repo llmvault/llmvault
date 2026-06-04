@@ -28,8 +28,8 @@ use session::ensure_session_persisted;
 
 use crate::session_coordinator::{SessionCoordinator, Submission};
 
-const GENERIC_ERROR_REPLY: &str =
-    "Sorry, something went wrong while generating that response. Please try again.";
+const USER_RETRY_MESSAGE: &str =
+    "Something went wrong while generating that response. Please retry. The Hivy team has been notified of this error.";
 
 #[async_trait]
 pub trait TurnEventSink: Send + Sync + 'static {
@@ -289,6 +289,18 @@ pub async fn handle_inbound(
                 .publish_done(&stream_id, &inbound.session_id)
                 .await;
         }
+        if let Some(stream_id) = session_response_stream_id(&inbound) {
+            turn_event_sink
+                .publish_final(
+                    &stream_id,
+                    &inbound.session_id,
+                    "Queued. I will process this after the current turn finishes.",
+                )
+                .await;
+            turn_event_sink
+                .publish_done(&stream_id, &inbound.session_id)
+                .await;
+        }
         return Ok(());
     }
 
@@ -364,6 +376,11 @@ pub async fn handle_inbound(
                 if let Some(stream_id) = http_stream_id.as_deref() {
                     turn_event_sink
                         .publish_done(stream_id, &current_inbound.session_id)
+                        .await;
+                }
+                if let Some(stream_id) = session_response_stream_id(&current_inbound) {
+                    turn_event_sink
+                        .publish_done(&stream_id, &current_inbound.session_id)
                         .await;
                 }
                 break 'turns;
@@ -469,6 +486,7 @@ mod queue_tests {
                 name: "evidence.txt".to_string(),
                 size_bytes: Some(128),
             }],
+            dynamic_context: Vec::new(),
             raw,
             inbound_handle: MessageHandle {
                 channel: "C123".to_string(),
@@ -602,11 +620,15 @@ async fn process_single_turn(
 
     let DownloadResults { images, .. } = media;
     let mut turn_input = TurnInput::text(annotated_text);
+    for context in &inbound.dynamic_context {
+        turn_input = turn_input.with_dynamic_context(context.clone());
+    }
     for (mime, bytes) in images {
         turn_input = turn_input.with_image(mime, bytes);
     }
 
     let http_stream_id = session_stream_id(inbound);
+    let response_stream_id = session_response_stream_id(inbound);
     if let Some(stream_id) = http_stream_id.as_deref() {
         turn_event_sink
             .activate_session_stream(&session_id, stream_id)
@@ -621,6 +643,7 @@ async fn process_single_turn(
             consume_agent_stream(
                 stream,
                 http_stream_id.clone(),
+                response_stream_id.clone(),
                 &session_id,
                 &emitter,
                 event_source,
@@ -636,6 +659,11 @@ async fn process_single_turn(
 
     let final_text = format_final_message(&outcome);
     let reply_text_for_event = final_text.clone();
+    if let Some(stream_id) = response_stream_id.as_deref() {
+        turn_event_sink
+            .publish_final(stream_id, &session_id, &final_text)
+            .await;
+    }
     if let Some(stream_id) = http_stream_id.as_deref() {
         turn_event_sink
             .publish_final(stream_id, &session_id, &final_text)
@@ -735,6 +763,7 @@ async fn process_single_turn(
                     agent_name, job_id, result_text
                 ),
                 attachments: Vec::new(),
+                dynamic_context: Vec::new(),
                 raw: serde_json::json!({
                     "source": "delegate_result",
                     "job_id": job_id,
@@ -831,6 +860,7 @@ fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
     };
     for key in [
         "http_stream_id",
+        "http_response_stream_id",
         "trace_id",
         "turn_id",
         "conversation_id",
@@ -880,6 +910,7 @@ pub(crate) struct StreamOutcome {
 async fn consume_agent_stream(
     mut stream: futures::stream::BoxStream<'static, AgentEvent>,
     stream_id: Option<String>,
+    response_stream_id: Option<String>,
     session_id: &SessionId,
     emitter: &OutboundEmitter,
     source: &'static str,
@@ -890,26 +921,147 @@ async fn consume_agent_stream(
     let mut sequence: u64 = 0;
     while let Some(event) = stream.next().await {
         sequence += 1;
+        let client_event = sanitize_agent_event_for_clients(&event, session_id, source, sequence);
         if let Some(stream_id) = stream_id.as_deref() {
             event_sink
-                .publish_agent_event(stream_id, session_id, &event)
+                .publish_agent_event(stream_id, session_id, &client_event)
                 .await;
         }
-        emit_agent_stream_event(emitter, session_id, source, sequence, &event).await;
+        if let Some(stream_id) = response_stream_id.as_deref() {
+            if matches!(
+                &client_event,
+                AgentEvent::TokenChunk { .. } | AgentEvent::Error { .. }
+            ) {
+                event_sink
+                    .publish_agent_event(stream_id, session_id, &client_event)
+                    .await;
+            }
+        }
+        emit_agent_stream_event(emitter, session_id, source, sequence, &client_event).await;
         match event {
             AgentEvent::ThinkingChunk { .. } => {}
-            AgentEvent::TokenChunk { text } => accumulated.push_str(&text),
-            AgentEvent::FinalMessage { text } => accumulated = text,
+            AgentEvent::TokenChunk { text } => push_visible_delta(&mut accumulated, &text),
+            AgentEvent::FinalMessage { text } => merge_final_text(&mut accumulated, &text),
             AgentEvent::Error { message } => error_message = Some(message),
             AgentEvent::RunEvent { .. } => {}
             _ => {}
         }
     }
-    emitter.flush_streams_for_session(session_id.as_str()).await;
+    emitter
+        .flush_streams_for_session_background(session_id.as_str())
+        .await;
     StreamOutcome {
         text: accumulated,
         error: error_message,
     }
+}
+
+fn push_visible_delta(accumulated: &mut String, delta: &str) {
+    if delta.is_empty() {
+        return;
+    }
+    accumulated.push_str(delta);
+}
+
+fn normalize_visible_text(text: &str) -> String {
+    text.to_string()
+}
+
+fn merge_final_text(accumulated: &mut String, final_text: &str) {
+    let normalized = normalize_visible_text(final_text);
+    if accumulated.trim().is_empty() {
+        *accumulated = normalized;
+        return;
+    }
+    if normalized.starts_with(accumulated.as_str()) && normalized.len() > accumulated.len() {
+        accumulated.push_str(&normalized[accumulated.len()..]);
+    }
+}
+
+fn sanitize_agent_event_for_clients(
+    event: &AgentEvent,
+    session_id: &SessionId,
+    source: &'static str,
+    sequence: u64,
+) -> AgentEvent {
+    match event {
+        AgentEvent::Error { message } => {
+            capture_agent_internal_error(session_id, source, sequence, "agent.error", message);
+            AgentEvent::Error {
+                message: USER_RETRY_MESSAGE.to_string(),
+            }
+        }
+        AgentEvent::RunEvent { event, payload } => {
+            let mut next = payload.clone();
+            if let Some(error) = payload.get("error").and_then(Value::as_str) {
+                capture_agent_internal_error(session_id, source, sequence, event, error);
+                if let Some(map) = next.as_object_mut() {
+                    map.insert(
+                        "error".to_string(),
+                        Value::String("internal error captured".to_string()),
+                    );
+                    map.insert("team_notified".to_string(), Value::Bool(true));
+                }
+            }
+            AgentEvent::RunEvent {
+                event: event.clone(),
+                payload: next,
+            }
+        }
+        AgentEvent::ToolResult { id, result } => {
+            let mut next = result.clone();
+            if let Some(error) = result.get("error").and_then(Value::as_str) {
+                capture_agent_internal_error(
+                    session_id,
+                    source,
+                    sequence,
+                    "agent.tool.result",
+                    error,
+                );
+                if let Some(map) = next.as_object_mut() {
+                    map.insert(
+                        "error".to_string(),
+                        Value::String(USER_RETRY_MESSAGE.to_string()),
+                    );
+                    map.insert("team_notified".to_string(), Value::Bool(true));
+                }
+            }
+            AgentEvent::ToolResult {
+                id: id.clone(),
+                result: next,
+            }
+        }
+        _ => event.clone(),
+    }
+}
+
+fn capture_agent_internal_error(
+    session_id: &SessionId,
+    source: &'static str,
+    sequence: u64,
+    event: &str,
+    error: &str,
+) {
+    let (channel, thread_ts) = derive_channel_and_thread(session_id);
+    warn!(session_id = %session_id.as_str(), source, sequence, event, error = %error, "agent internal error captured");
+    sentry::with_scope(
+        |scope| {
+            scope.set_tag("runtime.error_source", source);
+            scope.set_tag("runtime.agent_event", event);
+            scope.set_tag("runtime.session_id", session_id.as_str());
+            if !channel.is_empty() {
+                scope.set_tag("runtime.channel", channel.as_str());
+            }
+            if !thread_ts.is_empty() {
+                scope.set_tag("runtime.thread_ts", thread_ts.as_str());
+            }
+            scope.set_extra("sequence", sequence.into());
+            scope.set_extra("internal_error", error.into());
+        },
+        || {
+            sentry::capture_message("agent turn internal error", sentry::Level::Error);
+        },
+    );
 }
 
 async fn emit_agent_stream_event(
@@ -973,14 +1125,280 @@ fn session_stream_id(inbound: &InboundEvent) -> Option<String> {
         .map(ToString::to_string)
 }
 
+fn session_response_stream_id(inbound: &InboundEvent) -> Option<String> {
+    inbound
+        .raw
+        .get("http_response_stream_id")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
 fn format_final_message(outcome: &StreamOutcome) -> String {
     if let Some(internal_error) = &outcome.error {
-        warn!(error = %internal_error, "agent turn errored; replying with error detail");
-        return format!("An error occurred: {internal_error}");
+        warn!(error = %internal_error, "agent turn errored; replying with generic error");
+        sentry::with_scope(
+            |scope| scope.set_extra("internal_error", internal_error.clone().into()),
+            || sentry::capture_message("agent turn final response error", sentry::Level::Error),
+        );
+        return USER_RETRY_MESSAGE.to_string();
     }
     if outcome.text.trim().is_empty() {
-        warn!("agent produced no response; replying with generic message");
-        return GENERIC_ERROR_REPLY.to_string();
+        warn!("agent produced no response after recovery attempts");
+        sentry::capture_message("agent produced empty final response", sentry::Level::Error);
+        return USER_RETRY_MESSAGE.to_string();
     }
     outcome.text.clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        format_final_message, merge_final_text, normalize_visible_text, push_visible_delta,
+        sanitize_agent_event_for_clients, StreamOutcome, USER_RETRY_MESSAGE,
+    };
+    use agent::AgentEvent;
+    use domain::SessionId;
+    use serde_json::json;
+
+    #[test]
+    fn empty_outcome_does_not_use_generic_apology() {
+        let text = format_final_message(&StreamOutcome {
+            text: String::new(),
+            error: None,
+        });
+
+        assert!(!text.contains("Sorry, something went wrong"));
+        assert_eq!(text, USER_RETRY_MESSAGE);
+    }
+
+    #[test]
+    fn visible_delta_preserves_provider_token_boundaries() {
+        let mut text = String::new();
+        for delta in ["not", "ion", " rail", "way", " De", "ploy", " Hiv", "y's"] {
+            push_visible_delta(&mut text, delta);
+        }
+        assert_eq!(text, "notion railway Deploy Hivy's");
+    }
+
+    #[test]
+    fn visible_delta_spacing_preserves_existing_spaces() {
+        let mut text = String::new();
+        for delta in ["Hello ", "there", "."] {
+            push_visible_delta(&mut text, delta);
+        }
+        assert_eq!(text, "Hello there.");
+    }
+
+    #[test]
+    fn visible_final_text_is_not_rewritten() {
+        assert_eq!(normalize_visible_text("Hey!What'sup?"), "Hey!What'sup?");
+    }
+
+    #[test]
+    fn final_event_keeps_stream_tokens_when_final_repeats_text() {
+        let mut text = String::new();
+        for delta in ["Hey! ", "What's ", "up?"] {
+            push_visible_delta(&mut text, delta);
+        }
+        merge_final_text(&mut text, "Hey! What's up?");
+        assert_eq!(text, "Hey! What's up?");
+    }
+
+    #[test]
+    fn error_outcome_does_not_expose_internal_details() {
+        let text = format_final_message(&StreamOutcome {
+            text: String::new(),
+            error: Some(
+                "error returned from database: attempt to write a readonly database".into(),
+            ),
+        });
+
+        assert!(!text.contains("readonly database"));
+        assert!(!text.contains("error returned from database"));
+        assert_eq!(text, USER_RETRY_MESSAGE);
+    }
+
+    #[test]
+    fn client_agent_error_event_does_not_expose_internal_details() {
+        let event = AgentEvent::Error {
+            message: "model error: env var HIVY_PROXY_API_KEY not set".to_string(),
+        };
+        let sanitized =
+            sanitize_agent_event_for_clients(&event, &SessionId::from("session-1"), "http", 1);
+
+        match sanitized {
+            AgentEvent::Error { message } => {
+                assert_eq!(message, USER_RETRY_MESSAGE);
+                assert!(!message.contains("HIVY_PROXY_API_KEY"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn client_run_event_redacts_error_payload() {
+        let event = AgentEvent::RunEvent {
+            event: "model_request_failed".to_string(),
+            payload: json!({"error": "database is readonly", "model": "test"}),
+        };
+        let sanitized =
+            sanitize_agent_event_for_clients(&event, &SessionId::from("session-1"), "http", 1);
+
+        match sanitized {
+            AgentEvent::RunEvent { payload, .. } => {
+                assert_eq!(payload["error"], "internal error captured");
+                assert_eq!(payload["team_notified"], true);
+                assert!(!payload.to_string().contains("readonly"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn client_tool_result_redacts_error_payload() {
+        let event = AgentEvent::ToolResult {
+            id: "tool-1".to_string(),
+            result: json!({"error": "secret storage failure"}),
+        };
+        let sanitized =
+            sanitize_agent_event_for_clients(&event, &SessionId::from("session-1"), "http", 1);
+
+        match sanitized {
+            AgentEvent::ToolResult { result, .. } => {
+                assert_eq!(result["error"], USER_RETRY_MESSAGE);
+                assert_eq!(result["team_notified"], true);
+                assert!(!result.to_string().contains("secret storage"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod stream_tests {
+    use super::{consume_agent_stream, TurnEventSink};
+    use agent::AgentEvent;
+    use async_trait::async_trait;
+    use chrono::{DateTime, Utc};
+    use domain::SessionId;
+    use futures::StreamExt;
+    use outbound::{OutboundEmitter, OutboundRegistry};
+    use serde_json::json;
+    use std::sync::{Arc, Mutex};
+    use storage::{OutboxRepo, OutboxRow};
+    use tokio::sync::RwLock;
+
+    #[derive(Default)]
+    struct RecordingSink {
+        events: Mutex<Vec<(String, String)>>,
+    }
+
+    #[async_trait]
+    impl TurnEventSink for RecordingSink {
+        async fn publish_agent_event(
+            &self,
+            stream_id: &str,
+            _session_id: &SessionId,
+            event: &AgentEvent,
+        ) {
+            let name = match event {
+                AgentEvent::ThinkingChunk { .. } => "thinking",
+                AgentEvent::TokenChunk { .. } => "token",
+                AgentEvent::ToolCall { .. } => "tool_call",
+                AgentEvent::ToolResult { .. } => "tool_result",
+                AgentEvent::RunEvent { event, .. } => event.as_str(),
+                AgentEvent::Error { .. } => "error",
+                AgentEvent::FinalMessage { .. } => "final_message",
+            };
+            self.events
+                .lock()
+                .expect("events lock")
+                .push((stream_id.to_string(), name.to_string()));
+        }
+    }
+
+    #[derive(Default)]
+    struct NoopOutbox;
+
+    #[async_trait]
+    impl OutboxRepo for NoopOutbox {
+        async fn enqueue(
+            &self,
+            _channel_name: &str,
+            _event_type: &str,
+            _payload: serde_json::Value,
+        ) -> storage::Result<i64> {
+            Ok(1)
+        }
+
+        async fn claim_due(&self, _limit: u32) -> storage::Result<Vec<OutboxRow>> {
+            Ok(Vec::new())
+        }
+
+        async fn mark_delivered(&self, _id: i64) -> storage::Result<()> {
+            Ok(())
+        }
+
+        async fn schedule_retry(
+            &self,
+            _id: i64,
+            _attempts: i32,
+            _next_retry_at: DateTime<Utc>,
+        ) -> storage::Result<()> {
+            Ok(())
+        }
+
+        async fn mark_failed(&self, _id: i64) -> storage::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn response_stream_receives_only_user_visible_events() {
+        let emitter = OutboundEmitter::new(
+            Arc::new(NoopOutbox),
+            Arc::new(RwLock::new(OutboundRegistry::new())),
+        );
+        let sink = RecordingSink::default();
+        let session_id = SessionId::from("http-thread-1");
+        let stream = futures::stream::iter(vec![
+            AgentEvent::ThinkingChunk {
+                text: "thinking".to_string(),
+            },
+            AgentEvent::ToolCall {
+                id: "call-1".to_string(),
+                tool: "search".to_string(),
+                args: json!({}),
+            },
+            AgentEvent::TokenChunk {
+                text: "hello".to_string(),
+            },
+        ])
+        .boxed();
+
+        let outcome = consume_agent_stream(
+            stream,
+            Some("full-stream".to_string()),
+            Some("response-stream".to_string()),
+            &session_id,
+            &emitter,
+            "gateway",
+            &sink,
+        )
+        .await;
+
+        assert_eq!(outcome.text, "hello");
+        let events = sink.events.lock().expect("events lock").clone();
+        assert!(events.contains(&("full-stream".to_string(), "thinking".to_string())));
+        assert!(events.contains(&("full-stream".to_string(), "tool_call".to_string())));
+        assert!(events.contains(&("full-stream".to_string(), "token".to_string())));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|(stream_id, _)| stream_id == "response-stream")
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![("response-stream".to_string(), "token".to_string())]
+        );
+    }
 }

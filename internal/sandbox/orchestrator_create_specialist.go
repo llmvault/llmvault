@@ -62,7 +62,7 @@ func (o *Orchestrator) createSandbox(ctx context.Context, org *model.Org, agent 
 		envVars[key] = value
 	}
 	setGitIdentityEnvVars(envVars, agent, gitIdentity)
-	setUploadBearer(envVars, runtimeAPIKey)
+	setDriveUploadBearer(envVars, runtimeAPIKey)
 
 	templateRef := o.resolveTemplateRef(agent)
 	cpu, memory, disk := o.resolveTemplateResources(agent)

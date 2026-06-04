@@ -24,6 +24,7 @@ type Orchestrator struct {
 	cfg               *config.Config
 	warmPool          *WarmPool
 	reconcileWarmPool func(context.Context, string, string) error
+	pushRuntimeConfig func(context.Context, *model.Sandbox) error
 }
 
 func NewOrchestrator(db *gorm.DB, provider Provider, encKey *crypto.SymmetricKey, cfg *config.Config) *Orchestrator {
@@ -42,6 +43,20 @@ func (o *Orchestrator) WarmPool() *WarmPool {
 
 func (o *Orchestrator) SetWarmPoolReconciler(fn func(context.Context, string, string) error) {
 	o.reconcileWarmPool = fn
+}
+
+func (o *Orchestrator) SetEmployeeRuntimeConfigPusher(fn func(context.Context, *model.Sandbox) error) {
+	o.pushRuntimeConfig = fn
+}
+
+func (o *Orchestrator) pushEmployeeRuntimeConfig(ctx context.Context, sb *model.Sandbox, reason string) error {
+	if o.pushRuntimeConfig == nil {
+		return nil
+	}
+	if err := o.pushRuntimeConfig(ctx, sb); err != nil {
+		return fmt.Errorf("push employee runtime config after %s: %w", reason, err)
+	}
+	return nil
 }
 
 func (o *Orchestrator) enqueueWarmPoolReconcile(ctx context.Context, mode string) {
@@ -93,8 +108,8 @@ func (o *Orchestrator) CreateSpecialistSandboxWithEnv(ctx context.Context, agent
 	return o.createSandbox(ctx, &org, agent, extraEnv)
 }
 
-func (o *Orchestrator) EmployeeTaskDriveUploadURL(employeeID, taskID uuid.UUID) string {
-	return employeeDriveUploadURL(o.cfg, employeeID, "tasks/"+taskID.String())
+func (o *Orchestrator) EmployeeDriveUploadURL(employeeID uuid.UUID) string {
+	return employeeDriveUploadURL(o.cfg, employeeID)
 }
 
 // StartHealthChecker runs a background goroutine that periodically syncs sandbox

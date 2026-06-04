@@ -253,6 +253,8 @@ impl FakeGatewayServer {
             None,
             None,
             None,
+            false,
+            false,
         );
         state.mark_config_loaded();
         state.mark_gateway_ready();

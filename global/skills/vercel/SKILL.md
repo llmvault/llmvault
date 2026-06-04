@@ -1,6 +1,6 @@
 ---
 name: vercel
-description: Use when deploying to Vercel, managing projects, domains, environment variables, DNS records, rollbacks, or reading logs - provides pre-authenticated REST API patterns for all Vercel resources via ${HIVY_VERCEL_API_URL} proxy
+description: Use when deploying to Vercel, managing projects, domains, environment variables, DNS records, rollbacks, checking Git/GitHub linkage, or reading logs - provides pre-authenticated REST API patterns for Vercel resources via the Hivy ${HIVY_VERCEL_API_URL} proxy
 ---
 
 # Managing Vercel Infrastructure
@@ -9,12 +9,15 @@ description: Use when deploying to Vercel, managing projects, domains, environme
 
 Manage Vercel cloud infrastructure through a pre-authenticated REST API proxy. All requests go to `${HIVY_VERCEL_API_URL}` with `Authorization: Bearer $HIVY_VERCEL_API_KEY`. Vercel uses a standard REST API (not GraphQL).
 
+You are running inside the Hivy runtime. All external Vercel API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+
 ## When to Use
 
 - Deploying or redeploying applications on Vercel
 - Managing projects, environment variables, or domains
 - Reading build or runtime logs
 - Rolling back or promoting deployments
+- Checking whether a project is connected to GitHub or another Git provider
 - Managing DNS records, aliases, or certificates
 - Configuring firewall rules, edge config, or rolling releases
 - Team and access management
@@ -33,7 +36,6 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 | GET | `/v9/projects/{idOrName}` | Get project details |
 | POST | `/v11/projects` | Create project |
 | PATCH | `/v9/projects/{idOrName}` | Update project settings |
-| DELETE | `/v9/projects/{idOrName}` | Delete project |
 | POST | `/v1/projects/{id}/pause` | Pause project |
 | POST | `/v1/projects/{id}/unpause` | Unpause project |
 
@@ -45,7 +47,6 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 | GET | `/v6/deployments` | List deployments (`?projectId=`, `?state=`, `?limit=`) |
 | GET | `/v13/deployments/{idOrUrl}` | Get deployment details |
 | PATCH | `/v12/deployments/{id}/cancel` | Cancel deployment |
-| DELETE | `/v13/deployments/{id}` | Delete deployment |
 | GET | `/v3/deployments/{idOrUrl}/events` | Build logs |
 | GET | `/v1/projects/{projectId}/deployments/{deploymentId}/runtime-logs` | Runtime logs |
 | POST | `/v1/projects/{projectId}/rollback/{deploymentId}` | Rollback |
@@ -60,8 +61,6 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 | POST | `/v10/projects/{idOrName}/env` | Create env vars (`?upsert=true` for idempotent) |
 | GET | `/v1/projects/{idOrName}/env/{id}` | Get decrypted value |
 | PATCH | `/v9/projects/{idOrName}/env/{id}` | Edit env var |
-| DELETE | `/v9/projects/{idOrName}/env/{id}` | Delete env var |
-| DELETE | `/v1/projects/{idOrName}/env` | Batch delete env vars |
 
 ### Domains
 
@@ -71,11 +70,9 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 | POST | `/v7/domains` | Add domain to Vercel |
 | GET | `/v5/domains/{domain}` | Get domain info |
 | GET | `/v6/domains/{domain}/config` | Check DNS config status |
-| DELETE | `/v6/domains/{domain}` | Remove domain |
 | POST | `/v10/projects/{idOrName}/domains` | Add domain to project |
 | POST | `/v9/projects/{idOrName}/domains/{domain}/verify` | Verify domain |
 | PATCH | `/v9/projects/{idOrName}/domains/{domain}` | Update project domain |
-| DELETE | `/v9/projects/{idOrName}/domains/{domain}` | Remove domain from project |
 
 ### DNS Records
 
@@ -84,7 +81,6 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 | GET | `/v5/domains/{domain}/records` | List DNS records |
 | POST | `/v2/domains/{domain}/records` | Create DNS record |
 | PATCH | `/v1/domains/records/{recordId}` | Update DNS record |
-| DELETE | `/v2/domains/{domain}/records/{recordId}` | Delete DNS record |
 
 ### Aliases
 
@@ -93,7 +89,6 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 | GET | `/v4/aliases` | List all aliases |
 | POST | `/v2/deployments/{id}/aliases` | Assign alias to deployment |
 | GET | `/v2/deployments/{id}/aliases` | List deployment aliases |
-| DELETE | `/v2/aliases/{aliasId}` | Delete alias |
 
 ### Edge Config
 
@@ -102,7 +97,6 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 | GET | `/v1/edge-config` | List all edge configs |
 | POST | `/v1/edge-config` | Create edge config |
 | GET | `/v1/edge-config/{id}` | Get edge config |
-| DELETE | `/v1/edge-config/{id}` | Delete edge config |
 | GET | `/v1/edge-config/{id}/items` | Get all items |
 | PATCH | `/v1/edge-config/{id}/items` | Batch update items |
 | GET | `/v1/edge-config/{id}/item/{key}` | Get single item |
@@ -137,7 +131,6 @@ For team-scoped operations, append `?teamId=TEAM_ID` or `?slug=TEAM_SLUG` to any
 |--------|------|---------|
 | GET | `/v1/webhooks` | List webhooks |
 | POST | `/v1/webhooks` | Create webhook |
-| DELETE | `/v1/webhooks/{id}` | Delete webhook |
 
 ### Rolling Releases
 
@@ -308,6 +301,23 @@ curl -s "${HIVY_VERCEL_API_URL}/v3/deployments/DEPLOY_ID/events" \
   | jq -r '.[] | select(.type == "stdout" or .type == "stderr") | "\(.date) \(.text // .payload.text // "")"'
 ```
 
+**Check whether a project is connected to GitHub:**
+```bash
+PROJECT="my-app"
+curl -s "${HIVY_VERCEL_API_URL}/v9/projects/$PROJECT" \
+  -H "Authorization: Bearer $HIVY_VERCEL_API_KEY" \
+  | jq '{
+      id,
+      name,
+      framework,
+      git_connected: (.link != null or .gitRepository != null),
+      link,
+      gitRepository
+    }'
+```
+
+If `link` and `gitRepository` are both empty or null, report that no Git provider connection is visible for the project.
+
 **Rollback production:**
 ```bash
 curl -s -X POST "${HIVY_VERCEL_API_URL}/v1/projects/PROJECT_ID/rollback/DEPLOY_ID" \
@@ -342,6 +352,8 @@ curl -s -X POST "${HIVY_VERCEL_API_URL}/v9/projects/my-app/domains/app.example.c
 | Creating env vars one at a time | POST accepts an array — batch them |
 | Polling deployment status in tight loop | Check every 5-10 seconds, not continuously |
 | Not checking `.error` field | Always check for errors before processing response |
+
+Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Vercel.
 | Using wrong API version in path | Each endpoint has a specific version — use the versions from this doc |
 
 ## Env Var Types
@@ -752,11 +764,11 @@ curl -s "${HIVY_VERCEL_API_URL}/v1/edge-config/EC_ID/items" \
 curl -s -X PATCH "${HIVY_VERCEL_API_URL}/v1/edge-config/EC_ID/items" \
   -H "Authorization: Bearer $HIVY_VERCEL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"items": [{"operation": "upsert", "key": "feature_x", "value": false}, {"operation": "delete", "key": "old_flag"}]}' \
+  -d '{"items": [{"operation": "upsert", "key": "feature_x", "value": false}]}' \
   | jq '{status}'
 ```
 
-Operations: `create`, `update`, `upsert`, `delete`
+Allowed operations: `create`, `update`, `upsert`. Delete operations are blocked by the Hivy proxy.
 
 ---
 

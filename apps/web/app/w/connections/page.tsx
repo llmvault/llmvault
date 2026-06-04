@@ -12,6 +12,10 @@ import {
   RefreshIcon,
   Search01Icon,
 } from "@hugeicons/core-free-icons"
+import {
+  DatabaseConnectionDialog,
+  type DatabaseProvider,
+} from "@/app/w/connections/_components/database-connection-dialog"
 import { CredentialsForm } from "@/app/w/connections/_components/credentials-form"
 import { useConnectIntegration } from "@/app/w/connections/_hooks/use-connect-integration"
 import { useReconnectIntegration } from "@/app/w/connections/_hooks/use-reconnect-integration"
@@ -35,6 +39,35 @@ import type { components } from "@/lib/api/schema"
 type Integration = components["schemas"]["integrationAvailableResponse"]
 type Connection = components["schemas"]["connectionResponse"]
 type ConnectionConfigField = components["schemas"]["ConnectionConfigField"]
+type DatabaseConnection = components["schemas"]["databaseConnectionResponse"]
+
+interface DatabaseCatalogItem {
+  provider: DatabaseProvider
+  displayName: string
+  description: string
+}
+
+const DATABASE_CATALOG: DatabaseCatalogItem[] = [
+  {
+    provider: "postgres",
+    displayName: "PostgreSQL",
+    description: "Query approved Postgres schemas through Hivy.",
+  },
+  {
+    provider: "mysql",
+    displayName: "MySQL",
+    description: "Query approved MySQL tables through Hivy.",
+  },
+  {
+    provider: "mongodb",
+    displayName: "MongoDB",
+    description: "Run approved MongoDB read commands through Hivy.",
+  },
+]
+
+const EMPTY_INTEGRATIONS: Integration[] = []
+const EMPTY_CONNECTIONS: Connection[] = []
+const EMPTY_DATABASE_CONNECTIONS: DatabaseConnection[] = []
 
 interface ConnectOptions {
   credentials?: Record<string, string>
@@ -62,25 +95,56 @@ function providerLabel(integration: Integration): string {
   return integration.display_name ?? integration.provider ?? "Integration"
 }
 
+function databaseConnectionComplete(connection: DatabaseConnection | undefined) {
+  if (!connection?.access_policy || typeof connection.access_policy !== "object") {
+    return false
+  }
+  const policy = connection.access_policy as {
+    allowed_tables?: unknown
+    allowed_collections?: unknown
+  }
+  if (connection.provider === "mongodb") {
+    return (
+      Array.isArray(policy.allowed_collections) &&
+      policy.allowed_collections.length > 0
+    )
+  }
+  return Array.isArray(policy.allowed_tables) && policy.allowed_tables.length > 0
+}
+
 export default function ConnectionsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [formIntegration, setFormIntegration] = useState<Integration | null>(
     null
   )
+  const [databaseProvider, setDatabaseProvider] =
+    useState<DatabaseProvider | null>(null)
   const [disconnecting, setDisconnecting] = useState<Connection | null>(null)
+  const [disconnectingDatabase, setDisconnectingDatabase] =
+    useState<DatabaseConnection | null>(null)
 
   const integrationsQuery = $api.useQuery(
     "get",
     "/v1/integrations/available"
   )
   const connectionsQuery = $api.useQuery("get", "/v1/connections")
+  const databaseConnectionsQuery = $api.useQuery(
+    "get",
+    "/v1/database-integrations"
+  )
   const deleteConnection = $api.useMutation("delete", "/v1/connections/{id}")
+  const deleteDatabaseConnection = $api.useMutation(
+    "delete",
+    "/v1/database-integrations/{id}"
+  )
   const { connect, connectingId } = useConnectIntegration()
   const { reconnect, reconnectingId } = useReconnectIntegration()
 
-  const integrations = integrationsQuery.data ?? []
-  const connections = connectionsQuery.data?.data ?? []
+  const integrations = integrationsQuery.data ?? EMPTY_INTEGRATIONS
+  const connections = connectionsQuery.data?.data ?? EMPTY_CONNECTIONS
+  const databaseConnections =
+    databaseConnectionsQuery.data ?? EMPTY_DATABASE_CONNECTIONS
 
   const connectionsByIntegrationId = useMemo(() => {
     const map = new Map<string, Connection>()
@@ -91,6 +155,16 @@ export default function ConnectionsPage() {
     }
     return map
   }, [connections])
+
+  const databaseConnectionsByProvider = useMemo(() => {
+    const map = new Map<string, DatabaseConnection>()
+    for (const connection of databaseConnections) {
+      if (connection.provider) {
+        map.set(connection.provider, connection)
+      }
+    }
+    return map
+  }, [databaseConnections])
 
   const filteredIntegrations = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -104,7 +178,22 @@ export default function ConnectionsPage() {
     })
   }, [integrations, search])
 
-  const isLoading = integrationsQuery.isLoading || connectionsQuery.isLoading
+  const filteredDatabases = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return DATABASE_CATALOG
+
+    return DATABASE_CATALOG.filter((database) => {
+      return (
+        database.displayName.toLowerCase().includes(query) ||
+        database.provider.toLowerCase().includes(query)
+      )
+    })
+  }, [search])
+
+  const isLoading =
+    integrationsQuery.isLoading ||
+    connectionsQuery.isLoading ||
+    databaseConnectionsQuery.isLoading
 
   function handleConnect(integration: Integration, options?: ConnectOptions) {
     if (!integration.id) return
@@ -167,6 +256,30 @@ export default function ConnectionsPage() {
     )
   }
 
+  function handleDatabaseDisconnect() {
+    if (!disconnectingDatabase?.id) return
+    deleteDatabaseConnection.mutate(
+      { params: { path: { id: disconnectingDatabase.id } } },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${disconnectingDatabase.display_name ?? "Database"} disconnected`
+          )
+          queryClient.invalidateQueries({
+            queryKey: ["get", "/v1/database-integrations"],
+          })
+          setDisconnectingDatabase(null)
+        },
+        onError: (error) => {
+          toast.error(
+            extractErrorMessage(error, "Failed to disconnect database")
+          )
+          setDisconnectingDatabase(null)
+        },
+      }
+    )
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-7">
       <div className="flex flex-col gap-5">
@@ -197,6 +310,99 @@ export default function ConnectionsPage() {
         <IntegrationSkeletonGrid />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredDatabases.map((database) => {
+            const connection = databaseConnectionsByProvider.get(
+              database.provider
+            )
+            const hasConnection = Boolean(connection)
+            const isConnected = databaseConnectionComplete(connection)
+            const canOpenSetup = !isConnected
+
+            return (
+              <div
+                key={database.provider}
+                className={cn(
+                  "group relative flex min-h-18 items-center gap-3 rounded-md border border-border bg-card p-4 text-left transition-colors hover:border-muted-foreground/25 hover:bg-muted/20",
+                  canOpenSetup &&
+                    "cursor-pointer focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30"
+                )}
+                role={canOpenSetup ? "button" : undefined}
+                tabIndex={canOpenSetup ? 0 : undefined}
+                onClick={() => {
+                  if (canOpenSetup) setDatabaseProvider(database.provider)
+                }}
+                onKeyDown={(event) => {
+                  if (!canOpenSetup) return
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    setDatabaseProvider(database.provider)
+                  }
+                }}
+              >
+                <IntegrationLogo provider={database.provider} size={32} />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h2 className="truncate text-sm font-medium text-foreground">
+                      {connection?.display_name ?? database.displayName}
+                    </h2>
+                    {isConnected ? (
+                      <HugeiconsIcon
+                        icon={CheckmarkCircle02Icon}
+                        className="ml-2 size-4 shrink-0 text-emerald-600"
+                        aria-label="Connected"
+                      />
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {hasConnection && !isConnected
+                      ? "Setup incomplete"
+                      : database.description}
+                  </p>
+                </div>
+
+                {isConnected ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none"
+                      aria-label={`${database.displayName} options`}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <HugeiconsIcon
+                        icon={MoreHorizontalIcon}
+                        className="size-4"
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={6}>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={deleteDatabaseConnection.isPending}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          if (connection) setDisconnectingDatabase(connection)
+                        }}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+                        Disconnect database
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setDatabaseProvider(database.provider)
+                    }}
+                  >
+                    {hasConnection ? "Finish setup" : "Connect"}
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+
           {filteredIntegrations.map((integration) => {
             const connection = integration.id
               ? connectionsByIntegrationId.get(integration.id)
@@ -308,7 +514,9 @@ export default function ConnectionsPage() {
         </div>
       )}
 
-      {!isLoading && filteredIntegrations.length === 0 ? (
+      {!isLoading &&
+      filteredIntegrations.length === 0 &&
+      filteredDatabases.length === 0 ? (
         <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border text-sm text-muted-foreground">
           <HugeiconsIcon icon={Plug01Icon} className="size-5" />
           No integrations found
@@ -333,6 +541,23 @@ export default function ConnectionsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={databaseProvider !== null}
+        onOpenChange={(open) => {
+          if (!open) setDatabaseProvider(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {databaseProvider ? (
+            <DatabaseConnectionDialog
+              provider={databaseProvider}
+              connection={databaseConnectionsByProvider.get(databaseProvider)}
+              onBack={() => setDatabaseProvider(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={disconnecting !== null}
         onOpenChange={(open) => {
@@ -344,6 +569,19 @@ export default function ConnectionsPage() {
         destructive
         loading={deleteConnection.isPending}
         onConfirm={handleDisconnect}
+      />
+
+      <ConfirmDialog
+        open={disconnectingDatabase !== null}
+        onOpenChange={(open) => {
+          if (!open) setDisconnectingDatabase(null)
+        }}
+        title="Disconnect database"
+        description={`Disconnect ${disconnectingDatabase?.display_name ?? "this database"} from Hivy? The employee runtime will lose access after the next sync or reboot.`}
+        confirmLabel="Disconnect"
+        destructive
+        loading={deleteDatabaseConnection.isPending}
+        onConfirm={handleDatabaseDisconnect}
       />
     </div>
   )

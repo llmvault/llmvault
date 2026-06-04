@@ -52,9 +52,7 @@ impl OutboundEmitter {
                     warn!(event_type = %event.event_type, %error, "stream batch enqueue failed")
                 }
             }
-            if let Err(error) = batcher.flush_before_event(&event).await {
-                warn!(event_type = %event.event_type, %error, "stream batch flush before event failed");
-            }
+            batcher.flush_before_event_background(&event).await;
         }
 
         let channels = {
@@ -89,6 +87,12 @@ impl OutboundEmitter {
         self.flush_database().await;
     }
 
+    pub async fn flush_streams_for_session_background(&self, session_id: &str) {
+        if let Some(batcher) = self.stream_batcher.read().await.clone() {
+            batcher.flush_session_background(session_id).await;
+        }
+    }
+
     pub async fn flush_database(&self) {
         if let Some(database_queue) = &self.database_queue {
             if let Err(error) = database_queue.flush().await {
@@ -103,6 +107,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
@@ -257,5 +262,73 @@ mod tests {
 
         assert_eq!(event_log_count(&store).await, 1);
         assert!(outbox.rows.lock().expect("outbox lock").is_empty());
+    }
+
+    #[tokio::test]
+    async fn non_stream_emit_does_not_wait_for_slow_stream_batch_webhook() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind slow webhook");
+        let addr = listener.local_addr().expect("local addr");
+        tokio::spawn(async move {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                let _ = tokio::io::AsyncWriteExt::write_all(
+                    &mut socket,
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+                )
+                .await;
+            }
+        });
+
+        let stream_batcher = StreamBatcher::from_specs(
+            &[OutboundChannelSpec {
+                name: "slow-batched-webhook".to_string(),
+                kind: OutboundChannelKind::Webhook {
+                    url: format!("http://{addr}/webhook"),
+                    secret_env: "WEBHOOK_SECRET".to_string(),
+                    extra_headers: HashMap::new(),
+                },
+                event_filter: Some(vec!["agent.stream.*".to_string()]),
+            }],
+            &HashMap::from([("WEBHOOK_SECRET".to_string(), "secret".to_string())]),
+        )
+        .expect("build stream batcher");
+        let emitter = OutboundEmitter::new(
+            Arc::new(FakeOutbox::default()),
+            Arc::new(RwLock::new(OutboundRegistry::new())),
+        )
+        .with_stream_batcher(Arc::new(RwLock::new(stream_batcher)));
+
+        emitter
+            .emit(OutboundEvent::new(
+                "agent.stream.token",
+                json!({
+                    "session_id": "http-1",
+                    "source": "http",
+                    "sequence": 1,
+                    "agent_event": {"text": "hello"}
+                }),
+            ))
+            .await;
+
+        let result = tokio::time::timeout(
+            Duration::from_millis(250),
+            emitter.emit(OutboundEvent::new(
+                "agent.tool.call",
+                json!({
+                    "session_id": "http-1",
+                    "source": "http",
+                    "sequence": 2,
+                    "agent_event": {"kind": "tool_call"}
+                }),
+            )),
+        )
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "non-stream emit waited for slow batch webhook"
+        );
     }
 }

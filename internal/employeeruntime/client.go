@@ -43,15 +43,18 @@ type HTTPMessageRequest struct {
 	User            string         `json:"user,omitempty"`
 	UserDisplayName string         `json:"user_display_name,omitempty"`
 	Attachments     []any          `json:"attachments,omitempty"`
+	DynamicContext  []string       `json:"dynamic_context,omitempty"`
 	Raw             map[string]any `json:"raw,omitempty"`
 }
 
 type HTTPMessageResponse struct {
-	SessionID string `json:"session_id"`
-	StreamID  string `json:"stream_id"`
-	StreamURL string `json:"stream_url"`
-	TraceID   string `json:"trace_id"`
-	TurnID    string `json:"turn_id"`
+	SessionID         string `json:"session_id"`
+	StreamID          string `json:"stream_id"`
+	StreamURL         string `json:"stream_url"`
+	ResponseStreamID  string `json:"response_stream_id"`
+	ResponseStreamURL string `json:"response_stream_url"`
+	TraceID           string `json:"trace_id"`
+	TurnID            string `json:"turn_id"`
 }
 
 func NewClient(baseURL, apiKey string) *Client {
@@ -100,10 +103,6 @@ func (c *Client) GetConfig(ctx context.Context) (*AgentDefinition, error) {
 		return nil, fmt.Errorf("decode config: %w", err)
 	}
 	return &out, nil
-}
-
-func (c *Client) PutConfig(ctx context.Context, def *AgentDefinition) (*SyncResponse, error) {
-	return c.PutRuntimeConfig(ctx, ConfigUpdateRequest{Definition: def})
 }
 
 func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest) (*SyncResponse, error) {

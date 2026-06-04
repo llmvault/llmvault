@@ -10,19 +10,24 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 )
 
 type ReceiveConnectionResult struct {
-	Inbound              InboundEnvelope
-	Session              model.EmployeeSession
+	Inbound               InboundEnvelope
+	Session               model.EmployeeSession
 	RuntimeConversationID string
-	RuntimeSessionID     string
-	StreamURL            string
-	RuntimeURL           string
-	RuntimeAPIKey        string
-	TraceID              string
-	TurnID               string
-	ActionToken          string
+	RuntimeSessionID      string
+	StreamURL             string
+	ResponseStreamURL     string
+	RuntimeURL            string
+	RuntimeAPIKey         string
+	TraceID               string
+	TurnID                string
+	ActionToken           string
+	Duplicate             bool
+	Ignored               bool
+	IgnoreReason          string
 }
 
 func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope WebhookEnvelope) (*ReceiveConnectionResult, error) {
@@ -40,7 +45,7 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		return nil, fmt.Errorf("decode inbound: %w", err)
 	}
 	if !ok {
-		return nil, fmt.Errorf("decode inbound: event ignored by adapter")
+		return &ReceiveConnectionResult{Ignored: true, IgnoreReason: "adapter_ignored"}, nil
 	}
 	inbound.Provider = envelope.Provider
 
@@ -57,6 +62,14 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		inbound.ReceivedAt = s.now().UTC()
 	}
 
+	decision, err := s.allowConnectionInbound(ctx, envelope, inbound)
+	if err != nil {
+		return nil, err
+	}
+	if !decision.allowed {
+		return &ReceiveConnectionResult{Inbound: inbound, Ignored: true, IgnoreReason: decision.reason}, nil
+	}
+
 	route := model.EmployeeGatewayRoute{
 		ID:         uuid.Nil,
 		OrgID:      envelope.OrgID,
@@ -69,7 +82,14 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		return nil, err
 	}
 	if duplicate {
-		return nil, fmt.Errorf("duplicate event")
+		return &ReceiveConnectionResult{Inbound: inbound, Duplicate: true, IgnoreReason: "duplicate_event"}, nil
+	}
+	if s.onConnectionInboundAccepted != nil {
+		s.onConnectionInboundAccepted(ctx, ConnectionInboundAccepted{
+			Envelope: envelope,
+			Inbound:  inbound,
+			Event:    event,
+		})
 	}
 
 	req, err := adapter.FormatAgentRequest(ctx, inbound)
@@ -78,11 +98,24 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		return nil, err
 	}
 
-	session, conversationID, err := s.findOrCreateSessionByConnection(ctx, envelope, inbound.ThreadKey)
+	session, conversationID, created, err := s.findOrCreateSessionByConnection(ctx, envelope, inbound.ThreadKey)
 	if err != nil {
 		_ = s.markEventFailed(ctx, event.ID, err)
 		return nil, err
 	}
+	if created {
+		s.notifySessionCreated(ctx, session, "gateway_session_created", "gateway.session.created")
+	}
+	dynamicContext := s.buildPreContext(ctx, created, precontext.Request{
+		OrgID:                 envelope.OrgID,
+		EmployeeID:            envelope.EmployeeID,
+		CurrentSessionID:      session.ID,
+		RuntimeConversationID: conversationID,
+		Text:                  req.Markdown,
+		UserID:                inbound.SenderID,
+		UserDisplayName:       inbound.SenderName,
+		Source:                envelope.Provider,
+	})
 
 	delivery, err := s.runtime.Send(ctx, RuntimeMessage{
 		Session:              session,
@@ -97,6 +130,7 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		GatewayThreadID:      inbound.ThreadID,
 		GatewayExternalMsgID: inbound.ExternalMessageID,
 		GatewayProvider:      envelope.Provider,
+		DynamicContext:       dynamicContext,
 		Metadata:             req.Metadata,
 	})
 	if err != nil {
@@ -134,22 +168,37 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 	if sandbox.RuntimeURL != "" {
 		runtimeURL = sandbox.RuntimeURL
 	}
+	responseStreamURL := absoluteRuntimeURL(runtimeURL, delivery.ResponseStreamURL)
+	if responseStreamURL == "" && delivery.ResponseStreamID != "" {
+		responseStreamURL = runtimeURL + "/gateway/http/response-streams/" + delivery.ResponseStreamID
+	}
 
 	return &ReceiveConnectionResult{
-		Inbound:              inbound,
-		Session:              session,
+		Inbound:               inbound,
+		Session:               session,
 		RuntimeConversationID: conversationID,
-		RuntimeSessionID:     delivery.SessionID,
-		StreamURL:            runtimeURL + "/gateway/http/streams/" + delivery.StreamID,
-		RuntimeURL:           runtimeURL,
-		RuntimeAPIKey:        runtimeAPIKey,
-		TraceID:              delivery.TraceID,
-		TurnID:               delivery.TurnID,
-		ActionToken:          actionToken,
+		RuntimeSessionID:      delivery.SessionID,
+		StreamURL:             runtimeURL + "/gateway/http/streams/" + delivery.StreamID,
+		ResponseStreamURL:     responseStreamURL,
+		RuntimeURL:            runtimeURL,
+		RuntimeAPIKey:         runtimeAPIKey,
+		TraceID:               delivery.TraceID,
+		TurnID:                delivery.TurnID,
+		ActionToken:           actionToken,
 	}, nil
 }
 
-func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope WebhookEnvelope, threadKey string) (model.EmployeeSession, string, error) {
+func absoluteRuntimeURL(runtimeURL, pathOrURL string) string {
+	if strings.TrimSpace(pathOrURL) == "" {
+		return ""
+	}
+	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
+		return pathOrURL
+	}
+	return strings.TrimRight(runtimeURL, "/") + "/" + strings.TrimLeft(pathOrURL, "/")
+}
+
+func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope WebhookEnvelope, threadKey string) (model.EmployeeSession, string, bool, error) {
 	conversationID := stableConversationID(envelope.ConnectionID, threadKey)
 	sessionID := runtimeSessionID(conversationID)
 
@@ -158,11 +207,12 @@ func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope 
 		Where("org_id = ? AND employee_id = ? AND status <> ?", envelope.OrgID, envelope.EmployeeID, "error").
 		Order("created_at DESC").
 		First(&sandbox).Error; err != nil {
-		return model.EmployeeSession{}, "", fmt.Errorf("load employee sandbox: %w", err)
+		return model.EmployeeSession{}, "", false, fmt.Errorf("load employee sandbox: %w", err)
 	}
 
 	connectionID := envelope.ConnectionID
 	session := model.EmployeeSession{}
+	created := false
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		err := tx.Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
 			envelope.OrgID, envelope.EmployeeID, Source, envelope.ConnectionID, threadKey, "active").
@@ -185,12 +235,16 @@ func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope 
 			Name:                  "Gateway: " + threadKey,
 			IntegrationScopes:     model.JSON{},
 		}
-		return tx.Create(&session).Error
+		if err := tx.Create(&session).Error; err != nil {
+			return err
+		}
+		created = true
+		return nil
 	})
 	if err != nil {
-		return model.EmployeeSession{}, "", fmt.Errorf("find or create gateway session: %w", err)
+		return model.EmployeeSession{}, "", false, fmt.Errorf("find or create gateway session: %w", err)
 	}
-	return session, conversationID, nil
+	return session, conversationID, created, nil
 }
 
 func (s *Service) loadConnection(ctx context.Context, id uuid.UUID) (*model.Connection, error) {

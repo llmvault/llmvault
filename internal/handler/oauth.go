@@ -42,9 +42,14 @@ type OAuthHandler struct {
 	frontendURL  string
 	secure       bool // true when cookies should be Secure (HTTPS)
 	credits      *billing.CreditsService
+	memoryBanks  memoryBankProvisioner
 	githubConfig *oauth2.Config
 	googleConfig *oauth2.Config
 	xConfig      *oauth2.Config
+}
+
+func (h *OAuthHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
+	h.memoryBanks = banks
 }
 
 // NewOAuthHandler creates an OAuthHandler. If a provider's client ID or secret

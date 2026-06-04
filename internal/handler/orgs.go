@@ -21,6 +21,7 @@ type OrgHandler struct {
 	db             *gorm.DB
 	enq            enqueue.TaskEnqueuer
 	employeeSyncer OrgEmployeeSyncer
+	memoryBanks    memoryBankProvisioner
 }
 
 func NewOrgHandler(db *gorm.DB, enq enqueue.TaskEnqueuer) *OrgHandler {
@@ -33,6 +34,10 @@ type OrgEmployeeSyncer interface {
 
 func (h *OrgHandler) SetEmployeeSyncer(syncer OrgEmployeeSyncer) {
 	h.employeeSyncer = syncer
+}
+
+func (h *OrgHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
+	h.memoryBanks = banks
 }
 
 // planFor looks up the full plan by slug. Returns nil if the slug has no
@@ -147,6 +152,7 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create organization"})
 		return
 	}
+	ensureOrgMemoryBank(r.Context(), h.memoryBanks, org.ID, "org_create")
 
 	writeJSON(w, http.StatusCreated, h.buildOrgResponse(org))
 }
@@ -213,10 +219,8 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.LogoURL != nil {
 		updates["logo_url"] = strings.TrimSpace(*req.LogoURL)
 	}
-	var websiteChanged bool
 	if req.Website != nil {
 		updates["website"] = strings.TrimSpace(*req.Website)
-		websiteChanged = ctxOrg.Website == "" && *req.Website != ""
 	}
 	if req.PromptCompany != nil {
 		updates["prompt_company"] = strings.TrimSpace(*req.PromptCompany)
@@ -257,9 +261,7 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if websiteChanged {
-		h.autoCreateWebsiteRAGSource(r.Context(), &org)
-	}
+	h.ensureWebsiteRAGSource(r.Context(), &org)
 
 	writeJSON(w, http.StatusOK, h.buildOrgResponse(org))
 }

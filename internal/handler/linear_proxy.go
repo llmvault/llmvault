@@ -117,7 +117,25 @@ func (h *LinearProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	eventCtx.ConnectionID = conn.ID
 
-	resp, err := h.nango.RawProxyRequest(ctx, r.Method, providerConfigKey, conn.NangoConnectionID, linearGraphQLPath, "", proxyRequestBody(r), r.Header.Get("Content-Type"))
+	body, err := readProxyBody(r)
+	if err != nil {
+		h.captureProxyFailure(ctx, eventCtx, http.StatusBadRequest, "failed to read request body")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to read request body"})
+		return
+	}
+	if enforceProviderProxyPolicy(w, ctx, providerProxyPolicyContext{
+		Provider:      linearProvider,
+		OrgID:         eventCtx.OrgID,
+		CallerAgentID: eventCtx.CallerAgentID,
+		EmployeeID:    eventCtx.EmployeeID,
+		ConnectionID:  eventCtx.ConnectionID,
+		Method:        eventCtx.Method,
+		Path:          linearGraphQLPath,
+	}, body) {
+		return
+	}
+
+	resp, err := h.nango.RawProxyRequest(ctx, r.Method, providerConfigKey, conn.NangoConnectionID, linearGraphQLPath, "", proxyRequestBodyFromBytes(r.Method, body), r.Header.Get("Content-Type"))
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "linear-proxy: nango proxy failed",
 			"employee_id", agentID,

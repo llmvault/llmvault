@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 )
 
-func addRecallTool(server *mcp.Server, client *Client, bankID string, tagGroups []any) {
+func addRecallTool(server *mcp.Server, client *Client, db *gorm.DB, bankID string, tagGroups []any) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "memory_recall",
@@ -51,6 +52,9 @@ Do NOT recall and retain in the same turn — retained memories are not immediat
 			budget := params.Budget
 			if budget == "" {
 				budget = "mid"
+			}
+			if err := RequireBank(ctx, db, bankID); err != nil {
+				return toolError("memory recall failed: " + err.Error()), nil
 			}
 
 			result, err := client.Recall(ctx, bankID, &RecallRequest{
