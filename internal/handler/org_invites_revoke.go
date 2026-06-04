@@ -108,6 +108,17 @@ func (h *OrgInviteHandler) Resend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var existingUser model.User
+	if err := h.db.Where("LOWER(email) = ?", invite.Email).First(&existingUser).Error; err == nil {
+		var count int64
+		if err := h.db.Model(&model.OrgMembership{}).
+			Where("user_id = ? AND org_id = ?", existingUser.ID, org.ID).
+			Count(&count).Error; err == nil && count > 0 {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "already a member"})
+			return
+		}
+	}
+
 	plaintext, tokenHash, err := model.GenerateInviteToken()
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "generate invite token", "error", err)

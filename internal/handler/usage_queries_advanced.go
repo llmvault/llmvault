@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (h *UsageHandler) queryLatency(orgID uuid.UUID, last30d time.Time) ([]latencyStats, error) {
+func (h *UsageHandler) queryLatency(orgID uuid.UUID, start, end time.Time) ([]latencyStats, error) {
 	var rows []struct {
 		Date      time.Time
 		AvgTTFBMs float64
@@ -18,9 +18,9 @@ func (h *UsageHandler) queryLatency(orgID uuid.UUID, last30d time.Time) ([]laten
 			COALESCE(AVG(ttfb_ms), 0) AS avg_ttfb_ms,
 			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY ttfb_ms), 0) AS p95_ttfb_ms
 		FROM generations
-		WHERE org_id = ? AND created_at >= ? AND ttfb_ms IS NOT NULL
+		WHERE org_id = ? AND created_at >= ? AND created_at <= ? AND ttfb_ms IS NOT NULL
 		GROUP BY DATE(created_at)
-		ORDER BY date ASC`, orgID, last30d).Scan(&rows).Error; err != nil {
+		ORDER BY date ASC`, orgID, start, end).Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("latency: %w", err)
 	}
 	result := make([]latencyStats, 0, len(rows))
@@ -34,7 +34,7 @@ func (h *UsageHandler) queryLatency(orgID uuid.UUID, last30d time.Time) ([]laten
 	return result, nil
 }
 
-func (h *UsageHandler) queryTopModels(orgID uuid.UUID, last30d time.Time) ([]topModel, error) {
+func (h *UsageHandler) queryTopModels(orgID uuid.UUID, start, end time.Time) ([]topModel, error) {
 	var rows []struct {
 		Model        string
 		ProviderID   string
@@ -44,10 +44,10 @@ func (h *UsageHandler) queryTopModels(orgID uuid.UUID, last30d time.Time) ([]top
 	if err := h.db.Raw(`
 		SELECT model, provider_id, COUNT(*) AS request_count, COALESCE(SUM(cost), 0) AS total_cost
 		FROM generations
-		WHERE org_id = ? AND created_at >= ? AND model != ''
+		WHERE org_id = ? AND created_at >= ? AND created_at <= ? AND model != ''
 		GROUP BY model, provider_id
 		ORDER BY request_count DESC
-		LIMIT 10`, orgID, last30d).Scan(&rows).Error; err != nil {
+		LIMIT 10`, orgID, start, end).Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("top_models: %w", err)
 	}
 	result := make([]topModel, 0, len(rows))
@@ -62,7 +62,7 @@ func (h *UsageHandler) queryTopModels(orgID uuid.UUID, last30d time.Time) ([]top
 	return result, nil
 }
 
-func (h *UsageHandler) queryTopUsers(orgID uuid.UUID, last30d time.Time) ([]topUser, error) {
+func (h *UsageHandler) queryTopUsers(orgID uuid.UUID, start, end time.Time) ([]topUser, error) {
 	var rows []struct {
 		UserID       string
 		RequestCount int64
@@ -71,10 +71,10 @@ func (h *UsageHandler) queryTopUsers(orgID uuid.UUID, last30d time.Time) ([]topU
 	if err := h.db.Raw(`
 		SELECT user_id, COUNT(*) AS request_count, COALESCE(SUM(cost), 0) AS total_cost
 		FROM generations
-		WHERE org_id = ? AND created_at >= ? AND user_id != ''
+		WHERE org_id = ? AND created_at >= ? AND created_at <= ? AND user_id != ''
 		GROUP BY user_id
 		ORDER BY total_cost DESC
-		LIMIT 10`, orgID, last30d).Scan(&rows).Error; err != nil {
+		LIMIT 10`, orgID, start, end).Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("top_users: %w", err)
 	}
 	result := make([]topUser, 0, len(rows))
@@ -88,7 +88,7 @@ func (h *UsageHandler) queryTopUsers(orgID uuid.UUID, last30d time.Time) ([]topU
 	return result, nil
 }
 
-func (h *UsageHandler) queryErrorRates(orgID uuid.UUID, last30d time.Time) ([]errorRate, error) {
+func (h *UsageHandler) queryErrorRates(orgID uuid.UUID, start, end time.Time) ([]errorRate, error) {
 	var rows []struct {
 		Date       time.Time
 		Total      int64
@@ -98,9 +98,9 @@ func (h *UsageHandler) queryErrorRates(orgID uuid.UUID, last30d time.Time) ([]er
 		SELECT DATE(created_at) AS date, COUNT(*) AS total,
 			COUNT(*) FILTER (WHERE error_type != '' AND error_type IS NOT NULL) AS error_count
 		FROM generations
-		WHERE org_id = ? AND created_at >= ?
+		WHERE org_id = ? AND created_at >= ? AND created_at <= ?
 		GROUP BY DATE(created_at)
-		ORDER BY date ASC`, orgID, last30d).Scan(&rows).Error; err != nil {
+		ORDER BY date ASC`, orgID, start, end).Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("error_rates: %w", err)
 	}
 	result := make([]errorRate, 0, len(rows))

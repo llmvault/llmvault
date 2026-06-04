@@ -2043,6 +2043,23 @@ definitions:
           type: string
         type: object
     type: object
+  sessionSummary:
+    properties:
+      created_at:
+        type: string
+      ended_at:
+        type: string
+      event_count:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      source:
+        type: string
+      status:
+        type: string
+    type: object
   signUploadRequest:
     properties:
       asset_type:
@@ -2464,6 +2481,15 @@ definitions:
       website:
         type: string
     type: object
+  updateProfileRequest:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+    type: object
   updateRAGSourceRequest:
     properties:
       config:
@@ -2537,6 +2563,10 @@ definitions:
         type: array
       requests:
         $ref: '#/definitions/requestStats'
+      sessions:
+        items:
+          $ref: '#/definitions/sessionSummary'
+        type: array
       spend_over_time:
         items:
           $ref: '#/definitions/spendOverTime'
@@ -2562,6 +2592,8 @@ definitions:
     type: object
   userResponse:
     properties:
+      avatar_url:
+        type: string
       email:
         type: string
       email_confirmed:
@@ -2739,6 +2771,29 @@ paths:
       tags:
       - auth
   /auth/me:
+    delete:
+      description: Permanently deletes the authenticated user's account. This action
+        cannot be undone.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete current user account
+      tags:
+      - auth
     get:
       description: Returns the current user and their organization memberships.
       produces:
@@ -2755,6 +2810,41 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current user
+      tags:
+      - auth
+    patch:
+      consumes:
+      - application/json
+      description: Updates the authenticated user's name, email, or avatar URL.
+      parameters:
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update current user profile
       tags:
       - auth
   /auth/otp/request:
@@ -6627,6 +6717,15 @@ paths:
   /v1/usage:
     get:
       description: Returns aggregated usage statistics for the current organization.
+      parameters:
+      - description: Start date inclusive (YYYY-MM-DD), defaults to 30 days ago
+        in: query
+        name: start_date
+        type: string
+      - description: End date inclusive (YYYY-MM-DD), defaults to now
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:

@@ -271,6 +271,115 @@
             }
           }
         }
+      },
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Permanently deletes the authenticated user's account. This action cannot be undone.",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Delete current user account",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Updates the authenticated user's name, email, or avatar URL.",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Update current user profile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateProfileRequest"
+              }
+            }
+          },
+          "description": "Fields to update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/userResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/auth/otp/request": {
@@ -7472,6 +7581,24 @@
           "usage"
         ],
         "summary": "Get organization usage",
+        "parameters": [
+          {
+            "description": "Start date inclusive (YYYY-MM-DD), defaults to 30 days ago",
+            "name": "start_date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "End date inclusive (YYYY-MM-DD), defaults to now",
+            "name": "end_date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -10631,6 +10758,32 @@
           }
         }
       },
+      "sessionSummary": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "ended_at": {
+            "type": "string"
+          },
+          "event_count": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "signUploadRequest": {
         "type": "object",
         "properties": {
@@ -11273,6 +11426,20 @@
           }
         }
       },
+      "updateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "updateRAGSourceRequest": {
         "type": "object",
         "properties": {
@@ -11384,6 +11551,12 @@
           "requests": {
             "$ref": "#/components/schemas/requestStats"
           },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sessionSummary"
+            }
+          },
           "spend_over_time": {
             "type": "array",
             "items": {
@@ -11422,6 +11595,9 @@
       "userResponse": {
         "type": "object",
         "properties": {
+          "avatar_url": {
+            "type": "string"
+          },
           "email": {
             "type": "string"
           },

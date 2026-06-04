@@ -371,8 +371,9 @@ export default function TeamsPage() {
           toast.success("Invitation resent")
           invitesQuery.refetch()
         },
-        onError: () => {
-          toast.error("Failed to resend invitation")
+        onError: (err: any) => {
+          const msg = err?.error ?? "Failed to resend invitation"
+          toast.error(msg)
         },
         onSettled: () => {
           setResendingId(null)
@@ -404,7 +405,7 @@ export default function TeamsPage() {
   const isLoading = membersQuery.isLoading || invitesQuery.isLoading
 
   return (
-    <div className="flex flex-1 flex-col gap-8">
+    <div className="mx-auto w-full max-w-5xl flex flex-1 flex-col gap-8">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="font-heading text-3xl font-normal tracking-[-0.02em] text-foreground">
