@@ -89,6 +89,11 @@ func (h *EmployeeHandler) SyncEmployee(ctx context.Context, agent *model.Employe
 }
 
 func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Employee, sb *model.Sandbox) (*employeeruntime.SyncResponse, error) {
+	if agent != nil && agent.OrgID != nil {
+		if err := attachEmployeeRequiredSkillsForAgent(ctx, h.db, *agent.OrgID, agent); err != nil {
+			return nil, fmt.Errorf("reconcile employee skills: %w", err)
+		}
+	}
 	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt runtime secret: %w", err)
