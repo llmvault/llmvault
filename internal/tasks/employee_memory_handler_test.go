@@ -24,6 +24,8 @@ func TestEmployeeMemoryRetainHandler_CallsHindsight(t *testing.T) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/config"):
 			w.WriteHeader(http.StatusOK)
+		case strings.HasSuffix(r.URL.Path, "/mental-models"):
+			w.WriteHeader(http.StatusCreated)
 		case strings.HasSuffix(r.URL.Path, "/memories"):
 			if err := json.NewDecoder(r.Body).Decode(&retained); err != nil {
 				t.Fatalf("decode retain: %v", err)
@@ -81,6 +83,10 @@ func TestEmployeeMemoryRetainHandler_CallsHindsight(t *testing.T) {
 	}
 	if count != 3 {
 		t.Fatalf("retained event count = %d", count)
+	}
+	var bank model.HindsightBank
+	if err := db.First(&bank, "bank_id = ?", hindsight.OrgBankID(orgID)).Error; err != nil {
+		t.Fatalf("load bank tracker: %v", err)
 	}
 	enq.AssertEnqueued(t, TypeEmployeeMemoryRefresh)
 	var refreshedAgent model.Employee

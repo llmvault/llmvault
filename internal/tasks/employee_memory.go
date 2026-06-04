@@ -31,10 +31,11 @@ type EmployeeMemoryRetainHandler struct {
 	memory   *hindsight.Client
 	enqueuer enqueue.TaskEnqueuer
 	cache    precontext.Cache
+	banks    *hindsight.BankProvisioner
 }
 
 func NewEmployeeMemoryRetainHandler(db *gorm.DB, memory *hindsight.Client, enqueuer enqueue.TaskEnqueuer, caches ...precontext.Cache) *EmployeeMemoryRetainHandler {
-	h := &EmployeeMemoryRetainHandler{db: db, memory: memory, enqueuer: enqueuer}
+	h := &EmployeeMemoryRetainHandler{db: db, memory: memory, enqueuer: enqueuer, banks: hindsight.NewBankProvisioner(db, memory)}
 	if len(caches) > 0 {
 		h.cache = caches[0]
 	}
@@ -119,8 +120,8 @@ func (h *EmployeeMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Ta
 
 	bankID := hindsight.OrgBankID(*agent.OrgID)
 	fields["bank_id"] = bankID
-	if err := h.memory.ConfigureBank(ctx, bankID, hindsight.DefaultMemoryConfig().ToBankConfigUpdate()); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain: configure bank %s: %w", bankID, err), fields)
+	if err := h.banks.EnsureOrgBank(ctx, *agent.OrgID); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain: ensure bank %s: %w", bankID, err), fields)
 		return fmt.Errorf("configure memory bank: %w", err)
 	}
 	retainCtx, cancel := context.WithTimeout(ctx, employeeMemoryRetainTimeout)
@@ -220,19 +221,18 @@ func (h *EmployeeMemoryRetainHandler) enqueueRetainCheck(ctx context.Context, pa
 		return
 	}
 	payload.Reason = "session_still_active"
+	taskID := EmployeeMemoryRetainTaskID(payload)
 	task, err := NewEmployeeMemoryRetainTask(payload)
 	if err != nil {
 		logging.Capture(ctx, err)
 		return
 	}
-	taskID := "employee-memory-retain:" + payload.EmployeeSessionID.String()
-	if payload.EmployeeSessionID == uuid.Nil {
-		taskID = "employee-memory-retain:" + payload.SandboxID.String() + ":" + payload.SessionID
-	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task,
+	_, err = h.enqueuer.EnqueueContext(ctx, task,
 		asynq.ProcessIn(employeeMemoryCheckDelay),
 		asynq.TaskID(taskID),
-	); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
+	)
+	duplicate := errors.Is(err, asynq.ErrDuplicateTask)
+	if err != nil && !duplicate {
 		fields := employeeMemoryRetainFields(payload)
 		fields["task_id"] = taskID
 		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain: requeue quiet check: %w", err), fields)
@@ -240,7 +240,7 @@ func (h *EmployeeMemoryRetainHandler) enqueueRetainCheck(ctx context.Context, pa
 		fields := employeeMemoryRetainFields(payload)
 		fields["task_id"] = taskID
 		fields["delay_seconds"] = int(employeeMemoryCheckDelay.Seconds())
-		fields["duplicate"] = errors.Is(err, asynq.ErrDuplicateTask)
+		fields["duplicate"] = duplicate
 		logging.FromContext(ctx).InfoContext(ctx, "employee memory retain requeued", fieldsToArgs(fields)...)
 	}
 }

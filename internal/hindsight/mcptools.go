@@ -40,11 +40,12 @@ func AddMemoryTools(server *mcp.Server, agent *model.Employee, client *Client, d
 	bankID := OrgBankID(*agent.OrgID)
 	memoryTags := baseMemoryTags(agent, "manual")
 	tagGroups := recallTagGroups(agent)
+	banks := NewBankProvisioner(db, client)
 
-	addRecallTool(server, client, bankID, tagGroups)
-	addRetainTool(server, agent, client, bankID, memoryTags)
+	addRecallTool(server, client, db, bankID, tagGroups)
+	addRetainTool(server, agent, client, banks, bankID, memoryTags)
 	addForgetTool(server, agent, client, db, bankID, refresh)
-	addReflectTool(server, client, bankID, tagGroups)
+	addReflectTool(server, client, db, bankID, tagGroups)
 }
 
 func baseMemoryTags(agent *model.Employee, source string) []string {

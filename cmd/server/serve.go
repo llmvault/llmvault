@@ -67,8 +67,10 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	mcpHandler := handler.NewMCPHandler(database, signingKey, actionsCatalog, nangoClient, ctr)
 	var hindsightClient *hindsight.Client
+	var hindsightBanks *hindsight.BankProvisioner
 	if cfg.HindsightAPIURL != "" {
 		hindsightClient = hindsight.NewClient(cfg.HindsightAPIURL)
+		hindsightBanks = hindsight.NewBankProvisioner(database, hindsightClient)
 		mcpHandler.SetMemoryTools(hindsight.NewMemoryToolsFunc(hindsightClient, hindsightMemoryRefresh(enqueuer)))
 	}
 	if deps.SpiderClient != nil {
@@ -99,6 +101,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	integrationHandler := handler.NewIntegrationHandler(database, nangoClient, actionsCatalog)
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
+	orgHandler.SetMemoryProvisioner(hindsightBanks)
 	plansHandler := handler.NewPlansHandler(database)
 	var emailSender email.Sender = &email.LogSender{}
 	if enqueuer != nil && cfg.ResendAPIKey != "" {
@@ -111,6 +114,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if cfg.PlatformAdminEmails != "" {
 		authHandler.SetPlatformAdminEmails(strings.Split(cfg.PlatformAdminEmails, ","))
 	}
+	authHandler.SetMemoryProvisioner(hindsightBanks)
 	authHandler.StartCleanup(ctx)
 	oauthHandler := handler.NewOAuthHandler(database, rsaKey, signingKey,
 		cfg.AuthIssuer, cfg.AuthAudience, cfg.AuthAccessTokenTTL, cfg.AuthRefreshTokenTTL,
@@ -119,6 +123,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		cfg.OAuthGoogleClientID, cfg.OAuthGoogleClientSecret,
 		cfg.OAuthXClientID, cfg.OAuthXClientSecret,
 		deps.Credits)
+	oauthHandler.SetMemoryProvisioner(hindsightBanks)
 	apiKeyHandler := handler.NewAPIKeyHandler(database, apiKeyCache, cacheManager)
 	usageHandler := handler.NewUsageHandler(database)
 	auditHandler := handler.NewAuditHandler(database)
@@ -143,11 +148,15 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			DB:         database,
 			Cache:      preContextCache,
 			Memory:     hindsightClient,
+			MemoryBank: hindsightBanks,
 			Searcher:   ragRuntime.qd,
 			Embedder:   ragRuntime.embedder,
 			Reranker:   ragRuntime.reranker,
 			Collection: cfg.QdrantCollection,
 		}))
+		gatewayService.SetSessionCreatedHook(func(ctx context.Context, session model.EmployeeSession, reason, sourceEvent string) {
+			enqueueGatewayEmployeeMemoryRetain(ctx, enqueuer, session, reason, sourceEvent)
+		})
 		employeeOutboundWebhookHandler.SetGatewayService(gatewayService)
 		gatewayHTTPHandler = handler.NewGatewayHTTPHandler(gatewayService)
 	}
@@ -166,6 +175,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	var employeeHandler *handler.EmployeeHandler
 	if orchestrator != nil {
 		employeeHandler = handler.NewEmployeeHandler(database, orchestrator, runtimeCompileDeps, reg, deps.Specialists)
+		employeeHandler.SetMemoryProvisioner(hindsightBanks)
 		if deps.S3Client != nil {
 			employeeHandler.SetEnqueuer(enqueuer)
 		}

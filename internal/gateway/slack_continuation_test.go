@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -17,6 +18,10 @@ func TestSlackConnectionContinuationRequiresHivyAsPreviousMessage(t *testing.T) 
 	conn, orgID, employeeID := seedSlackConnectionGateway(t, db)
 	runtime := &recordingRuntime{}
 	service := NewService(db, runtime, nil, NewSlackAdapter())
+	var createdSessions []model.EmployeeSession
+	service.SetSessionCreatedHook(func(_ context.Context, session model.EmployeeSession, _, _ string) {
+		createdSessions = append(createdSessions, session)
+	})
 	envelope := func(body []byte) WebhookEnvelope {
 		return WebhookEnvelope{
 			ConnectionID: conn.ID,
@@ -66,6 +71,9 @@ func TestSlackConnectionContinuationRequiresHivyAsPreviousMessage(t *testing.T) 
 	}
 	if sent[0].ConversationID != sent[1].ConversationID {
 		t.Fatalf("continuation should use existing runtime conversation")
+	}
+	if len(createdSessions) != 1 || createdSessions[0].ID != first.Session.ID {
+		t.Fatalf("session-created hook calls = %#v, want first session only", createdSessions)
 	}
 }
 

@@ -230,6 +230,9 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		}
 		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.EmployeeID)
 	}
+	if event.EventType == "agent.message.sent" {
+		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "agent_message_sent", "agent.message.sent")
+	}
 	if event.EventType == "agent.message.sent" && source == gateway.Source && h.gateway != nil && !isSlackGatewayEvent(payload) {
 		if _, err := h.gateway.HandleRuntimeFinal(ctx, gateway.AgentResponse{
 			EmployeeSession:  *session,

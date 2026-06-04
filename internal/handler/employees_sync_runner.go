@@ -59,6 +59,14 @@ func (h *EmployeeHandler) SyncOrgHivyEmployee(ctx context.Context, orgID uuid.UU
 	if err := attachEmployeeRequiredSkillsForAgent(ctx, h.db, orgID, agent); err != nil {
 		return fmt.Errorf("attach employee required skills: %w", err)
 	}
+	if h.memoryBanks != nil {
+		if err := h.memoryBanks.EnsureOrgBank(ctx, orgID); err != nil {
+			logging.CaptureWithFields(ctx, fmt.Errorf("sync org Hivy employee: ensure memory bank: %w", err), map[string]any{
+				"org_id":      orgID.String(),
+				"employee_id": agent.ID.String(),
+			})
+		}
+	}
 	if _, _, err := h.SyncEmployee(ctx, agent); err != nil {
 		return err
 	}
