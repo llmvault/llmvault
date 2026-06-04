@@ -22,6 +22,9 @@ var serviceProxyEnvSpecs = []ServiceProxyEnvSpec{
 	{Provider: "railway", SkillName: "railway", BaseURLEnv: EmployeeEnvRailwayAPIURL, AuthEnv: EmployeeEnvRailwayAPIKey, Path: "/internal/railway-proxy/%s"},
 	{Provider: "vercel", SkillName: "vercel", BaseURLEnv: EmployeeEnvVercelAPIURL, AuthEnv: EmployeeEnvVercelAPIKey, Path: "/internal/vercel-proxy/%s"},
 	{Provider: "slack", SkillName: "slack", BaseURLEnv: EmployeeEnvSlackAPIURL, AuthEnv: EmployeeEnvSlackToken, Path: "/internal/slack-proxy/%s"},
+	{Provider: "postgres", SkillName: "postgres", BaseURLEnv: EmployeeEnvPostgresURL, AuthEnv: EmployeeEnvPostgresToken, Path: "/internal/database-proxy/postgres/%s"},
+	{Provider: "mysql", SkillName: "mysql", BaseURLEnv: EmployeeEnvMySQLURL, AuthEnv: EmployeeEnvMySQLToken, Path: "/internal/database-proxy/mysql/%s"},
+	{Provider: "mongodb", SkillName: "mongodb", BaseURLEnv: EmployeeEnvMongoDBURL, AuthEnv: EmployeeEnvMongoDBToken, Path: "/internal/database-proxy/mongodb/%s"},
 }
 
 func ServiceProxyEnvSpecs() []ServiceProxyEnvSpec {

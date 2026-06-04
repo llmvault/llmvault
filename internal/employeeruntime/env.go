@@ -41,6 +41,12 @@ const (
 	EmployeeEnvVercelAPIKey               = "HIVY_VERCEL_API_KEY"
 	EmployeeEnvSlackAPIURL                = "HIVY_SLACK_API_URL"
 	EmployeeEnvSlackToken                 = "HIVY_SLACK_TOKEN"
+	EmployeeEnvPostgresURL                = "HIVY_POSTGRES_URL"
+	EmployeeEnvPostgresToken              = "HIVY_POSTGRES_TOKEN"
+	EmployeeEnvMySQLURL                   = "HIVY_MYSQL_URL"
+	EmployeeEnvMySQLToken                 = "HIVY_MYSQL_TOKEN"
+	EmployeeEnvMongoDBURL                 = "HIVY_MONGODB_URL"
+	EmployeeEnvMongoDBToken               = "HIVY_MONGODB_TOKEN"
 	EmployeeEnvSentryDSN                  = "SENTRY_DSN"
 	EmployeeEnvSentryEnvironment          = "SENTRY_ENVIRONMENT"
 	EmployeeEnvSentrySampleRate           = "SENTRY_SAMPLE_RATE"
@@ -120,6 +126,12 @@ var employeeEnvCatalog = []EmployeeEnvSpec{
 	{Key: EmployeeEnvVercelAPIKey, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvSlackAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvSlackToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvPostgresURL, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvPostgresToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvMySQLURL, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvMySQLToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvMongoDBURL, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvMongoDBToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvSentryDSN, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
 	{Key: EmployeeEnvSentryEnvironment, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
 	{Key: EmployeeEnvSentrySampleRate, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
