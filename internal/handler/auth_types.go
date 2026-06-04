@@ -33,7 +33,14 @@ type userResponse struct {
 	ID             string `json:"id"`
 	Email          string `json:"email"`
 	Name           string `json:"name"`
+	AvatarURL      string `json:"avatar_url,omitempty"`
 	EmailConfirmed bool   `json:"email_confirmed"`
+}
+
+type updateProfileRequest struct {
+	Name      *string `json:"name,omitempty"`
+	Email     *string `json:"email,omitempty"`
+	AvatarURL *string `json:"avatar_url,omitempty"`
 }
 
 type orgMemberDTO struct {

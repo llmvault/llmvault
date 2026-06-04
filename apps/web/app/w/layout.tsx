@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Plug01Icon,
   CommandIcon,
-  Chatting01Icon,
   Settings02Icon,
   TimeScheduleIcon,
   DriveIcon,
@@ -19,7 +18,6 @@ import {
   CustomerService01Icon,
   AwardIcon,
   UserAdd01Icon,
-  Logout04Icon,
 } from "@hugeicons/core-free-icons"
 import {
   Sidebar,
@@ -36,18 +34,17 @@ import { FullPageLoader } from "@/components/full-page-loader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { api } from "@/lib/api/client"
 import { $api } from "@/lib/api/hooks"
 import { AuthProvider, useAuth } from "@/lib/auth/auth-context"
 import { cn } from "@/lib/utils"
 import { UpgradeBanner } from "./_components/upgrade-banner"
+import { NavUser } from "@/components/nav-user"
 
 const navSections = [
   {
     label: "Workspace",
     items: [
       { label: "Dashboard", href: "/w", icon: LayoutDashboard },
-      { label: "Sessions", href: "/w/sessions", icon: Chatting01Icon },
       {
         label: "Scheduled tasks",
         href: "/w/scheduled-tasks",
@@ -121,33 +118,6 @@ function GhostLogo({
   )
 }
 
-function UserAvatar({
-  name,
-  email,
-  size = 36,
-}: {
-  name: string
-  email?: string
-  size?: number
-}) {
-  const label = name || email || "User"
-  const initials = label
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-
-  return (
-    <div
-      className="flex shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary"
-      style={{ width: size, height: size }}
-    >
-      <span className="text-[11px] font-semibold">{initials}</span>
-    </div>
-  )
-}
-
 export default function WorkspaceV2Layout({
   children,
 }: {
@@ -192,15 +162,16 @@ function WorkspaceGate({ children }: { children: React.ReactNode }) {
     return <FullPageLoader description="Loading workspace" />
   }
 
-  if (needsEmailConfirmation) {
-    return <EmailConfirmationGate />
-  }
-
   if (needsOnboarding) {
     return <FullPageLoader description="Loading workspace" />
   }
 
-  return <>{children}</>
+  return (
+    <>
+      {needsEmailConfirmation && <EmailConfirmationGate />}
+      {children}
+    </>
+  )
 }
 
 function EmailConfirmationGate() {
@@ -295,21 +266,6 @@ function EmailConfirmationGate() {
 
 function AppSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const { user } = useAuth()
-  const displayName =
-    user?.name || user?.email?.split("@")[0] || "Workspace member"
-  const displayEmail = user?.email || "Signed in"
-
-  async function handleLogout() {
-    if (isLoggingOut) return
-    setIsLoggingOut(true)
-    await api.POST("/auth/logout", { body: {} })
-    queryClient.clear()
-    router.replace("/auth/signin")
-  }
 
   return (
     <Sidebar
@@ -374,30 +330,10 @@ function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className={cn(
-                "h-11 cursor-pointer items-center gap-3 rounded-md font-display text-base"
-              )}
-            >
-              <HugeiconsIcon icon={Logout04Icon} size={16} />
-              <span>{isLoggingOut ? "Signing out..." : "Sign out"}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
         </SidebarMenu>
 
-        <div className="mt-4 flex items-center gap-3 rounded-md border border-sidebar-border/50 bg-sidebar-accent/30 px-2 py-1.5">
-          <UserAvatar name={displayName} email={displayEmail} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-sm text-sidebar-foreground">
-              {displayName}
-            </p>
-            <p className="truncate font-display text-[11px] text-sidebar-foreground/50">
-              {displayEmail}
-            </p>
-          </div>
+        <div className="mt-4">
+          <NavUser />
         </div>
       </SidebarFooter>
     </Sidebar>
