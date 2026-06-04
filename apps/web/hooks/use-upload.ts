@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { $api } from "@/lib/api/hooks"
 
 export type UploadAssetType = "avatar" | "org_logo" | "generic"
 
@@ -17,10 +16,8 @@ export interface UploadResult {
 }
 
 export interface UploadOptions {
-  /** Forwarded to /v1/uploads/sign — required for org_logo, ignored otherwise. */
+  /** Required for org_logo, ignored otherwise. */
   orgId?: string
-  /** Filename hint passed to the signer (influences the leaf in the storage key). */
-  filename?: string
 }
 
 interface UseUploadResult {
@@ -31,67 +28,58 @@ interface UseUploadResult {
 }
 
 /**
- * Two-step pre-signed PUT upload to the public-assets bucket.
+ * Server-side upload to the public-assets bucket.
  *
- * 1. POST /v1/uploads/sign with content-type + size → presigned URL
- * 2. PUT the file directly to that URL with the required headers
- * 3. Resolves with the durable CDN asset URL
+ * POST the file as multipart form to /v1/uploads/upload. The backend signs
+ * the upload and forwards it to S3/MinIO, returning the CDN asset URL.
  *
- * The hook is policy-aware via `assetType` — pick "avatar" (5MB images),
- * "org_logo" (5MB images, requires orgId), or "generic" (25MB images + pdf/txt).
- *
- * Files never traverse the API server.
+ * Files traverse the API server, which makes this work in environments where
+ * the browser cannot reach the S3 endpoint directly (e.g. local Docker).
  */
 export function useUpload(assetType: UploadAssetType): UseUploadResult {
   const [isUploading, setIsUploading] = React.useState(false)
   const [error, setError] = React.useState<Error | null>(null)
-  const sign = $api.useMutation("post", "/v1/uploads/sign")
 
   const upload = React.useCallback(
     async (file: File, options: UploadOptions = {}): Promise<UploadResult> => {
       setIsUploading(true)
       setError(null)
       try {
-        const signedRaw = await sign.mutateAsync({
-          body: {
-            asset_type: assetType,
-            content_type: file.type,
-            size_bytes: file.size,
-            filename: options.filename ?? file.name,
-            ...(options.orgId ? { org_id: options.orgId } : {}),
-          } as never,
-        })
-        const signed = signedRaw as {
-          upload_url: string
-          upload_method: string
-          required_headers: Record<string, string>
-          key: string
-          asset_url?: string
-          public_url?: string
-          expires_at: string
-          max_size_bytes: number
-        }
-        const assetUrl = signed.asset_url ?? signed.public_url
-        if (!assetUrl) {
-          throw new Error("Upload signer did not return an asset URL")
-        }
+        const form = new FormData()
+        form.append("asset_type", assetType)
+        form.append("file", file)
+        if (options.orgId) form.append("org_id", options.orgId)
 
-        const putResponse = await fetch(signed.upload_url, {
-          method: signed.upload_method,
-          headers: signed.required_headers,
-          body: file,
+        const response = await fetch("/api/proxy/v1/uploads/upload", {
+          method: "POST",
+          body: form,
         })
-        if (!putResponse.ok) {
+
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}))
           throw new Error(
-            `Upload failed: ${putResponse.status} ${putResponse.statusText}`
+            (errBody as Record<string, string>)?.error ??
+              `Upload failed: ${response.status}`
           )
         }
 
+        const result = (await response.json()) as {
+          asset_url?: string
+          public_url?: string
+          key: string
+          expires_at: string
+          max_size_bytes: number
+        }
+        const publicUrl = result.asset_url ?? result.public_url ?? ""
+        if (!publicUrl) {
+          throw new Error("Upload did not return an asset URL")
+        }
+
         return {
-          publicUrl: assetUrl,
-          key: signed.key,
-          expiresAt: signed.expires_at,
-          maxSizeBytes: signed.max_size_bytes,
+          publicUrl,
+          key: result.key,
+          expiresAt: result.expires_at,
+          maxSizeBytes: result.max_size_bytes,
         }
       } catch (err) {
         const wrapped = err instanceof Error ? err : new Error(String(err))
@@ -101,7 +89,7 @@ export function useUpload(assetType: UploadAssetType): UseUploadResult {
         setIsUploading(false)
       }
     },
-    [assetType, sign]
+    [assetType]
   )
 
   const reset = React.useCallback(() => {

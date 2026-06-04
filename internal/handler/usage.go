@@ -96,6 +96,16 @@ type errorRate struct {
 	ErrorCount int64  `json:"error_count"`
 }
 
+type sessionSummary struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Status    string  `json:"status"`
+	Source    string  `json:"source"`
+	EventCount int64  `json:"event_count"`
+	CreatedAt string  `json:"created_at"`
+	EndedAt   *string `json:"ended_at,omitempty"`
+}
+
 type usageResponse struct {
 	Credentials    credentialStats `json:"credentials"`
 	Tokens         tokenStats      `json:"tokens"`
@@ -109,6 +119,7 @@ type usageResponse struct {
 	TopModels      []topModel      `json:"top_models"`
 	TopUsers       []topUser       `json:"top_users"`
 	ErrorRates     []errorRate     `json:"error_rates"`
+	Sessions       []sessionSummary `json:"sessions"`
 }
 
 // Get handles GET /v1/usage.
@@ -116,6 +127,8 @@ type usageResponse struct {
 // @Description Returns aggregated usage statistics for the current organization.
 // @Tags usage
 // @Produce json
+// @Param start_date query string false "Start date inclusive (YYYY-MM-DD), defaults to 30 days ago"
+// @Param end_date query string false "End date inclusive (YYYY-MM-DD), defaults to now"
 // @Success 200 {object} usageResponse
 // @Failure 403 {object} errorResponse
 // @Security BearerAuth
@@ -131,8 +144,21 @@ func (h *UsageHandler) Get(w http.ResponseWriter, r *http.Request) {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	yesterday := today.AddDate(0, 0, -1)
 	last7d := today.AddDate(0, 0, -7)
-	last30d := today.AddDate(0, 0, -30)
 	orgID := org.ID
+
+	last30d := today.AddDate(0, 0, -30)
+	startTime := last30d
+	endTime := now
+	if s := r.URL.Query().Get("start_date"); s != "" {
+		if t, err := time.Parse("2006-01-02", s); err == nil {
+			startTime = t
+		}
+	}
+	if e := r.URL.Query().Get("end_date"); e != "" {
+		if t, err := time.Parse("2006-01-02", e); err == nil {
+			endTime = time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, time.UTC)
+		}
+	}
 
 	var resp usageResponse
 	p := pool.New().WithErrors().WithMaxGoroutines(12)
@@ -159,42 +185,47 @@ func (h *UsageHandler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 	p.Go(func() error {
 		var err error
-		resp.DailyRequests, err = h.queryDailyRequests(orgID, last30d)
+		resp.DailyRequests, err = h.queryDailyRequests(orgID, startTime, endTime)
 		return err
 	})
 	p.Go(func() error {
 		var err error
-		resp.TopCredentials, err = h.queryTopCredentials(orgID, last30d)
+		resp.TopCredentials, err = h.queryTopCredentials(orgID, startTime, endTime)
 		return err
 	})
 	p.Go(func() error {
 		var err error
-		resp.SpendOverTime, err = h.querySpendOverTime(orgID, last30d)
+		resp.SpendOverTime, err = h.querySpendOverTime(orgID, startTime, endTime)
 		return err
 	})
 	p.Go(func() error {
 		var err error
-		resp.TokenVolumes, err = h.queryTokenVolumes(orgID, last30d)
+		resp.TokenVolumes, err = h.queryTokenVolumes(orgID, startTime, endTime)
 		return err
 	})
 	p.Go(func() error {
 		var err error
-		resp.Latency, err = h.queryLatency(orgID, last30d)
+		resp.Latency, err = h.queryLatency(orgID, startTime, endTime)
 		return err
 	})
 	p.Go(func() error {
 		var err error
-		resp.TopModels, err = h.queryTopModels(orgID, last30d)
+		resp.TopModels, err = h.queryTopModels(orgID, startTime, endTime)
 		return err
 	})
 	p.Go(func() error {
 		var err error
-		resp.TopUsers, err = h.queryTopUsers(orgID, last30d)
+		resp.TopUsers, err = h.queryTopUsers(orgID, startTime, endTime)
 		return err
 	})
 	p.Go(func() error {
 		var err error
-		resp.ErrorRates, err = h.queryErrorRates(orgID, last30d)
+		resp.ErrorRates, err = h.queryErrorRates(orgID, startTime, endTime)
+		return err
+	})
+	p.Go(func() error {
+		var err error
+		resp.Sessions, err = h.querySessions(orgID)
 		return err
 	})
 
@@ -227,6 +258,9 @@ func (h *UsageHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	if resp.ErrorRates == nil {
 		resp.ErrorRates = []errorRate{}
+	}
+	if resp.Sessions == nil {
+		resp.Sessions = []sessionSummary{}
 	}
 
 	writeJSON(w, http.StatusOK, resp)
