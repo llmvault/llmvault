@@ -15,17 +15,33 @@ import (
 )
 
 func employeeRequiredSkills(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (map[uuid.UUID]model.Skill, []string, error) {
+	requiredNames := make(map[string]bool, len(defaultEmployeeSkills))
+	for _, name := range defaultEmployeeSkills {
+		requiredNames[name] = true
+	}
+	defaultSkills, err := loadPublishedGlobalSkillsByName(ctx, db, requiredNames)
+	if err != nil {
+		return nil, nil, err
+	}
+	skills := make(map[uuid.UUID]model.Skill, len(defaultSkills))
+	for _, skill := range defaultSkills {
+		skills[skill.ID] = skill
+	}
+
 	providers, displays, err := activeEmployeeConnectionProviders(ctx, db, orgID)
 	if err != nil {
 		return nil, nil, err
 	}
 	if len(providers) == 0 {
-		return map[uuid.UUID]model.Skill{}, nil, nil
+		return skills, nil, nil
 	}
 
-	skills, err := loadPublishedGlobalSkillsByIntegrationIDs(ctx, db, providers)
+	integrationSkills, err := loadPublishedGlobalSkillsByIntegrationIDs(ctx, db, providers)
 	if err != nil {
 		return nil, nil, err
+	}
+	for _, skill := range integrationSkills {
+		skills[skill.ID] = skill
 	}
 
 	warnings := make([]string, 0)
