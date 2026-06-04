@@ -7,7 +7,16 @@ const LOGO_PROVIDER_ALIASES: Record<string, string> = {
   "github-app-code-reviews": "github-app",
 }
 
+const LOCAL_PROVIDER_LOGOS: Record<string, string> = {
+  mongodb: "/logomarks/mongodb.svg",
+  mysql: "/logomarks/mysql.svg",
+  postgres: "/logomarks/postgres.svg",
+}
+
 export function integrationLogoURL(provider: string): string {
+  const localLogo = LOCAL_PROVIDER_LOGOS[provider]
+  if (localLogo) return localLogo
+
   const aliased = LOGO_PROVIDER_ALIASES[provider] ?? provider
   return `${LOGO_BASE}/${aliased}.svg`
 }
