@@ -262,6 +262,8 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 		r.Use(middleware.ResolveOrgFromHeader(db))
 		r.Get("/", h.List)
 		r.Get("/{id}", h.Get)
+		r.Get("/{id}/sessions", h.ListSessions)
+		r.Get("/{id}/sessions/{sessionID}/events", h.ListSessionEvents)
 		r.Get("/{id}/specialists", h.ListSpecialists)
 		r.Patch("/{id}/specialists/{slug}", h.UpdateSpecialist)
 		r.Group(func(r chi.Router) {

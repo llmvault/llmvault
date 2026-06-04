@@ -867,6 +867,37 @@ definitions:
       upgrade_id:
         type: string
     type: object
+  employeeSessionEventResponse:
+    properties:
+      created_at:
+        type: string
+      employee_session_id:
+        type: string
+      event_at:
+        type: string
+      event_id:
+        type: string
+      event_type:
+        type: string
+      id:
+        type: string
+      mode:
+        type: string
+      payload:
+        items:
+          type: integer
+        type: array
+      runtime_session_id:
+        type: string
+      sequence_number:
+        type: integer
+      source:
+        type: string
+      specialist_slug:
+        type: string
+      specialist_task_id:
+        type: string
+    type: object
   employeeSessionResponse:
     properties:
       agent_session_id:
@@ -875,9 +906,21 @@ definitions:
         type: string
       created_at:
         type: string
+      ended_at:
+        type: string
+      event_count:
+        type: integer
       id:
         type: string
       last_activity_at:
+        type: string
+      name:
+        type: string
+      runtime_conversation_id:
+        type: string
+      source:
+        type: string
+      source_resource_key:
         type: string
       status:
         type: string
@@ -885,6 +928,8 @@ definitions:
         type: string
       trigger_delivery:
         $ref: '#/definitions/triggerDeliveryResponse'
+      updated_at:
+        type: string
     type: object
   employeeSkillResponse:
     properties:
@@ -1475,6 +1520,17 @@ definitions:
       data:
         items:
           $ref: '#/definitions/employeeListItem'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
+  paginatedResponse-handler_employeeSessionEventResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/employeeSessionEventResponse'
         type: array
       has_more:
         type: boolean
@@ -4529,7 +4585,7 @@ paths:
       - employees
   /v1/employees/{id}/sessions:
     get:
-      description: Returns employee runtime sessions with optional trigger delivery
+      description: Returns persisted employee sessions with optional trigger delivery
         metadata.
       parameters:
       - description: Employee agent ID
@@ -4557,7 +4613,8 @@ paths:
         in: query
         name: agent_session_id
         type: string
-      - description: Prefix search over session identifiers
+      - description: Search over session title, source key, or runtime conversation
+          ID
         in: query
         name: q
         type: string
@@ -4595,6 +4652,57 @@ paths:
       security:
       - BearerAuth: []
       summary: List sessions for an employee
+      tags:
+      - employees
+  /v1/employees/{id}/sessions/{sessionID}/events:
+    get:
+      description: Returns persisted employee session events ordered newest-first
+        with cursor pagination.
+      parameters:
+      - description: Employee agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Employee session ID
+        in: path
+        name: sessionID
+        required: true
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-handler_employeeSessionEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List persisted session events
       tags:
       - employees
   /v1/employees/{id}/skills:

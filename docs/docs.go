@@ -2887,7 +2887,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns employee runtime sessions with optional trigger delivery metadata.",
+                "description": "Returns persisted employee sessions with optional trigger delivery metadata.",
                 "produces": [
                     "application/json"
                 ],
@@ -2935,7 +2935,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Prefix search over session identifiers",
+                        "description": "Search over session title, source key, or runtime conversation ID",
                         "name": "q",
                         "in": "query"
                     },
@@ -2957,6 +2957,83 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/paginatedResponse-handler_employeeSessionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/employees/{id}/sessions/{sessionID}/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns persisted employee session events ordered newest-first with cursor pagination.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "List persisted session events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Employee agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee session ID",
+                        "name": "sessionID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginatedResponse-handler_employeeSessionEventResponse"
                         }
                     },
                     "400": {
@@ -7718,6 +7795,53 @@ const docTemplate = `{
                 }
             }
         },
+        "employeeSessionEventResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "employee_session_id": {
+                    "type": "string"
+                },
+                "event_at": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "runtime_session_id": {
+                    "type": "string"
+                },
+                "sequence_number": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "specialist_slug": {
+                    "type": "string"
+                },
+                "specialist_task_id": {
+                    "type": "string"
+                }
+            }
+        },
         "employeeSessionResponse": {
             "type": "object",
             "properties": {
@@ -7730,10 +7854,28 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "ended_at": {
+                    "type": "string"
+                },
+                "event_count": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
                 "last_activity_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "runtime_conversation_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "source_resource_key": {
                     "type": "string"
                 },
                 "status": {
@@ -7744,6 +7886,9 @@ const docTemplate = `{
                 },
                 "trigger_delivery": {
                     "$ref": "#/definitions/triggerDeliveryResponse"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -8645,6 +8790,23 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/employeeListItem"
+                    }
+                },
+                "has_more": {
+                    "type": "boolean"
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "paginatedResponse-handler_employeeSessionEventResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/employeeSessionEventResponse"
                     }
                 },
                 "has_more": {
