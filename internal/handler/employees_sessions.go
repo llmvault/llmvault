@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,26 +11,32 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 type employeeSessionResponse struct {
-	ID              string                   `json:"id"`
-	Channel         string                   `json:"channel"`
-	ThreadTS        string                   `json:"thread_ts"`
-	AgentSessionID  string                   `json:"agent_session_id"`
-	Status          string                   `json:"status"`
-	CreatedAt       string                   `json:"created_at"`
-	LastActivityAt  string                   `json:"last_activity_at"`
-	TriggerDelivery *triggerDeliveryResponse `json:"trigger_delivery,omitempty"`
+	ID                    string                   `json:"id"`
+	RuntimeConversationID string                   `json:"runtime_conversation_id"`
+	Channel               string                   `json:"channel"`
+	ThreadTS              string                   `json:"thread_ts"`
+	AgentSessionID        string                   `json:"agent_session_id"`
+	Source                string                   `json:"source"`
+	SourceResourceKey     string                   `json:"source_resource_key"`
+	Status                string                   `json:"status"`
+	Name                  string                   `json:"name"`
+	EventCount            int64                    `json:"event_count"`
+	CreatedAt             string                   `json:"created_at"`
+	UpdatedAt             string                   `json:"updated_at"`
+	LastActivityAt        string                   `json:"last_activity_at"`
+	EndedAt               *string                  `json:"ended_at,omitempty"`
+	TriggerDelivery       *triggerDeliveryResponse `json:"trigger_delivery,omitempty"`
 }
 
 // ListSessions handles GET /v1/employees/{id}/sessions.
 // @Summary List sessions for an employee
-// @Description Returns employee runtime sessions with optional trigger delivery metadata.
+// @Description Returns persisted employee sessions with optional trigger delivery metadata.
 // @Tags employees
 // @Produce json
 // @Param id path string true "Employee agent ID"
@@ -40,7 +45,7 @@ type employeeSessionResponse struct {
 // @Param channel query string false "Exact channel filter"
 // @Param thread_ts query string false "Exact thread timestamp filter"
 // @Param agent_session_id query string false "Exact agent session ID filter"
-// @Param q query string false "Prefix search over session identifiers"
+// @Param q query string false "Search over session title, source key, or runtime conversation ID"
 // @Param limit query int false "Page size"
 // @Param cursor query string false "Pagination cursor"
 // @Success 200 {object} paginatedResponse[employeeSessionResponse]
@@ -76,141 +81,151 @@ func (h *EmployeeHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sb, ok := h.loadLatestEmployeeSandbox(w, r, org.ID, agentID)
-	if !ok {
-		return
-	}
-	if h.compileDeps.EncKey == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "employee runtime encryption is not configured"})
-		return
-	}
-	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
+	limit, cursor, err := parsePagination(r)
 	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, "decrypt employee runtime key", "error", err, "employee_id", agentID, "sandbox_id", sb.ID)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load employee runtime credentials"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 
-	resp, err := employeeruntime.NewClient(sb.RuntimeURL, apiKey).ListSessions(ctx, employeeSessionListParams(r))
-	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, "list employee runtime sessions", "error", err, "employee_id", agentID, "sandbox_id", sb.ID)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to list employee sessions"})
+	query := h.db.WithContext(ctx).
+		Where("org_id = ? AND employee_id = ?", org.ID, agentID)
+
+	qp := r.URL.Query()
+	if status := strings.TrimSpace(qp.Get("status")); status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if sessionID := strings.TrimSpace(qp.Get("session_id")); sessionID != "" {
+		query = query.Where("runtime_conversation_id = ? OR id::text = ?", sessionID, sessionID)
+	}
+	if source := strings.TrimSpace(qp.Get("channel")); source != "" {
+		query = query.Where("source = ?", source)
+	}
+	if threadTS := strings.TrimSpace(qp.Get("thread_ts")); threadTS != "" {
+		query = query.Where("source_resource_key = ?", threadTS)
+	}
+	if agentSessionID := strings.TrimSpace(qp.Get("agent_session_id")); agentSessionID != "" {
+		query = query.Where("runtime_conversation_id = ?", agentSessionID)
+	}
+	if search := strings.TrimSpace(qp.Get("q")); search != "" {
+		like := "%" + strings.ToLower(search) + "%"
+		query = query.Where(
+			"LOWER(name) LIKE ? OR LOWER(source_resource_key) LIKE ? OR LOWER(runtime_conversation_id) LIKE ?",
+			like, like, like,
+		)
+	}
+
+	query = applyPagination(query, cursor, limit)
+	var sessions []model.EmployeeSession
+	if err := query.Find(&sessions).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list employee sessions"})
 		return
 	}
 
-	deliveries := h.loadTriggerDeliveriesForRuntimeSessions(ctx, org.ID, agentID, runtimeSessionIDs(resp.Items))
-	items := make([]employeeSessionResponse, len(resp.Items))
-	for i, session := range resp.Items {
-		items[i] = employeeSessionToResponse(session, deliveries[session.ID])
+	hasMore := len(sessions) > limit
+	if hasMore {
+		sessions = sessions[:limit]
 	}
-	writeJSON(w, http.StatusOK, paginatedResponse[employeeSessionResponse]{
-		Data:       items,
-		NextCursor: resp.NextCursor,
-		HasMore:    resp.NextCursor != nil && *resp.NextCursor != "",
-	})
+
+	stats := h.loadEmployeeSessionStats(ctx, org.ID, agentID, sessionIDs(sessions))
+	deliveries := h.loadTriggerDeliveriesForConversations(ctx, org.ID, agentID, sessionIDs(sessions))
+	items := make([]employeeSessionResponse, len(sessions))
+	for i, session := range sessions {
+		items[i] = employeeSessionToResponse(session, stats[session.ID], deliveries[session.ID])
+	}
+
+	result := paginatedResponse[employeeSessionResponse]{Data: items, HasMore: hasMore}
+	if hasMore {
+		last := sessions[len(sessions)-1]
+		c := encodeCursor(last.CreatedAt, last.ID)
+		result.NextCursor = &c
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
-func (h *EmployeeHandler) loadLatestEmployeeSandbox(w http.ResponseWriter, r *http.Request, orgID, agentID uuid.UUID) (*model.Sandbox, bool) {
-	ctx := r.Context()
-	var sb model.Sandbox
-	if err := h.db.WithContext(ctx).
-		Where("employee_id = ? AND org_id = ? AND status <> ?", agentID, orgID, "error").
-		Order("created_at DESC").
-		First(&sb).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "employee sandbox not found"})
-			return nil, false
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load employee sandbox"})
-		return nil, false
-	}
-	if h.orchestrator != nil && h.orchestrator.NeedsURLRefresh(&sb) {
-		if err := h.orchestrator.RefreshEmployeeSandboxURL(ctx, &sb); err != nil {
-			logging.FromContext(ctx).ErrorContext(ctx, "refresh employee sandbox url", "error", err, "employee_id", agentID, "sandbox_id", sb.ID)
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to refresh employee sandbox URL"})
-			return nil, false
-		}
-	}
-	return &sb, true
+type employeeSessionStats struct {
+	EventCount int64
+	LastEvent  *time.Time
 }
 
-func employeeSessionListParams(r *http.Request) employeeruntime.ListSessionsParams {
-	q := r.URL.Query()
-	return employeeruntime.ListSessionsParams{
-		Cursor:         strings.TrimSpace(q.Get("cursor")),
-		Status:         strings.TrimSpace(q.Get("status")),
-		Limit:          parseEmployeeSessionLimit(q.Get("limit")),
-		SessionID:      strings.TrimSpace(q.Get("session_id")),
-		Channel:        strings.TrimSpace(q.Get("channel")),
-		ThreadTS:       strings.TrimSpace(q.Get("thread_ts")),
-		AgentSessionID: strings.TrimSpace(q.Get("agent_session_id")),
-		Search:         strings.TrimSpace(q.Get("q")),
-	}
-}
-
-func parseEmployeeSessionLimit(raw string) int {
-	if raw == "" {
-		return 50
-	}
-	limit, err := strconv.Atoi(raw)
-	if err != nil || limit < 1 {
-		return 50
-	}
-	if limit > 100 {
-		return 100
-	}
-	return limit
-}
-
-func runtimeSessionIDs(sessions []employeeruntime.Session) []string {
-	ids := make([]string, 0, len(sessions))
-	seen := map[string]struct{}{}
+func sessionIDs(sessions []model.EmployeeSession) []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(sessions))
 	for _, session := range sessions {
-		if session.ID == "" {
-			continue
-		}
-		if _, ok := seen[session.ID]; ok {
-			continue
-		}
-		seen[session.ID] = struct{}{}
 		ids = append(ids, session.ID)
 	}
 	return ids
 }
 
-func (h *EmployeeHandler) loadTriggerDeliveriesForRuntimeSessions(ctx context.Context, orgID, agentID uuid.UUID, sessionIDs []string) map[string]*triggerDeliveryResponse {
-	out := map[string]*triggerDeliveryResponse{}
+func (h *EmployeeHandler) loadEmployeeSessionStats(ctx context.Context, orgID, agentID uuid.UUID, sessionIDs []uuid.UUID) map[uuid.UUID]employeeSessionStats {
+	out := map[uuid.UUID]employeeSessionStats{}
+	if len(sessionIDs) == 0 {
+		return out
+	}
+	type statRow struct {
+		EmployeeSessionID uuid.UUID
+		EventCount        int64
+		LastEvent         *time.Time
+	}
+	var rows []statRow
+	if err := h.db.WithContext(ctx).
+		Model(&model.EmployeeSessionEvent{}).
+		Select("employee_session_id, COUNT(*) AS event_count, MAX(event_at) AS last_event").
+		Where("org_id = ? AND employee_id = ? AND employee_session_id IN ?", orgID, agentID, sessionIDs).
+		Group("employee_session_id").
+		Scan(&rows).Error; err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "load employee session stats", "error", err, "employee_id", agentID)
+		return out
+	}
+	for _, row := range rows {
+		out[row.EmployeeSessionID] = employeeSessionStats{EventCount: row.EventCount, LastEvent: row.LastEvent}
+	}
+	return out
+}
+
+func (h *EmployeeHandler) loadTriggerDeliveriesForConversations(ctx context.Context, orgID, agentID uuid.UUID, sessionIDs []uuid.UUID) map[uuid.UUID]*triggerDeliveryResponse {
+	out := map[uuid.UUID]*triggerDeliveryResponse{}
 	if len(sessionIDs) == 0 {
 		return out
 	}
 	var rows []model.EmployeeTriggerDelivery
 	if err := h.db.WithContext(ctx).
-		Where("org_id = ? AND employee_id = ? AND runtime_session_id IN ?", orgID, agentID, sessionIDs).
+		Where("org_id = ? AND employee_id = ? AND conversation_id IN ?", orgID, agentID, sessionIDs).
 		Order("created_at DESC").
 		Find(&rows).Error; err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "load trigger deliveries for employee sessions", "error", err, "employee_id", agentID)
 		return out
 	}
 	for _, row := range rows {
-		if _, exists := out[row.RuntimeSessionID]; exists {
+		if _, exists := out[row.ConversationID]; exists {
 			continue
 		}
 		resp := triggerDeliveryToResponse(row)
-		out[row.RuntimeSessionID] = &resp
+		out[row.ConversationID] = &resp
 	}
 	return out
 }
 
-func employeeSessionToResponse(session employeeruntime.Session, delivery *triggerDeliveryResponse) employeeSessionResponse {
+func employeeSessionToResponse(session model.EmployeeSession, stats employeeSessionStats, delivery *triggerDeliveryResponse) employeeSessionResponse {
+	lastActivity := session.UpdatedAt
+	if stats.LastEvent != nil && !stats.LastEvent.IsZero() {
+		lastActivity = *stats.LastEvent
+	}
+	endedAt := formatRuntimeTimePtr(session.EndedAt)
 	return employeeSessionResponse{
-		ID:              session.ID,
-		Channel:         session.Channel,
-		ThreadTS:        session.ThreadTS,
-		AgentSessionID:  session.AgentSessionID,
-		Status:          session.Status,
-		CreatedAt:       formatRuntimeTime(session.CreatedAt),
-		LastActivityAt:  formatRuntimeTime(session.LastActivityAt),
-		TriggerDelivery: delivery,
+		ID:                    session.ID.String(),
+		RuntimeConversationID: session.RuntimeConversationID,
+		Channel:               session.Source,
+		ThreadTS:              session.SourceResourceKey,
+		AgentSessionID:        session.RuntimeConversationID,
+		Source:                session.Source,
+		SourceResourceKey:     session.SourceResourceKey,
+		Status:                session.Status,
+		Name:                  session.Name,
+		EventCount:            stats.EventCount,
+		CreatedAt:             formatRuntimeTime(session.CreatedAt),
+		UpdatedAt:             formatRuntimeTime(session.UpdatedAt),
+		LastActivityAt:        formatRuntimeTime(lastActivity),
+		EndedAt:               endedAt,
+		TriggerDelivery:       delivery,
 	}
 }
 
@@ -219,4 +234,12 @@ func formatRuntimeTime(value time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339)
+}
+
+func formatRuntimeTimePtr(value *time.Time) *string {
+	if value == nil || value.IsZero() {
+		return nil
+	}
+	formatted := formatRuntimeTime(*value)
+	return &formatted
 }

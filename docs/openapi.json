@@ -3493,7 +3493,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns employee runtime sessions with optional trigger delivery metadata.",
+        "description": "Returns persisted employee sessions with optional trigger delivery metadata.",
         "tags": [
           "employees"
         ],
@@ -3549,7 +3549,7 @@
             }
           },
           {
-            "description": "Prefix search over session identifiers",
+            "description": "Search over session title, source key, or runtime conversation ID",
             "name": "q",
             "in": "query",
             "schema": {
@@ -3580,6 +3580,108 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/paginatedResponse-handler_employeeSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/sessions/{sessionID}/events": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns persisted employee session events ordered newest-first with cursor pagination.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "List persisted session events",
+        "parameters": [
+          {
+            "description": "Employee agent ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Employee session ID",
+            "name": "sessionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size",
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination cursor",
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/paginatedResponse-handler_employeeSessionEventResponse"
                 }
               }
             }
@@ -9098,6 +9200,53 @@
           }
         }
       },
+      "employeeSessionEventResponse": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "employee_session_id": {
+            "type": "string"
+          },
+          "event_at": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "runtime_session_id": {
+            "type": "string"
+          },
+          "sequence_number": {
+            "type": "integer"
+          },
+          "source": {
+            "type": "string"
+          },
+          "specialist_slug": {
+            "type": "string"
+          },
+          "specialist_task_id": {
+            "type": "string"
+          }
+        }
+      },
       "employeeSessionResponse": {
         "type": "object",
         "properties": {
@@ -9110,10 +9259,28 @@
           "created_at": {
             "type": "string"
           },
+          "ended_at": {
+            "type": "string"
+          },
+          "event_count": {
+            "type": "integer"
+          },
           "id": {
             "type": "string"
           },
           "last_activity_at": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "runtime_conversation_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_resource_key": {
             "type": "string"
           },
           "status": {
@@ -9124,6 +9291,9 @@
           },
           "trigger_delivery": {
             "$ref": "#/components/schemas/triggerDeliveryResponse"
+          },
+          "updated_at": {
+            "type": "string"
           }
         }
       },
@@ -10025,6 +10195,23 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/employeeListItem"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "paginatedResponse-handler_employeeSessionEventResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeSessionEventResponse"
             }
           },
           "has_more": {
