@@ -176,7 +176,9 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		h.db.Model(&model.User{}).Where("id = ?", claims.UserID).Update("email_confirmed_at", nil)
 		var updated model.User
 		if err := h.db.First(&updated, "id = ?", claims.UserID).Error; err == nil {
-			h.sendEmailConfirmationCode(r.Context(), updated)
+			if err := h.sendEmailConfirmationCode(r.Context(), updated); err != nil {
+				logging.FromContext(r.Context()).ErrorContext(r.Context(), "send confirmation code after email change", "error", err)
+			}
 		}
 	}
 
