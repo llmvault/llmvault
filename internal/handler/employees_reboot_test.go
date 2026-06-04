@@ -16,6 +16,16 @@ func TestEmployeeHandler_RebootSandboxRestartsAndSyncsRuntimeConfig(t *testing.T
 	m := h.createOrg(t)
 	agent := h.seedEmployeeAgent(t, m)
 	sb := h.seedSandbox(t, m, agent.ID)
+	drive := model.Skill{
+		Slug:       "drive",
+		Name:       "drive",
+		SourceType: model.SkillSourceInline,
+		Status:     model.SkillStatusPublished,
+		Bundle:     model.RawJSON(`{"description":"Drive files.","content":"Use HIVY_DRIVE_UPLOAD_URL.","files":{}}`),
+	}
+	if err := h.db.Create(&drive).Error; err != nil {
+		t.Fatalf("seed drive skill: %v", err)
+	}
 
 	rr := h.rebootEmployeeSandbox(t, m, agent.ID, "admin")
 	if rr.Code != http.StatusOK {
@@ -31,6 +41,32 @@ func TestEmployeeHandler_RebootSandboxRestartsAndSyncsRuntimeConfig(t *testing.T
 	}
 	if bearer == "" {
 		t.Fatal("config push missing runtime auth bearer")
+	}
+	envBody := h.sidecar.envBody()
+	for _, key := range []string{
+		"HIVY_RAILWAY_API_URL",
+		"HIVY_RAILWAY_API_KEY",
+		"HIVY_VERCEL_API_URL",
+		"HIVY_VERCEL_API_KEY",
+		"HIVY_DRIVE_UPLOAD_URL",
+		"HIVY_DRIVE_UPLOAD_BEARER",
+	} {
+		if !strings.Contains(string(envBody), key) {
+			t.Fatalf("runtime env body missing %s: %s", key, string(envBody))
+		}
+	}
+	configBody := h.sidecar.configBody()
+	if !strings.Contains(string(configBody), `"name":"drive"`) {
+		t.Fatalf("runtime config missing reconciled drive skill: %s", string(configBody))
+	}
+	var links int64
+	if err := h.db.Model(&model.EmployeeSkill{}).
+		Where("employee_id = ? AND skill_id = ?", agent.ID, drive.ID).
+		Count(&links).Error; err != nil {
+		t.Fatalf("count drive link: %v", err)
+	}
+	if links != 1 {
+		t.Fatalf("drive employee skill links = %d, want 1", links)
 	}
 
 	var resp struct {

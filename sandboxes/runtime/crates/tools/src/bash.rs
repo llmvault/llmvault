@@ -96,14 +96,22 @@ impl BashTool {
             .unwrap_or(self.config.timeout_seconds.max(1));
 
         let mut env: HashMap<String, String> = HashMap::new();
-        for key in &self.config.env_passthrough {
-            if let Some(value) = self
-                .runtime_env
-                .get(key)
-                .cloned()
-                .or_else(|| std::env::var(key).ok())
-            {
-                env.insert(key.clone(), value);
+        if self.config.env_passthrough.is_empty() {
+            env.extend(
+                self.runtime_env
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone())),
+            );
+        } else {
+            for key in &self.config.env_passthrough {
+                if let Some(value) = self
+                    .runtime_env
+                    .get(key)
+                    .cloned()
+                    .or_else(|| std::env::var(key).ok())
+                {
+                    env.insert(key.clone(), value);
+                }
             }
         }
         env.entry("HOME".into())
@@ -304,5 +312,45 @@ mod tests {
         }
 
         assert_eq!(result["output"], "process-fallback");
+    }
+
+    #[tokio::test]
+    async fn empty_passthrough_passes_all_runtime_env() {
+        let runtime_env = Arc::new(HashMap::from([
+            (
+                "HIVY_RAILWAY_API_URL".to_string(),
+                "https://railway.test".to_string(),
+            ),
+            (
+                "HIVY_VERCEL_API_URL".to_string(),
+                "https://vercel.test".to_string(),
+            ),
+        ]));
+        let tool = super::BashTool::new(
+            BashConfig {
+                workdir: ".".to_string(),
+                timeout_seconds: 1,
+                max_output_bytes: 1024,
+                deny_patterns: Vec::new(),
+                env_passthrough: Vec::new(),
+                sandbox: "process_isolated".to_string(),
+            },
+            env::temp_dir(),
+            Arc::new(EchoEnvOperations {
+                key: "HIVY_VERCEL_API_URL",
+            }),
+            runtime_env,
+        );
+
+        let result = tool
+            .execute(serde_json::json!({
+                "command": "printf \"$HIVY_VERCEL_API_URL\"",
+                "timeout_seconds": 1,
+                "run_in_background": false,
+            }))
+            .await
+            .expect("command should succeed");
+
+        assert_eq!(result["output"], "https://vercel.test");
     }
 }
