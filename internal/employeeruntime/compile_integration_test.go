@@ -154,8 +154,8 @@ func TestCompile_SerializesSkillOptionalArraysAsEmptyArrays(t *testing.T) {
 	skill := model.Skill{
 		ID:          uuid.New(),
 		OrgID:       &org.ID,
-		Slug:        "asset-uploads",
-		Name:        "Asset uploads",
+		Slug:        "drive",
+		Name:        "Drive",
 		Description: &desc,
 		SourceType:  model.SkillSourceInline,
 		RepoRef:     "main",
@@ -219,8 +219,8 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 	skill := model.Skill{
 		ID:          uuid.New(),
 		OrgID:       &org.ID,
-		Slug:        "asset-uploads",
-		Name:        "Asset uploads",
+		Slug:        "drive",
+		Name:        "Drive",
 		Description: &desc,
 		SourceType:  model.SkillSourceInline,
 		RepoRef:     "main",
@@ -229,7 +229,7 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 			"description":"Upload generated artifacts.",
 			"content":"Use the upload endpoint.",
 			"files":{},
-			"required_environment_variables":["HIVY_UPLOAD_BEARER","HIVY_DRIVE_UPLOAD_URL","HIVY_UPLOAD_BEARER"]
+			"required_environment_variables":["HIVY_DRIVE_UPLOAD_BEARER","HIVY_DRIVE_UPLOAD_URL","HIVY_DRIVE_UPLOAD_BEARER"]
 		}`),
 	}
 	if err := db.Create(&skill).Error; err != nil {
@@ -246,7 +246,7 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 	if len(def.Skills) != 1 {
 		t.Fatalf("skills = %#v", def.Skills)
 	}
-	want := []string{EmployeeEnvDriveUploadURL, EmployeeEnvUploadBearer}
+	want := []string{EmployeeEnvDriveUploadBearer, EmployeeEnvDriveUploadURL}
 	if !reflect.DeepEqual(def.Skills[0].RequiredEnvironmentVariables, want) {
 		t.Fatalf("required env vars = %#v, want %#v", def.Skills[0].RequiredEnvironmentVariables, want)
 	}

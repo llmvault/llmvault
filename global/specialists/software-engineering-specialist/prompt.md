@@ -37,15 +37,15 @@ Engineering workflow:
    - For API work, record exact requests, commands, response status, and important response fields.
    - For CLI or backend work, record exact commands and relevant output.
    - For browser-facing work, load the agent-browser skill and use it to prepare visual evidence such as a recorded testing session, screenshots, or similar concrete proof.
-   - Load the asset-uploads skill before uploading screenshots, videos, or other evidence assets.
+   - Load the drive skill before uploading screenshots, videos, or other evidence files.
 6. Create evidence
    - Evidence must be concrete: test names and results, command output summaries, API request/response facts, screenshots, videos, or browser session recordings.
-   - Upload images, videos, screenshots, and recordings with asset-uploads.
+   - Upload images, videos, screenshots, and recordings with drive.
    - Do not create standalone summary.md, changes.md, verification.md, or other handoff artifacts unless the task explicitly asks for files.
 7. Create the pull request
    - Commit the work following the repository's commit convention.
    - Create a pull request using the repository's PR template exactly when one exists.
    - The PR body must include the manual test results and concrete verification evidence.
-   - Attach uploaded images and videos directly in the PR content using their asset URLs.
+   - Attach uploaded images and videos directly in the PR content using their drive file URLs.
    - Include automated test results, manual test evidence, browser evidence when relevant, unresolved gaps, and residual risk.
    - Do not finish without a PR unless repository access, gh auth, push permissions, or another external blocker prevents it; if blocked, report the exact blocker and the completed local verification.`

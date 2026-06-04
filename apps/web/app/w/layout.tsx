@@ -36,6 +36,10 @@ import {
 import { FullPageLoader } from "@/components/full-page-loader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DashboardThemeProvider,
+  DashboardThemeSwitcher,
+} from "@/components/dashboard-theme-switcher"
 import { toast } from "sonner"
 import { api } from "@/lib/api/client"
 import { $api } from "@/lib/api/hooks"
@@ -166,11 +170,13 @@ export default function WorkspaceV2Layout({
   return (
     <AuthProvider>
       <WorkspaceGate>
-        <SidebarProvider>
-          <WorkspaceRouteSidebarState />
-          <AppSidebar />
-          <WorkspaceFrame>{children}</WorkspaceFrame>
-        </SidebarProvider>
+        <DashboardThemeProvider>
+          <SidebarProvider>
+            <WorkspaceRouteSidebarState />
+            <AppSidebar />
+            <WorkspaceFrame>{children}</WorkspaceFrame>
+          </SidebarProvider>
+        </DashboardThemeProvider>
       </WorkspaceGate>
     </AuthProvider>
   )
@@ -211,7 +217,12 @@ function WorkspaceRouteSidebarState() {
   const pathname = usePathname()
   const { open, setOpen, isMobile } = useSidebar()
   const restoreOpenRef = useRef<boolean | null>(null)
+  const setOpenRef = useRef(setOpen)
   const shouldCollapse = isWorkspaceRoute(pathname, collapsedSidebarRoutes)
+
+  useEffect(() => {
+    setOpenRef.current = setOpen
+  }, [setOpen])
 
   useEffect(() => {
     if (isMobile) return
@@ -227,18 +238,22 @@ function WorkspaceRouteSidebarState() {
     }
 
     if (restoreOpenRef.current !== null) {
-      setOpen(restoreOpenRef.current)
+      const restoreOpen = restoreOpenRef.current
       restoreOpenRef.current = null
+      if (open !== restoreOpen) {
+        setOpen(restoreOpen)
+      }
     }
   }, [isMobile, open, setOpen, shouldCollapse])
 
   useEffect(() => {
     return () => {
       if (restoreOpenRef.current !== null) {
-        setOpen(restoreOpenRef.current)
+        setOpenRef.current(restoreOpenRef.current)
+        restoreOpenRef.current = null
       }
     }
-  }, [setOpen])
+  }, [])
 
   return null
 }
@@ -428,6 +443,9 @@ function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="gap-0 px-3 py-4">
+        <div className="mb-3">
+          <DashboardThemeSwitcher />
+        </div>
         <SidebarMenu>
           {footerLinks.map((link) => (
             <SidebarMenuItem key={link.label}>

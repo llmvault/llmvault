@@ -83,6 +83,12 @@ func setupPublicRoutes(
 
 		notionProxyHandler := handler.NewNotionProxyHandler(database, sandboxEncKey, nangoClient)
 		r.Handle("/internal/notion-proxy/{employeeID}/*", http.HandlerFunc(notionProxyHandler.Handle))
+
+		vercelProxyHandler := handler.NewVercelProxyHandler(database, sandboxEncKey, nangoClient)
+		r.Handle("/internal/vercel-proxy/{employeeID}/*", http.HandlerFunc(vercelProxyHandler.Handle))
+
+		slackProxyHandler := handler.NewSlackProxyHandler(database, sandboxEncKey, nangoClient)
+		r.Handle("/internal/slack-proxy/{employeeID}/*", http.HandlerFunc(slackProxyHandler.Handle))
 	}
 
 	// Direct incoming webhooks for providers requiring manual webhook configuration
@@ -91,7 +97,7 @@ func setupPublicRoutes(
 		r.Post("/incoming/gateways/http/{routeID}", gatewayHTTPHandler.Handle)
 	}
 
-	// Conversation-scoped streaming asset uploads from inside the sandbox.
+	// Conversation-scoped streaming uploads from inside the sandbox.
 	// Bearer auth = the sandbox's runtime API key (matches existing
 	// sandbox-drive / git-credentials / railway-proxy endpoints).
 	if uploadsHandler != nil {
@@ -99,9 +105,9 @@ func setupPublicRoutes(
 		r.Post("/internal/conversations/{conversationID}/assets/move", uploadsHandler.MoveConversationAsset)
 		r.Delete("/internal/conversations/{conversationID}/assets/*", uploadsHandler.DeleteConversationAsset)
 
-		r.Put("/internal/employees/{employeeID}/assets/*", uploadsHandler.StreamEmployeeAsset)
-		r.Post("/internal/employees/{employeeID}/assets/move", uploadsHandler.MoveEmployeeAsset)
-		r.Delete("/internal/employees/{employeeID}/assets/*", uploadsHandler.DeleteEmployeeAsset)
+		r.Put("/internal/employees/{employeeID}/drive/*", uploadsHandler.StreamEmployeeAsset)
+		r.Post("/internal/employees/{employeeID}/drive/move", uploadsHandler.MoveEmployeeAsset)
+		r.Delete("/internal/employees/{employeeID}/drive/*", uploadsHandler.DeleteEmployeeAsset)
 	}
 
 	if sqliteBackupHandler != nil {

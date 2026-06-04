@@ -25,7 +25,7 @@ func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.
 		employeeruntime.EmployeeEnvAgentMultimodalAPIKeyEnv: employeeruntime.ProxyAPIKeyEnv,
 		employeeruntime.EmployeeEnvEmployeeID:               agent.ID.String(),
 		employeeruntime.EmployeeEnvCloudControlPlaneURL:     controlPlaneBaseURL,
-		employeeruntime.EmployeeEnvUploadBearer:             runtimeSecret,
+		employeeruntime.EmployeeEnvDriveUploadBearer:        runtimeSecret,
 		employeeruntime.EmployeeEnvWorkspaceRoot:            "/workspace",
 		employeeruntime.EmployeeEnvDBPath:                   "/app/data/hivy-sandboxes-runtime.db",
 		employeeruntime.EmployeeEnvRuntimeBindAddr:          fmt.Sprintf("0.0.0.0:%d", EmployeeSandboxPort),
@@ -36,15 +36,10 @@ func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.
 		employeeruntime.EmployeeEnvGitEmail:                 employeeGitEmail(agent, gitIdentity),
 		employeeruntime.EmployeeEnvGitCredentialsURL:        fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID),
 		employeeruntime.EmployeeEnvGitHubNoKeyring:          "1",
-		employeeruntime.EmployeeEnvBugsinkURL:               fmt.Sprintf("%s/internal/bugsink-proxy/%s", controlPlaneBaseURL, agent.ID),
 		employeeruntime.EmployeeEnvBugsinkDashboardBaseURL:  bugsinkDashboardURL,
-		employeeruntime.EmployeeEnvBugsinkToken:             runtimeSecret,
-		employeeruntime.EmployeeEnvLinearURL:                fmt.Sprintf("%s/internal/linear-proxy/%s", controlPlaneBaseURL, agent.ID),
-		employeeruntime.EmployeeEnvLinearToken:              runtimeSecret,
-		employeeruntime.EmployeeEnvNotionAPIURL:             fmt.Sprintf("%s/internal/notion-proxy/%s", controlPlaneBaseURL, agent.ID),
-		employeeruntime.EmployeeEnvNotionToken:              runtimeSecret,
 	}
-	setEmployeeDriveUploadURL(envVars, cfg, agent.ID, "employee")
+	employeeruntime.ApplyServiceProxyEnv(envVars, controlPlaneBaseURL, agent.ID, runtimeSecret)
+	setEmployeeDriveUploadURL(envVars, cfg, agent.ID)
 	employeeSentryDSN := ""
 	if cfg != nil {
 		employeeSentryDSN = cfg.AgentSandboxSentryDSN

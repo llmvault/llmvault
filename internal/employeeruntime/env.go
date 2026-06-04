@@ -16,7 +16,7 @@ const (
 	EmployeeEnvAgentMultimodalAPIKeyEnv   = "HIVY_AGENT_MULTIMODAL_API_KEY_ENV"
 	EmployeeEnvEmployeeID                 = "HIVY_EMPLOYEE_ID"
 	EmployeeEnvCloudControlPlaneURL       = "HIVY_CONTROL_PLANE_URL"
-	EmployeeEnvUploadBearer               = "HIVY_UPLOAD_BEARER"
+	EmployeeEnvDriveUploadBearer          = "HIVY_DRIVE_UPLOAD_BEARER"
 	EmployeeEnvWorkspaceRoot              = "HIVY_WORKSPACE_ROOT"
 	EmployeeEnvDBPath                     = "HIVY_DB_PATH"
 	EmployeeEnvRuntimeBindAddr            = "HIVY_RUNTIME_BIND_ADDR"
@@ -35,6 +35,12 @@ const (
 	EmployeeEnvLinearToken                = "HIVY_LINEAR_TOKEN"
 	EmployeeEnvNotionAPIURL               = "HIVY_NOTION_API_URL"
 	EmployeeEnvNotionToken                = "HIVY_NOTION_TOKEN"
+	EmployeeEnvRailwayAPIURL              = "HIVY_RAILWAY_API_URL"
+	EmployeeEnvRailwayAPIKey              = "HIVY_RAILWAY_API_KEY"
+	EmployeeEnvVercelAPIURL               = "HIVY_VERCEL_API_URL"
+	EmployeeEnvVercelAPIKey               = "HIVY_VERCEL_API_KEY"
+	EmployeeEnvSlackAPIURL                = "HIVY_SLACK_API_URL"
+	EmployeeEnvSlackToken                 = "HIVY_SLACK_TOKEN"
 	EmployeeEnvSentryDSN                  = "SENTRY_DSN"
 	EmployeeEnvSentryEnvironment          = "SENTRY_ENVIRONMENT"
 	EmployeeEnvSentrySampleRate           = "SENTRY_SAMPLE_RATE"
@@ -89,7 +95,7 @@ var employeeEnvCatalog = []EmployeeEnvSpec{
 	{Key: EmployeeEnvAgentMultimodalAPIKeyEnv, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvEmployeeID, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvCloudControlPlaneURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvUploadBearer, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvDriveUploadBearer, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvWorkspaceRoot, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvDBPath, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvRuntimeBindAddr, Source: EmployeeEnvSourceControlPlaneInjected},
@@ -108,6 +114,12 @@ var employeeEnvCatalog = []EmployeeEnvSpec{
 	{Key: EmployeeEnvLinearToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvNotionAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvNotionToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvRailwayAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvRailwayAPIKey, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvVercelAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvVercelAPIKey, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvSlackAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvSlackToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvSentryDSN, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
 	{Key: EmployeeEnvSentryEnvironment, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
 	{Key: EmployeeEnvSentrySampleRate, Source: EmployeeEnvSourceConditionalSentry, Optional: true},

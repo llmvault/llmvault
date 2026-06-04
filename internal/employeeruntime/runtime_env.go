@@ -65,7 +65,7 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 		env[EmployeeEnvSandboxID] = sb.ID.String()
 	}
 	env[EmployeeEnvRuntimeSecret] = runtimeSecret
-	env[EmployeeEnvUploadBearer] = runtimeSecret
+	env[EmployeeEnvDriveUploadBearer] = runtimeSecret
 	env[EmployeeEnvEmployeeID] = agent.ID.String()
 	if agent.OrgID != nil {
 		env[EmployeeEnvOrgID] = agent.OrgID.String()
@@ -120,13 +120,9 @@ func addControlPlaneRuntimeEnv(ctx context.Context, deps CompileDeps, env map[st
 		return
 	}
 	controlPlaneBaseURL := deps.Cfg.RuntimeControlPlaneBaseURL()
-	env[EmployeeEnvBugsinkURL] = fmt.Sprintf("%s/internal/bugsink-proxy/%s", controlPlaneBaseURL, agent.ID)
+	ApplyServiceProxyEnv(env, controlPlaneBaseURL, agent.ID, runtimeSecret)
+	env[EmployeeEnvDriveUploadURL] = EmployeeDriveUploadURL(controlPlaneBaseURL, agent.ID)
 	if deps.DB != nil && agent.OrgID != nil {
 		env[EmployeeEnvBugsinkDashboardBaseURL] = BugsinkDashboardBaseURL(ctx, deps.DB, *agent.OrgID, *agent)
 	}
-	env[EmployeeEnvBugsinkToken] = runtimeSecret
-	env[EmployeeEnvLinearURL] = fmt.Sprintf("%s/internal/linear-proxy/%s", controlPlaneBaseURL, agent.ID)
-	env[EmployeeEnvLinearToken] = runtimeSecret
-	env[EmployeeEnvNotionAPIURL] = fmt.Sprintf("%s/internal/notion-proxy/%s", controlPlaneBaseURL, agent.ID)
-	env[EmployeeEnvNotionToken] = runtimeSecret
 }
