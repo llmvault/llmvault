@@ -2,11 +2,9 @@ package handler
 
 import (
 	"context"
-	"errors"
-	"time"
+	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -15,30 +13,26 @@ import (
 
 func (h *EmployeeOutboundWebhookHandler) enqueueEmployeeMemoryRetain(ctx context.Context, sb *model.Sandbox, session *model.EmployeeSession, sessionID, reason, sourceEvent string) {
 	if h.enqueuer == nil || sb == nil || session == nil || sb.EmployeeID == nil || sessionID == "" {
+		skipReason := employeeMemoryRetainEnqueueSkipReason(h, sb, session, sessionID)
 		logging.FromContext(ctx).WarnContext(ctx, "employee memory retain enqueue skipped",
-			"skip_reason", employeeMemoryRetainEnqueueSkipReason(h, sb, session, sessionID),
+			"skip_reason", skipReason,
 			"session_id", sessionID,
 			"reason", reason,
 			"source_event", sourceEvent,
 		)
+		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain enqueue skipped: %s", skipReason), employeeMemoryRetainSentryFields(sb, session, sessionID, reason, sourceEvent))
 		return
 	}
-	task, err := tasks.NewEmployeeMemoryRetainTask(tasks.EmployeeMemoryRetainPayload{
+	payload := tasks.EmployeeMemoryRetainPayload{
 		EmployeeID:        *sb.EmployeeID,
 		SandboxID:         sb.ID,
 		EmployeeSessionID: session.ID,
 		SessionID:         sessionID,
 		Reason:            reason,
 		SourceEvent:       sourceEvent,
-	})
-	if err != nil {
-		captureEmployeeWebhookIngest(ctx, "build_memory_retain_task", sb, nil, sessionID, session.Source, err)
-		return
 	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task,
-		asynq.ProcessIn(10*time.Minute),
-		asynq.TaskID("employee-memory-retain:"+session.ID.String()),
-	); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
+	duplicate, err := tasks.EnqueueEmployeeMemoryRetain(ctx, h.enqueuer, payload)
+	if err != nil {
 		captureEmployeeWebhookIngest(ctx, "enqueue_memory_retain", sb, nil, sessionID, session.Source, err)
 	} else {
 		logging.FromContext(ctx).InfoContext(ctx, "employee memory retain enqueued",
@@ -50,10 +44,32 @@ func (h *EmployeeOutboundWebhookHandler) enqueueEmployeeMemoryRetain(ctx context
 			"source", session.Source,
 			"reason", reason,
 			"source_event", sourceEvent,
-			"delay_seconds", 600,
-			"duplicate", errors.Is(err, asynq.ErrDuplicateTask),
+			"delay_seconds", int(tasks.EmployeeMemoryRetainDelay.Seconds()),
+			"duplicate", duplicate,
 		)
 	}
+}
+
+func employeeMemoryRetainSentryFields(sb *model.Sandbox, session *model.EmployeeSession, sessionID, reason, sourceEvent string) map[string]any {
+	fields := map[string]any{
+		"runtime_session_id": sessionID,
+		"reason":             reason,
+		"source_event":       sourceEvent,
+	}
+	if sb != nil {
+		fields["sandbox_id"] = sb.ID.String()
+		if sb.OrgID != nil {
+			fields["org_id"] = sb.OrgID.String()
+		}
+		if sb.EmployeeID != nil {
+			fields["employee_id"] = sb.EmployeeID.String()
+		}
+	}
+	if session != nil {
+		fields["employee_session_id"] = session.ID.String()
+		fields["source"] = session.Source
+	}
+	return fields
 }
 
 func employeeMemoryRetainEnqueueSkipReason(h *EmployeeOutboundWebhookHandler, sb *model.Sandbox, session *model.EmployeeSession, sessionID string) string {

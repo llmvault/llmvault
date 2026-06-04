@@ -48,6 +48,20 @@ func (h *employeeHarness) patchEmployeeModel(t *testing.T, m orgWithMember, agen
 	return rr
 }
 
+func (h *employeeHarness) rebootEmployeeSandbox(t *testing.T, m orgWithMember, agentID uuid.UUID, role string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/v1/employees/"+agentID.String()+"/sandbox/reboot", nil)
+	req.Header.Set("X-Org-ID", m.org.ID.String())
+	req = middleware.WithAuthClaims(req, &auth.AuthClaims{
+		UserID: m.user.ID.String(),
+		OrgID:  m.org.ID.String(),
+		Role:   role,
+	})
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+	return rr
+}
+
 func (h *employeeHarness) getEmployeeAvailableConnections(t *testing.T, m orgWithMember, agentID uuid.UUID, role string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/v1/employees/"+agentID.String()+"/connections/available", nil)

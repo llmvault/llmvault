@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 
@@ -68,7 +69,7 @@ func (h *OAuthHandler) issueTokensAndRespond(ctx context.Context, w http.Respons
 	})
 }
 
-func (h *OAuthHandler) findOrCreateUser(provider string, profile *oauthProfile) (*model.User, error) {
+func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, profile *oauthProfile) (*model.User, error) {
 
 	var existing model.OAuthAccount
 	err := h.db.Where("provider = ? AND provider_user_id = ?", provider, profile.ProviderUserID).First(&existing).Error
@@ -115,6 +116,7 @@ func (h *OAuthHandler) findOrCreateUser(provider string, profile *oauthProfile) 
 		emailConfirmedAt = &now
 	}
 
+	var createdOrgID uuid.UUID
 	err = h.db.Transaction(func(tx *gorm.DB) error {
 		user = model.User{
 			Email:            email,
@@ -125,9 +127,11 @@ func (h *OAuthHandler) findOrCreateUser(provider string, profile *oauthProfile) 
 			return fmt.Errorf("creating user: %w", err)
 		}
 
-		if _, err := createUserDefaultOrg(tx, h.credits, &user); err != nil {
+		org, err := createUserDefaultOrg(tx, h.credits, &user)
+		if err != nil {
 			return err
 		}
+		createdOrgID = org.ID
 
 		oauthAcct := model.OAuthAccount{
 			UserID:         user.ID,
@@ -143,6 +147,7 @@ func (h *OAuthHandler) findOrCreateUser(provider string, profile *oauthProfile) 
 	if err != nil {
 		return nil, err
 	}
+	ensureOrgMemoryBank(ctx, h.memoryBanks, createdOrgID, "oauth_signup")
 
 	return &user, nil
 }

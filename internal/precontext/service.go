@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/hindsight"
@@ -16,6 +17,10 @@ import (
 
 type MemoryLister interface {
 	ListMemories(context.Context, string, int, int) (*hindsight.ListMemoriesResponse, error)
+}
+
+type MemoryBankEnsurer interface {
+	EnsureOrgBank(context.Context, uuid.UUID) error
 }
 
 type Embedder interface {
@@ -34,6 +39,7 @@ type Config struct {
 	DB         *gorm.DB
 	Cache      Cache
 	Memory     MemoryLister
+	MemoryBank MemoryBankEnsurer
 	Searcher   KnowledgeSearcher
 	Embedder   Embedder
 	Reranker   Reranker

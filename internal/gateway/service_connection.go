@@ -103,6 +103,9 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		_ = s.markEventFailed(ctx, event.ID, err)
 		return nil, err
 	}
+	if created {
+		s.notifySessionCreated(ctx, session, "gateway_session_created", "gateway.session.created")
+	}
 	dynamicContext := s.buildPreContext(ctx, created, precontext.Request{
 		OrgID:                 envelope.OrgID,
 		EmployeeID:            envelope.EmployeeID,

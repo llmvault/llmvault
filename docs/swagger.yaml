@@ -1915,6 +1915,15 @@ definitions:
       updated_at:
         type: string
     type: object
+  rebootEmployeeSandboxResponse:
+    properties:
+      employee:
+        $ref: '#/definitions/employeeResponse'
+      sandbox_id:
+        type: string
+      sync:
+        $ref: '#/definitions/syncEmployeeResponse'
+    type: object
   refreshRequest:
     properties:
       org_id:
@@ -4373,6 +4382,56 @@ paths:
       security:
       - BearerAuth: []
       summary: Update an employee model
+      tags:
+      - employees
+  /v1/employees/{id}/sandbox/reboot:
+    post:
+      description: Restarts the employee sandbox, pushes fresh runtime config, mints
+        fresh proxy credentials, and verifies readiness.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rebootEmployeeSandboxResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reboot an employee sandbox
       tags:
       - employees
   /v1/employees/{id}/sandbox/upgrade:

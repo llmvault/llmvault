@@ -15,6 +15,11 @@ func (s *Service) fetchMemoriesSection(ctx context.Context, req Request) (string
 	if s.cfg.Memory == nil || req.OrgID == uuid.Nil {
 		return "", nil
 	}
+	if s.cfg.MemoryBank != nil {
+		if err := s.cfg.MemoryBank.EnsureOrgBank(ctx, req.OrgID); err != nil {
+			return "", fmt.Errorf("ensure memory bank: %w", err)
+		}
+	}
 	resp, err := s.cfg.Memory.ListMemories(ctx, hindsight.OrgBankID(req.OrgID), 100, 0)
 	if err != nil {
 		return "", fmt.Errorf("list memories: %w", err)
