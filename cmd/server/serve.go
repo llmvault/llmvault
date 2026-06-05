@@ -145,6 +145,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if orchestrator != nil {
 		gatewayRuntime := gateway.NewOrchestratedRuntimeMessenger(database, orchestrator)
 		gatewayService = gateway.NewService(database, gatewayRuntime, sandboxEncKey, gateway.NewFakeSlackAdapter(), gateway.NewHTTPAdapter(nil), gateway.NewSlackAdapter())
+		gatewayService.SetRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
 		gatewayService.SetPreContextBuilder(precontext.NewService(precontext.Config{
 			DB:         database,
 			Cache:      preContextCache,
@@ -193,7 +194,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			deps.S3Client,
 			sandboxEncKey,
 			cfg.EmployeeSQLiteBackupMaxBytes,
-		)
+		).WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
 	}
 
 	var uploadsHandler *handler.UploadsHandler
@@ -212,6 +213,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			slog.Error("public assets presigner init failed; /v1/uploads/sign disabled", "error", err)
 		} else {
 			uploadsHandler = handler.NewUploadsHandler(database, presigner)
+			uploadsHandler.WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
 			if sandboxEncKey != nil {
 				uploadsHandler.WithStreamer(presigner, sandboxEncKey)
 			}

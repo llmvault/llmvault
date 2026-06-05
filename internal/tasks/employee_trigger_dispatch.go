@@ -265,14 +265,11 @@ func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload E
 }
 
 func (h *EmployeeTriggerDispatchHandler) loadEmployeeSandbox(ctx context.Context, agentID, orgID uuid.UUID) (*model.Sandbox, error) {
-	var sb model.Sandbox
-	if err := h.db.WithContext(ctx).
-		Where("employee_id = ? AND org_id = ? AND status <> ?", agentID, orgID, string(sandbox.StatusError)).
-		Order("created_at DESC").
-		First(&sb).Error; err != nil {
+	sb, err := employeeRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, orgID, agentID)
+	if err != nil {
 		return nil, fmt.Errorf("load employee sandbox: %w", err)
 	}
-	return &sb, nil
+	return sb, nil
 }
 
 func (h *EmployeeTriggerDispatchHandler) syncRuntime(ctx context.Context, agent *model.Employee, sb *model.Sandbox, client *employeeruntime.Client) error {

@@ -110,8 +110,10 @@ func TestIntegration_EmployeesList_ReportsSandboxUpgradeAvailability(t *testing.
 
 	outdated := h.seedEmployeeAgent(t, m)
 	outdatedSandbox := h.seedSandbox(t, m, outdated.ID)
-	outdatedSnapshot := "older-employee-sandbox"
+	outdatedSnapshot := "ghcr.io/usehivy/hivy-sandboxes-runtime:v0.0.1"
 	h.setSandboxSnapshot(t, outdatedSandbox.ID, &outdatedSnapshot)
+	shadowSpecialistSandbox := h.seedSandbox(t, m, outdated.ID)
+	h.setSandboxSnapshot(t, shadowSpecialistSandbox.ID, &h.cfg.SandboxesRuntimeSpecialistImage)
 
 	legacy := h.seedEmployeeAgent(t, m)
 	legacySandbox := h.seedSandbox(t, m, legacy.ID)
@@ -129,7 +131,9 @@ func TestIntegration_EmployeesList_ReportsSandboxUpgradeAvailability(t *testing.
 		t.Fatalf("decode: %v", err)
 	}
 	got := make(map[string]bool, len(resp.Data))
+	selectedSandboxID := make(map[string]string, len(resp.Data))
 	for _, item := range resp.Data {
+		id, _ := item["id"].(string)
 		if _, exposed := item["snapshot_id"]; exposed {
 			t.Fatalf("employee response exposed snapshot_id: %#v", item)
 		}
@@ -137,8 +141,8 @@ func TestIntegration_EmployeesList_ReportsSandboxUpgradeAvailability(t *testing.
 			if _, exposed := sandbox["snapshot_id"]; exposed {
 				t.Fatalf("employee sandbox response exposed snapshot_id: %#v", sandbox)
 			}
+			selectedSandboxID[id], _ = sandbox["id"].(string)
 		}
-		id, _ := item["id"].(string)
 		upgrade, _ := item["upgrade_available"].(bool)
 		got[id] = upgrade
 	}
@@ -148,6 +152,9 @@ func TestIntegration_EmployeesList_ReportsSandboxUpgradeAvailability(t *testing.
 	}
 	if !got[outdated.ID.String()] {
 		t.Errorf("outdated sandbox upgrade_available = false, want true")
+	}
+	if selectedSandboxID[outdated.ID.String()] != outdatedSandbox.ID.String() {
+		t.Errorf("outdated selected sandbox = %s, want %s", selectedSandboxID[outdated.ID.String()], outdatedSandbox.ID)
 	}
 	if !got[legacy.ID.String()] {
 		t.Errorf("legacy sandbox upgrade_available = false, want true")

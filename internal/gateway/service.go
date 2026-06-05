@@ -20,6 +20,8 @@ type Service struct {
 	encKey                      *crypto.SymmetricKey
 	adapters                    map[string]Adapter
 	preload                     precontext.Builder
+	employeeRuntimeImage        string
+	specialistRuntimeImage      string
 	onSessionCreated            func(context.Context, model.EmployeeSession, string, string)
 	onConnectionInboundAccepted func(context.Context, ConnectionInboundAccepted)
 	now                         func() time.Time
@@ -41,6 +43,11 @@ func NewService(db *gorm.DB, runtime RuntimeMessenger, encKey *crypto.SymmetricK
 
 func (s *Service) SetPreContextBuilder(builder precontext.Builder) {
 	s.preload = builder
+}
+
+func (s *Service) SetRuntimeImages(employeeImage, specialistImage string) {
+	s.employeeRuntimeImage = strings.TrimSpace(employeeImage)
+	s.specialistRuntimeImage = strings.TrimSpace(specialistImage)
 }
 
 func (s *Service) SetSessionCreatedHook(hook func(context.Context, model.EmployeeSession, string, string)) {

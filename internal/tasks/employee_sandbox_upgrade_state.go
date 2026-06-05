@@ -17,7 +17,6 @@ import (
 	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 func (h *EmployeeSandboxUpgradeHandler) loadAndStart(ctx context.Context, payload EmployeeSandboxUpgradePayload) (*model.EmployeeSandboxUpgrade, *model.Employee, *model.Sandbox, error) {
@@ -63,14 +62,17 @@ func (h *EmployeeSandboxUpgradeHandler) loadAndStart(ctx context.Context, payloa
 		h.markFailed(ctx, &upgrade, model.EmployeeSandboxUpgradePhaseCreatingNew, "employee missing org")
 		return nil, nil, nil, fmt.Errorf("employee missing org")
 	}
-	var oldSandbox model.Sandbox
-	query := h.db.WithContext(ctx).Where("employee_id = ? AND org_id = ? AND status <> ?", upgrade.EmployeeID, upgrade.OrgID, string(sandbox.StatusError))
+	selector := employeeRuntimeSelector(h.db, h.compileDeps)
+	var oldSandbox *model.Sandbox
+	var oldSandboxErr error
 	if upgrade.OldSandboxID != nil {
-		query = query.Where("id = ?", *upgrade.OldSandboxID)
+		oldSandbox, oldSandboxErr = selector.MainRuntimeByID(ctx, upgrade.OrgID, upgrade.EmployeeID, *upgrade.OldSandboxID)
+	} else {
+		oldSandbox, oldSandboxErr = selector.MainRuntime(ctx, upgrade.OrgID, upgrade.EmployeeID)
 	}
-	if err := query.Order("created_at DESC").Limit(1).First(&oldSandbox).Error; err != nil {
+	if oldSandboxErr != nil {
 		h.markFailed(ctx, &upgrade, model.EmployeeSandboxUpgradePhaseCreatingNew, "current sandbox not found")
-		return nil, nil, nil, fmt.Errorf("load current sandbox: %w", err)
+		return nil, nil, nil, fmt.Errorf("load current sandbox: %w", oldSandboxErr)
 	}
 	if upgrade.OldSandboxID == nil {
 		if err := h.db.WithContext(ctx).Model(&upgrade).Update("old_sandbox_id", oldSandbox.ID).Error; err != nil {
@@ -78,7 +80,7 @@ func (h *EmployeeSandboxUpgradeHandler) loadAndStart(ctx context.Context, payloa
 		}
 		upgrade.OldSandboxID = &oldSandbox.ID
 	}
-	return &upgrade, &agent, &oldSandbox, nil
+	return &upgrade, &agent, oldSandbox, nil
 }
 
 func (h *EmployeeSandboxUpgradeHandler) syncEmployeeRuntime(ctx context.Context, agent *model.Employee, sb *model.Sandbox) error {

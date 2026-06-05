@@ -205,20 +205,14 @@ func (h *EmployeeProxyTokenRefreshHandler) loadAgentAndSandbox(ctx context.Conte
 	if agent.OrgID == nil {
 		return nil, nil, false, nil
 	}
-	var sb model.Sandbox
-	if err := h.db.WithContext(ctx).
-		Where("id = ? AND employee_id = ? AND org_id = ?", payload.SandboxID, agent.ID, *agent.OrgID).
-		First(&sb).Error; err != nil {
+	sb, err := employeeRuntimeSelector(h.db, h.compileDeps).MainRuntimeByID(ctx, *agent.OrgID, agent.ID, payload.SandboxID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil, false, nil
 		}
 		return nil, nil, false, fmt.Errorf("load employee sandbox for proxy token refresh: %w", err)
 	}
-	switch sb.Status {
-	case string(sandbox.StatusArchived), string(sandbox.StatusArchiving), string(sandbox.StatusError):
-		return nil, nil, false, nil
-	}
-	return &agent, &sb, true, nil
+	return &agent, sb, true, nil
 }
 
 func (h *EmployeeProxyTokenRefreshHandler) revokeOlderTokens(ctx context.Context, agent *model.Employee, sb *model.Sandbox, keepJTI string) error {
