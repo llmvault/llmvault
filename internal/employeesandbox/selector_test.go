@@ -16,3 +16,11 @@ func TestImageRepositoryNormalizesTagsAndDigests(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultSpecialistRepositoryDerivesFromEmployeeRepository(t *testing.T) {
+	got := defaultSpecialistRepository("ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.6")
+	want := "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist"
+	if got != want {
+		t.Fatalf("defaultSpecialistRepository() = %q, want %q", got, want)
+	}
+}
