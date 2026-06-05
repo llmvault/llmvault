@@ -205,7 +205,7 @@ function HeaderAccountMenu() {
             <HugeiconsIcon icon={Settings05Icon} strokeWidth={2} />
             Settings
           </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href="/w/settings/billing" />}>
+          <DropdownMenuItem render={<Link href="/w/credits" />}>
             <HugeiconsIcon icon={CreditCardIcon} strokeWidth={2} />
             Billing
           </DropdownMenuItem>

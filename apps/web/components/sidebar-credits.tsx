@@ -33,7 +33,7 @@ export function SidebarCredits() {
 
   return (
     <Link
-      href="/w/settings/billing"
+      href="/w/credits"
       className="group-data-[collapsible=icon]:hidden mx-2 flex flex-col gap-1.5 rounded-xl px-2 py-2 transition-colors hover:bg-sidebar-accent/40"
     >
       <div className="flex items-baseline justify-between text-[11px]">
