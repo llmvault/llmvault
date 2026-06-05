@@ -279,24 +279,10 @@ pub async fn handle_inbound(
         emit_user_message_received(&emitter, &inbound, event_source, true).await;
         if let Some(stream_id) = session_stream_id(&inbound) {
             turn_event_sink
-                .publish_final(
-                    &stream_id,
-                    &inbound.session_id,
-                    "Queued. I will process this after the current turn finishes.",
-                )
-                .await;
-            turn_event_sink
                 .publish_done(&stream_id, &inbound.session_id)
                 .await;
         }
         if let Some(stream_id) = session_response_stream_id(&inbound) {
-            turn_event_sink
-                .publish_final(
-                    &stream_id,
-                    &inbound.session_id,
-                    "Queued. I will process this after the current turn finishes.",
-                )
-                .await;
             turn_event_sink
                 .publish_done(&stream_id, &inbound.session_id)
                 .await;
