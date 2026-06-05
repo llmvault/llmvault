@@ -233,6 +233,7 @@ func setupV1Routes(
 				r.Route("/uploads", func(r chi.Router) {
 					r.Use(middleware.ResolveUser(database))
 					r.Post("/sign", uploadsHandler.Sign)
+					r.Post("/upload", uploadsHandler.Upload)
 				})
 				r.Get("/assets", uploadsHandler.ListAssets)
 			}
