@@ -148,6 +148,8 @@ func setupAuthRoutes(
 			r.Use(middleware.RequireAuth(rsaPub, cfg.AuthIssuer, cfg.AuthAudience))
 			r.Post("/logout", authHandler.Logout)
 			r.Get("/me", authHandler.Me)
+			r.Patch("/me", authHandler.UpdateProfile)
+			r.Delete("/me", authHandler.DeleteAccount)
 			r.Post("/change-password", authHandler.ChangePassword)
 		})
 	})
