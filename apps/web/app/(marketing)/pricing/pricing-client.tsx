@@ -4,7 +4,13 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
+import {
+  CreditSlider,
+  FeatureItem,
+  PricingPlanCard,
+  formatCreditLabel,
+  formatNGN,
+} from "@/components/pricing/credit-pricing"
 import type { components } from "@/lib/api/schema"
 import {
   NavigationMenu,
@@ -91,41 +97,6 @@ function Navbar() {
   )
 }
 
-/* ─────────────────────────── Check Icon ─────────────────────────── */
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      className={className}
-    >
-      <path
-        d="M3 8.5L6.5 12L13 5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-/* ─────────────────────────── Feature Item ─────────────────────────── */
-
-function FeatureItem({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <CheckIcon className="size-3" />
-      </div>
-      <span className="text-sm text-muted-foreground">{children}</span>
-    </div>
-  )
-}
-
 /* ─────────────────────────── Pricing Header ─────────────────────────── */
 
 function PricingHeader() {
@@ -169,71 +140,6 @@ type CreditStep = {
   label: string
 }
 
-function formatNGN(minor: number) {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    maximumFractionDigits: 0,
-  }).format(minor / 100)
-}
-
-function formatCreditLabel(credits: number) {
-  if (credits >= 1000) {
-    const thousands = credits / 1000
-    return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K`
-  }
-  return credits.toLocaleString("en-NG")
-}
-
-function CreditSlider({
-  steps,
-  value,
-  onChange,
-}: {
-  steps: CreditStep[]
-  value: number
-  onChange: (value: number) => void
-}) {
-  return (
-    <div className="mx-auto w-full max-w-xl">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">
-          Business credits per month
-        </span>
-        <span className="font-heading text-lg font-medium text-foreground">
-          {steps[value].credits.toLocaleString()}
-        </span>
-      </div>
-      <Slider
-        min={0}
-        max={steps.length - 1}
-        step={1}
-        value={[value]}
-        onValueChange={(v) => {
-          const arr = Array.isArray(v) ? v : [v]
-          if (typeof arr[0] === "number") onChange(arr[0])
-        }}
-      />
-      <div className="mt-3 flex justify-between">
-        {steps.map((step, i) => (
-          <button
-            key={step.label}
-            type="button"
-            onClick={() => onChange(i)}
-            className={`text-xs font-medium transition-colors ${
-              i === value
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {step.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 /* ─────────────────────────── Free Plan Card ─────────────────────────── */
 
 function FreePlanCard({ plan }: { plan: Plan | undefined }) {
@@ -241,34 +147,14 @@ function FreePlanCard({ plan }: { plan: Plan | undefined }) {
   const features = plan?.features ?? []
 
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-secondary p-6 sm:p-8">
-      <div className="mb-6">
-        <div className="mb-2 inline-flex rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-          Free
-        </div>
-        <div className="mt-4 flex items-baseline gap-1">
-          <span className="font-heading text-4xl font-medium text-foreground">
-            ₦0
-          </span>
-          <span className="text-sm text-muted-foreground">/month</span>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Try hivy with {credits.toLocaleString()} credits.
-        </p>
-      </div>
-
-      <Button variant="secondary" size="lg" className="w-full">
-        Get started for free
-      </Button>
-
-      <div className="my-6 h-px bg-border" />
-
-      <div className="flex flex-col gap-3">
-        {features.map((feature) => (
-          <FeatureItem key={feature}>{feature}</FeatureItem>
-        ))}
-      </div>
-    </div>
+    <PricingPlanCard
+      accentLabel="Free"
+      price="₦0"
+      description={`Try hivy with ${credits.toLocaleString()} credits.`}
+      features={features}
+      actionLabel="Get started for free"
+      actionVariant="secondary"
+    />
   )
 }
 
@@ -278,40 +164,15 @@ function BusinessPlanCard({ tier }: { tier: CreditStep }) {
   const features = tier.plan.features ?? []
 
   return (
-    <div className="relative flex flex-col rounded-lg border border-primary/20 bg-secondary p-6 sm:p-8">
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-        <div className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-          Business
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <div className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-          {tier.label} checkpoint
-        </div>
-        <div className="mt-4 flex items-baseline gap-1">
-          <span className="font-heading text-4xl font-medium text-foreground">
-            {formatNGN(tier.priceMinor)}
-          </span>
-          <span className="text-sm text-muted-foreground">/month</span>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Includes {tier.credits.toLocaleString()} monthly credits.
-        </p>
-      </div>
-
-      <Button size="lg" className="w-full">
-        Upgrade to Business
-      </Button>
-
-      <div className="my-6 h-px bg-border" />
-
-      <div className="flex flex-col gap-3">
-        {features.map((feature) => (
-          <FeatureItem key={feature}>{feature}</FeatureItem>
-        ))}
-      </div>
-    </div>
+    <PricingPlanCard
+      accentLabel={`${tier.label} checkpoint`}
+      badgeLabel="Business"
+      price={formatNGN(tier.priceMinor)}
+      description={`Includes ${tier.credits.toLocaleString()} monthly credits.`}
+      features={features}
+      actionLabel="Upgrade to Business"
+      highlighted
+    />
   )
 }
 
