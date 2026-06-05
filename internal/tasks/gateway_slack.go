@@ -174,7 +174,13 @@ func (h *GatewaySlackHandler) deliverSlackResponse(ctx context.Context, payload 
 			}
 			text := streamedText.String()
 			if strings.TrimSpace(text) == "" {
-				text = "No response generated."
+				logging.FromContext(ctx).InfoContext(ctx, "gateway slack: stream done without visible response",
+					"connection_id", payload.ConnectionID,
+					"org_id", payload.OrgID,
+					"channel_id", payload.ChannelID,
+					"thread_ts", payload.ThreadTS,
+				)
+				return "", false, "", nil
 			}
 			method, providerMessageID, err := h.finishSlackResponse(ctx, client, payload, text, fields)
 			if err != nil {

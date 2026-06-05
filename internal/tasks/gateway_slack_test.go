@@ -167,6 +167,47 @@ func TestGatewaySlackHandler_PostsAccumulatedTokensOnDone(t *testing.T) {
 	}
 }
 
+func TestGatewaySlackHandler_DoesNotPostWhenDoneHasNoVisibleResponse(t *testing.T) {
+	var calls []slackAPICall
+	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		call := recordSlackAPICall(t, r)
+		calls = append(calls, call)
+		switch r.URL.Path {
+		case "/assistant.threads.setStatus":
+			writeSlackOK(t, w, "")
+		default:
+			t.Fatalf("unexpected Slack path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	text, delivered, providerMessageID, err := (&GatewaySlackHandler{}).deliverSlackResponse(
+		context.Background(),
+		gatewaySlackTestPayload(),
+		slacksdk.New("xoxb-test", slacksdk.OptionAPIURL(server.URL+"/")),
+		gatewaySlackEvents(
+			gateway.SSEEvent{Type: "done", Data: json.RawMessage(`{}`)},
+		),
+		map[string]any{},
+	)
+	if err != nil {
+		t.Fatalf("deliver slack response: %v", err)
+	}
+	if delivered || text != "" || providerMessageID != "" {
+		t.Fatalf("delivered=%v text=%q providerMessageID=%q", delivered, text, providerMessageID)
+	}
+	if countSlackPath(calls, "/chat.postMessage") != 0 {
+		t.Fatalf("postMessage count = %d", countSlackPath(calls, "/chat.postMessage"))
+	}
+	statusCalls := slackCallsForPath(calls, "/assistant.threads.setStatus")
+	if len(statusCalls) != 2 {
+		t.Fatalf("status call count = %d, want 2", len(statusCalls))
+	}
+	if statusCalls[1].Form.Get("status") != "" {
+		t.Fatalf("clear status = %q, want empty", statusCalls[1].Form.Get("status"))
+	}
+}
+
 func TestGatewaySlackHandler_PrefersStreamedTokensOverFinalText(t *testing.T) {
 	var calls []slackAPICall
 	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {

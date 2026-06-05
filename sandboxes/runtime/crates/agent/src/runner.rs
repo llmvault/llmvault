@@ -34,6 +34,9 @@ use crate::rig_tool_registry::{
 };
 use crate::{AgentEvent, AgentRunner, Result, TurnInput};
 
+const CREDITS_EXHAUSTED_MESSAGE: &str =
+    "Sorry, it seems your organisation ran out of credits. Please visit https://usehivy.com/w to resolve this and you'll be back up and running immediately.";
+
 pub struct RigAgentRunner {
     config: ConfigStore,
     tool_context: ToolBuildContext,
@@ -242,6 +245,33 @@ impl AgentRunner for RigAgentRunner {
                 let mut model_stream = match client.stream(request).await {
                     Ok(stream) => stream,
                     Err(error) => {
+                        if is_billing_model_error(&error) {
+                            yield AgentEvent::RunEvent {
+                                event: "model_billing_exhausted".to_string(),
+                                payload: serde_json::json!({
+                                    "session_id": session_id.as_str(),
+                                    "turn_id": turn_id,
+                                    "model": model_id,
+                                }),
+                            };
+                            yield AgentEvent::TokenChunk {
+                                text: CREDITS_EXHAUSTED_MESSAGE.to_string(),
+                            };
+                            let assistant =
+                                AgentMessage::assistant(CREDITS_EXHAUSTED_MESSAGE.to_string());
+                            if let Err(error) =
+                                append_model_message(event_repo.as_deref(), &session_id, &assistant)
+                                    .await
+                            {
+                                yield AgentEvent::Error {
+                                    message: error.to_string(),
+                                };
+                                return;
+                            }
+                            final_text = CREDITS_EXHAUSTED_MESSAGE.to_string();
+                            completed_with_final = true;
+                            break;
+                        }
                         consecutive_model_failures += 1;
                         yield AgentEvent::RunEvent {
                             event: "model_request_failed".to_string(),
@@ -660,6 +690,18 @@ impl AgentRunner for RigAgentRunner {
     }
 }
 
+fn is_billing_model_error(error: &crate::AgentError) -> bool {
+    let crate::AgentError::Model(message) = error else {
+        return false;
+    };
+    let message = message.to_ascii_lowercase();
+    message.contains("(billing)")
+        || message.contains("http 402")
+        || message.contains("insufficient credit")
+        || message.contains("insufficient balance")
+        || message.contains("payment required")
+}
+
 async fn build_initial_messages(
     snapshot: &AgentDefinition,
     workspace_root: &std::path::Path,
@@ -952,11 +994,14 @@ fn format_memory_entry(entry: &MemoryContextEntry) -> Option<String> {
 mod tests {
     use std::collections::HashMap;
 
+    use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use domain::{
         AgentMeta, ContextConfig, DynamicContextPromptSegment, Limits, ListPromptSegment,
         MemoryContextConfig, MemoryContextEntry, MemoryPromptSegment, ModelConfig,
         StaticPromptSegment, SystemPromptConfig,
     };
+    use futures::StreamExt;
+    use tokio::net::TcpListener;
 
     use super::*;
 
@@ -1063,6 +1108,69 @@ mod tests {
             prompt.contains("[company_context, source: http] Engineering requires rollback notes")
         );
         assert!(!prompt.contains("This entry should be excluded"));
+    }
+
+    #[tokio::test]
+    async fn billing_model_failure_completes_with_user_facing_credit_message() {
+        async fn billing_handler() -> impl IntoResponse {
+            (
+                StatusCode::PAYMENT_REQUIRED,
+                Json(serde_json::json!({
+                    "error": {
+                        "message": "insufficient credits"
+                    }
+                })),
+            )
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new().route("/chat/completions", post(billing_handler));
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir());
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("billing-session"),
+                TurnInput::text("hello"),
+                None,
+            )
+            .await
+            .expect("run turn");
+        let mut events = Vec::new();
+        while let Some(event) = stream.next().await {
+            events.push(event);
+        }
+
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::RunEvent { event, .. } if event == "model_billing_exhausted"
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::TokenChunk { text } if text == CREDITS_EXHAUSTED_MESSAGE
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::FinalMessage { text } if text == CREDITS_EXHAUSTED_MESSAGE
+        )));
+        assert!(!events.iter().any(|event| {
+            matches!(event, AgentEvent::Error { .. })
+                || matches!(
+                    event,
+                    AgentEvent::RunEvent { event, .. } if event == "model_request_failed"
+                )
+        }));
     }
 
     fn test_system_prompt() -> SystemPromptConfig {
