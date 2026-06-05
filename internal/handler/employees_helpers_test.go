@@ -235,10 +235,11 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 	kms := newTestKMS(t)
 
 	cfg := &config.Config{
-		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
-		SpecialistSandboxHost:     "cp.hivy.test",
-		ProxyHost:                 "proxy.hivy.test",
-		MCPBaseURL:                "https://mcp.hivy.test",
+		SandboxesRuntimeBaseImage:       "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
+		SandboxesRuntimeSpecialistImage: "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:test",
+		SpecialistSandboxHost:           "cp.hivy.test",
+		ProxyHost:                       "proxy.hivy.test",
+		MCPBaseURL:                      "https://mcp.hivy.test",
 	}
 	orch := sandbox.NewOrchestrator(db, provider, encKey, cfg)
 	nangoSrv := httptest.NewServer(newNangoConnMock(&nangoConnMockConfig{}))

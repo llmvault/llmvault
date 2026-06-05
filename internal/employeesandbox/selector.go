@@ -66,11 +66,11 @@ func (s Selector) baseQuery(ctx context.Context, orgID, employeeID uuid.UUID) *g
 	if employeeID != uuid.Nil {
 		q = q.Where("employee_id = ?", employeeID)
 	}
-	employeeRepo := imageRepository(s.EmployeeRuntimeImage)
 	specialistRepo := imageRepository(s.SpecialistRuntimeImage)
-	if employeeRepo != "" {
-		q = q.Where("(snapshot_id IS NULL OR snapshot_id = ? OR snapshot_id LIKE ? OR snapshot_id LIKE ?)", employeeRepo, employeeRepo+":%", employeeRepo+"@%")
-	} else if specialistRepo != "" {
+	if specialistRepo == "" {
+		specialistRepo = defaultSpecialistRepository(s.EmployeeRuntimeImage)
+	}
+	if specialistRepo != "" {
 		q = q.Where("snapshot_id IS NULL OR (snapshot_id <> ? AND snapshot_id NOT LIKE ? AND snapshot_id NOT LIKE ?)", specialistRepo, specialistRepo+":%", specialistRepo+"@%")
 	}
 	return q
@@ -90,4 +90,12 @@ func imageRepository(image string) string {
 		image = image[:lastColon]
 	}
 	return strings.TrimSpace(image)
+}
+
+func defaultSpecialistRepository(employeeImage string) string {
+	repo := imageRepository(employeeImage)
+	if repo == "" || strings.HasSuffix(repo, "-specialist") {
+		return ""
+	}
+	return repo + "-specialist"
 }
