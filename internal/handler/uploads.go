@@ -8,10 +8,12 @@ import (
 )
 
 type UploadsHandler struct {
-	db        *gorm.DB
-	presigner storage.Presigner
-	streamer  storage.Streamer
-	encKey    *crypto.SymmetricKey
+	db                     *gorm.DB
+	presigner              storage.Presigner
+	streamer               storage.Streamer
+	encKey                 *crypto.SymmetricKey
+	employeeRuntimeImage   string
+	specialistRuntimeImage string
 }
 
 const assetURLStorageColumn = "public_" + "url"
@@ -26,6 +28,12 @@ func NewUploadsHandler(db *gorm.DB, presigner storage.Presigner) *UploadsHandler
 func (h *UploadsHandler) WithStreamer(s storage.Streamer, encKey *crypto.SymmetricKey) *UploadsHandler {
 	h.streamer = s
 	h.encKey = encKey
+	return h
+}
+
+func (h *UploadsHandler) WithRuntimeImages(employeeImage, specialistImage string) *UploadsHandler {
+	h.employeeRuntimeImage = employeeImage
+	h.specialistRuntimeImage = specialistImage
 	return h
 }
 

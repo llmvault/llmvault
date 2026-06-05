@@ -156,19 +156,31 @@ func truncateMemoryRefreshError(message string) string {
 }
 
 func (h *EmployeeMemoryRefreshHandler) loadSandbox(ctx context.Context, payload EmployeeMemoryRefreshPayload) (*model.Sandbox, error) {
-	var sb model.Sandbox
-	q := h.db.WithContext(ctx).Where("employee_id = ? AND status <> ?", payload.EmployeeID, "error")
-	if payload.SandboxID != uuid.Nil {
-		q = q.Where("id = ?", payload.SandboxID)
+	var agent model.Employee
+	if err := h.db.WithContext(ctx).Select("org_id").First(&agent, "id = ?", payload.EmployeeID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("load employee org for memory refresh: %w", err)
 	}
-	err := q.Order("created_at DESC").First(&sb).Error
+	if agent.OrgID == nil {
+		return nil, nil
+	}
+	selector := employeeRuntimeSelector(h.db, h.compileDeps)
+	var err error
+	var sb *model.Sandbox
+	if payload.SandboxID != uuid.Nil {
+		sb, err = selector.MainRuntimeByID(ctx, *agent.OrgID, payload.EmployeeID, payload.SandboxID)
+	} else {
+		sb, err = selector.MainRuntime(ctx, *agent.OrgID, payload.EmployeeID)
+	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("load employee sandbox for memory refresh: %w", err)
 	}
-	return &sb, nil
+	return sb, nil
 }
 
 func employeeMemoryRefreshFields(payload EmployeeMemoryRefreshPayload) map[string]any {

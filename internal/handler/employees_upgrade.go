@@ -111,10 +111,8 @@ func (h *EmployeeHandler) StartSandboxUpgrade(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var oldSandbox model.Sandbox
-	if err := h.db.WithContext(ctx).
-		Where("employee_id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "error").
-		Order("created_at DESC").Limit(1).First(&oldSandbox).Error; err != nil {
+	oldSandbox, err := h.mainEmployeeRuntimeSelector().MainRuntime(ctx, org.ID, agentID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "sandbox not found for employee"})
 			return
