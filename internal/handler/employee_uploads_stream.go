@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/employeesandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -48,12 +49,13 @@ func (h *UploadsHandler) authEmployee(w http.ResponseWriter, r *http.Request) (*
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load employee"})
 		return nil, nil, false
 	}
+	if agent.OrgID == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "employee has no org"})
+		return nil, nil, false
+	}
 
-	var sandbox model.Sandbox
-	if err := h.db.
-		Where("employee_id = ? AND status NOT IN (?, ?)", agentID, "archived", "error").
-		Order("created_at DESC").
-		First(&sandbox).Error; err != nil {
+	sandbox, err := h.employeeRuntimeSelector().MainRuntime(r.Context(), *agent.OrgID, agentID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found for employee"})
 			return nil, nil, false
@@ -73,7 +75,15 @@ func (h *UploadsHandler) authEmployee(w http.ResponseWriter, r *http.Request) (*
 		return nil, nil, false
 	}
 
-	return &agent, &sandbox, true
+	return &agent, sandbox, true
+}
+
+func (h *UploadsHandler) employeeRuntimeSelector() employeesandbox.Selector {
+	return employeesandbox.Selector{
+		DB:                     h.db,
+		EmployeeRuntimeImage:   h.employeeRuntimeImage,
+		SpecialistRuntimeImage: h.specialistRuntimeImage,
+	}
 }
 
 func (h *UploadsHandler) bearerMatchesEmployeeSpecialistSandbox(r *http.Request, employeeID uuid.UUID, bearer string) bool {

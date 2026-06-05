@@ -202,22 +202,25 @@ func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope 
 	conversationID := stableConversationID(envelope.ConnectionID, threadKey)
 	sessionID := runtimeSessionID(conversationID)
 
-	var sandbox model.Sandbox
-	if err := s.db.WithContext(ctx).
-		Where("org_id = ? AND employee_id = ? AND status <> ?", envelope.OrgID, envelope.EmployeeID, "error").
-		Order("created_at DESC").
-		First(&sandbox).Error; err != nil {
+	sandbox, err := s.employeeSandboxSelector().MainRuntime(ctx, envelope.OrgID, envelope.EmployeeID)
+	if err != nil {
 		return model.EmployeeSession{}, "", false, fmt.Errorf("load employee sandbox: %w", err)
 	}
 
 	connectionID := envelope.ConnectionID
 	session := model.EmployeeSession{}
 	created := false
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		err := tx.Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
 			envelope.OrgID, envelope.EmployeeID, Source, envelope.ConnectionID, threadKey, "active").
 			First(&session).Error
 		if err == nil {
+			if session.SandboxID != sandbox.ID {
+				if err := tx.Model(&session).Update("sandbox_id", sandbox.ID).Error; err != nil {
+					return err
+				}
+				session.SandboxID = sandbox.ID
+			}
 			return nil
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {

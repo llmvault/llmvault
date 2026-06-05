@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/employeesandbox"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -63,21 +64,24 @@ func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGa
 func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeGatewayRoute, threadKey string) (model.EmployeeSession, string, bool, error) {
 	conversationID := stableConversationID(route.ID, threadKey)
 	sessionID := runtimeSessionID(conversationID)
-	var sandbox model.Sandbox
-	if err := s.db.WithContext(ctx).
-		Where("org_id = ? AND employee_id = ? AND status <> ?", route.OrgID, route.EmployeeID, "error").
-		Order("created_at DESC").
-		First(&sandbox).Error; err != nil {
+	sandbox, err := s.employeeSandboxSelector().MainRuntime(ctx, route.OrgID, route.EmployeeID)
+	if err != nil {
 		return model.EmployeeSession{}, "", false, fmt.Errorf("load employee sandbox: %w", err)
 	}
 	sourceID := route.ID
 	session := model.EmployeeSession{}
 	created := false
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		err := tx.Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
 			route.OrgID, route.EmployeeID, Source, route.ID, threadKey, "active").
 			First(&session).Error
 		if err == nil {
+			if session.SandboxID != sandbox.ID {
+				if err := tx.Model(&session).Update("sandbox_id", sandbox.ID).Error; err != nil {
+					return err
+				}
+				session.SandboxID = sandbox.ID
+			}
 			return nil
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -105,6 +109,14 @@ func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeG
 		return model.EmployeeSession{}, "", false, fmt.Errorf("find or create gateway session: %w", err)
 	}
 	return session, conversationID, created, nil
+}
+
+func (s *Service) employeeSandboxSelector() employeesandbox.Selector {
+	return employeesandbox.Selector{
+		DB:                     s.db,
+		EmployeeRuntimeImage:   s.employeeRuntimeImage,
+		SpecialistRuntimeImage: s.specialistRuntimeImage,
+	}
 }
 
 func (s *Service) markEventDelivered(ctx context.Context, eventID, sessionID uuid.UUID, conversationID string, delivery *RuntimeDelivery) error {

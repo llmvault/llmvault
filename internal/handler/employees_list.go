@@ -102,7 +102,7 @@ func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	triggers := h.loadEmployeeTriggers(agentIDs...)
 	skills := h.loadEmployeeSkills(agentIDs...)
-	sandboxes := loadLatestSandboxPerAgent(h.db, org.ID, agentIDs)
+	sandboxes := h.loadMainEmployeeRuntimeSandboxSummaries(r.Context(), org.ID, agentIDs)
 	currentSnapshotID := h.currentEmployeeSandboxSnapshotID()
 
 	items := make([]employeeListItem, len(agents))
@@ -182,7 +182,7 @@ func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	for i, specialist := range specialists {
 		base.SpecialistIDs[i] = specialist.ID
 	}
-	sandbox := loadLatestSandboxPerAgent(h.db, org.ID, []uuid.UUID{agent.ID})[agent.ID]
+	sandbox := h.loadMainEmployeeRuntimeSandboxSummaries(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
 	currentSnapshotID := h.currentEmployeeSandboxSnapshotID()
 
 	writeJSON(w, http.StatusOK, employeeListItem{
@@ -222,7 +222,7 @@ func (h *EmployeeHandler) employeeListItem(ctx context.Context, orgID uuid.UUID,
 	for i, specialist := range specialists {
 		base.SpecialistIDs[i] = specialist.ID
 	}
-	sandbox := loadLatestSandboxPerAgent(h.db, orgID, []uuid.UUID{agent.ID})[agent.ID]
+	sandbox := h.loadMainEmployeeRuntimeSandboxSummaries(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]
 	return employeeListItem{
 		employeeResponse: base,
 		UpgradeAvailable: employeeSandboxUpgradeAvailable(sandbox, h.currentEmployeeSandboxSnapshotID()),
@@ -266,4 +266,20 @@ func employeeSandboxUpgradeAvailable(summary *employeeSandboxSummary, currentSna
 		return currentSnapshotID != ""
 	}
 	return *summary.snapshotID != currentSnapshotID
+}
+
+func (h *EmployeeHandler) loadMainEmployeeRuntimeSandboxSummaries(ctx context.Context, orgID uuid.UUID, agentIDs []uuid.UUID) map[uuid.UUID]*employeeSandboxSummary {
+	employeeImage, specialistImage := "", ""
+	if h != nil && h.compileDeps.Cfg != nil {
+		employeeImage = h.compileDeps.Cfg.SandboxesRuntimeBaseImage
+		specialistImage = h.compileDeps.Cfg.SandboxesRuntimeSpecialistImage
+	}
+	return loadMainEmployeeRuntimeSandboxPerAgent(
+		ctx,
+		h.db,
+		orgID,
+		agentIDs,
+		employeeImage,
+		specialistImage,
+	)
 }

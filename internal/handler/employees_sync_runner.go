@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/employeesandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -19,17 +20,14 @@ func (h *EmployeeHandler) ensureEmployeeSandbox(ctx context.Context, agent *mode
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent must have org_id")
 	}
-	var sb model.Sandbox
-	err := h.db.WithContext(ctx).
-		Where("employee_id = ? AND org_id = ? AND status <> ?", agent.ID, *agent.OrgID, "error").
-		Order("created_at DESC").Limit(1).First(&sb).Error
+	sb, err := h.mainEmployeeRuntimeSelector().MainRuntime(ctx, *agent.OrgID, agent.ID)
 	if err == nil {
-		if h.orchestrator.NeedsURLRefresh(&sb) {
-			if err := h.orchestrator.RefreshEmployeeSandboxURL(ctx, &sb); err != nil {
+		if h.orchestrator.NeedsURLRefresh(sb) {
+			if err := h.orchestrator.RefreshEmployeeSandboxURL(ctx, sb); err != nil {
 				return nil, err
 			}
 		}
-		return &sb, nil
+		return sb, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("load employee sandbox: %w", err)
@@ -158,17 +156,14 @@ func (h *EmployeeHandler) scheduleExistingEmployeeProxyTokenRefresh(ctx context.
 	if h == nil || h.db == nil || agent == nil || agent.OrgID == nil {
 		return
 	}
-	var sb model.Sandbox
-	err := h.db.WithContext(ctx).
-		Where("employee_id = ? AND org_id = ? AND status <> ?", agent.ID, *agent.OrgID, "error").
-		Order("created_at DESC").Limit(1).First(&sb).Error
+	sb, err := h.mainEmployeeRuntimeSelector().MainRuntime(ctx, *agent.OrgID, agent.ID)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			logging.Capture(ctx, fmt.Errorf("load employee sandbox for proxy token refresh schedule: %w", err))
 		}
 		return
 	}
-	h.scheduleEmployeeProxyTokenRefresh(ctx, agent, &sb)
+	h.scheduleEmployeeProxyTokenRefresh(ctx, agent, sb)
 }
 
 func (h *EmployeeHandler) scheduleEmployeeProxyTokenRefresh(ctx context.Context, agent *model.Employee, sb *model.Sandbox) {
@@ -179,6 +174,15 @@ func (h *EmployeeHandler) scheduleEmployeeProxyTokenRefresh(ctx context.Context,
 
 func (h *EmployeeHandler) loadRuntimeEnv(ctx context.Context, agent *model.Employee, sb *model.Sandbox, runtimeSecret string) (map[string]string, error) {
 	return employeeruntime.BuildRuntimeEnv(ctx, h.compileDeps, agent, sb, runtimeSecret)
+}
+
+func (h *EmployeeHandler) mainEmployeeRuntimeSelector() employeesandbox.Selector {
+	selector := employeesandbox.Selector{DB: h.db}
+	if h != nil && h.compileDeps.Cfg != nil {
+		selector.EmployeeRuntimeImage = h.compileDeps.Cfg.SandboxesRuntimeBaseImage
+		selector.SpecialistRuntimeImage = h.compileDeps.Cfg.SandboxesRuntimeSpecialistImage
+	}
+	return selector
 }
 
 func agentDefinitionsMatch(left, right *employeeruntime.AgentDefinition) bool {

@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/employeesandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -27,10 +28,12 @@ type employeeSQLiteBackupStreamer interface {
 }
 
 type EmployeeSQLiteBackupHandler struct {
-	db       *gorm.DB
-	storage  employeeSQLiteBackupStreamer
-	encKey   *crypto.SymmetricKey
-	maxBytes int64
+	db                     *gorm.DB
+	storage                employeeSQLiteBackupStreamer
+	encKey                 *crypto.SymmetricKey
+	maxBytes               int64
+	employeeRuntimeImage   string
+	specialistRuntimeImage string
 }
 
 func NewEmployeeSQLiteBackupHandler(db *gorm.DB, s3 employeeSQLiteBackupStreamer, encKey *crypto.SymmetricKey, maxBytes int64) *EmployeeSQLiteBackupHandler {
@@ -38,6 +41,12 @@ func NewEmployeeSQLiteBackupHandler(db *gorm.DB, s3 employeeSQLiteBackupStreamer
 		maxBytes = defaultEmployeeSQLiteBackupMaxBytes
 	}
 	return &EmployeeSQLiteBackupHandler{db: db, storage: s3, encKey: encKey, maxBytes: maxBytes}
+}
+
+func (h *EmployeeSQLiteBackupHandler) WithRuntimeImages(employeeImage, specialistImage string) *EmployeeSQLiteBackupHandler {
+	h.employeeRuntimeImage = employeeImage
+	h.specialistRuntimeImage = specialistImage
+	return h
 }
 
 func (h *EmployeeSQLiteBackupHandler) Upload(w http.ResponseWriter, r *http.Request) {
@@ -155,11 +164,8 @@ func (h *EmployeeSQLiteBackupHandler) authenticateEmployeeRuntime(w http.Respons
 		return nil, nil, false
 	}
 
-	var sandbox model.Sandbox
-	if err := h.db.
-		Where("employee_id = ? AND status NOT IN (?, ?)", employeeID, "archived", "error").
-		Order("created_at DESC").
-		First(&sandbox).Error; err != nil {
+	sandbox, err := h.employeeRuntimeSelector().MainRuntime(r.Context(), *agent.OrgID, employeeID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "sandbox not found for employee"})
 			return nil, nil, false
@@ -178,5 +184,13 @@ func (h *EmployeeSQLiteBackupHandler) authenticateEmployeeRuntime(w http.Respons
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid runtime secret"})
 		return nil, nil, false
 	}
-	return &agent, &sandbox, true
+	return &agent, sandbox, true
+}
+
+func (h *EmployeeSQLiteBackupHandler) employeeRuntimeSelector() employeesandbox.Selector {
+	return employeesandbox.Selector{
+		DB:                     h.db,
+		EmployeeRuntimeImage:   h.employeeRuntimeImage,
+		SpecialistRuntimeImage: h.specialistRuntimeImage,
+	}
 }
