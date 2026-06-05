@@ -320,10 +320,106 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete current user account
+         * @description Permanently deletes the authenticated user's account. This action cannot be undone.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update current user profile
+         * @description Updates the authenticated user's name, email, or avatar URL.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateProfileRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["userResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/auth/otp/request": {
@@ -8232,7 +8328,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Start date inclusive (YYYY-MM-DD), defaults to 30 days ago */
+                    start_date?: string;
+                    /** @description End date inclusive (YYYY-MM-DD), defaults to now */
+                    end_date?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -9405,6 +9506,15 @@ export interface components {
                 [key: string]: string;
             };
         };
+        sessionSummary: {
+            created_at?: string;
+            ended_at?: string;
+            event_count?: number;
+            id?: string;
+            name?: string;
+            source?: string;
+            status?: string;
+        };
         signUploadRequest: {
             asset_type?: string;
             content_type?: string;
@@ -9632,6 +9742,11 @@ export interface components {
             sync?: boolean;
             website?: string;
         };
+        updateProfileRequest: {
+            avatar_url?: string;
+            email?: string;
+            name?: string;
+        };
         updateRAGSourceRequest: {
             config?: components["schemas"]["JSON"];
             enabled?: boolean;
@@ -9664,6 +9779,7 @@ export interface components {
             error_rates?: components["schemas"]["errorRate"][];
             latency?: components["schemas"]["latencyStats"][];
             requests?: components["schemas"]["requestStats"];
+            sessions?: components["schemas"]["sessionSummary"][];
             spend_over_time?: components["schemas"]["spendOverTime"][];
             token_volumes?: components["schemas"]["tokenVolumes"][];
             tokens?: components["schemas"]["tokenStats"];
@@ -9672,6 +9788,7 @@ export interface components {
             top_users?: components["schemas"]["topUser"][];
         };
         userResponse: {
+            avatar_url?: string;
             email?: string;
             email_confirmed?: boolean;
             id?: string;
