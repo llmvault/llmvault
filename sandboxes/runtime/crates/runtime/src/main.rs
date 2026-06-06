@@ -151,6 +151,7 @@ async fn main() -> Result<()> {
         config_repo.clone(),
         session_repo.clone(),
         event_repo.clone(),
+        cron_repo.clone(),
         runtime_secret,
         workspace_root.clone(),
         Arc::new(LocalBashOperations),

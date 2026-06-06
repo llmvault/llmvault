@@ -56,3 +56,29 @@ func TestMemoryRetainResponseExplainsBackgroundProcessing(t *testing.T) {
 		t.Fatalf("message does not explain delayed recall visibility: %q", resp.Message)
 	}
 }
+
+func TestMemoryRetainMetadataTagsReplaceSourceAndSanitize(t *testing.T) {
+	tags := upsertMemoryTag([]string{"company:org", "source:manual"}, "source", "service discovery")
+	tags = upsertMemoryTag(tags, "provider", "Railway")
+	tags = upsertMemoryTag(tags, "resource_type", "Service/API")
+
+	want := map[string]bool{
+		"company:org":               false,
+		"source:service-discovery":  false,
+		"provider:railway":          false,
+		"resource_type:service-api": false,
+	}
+	for _, tag := range tags {
+		if tag == "source:manual" {
+			t.Fatalf("source tag should be replaced: %#v", tags)
+		}
+		if _, ok := want[tag]; ok {
+			want[tag] = true
+		}
+	}
+	for tag, seen := range want {
+		if !seen {
+			t.Fatalf("missing tag %s in %#v", tag, tags)
+		}
+	}
+}

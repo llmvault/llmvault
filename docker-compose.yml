@@ -215,6 +215,7 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg17
+    command: ["postgres", "-c", "max_locks_per_transaction=${HIVY_POSTGRES_MAX_LOCKS_PER_TRANSACTION:-256}"]
     environment:
       POSTGRES_DB: ${HIVY_DB_NAME:-hivy}
       POSTGRES_USER: ${HIVY_DB_USER:-hivy}

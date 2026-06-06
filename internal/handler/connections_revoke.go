@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -69,9 +71,23 @@ func (h *ConnectionHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 		logging.FromContext(r.Context()).WarnContext(r.Context(), "post-revoke employee connection cleanup failed",
 			"error", err, "connection_id", conn.ID, "org_id", org.ID, "provider", conn.Integration.Provider)
 	}
+	h.disableServiceDiscoveryScheduleForConnection(r.Context(), org.ID, conn)
 
 	logging.FromContext(r.Context()).InfoContext(r.Context(), "connection revoked", "connection_id", conn.ID, "org_id", org.ID, "provider", conn.Integration.Provider)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+}
+
+func (h *ConnectionHandler) disableServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) {
+	if h.serviceDiscoveryManager == nil || !serviceDiscoveryProviderSupported(conn.Integration.Provider) {
+		return
+	}
+	if err := h.serviceDiscoveryManager.DisableServiceDiscoveryScheduleForConnection(ctx, orgID, conn); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("disable service discovery schedule: %w", err), map[string]any{
+			"org_id":        orgID.String(),
+			"connection_id": conn.ID.String(),
+			"provider":      conn.Integration.Provider,
+		})
+	}
 }
 
 func (h *ConnectionHandler) afterConnectionRevoked(r *http.Request, orgID uuid.UUID, provider string) error {

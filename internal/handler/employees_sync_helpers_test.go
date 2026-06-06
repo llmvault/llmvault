@@ -13,15 +13,16 @@ import (
 )
 
 type sidecarStub struct {
-	mu               sync.Mutex
-	syncConfigCalls  int
-	syncEnvCalls     int
-	lastSyncBearer   string
-	lastEnvBearer    string
-	lastConfigBody   []byte
-	lastEnvBody      []byte
-	syncConfigStatus int // override; default 200
-	syncConfigErrors []string
+	mu                sync.Mutex
+	syncConfigCalls   int
+	syncEnvCalls      int
+	lastSyncBearer    string
+	lastEnvBearer     string
+	lastConfigBody    []byte
+	lastRawConfigBody []byte
+	lastEnvBody       []byte
+	syncConfigStatus  int // override; default 200
+	syncConfigErrors  []string
 }
 
 func (s *sidecarStub) snapshot() (calls int, bearer string) {
@@ -34,6 +35,12 @@ func (s *sidecarStub) configBody() []byte {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]byte(nil), s.lastConfigBody...)
+}
+
+func (s *sidecarStub) rawConfigBody() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]byte(nil), s.lastRawConfigBody...)
 }
 
 func (s *sidecarStub) envBody() []byte {

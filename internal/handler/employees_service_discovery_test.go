@@ -1,0 +1,73 @@
+package handler_test
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/model"
+)
+
+func TestEmployeeHandlerEnsureServiceDiscoveryScheduleForConnection(t *testing.T) {
+	h := newEmployeeHarness(t)
+	m := h.createOrg(t)
+	agent := h.seedEmployeeAgent(t, m)
+	integ := createTestIntegration(t, h.db, "railway")
+	conn := model.Connection{
+		ID:                uuid.New(),
+		OrgID:             m.org.ID,
+		UserID:            m.user.ID,
+		IntegrationID:     integ.ID,
+		Integration:       integ,
+		NangoConnectionID: "railway-conn",
+		Meta:              model.JSON{},
+	}
+	if err := h.db.Create(&conn).Error; err != nil {
+		t.Fatalf("create connection: %v", err)
+	}
+
+	if err := h.handler.EnsureServiceDiscoveryScheduleForConnection(t.Context(), m.org.ID, conn); err != nil {
+		t.Fatalf("EnsureServiceDiscoveryScheduleForConnection: %v", err)
+	}
+
+	var schedule model.EmployeeSchedule
+	if err := h.db.Where("employee_id = ? AND connection_id = ?", agent.ID, conn.ID).First(&schedule).Error; err != nil {
+		t.Fatalf("load schedule: %v", err)
+	}
+	if !schedule.IsSystem {
+		t.Fatal("schedule should be system-managed")
+	}
+	if schedule.Provider != "railway" {
+		t.Fatalf("provider = %q, want railway", schedule.Provider)
+	}
+	if !strings.HasPrefix(schedule.RuntimeJobID, "system:service-discovery:railway:") {
+		t.Fatalf("runtime job id = %q", schedule.RuntimeJobID)
+	}
+	if schedule.NextRunAt == nil {
+		t.Fatal("service discovery schedule should be due immediately")
+	}
+	if !strings.Contains(schedule.TaskPrompt, "Railway discovery checklist") {
+		t.Fatalf("schedule prompt missing Railway checklist: %s", schedule.TaskPrompt)
+	}
+
+	var pushed struct {
+		Schedules []struct {
+			ID     string `json:"id"`
+			Source string `json:"source"`
+		} `json:"schedules"`
+	}
+	if err := json.Unmarshal(h.sidecar.rawConfigBody(), &pushed); err != nil {
+		t.Fatalf("decode raw config body: %v", err)
+	}
+	if len(pushed.Schedules) != 1 {
+		t.Fatalf("pushed schedules = %d, want 1", len(pushed.Schedules))
+	}
+	if pushed.Schedules[0].ID != schedule.RuntimeJobID {
+		t.Fatalf("pushed schedule id = %q, want %q", pushed.Schedules[0].ID, schedule.RuntimeJobID)
+	}
+	if pushed.Schedules[0].Source != "cron" {
+		t.Fatalf("pushed schedule source = %q, want cron", pushed.Schedules[0].Source)
+	}
+}

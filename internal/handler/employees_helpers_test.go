@@ -167,6 +167,7 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 				stub.syncConfigCalls++
 				stub.lastSyncBearer = r.Header.Get("Authorization")
 				stub.lastConfigBody = body
+				stub.lastRawConfigBody = body
 				status := stub.syncConfigStatus
 				errs := append([]string(nil), stub.syncConfigErrors...)
 				var payload struct {

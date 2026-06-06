@@ -5,13 +5,14 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
+use domain::cron::CronJob;
 use domain::{AgentDefinition, SessionId, SessionStatus};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::Duration;
-use storage::{SessionListCursor, SessionListFilter};
+use storage::{CronJobRepo, SessionListCursor, SessionListFilter};
 use tools::{BashExecOptions, BashOperations};
 use tracing::warn;
 
@@ -39,6 +40,9 @@ const MAX_RUNTIME_ENV_KEYS: usize = 128;
 const MAX_RUNTIME_ENV_KEY_LENGTH: usize = 128;
 const MAX_RUNTIME_ENV_VALUE_LENGTH: usize = 8192;
 const MAX_RUNTIME_ENV_PAYLOAD_BYTES: usize = 64 * 1024;
+const MAX_CONFIG_SCHEDULES: usize = 128;
+const MAX_CONFIG_SCHEDULE_ID_LENGTH: usize = 255;
+const MAX_CONFIG_SCHEDULE_TEXT_LENGTH: usize = 64 * 1024;
 const MAX_CONTROL_COMMANDS: usize = 20;
 const MAX_CONTROL_COMMAND_LENGTH: usize = 8 * 1024;
 const MAX_CONTROL_COMMAND_PAYLOAD_BYTES: usize = 128 * 1024;
@@ -75,6 +79,8 @@ pub struct ConfigUpdateRequest {
     #[serde(default)]
     pub runtime_env: HashMap<String, String>,
     pub definition: AgentDefinition,
+    #[serde(default)]
+    pub schedules: Vec<CronJob>,
 }
 
 #[derive(Deserialize)]
@@ -136,6 +142,13 @@ impl ConfigUpdateRequest {
             return Err("runtime env payload too large".to_string());
         }
 
+        if self.schedules.len() > MAX_CONFIG_SCHEDULES {
+            return Err(format!("too many schedules; max {}", MAX_CONFIG_SCHEDULES));
+        }
+        for schedule in &self.schedules {
+            validate_config_schedule(schedule)?;
+        }
+
         Ok(())
     }
 
@@ -147,6 +160,40 @@ impl ConfigUpdateRequest {
                 .map(|(key, value)| key.len() + value.len())
                 .sum::<usize>()
     }
+}
+
+fn validate_config_schedule(schedule: &CronJob) -> Result<(), String> {
+    let id = schedule.id.trim();
+    if id.is_empty() {
+        return Err("schedule id must not be empty".to_string());
+    }
+    if id.len() > MAX_CONFIG_SCHEDULE_ID_LENGTH {
+        return Err(format!(
+            "schedule id too long for {id}; max {} chars",
+            MAX_CONFIG_SCHEDULE_ID_LENGTH
+        ));
+    }
+    if schedule.task_prompt.trim().is_empty() {
+        return Err(format!("schedule {id} task_prompt must not be empty"));
+    }
+    if schedule.task_prompt.len() > MAX_CONFIG_SCHEDULE_TEXT_LENGTH {
+        return Err(format!(
+            "schedule {id} task_prompt too long; max {} chars",
+            MAX_CONFIG_SCHEDULE_TEXT_LENGTH
+        ));
+    }
+    if schedule.description.len() > MAX_CONFIG_SCHEDULE_TEXT_LENGTH {
+        return Err(format!(
+            "schedule {id} description too long; max {} chars",
+            MAX_CONFIG_SCHEDULE_TEXT_LENGTH
+        ));
+    }
+    if schedule.cron_expression.is_none() && schedule.interval_seconds.is_none() {
+        return Err(format!(
+            "schedule {id} must include cron_expression or interval_seconds"
+        ));
+    }
+    Ok(())
 }
 
 fn is_valid_env_key(key: &str) -> bool {
@@ -215,6 +262,7 @@ pub async fn put_config(
             *token = secret;
         }
     }
+    sync_config_schedules(&state, &request.schedules).await?;
     let definition = request.definition;
     apply_definition(&state, definition.clone()).await?;
     Ok(Json(ConfigResponse {
@@ -223,6 +271,89 @@ pub async fn put_config(
         env_key_count,
         secret_rotated,
     }))
+}
+
+async fn sync_config_schedules(
+    state: &ApiState,
+    schedules: &[CronJob],
+) -> Result<(), (StatusCode, String)> {
+    let mut pushed_system_ids = HashSet::new();
+    for schedule in schedules {
+        upsert_config_schedule(state.cron_repo.as_ref(), schedule)
+            .await
+            .map_err(|error| internal_error_response("config.sync_schedules", error))?;
+        if is_control_plane_system_schedule(&schedule.id) {
+            pushed_system_ids.insert(schedule.id.clone());
+        }
+    }
+    let existing = state
+        .cron_repo
+        .list_all()
+        .await
+        .map_err(|error| internal_error_response("config.list_schedules", error))?;
+    for schedule in existing {
+        if !is_control_plane_system_schedule(&schedule.id) {
+            continue;
+        }
+        if pushed_system_ids.contains(&schedule.id) {
+            continue;
+        }
+        state
+            .cron_repo
+            .delete(&schedule.id)
+            .await
+            .map_err(|error| internal_error_response("config.prune_system_schedule", error))?;
+    }
+    Ok(())
+}
+
+async fn upsert_config_schedule(repo: &dyn CronJobRepo, schedule: &CronJob) -> storage::Result<()> {
+    let Some(existing) = repo.get(&schedule.id).await? else {
+        return repo.create(schedule).await;
+    };
+    if schedule_requires_recreate(&existing, schedule) {
+        repo.delete(&schedule.id).await?;
+        return repo.create(schedule).await;
+    }
+    if existing.task_prompt != schedule.task_prompt {
+        repo.update_prompt(&schedule.id, schedule.task_prompt.clone())
+            .await?;
+    }
+    if existing.interval_seconds != schedule.interval_seconds {
+        match schedule.interval_seconds {
+            Some(interval_seconds) => {
+                repo.update_interval(&schedule.id, interval_seconds).await?;
+            }
+            None => {
+                repo.delete(&schedule.id).await?;
+                return repo.create(schedule).await;
+            }
+        }
+    }
+    if existing.next_run_at != schedule.next_run_at {
+        repo.update_next_run(&schedule.id, schedule.next_run_at)
+            .await?;
+    }
+    if existing.state != schedule.state {
+        repo.set_state(&schedule.id, schedule.state).await?;
+    }
+    Ok(())
+}
+
+fn schedule_requires_recreate(existing: &CronJob, incoming: &CronJob) -> bool {
+    existing.description != incoming.description
+        || existing.channel != incoming.channel
+        || existing.cron_expression != incoming.cron_expression
+        || existing.repeat_count != incoming.repeat_count
+        || existing.source != incoming.source
+        || existing.delegated_session_id != incoming.delegated_session_id
+        || existing.session_continuation_id != incoming.session_continuation_id
+        || existing.agent_name != incoming.agent_name
+        || existing.created_by_session != incoming.created_by_session
+}
+
+fn is_control_plane_system_schedule(id: &str) -> bool {
+    id.starts_with("system:service-discovery:")
 }
 
 async fn apply_definition(
@@ -701,6 +832,7 @@ fn parse_status(raw: &str) -> Result<SessionStatus, String> {
 mod tests {
     use super::*;
 
+    use domain::cron::{CronJobSource, CronJobState};
     use std::collections::HashMap;
 
     fn test_definition() -> AgentDefinition {
@@ -762,6 +894,7 @@ mod tests {
                 ("GOOD_KEY".to_string(), "value".to_string()),
                 ("ANOTHER_KEY_1".to_string(), "another".to_string()),
             ]),
+            schedules: Vec::new(),
         };
 
         assert!(
@@ -776,6 +909,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("1BAD_KEY".to_string(), "value".to_string())]),
+            schedules: Vec::new(),
         };
         assert_eq!(
             update.validate().unwrap_err(),
@@ -789,6 +923,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("OPENAI_API_KEY".to_string(), "value".to_string())]),
+            schedules: Vec::new(),
         };
         assert!(update.validate().is_ok());
     }
@@ -804,6 +939,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: entries,
+            schedules: Vec::new(),
         };
         assert_eq!(
             update.validate().unwrap_err(),
@@ -820,6 +956,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("VALUE_TOO_LONG".to_string(), "x".repeat(8193))]),
+            schedules: Vec::new(),
         };
 
         assert_eq!(
@@ -841,6 +978,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: entries,
+            schedules: Vec::new(),
         };
 
         assert_eq!(
@@ -855,10 +993,45 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::new(),
+            schedules: Vec::new(),
         };
         assert!(
             update.validate().is_ok(),
             "empty payload should be accepted as clear overlay"
         );
+    }
+
+    #[test]
+    fn runtime_config_accepts_valid_schedule_payload() {
+        let update = ConfigUpdateRequest {
+            definition: test_definition(),
+            runtime_secret: None,
+            runtime_env: HashMap::new(),
+            schedules: vec![CronJob {
+                id: "system:service-discovery:railway:conn".to_string(),
+                description: "Railway service discovery".to_string(),
+                channel: "system".to_string(),
+                task_prompt: "Discover Railway services and retain useful memories.".to_string(),
+                cron_expression: None,
+                interval_seconds: Some(86_400),
+                repeat_count: None,
+                repeat_completed: 0,
+                state: CronJobState::Active,
+                source: CronJobSource::Cron,
+                next_run_at: Utc::now(),
+                last_run_at: None,
+                last_status: None,
+                last_error: None,
+                delegated_session_id: None,
+                session_continuation_id: None,
+                agent_name: None,
+                last_result: None,
+                delegate_stream_id: None,
+                created_at: Utc::now(),
+                created_by_session: "system:service-discovery".to_string(),
+            }],
+        };
+
+        assert!(update.validate().is_ok());
     }
 }
