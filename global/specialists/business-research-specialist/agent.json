@@ -1,7 +1,7 @@
 {
   "slug": "business-research-specialist",
   "name": "Business Research Specialist",
-  "description": "Runs source-grounded research, market scans, and report generation for the employee.",
+  "description": "Runs source-grounded research, market scans, competitor analysis, pricing/vendor/customer/company research, and report generation. Delegate when the research question and scope are clear; ask for clarification first when the topic, geography, timeframe, source type, output format, or decision being supported is unclear.",
   "specialist_type": "business_research",
   "version": 1,
   "auto_attach": true,

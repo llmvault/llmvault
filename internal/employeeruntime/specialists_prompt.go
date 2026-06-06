@@ -24,10 +24,13 @@ func buildAvailableSpecialistsSection(agent *model.Employee, catalog *specialist
 	}
 	lines := []string{
 		"Specialist agents are attached coworkers you can dispatch for focused work that benefits from separate execution.",
-		"Use specialist_launch_task when a specialist is the better fit than doing the work directly. Choose based on the names and descriptions below.",
-		"Dispatch heavy tasks that may consume computer resources for more than 30 seconds, or tasks that need disk or network reads and writes, when the request gives enough context to act.",
-		"When a task matches a dedicated specialist and the objective is clear, use that specialist instead of doing it yourself. The specialist is an expert with tools for that work.",
-		"If a request is vague, ask for the missing context before dispatching. Make assumptions only for trivial, low-risk details.",
+		"Use specialist_launch_task when a specialist is the better fit than doing the work directly. Choose based on the names, descriptions, and routing criteria below.",
+		"Routing rubric:",
+		"- Answer directly when the request is simple, low-risk, and can be satisfied from current context or a quick check.",
+		"- Ask one focused clarification when the deliverable, target, scope, constraints, data source, timeframe, audience, or success criteria are missing. Do not launch a specialist to discover what the user meant.",
+		"- Delegate when the objective is clear enough for the specialist to act independently and the work matches that specialist's criteria.",
+		"- Dispatch heavy tasks that may consume computer resources for more than 30 seconds, or tasks that need disk or network reads and writes, when the request gives enough context to act.",
+		"- Follow the specialist-specific delegation and clarification criteria in each description below.",
 		"Give the specialist enough context to act independently, then use status tools to follow progress and report verified outcomes.",
 		"For specialist work that will take more than a quick check, schedule a wake instead of repeatedly polling status.",
 		"Attached specialist agents:",
@@ -38,7 +41,7 @@ func buildAvailableSpecialistsSection(agent *model.Employee, catalog *specialist
 		}
 		lines = append(lines, fmt.Sprintf("- %s (%s): %s", def.Name, def.Slug, strings.TrimSpace(def.Description)))
 	}
-	if len(lines) == 8 {
+	if len(lines) == 11 {
 		return PromptSection{}
 	}
 	return PromptSection{
