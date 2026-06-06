@@ -11,6 +11,7 @@ import (
 )
 
 const DefaultJudgeModel = "gpt-4o-mini"
+const followUpGenerateAttempts = 3
 
 type BehaviorJudgement struct {
 	Behavior   string  `json:"behavior"`
@@ -194,6 +195,23 @@ func (j *Judge) GenerateFollowUp(ctx context.Context, proxyBaseURL, proxyToken s
 	if err != nil {
 		return "", err
 	}
+	var lastErr error
+	for attempt := 1; attempt <= followUpGenerateAttempts; attempt++ {
+		reply, err := j.generateFollowUpOnce(ctx, proxyBaseURL, proxyToken, body)
+		if err == nil {
+			return reply, nil
+		}
+		lastErr = err
+		if attempt < followUpGenerateAttempts {
+			if sleepErr := sleepBeforeFollowUpRetry(ctx, attempt); sleepErr != nil {
+				return "", sleepErr
+			}
+		}
+	}
+	return "", fmt.Errorf("follow-up judge failed after %d attempts: %w", followUpGenerateAttempts, lastErr)
+}
+
+func (j *Judge) generateFollowUpOnce(ctx context.Context, proxyBaseURL, proxyToken string, body []byte) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, proxyBaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", err
@@ -233,6 +251,17 @@ func (j *Judge) GenerateFollowUp(ctx context.Context, proxyBaseURL, proxyToken s
 		return "", fmt.Errorf("follow-up judge returned empty reply")
 	}
 	return strings.TrimSpace(payload.Reply), nil
+}
+
+func sleepBeforeFollowUpRetry(ctx context.Context, attempt int) error {
+	timer := time.NewTimer(time.Duration(attempt) * 100 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func proxyBaseURL(apiURL string) string {

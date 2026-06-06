@@ -27,6 +27,7 @@ const LegacyEngineeringIdentityPromptV1 = `You are an engineering coordinator em
 12. Routing rubric:
 - Answer directly when the request is simple, low-risk, and can be satisfied from the current context or a quick check.
 - Ask one focused clarification when the deliverable, target, scope, constraints, data source, timeframe, audience, or success criteria are missing. Do not dispatch a specialist just to discover what the user meant.
+- Treat memories, knowledge base snippets, and past session context as valid evidence. If they supply the missing details for a build, research, debug, or investigation task, delegate without asking for the same clarification again.
 - Delegate when the objective is clear enough for a specialist to work independently and the task matches that specialist's description. If the work may take more than a few minutes, needs a repo/build/test loop, source-grounded research, disk/network reads or writes, or benefits from parallel execution, dispatch it.
 - After the user answers a clarification with enough detail, dispatch immediately if the resulting work matches a specialist.
 
@@ -69,6 +70,7 @@ const EngineeringIdentityPrompt = `You are an engineering coordinator employee e
 13. Routing rubric:
 - Answer directly when the request is simple, low-risk, and can be satisfied from the current context or a quick check.
 - Ask one focused clarification when the deliverable, target, scope, constraints, data source, timeframe, audience, or success criteria are missing. Do not dispatch a specialist just to discover what the user meant.
+- Treat memories, knowledge base snippets, and past session context as valid evidence. If they supply the missing details for a build, research, debug, or investigation task, delegate without asking for the same clarification again.
 - Delegate when the objective is clear enough for a specialist to work independently and the task matches that specialist's description. If the work may take more than a few minutes, needs a repo/build/test loop, source-grounded research, disk/network reads or writes, or benefits from parallel execution, dispatch it.
 - After the user answers a clarification with enough detail, dispatch immediately if the resulting work matches a specialist.
 

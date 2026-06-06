@@ -28,6 +28,7 @@ func buildAvailableSpecialistsSection(agent *model.Employee, catalog *specialist
 		"Routing rubric:",
 		"- Answer directly when the request is simple, low-risk, and can be satisfied from current context or a quick check.",
 		"- Ask one focused clarification when the deliverable, target, scope, constraints, data source, timeframe, audience, or success criteria are missing. Do not launch a specialist to discover what the user meant.",
+		"- Treat memories, knowledge base snippets, and past session context as valid evidence. If they supply the missing details for a build, research, debug, or investigation task, delegate without asking for the same clarification again.",
 		"- Delegate when the objective is clear enough for the specialist to act independently and the work matches that specialist's criteria.",
 		"- Dispatch heavy tasks that may consume computer resources for more than 30 seconds, or tasks that need disk or network reads and writes, when the request gives enough context to act.",
 		"- Follow the specialist-specific delegation and clarification criteria in each description below.",
@@ -41,7 +42,7 @@ func buildAvailableSpecialistsSection(agent *model.Employee, catalog *specialist
 		}
 		lines = append(lines, fmt.Sprintf("- %s (%s): %s", def.Name, def.Slug, strings.TrimSpace(def.Description)))
 	}
-	if len(lines) == 11 {
+	if len(lines) == 12 {
 		return PromptSection{}
 	}
 	return PromptSection{

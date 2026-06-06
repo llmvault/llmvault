@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/testdb"
 )
@@ -92,6 +93,9 @@ func TestCreateUserDefaultOrg_CreatesHivyWithAllSpecialists(t *testing.T) {
 	resp := toEmployeeResponse(employee)
 	if resp.Name != "Hivy" {
 		t.Fatalf("employee name = %q, want Hivy", resp.Name)
+	}
+	if resp.Model != employeeruntime.DefaultEmployeeModel {
+		t.Fatalf("employee model = %q, want %q", resp.Model, employeeruntime.DefaultEmployeeModel)
 	}
 	catalog := specialistCatalogFromArgs()
 	if got, want := len(attachedSpecialistSet(employee.AttachedSpecialists)), len(catalog.AutoAttachSlugs()); got != want {

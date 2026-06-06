@@ -125,6 +125,7 @@ func TestBuildEmployeeSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T
 		"Use search_sessions only when the user needs older or deeper conversation history",
 		"Trust supplied memories unless corrected or contradicted.",
 		"Use search_knowledge_base for specific business",
+		"Memories, knowledge base snippets, and past sessions are valid evidence",
 		"Do not call retrieval tools for greetings",
 	} {
 		if !strings.Contains(baseContent, want) {
@@ -144,6 +145,7 @@ func TestBuildEmployeeSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T
 		"Sessions include timestamps",
 		"call search_sessions only for older or deeper history",
 		"Trust memories unless corrected or contradicted.",
+		"If this context supplies missing details for a specialist-worthy task",
 		"Call memory_recall or search_knowledge_base only when this context is missing",
 		"Do not retrieve for greetings or simple small talk.",
 	} {
