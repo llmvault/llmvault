@@ -41,6 +41,7 @@ services:
       HIVY_NANGO_SECRET_KEY: ${HIVY_NANGO_SECRET_KEY:?HIVY_NANGO_SECRET_KEY is required}
       HIVY_NANGO_WEBHOOKS_SECRET: ${HIVY_NANGO_WEBHOOKS_SECRET:-${HIVY_NANGO_SECRET_KEY}}
       HIVY_API_WEBHOOK_BASE_URL: ${HIVY_API_WEBHOOK_BASE_URL:-http://host.docker.internal:8080}
+      HIVY_PROXY_HOST: ${HIVY_PROXY_HOST:-http://host.docker.internal:${HIVY_COMPOSE_PROXY_PORT:-18082}}
       HIVY_SANDBOX_PROVIDER_ID: ${HIVY_SANDBOX_PROVIDER_ID:-docker}
       HIVY_SANDBOX_DOCKER_HOST: unix:///var/run/docker.sock
       HIVY_SANDBOX_DOCKER_PUBLIC_HOST: ${HIVY_SANDBOX_DOCKER_PUBLIC_HOST:-host.docker.internal}
@@ -118,6 +119,7 @@ services:
       HIVY_NANGO_SECRET_KEY: ${HIVY_NANGO_SECRET_KEY:?HIVY_NANGO_SECRET_KEY is required}
       HIVY_NANGO_WEBHOOKS_SECRET: ${HIVY_NANGO_WEBHOOKS_SECRET:-${HIVY_NANGO_SECRET_KEY}}
       HIVY_API_WEBHOOK_BASE_URL: ${HIVY_API_WEBHOOK_BASE_URL:-http://host.docker.internal:8080}
+      HIVY_PROXY_HOST: ${HIVY_PROXY_HOST:-http://host.docker.internal:${HIVY_COMPOSE_PROXY_PORT:-18082}}
       HIVY_SANDBOX_PROVIDER_ID: ${HIVY_SANDBOX_PROVIDER_ID:-docker}
       HIVY_SANDBOX_DOCKER_HOST: unix:///var/run/docker.sock
       HIVY_SANDBOX_DOCKER_PUBLIC_HOST: ${HIVY_SANDBOX_DOCKER_PUBLIC_HOST:-host.docker.internal}
@@ -155,6 +157,22 @@ services:
       timeout: 5s
       retries: 30
       start_period: 20s
+
+  proxy:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./docker/local-proxy.nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${HIVY_COMPOSE_PROXY_PORT:-18082}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
 
   web:
     image: node:22-alpine

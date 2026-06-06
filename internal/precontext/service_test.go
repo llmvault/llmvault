@@ -73,6 +73,33 @@ func TestBuildOmitsFailedSource(t *testing.T) {
 	}
 }
 
+func TestBuildOmitsPanickingSource(t *testing.T) {
+	service := NewService(Config{})
+	service.sessions = func(context.Context, Request) (string, error) {
+		return "## Recent sessions\n- session", nil
+	}
+	service.memories = func(context.Context, Request) (string, error) {
+		panic("memory dependency misconfigured")
+	}
+	service.knowledge = func(context.Context, Request) (string, error) {
+		return "## Relevant knowledge\n- knowledge", nil
+	}
+
+	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), EmployeeID: uuid.New(), Text: "hello"})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("expected one context string, got %#v", out)
+	}
+	if strings.Contains(out[0], "Recent memories") {
+		t.Fatalf("panicking source was included: %s", out[0])
+	}
+	if !strings.Contains(out[0], "Recent sessions") || !strings.Contains(out[0], "Relevant knowledge") {
+		t.Fatalf("successful sources missing: %s", out[0])
+	}
+}
+
 func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	orgID := uuid.New()
 	employeeID := uuid.New()

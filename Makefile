@@ -14,9 +14,9 @@ SANDBOX_RUNTIME_LINUX_ARM64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNT
 SANDBOX_RUNTIME_IMAGE ?= hivy-sandboxes-runtime:runtime
 SANDBOX_RUNTIME_SPECIALIST_IMAGE ?= hivy-sandboxes-runtime-specialist:latest
 GO_BIN ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /opt/homebrew/bin/go ]; then echo /opt/homebrew/bin/go; elif [ -x /usr/local/go/bin/go ]; then echo /usr/local/go/bin/go; else echo go; fi)
-DEV_COMPOSE_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight api worker web
+DEV_COMPOSE_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight api worker proxy web
 DEV_INFRA_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight
-DEV_APP_SERVICES ?= api worker web
+DEV_APP_SERVICES ?= api worker proxy web
 NANGO_SECRET_SQL = SELECT secret_key FROM nango._nango_environments WHERE name='\''prod'\'' LIMIT 1
 TEST_DATABASE_URL ?= postgres://hivy:localdev@localhost:$(or $(HIVY_COMPOSE_POSTGRES_PORT),5433)/hivy_test?sslmode=disable
 TEST_REDIS_ADDR ?= localhost:$(or $(HIVY_COMPOSE_REDIS_PORT),16279)
@@ -87,6 +87,7 @@ EVAL_PARALLEL ?= 6
 EVAL_API_URL ?= http://localhost:8080
 EVAL_OUT ?=
 EVAL_JUDGE_MODEL ?= gpt-4o-mini
+EVAL_VERBOSE ?= true
 EVAL_DB_HOST ?= localhost
 EVAL_DB_PORT ?= 5433
 EVAL_REDIS_ADDR ?= localhost:16279
@@ -117,7 +118,7 @@ employee-debug-pack:
 	go run ./cmd/employee-debug-pack $$flags
 
 employee-eval:
-	@flags="-suite $(EVAL_SUITE) -runs $(EVAL_RUNS) -parallel $(EVAL_PARALLEL) -api-url $(EVAL_API_URL) -judge-model $(EVAL_JUDGE_MODEL)"; \
+	@flags="-suite $(EVAL_SUITE) -runs $(EVAL_RUNS) -parallel $(EVAL_PARALLEL) -api-url $(EVAL_API_URL) -judge-model $(EVAL_JUDGE_MODEL) -verbose=$(EVAL_VERBOSE)"; \
 	if [ -n "$(EVAL_MODELS)" ]; then flags="$$flags -models $(EVAL_MODELS)"; fi; \
 	if [ -n "$(EVAL_OUT)" ]; then flags="$$flags -out $(EVAL_OUT)"; fi; \
 	set -a; . ./.env; set +a; \

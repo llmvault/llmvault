@@ -26,7 +26,7 @@ const evalCreditGrant = int64(100_000)
 const evalJudgeProxyTokenTTL = time.Hour
 const evalJudgeProxyTokenType = "eval_judge_proxy"
 
-func setupTrial(ctx context.Context, deps *bootstrap.Deps, suite *Suite, key TrialKey, judgeModelID string) (TrialFixture, error) {
+func setupTrial(ctx context.Context, deps *bootstrap.Deps, suite *Suite, key TrialKey, judgeModelID string, reporter *ConsoleReporter) (TrialFixture, error) {
 	if deps == nil || deps.DB == nil || deps.Orchestrator == nil {
 		return TrialFixture{}, fmt.Errorf("eval setup requires database and sandbox orchestrator")
 	}
@@ -34,28 +34,61 @@ func setupTrial(ctx context.Context, deps *bootstrap.Deps, suite *Suite, key Tri
 	if err != nil {
 		return TrialFixture{}, err
 	}
+	reporter.Trial(key, "eval setup created org",
+		"org_id", org.ID.String(),
+		"user_id", user.ID.String(),
+		"business", org.Name,
+	)
 	employee, err := createTrialEmployee(ctx, deps, suite, org.ID, key.Model)
 	if err != nil {
 		return TrialFixture{}, err
 	}
+	reporter.Trial(key, "eval setup created employee",
+		"employee_id", employee.ID.String(),
+		"model", employee.Model,
+		"credential_id", uuidPtrString(employee.CredentialID),
+		"specialists", strings.Join(employee.AttachedSpecialists, ","),
+	)
 	if err := grantTrialCredits(deps, org.ID, key); err != nil {
 		return TrialFixture{}, err
 	}
+	reporter.Trial(key, "eval setup granted credits", "credits", evalCreditGrant)
 	if err := seedTrialMemories(ctx, deps, suite, org.ID, employee.ID, key); err != nil {
 		return TrialFixture{}, err
 	}
+	reporter.Trial(key, "eval setup seeded memories",
+		"suite_memories", len(suite.Memories),
+		"case_memories", len(caseMemories(suite, key.CaseID)),
+	)
+	reporter.Trial(key, "eval setup syncing employee sandbox", "provider", deps.Orchestrator.ProviderID())
 	sb, err := syncTrialEmployee(ctx, deps, &employee)
 	if err != nil {
+		reporter.Trial(key, "eval setup sandbox sync failed", "error", err.Error())
 		return TrialFixture{}, err
 	}
+	reporter.Trial(key, "eval setup synced employee sandbox",
+		"sandbox_id", sb.ID.String(),
+		"provider", sb.ProviderID,
+		"external_id", sb.ExternalID,
+		"status", sb.Status,
+	)
 	route, err := createTrialRoute(ctx, deps.DB, org.ID, employee.ID, key)
 	if err != nil {
 		return TrialFixture{}, err
 	}
+	reporter.Trial(key, "eval setup created gateway route",
+		"route_id", route.ID.String(),
+		"provider", route.Provider,
+	)
 	judgeToken, err := mintEvalJudgeProxyToken(ctx, deps, org.ID, employee.ID, judgeModelID)
 	if err != nil {
 		return TrialFixture{}, fmt.Errorf("mint eval judge proxy token: %w", err)
 	}
+	reporter.Trial(key, "eval setup minted judge proxy token",
+		"judge_model", judgeModel(judgeModelID),
+		"judge_token_jti", judgeToken.JTI,
+		"expires_at", judgeToken.ExpiresAt,
+	)
 	threadID := fmt.Sprintf("eval:%s:%s:%d:%s", key.SuiteID, key.CaseID, key.RunIndex, uuid.NewString())
 	return TrialFixture{
 		Key:             key,
