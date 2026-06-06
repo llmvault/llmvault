@@ -62,13 +62,52 @@ func TestVercelProxy_ForwardsRawRequestThroughNango(t *testing.T) {
 	}
 }
 
-func TestSlackProxy_RejectsNonSlackAPIPath(t *testing.T) {
+func TestSlackProxy_ForwardsSlackWebAPIMethodThroughNango(t *testing.T) {
+	var capturedPath string
+
+	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true,"team":"hivy","user":"hivy"}`))
+	})
+	harness := newRawProviderProxyHarness(t, "slack", nangoHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/internal/slack-proxy/"+harness.agentID.String()+"/auth.test", nil)
+	req.Header.Set("Authorization", "Bearer "+harness.runtimeSecret)
+	recorder := httptest.NewRecorder()
+	harness.router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if capturedPath != "/proxy/auth.test" {
+		t.Fatalf("path = %q, want Slack Web API method path", capturedPath)
+	}
+}
+
+func TestSlackProxy_RejectsNonSlackWebAPIPath(t *testing.T) {
 	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("nango should not be called for invalid slack path")
 	})
 	harness := newRawProviderProxyHarness(t, "slack", nangoHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/internal/slack-proxy/"+harness.agentID.String()+"/oauth/token", nil)
+	req.Header.Set("Authorization", "Bearer "+harness.runtimeSecret)
+	recorder := httptest.NewRecorder()
+	harness.router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestSlackProxy_RejectsLegacyAPIPrefixPath(t *testing.T) {
+	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("nango should not be called for invalid slack path")
+	})
+	harness := newRawProviderProxyHarness(t, "slack", nangoHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/internal/slack-proxy/"+harness.agentID.String()+"/api/auth.test", nil)
 	req.Header.Set("Authorization", "Bearer "+harness.runtimeSecret)
 	recorder := httptest.NewRecorder()
 	harness.router.ServeHTTP(recorder, req)
@@ -109,7 +148,7 @@ func TestSlackProxy_DeniesDestructiveMethodBeforeNango(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"/internal/slack-proxy/"+harness.agentID.String()+"/api/chat.delete",
+		"/internal/slack-proxy/"+harness.agentID.String()+"/chat.delete",
 		bytes.NewReader([]byte(`{"channel":"C123","ts":"123.456"}`)),
 	)
 	req.Header.Set("Authorization", "Bearer "+harness.runtimeSecret)

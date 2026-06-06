@@ -43,7 +43,7 @@ func NewVercelProxyHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoClient
 }
 
 func NewSlackProxyHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoClient *nango.Client) *RawProviderProxyHandler {
-	return &RawProviderProxyHandler{db: db, encKey: encKey, nango: nangoClient, provider: "slack", allowedPrefix: "/api/"}
+	return &RawProviderProxyHandler{db: db, encKey: encKey, nango: nangoClient, provider: "slack", allowedPrefix: "/"}
 }
 
 func (h *RawProviderProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +174,17 @@ func (h *RawProviderProxyHandler) parseRequest(w http.ResponseWriter, r *http.Re
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": h.provider + " proxy path is not allowed"})
 		return uuid.Nil, "", false
 	}
+	if h.provider == "slack" && !slackProxyAPIPathAllowed(path) {
+		h.captureProxyFailure(r.Context(), rawProviderProxyContext{Provider: h.provider, CallerAgentID: agentID, Method: r.Method, Path: path}, http.StatusBadRequest, "invalid slack api path")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": h.provider + " proxy path is not allowed"})
+		return uuid.Nil, "", false
+	}
 	return agentID, path, true
+}
+
+func slackProxyAPIPathAllowed(path string) bool {
+	method := strings.Trim(strings.TrimLeft(path, "/"), "/")
+	return method != "" && !strings.Contains(method, "/") && strings.Contains(method, ".")
 }
 
 func rawProviderProxyMethodAllowed(method string) bool {
