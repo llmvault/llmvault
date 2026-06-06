@@ -1,10 +1,5 @@
 package registry
 
-type HivyModel struct {
-	ID     string
-	Routes []ModelRoute
-}
-
 var supportedHivyModels = []HivyModel{
 	{
 		ID: "claude-opus-4.7",
@@ -297,11 +292,3 @@ var supportedHivyModels = []HivyModel{
 		},
 	},
 }
-
-var hivyModelsByID = func() map[string]HivyModel {
-	out := make(map[string]HivyModel, len(supportedHivyModels))
-	for _, model := range supportedHivyModels {
-		out[model.ID] = model
-	}
-	return out
-}()
