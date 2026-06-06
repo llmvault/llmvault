@@ -17,6 +17,11 @@ ARG JUST_VERSION=1.38.0
 ARG RUBY_VERSION=3.3.8
 ARG NODE_VERSION=lts
 ARG GO_VERSION=1.25.10
+ARG BUN_VERSION=latest
+ARG DENO_VERSION=latest
+ARG HELM_VERSION=latest
+ARG KUBECTL_VERSION=latest
+ARG KUSTOMIZE_VERSION=latest
 ARG VERSION=dev
 ARG COMMIT=unknown
 
@@ -36,6 +41,7 @@ RUN apt-get update \
     curl \
     csvkit \
     default-jdk \
+    default-libmysqlclient-dev \
     default-mysql-client \
     dirmngr \
     direnv \
@@ -76,11 +82,17 @@ RUN apt-get update \
     libgdbm-dev \
     libgmp-dev \
     libgtk-3-0 \
+    libffi-dev \
+    libicu-dev \
     libncurses-dev \
     libnss3 \
+    libpq-dev \
     libreadline-dev \
     libssl-dev \
+    libsqlite3-dev \
     libvips-tools \
+    libxml2-dev \
+    libxslt1-dev \
     libyaml-dev \
     lsof \
     make \
@@ -90,10 +102,17 @@ RUN apt-get update \
     openssh-client \
     openssl \
     pandoc \
+    php-bcmath \
     php-cli \
     php-curl \
+    php-gd \
+    php-intl \
     php-mbstring \
+    php-mysql \
+    php-pgsql \
+    php-sqlite3 \
     php-xml \
+    php-zip \
     pkg-config \
     poppler-utils \
     postgresql-client \
@@ -108,6 +127,7 @@ RUN apt-get update \
     rsync \
     shellcheck \
     shfmt \
+    shared-mime-info \
     socat \
     sox \
     sqlite3 \
@@ -124,6 +144,7 @@ RUN apt-get update \
     xz-utils \
     yq \
     zip \
+    zlib1g-dev \
     zsh \
     zstd \
   && rm -rf /var/lib/apt/lists/*
@@ -136,28 +157,43 @@ RUN curl -fsSL https://mise.run | sh \
   && mise use -g just@${JUST_VERSION}
 
 RUN mise use -g node@${NODE_VERSION} \
-  && corepack enable \
-  && corepack prepare pnpm@10 --activate \
-  && corepack prepare yarn@stable --activate \
+  && mise use -g go@${GO_VERSION} \
+  && mise use -g bun@${BUN_VERSION} \
+  && mise use -g deno@${DENO_VERSION} \
+  && mise use -g helm@${HELM_VERSION} \
+  && mise use -g kubectl@${KUBECTL_VERSION} \
+  && mise use -g kustomize@${KUSTOMIZE_VERSION} \
   && npm config set fetch-retries 5 \
   && npm config set fetch-retry-mintimeout 20000 \
   && npm config set fetch-retry-maxtimeout 120000 \
   && npm install -g \
     markdownlint-cli \
     mongosh \
+    pnpm@10 \
     prettier \
+    yarn@1.22.22 \
   && npm cache clean --force
 
 RUN python3 -m pip install --break-system-packages --no-cache-dir \
     awscli \
+    beautifulsoup4 \
     black \
+    fpdf2 \
     httpie \
     ipython \
     jupyterlab \
+    lxml \
+    matplotlib \
     mypy \
+    numpy \
+    openpyxl \
     pandas \
     pillow \
+    pypdf \
     pytest \
+    python-docx \
+    python-pptx \
+    reportlab \
     requests \
     ruff \
     uv
@@ -171,8 +207,11 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --pr
   && ln -sf /root/.cargo/bin/cargo-clippy /usr/local/bin/cargo-clippy \
   && ln -sf /root/.cargo/bin/rustup /usr/local/bin/rustup
 
-RUN mise use -g ruby@${RUBY_VERSION} \
-  && gem install --no-document bundler rails rubocop
+RUN mise settings set ruby.compile false \
+  && MISE_RUBY_COMPILE=false mise use -g ruby@${RUBY_VERSION} \
+  && ruby -v \
+  && gem -v \
+  && bundle -v
 
 RUN printf '%s\n' 'eval "$(mise activate bash)"' >/etc/profile.d/mise.sh
 
