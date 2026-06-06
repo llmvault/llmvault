@@ -174,14 +174,35 @@ func archiveObsoleteGlobalSkills(ctx context.Context, db *gorm.DB) error {
 	if len(obsoleteGlobalSkillNames) == 0 {
 		return nil
 	}
-	err := db.WithContext(ctx).
-		Model(&model.Skill{}).
-		Where("org_id IS NULL AND lower(name) IN ?", obsoleteGlobalSkillNames).
-		Update("status", model.SkillStatusArchived).Error
-	if err != nil {
-		return fmt.Errorf("archive obsolete global skills: %w", err)
-	}
-	return nil
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var obsolete []model.Skill
+		if err := tx.
+			Select("id").
+			Where("org_id IS NULL AND lower(name) IN ?", obsoleteGlobalSkillNames).
+			Find(&obsolete).Error; err != nil {
+			return fmt.Errorf("load obsolete global skills: %w", err)
+		}
+		if len(obsolete) == 0 {
+			return nil
+		}
+
+		ids := make([]uuid.UUID, 0, len(obsolete))
+		for _, skill := range obsolete {
+			ids = append(ids, skill.ID)
+		}
+		if err := tx.Where("skill_id IN ?", ids).Delete(&model.EmployeeSkill{}).Error; err != nil {
+			return fmt.Errorf("detach obsolete global skills from employees: %w", err)
+		}
+		if err := tx.Model(&model.Skill{}).
+			Where("id IN ?", ids).
+			Update("status", model.SkillStatusArchived).Error; err != nil {
+			return fmt.Errorf("archive obsolete global skills: %w", err)
+		}
+		if err := resetSkillInstallCounts(tx, ids); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func coalesceTime(existing *time.Time, fallback time.Time) *time.Time {
@@ -189,4 +210,15 @@ func coalesceTime(existing *time.Time, fallback time.Time) *time.Time {
 		return existing
 	}
 	return &fallback
+}
+
+func resetSkillInstallCounts(tx *gorm.DB, skillIDs []uuid.UUID) error {
+	for _, skillID := range skillIDs {
+		if err := tx.Model(&model.Skill{}).
+			Where("id = ?", skillID).
+			UpdateColumn("install_count", gorm.Expr("(SELECT COUNT(*) FROM employee_skills WHERE skill_id = ?)", skillID)).Error; err != nil {
+			return fmt.Errorf("reset skill install count %s: %w", skillID, err)
+		}
+	}
+	return nil
 }

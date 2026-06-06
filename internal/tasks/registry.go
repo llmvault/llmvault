@@ -138,6 +138,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeGatewaySlack, handler.Handle)
 		mux.HandleFunc(TypeGatewaySlackStatus, handler.HandleStatus)
 	}
+	mux.HandleFunc(TypeGatewayExternalCallback, NewGatewayExternalCallbackHandler(deps.DB).Handle)
 
 	if deps.Rag != nil {
 		ragtasks.RegisterHandlers(mux, deps.Rag)

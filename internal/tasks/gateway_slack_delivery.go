@@ -2,16 +2,13 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 	slacksdk "github.com/slack-go/slack"
 
-	"github.com/usehivy/hivy/internal/gateway"
 	"github.com/usehivy/hivy/internal/logging"
-	"github.com/usehivy/hivy/internal/model"
 )
 
 func firstNonEmpty(values ...string) string {
@@ -94,48 +91,6 @@ func (h *GatewaySlackHandler) postThreadReply(ctx context.Context, client slackG
 		"message_ts", messageTS,
 	)
 	return messageTS, nil
-}
-
-func (h *GatewaySlackHandler) recordDelivery(ctx context.Context, payload GatewaySlackPayload, text, providerMessageID string) {
-	orgID, _ := parseUUID(payload.OrgID)
-	employeeID, _ := parseUUID(payload.EmployeeID)
-	sessionID, _ := parseUUID(payload.SessionID)
-
-	delivery := model.EmployeeGatewayDelivery{
-		OrgID:             orgID,
-		EmployeeID:        employeeID,
-		Provider:          gateway.SlackProvider,
-		DedupeKey:         payload.TraceID + ":" + payload.TurnID,
-		RuntimeSessionID:  payload.SessionID,
-		RuntimeTraceID:    payload.TraceID,
-		RuntimeTurnID:     payload.TurnID,
-		ThreadKey:         payload.ChannelID + ":" + payload.ThreadTS,
-		ChannelID:         payload.ChannelID,
-		ThreadID:          payload.ThreadTS,
-		ResponseText:      text,
-		Status:            "sent",
-		EmployeeSessionID: sessionID,
-	}
-	if strings.TrimSpace(providerMessageID) != "" {
-		handles, _ := json.Marshal([]gateway.MessageHandle{{
-			ProviderMessageID: providerMessageID,
-			ChannelID:         payload.ChannelID,
-			ThreadID:          payload.ThreadTS,
-			Raw: map[string]any{
-				"slack_ts": providerMessageID,
-			},
-		}})
-		delivery.ProviderHandles = model.RawJSON(handles)
-	}
-
-	if err := h.db.WithContext(ctx).Create(&delivery).Error; err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("gateway slack: record delivery: %w", err), map[string]any{
-			"connection_id": payload.ConnectionID,
-			"org_id":        payload.OrgID,
-			"channel_id":    payload.ChannelID,
-			"thread_ts":     payload.ThreadTS,
-		})
-	}
 }
 
 func parseUUID(s string) (uuid.UUID, error) {

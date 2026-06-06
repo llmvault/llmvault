@@ -43,6 +43,7 @@ func setupV1Routes(
 	uploadsHandler *handler.UploadsHandler,
 	systemTaskHandler *handler.SystemTaskHandler,
 	employeeHandler *handler.EmployeeHandler,
+	gatewayExternalHandler *handler.GatewayExternalHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
 ) {
@@ -182,6 +183,14 @@ func setupV1Routes(
 						r.Post("/employees/{id}/sandbox/reboot", employeeHandler.RebootSandbox)
 						r.Post("/employees/{id}/sandbox/upgrade", employeeHandler.StartSandboxUpgrade)
 						r.Get("/employees/{id}/sandbox/upgrades/{upgradeID}", employeeHandler.GetSandboxUpgrade)
+						if gatewayExternalHandler != nil {
+							r.Post("/employees/{id}/gateway-routes", gatewayExternalHandler.CreateRoute)
+							r.Get("/employees/{id}/gateway-routes", gatewayExternalHandler.ListRoutes)
+							r.Get("/employees/{id}/gateway-routes/{routeID}", gatewayExternalHandler.GetRoute)
+							r.Patch("/employees/{id}/gateway-routes/{routeID}", gatewayExternalHandler.UpdateRoute)
+							r.Delete("/employees/{id}/gateway-routes/{routeID}", gatewayExternalHandler.DeleteRoute)
+							r.Post("/employees/{id}/gateway-routes/{routeID}/rotate-secret", gatewayExternalHandler.RotateSecret)
+						}
 					})
 				}
 				if systemTaskHandler != nil {
