@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
@@ -45,9 +44,8 @@ func (p *S3Presigner) Stream(ctx context.Context, key, contentType string, body 
 	}
 
 	return &StoredAsset{
-		Key:       key,
-		PublicURL: strings.TrimRight(p.cfg.PublicBase, "/") + "/" + key,
-		Bytes:     counted.n,
+		Key:   key,
+		Bytes: counted.n,
 	}, nil
 }
 

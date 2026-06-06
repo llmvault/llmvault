@@ -207,7 +207,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			Endpoint:     cfg.PublicAssetsEndpoint,
 			AccessKey:    cfg.PublicAssetsAccessKey,
 			SecretKey:    cfg.PublicAssetsSecretKey,
-			PublicBase:   cfg.PublicAssetsBaseURL,
 			SignTTL:      cfg.PublicAssetsSignTTL,
 			UsePublicACL: cfg.PublicAssetsUseACL,
 		})
@@ -215,6 +214,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			slog.Error("public assets presigner init failed; /v1/uploads/sign disabled", "error", err)
 		} else {
 			uploadsHandler = handler.NewUploadsHandler(database, presigner)
+			uploadsHandler.WithAssetPreviewBaseURL(cfg.APIWebhookBaseURL)
 			uploadsHandler.WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
 			if sandboxEncKey != nil {
 				uploadsHandler.WithStreamer(presigner, sandboxEncKey)

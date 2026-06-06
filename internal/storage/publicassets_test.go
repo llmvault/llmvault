@@ -29,13 +29,12 @@ func newPresigner(t *testing.T, ttl time.Duration) *storage.S3Presigner {
 		endpoint = testMinioEndpoint
 	}
 	cfg := storage.PublicAssetsConfig{
-		Bucket:     testMinioBucket,
-		Region:     "auto",
-		Endpoint:   endpoint,
-		AccessKey:  testMinioAccess,
-		SecretKey:  testMinioSecret,
-		PublicBase: endpoint + "/" + testMinioBucket,
-		SignTTL:    ttl,
+		Bucket:    testMinioBucket,
+		Region:    "auto",
+		Endpoint:  endpoint,
+		AccessKey: testMinioAccess,
+		SecretKey: testMinioSecret,
+		SignTTL:   ttl,
 	}
 	p, err := storage.NewS3Presigner(cfg)
 	if err != nil {
@@ -76,18 +75,21 @@ func TestSign_AvatarHappyPath(t *testing.T) {
 		t.Fatalf("expected 200 from PUT, got %d", resp.StatusCode)
 	}
 
-	getReq, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, out.PublicURL, nil)
-	getResp, err := http.DefaultClient.Do(getReq)
+	signedGet, err := p.PresignGet(context.Background(), out.Key)
 	if err != nil {
-		t.Fatalf("public GET: %v", err)
+		t.Fatalf("presign get: %v", err)
 	}
-	defer func() { _ = getResp.Body.Close() }()
-	if getResp.StatusCode != http.StatusOK {
-		t.Fatalf("public GET: expected 200, got %d", getResp.StatusCode)
+	signedResp, err := http.Get(signedGet)
+	if err != nil {
+		t.Fatalf("signed GET: %v", err)
 	}
-	got, _ := io.ReadAll(getResp.Body)
-	if !bytes.Equal(got, body) {
-		t.Fatalf("public GET returned different bytes")
+	defer func() { _ = signedResp.Body.Close() }()
+	if signedResp.StatusCode != http.StatusOK {
+		t.Fatalf("signed GET: expected 200, got %d", signedResp.StatusCode)
+	}
+	signedBody, _ := io.ReadAll(signedResp.Body)
+	if !bytes.Equal(signedBody, body) {
+		t.Fatalf("signed GET returned different bytes")
 	}
 }
 
@@ -228,5 +230,50 @@ func TestSign_ExpiredURL(t *testing.T) {
 	_ = resp.Body.Close()
 	if resp.StatusCode < 400 {
 		t.Fatalf("expected 4xx for expired URL, got %d", resp.StatusCode)
+	}
+}
+
+func TestPresignGet_ExpiredURL(t *testing.T) {
+	p := newPresigner(t, 1*time.Second)
+	body := []byte("expired-get-test")
+
+	out, err := p.Sign(context.Background(), storage.SignRequest{
+		AssetType:   storage.AssetTypeGeneric,
+		UserID:      uuid.New(),
+		ContentType: "text/plain",
+		SizeBytes:   int64(len(body)),
+		Filename:    "expired.txt",
+	})
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPut, out.UploadURL, bytes.NewReader(body))
+	for k, v := range out.RequiredHeaders {
+		req.Header.Set(k, v)
+	}
+	req.ContentLength = int64(len(body))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PUT: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("PUT: expected 200, got %d", resp.StatusCode)
+	}
+
+	signedGet, err := p.PresignGet(context.Background(), out.Key)
+	if err != nil {
+		t.Fatalf("presign get: %v", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	getResp, err := http.Get(signedGet)
+	if err != nil {
+		t.Fatalf("expired signed GET: %v", err)
+	}
+	_ = getResp.Body.Close()
+	if getResp.StatusCode < 400 {
+		t.Fatalf("expected 4xx for expired signed GET, got %d", getResp.StatusCode)
 	}
 }

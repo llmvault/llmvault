@@ -14,7 +14,8 @@ import (
 
 func TestDeleteEmployeeAsset_HappyPath(t *testing.T) {
 	h := newStreamHarness(t)
-	publicURL := h.seedEmployeeAsset(t, "tmp", "scratch.txt", "delete me")
+	h.seedEmployeeAsset(t, "tmp", "scratch.txt", "delete me")
+	directURL := fmt.Sprintf("%s/pub/e/%s/tmp/scratch.txt", h.publicBase, h.agentID)
 
 	urlPath := fmt.Sprintf("/internal/employees/%s/drive/tmp/scratch.txt", h.agentID)
 	rr := h.delete(t, urlPath, h.runtimeSecret)
@@ -28,7 +29,7 @@ func TestDeleteEmployeeAsset_HappyPath(t *testing.T) {
 		t.Fatalf("row still present after delete (count=%d)", count)
 	}
 
-	getReq, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, publicURL, nil)
+	getReq, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, directURL, nil)
 	getResp, err := http.DefaultClient.Do(getReq)
 	if err != nil {
 		t.Fatalf("public GET: %v", err)
@@ -124,6 +125,32 @@ func TestMoveEmployeeAsset_ByPublicURL(t *testing.T) {
 	}
 	if resp.Path != "" {
 		t.Fatalf("path: got %q want empty (root)", resp.Path)
+	}
+}
+
+func TestMoveEmployeeAsset_ByLegacyDirectPublicURL(t *testing.T) {
+	h := newStreamHarness(t)
+	h.seedEmployeeAsset(t, "tmp", "legacy.txt", "hi")
+	publicURL := fmt.Sprintf("%s/pub/e/%s/tmp/legacy.txt", h.publicBase, h.agentID)
+
+	body := fmt.Sprintf(`{"asset":%q,"new_path":"archive"}`, publicURL)
+	rr := h.post(t,
+		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
+		body,
+		h.runtimeSecret,
+	)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Path != "archive" {
+		t.Fatalf("path: got %q want archive", resp.Path)
 	}
 }
 

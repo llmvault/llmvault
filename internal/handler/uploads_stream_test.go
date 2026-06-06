@@ -37,9 +37,11 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	encKey := testSymmetricKey(t)
 
 	h := handler.NewUploadsHandler(db, presigner)
+	h.WithAssetPreviewBaseURL("https://api.usehivy.test")
 	h.WithStreamer(presigner, encKey)
 
 	r := chi.NewRouter()
+	r.Get("/v1/assets/preview", h.PreviewAsset)
 	r.Put("/internal/employees/{employeeID}/drive/*", h.StreamEmployeeAsset)
 	r.Post("/internal/employees/{employeeID}/drive/move", h.MoveEmployeeAsset)
 	r.Delete("/internal/employees/{employeeID}/drive/*", h.DeleteEmployeeAsset)

@@ -151,6 +151,7 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 	}
 
 	key := buildEmployeeAssetKey(agent.ID, folder, filename)
+	assetURL := h.publicAssetURL(key, "")
 
 	stored, err := h.streamer.Stream(r.Context(), key, contentType, r.Body)
 	if err != nil {
@@ -166,7 +167,7 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 		Path:        folder,
 		Filename:    filename,
 		Key:         stored.Key,
-		PublicURL:   stored.PublicURL,
+		PublicURL:   assetURL,
 		ContentType: contentType,
 		Bytes:       stored.Bytes,
 	}
@@ -176,7 +177,7 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 		"sandbox_id":          sandbox.ID,
 		"path":                folder,
 		"filename":            filename,
-		assetURLStorageColumn: stored.PublicURL,
+		assetURLStorageColumn: assetURL,
 		"content_type":        contentType,
 		"bytes":               stored.Bytes,
 		"updated_at":          time.Now(),
@@ -188,7 +189,7 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 
 	writeJSON(w, http.StatusCreated, streamAssetResponse{
 		ID:          asset.ID,
-		PublicURL:   stored.PublicURL,
+		PublicURL:   h.publicAssetURL(stored.Key, assetURL),
 		Key:         stored.Key,
 		Path:        folder,
 		Filename:    filename,

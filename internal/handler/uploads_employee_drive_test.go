@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -28,6 +29,9 @@ func TestStreamEmployeeDrive_HappyPath(t *testing.T) {
 	}
 	if resp.Path != "reports/2026" || resp.Filename != "summary.txt" || resp.PublicURL == "" {
 		t.Fatalf("response = %+v", resp)
+	}
+	if !strings.HasPrefix(resp.PublicURL, "https://api.usehivy.test/v1/assets/preview?path=") {
+		t.Fatalf("expected preview asset_url, got %q", resp.PublicURL)
 	}
 
 	var asset model.EmployeeAsset

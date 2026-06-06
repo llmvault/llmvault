@@ -1289,6 +1289,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/assets/preview": {
+            "get": {
+                "description": "Redirects to a short-lived signed URL for an object in the public assets bucket.",
+                "tags": [
+                    "assets"
+                ],
+                "summary": "Preview public asset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Public assets S3 key",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Found"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/audit": {
             "get": {
                 "security": [

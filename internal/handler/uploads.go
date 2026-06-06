@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strings"
+
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
@@ -14,12 +16,18 @@ type UploadsHandler struct {
 	encKey                 *crypto.SymmetricKey
 	employeeRuntimeImage   string
 	specialistRuntimeImage string
+	assetPreviewBaseURL    string
 }
 
 const assetURLStorageColumn = "public_" + "url"
 
 func NewUploadsHandler(db *gorm.DB, presigner storage.Presigner) *UploadsHandler {
 	return &UploadsHandler{db: db, presigner: presigner}
+}
+
+func (h *UploadsHandler) WithAssetPreviewBaseURL(baseURL string) *UploadsHandler {
+	h.assetPreviewBaseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	return h
 }
 
 // WithStreamer enables the agent-facing streaming upload endpoint. The

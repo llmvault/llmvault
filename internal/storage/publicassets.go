@@ -39,21 +39,20 @@ type SignedUpload struct {
 	UploadMethod    string            `json:"upload_method"`
 	RequiredHeaders map[string]string `json:"required_headers"`
 	Key             string            `json:"key"`
-	PublicURL       string            `json:"asset_url"`
 	ExpiresAt       time.Time         `json:"expires_at"`
 	MaxSizeBytes    int64             `json:"max_size_bytes"`
 }
 
 type Presigner interface {
 	Sign(ctx context.Context, req SignRequest) (*SignedUpload, error)
+	PresignGet(ctx context.Context, key string) (string, error)
 	Policy(t AssetType) (AssetPolicy, bool)
 }
 
 // StoredAsset is the result of a streaming upload.
 type StoredAsset struct {
-	Key       string
-	PublicURL string
-	Bytes     int64
+	Key   string
+	Bytes int64
 }
 
 // Streamer streams an arbitrary body straight to S3 without buffering. The
@@ -119,7 +118,6 @@ type PublicAssetsConfig struct {
 	Endpoint     string
 	AccessKey    string
 	SecretKey    string
-	PublicBase   string
 	SignTTL      time.Duration
 	UsePublicACL bool
 }
@@ -134,9 +132,6 @@ type S3Presigner struct {
 func NewS3Presigner(cfg PublicAssetsConfig) (*S3Presigner, error) {
 	if cfg.Bucket == "" {
 		return nil, fmt.Errorf("public assets bucket is required")
-	}
-	if cfg.PublicBase == "" {
-		return nil, fmt.Errorf("public assets base URL is required")
 	}
 	if cfg.SignTTL <= 0 {
 		cfg.SignTTL = 15 * time.Minute
@@ -221,10 +216,24 @@ func (p *S3Presigner) Sign(ctx context.Context, req SignRequest) (*SignedUpload,
 		UploadMethod:    "PUT",
 		RequiredHeaders: headers,
 		Key:             key,
-		PublicURL:       strings.TrimRight(p.cfg.PublicBase, "/") + "/" + key,
 		ExpiresAt:       time.Now().Add(p.cfg.SignTTL).UTC(),
 		MaxSizeBytes:    pol.MaxBytes,
 	}, nil
+}
+
+func (p *S3Presigner) PresignGet(ctx context.Context, key string) (string, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", fmt.Errorf("key is required")
+	}
+	signed, err := p.presign.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(p.cfg.Bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(p.cfg.SignTTL))
+	if err != nil {
+		return "", fmt.Errorf("presign get: %w", err)
+	}
+	return signed.URL, nil
 }
 
 var slugInvalid = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)

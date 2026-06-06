@@ -99,7 +99,7 @@ func (h *UploadsHandler) Sign(w http.ResponseWriter, r *http.Request) {
 		UploadMethod:    out.UploadMethod,
 		RequiredHeaders: out.RequiredHeaders,
 		Key:             out.Key,
-		PublicURL:       out.PublicURL,
+		PublicURL:       h.publicAssetURL(out.Key, ""),
 		ExpiresAt:       out.ExpiresAt.Format(time.RFC3339),
 		MaxSizeBytes:    out.MaxSizeBytes,
 	})

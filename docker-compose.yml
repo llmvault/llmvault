@@ -47,7 +47,6 @@ services:
       HIVY_AWS_ENDPOINT_URL: http://minio:9000
       HIVY_AWS_PRESIGN_ENDPOINT_URL: http://host.docker.internal:${HIVY_COMPOSE_MINIO_API_PORT:-9000}
       HIVY_PUBLIC_ASSETS_S3_ENDPOINT: http://minio:9000
-      HIVY_PUBLIC_ASSETS_BASE_URL: http://localhost:9000/public-files-test
       HIVY_QDRANT_HOST: qdrant
       HIVY_QDRANT_PORT: ${HIVY_QDRANT_PORT:-6334}
     ports:
@@ -125,7 +124,6 @@ services:
       HIVY_AWS_ENDPOINT_URL: http://minio:9000
       HIVY_AWS_PRESIGN_ENDPOINT_URL: http://host.docker.internal:${HIVY_COMPOSE_MINIO_API_PORT:-9000}
       HIVY_PUBLIC_ASSETS_S3_ENDPOINT: http://minio:9000
-      HIVY_PUBLIC_ASSETS_BASE_URL: http://localhost:9000/public-files-test
       HIVY_QDRANT_HOST: qdrant
       HIVY_QDRANT_PORT: ${HIVY_QDRANT_PORT:-6334}
       HIVY_WORKER_HEALTH_PORT: ${HIVY_WORKER_HEALTH_PORT:-8090}
