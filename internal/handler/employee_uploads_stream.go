@@ -159,6 +159,13 @@ func (h *UploadsHandler) StreamEmployeeAsset(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "upload failed"})
 		return
 	}
+	if stored.Bytes == 0 {
+		if err := h.streamer.Delete(r.Context(), stored.Key); err != nil {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "delete empty employee drive object", "employee_id", agent.ID, "key", stored.Key, "error", err)
+		}
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "empty files are not allowed"})
+		return
+	}
 
 	asset := model.EmployeeAsset{
 		EmployeeID:  agent.ID,

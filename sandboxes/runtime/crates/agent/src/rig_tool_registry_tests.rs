@@ -6,6 +6,7 @@ use domain::ToolSpec;
 use outbound::{OutboundChannel, OutboundError, OutboundRegistry};
 use std::collections::HashMap;
 use std::fs;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use storage::{OutboxRepo, OutboxRow};
 use tokio::sync::RwLock;
@@ -229,9 +230,13 @@ impl OutboundChannel for SkillSyncChannel {
     }
 }
 
+static TEMP_WORKSPACE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 fn temp_workspace() -> PathBuf {
+    let nonce = TEMP_WORKSPACE_COUNTER.fetch_add(1, Ordering::Relaxed);
     let path = std::env::temp_dir().join(format!(
-        "hivy-sandboxes-runtime-skill-sync-{}",
+        "hivy-sandboxes-runtime-skill-sync-{}-{}-{nonce}",
+        std::process::id(),
         Utc::now().timestamp_nanos_opt().unwrap_or_default()
     ));
     fs::create_dir_all(&path).expect("create temp workspace");

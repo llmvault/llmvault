@@ -22,24 +22,40 @@ RUN apt-get update \
     cmake \
     coreutils \
     curl \
+    csvkit \
     direnv \
     dnsutils \
+    exiftool \
     fd-find \
+    ffmpeg \
+    file \
     findutils \
+    fontconfig \
+    fonts-dejavu \
+    fonts-liberation \
+    fonts-noto \
+    fonts-noto-color-emoji \
     gh \
     git \
     git-lfs \
+    ghostscript \
+    graphicsmagick \
     gzip \
+    imagemagick \
     iputils-ping \
     jq \
     less \
     libsqlite3-dev \
+    libvips-tools \
     libyaml-dev \
     lsof \
     make \
+    mediainfo \
     netcat-openbsd \
     openssh-client \
+    pandoc \
     pkg-config \
+    poppler-utils \
     procps \
     psmisc \
     python3 \
@@ -49,17 +65,22 @@ RUN apt-get update \
     ripgrep \
     rsync \
     shellcheck \
+    shfmt \
+    sox \
     sqlite3 \
     tar \
+    tesseract-ocr \
     tini \
     tree \
     unzip \
     vim-tiny \
     wget \
+    xmlstarlet \
     xz-utils \
     yq \
     zip \
     zsh \
+    zstd \
   && ln -s /usr/bin/fdfind /usr/local/bin/fd \
   && git lfs install --system \
   && curl -fsSL https://mise.run | sh \
@@ -67,7 +88,21 @@ RUN apt-get update \
   && mise use -g just@${JUST_VERSION} \
   && mise use -g node@lts \
   && npm install -g pnpm@10 \
-  && python3 -m pip install --break-system-packages --no-cache-dir uv \
+  && python3 -m pip install --break-system-packages --no-cache-dir \
+    beautifulsoup4 \
+    fpdf2 \
+    lxml \
+    matplotlib \
+    numpy \
+    openpyxl \
+    pandas \
+    pillow \
+    pypdf \
+    python-docx \
+    python-pptx \
+    reportlab \
+    requests \
+    uv \
   && printf '%s\n' 'eval "$(mise activate bash)"' >/etc/profile.d/mise.sh \
   && rm -rf /var/lib/apt/lists/*
 
