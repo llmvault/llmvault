@@ -63,6 +63,9 @@ func setupPublicRoutes(
 
 	// Billing plans catalog (no auth)
 	r.Get("/v1/plans", plansHandler.List)
+	if uploadsHandler != nil {
+		r.Get("/v1/assets/preview", uploadsHandler.PreviewAsset)
+	}
 
 	// Webhook receivers (HMAC-verified, no auth middleware)
 	r.Post("/internal/webhooks/employee/{sandboxID}", employeeOutboundWebhookHandler.Handle)

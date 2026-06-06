@@ -34,13 +34,12 @@ func newRealPresigner(t *testing.T) *storage.S3Presigner {
 		endpoint = testMinioEndpoint
 	}
 	p, err := storage.NewS3Presigner(storage.PublicAssetsConfig{
-		Bucket:     testMinioBucket,
-		Region:     "auto",
-		Endpoint:   endpoint,
-		AccessKey:  testMinioAccess,
-		SecretKey:  testMinioSecret,
-		PublicBase: endpoint + "/" + testMinioBucket,
-		SignTTL:    15 * time.Minute,
+		Bucket:    testMinioBucket,
+		Region:    "auto",
+		Endpoint:  endpoint,
+		AccessKey: testMinioAccess,
+		SecretKey: testMinioSecret,
+		SignTTL:   15 * time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("create presigner: %v", err)
@@ -58,8 +57,10 @@ func newUploadsHarness(t *testing.T) *uploadsTestHarness {
 	t.Helper()
 	db := connectTestDB(t)
 	h := handler.NewUploadsHandler(db, newRealPresigner(t))
+	h.WithAssetPreviewBaseURL("https://api.usehivy.test")
 	r := chi.NewRouter()
 	r.Post("/v1/uploads/sign", h.Sign)
+	r.Get("/v1/assets/preview", h.PreviewAsset)
 	return &uploadsTestHarness{db: db, handler: h, router: r}
 }
 
@@ -115,6 +116,9 @@ func TestUploadsSign_Avatar_HappyPath(t *testing.T) {
 	}
 	if resp["upload_url"] == "" || resp["asset_url"] == "" || resp["key"] == "" {
 		t.Fatalf("missing fields: %#v", resp)
+	}
+	if !bytesHasPrefix(resp["asset_url"].(string), "https://api.usehivy.test/v1/assets/preview?path=") {
+		t.Fatalf("expected preview asset_url, got %q", resp["asset_url"])
 	}
 	key := resp["key"].(string)
 	if !bytesHasPrefix(key, "avatars/"+user.ID.String()+"/") {

@@ -120,7 +120,7 @@ func (h *UploadsHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		UploadURL:    out.UploadURL,
 		UploadMethod: out.UploadMethod,
 		Key:          out.Key,
-		PublicURL:    out.PublicURL,
+		PublicURL:    h.publicAssetURL(out.Key, ""),
 		ExpiresAt:    out.ExpiresAt.Format("2006-01-02T15:04:05Z"),
 		MaxSizeBytes: out.MaxSizeBytes,
 	})

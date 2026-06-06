@@ -149,7 +149,6 @@ type Config struct {
 	PublicAssetsEndpoint  string        `env:"HIVY_PUBLIC_ASSETS_S3_ENDPOINT"`
 	PublicAssetsAccessKey string        `env:"HIVY_PUBLIC_ASSETS_ACCESS_KEY_ID"`
 	PublicAssetsSecretKey string        `env:"HIVY_PUBLIC_ASSETS_SECRET_ACCESS_KEY"`
-	PublicAssetsBaseURL   string        `env:"HIVY_PUBLIC_ASSETS_BASE_URL"`
 	PublicAssetsSignTTL   time.Duration `env:"HIVY_PUBLIC_ASSETS_SIGN_TTL" envDefault:"15m"`
 	PublicAssetsUseACL    bool          `env:"HIVY_PUBLIC_ASSETS_USE_ACL" envDefault:"false"`
 

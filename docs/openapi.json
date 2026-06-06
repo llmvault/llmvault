@@ -1504,6 +1504,51 @@
         }
       }
     },
+    "/v1/assets/preview": {
+      "get": {
+        "description": "Redirects to a short-lived signed URL for an object in the public assets bucket.",
+        "tags": [
+          "assets"
+        ],
+        "summary": "Preview public asset",
+        "parameters": [
+          {
+            "description": "Public assets S3 key",
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/audit": {
       "get": {
         "security": [

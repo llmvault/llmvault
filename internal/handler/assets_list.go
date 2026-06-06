@@ -225,7 +225,7 @@ func (h *UploadsHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 			Path:        r.Path,
 			Filename:    r.Filename,
 			Key:         r.Key,
-			PublicURL:   r.PublicURL,
+			PublicURL:   h.publicAssetURL(r.Key, r.PublicURL),
 			ContentType: r.ContentType,
 			Bytes:       r.Bytes,
 			CreatedAt:   r.CreatedAt.UTC().Format(time.RFC3339),

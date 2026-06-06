@@ -70,7 +70,7 @@ func (h *UploadsHandler) MoveEmployeeAsset(w http.ResponseWriter, r *http.Reques
 
 	writeJSON(w, http.StatusOK, moveAssetResponse{
 		ID:        asset.ID,
-		PublicURL: asset.PublicURL,
+		PublicURL: h.publicAssetURL(asset.Key, asset.PublicURL),
 		Key:       asset.Key,
 		Path:      newFolder,
 		Filename:  asset.Filename,
@@ -88,6 +88,18 @@ func resolveEmployeeAssetReference(agentID uuid.UUID, raw string) (string, strin
 		u, err := url.Parse(raw)
 		if err != nil {
 			return "", "", errors.New("invalid asset URL")
+		}
+		if u.Path == "/v1/assets/preview" {
+			key, err := normalizePublicAssetKey(u.Query().Get("path"))
+			if err != nil {
+				return "", "", errors.New("invalid asset URL")
+			}
+			marker := fmt.Sprintf("pub/e/%s/", agentID)
+			if !strings.HasPrefix(key, marker) {
+				return "", "", errors.New("asset URL does not belong to this employee")
+			}
+			raw = strings.TrimPrefix(key, marker)
+			return splitAssetPath(raw)
 		}
 		marker := fmt.Sprintf("/pub/e/%s/", agentID)
 		idx := strings.Index(u.Path, marker)

@@ -65,6 +65,7 @@ func newAssetsListHarness(t *testing.T) *assetsListHarness {
 	db := connectTestDB(t)
 
 	h := handler.NewUploadsHandler(db, nil)
+	h.WithAssetPreviewBaseURL("https://api.usehivy.test")
 	r := chi.NewRouter()
 	r.Get("/v1/assets", h.ListAssets)
 

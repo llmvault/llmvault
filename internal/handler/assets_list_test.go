@@ -3,6 +3,7 @@ package handler_test
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -23,6 +24,9 @@ func TestListAssets_OrgScopeIsolatesOtherOrgs(t *testing.T) {
 	}
 	if page.Data[0]["filename"] != "a.mp4" {
 		t.Fatalf("wrong row leaked: %v", page.Data[0])
+	}
+	if got := page.Data[0]["asset_url"].(string); !strings.HasPrefix(got, "https://api.usehivy.test/v1/assets/preview?path=") {
+		t.Fatalf("expected preview asset_url, got %q", got)
 	}
 }
 

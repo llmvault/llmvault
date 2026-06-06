@@ -3703,6 +3703,30 @@ paths:
       summary: List org assets
       tags:
       - assets
+  /v1/assets/preview:
+    get:
+      description: Redirects to a short-lived signed URL for an object in the public
+        assets bucket.
+      parameters:
+      - description: Public assets S3 key
+        in: query
+        name: path
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Found
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: Preview public asset
+      tags:
+      - assets
   /v1/audit:
     get:
       description: Returns audit log entries for the current organization with cursor
