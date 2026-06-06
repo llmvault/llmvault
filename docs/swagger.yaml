@@ -325,8 +325,6 @@ definitions:
         type: integer
       content_type:
         type: string
-      conversation_id:
-        type: string
       created_at:
         type: string
       employee_id:
@@ -3627,27 +3625,61 @@ paths:
       - api-keys
   /v1/assets:
     get:
-      description: 'Lists conversation assets owned by the caller''s org. Optional
-        filters: employee_id, conversation_id, path. Ordered by created_at desc, cursor-paginated.'
+      description: 'Lists employee drive assets owned by the caller''s org. Optional
+        filters: employee_id, path, path_prefix, q/search, extension, content_type,
+        created_from, created_to. Ordered by created_at desc by default and cursor-paginated.'
       parameters:
-      - description: Filter to assets uploaded inside conversations of this employee
+      - description: Filter to files owned by this employee
         in: query
         name: employee_id
-        type: string
-      - description: Filter to assets uploaded inside this conversation
-        in: query
-        name: conversation_id
         type: string
       - description: Filter by exact folder label (empty = root)
         in: query
         name: path
         type: string
+      - description: Filter by folder tree prefix
+        in: query
+        name: path_prefix
+        type: string
+      - description: Fuzzy search path, filename, content type, and storage key
+        in: query
+        name: q
+        type: string
+      - description: Alias for q
+        in: query
+        name: search
+        type: string
+      - description: Filter by filename extension
+        in: query
+        name: extension
+        type: string
+      - description: Filter by content type prefix
+        in: query
+        name: content_type
+        type: string
+      - description: Created-at lower bound (RFC3339 or YYYY-MM-DD)
+        in: query
+        name: created_from
+        type: string
+      - description: Created-at upper bound (RFC3339 or YYYY-MM-DD)
+        in: query
+        name: created_to
+        type: string
+      - description: 'Sort field: created_at, updated_at, filename, bytes, content_type,
+          path'
+        in: query
+        name: sort_by
+        type: string
+      - description: 'Sort direction: asc or desc'
+        in: query
+        name: sort_dir
+        type: string
       - description: Page size (default 50, max 200)
         in: query
         name: limit
         type: integer
-      - description: Pagination cursor — created_at unix-nanos from the previous page's
-          tail
+      - description: Pagination cursor — unix-nanos from the previous page's tail
+          for created_at/updated_at sorting
         in: query
         name: cursor
         type: string

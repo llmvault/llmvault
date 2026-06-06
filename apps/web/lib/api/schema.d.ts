@@ -1539,20 +1539,36 @@ export interface paths {
         };
         /**
          * List org assets
-         * @description Lists conversation assets owned by the caller's org. Optional filters: employee_id, conversation_id, path. Ordered by created_at desc, cursor-paginated.
+         * @description Lists employee drive assets owned by the caller's org. Optional filters: employee_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.
          */
         get: {
             parameters: {
                 query?: {
-                    /** @description Filter to assets uploaded inside conversations of this employee */
+                    /** @description Filter to files owned by this employee */
                     employee_id?: string;
-                    /** @description Filter to assets uploaded inside this conversation */
-                    conversation_id?: string;
                     /** @description Filter by exact folder label (empty = root) */
                     path?: string;
+                    /** @description Filter by folder tree prefix */
+                    path_prefix?: string;
+                    /** @description Fuzzy search path, filename, content type, and storage key */
+                    q?: string;
+                    /** @description Alias for q */
+                    search?: string;
+                    /** @description Filter by filename extension */
+                    extension?: string;
+                    /** @description Filter by content type prefix */
+                    content_type?: string;
+                    /** @description Created-at lower bound (RFC3339 or YYYY-MM-DD) */
+                    created_from?: string;
+                    /** @description Created-at upper bound (RFC3339 or YYYY-MM-DD) */
+                    created_to?: string;
+                    /** @description Sort field: created_at, updated_at, filename, bytes, content_type, path */
+                    sort_by?: string;
+                    /** @description Sort direction: asc or desc */
+                    sort_dir?: string;
                     /** @description Page size (default 50, max 200) */
                     limit?: number;
-                    /** @description Pagination cursor — created_at unix-nanos from the previous page's tail */
+                    /** @description Pagination cursor — unix-nanos from the previous page's tail for created_at/updated_at sorting */
                     cursor?: string;
                 };
                 header?: never;
@@ -8791,7 +8807,6 @@ export interface components {
             asset_url?: string;
             bytes?: number;
             content_type?: string;
-            conversation_id?: string;
             created_at?: string;
             employee_id?: string;
             filename?: string;

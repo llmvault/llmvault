@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "description": "Proxy bridge for LLM API credentials.",
+    "description": "Proxy runtime for LLM API credentials.",
     "title": "Hivy API",
     "contact": {},
     "version": "1.0"
@@ -262,6 +262,115 @@
           },
           "401": {
             "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Permanently deletes the authenticated user's account. This action cannot be undone.",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Delete current user account",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Updates the authenticated user's name, email, or avatar URL.",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Update current user profile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateProfileRequest"
+              }
+            }
+          },
+          "description": "Fields to update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/userResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -581,6 +690,38 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incoming/gateways/external/{routeID}": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Receive an external gateway message",
+        "parameters": [
+          {
+            "description": "Gateway route ID",
+            "name": "routeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
                 }
               }
             }
@@ -1218,23 +1359,15 @@
             "BearerAuth": []
           }
         ],
-        "description": "Lists conversation assets owned by the caller's org. Optional filters: employee_id, conversation_id, path. Ordered by created_at desc, cursor-paginated.",
+        "description": "Lists employee drive assets owned by the caller's org. Optional filters: employee_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.",
         "tags": [
           "assets"
         ],
         "summary": "List org assets",
         "parameters": [
           {
-            "description": "Filter to assets uploaded inside conversations of this employee",
+            "description": "Filter to files owned by this employee",
             "name": "employee_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Filter to assets uploaded inside this conversation",
-            "name": "conversation_id",
             "in": "query",
             "schema": {
               "type": "string"
@@ -1249,6 +1382,78 @@
             }
           },
           {
+            "description": "Filter by folder tree prefix",
+            "name": "path_prefix",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fuzzy search path, filename, content type, and storage key",
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Alias for q",
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by filename extension",
+            "name": "extension",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by content type prefix",
+            "name": "content_type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Created-at lower bound (RFC3339 or YYYY-MM-DD)",
+            "name": "created_from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Created-at upper bound (RFC3339 or YYYY-MM-DD)",
+            "name": "created_to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort field: created_at, updated_at, filename, bytes, content_type, path",
+            "name": "sort_by",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort direction: asc or desc",
+            "name": "sort_dir",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Page size (default 50, max 200)",
             "name": "limit",
             "in": "query",
@@ -1257,7 +1462,7 @@
             }
           },
           {
-            "description": "Pagination cursor \u2014 created_at unix-nanos from the previous page's tail",
+            "description": "Pagination cursor \u2014 unix-nanos from the previous page's tail for created_at/updated_at sorting",
             "name": "cursor",
             "in": "query",
             "schema": {
@@ -2890,6 +3095,429 @@
         }
       }
     },
+    "/v1/database-integrations": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Lists active database integrations for the current organization.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "List database integrations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/databaseConnectionResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Stores encrypted database credentials for the current organization.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Create database integration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/databaseConnectionRequest"
+              }
+            }
+          },
+          "description": "Database integration details",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}": {
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Revokes a database integration without exposing stored credentials.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Disconnect database integration",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}/introspect": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Introspects and stores the visible database schema snapshot.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Introspect database integration",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}/policy": {
+      "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Saves table, collection, field mask, and result limit policy for a database integration.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Update database access policy",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Policy"
+              }
+            }
+          },
+          "description": "Access policy",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/databaseConnectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database-integrations/{id}/test": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Verifies that stored database credentials can connect.",
+        "tags": [
+          "database-integrations"
+        ],
+        "summary": "Test database integration",
+        "parameters": [
+          {
+            "description": "Database integration ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/employees": {
       "get": {
         "security": [
@@ -2945,6 +3573,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/models": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns the OpenRouter-backed model allowlist supported for Hivy employees.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "List employee-selectable models",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/modelSummary"
+                  }
                 }
               }
             }
@@ -3039,6 +3706,505 @@
         }
       }
     },
+    "/v1/employees/{id}/gateway-routes": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ],
+        "summary": "List external gateway routes",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/gatewayRouteResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ],
+        "summary": "Create an external gateway route",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createGatewayRouteRequest"
+              }
+            }
+          },
+          "description": "Gateway route",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gatewayRouteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/gateway-routes/{routeID}": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ],
+        "summary": "Get an external gateway route",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Gateway route ID",
+            "name": "routeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gatewayRouteResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ],
+        "summary": "Revoke an external gateway route",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Gateway route ID",
+            "name": "routeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ],
+        "summary": "Update an external gateway route",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Gateway route ID",
+            "name": "routeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateGatewayRouteRequest"
+              }
+            }
+          },
+          "description": "Gateway route updates",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gatewayRouteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/gateway-routes/{routeID}/rotate-secret": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ],
+        "summary": "Rotate an external gateway route secret",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Gateway route ID",
+            "name": "routeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gatewayRouteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/model": {
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Persists Hivy's employee model and pushes the full runtime config to the live sandbox.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Update an employee model",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateEmployeeModelRequest"
+              }
+            }
+          },
+          "description": "Employee model update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/updateEmployeeModelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/sandbox/reboot": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Restarts the employee sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Reboot an employee sandbox",
+        "parameters": [
+          {
+            "description": "Employee ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rebootEmployeeSandboxResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/employees/{id}/sandbox/upgrade": {
       "post": {
         "security": [
@@ -3046,7 +4212,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Queues a control-plane upgrade that snapshots the employee runtime SQLite database,\nrecreates the sandbox on the current employee image, restores the database,\nsyncs config, and verifies readiness. If an upgrade is already queued or\nrunning for the employee, the active operation is returned.",
+        "description": "Queues a control-plane upgrade that snapshots the employee runtime SQLite database,\nrecreates the sandbox on the current employee image, restores the database,\nsyncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.\nIf an upgrade is already queued or running for the employee, the active operation is returned.",
         "tags": [
           "employees"
         ],
@@ -3062,16 +4228,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/startEmployeeSandboxUpgradeRequest"
-              }
-            }
-          },
-          "description": "Upgrade options"
-        },
         "responses": {
           "202": {
             "description": "Accepted",
@@ -3239,7 +4395,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns employee runtime sessions with optional trigger delivery metadata.",
+        "description": "Returns persisted employee sessions with optional trigger delivery metadata.",
         "tags": [
           "employees"
         ],
@@ -3295,7 +4451,7 @@
             }
           },
           {
-            "description": "Prefix search over session identifiers",
+            "description": "Search over session title, source key, or runtime conversation ID",
             "name": "q",
             "in": "query",
             "schema": {
@@ -3326,6 +4482,108 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/paginatedResponse-handler_employeeSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/sessions/{sessionID}/events": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns persisted employee session events ordered newest-first with cursor pagination.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "List persisted session events",
+        "parameters": [
+          {
+            "description": "Employee agent ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Employee session ID",
+            "name": "sessionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size",
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination cursor",
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/paginatedResponse-handler_employeeSessionEventResponse"
                 }
               }
             }
@@ -7482,6 +8740,24 @@
           "usage"
         ],
         "summary": "Get organization usage",
+        "parameters": [
+          {
+            "description": "Start date inclusive (YYYY-MM-DD), defaults to 30 days ago",
+            "name": "start_date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "End date inclusive (YYYY-MM-DD), defaults to now",
+            "name": "end_date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -7630,6 +8906,12 @@
       "Cost": {
         "type": "object",
         "properties": {
+          "cache_read": {
+            "type": "number"
+          },
+          "cache_write": {
+            "type": "number"
+          },
           "input": {
             "type": "number"
           },
@@ -7738,6 +9020,38 @@
           },
           "webhook_user_defined_secret": {
             "type": "boolean"
+          }
+        }
+      },
+      "Policy": {
+        "type": "object",
+        "properties": {
+          "allowed_collections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_schemas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "masked_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_rows": {
+            "type": "integer"
           }
         }
       },
@@ -7974,9 +9288,6 @@
             "type": "integer"
           },
           "content_type": {
-            "type": "string"
-          },
-          "conversation_id": {
             "type": "string"
           },
           "created_at": {
@@ -8366,6 +9677,23 @@
           }
         }
       },
+      "createGatewayRouteRequest": {
+        "type": "object",
+        "properties": {
+          "callback_url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
       "createOrgInviteRequest": {
         "type": "object",
         "properties": {
@@ -8630,6 +9958,56 @@
           }
         }
       },
+      "databaseConnectionRequest": {
+        "type": "object",
+        "properties": {
+          "access_policy": {
+            "$ref": "#/components/schemas/Policy"
+          },
+          "connection_url": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "employee_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
+      "databaseConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "access_policy": {
+            "$ref": "#/components/schemas/JSON"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "employee_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "revoked_at": {
+            "type": "string"
+          },
+          "schema_snapshot": {},
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "dnsRecord": {
         "type": "object",
         "properties": {
@@ -8715,6 +10093,65 @@
           }
         }
       },
+      "employeeResponse": {
+        "type": "object",
+        "properties": {
+          "attached_skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeSkillSummary"
+            }
+          },
+          "avatar_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_memory_refreshed_at": {
+            "type": "string"
+          },
+          "memory_refresh_error": {
+            "type": "string"
+          },
+          "memory_refresh_status": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sandbox_template_id": {
+            "type": "string"
+          },
+          "specialist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeTriggerResponse"
+            }
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "employeeSandboxSummary": {
         "type": "object",
         "properties": {
@@ -8779,6 +10216,53 @@
           }
         }
       },
+      "employeeSessionEventResponse": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "employee_session_id": {
+            "type": "string"
+          },
+          "event_at": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "runtime_session_id": {
+            "type": "string"
+          },
+          "sequence_number": {
+            "type": "integer"
+          },
+          "source": {
+            "type": "string"
+          },
+          "specialist_slug": {
+            "type": "string"
+          },
+          "specialist_task_id": {
+            "type": "string"
+          }
+        }
+      },
       "employeeSessionResponse": {
         "type": "object",
         "properties": {
@@ -8791,10 +10275,28 @@
           "created_at": {
             "type": "string"
           },
+          "ended_at": {
+            "type": "string"
+          },
+          "event_count": {
+            "type": "integer"
+          },
           "id": {
             "type": "string"
           },
           "last_activity_at": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "runtime_conversation_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_resource_key": {
             "type": "string"
           },
           "status": {
@@ -8805,6 +10307,9 @@
           },
           "trigger_delivery": {
             "$ref": "#/components/schemas/triggerDeliveryResponse"
+          },
+          "updated_at": {
+            "type": "string"
           }
         }
       },
@@ -9011,6 +10516,44 @@
         "type": "object",
         "properties": {
           "email": {
+            "type": "string"
+          }
+        }
+      },
+      "gatewayRouteResponse": {
+        "type": "object",
+        "properties": {
+          "callback_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "inbound_url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "revoked_at": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "secret_prefix": {
+            "type": "string"
+          },
+          "updated_at": {
             "type": "string"
           }
         }
@@ -9716,6 +11259,23 @@
           }
         }
       },
+      "paginatedResponse-handler_employeeSessionEventResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/employeeSessionEventResponse"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
       "paginatedResponse-handler_employeeSessionResponse": {
         "type": "object",
         "properties": {
@@ -10379,6 +11939,20 @@
           }
         }
       },
+      "rebootEmployeeSandboxResponse": {
+        "type": "object",
+        "properties": {
+          "employee": {
+            "$ref": "#/components/schemas/employeeResponse"
+          },
+          "sandbox_id": {
+            "type": "string"
+          },
+          "sync": {
+            "$ref": "#/components/schemas/syncEmployeeResponse"
+          }
+        }
+      },
       "refreshRequest": {
         "type": "object",
         "properties": {
@@ -10641,6 +12215,32 @@
           }
         }
       },
+      "sessionSummary": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "ended_at": {
+            "type": "string"
+          },
+          "event_count": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "signUploadRequest": {
         "type": "object",
         "properties": {
@@ -10891,14 +12491,6 @@
           },
           "total_cost": {
             "type": "number"
-          }
-        }
-      },
-      "startEmployeeSandboxUpgradeRequest": {
-        "type": "object",
-        "properties": {
-          "smoke_test": {
-            "type": "boolean"
           }
         }
       },
@@ -11260,6 +12852,25 @@
           }
         }
       },
+      "updateEmployeeModelRequest": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          }
+        }
+      },
+      "updateEmployeeModelResponse": {
+        "type": "object",
+        "properties": {
+          "employee": {
+            "$ref": "#/components/schemas/employeeResponse"
+          },
+          "sync": {
+            "$ref": "#/components/schemas/syncEmployeeResponse"
+          }
+        }
+      },
       "updateEmployeeSpecialistRequest": {
         "type": "object",
         "properties": {
@@ -11268,6 +12879,23 @@
             "items": {
               "type": "integer"
             }
+          }
+        }
+      },
+      "updateGatewayRouteRequest": {
+        "type": "object",
+        "properties": {
+          "callback_url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
           }
         }
       },
@@ -11287,6 +12915,20 @@
             "type": "boolean"
           },
           "website": {
+            "type": "string"
+          }
+        }
+      },
+      "updateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           }
         }
@@ -11402,6 +13044,12 @@
           "requests": {
             "$ref": "#/components/schemas/requestStats"
           },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sessionSummary"
+            }
+          },
           "spend_over_time": {
             "type": "array",
             "items": {
@@ -11440,6 +13088,9 @@
       "userResponse": {
         "type": "object",
         "properties": {
+          "avatar_url": {
+            "type": "string"
+          },
           "email": {
             "type": "string"
           },

@@ -1179,7 +1179,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lists conversation assets owned by the caller's org. Optional filters: employee_id, conversation_id, path. Ordered by created_at desc, cursor-paginated.",
+                "description": "Lists employee drive assets owned by the caller's org. Optional filters: employee_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.",
                 "produces": [
                     "application/json"
                 ],
@@ -1190,20 +1190,68 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Filter to assets uploaded inside conversations of this employee",
+                        "description": "Filter to files owned by this employee",
                         "name": "employee_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter to assets uploaded inside this conversation",
-                        "name": "conversation_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "Filter by exact folder label (empty = root)",
                         "name": "path",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by folder tree prefix",
+                        "name": "path_prefix",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fuzzy search path, filename, content type, and storage key",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Alias for q",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by filename extension",
+                        "name": "extension",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by content type prefix",
+                        "name": "content_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Created-at lower bound (RFC3339 or YYYY-MM-DD)",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Created-at upper bound (RFC3339 or YYYY-MM-DD)",
+                        "name": "created_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field: created_at, updated_at, filename, bytes, content_type, path",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort direction: asc or desc",
+                        "name": "sort_dir",
                         "in": "query"
                     },
                     {
@@ -1214,7 +1262,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Pagination cursor — created_at unix-nanos from the previous page's tail",
+                        "description": "Pagination cursor — unix-nanos from the previous page's tail for created_at/updated_at sorting",
                         "name": "cursor",
                         "in": "query"
                     }
@@ -7682,9 +7730,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "content_type": {
-                    "type": "string"
-                },
-                "conversation_id": {
                     "type": "string"
                 },
                 "created_at": {

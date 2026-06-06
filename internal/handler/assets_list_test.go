@@ -10,10 +10,8 @@ import (
 func TestListAssets_OrgScopeIsolatesOtherOrgs(t *testing.T) {
 	h := newAssetsListHarness(t)
 	now := time.Now()
-	convA := h.loadConv(t, h.convA1)
-	convB := h.loadConv(t, h.convB1)
-	seedAssetRow(t, h.db, convA, "videos", "a.mp4", now)
-	seedAssetRow(t, h.db, convB, "videos", "b.mp4", now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "videos", "a.mp4", "video/mp4", 10, now)
+	seedAssetRow(t, h.db, h.orgB.ID, h.agentB1, h.sandboxB1, "videos", "b.mp4", "video/mp4", 10, now)
 
 	rr := h.get(t, "", &h.orgA)
 	if rr.Code != http.StatusOK {
@@ -28,31 +26,11 @@ func TestListAssets_OrgScopeIsolatesOtherOrgs(t *testing.T) {
 	}
 }
 
-func TestListAssets_FilterByConversation(t *testing.T) {
+func TestListAssets_FilterByEmployee(t *testing.T) {
 	h := newAssetsListHarness(t)
 	now := time.Now()
-	convA1 := h.loadConv(t, h.convA1)
-	convA2 := h.loadConv(t, h.convA2)
-	seedAssetRow(t, h.db, convA1, "videos", "a1.mp4", now)
-	seedAssetRow(t, h.db, convA2, "videos", "a2.mp4", now)
-
-	rr := h.get(t, "?conversation_id="+h.convA1.String(), &h.orgA)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("got %d: %s", rr.Code, rr.Body.String())
-	}
-	page := decodeAssetList(t, rr)
-	if len(page.Data) != 1 || page.Data[0]["filename"] != "a1.mp4" {
-		t.Fatalf("filter conversation_id failed: %+v", page.Data)
-	}
-}
-
-func TestListAssets_FilterByAgent(t *testing.T) {
-	h := newAssetsListHarness(t)
-	now := time.Now()
-	convA1 := h.loadConv(t, h.convA1)
-	convA2 := h.loadConv(t, h.convA2)
-	seedAssetRow(t, h.db, convA1, "videos", "a1.mp4", now)
-	seedAssetRow(t, h.db, convA2, "videos", "a2.mp4", now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "videos", "a1.mp4", "video/mp4", 10, now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA2, h.sandboxA2, "videos", "a2.mp4", "video/mp4", 10, now)
 
 	rr := h.get(t, "?employee_id="+h.agentA2.String(), &h.orgA)
 	if rr.Code != http.StatusOK {
@@ -67,18 +45,23 @@ func TestListAssets_FilterByAgent(t *testing.T) {
 	}
 }
 
-func TestListAssets_FilterByPath(t *testing.T) {
+func TestListAssets_FilterByPathAndPrefix(t *testing.T) {
 	h := newAssetsListHarness(t)
 	now := time.Now()
-	convA1 := h.loadConv(t, h.convA1)
-	seedAssetRow(t, h.db, convA1, "videos", "a.mp4", now)
-	seedAssetRow(t, h.db, convA1, "images", "b.png", now)
-	seedAssetRow(t, h.db, convA1, "", "root.txt", now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "reports/2026", "a.pdf", "application/pdf", 11, now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "reports/2025", "b.pdf", "application/pdf", 12, now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "", "root.txt", "text/plain", 13, now)
 
-	rr := h.get(t, "?path=images", &h.orgA)
+	rr := h.get(t, "?path=reports/2026", &h.orgA)
 	page := decodeAssetList(t, rr)
-	if len(page.Data) != 1 || page.Data[0]["filename"] != "b.png" {
+	if len(page.Data) != 1 || page.Data[0]["filename"] != "a.pdf" {
 		t.Fatalf("filter path failed: %+v", page.Data)
+	}
+
+	rr = h.get(t, "?path_prefix=reports", &h.orgA)
+	page = decodeAssetList(t, rr)
+	if len(page.Data) != 2 {
+		t.Fatalf("filter path_prefix failed: %+v", page.Data)
 	}
 
 	rr = h.get(t, "?path=", &h.orgA)
@@ -88,14 +71,40 @@ func TestListAssets_FilterByPath(t *testing.T) {
 	}
 }
 
+func TestListAssets_SearchExtensionContentTypeAndDate(t *testing.T) {
+	h := newAssetsListHarness(t)
+	old := time.Date(2026, 5, 31, 9, 0, 0, 0, time.UTC)
+	recent := time.Date(2026, 6, 6, 9, 0, 0, 0, time.UTC)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "metrics", "revenue.csv", "text/csv", 10, recent)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "notes", "weekly.txt", "text/plain", 10, old)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "images", "chart.png", "image/png", 10, recent)
+
+	for _, tc := range []struct {
+		query string
+		want  string
+	}{
+		{"?q=revenue", "revenue.csv"},
+		{"?extension=png", "chart.png"},
+		{"?content_type=image/", "chart.png"},
+		{"?created_from=2026-06-01&extension=csv", "revenue.csv"},
+	} {
+		rr := h.get(t, tc.query, &h.orgA)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s got %d: %s", tc.query, rr.Code, rr.Body.String())
+		}
+		page := decodeAssetList(t, rr)
+		if len(page.Data) != 1 || page.Data[0]["filename"] != tc.want {
+			t.Fatalf("%s got %+v want %s", tc.query, page.Data, tc.want)
+		}
+	}
+}
+
 func TestListAssets_CombinedFilters(t *testing.T) {
 	h := newAssetsListHarness(t)
 	now := time.Now()
-	convA1 := h.loadConv(t, h.convA1)
-	convA2 := h.loadConv(t, h.convA2)
-	seedAssetRow(t, h.db, convA1, "videos", "a1-vid.mp4", now)
-	seedAssetRow(t, h.db, convA1, "exports", "a1-data.csv", now)
-	seedAssetRow(t, h.db, convA2, "videos", "a2-vid.mp4", now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "videos", "a1-vid.mp4", "video/mp4", 10, now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "exports", "a1-data.csv", "text/csv", 10, now)
+	seedAssetRow(t, h.db, h.orgA.ID, h.agentA2, h.sandboxA2, "videos", "a2-vid.mp4", "video/mp4", 10, now)
 
 	q := fmt.Sprintf("?employee_id=%s&path=videos", h.agentA1)
 	rr := h.get(t, q, &h.orgA)
@@ -105,36 +114,33 @@ func TestListAssets_CombinedFilters(t *testing.T) {
 	}
 }
 
-func TestListAssets_ForeignAgentReturnsEmpty(t *testing.T) {
+func TestListAssets_ForeignEmployeeReturnsEmpty(t *testing.T) {
 	h := newAssetsListHarness(t)
 	now := time.Now()
-	convB := h.loadConv(t, h.convB1)
-	seedAssetRow(t, h.db, convB, "videos", "b.mp4", now)
+	seedAssetRow(t, h.db, h.orgB.ID, h.agentB1, h.sandboxB1, "videos", "b.mp4", "video/mp4", 10, now)
 
-	// Caller is org A but filters by an org-B agent — must not leak.
 	rr := h.get(t, "?employee_id="+h.agentB1.String(), &h.orgA)
 	page := decodeAssetList(t, rr)
 	if len(page.Data) != 0 {
-		t.Fatalf("expected empty (foreign agent), got %d rows", len(page.Data))
+		t.Fatalf("expected empty (foreign employee), got %d rows", len(page.Data))
 	}
 }
 
 func TestListAssets_Pagination(t *testing.T) {
 	h := newAssetsListHarness(t)
-	convA1 := h.loadConv(t, h.convA1)
 	base := time.Now().Add(-1 * time.Hour)
 	for i := range 5 {
-		seedAssetRow(t, h.db, convA1, "page", fmt.Sprintf("f%d.txt", i), base.Add(time.Duration(i)*time.Second))
+		seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "page", fmt.Sprintf("f%d.txt", i), "text/plain", 10, base.Add(time.Duration(i)*time.Second))
 	}
 
-	rr := h.get(t, "?conversation_id="+h.convA1.String()+"&limit=2", &h.orgA)
+	rr := h.get(t, "?employee_id="+h.agentA1.String()+"&limit=2", &h.orgA)
 	page := decodeAssetList(t, rr)
 	if len(page.Data) != 2 || !page.HasMore || page.NextCursor == nil {
 		t.Fatalf("first page wrong: %+v", page)
 	}
 
 	rr = h.get(t,
-		fmt.Sprintf("?conversation_id=%s&limit=2&cursor=%s", h.convA1, *page.NextCursor),
+		fmt.Sprintf("?employee_id=%s&limit=2&cursor=%s", h.agentA1, *page.NextCursor),
 		&h.orgA,
 	)
 	page2 := decodeAssetList(t, rr)
@@ -150,10 +156,13 @@ func TestListAssets_RejectsBadFilters(t *testing.T) {
 	h := newAssetsListHarness(t)
 	for _, q := range []string{
 		"?employee_id=not-a-uuid",
-		"?conversation_id=not-a-uuid",
 		"?limit=0",
 		"?limit=abc",
 		"?cursor=not-a-number",
+		"?created_from=not-a-date",
+		"?sort_by=bad",
+		"?sort_dir=sideways",
+		"?sort_by=filename&cursor=100",
 	} {
 		rr := h.get(t, q, &h.orgA)
 		if rr.Code != http.StatusBadRequest {
