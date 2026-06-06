@@ -12,10 +12,10 @@ import (
 )
 
 func (s *Service) fetchMemoriesSection(ctx context.Context, req Request) (string, error) {
-	if s.cfg.Memory == nil || req.OrgID == uuid.Nil {
+	if isNilValue(s.cfg.Memory) || req.OrgID == uuid.Nil {
 		return "", nil
 	}
-	if s.cfg.MemoryBank != nil {
+	if !isNilValue(s.cfg.MemoryBank) {
 		if err := s.cfg.MemoryBank.EnsureOrgBank(ctx, req.OrgID); err != nil {
 			return "", fmt.Errorf("ensure memory bank: %w", err)
 		}

@@ -76,6 +76,7 @@ type RunOptions struct {
 	APIURL     string
 	OutDir     string
 	JudgeModel string
+	Verbose    bool
 }
 
 type TrialKey struct {

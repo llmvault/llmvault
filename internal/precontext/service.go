@@ -3,6 +3,7 @@ package precontext
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -77,6 +78,11 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 	var wg sync.WaitGroup
 	run := func(index int, name string, fetch SourceFetcher) {
 		defer wg.Done()
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				logging.Capture(ctx, fmt.Errorf("employee precontext %s panic: %v", name, recovered))
+			}
+		}()
 		text, err := fetch(ctx, req)
 		if err != nil {
 			logging.Capture(ctx, fmt.Errorf("employee precontext %s: %w", name, err))
@@ -121,5 +127,18 @@ func (s *Service) cached(key string, fetch SourceFetcher) SourceFetcher {
 			}
 		}
 		return value, nil
+	}
+}
+
+func isNilValue(value any) bool {
+	if value == nil {
+		return true
+	}
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
 	}
 }

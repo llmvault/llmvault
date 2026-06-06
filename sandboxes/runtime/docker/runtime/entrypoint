@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+if [ -n "${HIVY_GIT_USERNAME:-}" ]; then
+  git config --system user.name "$HIVY_GIT_USERNAME"
+fi
+
+if [ -n "${HIVY_GIT_EMAIL:-}" ]; then
+  git config --system user.email "$HIVY_GIT_EMAIL"
+fi
+
+exec "$@"

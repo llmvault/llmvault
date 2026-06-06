@@ -34,3 +34,14 @@ func (r *Runner) metrics(ctx context.Context, fixture TrialFixture, since time.T
 	out.CreditsDebited = gen.Credits
 	return out
 }
+
+func (r *Runner) loadGenerationsSince(ctx context.Context, fixture TrialFixture, since time.Time) ([]model.Generation, error) {
+	var generations []model.Generation
+	q := r.deps.DB.WithContext(ctx).
+		Where("org_id = ? AND created_at >= ?", fixture.OrgID, since).
+		Order("created_at ASC")
+	if err := q.Find(&generations).Error; err != nil {
+		return nil, err
+	}
+	return generations, nil
+}

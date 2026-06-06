@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Service) fetchKnowledgeSection(ctx context.Context, req Request) (string, error) {
-	if s.cfg.Searcher == nil || s.cfg.Embedder == nil || req.OrgID == uuid.Nil || strings.TrimSpace(req.Text) == "" {
+	if isNilValue(s.cfg.Searcher) || isNilValue(s.cfg.Embedder) || req.OrgID == uuid.Nil || strings.TrimSpace(req.Text) == "" {
 		return "", nil
 	}
 	vectors, err := s.cfg.Embedder.Embed(ctx, []string{req.Text})
