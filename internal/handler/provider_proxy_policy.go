@@ -157,8 +157,7 @@ func graphQLPayloads(body []byte) ([]graphQLPayload, error) {
 }
 
 func slackProxyPolicyDecision(path string) proxyPolicyDecision {
-	apiMethod := strings.TrimPrefix(path, "/api/")
-	apiMethod = strings.Trim(apiMethod, "/")
+	apiMethod := strings.Trim(path, "/")
 	if destructiveOperationName(apiMethod) {
 		return denyProxyOperation(apiMethod)
 	}

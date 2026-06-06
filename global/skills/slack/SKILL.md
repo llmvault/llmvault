@@ -52,13 +52,13 @@ slack_api() {
 Check the connected bot/user:
 
 ```bash
-slack_api GET "/api/auth.test" | jq '{ok, team, user, bot_id, url}'
+slack_api GET "/auth.test" | jq '{ok, team, user, bot_id, url}'
 ```
 
 List public and private channels visible to the app:
 
 ```bash
-slack_api GET "/api/conversations.list?types=public_channel,private_channel&limit=100" \
+slack_api GET "/conversations.list?types=public_channel,private_channel&limit=100" \
   | jq '[.channels[] | {id, name, is_member, is_private, updated: .updated}]'
 ```
 
@@ -66,7 +66,7 @@ Fetch recent messages from a channel:
 
 ```bash
 CHANNEL_ID="C..."
-slack_api GET "/api/conversations.history?channel=$CHANNEL_ID&limit=20" \
+slack_api GET "/conversations.history?channel=$CHANNEL_ID&limit=20" \
   | jq '[.messages[] | {ts, user, bot_id, text}]'
 ```
 
@@ -75,14 +75,14 @@ Fetch a thread:
 ```bash
 CHANNEL_ID="C..."
 THREAD_TS="1780000000.000000"
-slack_api GET "/api/conversations.replies?channel=$CHANNEL_ID&ts=$THREAD_TS&limit=50" \
+slack_api GET "/conversations.replies?channel=$CHANNEL_ID&ts=$THREAD_TS&limit=50" \
   | jq '[.messages[] | {ts, user, bot_id, text}]'
 ```
 
 Post only when the user explicitly asks you to send a Slack message:
 
 ```bash
-slack_api POST "/api/chat.postMessage" "$(jq -n \
+slack_api POST "/chat.postMessage" "$(jq -n \
   --arg channel "$CHANNEL_ID" \
   --arg text "Message text" \
   '{channel: $channel, text: $text}')" \

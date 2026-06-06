@@ -61,8 +61,8 @@ func TestProviderProxyPolicy_DeniesRestDeleteArchiveAndRemove(t *testing.T) {
 		body     string
 	}{
 		{name: "delete method", provider: "vercel", method: http.MethodDelete, path: "/v9/projects/app"},
-		{name: "slack delete method path", provider: "slack", method: http.MethodPost, path: "/api/chat.delete"},
-		{name: "slack archive method path", provider: "slack", method: http.MethodPost, path: "/api/conversations.archive"},
+		{name: "slack delete method path", provider: "slack", method: http.MethodPost, path: "/chat.delete"},
+		{name: "slack archive method path", provider: "slack", method: http.MethodPost, path: "/conversations.archive"},
 		{name: "notion trash flag", provider: "notion", method: http.MethodPatch, path: "/v1/pages/page", body: `{"in_trash":true}`},
 		{name: "notion archived flag", provider: "notion", method: http.MethodPatch, path: "/v1/pages/page", body: `{"archived":true}`},
 		{name: "vercel edge config delete operation", provider: "vercel", method: http.MethodPatch, path: "/v1/edge-config/id/items", body: `{"items":[{"operation":"delete","key":"old"}]}`},
@@ -85,7 +85,7 @@ func TestProviderProxyPolicy_AllowsSafeRestOperations(t *testing.T) {
 		path     string
 		body     string
 	}{
-		{name: "slack history", provider: "slack", method: http.MethodGet, path: "/api/conversations.history"},
+		{name: "slack history", provider: "slack", method: http.MethodGet, path: "/conversations.history"},
 		{name: "notion update page properties", provider: "notion", method: http.MethodPatch, path: "/v1/pages/page", body: `{"properties":{"Name":{"title":[]}}}`},
 		{name: "vercel create deployment", provider: "vercel", method: http.MethodPost, path: "/v13/deployments", body: `{"name":"app"}`},
 		{name: "vercel edge config upsert", provider: "vercel", method: http.MethodPatch, path: "/v1/edge-config/id/items", body: `{"items":[{"operation":"upsert","key":"flag","value":true}]}`},
