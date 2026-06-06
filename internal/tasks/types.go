@@ -25,6 +25,7 @@ const (
 	TypeSandboxWarmSlotCheck         = "sandbox:warm_slot_check"
 	TypeGatewaySlack                 = "gateway:slack"
 	TypeGatewaySlackStatus           = "gateway:slack_status"
+	TypeGatewayExternalCallback      = "gateway:external_callback"
 
 	// Periodic tasks (scheduled by the worker)
 	TypeTokenCleanup         = "periodic:token_cleanup"

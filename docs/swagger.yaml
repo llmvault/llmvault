@@ -580,6 +580,17 @@ definitions:
       verified_at:
         type: string
     type: object
+  createGatewayRouteRequest:
+    properties:
+      callback_url:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+      provider:
+        type: string
+    type: object
   createOrgInviteRequest:
     properties:
       email:
@@ -1121,6 +1132,31 @@ definitions:
   forgotPasswordRequest:
     properties:
       email:
+        type: string
+    type: object
+  gatewayRouteResponse:
+    properties:
+      callback_url:
+        type: string
+      created_at:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      inbound_url:
+        type: string
+      name:
+        type: string
+      provider:
+        type: string
+      revoked_at:
+        type: string
+      secret:
+        type: string
+      secret_prefix:
+        type: string
+      updated_at:
         type: string
     type: object
   generationResponse:
@@ -2642,6 +2678,17 @@ definitions:
           type: integer
         type: array
     type: object
+  updateGatewayRouteRequest:
+    properties:
+      callback_url:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+      provider:
+        type: string
+    type: object
   updateOrgRequest:
     properties:
       logo_url:
@@ -3205,6 +3252,27 @@ paths:
       summary: Reset password
       tags:
       - auth
+  /incoming/gateways/external/{routeID}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Receive an external gateway message
+      tags:
+      - webhooks
   /incoming/triggers/{triggerID}:
     post:
       consumes:
@@ -4737,6 +4805,163 @@ paths:
       security:
       - BearerAuth: []
       summary: Get an AI employee
+      tags:
+      - employees
+  /v1/employees/{id}/gateway-routes:
+    get:
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/gatewayRouteResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List external gateway routes
+      tags:
+      - employees
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createGatewayRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an external gateway route
+      tags:
+      - employees
+  /v1/employees/{id}/gateway-routes/{routeID}:
+    delete:
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Revoke an external gateway route
+      tags:
+      - employees
+    get:
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an external gateway route
+      tags:
+      - employees
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      - description: Gateway route updates
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateGatewayRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an external gateway route
+      tags:
+      - employees
+  /v1/employees/{id}/gateway-routes/{routeID}/rotate-secret:
+    post:
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Rotate an external gateway route secret
       tags:
       - employees
   /v1/employees/{id}/model:

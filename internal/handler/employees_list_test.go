@@ -44,6 +44,17 @@ func TestIntegration_EmployeesList_HappyPath_LoadsAllRelations(t *testing.T) {
 	if err := h.db.Create(&model.EmployeeSkill{EmployeeID: emp.ID, SkillID: skill.ID}).Error; err != nil {
 		t.Fatalf("attach skill: %v", err)
 	}
+	archivedSkill := model.Skill{
+		Slug: "archived-list-skill-" + randSuffix(),
+		Name: "Archived List Skill", SourceType: model.SkillSourceInline,
+		Status: model.SkillStatusArchived,
+	}
+	if err := h.db.Create(&archivedSkill).Error; err != nil {
+		t.Fatalf("create archived skill: %v", err)
+	}
+	if err := h.db.Create(&model.EmployeeSkill{EmployeeID: emp.ID, SkillID: archivedSkill.ID}).Error; err != nil {
+		t.Fatalf("attach archived skill: %v", err)
+	}
 	t.Cleanup(func() { h.db.Where("employee_id = ?", emp.ID).Delete(&model.EmployeeSkill{}) })
 
 	rr := h.listEmployees(t, m)

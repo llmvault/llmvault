@@ -65,12 +65,19 @@ func (s *Service) RegisterAdapter(adapter Adapter) {
 	s.adapters[strings.ToLower(strings.TrimSpace(adapter.Provider()))] = adapter
 }
 
+func (s *Service) adapterForRoute(route model.EmployeeGatewayRoute) (Adapter, error) {
+	if RouteUsesExternalAdapter(route) {
+		return s.adapter(ExternalProvider)
+	}
+	return s.adapter(route.Provider)
+}
+
 func (s *Service) ReceiveWebhook(ctx context.Context, envelope WebhookEnvelope) (*ReceiveResult, error) {
 	route, err := s.loadRoute(ctx, envelope.RouteID)
 	if err != nil {
 		return nil, err
 	}
-	adapter, err := s.adapter(route.Provider)
+	adapter, err := s.adapterForRoute(route)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +100,7 @@ func (s *Service) Receive(ctx context.Context, inbound InboundEnvelope) (*Receiv
 	if err != nil {
 		return nil, err
 	}
-	adapter, err := s.adapter(route.Provider)
+	adapter, err := s.adapterForRoute(route)
 	if err != nil {
 		return nil, err
 	}
@@ -218,8 +225,11 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 			Provider:   conn.Integration.Provider,
 		}
 	}
+	if RouteUsesExternalAdapter(route) {
+		return nil, nil
+	}
 
-	adapter, err := s.adapter(route.Provider)
+	adapter, err := s.adapterForRoute(route)
 	if err != nil {
 		return nil, err
 	}

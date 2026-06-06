@@ -31,6 +31,7 @@ func setupPublicRoutes(
 	nangoWebhookHandler *handler.NangoWebhookHandler,
 	incomingWebhookHandler *handler.IncomingWebhookHandler,
 	gatewayHTTPHandler *handler.GatewayHTTPHandler,
+	gatewayExternalHandler *handler.GatewayExternalHandler,
 	nangoClient *nango.Client,
 	sandboxEncKey *crypto.SymmetricKey,
 	kms *crypto.KeyWrapper,
@@ -102,6 +103,9 @@ func setupPublicRoutes(
 	r.Post("/incoming/webhooks/{provider}/{connectionID}", incomingWebhookHandler.Handle)
 	if gatewayHTTPHandler != nil {
 		r.Post("/incoming/gateways/http/{routeID}", gatewayHTTPHandler.Handle)
+	}
+	if gatewayExternalHandler != nil {
+		r.Post("/incoming/gateways/external/{routeID}", gatewayExternalHandler.HandleInbound)
 	}
 
 	// Conversation-scoped streaming uploads from inside the sandbox.

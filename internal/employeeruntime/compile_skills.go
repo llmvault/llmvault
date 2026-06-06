@@ -42,7 +42,9 @@ func buildSkillsWithDefaultNames(ctx context.Context, db *gorm.DB, agentID uuid.
 	}
 	var skills []model.Skill
 	if len(ids) > 0 {
-		if err := db.WithContext(ctx).Where("id IN ?", ids).Find(&skills).Error; err != nil {
+		if err := db.WithContext(ctx).
+			Where("id IN ? AND status = ?", ids, model.SkillStatusPublished).
+			Find(&skills).Error; err != nil {
 			return nil, err
 		}
 	}

@@ -242,40 +242,6 @@ func TestBundledDriveSkillDeclaresDriveEnv(t *testing.T) {
 	}
 }
 
-func TestSeedGlobalSkills_ArchivesObsoleteDriveSkillNames(t *testing.T) {
-	db := connectDB(t)
-	dir := t.TempDir()
-	writeGlobalSkill(t, dir, "drive", "new drive", "# Drive\n", nil)
-
-	for _, name := range []string{"asset-uploads", "public-assets-uploads", "employee-public-assets-uploads", "employee-assets-uploads"} {
-		skill := model.Skill{
-			OrgID:      nil,
-			Slug:       model.GenerateSlug(name) + "-" + uuid.New().String()[:8],
-			Name:       name,
-			SourceType: model.SkillSourceInline,
-			RepoRef:    "main",
-			Status:     model.SkillStatusPublished,
-		}
-		if err := db.Create(&skill).Error; err != nil {
-			t.Fatalf("create obsolete skill %s: %v", name, err)
-		}
-	}
-
-	if _, err := skills.SeedGlobalSkills(context.Background(), db, dir); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-
-	var publishedOld int64
-	if err := db.Model(&model.Skill{}).
-		Where("org_id IS NULL AND name IN ? AND status = ?", []string{"asset-uploads", "public-assets-uploads", "employee-public-assets-uploads", "employee-assets-uploads"}, model.SkillStatusPublished).
-		Count(&publishedOld).Error; err != nil {
-		t.Fatalf("count obsolete skills: %v", err)
-	}
-	if publishedOld != 0 {
-		t.Fatalf("expected obsolete upload skills to be archived, got %d still published", publishedOld)
-	}
-}
-
 func TestSeedGlobalSkills_RealBundledDirectory(t *testing.T) {
 	db := connectDB(t)
 

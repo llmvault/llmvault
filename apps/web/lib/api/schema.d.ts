@@ -796,6 +796,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/incoming/gateways/external/{routeID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive an external gateway message */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Gateway route ID */
+                    routeID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/incoming/triggers/{triggerID}": {
         parameters: {
             query?: never;
@@ -3818,6 +3859,212 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employees/{id}/gateway-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List external gateway routes */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["gatewayRouteResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create an external gateway route */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Gateway route */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createGatewayRouteRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["gatewayRouteResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employees/{id}/gateway-routes/{routeID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an external gateway route */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: string;
+                    /** @description Gateway route ID */
+                    routeID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["gatewayRouteResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Revoke an external gateway route */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: string;
+                    /** @description Gateway route ID */
+                    routeID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update an external gateway route */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: string;
+                    /** @description Gateway route ID */
+                    routeID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Gateway route updates */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateGatewayRouteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["gatewayRouteResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/employees/{id}/gateway-routes/{routeID}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate an external gateway route secret */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: string;
+                    /** @description Gateway route ID */
+                    routeID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["gatewayRouteResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -8678,6 +8925,12 @@ export interface components {
             verified?: boolean;
             verified_at?: string;
         };
+        createGatewayRouteRequest: {
+            callback_url?: string;
+            enabled?: boolean;
+            name?: string;
+            provider?: string;
+        };
         createOrgInviteRequest: {
             email?: string;
             role?: string;
@@ -8956,6 +9209,19 @@ export interface components {
         };
         forgotPasswordRequest: {
             email?: string;
+        };
+        gatewayRouteResponse: {
+            callback_url?: string;
+            created_at?: string;
+            enabled?: boolean;
+            id?: string;
+            inbound_url?: string;
+            name?: string;
+            provider?: string;
+            revoked_at?: string;
+            secret?: string;
+            secret_prefix?: string;
+            updated_at?: string;
         };
         generationResponse: {
             billing_cost_source?: string;
@@ -9734,6 +10000,12 @@ export interface components {
         };
         updateEmployeeSpecialistRequest: {
             model?: number[];
+        };
+        updateGatewayRouteRequest: {
+            callback_url?: string;
+            enabled?: boolean;
+            name?: string;
+            provider?: string;
         };
         updateOrgRequest: {
             logo_url?: string;
