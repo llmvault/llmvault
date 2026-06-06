@@ -12,7 +12,7 @@ import (
 func TestStreamAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/x.png", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/x.png", h.agentID),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		"not-the-real-key",
@@ -25,7 +25,7 @@ func TestStreamAsset_BadBearer(t *testing.T) {
 func TestStreamAsset_MissingBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/x.png", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/x.png", h.agentID),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		"",
@@ -35,10 +35,10 @@ func TestStreamAsset_MissingBearer(t *testing.T) {
 	}
 }
 
-func TestStreamAsset_ConversationNotFound(t *testing.T) {
+func TestStreamAsset_EmployeeNotFound(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/x.png", uuid.New()),
+		fmt.Sprintf("/internal/employees/%s/drive/x.png", uuid.New()),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		h.runtimeSecret,
@@ -51,7 +51,7 @@ func TestStreamAsset_ConversationNotFound(t *testing.T) {
 func TestStreamAsset_PathTraversalRejected(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/../../etc/passwd", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/../../etc/passwd", h.agentID),
 		bytes.NewReader([]byte("hi")),
 		"text/plain",
 		h.runtimeSecret,
@@ -64,7 +64,7 @@ func TestStreamAsset_PathTraversalRejected(t *testing.T) {
 func TestStreamAsset_FilenameRequired(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/", h.agentID),
 		bytes.NewReader([]byte("x")),
 		"text/plain",
 		h.runtimeSecret,

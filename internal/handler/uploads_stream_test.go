@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -23,7 +24,6 @@ type streamHarness struct {
 	router        *chi.Mux
 	orgID         uuid.UUID
 	agentID       uuid.UUID
-	convID        uuid.UUID
 	sandboxID     uuid.UUID
 	runtimeSecret string
 	publicBase    string
@@ -40,10 +40,9 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	h.WithStreamer(presigner, encKey)
 
 	r := chi.NewRouter()
-	r.Put("/internal/conversations/{conversationID}/assets/*", h.StreamConversationAsset)
-	r.Post("/internal/conversations/{conversationID}/assets/move", h.MoveConversationAsset)
-	r.Delete("/internal/conversations/{conversationID}/assets/*", h.DeleteConversationAsset)
 	r.Put("/internal/employees/{employeeID}/drive/*", h.StreamEmployeeAsset)
+	r.Post("/internal/employees/{employeeID}/drive/move", h.MoveEmployeeAsset)
+	r.Delete("/internal/employees/{employeeID}/drive/*", h.DeleteEmployeeAsset)
 
 	orgID := uuid.New()
 	if err := db.Create(&model.Org{
@@ -85,24 +84,11 @@ func newStreamHarness(t *testing.T) *streamHarness {
 		t.Fatalf("create sandbox: %v", err)
 	}
 
-	convID := uuid.New()
-	if err := db.Create(&model.EmployeeSession{
-		ID:                    convID,
-		OrgID:                 orgID,
-		EmployeeID:            agentID,
-		SandboxID:             sandboxID,
-		RuntimeConversationID: "runtime-conv-" + uuid.New().String()[:8],
-		Status:                "active",
-	}).Error; err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-
 	return &streamHarness{
 		db:            db,
 		router:        r,
 		orgID:         orgID,
 		agentID:       agentID,
-		convID:        convID,
 		sandboxID:     sandboxID,
 		runtimeSecret: runtimeSecret,
 		publicBase:    testMinioEndpoint + "/" + testMinioBucket,
@@ -124,75 +110,52 @@ func (s *streamHarness) put(t *testing.T, urlPath string, body io.Reader, conten
 	return rr
 }
 
-func TestStreamAsset_HappyPath_Image(t *testing.T) {
-	h := newStreamHarness(t)
-	body := []byte("\x89PNG\r\n\x1a\nfake-bytes")
-
-	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/images/cat.png", h.convID),
-		bytes.NewReader(body),
-		"image/png",
-		h.runtimeSecret,
-	)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+func (s *streamHarness) post(t *testing.T, urlPath, bodyJSON, bearer string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, urlPath, strings.NewReader(bodyJSON))
+	req.Header.Set("Content-Type", "application/json")
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
 	}
-
-	var resp struct {
-		ID          string `json:"id"`
-		PublicURL   string `json:"asset_url"`
-		Key         string `json:"key"`
-		Path        string `json:"path"`
-		Filename    string `json:"filename"`
-		ContentType string `json:"content_type"`
-		Bytes       int64  `json:"bytes"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if resp.Path != "images" || resp.Filename != "cat.png" {
-		t.Fatalf("path/filename mismatch: %+v", resp)
-	}
-	if resp.ContentType != "image/png" {
-		t.Fatalf("content type: got %q", resp.ContentType)
-	}
-	if resp.Bytes != int64(len(body)) {
-		t.Fatalf("bytes: got %d want %d", resp.Bytes, len(body))
-	}
-	wantKey := fmt.Sprintf("pub/c/%s/images/cat.png", h.convID)
-	if resp.Key != wantKey {
-		t.Fatalf("key: got %q want %q", resp.Key, wantKey)
-	}
-
-	// Verify the object is fetchable via the asset URL.
-	getReq, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, resp.PublicURL, nil)
-	getResp, err := http.DefaultClient.Do(getReq)
-	if err != nil {
-		t.Fatalf("get asset URL: %v", err)
-	}
-	defer getResp.Body.Close()
-	if getResp.StatusCode != http.StatusOK {
-		t.Fatalf("public GET: got %d", getResp.StatusCode)
-	}
-	got, _ := io.ReadAll(getResp.Body)
-	if !bytes.Equal(got, body) {
-		t.Fatalf("public bytes mismatch")
-	}
-
-	// And the row was persisted.
-	var row model.ConversationAsset
-	if err := h.db.Where("key = ?", wantKey).First(&row).Error; err != nil {
-		t.Fatalf("load asset row: %v", err)
-	}
-	if row.ConversationID != h.convID || row.OrgID != h.orgID || row.SandboxID != h.sandboxID {
-		t.Fatalf("row scoping wrong: %+v", row)
-	}
+	rr := httptest.NewRecorder()
+	s.router.ServeHTTP(rr, req)
+	return rr
 }
 
-func TestStreamAsset_LargeMultipartStream(t *testing.T) {
+func (s *streamHarness) delete(t *testing.T, urlPath, bearer string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodDelete, urlPath, nil)
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	rr := httptest.NewRecorder()
+	s.router.ServeHTTP(rr, req)
+	return rr
+}
+
+func (s *streamHarness) seedEmployeeAsset(t *testing.T, folder, filename, body string) string {
+	t.Helper()
+	urlPath := "/internal/employees/" + s.agentID.String() + "/drive/"
+	if folder != "" {
+		urlPath += folder + "/"
+	}
+	urlPath += filename
+	rr := s.put(t, urlPath, bytes.NewReader([]byte(body)), "text/plain", s.runtimeSecret)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("seed asset: got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		PublicURL string `json:"asset_url"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode seed response: %v", err)
+	}
+	return resp.PublicURL
+}
+
+func TestStreamEmployeeDrive_LargeMultipartStream(t *testing.T) {
 	h := newStreamHarness(t)
 
-	// 24MB random body forces the SDK uploader to use multipart (8MB parts).
 	const size = 24 * 1024 * 1024
 	body := make([]byte, size)
 	if _, err := rand.Read(body); err != nil {
@@ -200,7 +163,7 @@ func TestStreamAsset_LargeMultipartStream(t *testing.T) {
 	}
 
 	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/videos/big.bin", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/videos/big.bin", h.agentID),
 		bytes.NewReader(body),
 		"application/octet-stream",
 		h.runtimeSecret,
@@ -218,9 +181,9 @@ func TestStreamAsset_LargeMultipartStream(t *testing.T) {
 	}
 }
 
-func TestStreamAsset_OverwriteByPath(t *testing.T) {
+func TestStreamEmployeeDrive_OverwriteByPath(t *testing.T) {
 	h := newStreamHarness(t)
-	urlPath := fmt.Sprintf("/internal/conversations/%s/assets/exports/data.csv", h.convID)
+	urlPath := fmt.Sprintf("/internal/employees/%s/drive/exports/data.csv", h.agentID)
 
 	first := h.put(t, urlPath, bytes.NewReader([]byte("v1,a")), "text/csv", h.runtimeSecret)
 	if first.Code != http.StatusCreated {
@@ -249,9 +212,8 @@ func TestStreamAsset_OverwriteByPath(t *testing.T) {
 		t.Fatalf("expected new byte count after overwrite")
 	}
 
-	// Confirm the bucket reflects v2.
-	wantKey := fmt.Sprintf("pub/c/%s/exports/data.csv", h.convID)
-	var row model.ConversationAsset
+	wantKey := fmt.Sprintf("pub/e/%s/exports/data.csv", h.agentID)
+	var row model.EmployeeAsset
 	if err := h.db.Where("key = ?", wantKey).First(&row).Error; err != nil {
 		t.Fatalf("load row: %v", err)
 	}
@@ -259,36 +221,9 @@ func TestStreamAsset_OverwriteByPath(t *testing.T) {
 		t.Fatalf("row bytes %d != response bytes %d", row.Bytes, secondResp.Bytes)
 	}
 
-	// Check exactly one row exists for this key.
 	var count int64
-	h.db.Model(&model.ConversationAsset{}).Where("key = ?", wantKey).Count(&count)
+	h.db.Model(&model.EmployeeAsset{}).Where("key = ?", wantKey).Count(&count)
 	if count != 1 {
 		t.Fatalf("expected 1 row for key, got %d", count)
-	}
-}
-
-func TestStreamAsset_RootFolder(t *testing.T) {
-	h := newStreamHarness(t)
-	rr := h.put(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/loose.txt", h.convID),
-		bytes.NewReader([]byte("hello")),
-		"text/plain",
-		h.runtimeSecret,
-	)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
-	}
-	var resp struct {
-		Path     string `json:"path"`
-		Filename string `json:"filename"`
-		Key      string `json:"key"`
-	}
-	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
-	if resp.Path != "" || resp.Filename != "loose.txt" {
-		t.Fatalf("expected root file: %+v", resp)
-	}
-	wantKey := fmt.Sprintf("pub/c/%s/loose.txt", h.convID)
-	if resp.Key != wantKey {
-		t.Fatalf("key: got %q want %q", resp.Key, wantKey)
 	}
 }

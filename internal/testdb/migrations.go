@@ -162,7 +162,6 @@ var migratedTables = []string{
 	"api_keys",
 	"audit_log",
 	"connections",
-	"conversation_assets",
 	"credentials",
 	"credit_ledger_entries",
 	"custom_domains",
@@ -218,4 +217,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 24
+const latestMigrationVersion = 25

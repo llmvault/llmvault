@@ -28,37 +28,35 @@ type assetsListHarness struct {
 	agentA2 uuid.UUID
 	agentB1 uuid.UUID
 
-	convA1 uuid.UUID // agent A1
-	convA2 uuid.UUID // agent A2
-	convB1 uuid.UUID // org B
+	sandboxA1 uuid.UUID
+	sandboxA2 uuid.UUID
+	sandboxB1 uuid.UUID
 }
 
-// seedAssetRow inserts a ConversationAsset directly (no S3) so the listing
-// tests don't depend on MinIO being up. The list endpoint never touches S3.
-func seedAssetRow(t *testing.T, db *gorm.DB, conv model.EmployeeSession, folder, filename string, createdAt time.Time) model.ConversationAsset {
+func seedAssetRow(t *testing.T, db *gorm.DB, orgID, employeeID, sandboxID uuid.UUID, folder, filename, contentType string, bytes int64, createdAt time.Time) model.EmployeeAsset {
 	t.Helper()
-	key := fmt.Sprintf("pub/c/%s/%s", conv.ID, filename)
+	key := fmt.Sprintf("pub/e/%s/%s", employeeID, filename)
 	if folder != "" {
-		key = fmt.Sprintf("pub/c/%s/%s/%s", conv.ID, folder, filename)
+		key = fmt.Sprintf("pub/e/%s/%s/%s", employeeID, folder, filename)
 	}
-	a := model.ConversationAsset{
-		ID:             uuid.New(),
-		ConversationID: conv.ID,
-		OrgID:          conv.OrgID,
-		SandboxID:      conv.SandboxID,
-		Path:           folder,
-		Filename:       filename,
-		Key:            key,
-		PublicURL:      "https://cdn.example.com/" + key,
-		ContentType:    "text/plain",
-		Bytes:          7,
-		CreatedAt:      createdAt,
-		UpdatedAt:      createdAt,
+	a := model.EmployeeAsset{
+		ID:          uuid.New(),
+		OrgID:       orgID,
+		EmployeeID:  employeeID,
+		SandboxID:   sandboxID,
+		Path:        folder,
+		Filename:    filename,
+		Key:         key,
+		PublicURL:   "https://cdn.example.com/" + key,
+		ContentType: contentType,
+		Bytes:       bytes,
+		CreatedAt:   createdAt,
+		UpdatedAt:   createdAt,
 	}
 	if err := db.Create(&a).Error; err != nil {
 		t.Fatalf("seed asset: %v", err)
 	}
-	t.Cleanup(func() { db.Where("id = ?", a.ID).Delete(&model.ConversationAsset{}) })
+	t.Cleanup(func() { db.Where("id = ?", a.ID).Delete(&model.EmployeeAsset{}) })
 	return a
 }
 
@@ -105,21 +103,6 @@ func newAssetsListHarness(t *testing.T) *assetsListHarness {
 		}
 		return id
 	}
-	mkConv := func(orgID, agentID, sandboxID uuid.UUID) uuid.UUID {
-		id := uuid.New()
-		if err := db.Create(&model.EmployeeSession{
-			ID:                    id,
-			OrgID:                 orgID,
-			EmployeeID:            agentID,
-			SandboxID:             sandboxID,
-			RuntimeConversationID: "runtime-" + uuid.New().String()[:8],
-			Status:                "active",
-		}).Error; err != nil {
-			t.Fatalf("create conversation: %v", err)
-		}
-		return id
-	}
-
 	orgA := mkOrg("assets-a")
 	orgB := mkOrg("assets-b")
 
@@ -131,15 +114,11 @@ func newAssetsListHarness(t *testing.T) *assetsListHarness {
 	sbA2 := mkSandbox(orgA.ID, agentA2)
 	sbB1 := mkSandbox(orgB.ID, agentB1)
 
-	convA1 := mkConv(orgA.ID, agentA1, sbA1)
-	convA2 := mkConv(orgA.ID, agentA2, sbA2)
-	convB1 := mkConv(orgB.ID, agentB1, sbB1)
-
 	return &assetsListHarness{
 		db: db, router: r,
 		orgA: orgA, orgB: orgB,
 		agentA1: agentA1, agentA2: agentA2, agentB1: agentB1,
-		convA1: convA1, convA2: convA2, convB1: convB1,
+		sandboxA1: sbA1, sandboxA2: sbA2, sandboxB1: sbB1,
 	}
 }
 
@@ -152,15 +131,6 @@ func (h *assetsListHarness) get(t *testing.T, query string, org *model.Org) *htt
 	rr := httptest.NewRecorder()
 	h.router.ServeHTTP(rr, req)
 	return rr
-}
-
-func (h *assetsListHarness) loadConv(t *testing.T, id uuid.UUID) model.EmployeeSession {
-	t.Helper()
-	var c model.EmployeeSession
-	if err := h.db.Where("id = ?", id).First(&c).Error; err != nil {
-		t.Fatalf("load conv: %v", err)
-	}
-	return c
 }
 
 type assetListPage struct {

@@ -108,14 +108,7 @@ func setupPublicRoutes(
 		r.Post("/incoming/gateways/external/{routeID}", gatewayExternalHandler.HandleInbound)
 	}
 
-	// Conversation-scoped streaming uploads from inside the sandbox.
-	// Bearer auth = the sandbox's runtime API key (matches existing
-	// sandbox-drive / git-credentials / railway-proxy endpoints).
 	if uploadsHandler != nil {
-		r.Put("/internal/conversations/{conversationID}/assets/*", uploadsHandler.StreamConversationAsset)
-		r.Post("/internal/conversations/{conversationID}/assets/move", uploadsHandler.MoveConversationAsset)
-		r.Delete("/internal/conversations/{conversationID}/assets/*", uploadsHandler.DeleteConversationAsset)
-
 		r.Put("/internal/employees/{employeeID}/drive/*", uploadsHandler.StreamEmployeeAsset)
 		r.Post("/internal/employees/{employeeID}/drive/move", uploadsHandler.MoveEmployeeAsset)
 		r.Delete("/internal/employees/{employeeID}/drive/*", uploadsHandler.DeleteEmployeeAsset)

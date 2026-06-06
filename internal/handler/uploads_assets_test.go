@@ -1,13 +1,10 @@
 package handler_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -15,65 +12,22 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (s *streamHarness) post(t *testing.T, urlPath, bodyJSON, bearer string) *httptest.ResponseRecorder {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodPost, urlPath, strings.NewReader(bodyJSON))
-	req.Header.Set("Content-Type", "application/json")
-	if bearer != "" {
-		req.Header.Set("Authorization", "Bearer "+bearer)
-	}
-	rr := httptest.NewRecorder()
-	s.router.ServeHTTP(rr, req)
-	return rr
-}
-
-func (s *streamHarness) delete(t *testing.T, urlPath, bearer string) *httptest.ResponseRecorder {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodDelete, urlPath, nil)
-	if bearer != "" {
-		req.Header.Set("Authorization", "Bearer "+bearer)
-	}
-	rr := httptest.NewRecorder()
-	s.router.ServeHTTP(rr, req)
-	return rr
-}
-
-func (s *streamHarness) seedAsset(t *testing.T, folder, filename, body string) string {
-	t.Helper()
-	urlPath := "/internal/conversations/" + s.convID.String() + "/assets/"
-	if folder != "" {
-		urlPath += folder + "/"
-	}
-	urlPath += filename
-	rr := s.put(t, urlPath, bytes.NewReader([]byte(body)), "text/plain", s.runtimeSecret)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("seed asset: got %d: %s", rr.Code, rr.Body.String())
-	}
-	var resp struct {
-		PublicURL string `json:"asset_url"`
-	}
-	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
-	return resp.PublicURL
-}
-
-func TestDeleteAsset_HappyPath(t *testing.T) {
+func TestDeleteEmployeeAsset_HappyPath(t *testing.T) {
 	h := newStreamHarness(t)
-	publicURL := h.seedAsset(t, "tmp", "scratch.txt", "delete me")
+	publicURL := h.seedEmployeeAsset(t, "tmp", "scratch.txt", "delete me")
 
-	urlPath := fmt.Sprintf("/internal/conversations/%s/assets/tmp/scratch.txt", h.convID)
+	urlPath := fmt.Sprintf("/internal/employees/%s/drive/tmp/scratch.txt", h.agentID)
 	rr := h.delete(t, urlPath, h.runtimeSecret)
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	// Row gone.
 	var count int64
-	h.db.Model(&model.ConversationAsset{}).Where("key = ?", fmt.Sprintf("pub/c/%s/tmp/scratch.txt", h.convID)).Count(&count)
+	h.db.Model(&model.EmployeeAsset{}).Where("key = ?", fmt.Sprintf("pub/e/%s/tmp/scratch.txt", h.agentID)).Count(&count)
 	if count != 0 {
 		t.Fatalf("row still present after delete (count=%d)", count)
 	}
 
-	// S3 object gone.
 	getReq, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, publicURL, nil)
 	getResp, err := http.DefaultClient.Do(getReq)
 	if err != nil {
@@ -86,10 +40,10 @@ func TestDeleteAsset_HappyPath(t *testing.T) {
 	}
 }
 
-func TestDeleteAsset_NotFound(t *testing.T) {
+func TestDeleteEmployeeAsset_NotFound(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.delete(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/nope/missing.txt", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/nope/missing.txt", h.agentID),
 		h.runtimeSecret,
 	)
 	if rr.Code != http.StatusNotFound {
@@ -97,11 +51,11 @@ func TestDeleteAsset_NotFound(t *testing.T) {
 	}
 }
 
-func TestDeleteAsset_BadBearer(t *testing.T) {
+func TestDeleteEmployeeAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedAsset(t, "tmp", "x.txt", "hi")
+	h.seedEmployeeAsset(t, "tmp", "x.txt", "hi")
 	rr := h.delete(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/tmp/x.txt", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/tmp/x.txt", h.agentID),
 		"wrong-key",
 	)
 	if rr.Code != http.StatusUnauthorized {
@@ -109,13 +63,13 @@ func TestDeleteAsset_BadBearer(t *testing.T) {
 	}
 }
 
-func TestMoveAsset_ByRelativePath(t *testing.T) {
+func TestMoveEmployeeAsset_ByRelativePath(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedAsset(t, "videos", "demo.mp4", "fake mp4")
+	h.seedEmployeeAsset(t, "videos", "demo.mp4", "fake mp4")
 
 	body := `{"asset":"videos/demo.mp4","new_path":"archive/2026"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/move", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -128,17 +82,18 @@ func TestMoveAsset_ByRelativePath(t *testing.T) {
 		Key      string `json:"key"`
 		Filename string `json:"filename"`
 	}
-	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if resp.Path != "archive/2026" {
 		t.Fatalf("path: got %q want archive/2026", resp.Path)
 	}
-	// Key stays at the original location — only the DB path label moves.
-	wantKey := fmt.Sprintf("pub/c/%s/videos/demo.mp4", h.convID)
+	wantKey := fmt.Sprintf("pub/e/%s/videos/demo.mp4", h.agentID)
 	if resp.Key != wantKey {
 		t.Fatalf("key changed: got %q want %q", resp.Key, wantKey)
 	}
 
-	var row model.ConversationAsset
+	var row model.EmployeeAsset
 	if err := h.db.Where("key = ?", wantKey).First(&row).Error; err != nil {
 		t.Fatalf("load row: %v", err)
 	}
@@ -147,13 +102,13 @@ func TestMoveAsset_ByRelativePath(t *testing.T) {
 	}
 }
 
-func TestMoveAsset_ByPublicURL(t *testing.T) {
+func TestMoveEmployeeAsset_ByPublicURL(t *testing.T) {
 	h := newStreamHarness(t)
-	publicURL := h.seedAsset(t, "tmp", "doc.txt", "hi")
+	publicURL := h.seedEmployeeAsset(t, "tmp", "doc.txt", "hi")
 
 	body := fmt.Sprintf(`{"asset":%q,"new_path":""}`, publicURL)
 	rr := h.post(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/move", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -164,30 +119,19 @@ func TestMoveAsset_ByPublicURL(t *testing.T) {
 	var resp struct {
 		Path string `json:"path"`
 	}
-	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if resp.Path != "" {
 		t.Fatalf("path: got %q want empty (root)", resp.Path)
 	}
 }
 
-func TestMoveAsset_AssetNotFound(t *testing.T) {
+func TestMoveEmployeeAsset_RejectsForeignURL(t *testing.T) {
 	h := newStreamHarness(t)
-	body := `{"asset":"ghosts/none.txt","new_path":"archive"}`
+	body := fmt.Sprintf(`{"asset":"https://example.com/pub/e/%s/foo.txt","new_path":"archive"}`, uuid.New())
 	rr := h.post(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/move", h.convID),
-		body,
-		h.runtimeSecret,
-	)
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestMoveAsset_RejectsForeignURL(t *testing.T) {
-	h := newStreamHarness(t)
-	body := fmt.Sprintf(`{"asset":"https://example.com/pub/c/%s/foo.txt","new_path":"archive"}`, uuid.New())
-	rr := h.post(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/move", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -196,12 +140,12 @@ func TestMoveAsset_RejectsForeignURL(t *testing.T) {
 	}
 }
 
-func TestMoveAsset_RejectsTraversalNewPath(t *testing.T) {
+func TestMoveEmployeeAsset_RejectsTraversalNewPath(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedAsset(t, "tmp", "x.txt", "hi")
+	h.seedEmployeeAsset(t, "tmp", "x.txt", "hi")
 	body := `{"asset":"tmp/x.txt","new_path":"../escape"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/move", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -210,11 +154,11 @@ func TestMoveAsset_RejectsTraversalNewPath(t *testing.T) {
 	}
 }
 
-func TestMoveAsset_BadBearer(t *testing.T) {
+func TestMoveEmployeeAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	body := `{"asset":"tmp/x.txt","new_path":"archive"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/conversations/%s/assets/move", h.convID),
+		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
 		body,
 		"not-the-key",
 	)
