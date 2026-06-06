@@ -786,6 +786,12 @@
               "string",
               "null"
             ]
+          },
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CronJob"
+            }
           }
         }
       },

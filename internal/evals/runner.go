@@ -207,64 +207,6 @@ func (r *Runner) runTrial(ctx context.Context, suite *Suite, key TrialKey, apiUR
 	return result, nil
 }
 
-type evaluatedEvidence struct {
-	Evidence Evidence
-	Passed   bool
-	Reason   string
-	Decision Decision
-}
-
-func (r *Runner) waitForDecision(ctx context.Context, timeout time.Duration, fixture TrialFixture, c Case, apiURL string, since time.Time) (evaluatedEvidence, error) {
-	deadline := time.Now().Add(timeout)
-	var last evaluatedEvidence
-	for time.Now().Before(deadline) {
-		evidence, err := r.loadEvidenceSince(ctx, fixture, since)
-		if err != nil {
-			return last, err
-		}
-		r.reporter.ObserveEvidence(fixture.Key, evidence)
-		if generations, genErr := r.loadGenerationsSince(ctx, fixture, since); genErr == nil {
-			r.reporter.ObserveGenerations(fixture.Key, generations, fixture.JudgeTokenJTI)
-		} else {
-			r.reporter.Trial(fixture.Key, "eval failed to load generation metadata", "error", genErr.Error())
-		}
-		var judgement *BehaviorJudgement
-		if len(evidence.Tasks) == 0 && strings.TrimSpace(evidence.FinalText) != "" {
-			var err error
-			r.reporter.Trial(fixture.Key, "eval judge classify request",
-				"judge_model", r.judge.model,
-				"final_text", redactAndTrim(evidence.FinalText, 1000),
-			)
-			judgement, err = r.judge.ClassifyFinalText(ctx, proxyBaseURL(apiURL), fixture.JudgeProxyToken, c, evidence.FinalText)
-			if err != nil {
-				return last, fmt.Errorf("judge final response: %w", err)
-			}
-			r.reporter.Trial(fixture.Key, "eval judge classify response",
-				"behavior", judgement.Behavior,
-				"confidence", judgement.Confidence,
-				"reason", redactAndTrim(judgement.Reason, 600),
-				"judge_model", judgement.Model,
-			)
-		}
-		passed, reason, decision := GradeCaseWithJudgement(c, evidence, judgement)
-		last = evaluatedEvidence{Evidence: evidence, Passed: passed, Reason: reason, Decision: decision}
-		r.reporter.Trial(fixture.Key, "eval grade checkpoint",
-			"passed", passed,
-			"reason", reason,
-			"behavior", decision.Behavior,
-			"specialist", decision.SpecialistSlug,
-			"final_text_present", strings.TrimSpace(evidence.FinalText) != "",
-			"tasks", len(evidence.Tasks),
-			"tool_calls", len(evidence.ToolCalls),
-		)
-		if IsTerminal(c, evidence) && !needsMoreObservation(c, evidence) {
-			return last, nil
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return last, fmt.Errorf("trial timed out after %s: %s", timeout, last.Reason)
-}
-
 func (r *Runner) sendGatewayMessage(ctx context.Context, apiURL string, fixture TrialFixture, message string) (GatewayResponse, error) {
 	return r.sendGatewayMessageWithID(ctx, apiURL, fixture, message, fixture.MessageID)
 }

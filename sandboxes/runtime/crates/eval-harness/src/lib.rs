@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use domain::cron::{CronJob, CronJobSource, CronJobState};
 use domain::{
     AgentDefinition, AgentMeta, ConfigStore, EventKind, ModelConfig, Session, SessionEvent,
     SessionId, SessionStatus, StaticPromptSegment, SystemPromptConfig, SystemPromptSegment,
@@ -12,7 +13,7 @@ use observability::{ModelUsage, ObservabilityEvent, TraceSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use skills::SkillWriter;
-use storage::{ConfigRepo, EventRepo, SessionListFilter, SessionRepo, StorageError};
+use storage::{ConfigRepo, CronJobRepo, EventRepo, SessionListFilter, SessionRepo, StorageError};
 use tokio::sync::{mpsc, oneshot};
 use tools::LocalBashOperations;
 
@@ -240,6 +241,7 @@ impl FakeGatewayServer {
             Arc::new(NoopConfigRepo),
             Arc::new(NoopSessionRepo),
             Arc::new(NoopEventRepo),
+            Arc::new(NoopCronJobRepo),
             bearer_token.clone(),
             std::env::temp_dir(),
             Arc::new(LocalBashOperations),
@@ -543,6 +545,80 @@ impl EventRepo for NoopEventRepo {
         _limit: u32,
     ) -> storage::Result<Vec<storage::SessionSearchResult>> {
         Ok(Vec::new())
+    }
+}
+
+struct NoopCronJobRepo;
+
+#[async_trait]
+impl CronJobRepo for NoopCronJobRepo {
+    async fn create(&self, _job: &CronJob) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn get(&self, _id: &str) -> storage::Result<Option<CronJob>> {
+        Ok(None)
+    }
+
+    async fn list_all(&self) -> storage::Result<Vec<CronJob>> {
+        Ok(Vec::new())
+    }
+
+    async fn list_by_source(&self, _source: CronJobSource) -> storage::Result<Vec<CronJob>> {
+        Ok(Vec::new())
+    }
+
+    async fn list_due(&self) -> storage::Result<Vec<CronJob>> {
+        Ok(Vec::new())
+    }
+
+    async fn update_prompt(&self, _id: &str, _task_prompt: String) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn update_interval(&self, _id: &str, _interval_seconds: u64) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn update_next_run(&self, _id: &str, _next_run_at: DateTime<Utc>) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn set_state(&self, _id: &str, _state: CronJobState) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn record_run(
+        &self,
+        _id: &str,
+        _run_at: DateTime<Utc>,
+        _status: &str,
+        _error: Option<&str>,
+    ) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn increment_repeat(&self, _id: &str) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn record_result(&self, _id: &str, _result: &str) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn complete_delegate_result(
+        &self,
+        _id: &str,
+        _completed_at: DateTime<Utc>,
+        _status: &str,
+        _error: Option<&str>,
+        _result: &str,
+    ) -> storage::Result<()> {
+        Ok(())
+    }
+
+    async fn delete(&self, _id: &str) -> storage::Result<()> {
+        Ok(())
     }
 }
 

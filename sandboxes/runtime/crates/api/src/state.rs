@@ -7,7 +7,7 @@ use domain::{ConfigStore, OutboundChannelSpec};
 use mcp::McpRegistry;
 use observability::ObservabilityRecorder;
 use skills::SkillWriter;
-use storage::{ConfigRepo, EventRepo, SessionRepo};
+use storage::{ConfigRepo, CronJobRepo, EventRepo, SessionRepo};
 use tokio::sync::{Notify, RwLock};
 use tools::LocalBashOperations;
 
@@ -19,6 +19,7 @@ pub struct ApiState {
     pub config_repo: Arc<dyn ConfigRepo>,
     pub session_repo: Arc<dyn SessionRepo>,
     pub event_repo: Arc<dyn EventRepo>,
+    pub cron_repo: Arc<dyn CronJobRepo>,
     pub bearer_token: Arc<RwLock<String>>,
     pub workspace_root: PathBuf,
     pub bash: Arc<LocalBashOperations>,
@@ -47,6 +48,7 @@ impl ApiState {
         config_repo: Arc<dyn ConfigRepo>,
         session_repo: Arc<dyn SessionRepo>,
         event_repo: Arc<dyn EventRepo>,
+        cron_repo: Arc<dyn CronJobRepo>,
         bearer_token: String,
         workspace_root: PathBuf,
         bash: Arc<LocalBashOperations>,
@@ -67,6 +69,7 @@ impl ApiState {
             config_repo,
             session_repo,
             event_repo,
+            cron_repo,
             bearer_token: Arc::new(RwLock::new(bearer_token)),
             workspace_root,
             bash,

@@ -64,6 +64,101 @@ func TestResolveModel_GPT4OMiniRoutes(t *testing.T) {
 	}
 }
 
+func TestOpenRouterQwen37Catalog(t *testing.T) {
+	reg := Global()
+
+	maxRoute, ok := reg.ResolveModel("openrouter", "qwen3.7-max")
+	if !ok {
+		t.Fatal("qwen3.7-max route not found")
+	}
+	if maxRoute.UpstreamID != "qwen/qwen3.7-max" {
+		t.Fatalf("qwen3.7-max upstream = %q, want qwen/qwen3.7-max", maxRoute.UpstreamID)
+	}
+	if maxRoute.Model.Cost == nil || maxRoute.Model.Cost.Input != 1.25 || maxRoute.Model.Cost.Output != 3.75 {
+		t.Fatalf("qwen3.7-max cost = %#v", maxRoute.Model.Cost)
+	}
+	if maxRoute.Model.Limit == nil || maxRoute.Model.Limit.Context != 1000000 || maxRoute.Model.Limit.Output != 65536 {
+		t.Fatalf("qwen3.7-max limit = %#v", maxRoute.Model.Limit)
+	}
+
+	plusRoute, ok := reg.ResolveModel("openrouter", "qwen3.7-plus")
+	if !ok {
+		t.Fatal("qwen3.7-plus route not found")
+	}
+	if plusRoute.UpstreamID != "qwen/qwen3.7-plus" {
+		t.Fatalf("qwen3.7-plus upstream = %q, want qwen/qwen3.7-plus", plusRoute.UpstreamID)
+	}
+	if plusRoute.Model.Cost == nil || plusRoute.Model.Cost.Input != 0.4 || plusRoute.Model.Cost.Output != 1.6 {
+		t.Fatalf("qwen3.7-plus cost = %#v", plusRoute.Model.Cost)
+	}
+	if plusRoute.Model.Limit == nil || plusRoute.Model.Limit.Context != 1000000 || plusRoute.Model.Limit.Output != 65536 {
+		t.Fatalf("qwen3.7-plus limit = %#v", plusRoute.Model.Limit)
+	}
+	if !plusRoute.Model.ToolCall || !plusRoute.Model.StructuredOutput {
+		t.Fatalf("qwen3.7-plus capabilities = tool_call:%v structured:%v", plusRoute.Model.ToolCall, plusRoute.Model.StructuredOutput)
+	}
+}
+
+func TestOpenRouterGrokAndNemotronCatalog(t *testing.T) {
+	reg := Global()
+
+	grok, ok := reg.ResolveModel("openrouter", "grok-4.3")
+	if !ok {
+		t.Fatal("grok-4.3 route not found")
+	}
+	if grok.UpstreamID != "x-ai/grok-4.3" {
+		t.Fatalf("grok-4.3 upstream = %q, want x-ai/grok-4.3", grok.UpstreamID)
+	}
+	if grok.Model.Cost == nil || grok.Model.Cost.Input != 1.25 || grok.Model.Cost.Output != 2.5 || grok.Model.Cost.CacheRead != 0.2 {
+		t.Fatalf("grok-4.3 cost = %#v", grok.Model.Cost)
+	}
+	if grok.Model.Limit == nil || grok.Model.Limit.Context != 1000000 || grok.Model.Limit.Output != 1000000 {
+		t.Fatalf("grok-4.3 limit = %#v", grok.Model.Limit)
+	}
+	if !grok.Model.ToolCall || !grok.Model.StructuredOutput || !grok.Model.Reasoning {
+		t.Fatalf("grok-4.3 capabilities = tool_call:%v structured:%v reasoning:%v", grok.Model.ToolCall, grok.Model.StructuredOutput, grok.Model.Reasoning)
+	}
+
+	nemotron, ok := reg.ResolveModel("openrouter", "nemotron-3-ultra-550b-a55b")
+	if !ok {
+		t.Fatal("nemotron-3-ultra-550b-a55b route not found")
+	}
+	if nemotron.UpstreamID != "nvidia/nemotron-3-ultra-550b-a55b" {
+		t.Fatalf("nemotron upstream = %q, want nvidia/nemotron-3-ultra-550b-a55b", nemotron.UpstreamID)
+	}
+	if nemotron.Model.Cost == nil || nemotron.Model.Cost.Input != 0.5 || nemotron.Model.Cost.Output != 2.5 || nemotron.Model.Cost.CacheRead != 0.15 {
+		t.Fatalf("nemotron cost = %#v", nemotron.Model.Cost)
+	}
+	if nemotron.Model.Limit == nil || nemotron.Model.Limit.Context != 262144 || nemotron.Model.Limit.Output != 16384 {
+		t.Fatalf("nemotron limit = %#v", nemotron.Model.Limit)
+	}
+	if !nemotron.Model.ToolCall || !nemotron.Model.StructuredOutput || !nemotron.Model.OpenWeights {
+		t.Fatalf("nemotron capabilities = tool_call:%v structured:%v open_weights:%v", nemotron.Model.ToolCall, nemotron.Model.StructuredOutput, nemotron.Model.OpenWeights)
+	}
+}
+
+func TestOpenRouterGemini31FlashLiteCatalog(t *testing.T) {
+	route, ok := Global().ResolveModel("openrouter", "gemini-3.1-flash-lite")
+	if !ok {
+		t.Fatal("gemini-3.1-flash-lite route not found")
+	}
+	if route.UpstreamID != "google/gemini-3.1-flash-lite" {
+		t.Fatalf("gemini-3.1-flash-lite upstream = %q, want google/gemini-3.1-flash-lite", route.UpstreamID)
+	}
+	if route.Model.Cost == nil || route.Model.Cost.Input != 0.25 || route.Model.Cost.Output != 1.5 || route.Model.Cost.CacheRead != 0.025 || route.Model.Cost.CacheWrite != 0.083333 {
+		t.Fatalf("gemini-3.1-flash-lite cost = %#v", route.Model.Cost)
+	}
+	if route.Model.Limit == nil || route.Model.Limit.Context != 1048576 || route.Model.Limit.Output != 64000 {
+		t.Fatalf("gemini-3.1-flash-lite limit = %#v", route.Model.Limit)
+	}
+	if route.Model.Knowledge != "2025-01" {
+		t.Fatalf("gemini-3.1-flash-lite knowledge = %q", route.Model.Knowledge)
+	}
+	if !route.Model.ToolCall || !route.Model.StructuredOutput || !route.Model.Reasoning {
+		t.Fatalf("gemini-3.1-flash-lite capabilities = tool_call:%v structured:%v reasoning:%v", route.Model.ToolCall, route.Model.StructuredOutput, route.Model.Reasoning)
+	}
+}
+
 func TestResolveModel_RejectsProviderModelNotInHivyCatalog(t *testing.T) {
 	if _, ok := Global().ResolveModel("openai", "gpt-5-thinking"); ok {
 		t.Fatal("provider model resolved without explicit Hivy catalog entry")

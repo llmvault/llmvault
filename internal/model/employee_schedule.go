@@ -15,11 +15,16 @@ type EmployeeSchedule struct {
 	SandboxID  uuid.UUID `gorm:"type:uuid;not null;index"`
 	Sandbox    Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:CASCADE"`
 
-	RuntimeJobID    string `gorm:"not null;size:255;uniqueIndex:idx_employee_schedule_employee_runtime"`
-	Status          string `gorm:"not null;default:'active';size:64;index"`
-	Channel         string `gorm:"not null;default:'';size:255"`
-	Description     string `gorm:"type:text;not null;default:''"`
-	TaskPrompt      string `gorm:"type:text;not null;default:''"`
+	RuntimeJobID    string      `gorm:"not null;size:255;uniqueIndex:idx_employee_schedule_employee_runtime"`
+	IsSystem        bool        `gorm:"not null;default:false;index"`
+	Provider        string      `gorm:"not null;default:'';size:64;index"`
+	ConnectionID    *uuid.UUID  `gorm:"type:uuid;index"`
+	Connection      *Connection `gorm:"foreignKey:ConnectionID;constraint:OnDelete:SET NULL"`
+	Metadata        JSON        `gorm:"type:jsonb;not null;default:'{}'"`
+	Status          string      `gorm:"not null;default:'active';size:64;index"`
+	Channel         string      `gorm:"not null;default:'';size:255"`
+	Description     string      `gorm:"type:text;not null;default:''"`
+	TaskPrompt      string      `gorm:"type:text;not null;default:''"`
 	IntervalSeconds *int64
 	RepeatCount     *int64
 	RepeatCompleted int64 `gorm:"not null;default:0"`

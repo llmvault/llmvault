@@ -175,6 +175,24 @@ var supportedHivyModels = []HivyModel{
 		},
 	},
 	{
+		ID: "qwen3.7-plus",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "qwen/qwen3.7-plus"},
+		},
+	},
+	{
+		ID: "grok-4.3",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "x-ai/grok-4.3"},
+		},
+	},
+	{
+		ID: "nemotron-3-ultra-550b-a55b",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "nvidia/nemotron-3-ultra-550b-a55b"},
+		},
+	},
+	{
 		ID: "qwen3.6-max-preview",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.6-max-preview"},

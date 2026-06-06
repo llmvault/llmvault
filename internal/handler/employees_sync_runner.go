@@ -113,6 +113,10 @@ func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Empl
 		return nil, fmt.Errorf("compile: %w", err)
 	}
 	def.OutboundChannels = employeeruntime.ControlPlaneOutboundChannels(h.compileDeps.Cfg, sb.ID)
+	schedules, err := employeeruntime.BuildRuntimeSchedules(ctx, h.db, agent, sb)
+	if err != nil {
+		return nil, fmt.Errorf("load runtime schedules: %w", err)
+	}
 
 	currentDef, err := client.GetConfig(ctx)
 	needsRestart := err != nil || !agentDefinitionsMatch(currentDef, def)
@@ -122,11 +126,13 @@ func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Empl
 		resp, err = client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
 			Definition: def,
 			RuntimeEnv: runtimeEnv,
+			Schedules:  schedules,
 		})
 	} else {
 		resp, err = client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
 			Definition: def,
 			RuntimeEnv: runtimeEnv,
+			Schedules:  schedules,
 		})
 	}
 	if err != nil {

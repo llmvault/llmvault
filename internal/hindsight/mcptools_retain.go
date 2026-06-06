@@ -3,6 +3,8 @@ package hindsight
 import (
 	"context"
 	"encoding/json"
+	"strings"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -56,15 +58,35 @@ Write the content as a clear, specific factual statement. Bad: "User talked abou
 						"enum":        SupportedMemoryTypes,
 						"description": "Durable memory category. Use the closest category for the fact being retained.",
 					},
+					"provider": map[string]any{
+						"type":        "string",
+						"description": "Optional integration provider for service-discovery memories, for example railway, vercel, slack, notion, or linear.",
+					},
+					"source": map[string]any{
+						"type":        "string",
+						"description": "Optional memory source. Use service_discovery for system-managed integration discovery jobs.",
+					},
+					"resource_type": map[string]any{
+						"type":        "string",
+						"description": "Optional type of discovered resource, for example project, service, channel, database, page, team, workflow_state, or user.",
+					},
+					"resource_id": map[string]any{
+						"type":        "string",
+						"description": "Optional provider-side resource ID for the fact being retained.",
+					},
 				},
 				"required": []string{"content"},
 			},
 		},
 		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			var params struct {
-				Content string `json:"content"`
-				Context string `json:"context"`
-				Type    string `json:"memory_type"`
+				Content      string `json:"content"`
+				Context      string `json:"context"`
+				Type         string `json:"memory_type"`
+				Provider     string `json:"provider"`
+				Source       string `json:"source"`
+				ResourceType string `json:"resource_type"`
+				ResourceID   string `json:"resource_id"`
 			}
 			if req.Params.Arguments != nil {
 				_ = json.Unmarshal(req.Params.Arguments, &params)
@@ -82,17 +104,25 @@ Write the content as a clear, specific factual statement. Bad: "User talked abou
 			}
 
 			tags := append([]string{}, memoryTags...)
+			tags = upsertMemoryTag(tags, "source", params.Source)
+			tags = upsertMemoryTag(tags, "provider", params.Provider)
+			tags = upsertMemoryTag(tags, "resource_type", params.ResourceType)
 			if params.Type != "" {
-				tags = append(tags, "memory_type:"+params.Type)
+				tags = upsertMemoryTag(tags, "memory_type", params.Type)
 			}
 			documentID := "manual:" + agent.ID.String() + ":" + uuid.NewString()
+			metadata := map[string]string{"employee_id": agent.ID.String(), "document_id": documentID}
+			addMetadataValue(metadata, "provider", params.Provider)
+			addMetadataValue(metadata, "source", params.Source)
+			addMetadataValue(metadata, "resource_type", params.ResourceType)
+			addMetadataValue(metadata, "resource_id", params.ResourceID)
 			result, err := client.Retain(ctx, bankID, &RetainRequest{
 				Items: []RetainItem{{
 					Content:    params.Content,
 					Context:    params.Context,
 					DocumentID: documentID,
 					Tags:       tags,
-					Metadata:   map[string]string{"employee_id": agent.ID.String(), "document_id": documentID},
+					Metadata:   metadata,
 				}},
 				Async: true,
 			})
@@ -122,4 +152,53 @@ func memoryRetainResponse(bankID, documentID string, result *RetainResponse) mem
 		out.BankID = result.BankID
 	}
 	return out
+}
+
+func upsertMemoryTag(tags []string, key, value string) []string {
+	value = sanitizeMemoryTagValue(value)
+	if value == "" {
+		return tags
+	}
+	prefix := key + ":"
+	out := tags[:0]
+	for _, tag := range tags {
+		if !strings.HasPrefix(tag, prefix) {
+			out = append(out, tag)
+		}
+	}
+	return append(out, prefix+value)
+}
+
+func addMetadataValue(metadata map[string]string, key, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	runes := []rune(value)
+	if len(runes) > 256 {
+		value = string(runes[:256])
+	}
+	metadata[key] = value
+}
+
+func sanitizeMemoryTagValue(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+	var b strings.Builder
+	for _, r := range value {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r):
+			b.WriteRune(r)
+		case r == '-' || r == '_' || r == '.' || r == ':':
+			b.WriteRune(r)
+		case unicode.IsSpace(r), r == '/':
+			b.WriteByte('-')
+		}
+		if b.Len() >= 120 {
+			break
+		}
+	}
+	return strings.Trim(b.String(), "-_.:")
 }

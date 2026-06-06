@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
@@ -12,11 +14,12 @@ import (
 )
 
 type ConnectionHandler struct {
-	db        *gorm.DB
-	nango     *nango.Client
-	catalog   *catalog.Catalog
-	discovery *resources.Discovery
-	enq       enqueue.TaskEnqueuer
+	db                      *gorm.DB
+	nango                   *nango.Client
+	catalog                 *catalog.Catalog
+	discovery               *resources.Discovery
+	enq                     enqueue.TaskEnqueuer
+	serviceDiscoveryManager employeeServiceDiscoveryManager
 }
 
 func NewConnectionHandler(db *gorm.DB, nangoClient *nango.Client, cat *catalog.Catalog, enq enqueue.TaskEnqueuer) *ConnectionHandler {
@@ -27,6 +30,15 @@ func NewConnectionHandler(db *gorm.DB, nangoClient *nango.Client, cat *catalog.C
 		discovery: resources.NewDiscovery(cat, nangoClient),
 		enq:       enq,
 	}
+}
+
+type employeeServiceDiscoveryManager interface {
+	EnsureServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) error
+	DisableServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) error
+}
+
+func (h *ConnectionHandler) SetServiceDiscoveryManager(manager employeeServiceDiscoveryManager) {
+	h.serviceDiscoveryManager = manager
 }
 
 type createConnectionRequest struct {

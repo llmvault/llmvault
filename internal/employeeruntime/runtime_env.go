@@ -47,9 +47,14 @@ func BuildEmployeeRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, age
 		return ConfigUpdateRequest{}, token, err
 	}
 	def.OutboundChannels = ControlPlaneOutboundChannels(deps.Cfg, sandboxID)
+	schedules, err := BuildRuntimeSchedules(ctx, deps.DB, agent, sb)
+	if err != nil {
+		return ConfigUpdateRequest{}, token, err
+	}
 	return ConfigUpdateRequest{
 		Definition: def,
 		RuntimeEnv: env,
+		Schedules:  schedules,
 	}, token, nil
 }
 
