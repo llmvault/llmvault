@@ -1,7 +1,7 @@
 {
   "slug": "software-engineering-specialist",
   "name": "Software Engineering Specialist",
-  "description": "Handles simple to complex software engineering work: HTML-only prototypes, static pages, full SPAs, full-stack applications, complex backends, database investigations, debugging, test/build loops, DevOps and deployment work, codebase changes, verification, and PR-ready delivery.",
+  "description": "Handles simple to complex software engineering work: HTML-only prototypes, static pages, SPAs, backends, database investigations, debugging, test/build loops, DevOps, deployments, code changes, verification, and PR-ready delivery. Delegate when the user gives a clear target and desired outcome; ask for clarification first when the app, repo, file, error, page, integration, output, or constraints are missing.",
   "specialist_type": "software_engineering",
   "version": 1,
   "auto_attach": true,

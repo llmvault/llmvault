@@ -50,8 +50,14 @@ func TestBuildAvailableSpecialistsSection_ListsAttachedSpecialists(t *testing.T)
 	if !strings.Contains(section.Content, "Specialist agents are attached coworkers") {
 		t.Fatalf("section missing dispatch guidance: %q", section.Content)
 	}
-	if !strings.Contains(section.Content, "Choose based on the names and descriptions below") {
+	if !strings.Contains(section.Content, "Choose based on the names, descriptions, and routing criteria below") {
 		t.Fatalf("section missing selection guidance: %q", section.Content)
+	}
+	if !strings.Contains(section.Content, "Routing rubric:") {
+		t.Fatalf("section missing routing rubric: %q", section.Content)
+	}
+	if !strings.Contains(section.Content, "Answer directly when the request is simple") {
+		t.Fatalf("section missing direct-answer guidance: %q", section.Content)
 	}
 	if !strings.Contains(section.Content, "more than 30 seconds") {
 		t.Fatalf("section missing heavy task guidance: %q", section.Content)
@@ -59,17 +65,17 @@ func TestBuildAvailableSpecialistsSection_ListsAttachedSpecialists(t *testing.T)
 	if !strings.Contains(section.Content, "disk or network reads and writes") {
 		t.Fatalf("section missing resource guidance: %q", section.Content)
 	}
-	if !strings.Contains(section.Content, "matches a dedicated specialist") {
-		t.Fatalf("section missing dedicated specialist guidance: %q", section.Content)
-	}
 	if !strings.Contains(section.Content, "when the request gives enough context to act") {
 		t.Fatalf("section missing context gating guidance: %q", section.Content)
 	}
-	if !strings.Contains(section.Content, "If a request is vague, ask for the missing context before dispatching") {
+	if !strings.Contains(section.Content, "Ask one focused clarification when the deliverable") {
 		t.Fatalf("section missing clarification guidance: %q", section.Content)
 	}
-	if !strings.Contains(section.Content, "Make assumptions only for trivial, low-risk details") {
-		t.Fatalf("section missing assumption guidance: %q", section.Content)
+	if !strings.Contains(section.Content, "Do not launch a specialist to discover what the user meant") {
+		t.Fatalf("section missing intent-discovery guard: %q", section.Content)
+	}
+	if !strings.Contains(section.Content, "Follow the specialist-specific delegation and clarification criteria") {
+		t.Fatalf("section missing specialist-specific criteria guidance: %q", section.Content)
 	}
 	if !strings.Contains(section.Content, "schedule a wake instead of repeatedly polling status") {
 		t.Fatalf("section missing wake guidance: %q", section.Content)
