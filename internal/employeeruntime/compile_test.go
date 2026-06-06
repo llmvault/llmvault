@@ -67,6 +67,12 @@ func TestBuildPromptSections_UpgradesDefaultManagedIdentityPrompt(t *testing.T) 
 			if !strings.Contains(fragments.Identity.Content, "Communication contract") {
 				t.Fatalf("identity fragment missing current communication contract: %#v", fragments.Identity)
 			}
+			if !strings.Contains(fragments.Identity.Content, "Voice:") {
+				t.Fatalf("identity fragment missing voice guidance: %#v", fragments.Identity)
+			}
+			if !strings.Contains(fragments.Identity.Content, "Use light Gen Z-style phrasing when it fits naturally") {
+				t.Fatalf("identity fragment missing Gen Z voice guidance: %#v", fragments.Identity)
+			}
 			if !strings.Contains(fragments.Identity.Content, "Do not say \"specialist runtime\"") {
 				t.Fatalf("identity fragment missing specialist runtime leakage guard: %#v", fragments.Identity)
 			}
