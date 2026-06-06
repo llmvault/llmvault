@@ -21,13 +21,13 @@ func TestSpecialistStatusToolReturnsCompactText(t *testing.T) {
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
 
 	sb := model.Sandbox{
-		ID:                    uuid.New(),
-		OrgID:                 &org.ID,
-		EmployeeID:            &employee.ID,
-		ExternalID:            "specialist-status-sandbox",
+		ID:                     uuid.New(),
+		OrgID:                  &org.ID,
+		EmployeeID:             &employee.ID,
+		ExternalID:             "specialist-status-sandbox",
 		RuntimeURL:             "http://localhost:7080",
 		EncryptedRuntimeSecret: []byte("encrypted"),
-		Status:                "running",
+		Status:                 "running",
 	}
 	if err := db.Create(&sb).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)
@@ -87,6 +87,87 @@ func TestSpecialistStatusToolReturnsCompactText(t *testing.T) {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("status text leaked raw event detail %q:\n%s", forbidden, text)
 		}
+	}
+}
+
+func TestSpecialistStatusToolDoesNotReportResolvedErrorAsCurrent(t *testing.T) {
+	db := connectSpecialistTasksTestDB(t)
+	catalog := specialistTestCatalog(t)
+	org, employee, token := createSpecialistToolScope(t, db)
+	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
+
+	sb := model.Sandbox{
+		ID:                     uuid.New(),
+		OrgID:                  &org.ID,
+		EmployeeID:             &employee.ID,
+		ExternalID:             "specialist-status-resolved-error",
+		RuntimeURL:             "http://localhost:7080",
+		EncryptedRuntimeSecret: []byte("encrypted"),
+		Status:                 "running",
+	}
+	if err := db.Create(&sb).Error; err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
+	session := model.EmployeeSession{
+		ID:                    uuid.New(),
+		OrgID:                 org.ID,
+		EmployeeID:            employee.ID,
+		SandboxID:             sb.ID,
+		RuntimeConversationID: "runtime-session-resolved-error",
+		Source:                "test",
+		Status:                "active",
+	}
+	if err := db.Create(&session).Error; err != nil {
+		t.Fatalf("create employee session: %v", err)
+	}
+	task := model.SpecialistTask{
+		ID:                     uuid.New(),
+		OrgID:                  org.ID,
+		EmployeeID:             employee.ID,
+		SpecialistSlug:         "software-engineering-specialist",
+		EmployeeSessionID:      session.RuntimeConversationID,
+		SandboxID:              sb.ID,
+		ParentConversationType: "employee_session",
+		ParentConversationID:   session.RuntimeConversationID,
+		Brief:                  "Fix the bug.",
+		Status:                 "idle",
+	}
+	if err := db.Create(&task).Error; err != nil {
+		t.Fatalf("create specialist task: %v", err)
+	}
+	now := time.Now().UTC()
+	events := []model.EmployeeSessionEvent{
+		specialistStatusEvent(org.ID, employee.ID, sb.ID, session, task, "error.tool.failed", model.RawJSON(`{"error":"write_file failed"}`), now.Add(-2*time.Minute)),
+		specialistStatusEvent(org.ID, employee.ID, sb.ID, session, task, "agent.message.sent", model.RawJSON(`{"text":"I recovered and completed the fix."}`), now.Add(-1*time.Minute)),
+	}
+	if err := db.Create(&events).Error; err != nil {
+		t.Fatalf("create events: %v", err)
+	}
+
+	service := NewService(db, &sandbox.Orchestrator{}, employeeruntimeCompileDepsForTest(), catalog)
+	server := mcp.NewServer(&mcp.Implementation{Name: "specialist-test", Version: "v1"}, nil)
+	NewToolsFunc(service)(server, &token)
+	mcpSession, cleanup := connectSpecialistMCPTestSession(t, server)
+	defer cleanup()
+
+	result, err := mcpSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "specialist_task_status",
+		Arguments: map[string]any{"task_id": task.ID.String()},
+	})
+	if err != nil {
+		t.Fatalf("call specialist_task_status: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("specialist_task_status returned error: %s", specialistToolText(t, result))
+	}
+	text := specialistToolText(t, result)
+	for _, want := range []string{"Status: idle", "Latest specialist message: I recovered and completed the fix.", "idle and on standby"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("status text missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "Current error:") || strings.Contains(text, "write_file failed") {
+		t.Fatalf("status text reported resolved error as current:\n%s", text)
 	}
 }
 

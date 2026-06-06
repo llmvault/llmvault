@@ -26,7 +26,7 @@ func (r TaskStatusResponse) Text() string {
 		lines = append(lines, "Latest specialist message: "+r.LatestMessage)
 	}
 	if r.LatestError != "" {
-		lines = append(lines, "Latest error: "+r.LatestError)
+		lines = append(lines, "Current error: "+r.LatestError)
 	}
 	lines = append(lines, "Next action: "+r.NextAction)
 	return strings.Join(lines, "\n")

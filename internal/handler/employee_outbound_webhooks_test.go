@@ -128,6 +128,19 @@ func TestEmployeeEventSource_SanitizesFutureGateways(t *testing.T) {
 	}
 }
 
+func TestShouldDeliverGatewayRuntimeFinal_UsesSessionSourceAndSkipsDirectSlackGateway(t *testing.T) {
+	gatewaySession := &model.EmployeeSession{Source: "gateway"}
+	if !shouldDeliverGatewayRuntimeFinal(gatewaySession, map[string]any{"source": "cron", "text": "wake result"}) {
+		t.Fatal("gateway-backed resumed turn should be delivered")
+	}
+	if shouldDeliverGatewayRuntimeFinal(gatewaySession, map[string]any{"source": "gateway", "provider": "slack"}) {
+		t.Fatal("direct Slack gateway turn should remain handled by the stream worker")
+	}
+	if shouldDeliverGatewayRuntimeFinal(&model.EmployeeSession{Source: "cron"}, map[string]any{"text": "wake result"}) {
+		t.Fatal("non-gateway session should not deliver through gateway adapter")
+	}
+}
+
 func TestPayloadLooksSensitive(t *testing.T) {
 	if !payloadLooksSensitive(map[string]any{"text": "api_key=sk-secret"}) {
 		t.Fatal("expected secret-looking payload to be rejected")

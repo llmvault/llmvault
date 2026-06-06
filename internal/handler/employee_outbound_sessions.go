@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -28,6 +30,22 @@ func (h *EmployeeOutboundWebhookHandler) ensureEmployeeSession(ctx context.Conte
 			return nil, false, fmt.Errorf("load specialist employee session: %w", err)
 		}
 		return &session, false, nil
+	}
+	if specialistTask != nil {
+		var session model.EmployeeSession
+		err := h.db.WithContext(ctx).
+			Where("org_id = ? AND employee_id = ? AND runtime_conversation_id = ?", specialistTask.OrgID, specialistTask.EmployeeID, specialistTask.EmployeeSessionID).
+			Order("created_at DESC").
+			First(&session).Error
+		if err == nil {
+			if updateErr := h.db.WithContext(ctx).Model(specialistTask).Update("conversation_id", session.ID).Error; updateErr != nil {
+				return nil, false, fmt.Errorf("backfill specialist employee session: %w", updateErr)
+			}
+			return &session, false, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, fmt.Errorf("load specialist employee session: %w", err)
+		}
 	}
 	if source == "" {
 		source = employeeEventSource(payload)
