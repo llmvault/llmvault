@@ -74,6 +74,9 @@ func TestBuildAvailableSpecialistsSection_ListsAttachedSpecialists(t *testing.T)
 	if !strings.Contains(section.Content, "Do not launch a specialist to discover what the user meant") {
 		t.Fatalf("section missing intent-discovery guard: %q", section.Content)
 	}
+	if !strings.Contains(section.Content, "memories, knowledge base snippets, and past session context as valid evidence") {
+		t.Fatalf("section missing context-as-delegation-signal guidance: %q", section.Content)
+	}
 	if !strings.Contains(section.Content, "Follow the specialist-specific delegation and clarification criteria") {
 		t.Fatalf("section missing specialist-specific criteria guidance: %q", section.Content)
 	}
