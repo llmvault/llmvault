@@ -233,7 +233,10 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	if event.EventType == "agent.message.sent" {
 		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "agent_message_sent", "agent.message.sent")
 	}
-	if event.EventType == "agent.message.sent" && source == gateway.Source && h.gateway != nil && !isSlackGatewayEvent(payload) {
+	if event.EventType == "agent.message.sent" && taskFound {
+		h.handleSpecialistAgentMessage(ctx, sb, specialistTask, payload, sessionID)
+	}
+	if event.EventType == "agent.message.sent" && h.gateway != nil && shouldDeliverGatewayRuntimeFinal(session, payload) {
 		if _, err := h.gateway.HandleRuntimeFinal(ctx, gateway.AgentResponse{
 			EmployeeSession:  *session,
 			RuntimeSessionID: sessionID,
@@ -250,6 +253,13 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	if event.EventType == "session.completed" {
 		h.markEmployeeSessionEnded(ctx, session.ID, event.At)
 	}
+}
+
+func shouldDeliverGatewayRuntimeFinal(session *model.EmployeeSession, payload map[string]any) bool {
+	if session == nil || session.Source != gateway.Source {
+		return false
+	}
+	return !isSlackGatewayEvent(payload)
 }
 
 func isSlackGatewayEvent(payload map[string]any) bool {

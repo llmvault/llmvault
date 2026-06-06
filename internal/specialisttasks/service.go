@@ -150,6 +150,7 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 	if err := employeeruntime.AttachLatestSpecialistProxyTokenToSandbox(ctx, s.compileDeps, employee, sb.ID, def.Slug); err != nil {
 		return nil, wrapToolError("proxy_token_attach_failed", "The specialist runtime was created, but the control plane could not bind its proxy token to the sandbox.", err, true, "Retry later. If this repeats, report that specialist startup failed after sandbox creation.")
 	}
+	parentSessionID := s.parentSessionIDForRuntimeConversation(ctx, employee, req.EmployeeSessionID)
 	proxyToken := &employeeruntime.ProxyTokenResult{
 		Token:     secrets.ProxyToken,
 		JTI:       secrets.ProxyTokenJTI,
@@ -187,6 +188,7 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 		SpecialistSlug:         def.Slug,
 		EmployeeSessionID:      req.EmployeeSessionID,
 		SandboxID:              sb.ID,
+		ConversationID:         parentSessionID,
 		ParentConversationType: "employee_session",
 		ParentConversationID:   req.EmployeeSessionID,
 		Brief:                  req.Brief,
@@ -213,29 +215,6 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 		return nil, wrapToolError("initial_message_failed", "The specialist runtime was created, but the task brief could not be delivered.", err, true, "Retry specialist_launch_task. If a task_id was returned previously, use specialist_task_status before launching another duplicate task.")
 	}
 	return newLaunchResponse(task), nil
-}
-
-func (s *Service) Status(ctx context.Context, token *model.Token, taskID uuid.UUID) (*TaskStatusResponse, *ToolError) {
-	task, employee, toolErr := s.loadOwnedTask(ctx, token, taskID)
-	if toolErr != nil {
-		return nil, toolErr
-	}
-	activity, toolErr := s.taskActivity(ctx, employee, task, 30)
-	if toolErr != nil {
-		return nil, toolErr
-	}
-	return &TaskStatusResponse{
-		TaskID:          task.ID.String(),
-		SpecialistSlug:  task.SpecialistSlug,
-		Status:          task.Status,
-		CreatedAt:       task.CreatedAt,
-		EndedAt:         task.EndedAt,
-		LastActivityAt:  activity.LastActivityAt,
-		ActivitySummary: activity.Summary(),
-		LatestMessage:   activity.LatestMessage,
-		LatestError:     activity.LatestError,
-		NextAction:      "If the task is still running, wait and call specialist_task_status again. If more context is needed, call specialist_task_send_message with this task_id.",
-	}, nil
 }
 
 func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uuid.UUID, message string) (*MessageResponse, *ToolError) {
@@ -267,7 +246,15 @@ func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uu
 	}); err != nil {
 		return nil, wrapToolError("message_send_failed", "Could not send the message to the specialist runtime.", err, true, "Retry once. If it fails again, call specialist_task_status and report the runtime communication problem.")
 	}
-	return &MessageResponse{TaskID: task.ID.String(), Status: task.Status, Message: "Message delivered to specialist task.", NextAction: "Call specialist_task_status to observe the specialist response or progress."}, nil
+	now := s.now().UTC()
+	if err := s.db.WithContext(ctx).Model(task).Updates(map[string]any{
+		"status":     "running",
+		"ended_at":   nil,
+		"updated_at": now,
+	}).Error; err != nil {
+		return nil, wrapToolError("task_update_failed", "The message was delivered, but the specialist task state could not be marked running.", err, true, "Call specialist_task_status to observe progress. If the state remains stale, report that task state update failed.")
+	}
+	return &MessageResponse{TaskID: task.ID.String(), Status: "running", Message: "Message delivered to specialist task.", NextAction: "Call specialist_task_status to observe the specialist response or progress."}, nil
 }
 
 func (s *Service) Terminate(ctx context.Context, token *model.Token, taskID uuid.UUID, reason string) (*MessageResponse, *ToolError) {

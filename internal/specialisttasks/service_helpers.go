@@ -87,6 +87,21 @@ func (s *Service) loadOwnedTask(ctx context.Context, token *model.Token, taskID 
 	return &task, employee, nil
 }
 
+func (s *Service) parentSessionIDForRuntimeConversation(ctx context.Context, employee *model.Employee, runtimeConversationID string) *uuid.UUID {
+	if s == nil || s.db == nil || employee == nil || employee.OrgID == nil || strings.TrimSpace(runtimeConversationID) == "" {
+		return nil
+	}
+	var session model.EmployeeSession
+	err := s.db.WithContext(ctx).
+		Where("org_id = ? AND employee_id = ? AND runtime_conversation_id = ?", *employee.OrgID, employee.ID, runtimeConversationID).
+		Order("created_at DESC").
+		First(&session).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) || err != nil {
+		return nil
+	}
+	return &session.ID
+}
+
 type taskActivity struct {
 	LastActivityAt  *time.Time
 	MessageCount    int
@@ -127,6 +142,8 @@ func (s *Service) taskActivity(ctx context.Context, employee *model.Employee, ta
 		return taskActivity{}, wrapToolError("event_load_failed", "Could not load recent specialist events.", err, true, "Retry specialist_task_status. If it repeats, report that task events are unavailable.")
 	}
 	activity := taskActivity{}
+	latestOutcomeSeen := false
+	latestOutcomeIsError := false
 	for i, row := range rows {
 		if i == 0 {
 			lastActivityAt := row.EventAt
@@ -138,14 +155,24 @@ func (s *Service) taskActivity(ctx context.Context, employee *model.Employee, ta
 			if activity.LatestMessage == "" {
 				activity.LatestMessage = compactText(payloadString(row.Payload, "text", "message", "content"), 600)
 			}
+			if !latestOutcomeSeen {
+				latestOutcomeSeen = true
+			}
 		case row.EventType == "agent.tool.call":
 			activity.ToolCallCount++
 		case row.EventType == "agent.tool.result":
 			activity.ToolResultCount++
+			if !latestOutcomeSeen {
+				latestOutcomeSeen = true
+			}
 		}
 		if strings.Contains(row.EventType, "error") || strings.Contains(row.EventType, "failed") {
 			activity.ErrorCount++
-			if activity.LatestError == "" {
+			if !latestOutcomeSeen {
+				latestOutcomeSeen = true
+				latestOutcomeIsError = true
+			}
+			if latestOutcomeIsError && activity.LatestError == "" {
 				activity.LatestError = compactText(payloadString(row.Payload, "error", "message", "reason", "cause"), 400)
 			}
 		}
