@@ -62,7 +62,8 @@ func Init(cfg *config.Config, opts ClientOptions) error {
 	slog.Info("sentry initialized",
 		"environment", environment,
 		"release", release,
-		"traces_sample_rate", cfg.SentryTracesSampleRate,
+		"tracing_enabled", options.EnableTracing,
+		"traces_sample_rate", options.TracesSampleRate,
 		"service", opts.ServiceName,
 	)
 	return nil
@@ -73,8 +74,8 @@ func sentryClientOptions(cfg *config.Config, environment, release, hostname stri
 		Dsn:                  cfg.SentryDSN,
 		Environment:          environment,
 		Release:              release,
-		EnableTracing:        true,
-		TracesSampleRate:     cfg.SentryTracesSampleRate,
+		EnableTracing:        false,
+		TracesSampleRate:     0,
 		AttachStacktrace:     true,
 		ServerName:           hostname,
 		DisableClientReports: true,
