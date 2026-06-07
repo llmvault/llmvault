@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -51,17 +50,7 @@ func baseEnvVars(cfg *config.Config, runtimeSecret string, sandboxID uuid.UUID, 
 }
 
 func setSandboxSentryEnvVars(envVars map[string]string, cfg *config.Config, dsn string) {
-	if cfg == nil || strings.TrimSpace(dsn) == "" {
-		return
-	}
-	envVars[employeeruntime.EmployeeEnvSentryDSN] = strings.TrimSpace(dsn)
-	envVars[employeeruntime.EmployeeEnvSentryEnvironment] = cfg.Environment
-	envVars[employeeruntime.EmployeeEnvSentrySampleRate] = "1"
-	envVars[employeeruntime.EmployeeEnvSentryTracesSampleRate] = strconv.FormatFloat(cfg.SentryTracesSampleRate, 'f', -1, 64)
-	envVars[employeeruntime.EmployeeEnvSentryEnableLogs] = "true"
-	if strings.TrimSpace(cfg.SentryRelease) != "" {
-		envVars[employeeruntime.EmployeeEnvSentryRelease] = cfg.SentryRelease
-	}
+	employeeruntime.ApplySandboxSentryEnv(envVars, cfg, dsn)
 }
 
 func setOrgEnvVars(envVars map[string]string, orgID uuid.UUID) {
@@ -72,11 +61,8 @@ func setAgentEnvVars(envVars map[string]string, agent *model.Employee, cfg *conf
 	if agent == nil {
 		return
 	}
-	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
 	envVars[employeeruntime.EmployeeEnvEmployeeID] = agent.ID.String()
-	envVars[employeeruntime.EmployeeEnvGitCredentialsURL] = fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID)
-	employeeruntime.ApplyServiceProxyEnv(envVars, controlPlaneBaseURL, agent.ID, envVars[employeeruntime.EmployeeEnvRuntimeSecret])
-	envVars[employeeruntime.EmployeeEnvGitHubNoKeyring] = "1"
+	employeeruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, envVars[employeeruntime.EmployeeEnvRuntimeSecret], employeeruntime.ControlPlaneRuntimeEnvOptions{})
 }
 
 func setDriveEndpoint(envVars map[string]string, sandboxID uuid.UUID, cfg *config.Config) {
