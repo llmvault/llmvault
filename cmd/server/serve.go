@@ -102,6 +102,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	integrationHandler := handler.NewIntegrationHandler(database, nangoClient, actionsCatalog)
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
+	orgHandler.SetEnvironmentEncryptionKey(sandboxEncKey)
 	orgHandler.SetMemoryProvisioner(hindsightBanks)
 	plansHandler := handler.NewPlansHandler(database)
 	var emailSender email.Sender = &email.LogSender{}
