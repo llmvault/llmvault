@@ -153,7 +153,7 @@ func (s *Service) taskActivity(ctx context.Context, employee *model.Employee, ta
 		case row.EventType == "agent.message.sent":
 			activity.MessageCount++
 			if activity.LatestMessage == "" {
-				activity.LatestMessage = compactText(payloadString(row.Payload, "text", "message", "content"), 600)
+				activity.LatestMessage = compactText(payloadString(row.Payload, "text", "message", "content"), 1200)
 			}
 			if !latestOutcomeSeen {
 				latestOutcomeSeen = true
@@ -173,7 +173,7 @@ func (s *Service) taskActivity(ctx context.Context, employee *model.Employee, ta
 				latestOutcomeIsError = true
 			}
 			if latestOutcomeIsError && activity.LatestError == "" {
-				activity.LatestError = compactText(payloadString(row.Payload, "error", "message", "reason", "cause"), 400)
+				activity.LatestError = compactText(payloadString(row.Payload, "error", "message", "reason", "cause"), 800)
 			}
 		}
 	}

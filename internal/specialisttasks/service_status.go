@@ -17,9 +17,9 @@ func (s *Service) Status(ctx context.Context, token *model.Token, taskID uuid.UU
 	if toolErr != nil {
 		return nil, toolErr
 	}
-	nextAction := "If the task is still running, wait and call specialist_task_status again. If more context is needed, call specialist_task_send_message with this task_id."
+	nextAction := "If the task is still running, wait and call specialist_task_status again. Use specialist_task_timeline with pagination when you need detailed history. If more context is needed, call specialist_task_send_message with this task_id. " + specialistFilesystemReminder
 	if task.Status == "idle" {
-		nextAction = "The specialist is idle and on standby. Review the latest specialist message; if more follow-up is needed, call specialist_task_send_message with this task_id."
+		nextAction = "The specialist is idle and on standby. Review the latest specialist message; use specialist_task_timeline with pagination when you need detailed history. If more follow-up is needed, call specialist_task_send_message with this task_id. " + specialistFilesystemReminder
 	}
 	return &TaskStatusResponse{
 		TaskID:          task.ID.String(),

@@ -677,7 +677,8 @@ fn delegate_tool(
                     "message": format!(
                         "The subagent is now working. You will be automatically notified once the subagent is done working. If you need to check on its progress, please call the check_delegate_status tool with job id {}.",
                         id
-                    )
+                    ),
+                    "system_reminder": "Delegated sub-agents run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
                 }))
             })
         },
@@ -702,7 +703,15 @@ fn check_delegated_status_tool(repo: Arc<dyn CronJobRepo>) -> Arc<dyn JsonTool> 
                     .get(id)
                     .await?
                     .ok_or_else(|| anyhow!("job not found"))?;
-                let mut result = json!({"job_id": job.id, "state": format!("{:?}", job.state), "last_status": job.last_status, "last_error": job.last_error, "result": job.last_result, "session_id": job.delegated_session_id});
+                let mut result = json!({
+                    "job_id": job.id,
+                    "state": format!("{:?}", job.state),
+                    "last_status": job.last_status,
+                    "last_error": job.last_error,
+                    "result": job.last_result,
+                    "session_id": job.delegated_session_id,
+                    "system_reminder": "Delegated sub-agents run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
+                });
                 if matches!(job.state, domain::cron::CronJobState::Active) {
                     result["_hint"] = serde_json::json!(format!(
                         "This task is still running. Use the wake tool \

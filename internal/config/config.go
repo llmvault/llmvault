@@ -117,6 +117,8 @@ type Config struct {
 	// Employee sandbox runtime — ghcr.io/usehivy/hivy-sandboxes-runtime image.
 	SandboxesRuntimeBaseImage       string `env:"HIVY_SANDBOXES_RUNTIME_BASE_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime:latest"`
 	SandboxesRuntimeSpecialistImage string `env:"HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:latest"`
+	EmployeeSandboxAutoUpgrade      bool   `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
+	EmployeeSandboxAutoUpgradeLimit int    `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
 
 	// Hindsight (agent memory)
 	HindsightAPIURL string `env:"HIVY_HINDSIGHT_API_URL"` // e.g. http://hindsight.railway.internal:8888 — empty = memory disabled

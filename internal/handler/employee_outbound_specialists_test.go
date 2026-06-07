@@ -81,7 +81,7 @@ func TestEmployeeOutboundWebhook_SpecialistFinalMarksIdleAndNotifiesParentRuntim
 		OrgID:                 org.ID,
 		EmployeeID:            employee.ID,
 		SandboxID:             parentSandbox.ID,
-		RuntimeConversationID: "runtime-parent-session",
+		RuntimeConversationID: "http-runtime-parent-session",
 		Source:                "gateway",
 		Status:                "active",
 	}
@@ -122,11 +122,14 @@ func TestEmployeeOutboundWebhook_SpecialistFinalMarksIdleAndNotifiesParentRuntim
 		At:        time.Now().UTC(),
 	})
 
-	if delivered.ConversationID != parentSession.RuntimeConversationID {
+	if delivered.ConversationID != "runtime-parent-session" {
 		t.Fatalf("delivered conversation = %q", delivered.ConversationID)
 	}
 	if !strings.Contains(delivered.Text, "The specialist finished the investigation.") {
 		t.Fatalf("delivered text missing specialist message: %q", delivered.Text)
+	}
+	if !strings.Contains(delivered.Text, "Files written there are not available in this employee sandbox") {
+		t.Fatalf("delivered text missing specialist filesystem reminder: %q", delivered.Text)
 	}
 	var reloaded model.SpecialistTask
 	if err := db.First(&reloaded, "id = ?", task.ID).Error; err != nil {

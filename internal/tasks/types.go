@@ -21,6 +21,7 @@ const (
 	TypeEmployeeProxyTokenRefresh    = "employee:proxy_token_refresh"
 	TypeEmployeeGitHubResourcesClone = "employee:github_resources_clone"
 	TypeEmployeeSandboxUpgrade       = "employee:sandbox_upgrade"
+	TypeEmployeeSandboxAutoUpgrade   = "employee:sandbox_auto_upgrade"
 	TypeEmployeeSandboxRetire        = "employee:sandbox_retire"
 	TypeSandboxWarmPoolReconcile     = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck         = "sandbox:warm_slot_check"

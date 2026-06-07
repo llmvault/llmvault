@@ -2,6 +2,7 @@ package specialisttasks
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -87,6 +88,88 @@ func TestSpecialistStatusToolReturnsCompactText(t *testing.T) {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("status text leaked raw event detail %q:\n%s", forbidden, text)
 		}
+	}
+}
+
+func TestSpecialistTimelineToolReturnsPaginatedEvents(t *testing.T) {
+	db := connectSpecialistTasksTestDB(t)
+	catalog := specialistTestCatalog(t)
+	org, employee, token := createSpecialistToolScope(t, db)
+	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
+
+	sb := model.Sandbox{
+		ID:                     uuid.New(),
+		OrgID:                  &org.ID,
+		EmployeeID:             &employee.ID,
+		ExternalID:             "specialist-timeline-sandbox",
+		RuntimeURL:             "http://localhost:7080",
+		EncryptedRuntimeSecret: []byte("encrypted"),
+		Status:                 "running",
+	}
+	if err := db.Create(&sb).Error; err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
+	session := model.EmployeeSession{
+		ID:                    uuid.New(),
+		OrgID:                 org.ID,
+		EmployeeID:            employee.ID,
+		SandboxID:             sb.ID,
+		RuntimeConversationID: "runtime-session-timeline",
+		Source:                "test",
+		Status:                "active",
+	}
+	if err := db.Create(&session).Error; err != nil {
+		t.Fatalf("create employee session: %v", err)
+	}
+	task := model.SpecialistTask{
+		ID:                     uuid.New(),
+		OrgID:                  org.ID,
+		EmployeeID:             employee.ID,
+		SpecialistSlug:         "software-engineering-specialist",
+		EmployeeSessionID:      session.RuntimeConversationID,
+		SandboxID:              sb.ID,
+		ParentConversationType: "employee_session",
+		ParentConversationID:   session.RuntimeConversationID,
+		Brief:                  "Build a timeline.",
+		Status:                 "running",
+	}
+	if err := db.Create(&task).Error; err != nil {
+		t.Fatalf("create specialist task: %v", err)
+	}
+	seedSpecialistStatusEvents(t, db, org.ID, employee.ID, sb.ID, session, task)
+
+	service := NewService(db, &sandbox.Orchestrator{}, employeeruntimeCompileDepsForTest(), catalog)
+	server := mcp.NewServer(&mcp.Implementation{Name: "specialist-test", Version: "v1"}, nil)
+	NewToolsFunc(service)(server, &token)
+	mcpSession, cleanup := connectSpecialistMCPTestSession(t, server)
+	defer cleanup()
+
+	result, err := mcpSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "specialist_task_timeline",
+		Arguments: map[string]any{
+			"task_id": task.ID.String(),
+			"limit":   "1",
+			"offset":  "0",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call specialist_task_timeline: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("specialist_task_timeline returned error: %s", specialistToolText(t, result))
+	}
+	var payload TaskTimelineResponse
+	if err := json.Unmarshal([]byte(specialistToolText(t, result)), &payload); err != nil {
+		t.Fatalf("decode timeline: %v", err)
+	}
+	if payload.Limit != 1 || payload.Offset != 0 || len(payload.Events) != 1 {
+		t.Fatalf("timeline pagination = limit %d offset %d events %d", payload.Limit, payload.Offset, len(payload.Events))
+	}
+	if payload.Events[0].EventType != "agent.tool.call" {
+		t.Fatalf("unexpected timeline event: %#v", payload.Events[0])
+	}
+	if payload.NextOffset == nil || *payload.NextOffset != 1 {
+		t.Fatalf("next_offset = %v, want 1", payload.NextOffset)
 	}
 }
 

@@ -34,6 +34,8 @@ func buildAvailableSpecialistsSection(agent *model.Employee, catalog *specialist
 		"- Follow the specialist-specific delegation and clarification criteria in each description below.",
 		"Give the specialist enough context to act independently, then use status tools to follow progress and report verified outcomes.",
 		"For specialist work that will take more than a quick check, schedule a wake instead of repeatedly polling status.",
+		"Specialist agents run on separate computers. Their local filesystem is not shared with this employee sandbox.",
+		"Drive is the shared artifact location. If the employee needs files produced by a specialist, ask the specialist to upload those files to Drive instead of trying to read specialist sandbox paths locally.",
 		"Attached specialist agents:",
 	}
 	for _, def := range catalog.List() {
@@ -42,7 +44,7 @@ func buildAvailableSpecialistsSection(agent *model.Employee, catalog *specialist
 		}
 		lines = append(lines, fmt.Sprintf("- %s (%s): %s", def.Name, def.Slug, strings.TrimSpace(def.Description)))
 	}
-	if len(lines) == 12 {
+	if len(lines) == 14 {
 		return PromptSection{}
 	}
 	return PromptSection{

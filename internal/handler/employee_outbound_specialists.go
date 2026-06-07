@@ -65,7 +65,7 @@ func (h *EmployeeOutboundWebhookHandler) notifyParentEmployeeSessionOfSpecialist
 	text := specialistIdleNotificationText(task, payload)
 	resp, err := client.PostHTTPMessage(ctx, employeeruntime.HTTPMessageRequest{
 		Text:           text,
-		ConversationID: parentSession.RuntimeConversationID,
+		ConversationID: httpGatewayConversationID(parentSession.RuntimeConversationID),
 		User:           "hivy-control-plane",
 		Raw: map[string]any{
 			"source":             "specialist_task_idle",
@@ -110,11 +110,19 @@ func (h *EmployeeOutboundWebhookHandler) loadSpecialistParentSession(ctx context
 }
 
 func specialistIdleNotificationText(task *model.SpecialistTask, payload map[string]any) string {
-	message := compactWebhookText(stringValue(payload, "text"), 1800)
+	message := compactWebhookText(stringValue(payload, "text"), 3600)
 	if message == "" {
 		message = "The specialist finished its current turn without a final text message."
 	}
-	return fmt.Sprintf("Specialist %s is idle and on standby.\n\nLatest specialist message:\n%s\n\nIf more follow-up is needed, send feedback to the same specialist task.", task.SpecialistSlug, message)
+	return fmt.Sprintf("Specialist %s is idle and on standby.\n\nLatest specialist message:\n%s\n\nSpecialist sandboxes run on a separate computer. Files written there are not available in this employee sandbox. Ask the specialist to upload artifacts to Drive when the employee needs to inspect or share files.\n\nIf more follow-up is needed, send feedback to the same specialist task.", task.SpecialistSlug, message)
+}
+
+func httpGatewayConversationID(runtimeConversationID string) string {
+	runtimeConversationID = strings.TrimSpace(runtimeConversationID)
+	if strings.HasPrefix(runtimeConversationID, "http-") {
+		return strings.TrimPrefix(runtimeConversationID, "http-")
+	}
+	return runtimeConversationID
 }
 
 func compactWebhookText(text string, max int) string {
