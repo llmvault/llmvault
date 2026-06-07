@@ -44,15 +44,8 @@ func Init(cfg *config.Config, opts ClientOptions) error {
 		release = cfg.SentryRelease
 	}
 
-	if err := sentrygo.Init(sentrygo.ClientOptions{
-		Dsn:              cfg.SentryDSN,
-		Environment:      environment,
-		Release:          release,
-		EnableTracing:    true,
-		TracesSampleRate: cfg.SentryTracesSampleRate,
-		AttachStacktrace: true,
-		ServerName:       hostname,
-	}); err != nil {
+	options := sentryClientOptions(cfg, environment, release, hostname)
+	if err := sentrygo.Init(options); err != nil {
 		return fmt.Errorf("sentry: initialize client: %w", err)
 	}
 
@@ -73,6 +66,19 @@ func Init(cfg *config.Config, opts ClientOptions) error {
 		"service", opts.ServiceName,
 	)
 	return nil
+}
+
+func sentryClientOptions(cfg *config.Config, environment, release, hostname string) sentrygo.ClientOptions {
+	return sentrygo.ClientOptions{
+		Dsn:                  cfg.SentryDSN,
+		Environment:          environment,
+		Release:              release,
+		EnableTracing:        true,
+		TracesSampleRate:     cfg.SentryTracesSampleRate,
+		AttachStacktrace:     true,
+		ServerName:           hostname,
+		DisableClientReports: true,
+	}
 }
 
 func Enabled() bool { return initialized.Load() }

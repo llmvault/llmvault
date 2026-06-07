@@ -9,6 +9,8 @@ import (
 	"time"
 
 	sentrygo "github.com/getsentry/sentry-go"
+
+	"github.com/usehivy/hivy/internal/config"
 )
 
 func withTestSentry(t *testing.T) {
@@ -48,6 +50,25 @@ func (*captureTransport) Close()                                {}
 
 type testUserKey struct{}
 type testOrgKey struct{}
+
+func TestSentryClientOptions_DisablesClientReports(t *testing.T) {
+	cfg := &config.Config{
+		SentryDSN:              "https://public@example.com/1",
+		SentryTracesSampleRate: 0.25,
+	}
+
+	options := sentryClientOptions(cfg, "production", "release-abc", "host-xyz")
+
+	if !options.DisableClientReports {
+		t.Fatal("DisableClientReports = false, want true")
+	}
+	if options.Dsn != cfg.SentryDSN {
+		t.Fatalf("Dsn = %q, want %q", options.Dsn, cfg.SentryDSN)
+	}
+	if options.TracesSampleRate != cfg.SentryTracesSampleRate {
+		t.Fatalf("TracesSampleRate = %v, want %v", options.TracesSampleRate, cfg.SentryTracesSampleRate)
+	}
+}
 
 func TestMiddleware_AppliesUserAndOrg(t *testing.T) {
 	withTestSentry(t)
