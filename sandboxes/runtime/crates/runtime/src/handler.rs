@@ -564,6 +564,52 @@ mod queue_tests {
         assert_eq!(payload["channel_id"], "C123");
         assert_eq!(payload["thread_id"], "100.000");
     }
+
+    #[test]
+    fn wake_inbound_is_not_treated_as_delegate_completion() {
+        let inbound = inbound(
+            "C123-T1",
+            "wake-1",
+            "Check specialist_task_status",
+            serde_json::json!({
+                "source": "wake",
+                "job_kind": "wake",
+                "job_id": "wake-1",
+                "parent_session_id": "C123-T1"
+            }),
+        );
+
+        assert_eq!(inbound_event_source(&inbound), "wake");
+        assert!(!is_delegate_job_inbound(&inbound));
+    }
+
+    #[test]
+    fn delegate_inbound_requires_explicit_delegate_kind() {
+        let legacy_wake = inbound(
+            "C123-T1",
+            "wake-1",
+            "Check specialist_task_status",
+            serde_json::json!({
+                "source": "cron",
+                "job_id": "wake-1",
+                "parent_session_id": "C123-T1"
+            }),
+        );
+        let delegate = inbound(
+            "delegate-session",
+            "delegate-1",
+            "do work",
+            serde_json::json!({
+                "source": "cron",
+                "job_kind": "delegate",
+                "job_id": "delegate-1",
+                "parent_session_id": "C123-T1"
+            }),
+        );
+
+        assert!(!is_delegate_job_inbound(&legacy_wake));
+        assert!(is_delegate_job_inbound(&delegate));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -696,8 +742,11 @@ async fn process_single_turn(
     info!(session = %session_id, len = outcome.text.len(), "turn complete");
 
     // If this is a delegate session, notify the parent and record the result.
-    if let Some(parent_session_id) = inbound.raw.get("parent_session_id").and_then(Value::as_str) {
-        if let Some(job_id) = inbound.raw.get("job_id").and_then(Value::as_str) {
+    if is_delegate_job_inbound(inbound) {
+        if let (Some(parent_session_id), Some(job_id)) = (
+            inbound.raw.get("parent_session_id").and_then(Value::as_str),
+            inbound.raw.get("job_id").and_then(Value::as_str),
+        ) {
             let delegate_error = outcome.error.as_deref();
             let result_text = if let Some(err) = delegate_error {
                 format!("[Sub-agent error: {}]", err)
@@ -833,11 +882,26 @@ fn inbound_event_source(inbound: &InboundEvent) -> &'static str {
         "http" => "http",
         "trigger" => "trigger",
         "cron" => "cron",
+        "wake" => "wake",
         "gateway" => "gateway",
         "specialist_callback" => "specialist_callback",
         _ if inbound.session_id.as_str().starts_with("http-") => "http",
         _ => "http",
     }
+}
+
+fn is_delegate_job_inbound(inbound: &InboundEvent) -> bool {
+    inbound
+        .raw
+        .get("job_kind")
+        .and_then(Value::as_str)
+        .is_some_and(|kind| kind == "delegate")
+        && inbound
+            .raw
+            .get("parent_session_id")
+            .and_then(Value::as_str)
+            .is_some()
+        && inbound.raw.get("job_id").and_then(Value::as_str).is_some()
 }
 
 fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
@@ -861,6 +925,7 @@ fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
         "external_message_id",
         "callback_url",
         // Delegation metadata:
+        "job_kind",
         "job_id",
         "agent_name",
         "parent_session_id",

@@ -171,13 +171,7 @@ impl CronScheduler {
             }
         }
 
-        let mut raw = serde_json::json!({
-            "source": "cron",
-            "job_id": job.id,
-            "agent_name": job.agent_name,
-            "parent_session_id": job.created_by_session,
-            "delegate_goal": job.task_prompt,
-        });
+        let mut raw = scheduled_job_raw_metadata(&job);
 
         // For delegates with a stream, inject http_stream_id so events flow to the delegate's SSE stream
         if job.source == CronJobSource::Delegate {
@@ -313,5 +307,94 @@ impl CronScheduler {
                 info!(job_id = %job.id, "cron: repeat count reached, completed and removed");
             }
         }
+    }
+}
+
+fn scheduled_job_raw_metadata(job: &CronJob) -> serde_json::Value {
+    if job.source == CronJobSource::Delegate {
+        return serde_json::json!({
+            "source": "cron",
+            "job_kind": "delegate",
+            "job_id": job.id,
+            "agent_name": job.agent_name,
+            "parent_session_id": job.created_by_session,
+            "delegate_goal": job.task_prompt,
+        });
+    }
+    if job.session_continuation_id.is_some() {
+        return serde_json::json!({
+            "source": "wake",
+            "job_kind": "wake",
+            "job_id": job.id,
+        });
+    }
+    serde_json::json!({
+        "source": "cron",
+        "job_kind": "cron",
+        "job_id": job.id,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use domain::cron::{CronJobSource, CronJobState};
+    use domain::CronJob;
+
+    use super::scheduled_job_raw_metadata;
+
+    fn test_job(id: &str, source: CronJobSource) -> CronJob {
+        CronJob {
+            id: id.to_string(),
+            description: "test".to_string(),
+            channel: "C123".to_string(),
+            task_prompt: "do work".to_string(),
+            cron_expression: None,
+            interval_seconds: Some(0),
+            repeat_count: None,
+            repeat_completed: 0,
+            state: CronJobState::Active,
+            source,
+            next_run_at: Utc::now(),
+            last_run_at: None,
+            last_status: None,
+            last_error: None,
+            delegated_session_id: None,
+            session_continuation_id: None,
+            agent_name: None,
+            last_result: None,
+            delegate_stream_id: None,
+            created_at: Utc::now(),
+            created_by_session: "parent-session".to_string(),
+        }
+    }
+
+    #[test]
+    fn wake_metadata_is_not_delegate_metadata() {
+        let mut job = test_job("wake-1", CronJobSource::Cron);
+        job.session_continuation_id = Some("parent-session".to_string());
+
+        let raw = scheduled_job_raw_metadata(&job);
+
+        assert_eq!(raw["source"], "wake");
+        assert_eq!(raw["job_kind"], "wake");
+        assert_eq!(raw["job_id"], "wake-1");
+        assert!(raw.get("parent_session_id").is_none());
+        assert!(raw.get("delegate_goal").is_none());
+        assert!(raw.get("agent_name").is_none());
+    }
+
+    #[test]
+    fn delegate_metadata_is_explicitly_marked_delegate() {
+        let mut job = test_job("delegate-1", CronJobSource::Delegate);
+        job.agent_name = Some("software-engineering-specialist".to_string());
+
+        let raw = scheduled_job_raw_metadata(&job);
+
+        assert_eq!(raw["source"], "cron");
+        assert_eq!(raw["job_kind"], "delegate");
+        assert_eq!(raw["parent_session_id"], "parent-session");
+        assert_eq!(raw["delegate_goal"], "do work");
+        assert_eq!(raw["agent_name"], "software-engineering-specialist");
     }
 }

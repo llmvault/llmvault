@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use crate::diff::{apply_edits, unified_diff, EditMatchError, PendingEdit};
 use crate::mutation_queue::with_file_lock;
 use crate::operations::EditOperations;
-use crate::path::{build_glob_set, enforce_deny_globs, resolve_within_workspace, PathPolicyError};
+use crate::path::{build_glob_set, enforce_deny_globs, resolve_writable_path, PathPolicyError};
 use crate::{schema_for, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "edit_file";
@@ -20,8 +20,9 @@ const TOOL_DESCRIPTION: &str =
     "Apply targeted text replacements to a file. Each `edits[].old_text` \
      must match exactly one region of the original file (uniqueness is \
      required). Edits are applied to the original file content, not \
-     incrementally — overlapping or nested edits are rejected. The file's \
-     line endings and BOM are preserved.";
+     incrementally — overlapping or nested edits are rejected. Paths may be \
+     in the workspace, /tmp, /var/tmp, $HOME, or configured allowed roots. \
+     The file's line endings and BOM are preserved.";
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct EditOperationArgs {
@@ -76,7 +77,7 @@ impl EditTool {
             return Err(anyhow!("`edits` must contain at least one entry"));
         }
 
-        let resolved = resolve_within_workspace(
+        let resolved = resolve_writable_path(
             &self.workspace_root,
             &parsed.path,
             &self.config.allowed_roots,

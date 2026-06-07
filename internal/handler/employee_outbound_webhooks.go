@@ -259,7 +259,18 @@ func shouldDeliverGatewayRuntimeFinal(session *model.EmployeeSession, payload ma
 	if session == nil || session.Source != gateway.Source {
 		return false
 	}
+	if isSpecialistRuntimeEvent(payload) {
+		return false
+	}
 	return !isSlackGatewayEvent(payload)
+}
+
+func isSpecialistRuntimeEvent(payload map[string]any) bool {
+	if strings.EqualFold(strings.TrimSpace(stringValue(payload, "mode")), "specialist") {
+		return true
+	}
+	return strings.TrimSpace(stringValue(payload, "specialist_task_id")) != "" ||
+		strings.TrimSpace(stringValue(payload, "specialist_slug")) != ""
 }
 
 func isSlackGatewayEvent(payload map[string]any) bool {

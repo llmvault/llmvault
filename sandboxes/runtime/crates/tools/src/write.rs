@@ -10,15 +10,15 @@ use serde_json::{json, Value};
 
 use crate::mutation_queue::with_file_lock;
 use crate::operations::WriteOperations;
-use crate::path::{build_glob_set, enforce_deny_globs, resolve_within_workspace, PathPolicyError};
+use crate::path::{build_glob_set, enforce_deny_globs, resolve_writable_path, PathPolicyError};
 use crate::{schema_for, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "write_file";
 const TOOL_DESCRIPTION: &str =
-    "Write content to a file inside the workspace. Creates the file if it \
-     does not exist, overwrites if it does. Parent directories are created \
-     automatically. Refuses paths outside the configured allowed roots or \
-     paths matching a deny glob.";
+    "Write content to a file inside the workspace, /tmp, /var/tmp, $HOME, \
+     or configured allowed roots. Creates the file if it does not exist, \
+     overwrites if it does. Parent directories are created automatically. \
+     Refuses paths outside writable roots or paths matching a deny glob.";
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct WriteArgs {
@@ -54,7 +54,7 @@ impl WriteTool {
     async fn execute(&self, args: Value) -> Result<Value> {
         let parsed: WriteArgs =
             serde_json::from_value(args).map_err(|e| anyhow!("invalid arguments: {e}"))?;
-        let resolved = resolve_within_workspace(
+        let resolved = resolve_writable_path(
             &self.workspace_root,
             &parsed.path,
             &self.config.allowed_roots,
@@ -118,4 +118,55 @@ impl JsonTool for WriteTool {
 
 fn map_path_error(error: PathPolicyError) -> anyhow::Error {
     anyhow!(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use domain::WriteFileConfig;
+
+    use crate::operations::LocalFsOperations;
+
+    #[tokio::test]
+    async fn write_file_allows_absolute_tmp_path() {
+        let unique = format!(
+            "hivy-write-file-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let path = std::path::PathBuf::from("/tmp")
+            .join(unique)
+            .join("out.txt");
+        let tool = super::WriteTool::new(
+            WriteFileConfig {
+                allowed_roots: Vec::new(),
+                max_file_size_bytes: 1024,
+                deny_globs: Vec::new(),
+                atomic: true,
+            },
+            std::env::current_dir().unwrap(),
+            Arc::new(LocalFsOperations),
+        );
+
+        let result = tool
+            .execute(serde_json::json!({
+                "path": path.display().to_string(),
+                "content": "written under tmp",
+            }))
+            .await
+            .expect("tmp file should be writable");
+
+        assert_eq!(result["bytes_written"], 17);
+        assert_eq!(
+            tokio::fs::read_to_string(&path).await.unwrap(),
+            "written under tmp"
+        );
+        if let Some(dir) = path.parent() {
+            let _ = tokio::fs::remove_dir_all(dir).await;
+        }
+    }
 }
