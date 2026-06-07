@@ -16,6 +16,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -37,6 +38,7 @@ type EmployeeTriggerDispatchHandler struct {
 	compileDeps  employeeruntime.CompileDeps
 	enqueuer     enqueue.TaskEnqueuer
 	catalog      *catalog.Catalog
+	nangoClient  *nango.Client
 }
 
 func NewEmployeeTriggerDispatchHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps employeeruntime.CompileDeps, enqueuer ...enqueue.TaskEnqueuer) *EmployeeTriggerDispatchHandler {
@@ -79,6 +81,24 @@ func (h *EmployeeTriggerDispatchHandler) Handle(ctx context.Context, task *asynq
 		return err
 	}
 	for _, trigger := range triggers {
+		skip, reason, err := h.shouldSkipTriggerDelivery(ctx, payload, webhookPayload)
+		if err != nil {
+			logging.CaptureWithFields(ctx, fmt.Errorf("employee trigger filter failed: %w", err), map[string]any{
+				"org_id":      payload.OrgID.String(),
+				"delivery_id": payload.DeliveryID,
+				"event_key":   eventKey(payload.EventType, payload.EventAction),
+			})
+			return err
+		}
+		if skip {
+			logging.FromContext(ctx).InfoContext(ctx, "employee trigger skipped event",
+				"trigger_id", trigger.ID,
+				"employee_id", trigger.EmployeeID,
+				"delivery_id", payload.DeliveryID,
+				"event_key", eventKey(payload.EventType, payload.EventAction),
+				"reason", reason)
+			continue
+		}
 		if ok, reason := triggerConditionsMatch(trigger, webhookPayload); !ok {
 			logging.FromContext(ctx).InfoContext(ctx, "employee trigger conditions skipped event",
 				"trigger_id", trigger.ID, "employee_id", trigger.EmployeeID, "reason", reason)
@@ -172,7 +192,12 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		}
 	}
 
-	compiled := h.compileMessage(payload, trigger, webhookPayload)
+	recentTasks, err := h.loadRecentSoftwareEngineeringTasks(ctx, agent)
+	if err != nil {
+		captureTriggerDispatchBoundary(ctx, "load_recent_software_engineering_tasks", payload, trigger, "", "", err)
+		return err
+	}
+	compiled := h.compileMessage(payload, trigger, webhookPayload, recentTasks)
 	conv, err := h.findOrCreateTriggerConversation(ctx, &agent, sb, trigger.ID, compiled.ResourceKey, compiled.ConversationID)
 	if err != nil {
 		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_conversation", payload, trigger, compiled.ResourceKey, "", err)
@@ -192,60 +217,6 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 	}
 	h.enqueueStoreDelivery(ctx, payload, trigger, conv, compiled, resp)
 	return nil
-}
-
-func (h *EmployeeTriggerDispatchHandler) enqueueStoreDelivery(ctx context.Context, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage, resp *employeeruntime.HTTPMessageResponse) {
-	if h.enqueuer == nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("employee trigger delivery store enqueue skipped: enqueuer is nil"), triggerStoreEnqueueFields(payload, trigger, conv, compiled, resp))
-		return
-	}
-	if resp == nil {
-		resp = &employeeruntime.HTTPMessageResponse{}
-	}
-	task, err := NewEmployeeTriggerStoreDeliveryTask(EmployeeTriggerStoreDeliveryPayload{
-		OrgID:                 trigger.OrgID,
-		EmployeeID:            trigger.EmployeeID,
-		TriggerID:             trigger.ID,
-		ConnectionID:          trigger.ConnectionID,
-		DeliveryID:            payload.DeliveryID,
-		EventKey:              eventKey(payload.EventType, payload.EventAction),
-		ResourceKey:           compiled.ResourceKey,
-		ConversationID:        conv.ID,
-		RuntimeConversationID: conv.RuntimeConversationID,
-		RuntimeSessionID:      resp.SessionID,
-		RuntimeStreamID:       resp.StreamID,
-		RuntimeTraceID:        resp.TraceID,
-		RuntimeTurnID:         resp.TurnID,
-		PayloadJSON:           payload.PayloadJSON,
-	})
-	if err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("build employee trigger delivery store task: %w", err), triggerStoreEnqueueFields(payload, trigger, conv, compiled, resp))
-		return
-	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("enqueue employee trigger delivery store task: %w", err), triggerStoreEnqueueFields(payload, trigger, conv, compiled, resp))
-	}
-}
-
-func triggerStoreEnqueueFields(payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage, resp *employeeruntime.HTTPMessageResponse) map[string]any {
-	fields := map[string]any{
-		"org_id":                  trigger.OrgID.String(),
-		"employee_id":             trigger.EmployeeID.String(),
-		"trigger_id":              trigger.ID.String(),
-		"delivery_id":             payload.DeliveryID,
-		"event_key":               eventKey(payload.EventType, payload.EventAction),
-		"resource_key":            compiled.ResourceKey,
-		"runtime_conversation_id": "",
-		"runtime_session_id":      "",
-	}
-	if conv != nil {
-		fields["conversation_id"] = conv.ID.String()
-		fields["runtime_conversation_id"] = conv.RuntimeConversationID
-	}
-	if resp != nil {
-		fields["runtime_session_id"] = resp.SessionID
-	}
-	return fields
 }
 
 func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, resourceKey, conversationID string, err error) {

@@ -128,8 +128,9 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			NewEmployeeProxyTokenRefreshHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile, deps.Enqueuer).Handle)
 	}
 	if deps.Orchestrator != nil && deps.EmployeeCompile.EncKey != nil {
-		mux.HandleFunc(TypeEmployeeTriggerDispatch,
-			NewEmployeeTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile, deps.Enqueuer).Handle)
+		triggerHandler := NewEmployeeTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile, deps.Enqueuer)
+		triggerHandler.nangoClient = deps.NangoClient
+		mux.HandleFunc(TypeEmployeeTriggerDispatch, triggerHandler.Handle)
 		mux.HandleFunc(TypeEmployeeGitHubResourcesClone,
 			NewEmployeeGitHubResourcesCloneHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile).Handle)
 	}

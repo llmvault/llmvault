@@ -15,8 +15,8 @@ import (
 func (h *EmployeeTriggerDispatchHandler) findOrCreateTriggerConversation(ctx context.Context, agent *model.Employee, sb *model.Sandbox, triggerID uuid.UUID, resourceKey, conversationID string) (*model.EmployeeSession, error) {
 	var conv model.EmployeeSession
 	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
-			*agent.OrgID, agent.ID, triggerConversationSource, triggerID, resourceKey, "active").
+		Where("org_id = ? AND employee_id = ? AND source = ? AND source_resource_key = ? AND status = ?",
+			*agent.OrgID, agent.ID, triggerConversationSource, resourceKey, "active").
 		First(&conv).Error
 	if err == nil {
 		return &conv, nil
