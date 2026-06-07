@@ -24,6 +24,7 @@ func NewToolsFunc(service *Service) func(server *mcp.Server, token *model.Token)
 		registerListTool(server, service, token)
 		registerLaunchTool(server, service, token)
 		registerStatusTool(server, service, token)
+		registerTimelineTool(server, service, token)
 		registerSendMessageTool(server, service, token)
 		registerTerminateTool(server, service, token)
 	}
@@ -55,7 +56,9 @@ func registerLaunchTool(server *mcp.Server, service *Service, token *model.Token
 
 Use this when the current employee task would benefit from a specialist doing parallel coding, research, review, or implementation work. Provide the specialist slug and a complete brief. The control plane automatically binds the task to the current employee session; do not provide employee_id, sandbox_id, or session_id.
 
-Returns a task_id. Use specialist_task_status with that task_id to check progress. Use specialist_task_send_message only to add context or redirect the task.`,
+Returns a task_id. Use specialist_task_status with that task_id to check progress, or specialist_task_timeline with pagination to inspect detailed specialist history. Use specialist_task_send_message only to add context or redirect the task.
+
+Specialist sandboxes run on separate computers. Their local files are not available in the employee sandbox; Drive is the shared artifact location.`,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -102,7 +105,7 @@ func registerStatusTool(server *mcp.Server, service *Service, token *model.Token
 		Name: "specialist_task_status",
 		Description: `Read the current state and recent events for a specialist task.
 
-Use this after specialist_launch_task returns a task_id, or when you need to decide whether to wait, send more context, terminate, or summarize the specialist's result. Pass exactly the task_id returned by specialist_launch_task.`,
+Use this after specialist_launch_task returns a task_id, or when you need to decide whether to wait, send more context, terminate, or summarize the specialist's result. Pass exactly the task_id returned by specialist_launch_task. Use specialist_task_timeline with limit/offset when you need detailed tool-call history.`,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -131,7 +134,7 @@ func registerSendMessageTool(server *mcp.Server, service *Service, token *model.
 		Name: "specialist_task_send_message",
 		Description: `Send additional context, a correction, or a follow-up instruction to a running specialist task.
 
-Use this only after specialist_launch_task has returned a task_id. Do not use this to create a new task; launch a separate specialist task instead. After sending, call specialist_task_status to observe progress.`,
+Use this only after specialist_launch_task has returned a task_id. Do not use this to create a new task; launch a separate specialist task instead. After sending, call specialist_task_status to observe progress. Specialist sandboxes run on separate computers; ask the specialist to upload files to Drive when artifacts must be shared.`,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

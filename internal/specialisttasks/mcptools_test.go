@@ -41,7 +41,7 @@ func TestSpecialistListToolReturnsAttachedSpecialists(t *testing.T) {
 	for _, tool := range tools.Tools {
 		names[tool.Name] = true
 	}
-	for _, want := range []string{"specialist_list", "specialist_launch_task", "specialist_task_status", "specialist_task_send_message", "specialist_task_terminate"} {
+	for _, want := range []string{"specialist_list", "specialist_launch_task", "specialist_task_status", "specialist_task_timeline", "specialist_task_send_message", "specialist_task_terminate"} {
 		if !names[want] {
 			t.Fatalf("tool %q missing from %#v", want, names)
 		}

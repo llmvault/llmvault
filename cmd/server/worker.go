@@ -107,6 +107,14 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 			return employeeruntime.PushEmployeeRuntimeConfigForSandbox(ctx, workerDeps.EmployeeCompile, sb)
 		})
 	}
+	if deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.EmployeeCompile.EncKey != nil && workerDeps.EmployeeCompile.KMS != nil && cfg.EmployeeSandboxAutoUpgrade {
+		if err := tasks.EnqueueEmployeeSandboxAutoUpgrade(ctx, enqueuer, tasks.EmployeeSandboxAutoUpgradePayload{
+			RuntimeImage: cfg.SandboxesRuntimeBaseImage,
+			Limit:        cfg.EmployeeSandboxAutoUpgradeLimit,
+		}); err != nil {
+			slog.Error("enqueue employee sandbox auto-upgrade sweep", "error", err)
+		}
+	}
 
 	mux := tasks.NewServeMux(workerDeps)
 	mux.Use(sentryobs.AsynqMiddleware())

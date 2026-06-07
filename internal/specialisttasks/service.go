@@ -78,6 +78,24 @@ type TaskStatusResponse struct {
 	NextAction      string     `json:"next_action"`
 }
 
+type TaskTimelineResponse struct {
+	TaskID         string                    `json:"task_id"`
+	SpecialistSlug string                    `json:"specialist_slug"`
+	Status         string                    `json:"status"`
+	Limit          int                       `json:"limit"`
+	Offset         int                       `json:"offset"`
+	NextOffset     *int                      `json:"next_offset,omitempty"`
+	Events         []SpecialistTimelineEvent `json:"events"`
+	NextAction     string                    `json:"next_action"`
+}
+
+type SpecialistTimelineEvent struct {
+	EventAt   time.Time `json:"event_at"`
+	EventType string    `json:"event_type"`
+	Source    string    `json:"source,omitempty"`
+	Summary   string    `json:"summary,omitempty"`
+}
+
 type MessageResponse struct {
 	TaskID     string `json:"task_id"`
 	Status     string `json:"status"`
@@ -254,7 +272,7 @@ func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uu
 	}).Error; err != nil {
 		return nil, wrapToolError("task_update_failed", "The message was delivered, but the specialist task state could not be marked running.", err, true, "Call specialist_task_status to observe progress. If the state remains stale, report that task state update failed.")
 	}
-	return &MessageResponse{TaskID: task.ID.String(), Status: "running", Message: "Message delivered to specialist task.", NextAction: "Call specialist_task_status to observe the specialist response or progress."}, nil
+	return &MessageResponse{TaskID: task.ID.String(), Status: "running", Message: "Message delivered to specialist task.", NextAction: "Call specialist_task_status to observe progress, or specialist_task_timeline with pagination for detailed history. " + specialistFilesystemReminder}, nil
 }
 
 func (s *Service) Terminate(ctx context.Context, token *model.Token, taskID uuid.UUID, reason string) (*MessageResponse, *ToolError) {

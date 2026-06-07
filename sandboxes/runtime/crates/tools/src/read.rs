@@ -65,6 +65,7 @@ impl ReadTool {
     }
 
     async fn execute(&self, args: Value) -> Result<Value> {
+        let args = normalize_numeric_string_fields(args, &["offset", "limit"])?;
         let parsed: ReadArgs =
             serde_json::from_value(args).map_err(|e| anyhow!("invalid arguments: {e}"))?;
         let resolved =
@@ -178,6 +179,26 @@ fn map_path_error(error: PathPolicyError) -> anyhow::Error {
     anyhow!(error.to_string())
 }
 
+fn normalize_numeric_string_fields(mut args: Value, fields: &[&str]) -> Result<Value> {
+    let Some(obj) = args.as_object_mut() else {
+        return Ok(args);
+    };
+    for field in fields {
+        let Some(value) = obj.get_mut(*field) else {
+            continue;
+        };
+        let Some(raw) = value.as_str() else {
+            continue;
+        };
+        let trimmed = raw.trim();
+        let parsed = trimmed.parse::<usize>().map_err(|_| {
+            anyhow!("invalid arguments: {field} must be a number, got string {raw:?}")
+        })?;
+        *value = json!(parsed);
+    }
+    Ok(args)
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -219,5 +240,78 @@ mod tests {
 
         assert_eq!(result["content"], "hello from tmp");
         let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn read_file_accepts_numeric_string_offset_and_limit() {
+        let dir = unique_tmp_dir("hivy-read-file-range-test");
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        let path = dir.join("notes.txt");
+        tokio::fs::write(&path, "one\ntwo\nthree\nfour\n")
+            .await
+            .unwrap();
+        let tool = super::ReadTool::new(
+            ReadFileConfig {
+                allowed_roots: Vec::new(),
+                max_file_size_bytes: 1024,
+                deny_globs: Vec::new(),
+            },
+            std::env::current_dir().unwrap(),
+            Arc::new(LocalFsOperations),
+        );
+
+        let result = tool
+            .execute(serde_json::json!({
+                "path": path.display().to_string(),
+                "offset": "2",
+                "limit": "2",
+            }))
+            .await
+            .expect("numeric strings should parse");
+
+        assert_eq!(result["content"], "two\nthree\n");
+        assert_eq!(result["offset"], 2);
+        assert_eq!(result["limit"], 2);
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn read_file_rejects_non_numeric_string_limit() {
+        let dir = unique_tmp_dir("hivy-read-file-bad-limit-test");
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        let path = dir.join("notes.txt");
+        tokio::fs::write(&path, "one\n").await.unwrap();
+        let tool = super::ReadTool::new(
+            ReadFileConfig {
+                allowed_roots: Vec::new(),
+                max_file_size_bytes: 1024,
+                deny_globs: Vec::new(),
+            },
+            std::env::current_dir().unwrap(),
+            Arc::new(LocalFsOperations),
+        );
+
+        let err = tool
+            .execute(serde_json::json!({
+                "path": path.display().to_string(),
+                "limit": "abc",
+            }))
+            .await
+            .expect_err("non-numeric limit should fail");
+
+        assert!(err.to_string().contains("limit must be a number"));
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    fn unique_tmp_dir(prefix: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from("/tmp").join(format!(
+            "{}-{}-{}",
+            prefix,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
     }
 }

@@ -330,7 +330,7 @@ impl HttpGatewayState {
             .conversation_id
             .clone()
             .unwrap_or_else(|| stream_id.clone());
-        let session_id = SessionId::from(format!("http-{conversation_id}"));
+        let session_id = http_session_id_for_conversation(&conversation_id);
         self.broker
             .register_session(session_id.as_str(), &stream_id)
             .await;
@@ -385,6 +385,14 @@ impl HttpGatewayState {
     }
 }
 
+fn http_session_id_for_conversation(conversation_id: &str) -> SessionId {
+    if conversation_id.starts_with("http-") {
+        SessionId::from(conversation_id.to_string())
+    } else {
+        SessionId::from(format!("http-{conversation_id}"))
+    }
+}
+
 pub async fn stream_response(
     broker: Arc<HttpStreamBroker>,
     stream_id: String,
@@ -432,6 +440,18 @@ fn default_http_user() -> String {
 mod tests {
     use super::*;
     use tokio::sync::mpsc;
+
+    #[test]
+    fn http_session_id_for_conversation_is_idempotent() {
+        assert_eq!(
+            http_session_id_for_conversation("gateway-conversation").as_str(),
+            "http-gateway-conversation"
+        );
+        assert_eq!(
+            http_session_id_for_conversation("http-gateway-conversation").as_str(),
+            "http-gateway-conversation"
+        );
+    }
 
     #[tokio::test]
     async fn inject_message_creates_inbound_event_and_stream_mapping() {
