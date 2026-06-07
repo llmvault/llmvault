@@ -51,7 +51,7 @@ func (*captureTransport) Close()                                {}
 type testUserKey struct{}
 type testOrgKey struct{}
 
-func TestSentryClientOptions_DisablesClientReports(t *testing.T) {
+func TestSentryClientOptions_DisablesUnsupportedGlitchTipTelemetry(t *testing.T) {
 	cfg := &config.Config{
 		SentryDSN:              "https://public@example.com/1",
 		SentryTracesSampleRate: 0.25,
@@ -59,14 +59,17 @@ func TestSentryClientOptions_DisablesClientReports(t *testing.T) {
 
 	options := sentryClientOptions(cfg, "production", "release-abc", "host-xyz")
 
+	if options.EnableTracing {
+		t.Fatal("EnableTracing = true, want false")
+	}
+	if options.TracesSampleRate != 0 {
+		t.Fatalf("TracesSampleRate = %v, want 0", options.TracesSampleRate)
+	}
 	if !options.DisableClientReports {
 		t.Fatal("DisableClientReports = false, want true")
 	}
 	if options.Dsn != cfg.SentryDSN {
 		t.Fatalf("Dsn = %q, want %q", options.Dsn, cfg.SentryDSN)
-	}
-	if options.TracesSampleRate != cfg.SentryTracesSampleRate {
-		t.Fatalf("TracesSampleRate = %v, want %v", options.TracesSampleRate, cfg.SentryTracesSampleRate)
 	}
 }
 
