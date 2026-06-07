@@ -9,6 +9,7 @@ import (
 	slacksdk "github.com/slack-go/slack"
 
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/slackgateway"
 )
 
 func firstNonEmpty(values ...string) string {
@@ -21,7 +22,7 @@ func firstNonEmpty(values ...string) string {
 }
 
 func (h *GatewaySlackHandler) finishSlackResponse(ctx context.Context, client slackGatewayClient, payload GatewaySlackPayload, text string, fields map[string]any) (string, string, error) {
-	messageTS, err := h.postThreadReply(ctx, client, payload.ChannelID, payload.ThreadTS, text, fields)
+	messageTS, err := slackgateway.PostThreadReply(ctx, client, payload.ChannelID, payload.ThreadTS, text, fields)
 	if err != nil {
 		return "", "", err
 	}
@@ -68,29 +69,6 @@ func (h *GatewaySlackHandler) clearStatus(ctx context.Context, client slackGatew
 		"channel_id", channelID,
 		"thread_ts", threadTS,
 	)
-}
-
-func (h *GatewaySlackHandler) postThreadReply(ctx context.Context, client slackGatewayClient, channelID, threadTS, text string, fields map[string]any) (string, error) {
-	_, messageTS, err := client.PostMessageContext(ctx, channelID,
-		slacksdk.MsgOptionText(text, false),
-		slacksdk.MsgOptionBlocks(slacksdk.NewMarkdownBlock("", text)),
-		slacksdk.MsgOptionTS(threadTS),
-	)
-	if err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("gateway slack: post thread reply: %w", err), fields)
-		logging.FromContext(ctx).WarnContext(ctx, "gateway slack: post thread reply failed",
-			"channel_id", channelID,
-			"thread_ts", threadTS,
-			"error", err,
-		)
-		return "", err
-	}
-	logging.FromContext(ctx).InfoContext(ctx, "gateway slack: post thread reply sent",
-		"channel_id", channelID,
-		"thread_ts", threadTS,
-		"message_ts", messageTS,
-	)
-	return messageTS, nil
 }
 
 func parseUUID(s string) (uuid.UUID, error) {
