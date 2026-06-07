@@ -114,10 +114,20 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := attachEmployeeRequiredSkillsForAgent(r.Context(), tx, org.ID, employee); err != nil {
 			return err
 		}
+		conn.Integration = integ
+		if err := h.ensureGitHubEmployeeTriggers(r.Context(), tx, org.ID, conn, employee); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to create connection", "error", err, "org_id", org.ID, "user_id", user.ID, "integration_id", integ.ID)
+		logging.CaptureWithFields(r.Context(), fmt.Errorf("create connection: %w", err), map[string]any{
+			"org_id":         org.ID.String(),
+			"user_id":        user.ID.String(),
+			"integration_id": integ.ID.String(),
+			"provider":       integ.Provider,
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create connection"})
 		return
 	}

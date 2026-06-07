@@ -57,7 +57,7 @@ func TestEmployeeTriggerCompileMessage_UsesCatalogRefsAndOmitsRawPayload(t *test
 	}
 
 	compiled := (&EmployeeTriggerDispatchHandler{catalog: catalog.Global()}).
-		compileMessage(payload, trigger, raw)
+		compileMessage(payload, trigger, raw, triggerRecentSpecialistTasks{})
 
 	if compiled.ResourceKey != "github/usehivy/hivy/issue/42" {
 		t.Fatalf("resource key = %q", compiled.ResourceKey)
@@ -104,7 +104,7 @@ func TestEmployeeTriggerCompileMessage_HTTPIncludesSubmittedBody(t *testing.T) {
 	}
 
 	compiled := (&EmployeeTriggerDispatchHandler{catalog: catalog.Global()}).
-		compileMessage(EmployeeTriggerDispatchPayload{DeliveryID: "http-1"}, trigger, raw)
+		compileMessage(EmployeeTriggerDispatchPayload{DeliveryID: "http-1"}, trigger, raw, triggerRecentSpecialistTasks{})
 
 	if compiled.ResourceKey != "http-1" {
 		t.Fatalf("resource key = %q", compiled.ResourceKey)
