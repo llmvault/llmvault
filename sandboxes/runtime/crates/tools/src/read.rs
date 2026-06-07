@@ -10,17 +10,17 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::operations::ReadOperations;
-use crate::path::{build_glob_set, enforce_deny_globs, resolve_within_workspace, PathPolicyError};
+use crate::path::{build_glob_set, enforce_deny_globs, resolve_read_path, PathPolicyError};
 use crate::truncate::{truncate_head, TruncationReason, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES};
 use crate::{schema_for, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "read_file";
 const TOOL_DESCRIPTION: &str =
-    "Read the contents of a file in the workspace. Supports text files. \
+    "Read the contents of a file. Supports relative workspace paths and \
+     absolute process-readable paths, including /tmp. Supports text files. \
      Output is truncated to 2000 lines or 50KB, whichever comes first. Use \
      `offset` and `limit` for partial reads of large files. Returns an error \
-     if the path is outside the allowed workspace roots or matches a denied \
-     pattern.";
+     if the path matches a denied pattern.";
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ReadArgs {
@@ -67,12 +67,8 @@ impl ReadTool {
     async fn execute(&self, args: Value) -> Result<Value> {
         let parsed: ReadArgs =
             serde_json::from_value(args).map_err(|e| anyhow!("invalid arguments: {e}"))?;
-        let resolved = resolve_within_workspace(
-            &self.workspace_root,
-            &parsed.path,
-            &self.config.allowed_roots,
-        )
-        .map_err(map_path_error)?;
+        let resolved =
+            resolve_read_path(&self.workspace_root, &parsed.path).map_err(map_path_error)?;
         let deny_globs = build_glob_set(&self.config.deny_globs);
         enforce_deny_globs(&resolved, &deny_globs).map_err(map_path_error)?;
 
@@ -180,4 +176,48 @@ fn slice_for_offset_limit(
 
 fn map_path_error(error: PathPolicyError) -> anyhow::Error {
     anyhow!(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use domain::ReadFileConfig;
+
+    use crate::operations::LocalFsOperations;
+
+    #[tokio::test]
+    async fn read_file_allows_absolute_tmp_path() {
+        let unique = format!(
+            "hivy-read-file-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let dir = std::path::PathBuf::from("/tmp").join(unique);
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        let path = dir.join("README.md");
+        tokio::fs::write(&path, "hello from tmp").await.unwrap();
+
+        let tool = super::ReadTool::new(
+            ReadFileConfig {
+                allowed_roots: Vec::new(),
+                max_file_size_bytes: 1024,
+                deny_globs: Vec::new(),
+            },
+            std::env::current_dir().unwrap(),
+            Arc::new(LocalFsOperations),
+        );
+        let result = tool
+            .execute(serde_json::json!({
+                "path": path.display().to_string(),
+            }))
+            .await
+            .expect("tmp file should be readable");
+
+        assert_eq!(result["content"], "hello from tmp");
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
 }

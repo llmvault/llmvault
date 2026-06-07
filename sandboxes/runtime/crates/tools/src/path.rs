@@ -75,16 +75,55 @@ pub fn resolve_within_workspace(
     Ok(canonical)
 }
 
+pub fn resolve_read_path(workspace_root: &Path, raw: &str) -> Result<PathBuf, PathPolicyError> {
+    if raw.trim().is_empty() {
+        return Err(PathPolicyError::Empty);
+    }
+    let resolved = resolve_relative_to(workspace_root, raw);
+    Ok(canonicalize_best_effort(&resolved))
+}
+
+pub fn resolve_writable_path(
+    workspace_root: &Path,
+    raw: &str,
+    allowed_roots: &[String],
+) -> Result<PathBuf, PathPolicyError> {
+    let mut effective_roots = default_writable_roots(workspace_root);
+    effective_roots.extend(allowed_roots.iter().cloned());
+    resolve_within_workspace(workspace_root, raw, &effective_roots)
+}
+
+fn default_writable_roots(workspace_root: &Path) -> Vec<String> {
+    let mut roots = vec![
+        workspace_root.display().to_string(),
+        "/tmp".to_string(),
+        "/var/tmp".to_string(),
+    ];
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.trim().is_empty() {
+            roots.push(home);
+        }
+    }
+    roots
+}
+
 pub fn canonicalize_best_effort(path: &Path) -> PathBuf {
     if let Ok(canonical) = std::fs::canonicalize(path) {
         return canonical;
     }
-    if let Some(parent) = path.parent() {
+
+    let mut cursor = path;
+    while let Some(parent) = cursor.parent() {
         if let Ok(canonical_parent) = std::fs::canonicalize(parent) {
-            if let Some(file_name) = path.file_name() {
-                return canonical_parent.join(file_name);
+            if let Ok(remainder) = path.strip_prefix(parent) {
+                return canonical_parent.join(remainder);
             }
+            return canonical_parent;
         }
+        if parent == cursor {
+            break;
+        }
+        cursor = parent;
     }
     path.to_path_buf()
 }

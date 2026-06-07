@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use domain::BashConfig;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 
 use crate::operations::{BashExecOptions, BashOperations};
@@ -26,7 +26,7 @@ const TOOL_DESCRIPTION: &str =
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct BashArgs {
     pub command: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_timeout_seconds")]
     pub timeout_seconds: Option<u32>,
     #[serde(default)]
     pub run_in_background: bool,
@@ -200,6 +200,40 @@ fn resolve_workdir(workspace_root: &std::path::Path, configured: &str) -> PathBu
     }
 }
 
+fn deserialize_timeout_seconds<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    match value {
+        Value::Number(number) => number
+            .as_u64()
+            .and_then(|value| u32::try_from(value).ok())
+            .map(Some)
+            .ok_or_else(|| serde::de::Error::custom("timeout_seconds must be a u32")),
+        Value::String(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                return Err(serde::de::Error::custom(
+                    "timeout_seconds must be a numeric string",
+                ));
+            }
+            trimmed
+                .parse::<u32>()
+                .map(Some)
+                .map_err(|_| serde::de::Error::custom("timeout_seconds must be a numeric string"))
+        }
+        _ => Err(serde::de::Error::custom(
+            "timeout_seconds must be a number or numeric string",
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -210,7 +244,7 @@ mod tests {
 
     use crate::operations::{BashError, BashExecOptions, BashExecResult, BashOperations};
 
-    use super::BashConfig;
+    use super::{BashArgs, BashConfig};
 
     struct EchoEnvOperations {
         key: &'static str,
@@ -235,6 +269,72 @@ mod tests {
                 truncated: false,
             })
         }
+    }
+
+    #[test]
+    fn timeout_seconds_accepts_number() {
+        let parsed: BashArgs = serde_json::from_value(serde_json::json!({
+            "command": "echo ok",
+            "timeout_seconds": 30,
+        }))
+        .expect("numeric timeout should parse");
+
+        assert_eq!(parsed.timeout_seconds, Some(30));
+    }
+
+    #[test]
+    fn timeout_seconds_accepts_numeric_string() {
+        let parsed: BashArgs = serde_json::from_value(serde_json::json!({
+            "command": "echo ok",
+            "timeout_seconds": "30",
+        }))
+        .expect("numeric string timeout should parse");
+
+        assert_eq!(parsed.timeout_seconds, Some(30));
+    }
+
+    #[test]
+    fn timeout_seconds_rejects_non_numeric_string() {
+        let err = serde_json::from_value::<BashArgs>(serde_json::json!({
+            "command": "echo ok",
+            "timeout_seconds": "abc",
+        }))
+        .expect_err("non-numeric timeout should fail");
+
+        assert!(
+            err.to_string().contains("numeric string"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn destructive_deny_patterns_still_reject_commands() {
+        let tool = super::BashTool::new(
+            BashConfig {
+                workdir: ".".to_string(),
+                timeout_seconds: 1,
+                max_output_bytes: 1024,
+                deny_patterns: vec!["rm -rf /".to_string()],
+                env_passthrough: Vec::new(),
+                sandbox: "process_isolated".to_string(),
+            },
+            env::temp_dir(),
+            Arc::new(EchoEnvOperations { key: "UNUSED" }),
+            Arc::new(HashMap::new()),
+        );
+
+        let err = tool
+            .execute(serde_json::json!({
+                "command": "rm -rf /",
+                "timeout_seconds": "30",
+            }))
+            .await
+            .expect_err("destructive command should be rejected");
+
+        assert!(
+            err.to_string().contains("deny pattern"),
+            "unexpected error: {err}"
+        );
     }
 
     #[tokio::test]
