@@ -39,6 +39,7 @@ func newOrgUpdateHarness(t *testing.T) *orgUpdateHarness {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireOrgAdmin(db))
 			r.Patch("/current", orgHandler.Update)
+			mountOrgEnvTestRoutes(r, orgHandler)
 		})
 	})
 
@@ -61,6 +62,7 @@ func (h *orgUpdateHarness) createOrg(t *testing.T, role string) (model.Org, mode
 	}
 	t.Cleanup(func() {
 		h.db.Where("org_id = ?", org.ID).Delete(&ragmodel.RAGSource{})
+		h.db.Where("org_id = ?", org.ID).Delete(&model.Employee{})
 		h.db.Where("user_id = ?", user.ID).Delete(&model.OrgMembership{})
 		h.db.Where("id = ?", org.ID).Delete(&model.Org{})
 		h.db.Where("id = ?", user.ID).Delete(&model.User{})

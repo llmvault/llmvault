@@ -44,6 +44,27 @@ func TestEmployeeHandlerSyncOrgHivyEmployee_CreatesSandboxAndPushesConfig(t *tes
 	assertPushedProxyTokenMatchesMCPURL(t, h.sidecar.configBody(), h.sidecar.envBody())
 }
 
+func TestEmployeeHandlerSyncOrgHivyEmployee_PushesCustomOrgEnvironmentVariables(t *testing.T) {
+	h := newEmployeeHarness(t)
+	m := h.createOrg(t)
+	agent := h.seedEmployeeAgent(t, m)
+	h.setRuntimeEnvVars(t, agent.ID, map[string]string{
+		"HIVY_ORG_STRIPE_API_KEY": "sk_test_employee_sync",
+	})
+
+	if err := h.handler.SyncOrgHivyEmployee(t.Context(), m.org.ID); err != nil {
+		t.Fatalf("SyncOrgHivyEmployee: %v", err)
+	}
+
+	var env map[string]string
+	if err := json.Unmarshal(h.sidecar.envBody(), &env); err != nil {
+		t.Fatalf("decode runtime env: %v", err)
+	}
+	if env["HIVY_ORG_STRIPE_API_KEY"] != "sk_test_employee_sync" {
+		t.Fatalf("runtime env HIVY_ORG_STRIPE_API_KEY = %q, want sk_test_employee_sync", env["HIVY_ORG_STRIPE_API_KEY"])
+	}
+}
+
 func assertPushedProxyTokenMatchesMCPURL(t *testing.T, configBody, envBody []byte) {
 	t.Helper()
 	var env map[string]string

@@ -69,6 +69,10 @@ func setupV1Routes(
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdmin(database))
 				r.Patch("/orgs/current", orgHandler.Update)
+				r.Get("/orgs/current/environment-variables", orgHandler.ListEnvironmentVariables)
+				r.Post("/orgs/current/environment-variables", orgHandler.CreateEnvironmentVariable)
+				r.Patch("/orgs/current/environment-variables/{name}", orgHandler.UpdateEnvironmentVariable)
+				r.Delete("/orgs/current/environment-variables/{name}", orgHandler.DeleteEnvironmentVariable)
 				r.Post("/orgs/current/invites", orgInviteHandler.Create)
 				r.Get("/orgs/current/invites", orgInviteHandler.List)
 				r.Delete("/orgs/current/invites/{id}", orgInviteHandler.Revoke)

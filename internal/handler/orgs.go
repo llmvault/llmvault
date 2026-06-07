@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -21,6 +22,7 @@ type OrgHandler struct {
 	db             *gorm.DB
 	enq            enqueue.TaskEnqueuer
 	employeeSyncer OrgEmployeeSyncer
+	envEncKey      *crypto.SymmetricKey
 	memoryBanks    memoryBankProvisioner
 }
 
@@ -34,6 +36,10 @@ type OrgEmployeeSyncer interface {
 
 func (h *OrgHandler) SetEmployeeSyncer(syncer OrgEmployeeSyncer) {
 	h.employeeSyncer = syncer
+}
+
+func (h *OrgHandler) SetEnvironmentEncryptionKey(key *crypto.SymmetricKey) {
+	h.envEncKey = key
 }
 
 func (h *OrgHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {

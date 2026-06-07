@@ -589,6 +589,13 @@ definitions:
       provider:
         type: string
     type: object
+  createOrgEnvironmentVariableRequest:
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+    type: object
   createOrgInviteRequest:
     properties:
       email:
@@ -1437,6 +1444,20 @@ definitions:
         type: boolean
       tool_call:
         type: boolean
+    type: object
+  orgEnvironmentVariableResponse:
+    properties:
+      env_key:
+        type: string
+      name:
+        type: string
+    type: object
+  orgEnvironmentVariablesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/orgEnvironmentVariableResponse'
+        type: array
     type: object
   orgInviteAcceptResponse:
     properties:
@@ -2720,6 +2741,13 @@ definitions:
       name:
         type: string
       provider:
+        type: string
+    type: object
+  updateOrgEnvironmentVariableRequest:
+    properties:
+      name:
+        type: string
+      value:
         type: string
     type: object
   updateOrgRequest:
@@ -6139,6 +6167,152 @@ paths:
       security:
       - BearerAuth: []
       summary: Update current organization
+      tags:
+      - orgs
+  /v1/orgs/current/environment-variables:
+    get:
+      description: Lists custom environment variables stored on the Hivy employee.
+        Values are not returned.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/orgEnvironmentVariablesResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization environment variables
+      tags:
+      - orgs
+    post:
+      consumes:
+      - application/json
+      description: Stores a custom environment variable on the Hivy employee. It is
+        pushed to employee and specialist sandboxes as HIVY_ORG_<NAME>.
+      parameters:
+      - description: Environment variable
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createOrgEnvironmentVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/orgEnvironmentVariableResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an organization environment variable
+      tags:
+      - orgs
+  /v1/orgs/current/environment-variables/{name}:
+    delete:
+      description: Removes a custom environment variable from the Hivy employee.
+      parameters:
+      - description: Environment variable name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete an organization environment variable
+      tags:
+      - orgs
+    patch:
+      consumes:
+      - application/json
+      description: Renames and/or updates a custom environment variable stored on
+        the Hivy employee.
+      parameters:
+      - description: Environment variable name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Fields to patch
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateOrgEnvironmentVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/orgEnvironmentVariableResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an organization environment variable
       tags:
       - orgs
   /v1/orgs/current/invites:
