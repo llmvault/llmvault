@@ -32,19 +32,13 @@ func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.
 		employeeruntime.EmployeeEnvRuntimeMode:              "employee",
 		employeeruntime.EmployeeEnvSandboxID:                sb.ID.String(),
 		employeeruntime.EmployeeEnvOrgID:                    orgID.String(),
-		employeeruntime.EmployeeEnvGitUsername:              employeeGitUsername(agent, gitIdentity),
-		employeeruntime.EmployeeEnvGitEmail:                 employeeGitEmail(agent, gitIdentity),
-		employeeruntime.EmployeeEnvGitCredentialsURL:        fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID),
-		employeeruntime.EmployeeEnvGitHubNoKeyring:          "1",
-		employeeruntime.EmployeeEnvBugsinkDashboardBaseURL:  bugsinkDashboardURL,
 	}
-	employeeruntime.ApplyServiceProxyEnv(envVars, controlPlaneBaseURL, agent.ID, runtimeSecret)
-	setEmployeeDriveUploadURL(envVars, cfg, agent.ID)
-	employeeSentryDSN := ""
-	if cfg != nil {
-		employeeSentryDSN = cfg.AgentSandboxSentryDSN
+	opts := employeeruntime.ControlPlaneRuntimeEnvOptions{
+		GitUsername:             employeeGitUsername(agent, gitIdentity),
+		GitEmail:                employeeGitEmail(agent, gitIdentity),
+		BugsinkDashboardBaseURL: bugsinkDashboardURL,
 	}
-	setSandboxSentryEnvVars(envVars, cfg, employeeSentryDSN)
+	employeeruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, runtimeSecret, opts)
 	return envVars
 }
 

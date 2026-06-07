@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -68,8 +69,8 @@ func setGitIdentityEnvVars(envVars map[string]string, agent *model.Employee, ide
 	if agent == nil {
 		return
 	}
-	envVars["HIVY_GIT_USERNAME"] = employeeGitUsername(agent, identity)
-	envVars["HIVY_GIT_EMAIL"] = employeeGitEmail(agent, identity)
+	envVars[employeeruntime.EmployeeEnvGitUsername] = employeeGitUsername(agent, identity)
+	envVars[employeeruntime.EmployeeEnvGitEmail] = employeeGitEmail(agent, identity)
 }
 
 func employeeGitUsername(agent *model.Employee, identity *employeeGitIdentity) string {
@@ -87,15 +88,9 @@ func employeeGitEmail(agent *model.Employee, identity *employeeGitIdentity) stri
 }
 
 func fallbackGitUsername(agent *model.Employee) string {
-	if agent == nil {
-		return "agent"
-	}
-	if username := sanitizeName(agent.Name); username != "" {
-		return username
-	}
-	return "hivy"
+	return employeeruntime.EmployeeGitUsername(agent)
 }
 
 func fallbackGitEmail(agent *model.Employee) string {
-	return fallbackGitUsername(agent) + "@users.noreply.github.com"
+	return employeeruntime.EmployeeGitEmail(agent)
 }
