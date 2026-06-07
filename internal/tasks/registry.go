@@ -130,6 +130,8 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	if deps.Orchestrator != nil && deps.EmployeeCompile.EncKey != nil {
 		mux.HandleFunc(TypeEmployeeTriggerDispatch,
 			NewEmployeeTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile, deps.Enqueuer).Handle)
+		mux.HandleFunc(TypeEmployeeGitHubResourcesClone,
+			NewEmployeeGitHubResourcesCloneHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile).Handle)
 	}
 	mux.HandleFunc(TypeEmployeeTriggerStoreDelivery, NewEmployeeTriggerStoreDeliveryHandler(deps.DB).Handle)
 

@@ -802,6 +802,17 @@ definitions:
       value:
         type: string
     type: object
+  employeeConnectionResourceSelection:
+    properties:
+      full_name:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
   employeeListItem:
     properties:
       attached_skills:
@@ -826,6 +837,8 @@ definitions:
         type: string
       name:
         type: string
+      resources:
+        $ref: '#/definitions/JSON'
       sandbox:
         $ref: '#/definitions/employeeSandboxSummary'
       sandbox_template_id:
@@ -873,6 +886,8 @@ definitions:
         type: string
       name:
         type: string
+      resources:
+        $ref: '#/definitions/JSON'
       sandbox_template_id:
         type: string
       specialist_ids:
@@ -2656,6 +2671,26 @@ definitions:
     properties:
       bundle:
         $ref: '#/definitions/Bundle'
+    type: object
+  updateEmployeeConnectionResourcesRequest:
+    properties:
+      resources:
+        additionalProperties:
+          items:
+            $ref: '#/definitions/employeeConnectionResourceSelection'
+          type: array
+        type: object
+    type: object
+  updateEmployeeConnectionResourcesResponse:
+    properties:
+      clone_queued:
+        type: boolean
+      connection_id:
+        type: string
+      employee_id:
+        type: string
+      resources:
+        $ref: '#/definitions/JSON'
     type: object
   updateEmployeeModelRequest:
     properties:
@@ -4861,6 +4896,61 @@ paths:
       security:
       - BearerAuth: []
       summary: Get an AI employee
+      tags:
+      - employees
+  /v1/employees/{id}/connections/{connectionID}/resources:
+    put:
+      consumes:
+      - application/json
+      description: Saves provider resources such as selected GitHub repositories on
+        the employee, then queues provider-specific reconciliation when needed.
+      parameters:
+      - description: Employee UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Connection UUID
+        in: path
+        name: connectionID
+        required: true
+        type: string
+      - description: Selected resources grouped by resource type
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateEmployeeConnectionResourcesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/updateEmployeeConnectionResourcesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Save selected connection resources for an employee
       tags:
       - employees
   /v1/employees/{id}/gateway-routes:

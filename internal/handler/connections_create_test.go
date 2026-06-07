@@ -294,7 +294,10 @@ func TestConnectionHandler_Create_WithMeta(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{
 		"nango_connection_id": "nango-conn-meta",
-		"meta":                map[string]any{"resources": map[string]any{"repos": []string{"hivy"}}},
+		"meta": map[string]any{
+			"label":     "docs connection",
+			"resources": map[string]any{"repos": []string{"hivy"}},
+		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integ.ID.String()+"/connections", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -310,7 +313,10 @@ func TestConnectionHandler_Create_WithMeta(t *testing.T) {
 	var resp map[string]any
 	_ = json.NewDecoder(rr.Body).Decode(&resp)
 	meta, ok := resp["meta"].(map[string]any)
-	if !ok || meta["resources"] == nil {
-		t.Fatalf("expected meta.resources to be set, got %v", resp["meta"])
+	if !ok || meta["label"] != "docs connection" {
+		t.Fatalf("expected regular metadata to be preserved, got %v", resp["meta"])
+	}
+	if meta["resources"] != nil {
+		t.Fatalf("expected meta.resources to be stripped, got %v", resp["meta"])
 	}
 }

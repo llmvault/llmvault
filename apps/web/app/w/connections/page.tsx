@@ -5,17 +5,20 @@ import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  Alert02Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
   MoreHorizontalIcon,
   Plug01Icon,
   RefreshIcon,
   Search01Icon,
+  Settings05Icon,
 } from "@hugeicons/core-free-icons"
 import {
   DatabaseConnectionDialog,
   type DatabaseProvider,
 } from "@/app/w/connections/_components/database-connection-dialog"
+import { ResourceSelectionDialog } from "@/app/w/connections/_components/resource-selection-dialog"
 import { CredentialsForm } from "@/app/w/connections/_components/credentials-form"
 import { useConnectIntegration } from "@/app/w/connections/_hooks/use-connect-integration"
 import { useReconnectIntegration } from "@/app/w/connections/_hooks/use-reconnect-integration"
@@ -40,6 +43,7 @@ type Integration = components["schemas"]["integrationAvailableResponse"]
 type Connection = components["schemas"]["connectionResponse"]
 type ConnectionConfigField = components["schemas"]["ConnectionConfigField"]
 type DatabaseConnection = components["schemas"]["databaseConnectionResponse"]
+type Employee = components["schemas"]["employeeListItem"]
 
 interface DatabaseCatalogItem {
   provider: DatabaseProvider
@@ -68,6 +72,7 @@ const DATABASE_CATALOG: DatabaseCatalogItem[] = [
 const EMPTY_INTEGRATIONS: Integration[] = []
 const EMPTY_CONNECTIONS: Connection[] = []
 const EMPTY_DATABASE_CONNECTIONS: DatabaseConnection[] = []
+const EMPTY_EMPLOYEES: Employee[] = []
 
 interface ConnectOptions {
   credentials?: Record<string, string>
@@ -112,6 +117,29 @@ function databaseConnectionComplete(connection: DatabaseConnection | undefined) 
   return Array.isArray(policy.allowed_tables) && policy.allowed_tables.length > 0
 }
 
+function requiresResources(connection: Connection | undefined) {
+  return (connection?.configurable_resources?.length ?? 0) > 0
+}
+
+function connectionResourcesConfigured(
+  employee: Employee | undefined,
+  connection: Connection | undefined
+) {
+  if (!connection || !requiresResources(connection)) return true
+  if (!employee || !connection.id) return false
+  const resources = (employee as Employee & { resources?: Record<string, unknown> })
+    .resources
+  const configured = resources?.[connection.id]
+  if (!configured || typeof configured !== "object") return false
+
+  return connection.configurable_resources?.every((resource) => {
+    const key = resource.key
+    if (!key) return true
+    const values = (configured as Record<string, unknown>)[key]
+    return Array.isArray(values) && values.length > 0
+  }) ?? true
+}
+
 export default function ConnectionsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
@@ -123,6 +151,8 @@ export default function ConnectionsPage() {
   const [disconnecting, setDisconnecting] = useState<Connection | null>(null)
   const [disconnectingDatabase, setDisconnectingDatabase] =
     useState<DatabaseConnection | null>(null)
+  const [resourceConnection, setResourceConnection] =
+    useState<Connection | null>(null)
 
   const integrationsQuery = $api.useQuery(
     "get",
@@ -133,6 +163,9 @@ export default function ConnectionsPage() {
     "get",
     "/v1/database-integrations"
   )
+  const employeesQuery = $api.useQuery("get", "/v1/employees", {
+    params: { query: { limit: 1 } },
+  })
   const deleteConnection = $api.useMutation("delete", "/v1/connections/{id}")
   const deleteDatabaseConnection = $api.useMutation(
     "delete",
@@ -145,6 +178,8 @@ export default function ConnectionsPage() {
   const connections = connectionsQuery.data?.data ?? EMPTY_CONNECTIONS
   const databaseConnections =
     databaseConnectionsQuery.data ?? EMPTY_DATABASE_CONNECTIONS
+  const employees = employeesQuery.data?.data ?? EMPTY_EMPLOYEES
+  const employee = employees[0]
 
   const connectionsByIntegrationId = useMemo(() => {
     const map = new Map<string, Connection>()
@@ -193,13 +228,19 @@ export default function ConnectionsPage() {
   const isLoading =
     integrationsQuery.isLoading ||
     connectionsQuery.isLoading ||
-    databaseConnectionsQuery.isLoading
+    databaseConnectionsQuery.isLoading ||
+    employeesQuery.isLoading
 
   function handleConnect(integration: Integration, options?: ConnectOptions) {
     if (!integration.id) return
     connect(integration.id, {
       ...options,
-      onSuccess: () => setFormIntegration(null),
+      onSuccess: (connection) => {
+        setFormIntegration(null)
+        if (requiresResources(connection)) {
+          setResourceConnection(connection)
+        }
+      },
     })
   }
 
@@ -408,6 +449,11 @@ export default function ConnectionsPage() {
               ? connectionsByIntegrationId.get(integration.id)
               : undefined
             const isConnected = Boolean(connection)
+            const isResourcesConfigured = connectionResourcesConfigured(
+              employee,
+              connection
+            )
+            const needsResourceSetup = isConnected && !isResourcesConfigured
             const isConnecting = connectingId === integration.id
             const isReconnecting = reconnectingId === connection?.id
             const isBusy = isConnecting || isReconnecting
@@ -443,13 +489,26 @@ export default function ConnectionsPage() {
                       {label}
                     </h2>
                     {isConnected ? (
-                      <HugeiconsIcon
-                        icon={CheckmarkCircle02Icon}
-                        className="size-4 ml-2 shrink-0 text-emerald-600"
-                        aria-label="Connected"
-                      />
+                      needsResourceSetup ? (
+                        <HugeiconsIcon
+                          icon={Alert02Icon}
+                          className="ml-2 size-4 shrink-0 text-amber-600"
+                          aria-label="Resources needed"
+                        />
+                      ) : (
+                        <HugeiconsIcon
+                          icon={CheckmarkCircle02Icon}
+                          className="ml-2 size-4 shrink-0 text-emerald-600"
+                          aria-label="Connected"
+                        />
+                      )
                     ) : null}
                   </div>
+                  {needsResourceSetup ? (
+                    <p className="mt-0.5 truncate text-xs text-amber-700 dark:text-amber-400">
+                      Select resources to finish setup
+                    </p>
+                  ) : null}
                 </div>
 
                 {isConnected ? (
@@ -465,6 +524,20 @@ export default function ConnectionsPage() {
                       />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" sideOffset={6}>
+                      {requiresResources(connection) ? (
+                        <DropdownMenuItem
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            if (connection) setResourceConnection(connection)
+                          }}
+                        >
+                          <HugeiconsIcon
+                            icon={Settings05Icon}
+                            className="size-4 text-muted-foreground"
+                          />
+                          Resources
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem
                         disabled={isReconnecting}
                         onClick={(event) => {
@@ -536,6 +609,23 @@ export default function ConnectionsPage() {
               onSubmit={handleFormSubmit}
               onBack={() => setFormIntegration(null)}
               isSubmitting={connectingId === formIntegration.id}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={resourceConnection !== null}
+        onOpenChange={(open) => {
+          if (!open) setResourceConnection(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          {resourceConnection ? (
+            <ResourceSelectionDialog
+              connection={resourceConnection}
+              employee={employee}
+              onDone={() => setResourceConnection(null)}
             />
           ) : null}
         </DialogContent>

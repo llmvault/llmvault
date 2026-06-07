@@ -80,6 +80,7 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if meta == nil {
 		meta = model.JSON{}
 	}
+	delete(meta, "resources")
 	if integ.Provider == "bugsink" {
 		nangoResp, err := h.nango.GetConnection(r.Context(), req.NangoConnectionID, nangoProviderConfigKey(integ.UniqueKey))
 		if err != nil {

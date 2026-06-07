@@ -3751,6 +3751,113 @@
         }
       }
     },
+    "/v1/employees/{id}/connections/{connectionID}/resources": {
+      "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Saves provider resources such as selected GitHub repositories on the employee, then queues provider-specific reconciliation when needed.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Save selected connection resources for an employee",
+        "parameters": [
+          {
+            "description": "Employee UUID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Connection UUID",
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateEmployeeConnectionResourcesRequest"
+              }
+            }
+          },
+          "description": "Selected resources grouped by resource type",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/updateEmployeeConnectionResourcesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/employees/{id}/gateway-routes": {
       "get": {
         "security": [
@@ -10067,6 +10174,23 @@
           }
         }
       },
+      "employeeConnectionResourceSelection": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
       "employeeListItem": {
         "type": "object",
         "properties": {
@@ -10102,6 +10226,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/JSON"
           },
           "sandbox": {
             "$ref": "#/components/schemas/employeeSandboxSummary"
@@ -10173,6 +10300,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/JSON"
           },
           "sandbox_template_id": {
             "type": "string"
@@ -12894,6 +13024,37 @@
         "properties": {
           "bundle": {
             "$ref": "#/components/schemas/Bundle"
+          }
+        }
+      },
+      "updateEmployeeConnectionResourcesRequest": {
+        "type": "object",
+        "properties": {
+          "resources": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/employeeConnectionResourceSelection"
+              }
+            }
+          }
+        }
+      },
+      "updateEmployeeConnectionResourcesResponse": {
+        "type": "object",
+        "properties": {
+          "clone_queued": {
+            "type": "boolean"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "employee_id": {
+            "type": "string"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/JSON"
           }
         }
       },

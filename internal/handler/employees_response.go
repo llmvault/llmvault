@@ -57,6 +57,7 @@ type employeeResponse struct {
 	MemoryRefreshStatus   string                    `json:"memory_refresh_status,omitempty"`
 	MemoryRefreshError    string                    `json:"memory_refresh_error,omitempty"`
 	SpecialistIDs         []string                  `json:"specialist_ids,omitempty"`
+	Resources             model.JSON                `json:"resources"`
 	Triggers              []employeeTriggerResponse `json:"triggers"`
 	AttachedSkills        []employeeSkillSummary    `json:"attached_skills"`
 	CreatedAt             string                    `json:"created_at"`
@@ -73,6 +74,7 @@ func toEmployeeResponse(a model.Employee) employeeResponse {
 		AvatarURL:           &avatarURL,
 		Model:               a.Model,
 		Status:              a.Status,
+		Resources:           a.Resources,
 		MemoryRefreshStatus: a.MemoryRefreshStatus,
 		MemoryRefreshError:  a.MemoryRefreshError,
 		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
