@@ -3939,6 +3939,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employees/{id}/connections/{connectionID}/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save selected connection resources for an employee
+         * @description Saves provider resources such as selected GitHub repositories on the employee, then queues provider-specific reconciliation when needed.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee UUID */
+                    id: string;
+                    /** @description Connection UUID */
+                    connectionID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Selected resources grouped by resource type */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateEmployeeConnectionResourcesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["updateEmployeeConnectionResourcesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employees/{id}/gateway-routes": {
         parameters: {
             query?: never;
@@ -9117,6 +9211,12 @@ export interface components {
             type?: string;
             value?: string;
         };
+        employeeConnectionResourceSelection: {
+            full_name?: string;
+            id?: string;
+            name?: string;
+            type?: string;
+        };
         employeeListItem: {
             attached_skills?: components["schemas"]["employeeSkillSummary"][];
             avatar_url?: string;
@@ -9128,6 +9228,7 @@ export interface components {
             memory_refresh_status?: string;
             model?: string;
             name?: string;
+            resources?: components["schemas"]["JSON"];
             sandbox?: components["schemas"]["employeeSandboxSummary"];
             sandbox_template_id?: string;
             specialist_ids?: string[];
@@ -9148,6 +9249,7 @@ export interface components {
             memory_refresh_status?: string;
             model?: string;
             name?: string;
+            resources?: components["schemas"]["JSON"];
             sandbox_template_id?: string;
             specialist_ids?: string[];
             status?: string;
@@ -10063,6 +10165,17 @@ export interface components {
         };
         updateContentRequest: {
             bundle?: components["schemas"]["Bundle"];
+        };
+        updateEmployeeConnectionResourcesRequest: {
+            resources?: {
+                [key: string]: components["schemas"]["employeeConnectionResourceSelection"][];
+            };
+        };
+        updateEmployeeConnectionResourcesResponse: {
+            clone_queued?: boolean;
+            connection_id?: string;
+            employee_id?: string;
+            resources?: components["schemas"]["JSON"];
         };
         updateEmployeeModelRequest: {
             model?: string;

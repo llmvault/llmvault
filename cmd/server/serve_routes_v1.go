@@ -180,6 +180,7 @@ func setupV1Routes(
 						r.Use(middleware.RequireOrgAdmin(database))
 						r.Patch("/employees/{id}/model", employeeHandler.UpdateModel)
 						r.Post("/employees/{id}/sync", employeeHandler.Sync)
+						r.Put("/employees/{id}/connections/{connectionID}/resources", employeeHandler.UpdateConnectionResources)
 						r.Post("/employees/{id}/sandbox/reboot", employeeHandler.RebootSandbox)
 						r.Post("/employees/{id}/sandbox/upgrade", employeeHandler.StartSandboxUpgrade)
 						r.Get("/employees/{id}/sandbox/upgrades/{upgradeID}", employeeHandler.GetSandboxUpgrade)

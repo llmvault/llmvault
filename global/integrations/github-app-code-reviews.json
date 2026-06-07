@@ -12,7 +12,6 @@
     "type": "APP",
     "app_id_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_ID",
     "app_link_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_LINK",
-    "private_key_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_PRIVATE_KEY",
-    "webhook_secret_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_WEBHOOK_SECRET"
+    "private_key_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_PRIVATE_KEY"
   }
 }

@@ -3116,6 +3116,89 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/employees/{id}/connections/{connectionID}/resources": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves provider resources such as selected GitHub repositories on the employee, then queues provider-specific reconciliation when needed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Save selected connection resources for an employee",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Employee UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Connection UUID",
+                        "name": "connectionID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Selected resources grouped by resource type",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateEmployeeConnectionResourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/updateEmployeeConnectionResourcesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/employees/{id}/gateway-routes": {
             "get": {
                 "security": [
@@ -8499,6 +8582,23 @@ const docTemplate = `{
                 }
             }
         },
+        "employeeConnectionResourceSelection": {
+            "type": "object",
+            "properties": {
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "employeeListItem": {
             "type": "object",
             "properties": {
@@ -8534,6 +8634,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "resources": {
+                    "$ref": "#/definitions/JSON"
                 },
                 "sandbox": {
                     "$ref": "#/definitions/employeeSandboxSummary"
@@ -8605,6 +8708,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "resources": {
+                    "$ref": "#/definitions/JSON"
                 },
                 "sandbox_template_id": {
                     "type": "string"
@@ -11326,6 +11432,37 @@ const docTemplate = `{
             "properties": {
                 "bundle": {
                     "$ref": "#/definitions/Bundle"
+                }
+            }
+        },
+        "updateEmployeeConnectionResourcesRequest": {
+            "type": "object",
+            "properties": {
+                "resources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/employeeConnectionResourceSelection"
+                        }
+                    }
+                }
+            }
+        },
+        "updateEmployeeConnectionResourcesResponse": {
+            "type": "object",
+            "properties": {
+                "clone_queued": {
+                    "type": "boolean"
+                },
+                "connection_id": {
+                    "type": "string"
+                },
+                "employee_id": {
+                    "type": "string"
+                },
+                "resources": {
+                    "$ref": "#/definitions/JSON"
                 }
             }
         },

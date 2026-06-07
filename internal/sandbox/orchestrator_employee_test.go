@@ -48,13 +48,20 @@ func TestCreateEmployeeSandbox_ClonesSelectedGitHubProfileRepositories(t *testin
 	}
 	t.Cleanup(func() { db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}) })
 
-	want := []string{
-		"mkdir -p /workspace/repos",
-		"git clone --depth=1 https://github.com/octo-org/api.git /workspace/repos/api",
-		"git clone --depth=1 https://github.com/octo-org/web.git /workspace/repos/web",
+	if len(commands) != 3 {
+		t.Fatalf("commands = %#v, want mkdir plus two repository clone commands", commands)
 	}
-	if !reflect.DeepEqual(commands, want) {
-		t.Fatalf("commands = %#v, want %#v", commands, want)
+	if commands[0] != "mkdir -p '/workspace/repos'" {
+		t.Fatalf("mkdir command = %q, want quoted employee repo dir", commands[0])
+	}
+	wantFragments := []string{
+		"git clone --depth=1 'https://github.com/octo-org/api.git' '/workspace/repos/api'",
+		"git clone --depth=1 'https://github.com/octo-org/web.git' '/workspace/repos/web'",
+	}
+	for i, fragment := range wantFragments {
+		if !strings.Contains(commands[i+1], fragment) {
+			t.Fatalf("clone command %d = %q, want fragment %q", i+1, commands[i+1], fragment)
+		}
 	}
 	for _, command := range commands {
 		if strings.Contains(command, "123456") || strings.Contains(command, "789012") {
@@ -130,7 +137,7 @@ func TestCreateEmployeeSandbox_RepositoryCloneFailureMarksSandboxError(t *testin
 	}
 
 	provider.executeCommandFn = func(_ context.Context, _ string, command string) (string, error) {
-		if strings.HasPrefix(command, "git clone ") {
+		if strings.Contains(command, "git clone ") {
 			return "", errors.New("clone failed")
 		}
 		return "", nil

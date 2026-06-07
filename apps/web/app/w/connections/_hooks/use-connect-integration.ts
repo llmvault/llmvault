@@ -6,12 +6,15 @@ import Nango, { AuthError } from "@nangohq/frontend"
 import { toast } from "sonner"
 import { api } from "@/lib/api/client"
 import { extractErrorMessage } from "@/lib/api/error"
+import type { components } from "@/lib/api/schema"
 
 interface ConnectOptions {
   credentials?: Record<string, string>
   params?: Record<string, string>
   installation?: "outbound"
 }
+
+type Connection = components["schemas"]["connectionResponse"]
 
 export function useConnectIntegration() {
   const queryClient = useQueryClient()
@@ -55,7 +58,7 @@ export function useConnectIntegration() {
 
       if (connection.error) throw new Error("Failed to save connection")
 
-      return connection.data
+      return connection.data as Connection
     },
     onMutate: ({ integrationId }) => {
       setConnectingId(integrationId)
@@ -75,10 +78,12 @@ export function useConnectIntegration() {
 
   function connect(
     integrationId: string,
-    optionsOrOnSuccess?: ConnectOptions & { onSuccess?: () => void } | (() => void),
+    optionsOrOnSuccess?:
+      | (ConnectOptions & { onSuccess?: (connection: Connection) => void })
+      | ((connection: Connection) => void),
   ) {
     let options: ConnectOptions | undefined
-    let onSuccess: (() => void) | undefined
+    let onSuccess: ((connection: Connection) => void) | undefined
 
     if (typeof optionsOrOnSuccess === "function") {
       onSuccess = optionsOrOnSuccess
