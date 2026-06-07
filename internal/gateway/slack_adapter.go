@@ -7,16 +7,40 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	slacksdk "github.com/slack-go/slack"
+
+	"github.com/usehivy/hivy/internal/slackgateway"
 )
 
 const SlackProvider = "slack"
 
 var slackMentionRE = regexp.MustCompile(`<@[^>]+>`)
 
-type SlackAdapter struct{}
+type SlackAdapter struct {
+	sender SlackResponseSender
+}
 
-func NewSlackAdapter() *SlackAdapter {
-	return &SlackAdapter{}
+type SlackAdapterOption func(*SlackAdapter)
+
+type SlackResponseSender interface {
+	SendSlackResponse(context.Context, ProviderResponsePayload) ([]MessageHandle, error)
+}
+
+func NewSlackAdapter(opts ...SlackAdapterOption) *SlackAdapter {
+	adapter := &SlackAdapter{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(adapter)
+		}
+	}
+	return adapter
+}
+
+func WithSlackResponseSender(sender SlackResponseSender) SlackAdapterOption {
+	return func(adapter *SlackAdapter) {
+		adapter.sender = sender
+	}
 }
 
 func (a *SlackAdapter) Provider() string {
@@ -159,6 +183,7 @@ func (a *SlackAdapter) RenderResponse(_ context.Context, response AgentResponse)
 		return ProviderResponsePayload{}, fmt.Errorf("render slack response: text is required")
 	}
 	return ProviderResponsePayload{
+		Route:     response.Route,
 		Session:   response.EmployeeSession,
 		ChannelID: response.ChannelID,
 		ThreadID:  response.ThreadID,
@@ -166,8 +191,11 @@ func (a *SlackAdapter) RenderResponse(_ context.Context, response AgentResponse)
 	}, nil
 }
 
-func (a *SlackAdapter) SendResponse(_ context.Context, _ ProviderResponsePayload) ([]MessageHandle, error) {
-	return nil, fmt.Errorf("slack adapter SendResponse not implemented: use streaming path")
+func (a *SlackAdapter) SendResponse(ctx context.Context, payload ProviderResponsePayload) ([]MessageHandle, error) {
+	if a.sender == nil {
+		return nil, fmt.Errorf("slack adapter SendResponse not configured")
+	}
+	return a.sender.SendSlackResponse(ctx, payload)
 }
 
 func (a *SlackAdapter) ActionToken(raw map[string]any) string {
@@ -178,4 +206,90 @@ func (a *SlackAdapter) ActionToken(raw map[string]any) string {
 		return token
 	}
 	return ""
+}
+
+type slackNangoClient interface {
+	GetConnection(context.Context, string, string) (map[string]any, error)
+}
+
+type SlackNangoResponseSender struct {
+	nangoClient        slackNangoClient
+	slackClientFactory func(string) slackgateway.ThreadReplyClient
+}
+
+func NewSlackNangoResponseSender(nangoClient slackNangoClient) *SlackNangoResponseSender {
+	return &SlackNangoResponseSender{nangoClient: nangoClient}
+}
+
+func (s *SlackNangoResponseSender) SetSlackClientFactory(factory func(string) slackgateway.ThreadReplyClient) {
+	s.slackClientFactory = factory
+}
+
+func (s *SlackNangoResponseSender) SendSlackResponse(ctx context.Context, payload ProviderResponsePayload) ([]MessageHandle, error) {
+	if s == nil || s.nangoClient == nil {
+		return nil, fmt.Errorf("slack response sender not configured")
+	}
+	if strings.TrimSpace(payload.ChannelID) == "" {
+		return nil, fmt.Errorf("send slack response: channel_id is required")
+	}
+	if strings.TrimSpace(payload.ThreadID) == "" {
+		return nil, fmt.Errorf("send slack response: thread_id is required")
+	}
+	if strings.TrimSpace(payload.Text) == "" {
+		return nil, fmt.Errorf("send slack response: text is required")
+	}
+
+	connection := payload.Route.Connection
+	if connection == nil || strings.TrimSpace(connection.NangoConnectionID) == "" {
+		return nil, fmt.Errorf("send slack response: route connection is required")
+	}
+	providerKey := strings.TrimSpace(connection.Integration.UniqueKey)
+	if providerKey == "" {
+		providerKey = SlackProvider
+	}
+	botToken, err := s.loadBotToken(ctx, connection.NangoConnectionID, providerKey)
+	if err != nil {
+		return nil, err
+	}
+
+	messageTS, err := slackgateway.PostThreadReply(ctx, s.newSlackClient(botToken), payload.ChannelID, payload.ThreadID, payload.Text, map[string]any{
+		"connection_id": connection.ID.String(),
+		"org_id":        payload.Session.OrgID.String(),
+		"employee_id":   payload.Session.EmployeeID.String(),
+		"channel_id":    payload.ChannelID,
+		"thread_ts":     payload.ThreadID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []MessageHandle{{
+		ProviderMessageID: messageTS,
+		ChannelID:         payload.ChannelID,
+		ThreadID:          payload.ThreadID,
+		Raw: map[string]any{
+			"provider": SlackProvider,
+			"slack_ts": messageTS,
+		},
+	}}, nil
+}
+
+func (s *SlackNangoResponseSender) newSlackClient(botToken string) slackgateway.ThreadReplyClient {
+	if s.slackClientFactory != nil {
+		return s.slackClientFactory(botToken)
+	}
+	return slacksdk.New(botToken)
+}
+
+func (s *SlackNangoResponseSender) loadBotToken(ctx context.Context, nangoConnID, providerKey string) (string, error) {
+	nangoConn, err := s.nangoClient.GetConnection(ctx, nangoConnID, providerKey)
+	if err != nil {
+		return "", fmt.Errorf("load nango connection: %w", err)
+	}
+	creds, _ := nangoConn["credentials"].(map[string]any)
+	for _, key := range []string{"bot_token", "access_token"} {
+		if token, ok := creds[key].(string); ok && strings.TrimSpace(token) != "" {
+			return strings.TrimSpace(token), nil
+		}
+	}
+	return "", fmt.Errorf("no bot token in nango credentials")
 }

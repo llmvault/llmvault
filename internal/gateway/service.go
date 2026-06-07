@@ -219,10 +219,12 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 			return nil, fmt.Errorf("load gateway route or connection: %w", err)
 		}
 		route = model.EmployeeGatewayRoute{
-			ID:         uuid.Nil,
-			OrgID:      conn.OrgID,
-			EmployeeID: session.EmployeeID,
-			Provider:   conn.Integration.Provider,
+			ID:           uuid.Nil,
+			OrgID:        conn.OrgID,
+			EmployeeID:   session.EmployeeID,
+			ConnectionID: &conn.ID,
+			Connection:   conn,
+			Provider:     conn.Integration.Provider,
 		}
 	}
 	if RouteUsesExternalAdapter(route) {
@@ -269,6 +271,7 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 func (s *Service) loadRoute(ctx context.Context, id uuid.UUID) (model.EmployeeGatewayRoute, error) {
 	var route model.EmployeeGatewayRoute
 	if err := s.db.WithContext(ctx).
+		Preload("Connection.Integration").
 		Where("id = ? AND enabled = true AND revoked_at IS NULL", id).
 		First(&route).Error; err != nil {
 		return route, fmt.Errorf("load gateway route: %w", err)
