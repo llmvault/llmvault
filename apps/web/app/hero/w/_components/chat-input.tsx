@@ -25,17 +25,12 @@ interface ChatInputProps {
   channelName?: string
 }
 
-export function ChatInput({ channelName }: ChatInputProps) {
+export function ChatInput({ channelName: _channelName }: ChatInputProps) {
   return (
     <div className="h-screen w-full flex-1 p-2">
       <div className="h-full w-full">
-        <div className="mx-auto flex h-full w-full max-w-4xl flex-col items-center pt-48">
-          {channelName && (
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-lg font-medium">#{channelName}</span>
-            </div>
-          )}
-          <div className="flex w-full max-w-2xl justify-center p-4">
+        <div className="mx-auto flex h-full w-full flex-col items-center">
+          <div className="flex w-full justify-center">
             <div className="bg-surface flex min-h-36 w-full flex-col rounded-3xl shadow">
               <textarea
                 placeholder="Why is the production database crashing?"
