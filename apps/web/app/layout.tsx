@@ -1,16 +1,18 @@
 import type { Metadata } from "next"
+import { Bricolage_Grotesque } from "next/font/google"
+import "./hero.css"
+// import { QueryProvider } from "@/components/query-provider"
+// import { TooltipProvider } from "@/components/ui/tooltip"
+// import { Toaster } from "@/components/ui/sonner"
 
-import "./globals.css"
-import { QueryProvider } from "@/components/query-provider"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { Toaster } from "@/components/ui/sonner"
-
+const bricolage = Bricolage_Grotesque({})
 export const metadata: Metadata = {
   title: {
     default: "Hivy",
     template: "%s — Hivy",
   },
-  description: "Hire AI employees for your team. Autonomous agents that learn, understand your organization, and take initiative.",
+  description:
+    "Hire AI employees for your team. Autonomous agents that learn, understand your organization, and take initiative.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "48x48" },
@@ -28,15 +30,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html
-      lang="en"
-      className="antialiased font-sans"
-    >
-      <body>
-        <QueryProvider>
+    <html lang="en" className="bg-background font-sans antialiased">
+      <body
+        className={bricolage.className}
+        // style={{ "--font-bricolage": bricolage.style.fontFamily }}
+      >
+        {children}
+        {/* <QueryProvider>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="top-center" />
-        </QueryProvider>
+        </QueryProvider> */}
       </body>
     </html>
   )
