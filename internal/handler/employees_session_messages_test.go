@@ -113,6 +113,34 @@ func TestEmployeeHandler_SendSessionMessageCreatesWebSessionAndRuntimeTurn(t *te
 	}
 }
 
+func TestEmployeeHandler_SendSessionMessageUsesMainRuntimeWhenSpecialistSandboxIsNewer(t *testing.T) {
+	h := newEmployeeHarness(t)
+	m := h.createOrgWithRole(t, "member")
+	agent := h.seedEmployeeAgent(t, m)
+	mainSandbox := h.seedSandbox(t, m, agent.ID)
+	specialistSandbox := h.seedSandbox(t, m, agent.ID)
+	h.setSandboxSnapshot(t, specialistSandbox.ID, &h.cfg.SandboxesRuntimeSpecialistImage)
+
+	rr := h.sendSessionMessage(t, m, agent.ID, map[string]any{"text": "Start from the web"})
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var out struct {
+		EmployeeSessionID string `json:"employee_session_id"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	var session model.EmployeeSession
+	if err := h.db.First(&session, "id = ?", out.EmployeeSessionID).Error; err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	if session.SandboxID != mainSandbox.ID {
+		t.Fatalf("session sandbox = %s, want main runtime %s", session.SandboxID, mainSandbox.ID)
+	}
+}
+
 func TestEmployeeHandler_SendSessionMessageContinuesExistingWebSession(t *testing.T) {
 	h := newEmployeeHarness(t)
 	m := h.createOrgWithRole(t, "member")

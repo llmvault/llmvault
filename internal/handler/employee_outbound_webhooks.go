@@ -154,7 +154,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	}
 	sessionID := stringValue(payload, "session_id")
 	source := employeeEventSource(payload)
-	specialistTask, taskFound := h.specialistTaskForSandbox(ctx, sb.ID)
+	specialistTask, taskFound := h.specialistTaskForPayload(ctx, sb.ID, payload)
 	if taskFound {
 		sessionID = specialistTask.EmployeeSessionID
 		payload["mode"] = "specialist"
