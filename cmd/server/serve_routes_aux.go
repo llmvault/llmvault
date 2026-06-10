@@ -11,8 +11,11 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/counter"
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 func setupProxyAndAuxRoutes(
@@ -27,9 +30,22 @@ func setupProxyAndAuxRoutes(
 	auditWriter *middleware.AuditWriter,
 	generationWriter *middleware.GenerationWriter,
 	ctr *counter.Counter,
+	enqueuer enqueue.TaskEnqueuer,
+	runtimeCompileDeps employeeruntime.CompileDeps,
 ) {
+	var tokenAuthOpts []middleware.TokenAuthOption
+	if enqueuer != nil {
+		var inspector enqueue.TaskInspector
+		if taskInspector, ok := enqueuer.(enqueue.TaskInspector); ok {
+			inspector = taskInspector
+		}
+		tokenAuthOpts = append(tokenAuthOpts, middleware.WithExpiredProxyTokenHandler(
+			tasks.NewExpiredProxyTokenRefreshScheduler(database, enqueuer, inspector, runtimeCompileDeps),
+		))
+	}
+
 	r.Route("/v1/proxy", func(r chi.Router) {
-		r.Use(middleware.TokenAuth(signingKey, database))
+		r.Use(middleware.TokenAuth(signingKey, database, tokenAuthOpts...))
 		r.Use(middleware.RequireCredits(deps.Credits))
 		r.Use(middleware.RemainingCheck(ctr))
 		r.Use(middleware.Audit(auditWriter, "proxy.request"))

@@ -2,6 +2,7 @@ package token
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -72,6 +73,14 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+type ValidationReason string
+
+const (
+	ValidationValid   ValidationReason = "valid"
+	ValidationInvalid ValidationReason = "invalid"
+	ValidationExpired ValidationReason = "expired"
+)
+
 // MintOptions holds optional parameters for token minting.
 type MintOptions struct {
 	ScopeHash string // SHA-256 hash of scope rules, if scopes are present
@@ -112,27 +121,50 @@ func Mint(signingKey []byte, orgID, credentialID string, ttl time.Duration, opts
 
 // Validate parses and validates a JWT, returning the claims if valid.
 func Validate(signingKey []byte, tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
+	claims, reason, err := ValidateDetailed(signingKey, tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if reason != ValidationValid {
+		return nil, fmt.Errorf("invalid token")
+	}
+	return claims, nil
+}
+
+func ValidateDetailed(signingKey []byte, tokenString string) (*Claims, ValidationReason, error) {
+	claims := &Claims{}
+	parsed, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return signingKey, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("parsing token: %w", err)
+		if tokenExpiredOnly(err) && parsed != nil {
+			return claims, ValidationExpired, fmt.Errorf("parsing token: %w", err)
+		}
+		return nil, ValidationInvalid, fmt.Errorf("parsing token: %w", err)
 	}
 
-	claims, ok := token.Claims.(*Claims)
-	if !ok || !token.Valid {
-		return nil, fmt.Errorf("invalid token claims")
+	if claims == nil || !parsed.Valid {
+		return nil, ValidationInvalid, fmt.Errorf("invalid token claims")
 	}
 
 	if claims.OrgID == "" {
-		return nil, fmt.Errorf("missing org_id claim")
+		return nil, ValidationInvalid, fmt.Errorf("missing org_id claim")
 	}
 	if claims.CredentialID == "" {
-		return nil, fmt.Errorf("missing cred_id claim")
+		return nil, ValidationInvalid, fmt.Errorf("missing cred_id claim")
 	}
 
-	return claims, nil
+	return claims, ValidationValid, nil
+}
+
+func tokenExpiredOnly(err error) bool {
+	if !errors.Is(err, jwt.ErrTokenExpired) {
+		return false
+	}
+	return !errors.Is(err, jwt.ErrTokenSignatureInvalid) &&
+		!errors.Is(err, jwt.ErrTokenMalformed) &&
+		!errors.Is(err, jwt.ErrTokenUnverifiable)
 }
