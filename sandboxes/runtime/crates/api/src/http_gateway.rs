@@ -343,7 +343,7 @@ impl HttpGatewayState {
             .raw
             .get("source")
             .and_then(Value::as_str)
-            .filter(|value| *value == "gateway")
+            .filter(|value| matches!(*value, "gateway" | "web"))
             .unwrap_or("http");
         let raw = json!({
             "source": source,
@@ -553,6 +553,32 @@ mod tests {
         assert_eq!(inbound.raw["raw"]["provider"], "fake-slack");
         assert_eq!(inbound.raw["raw"]["channel_id"], "C123");
         assert_eq!(inbound.raw["raw"]["thread_id"], "100.000");
+    }
+
+    #[tokio::test]
+    async fn inject_message_preserves_web_source() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let gateway = HttpGatewayState {
+            inbound_sink: tx,
+            broker: Arc::new(HttpStreamBroker::new()),
+        };
+
+        gateway
+            .inject_message(HttpMessageRequest {
+                text: "hello from web".to_string(),
+                conversation_id: Some("web-conversation".to_string()),
+                user: "user-1".to_string(),
+                user_display_name: Some("Ada".to_string()),
+                attachments: Vec::new(),
+                dynamic_context: Vec::new(),
+                raw: json!({"source": "web"}),
+            })
+            .await
+            .expect("inject web message");
+
+        let inbound = rx.recv().await.expect("inbound event");
+        assert_eq!(inbound.raw["source"], "web");
+        assert_eq!(inbound.raw["conversation_id"], "web-conversation");
     }
 
     #[tokio::test]

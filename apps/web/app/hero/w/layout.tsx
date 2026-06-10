@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"
+import { useEffect } from "react"
 import {
   Avatar,
   Button,
@@ -22,6 +23,8 @@ import { GrokIcon } from "./_components/grok"
 import { MoonshotIcon } from "./_components/moonshot"
 import { QwenIcon } from "./_components/qwen"
 import { XaiIcon } from "./_components/xai"
+import { FullPageLoader } from "@/components/full-page-loader"
+import { AuthProvider, useAuth } from "@/lib/auth/auth-context"
 
 const models = [
   { id: "claude", label: "Claude", Icon: ClaudeIcon },
@@ -47,9 +50,53 @@ export default function WLayout({
 }: {
   children: React.ReactNode
 }) {
+  return (
+    <AuthProvider signInPath="/hero/auth/login">
+      <HeroWorkspaceGate>
+        <HeroWorkspaceShell>{children}</HeroWorkspaceShell>
+      </HeroWorkspaceGate>
+    </AuthProvider>
+  )
+}
+
+function HeroWorkspaceGate({ children }: { children: React.ReactNode }) {
+  const { user, activeOrg, isLoading } = useAuth()
+  const router = useRouter()
+  const needsOnboarding = activeOrg !== null && !activeOrg.onboarded
+
+  useEffect(() => {
+    if (needsOnboarding) {
+      router.replace("/onboarding")
+    }
+  }, [needsOnboarding, router])
+
+  if (isLoading || !user || needsOnboarding) {
+    return <FullPageLoader description="Loading workspace" />
+  }
+
+  return children
+}
+
+function initials(name?: string | null) {
+  if (!name) return "?"
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
+function HeroWorkspaceShell({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const pathname = usePathname()
   const router = useRouter()
+  const { user, logout } = useAuth()
   const activeChannelId = pathname?.split("/channels/")[1] || ""
+  const name = user?.name ?? user?.email ?? "Account"
+  const email = user?.email ?? ""
+  const fallback = initials(name)
 
   return (
     <div className="flex h-screen w-screen">
@@ -120,41 +167,57 @@ export default function WLayout({
             <Popover>
               <Popover.Trigger className="flex cursor-pointer items-center gap-3">
                 <Avatar size="md">
-                  <Avatar.Fallback>FK</Avatar.Fallback>
+                  <Avatar.Fallback>{fallback}</Avatar.Fallback>
                 </Avatar>
                 <div className="flex flex-col">
                   <Typography.Paragraph size="sm" weight="medium">
-                    Frantz Kati
+                    {name}
                   </Typography.Paragraph>
-                  <Typography.Paragraph size="xs" color="muted">
-                    frantz@example.com
-                  </Typography.Paragraph>
+                  {email ? (
+                    <Typography.Paragraph size="xs" color="muted">
+                      {email}
+                    </Typography.Paragraph>
+                  ) : null}
                 </div>
               </Popover.Trigger>
               <Popover.Content className={"w-68 rounded-3xl border border-border"}>
                 <Popover.Dialog className="flex w-full flex-col gap-4 p-0">
                   <div className="flex items-center gap-2 px-2 py-3 pb-0">
                     <Avatar size="md">
-                      <Avatar.Fallback>FK</Avatar.Fallback>
+                      <Avatar.Fallback>{fallback}</Avatar.Fallback>
                     </Avatar>
                     <div className="flex flex-col gap-0">
                       <Typography.Heading level={6}>
-                        Frantz Kati
+                        {name}
                       </Typography.Heading>
-                      <Typography.Paragraph size="sm" color="muted">
-                        frantz@example.com
-                      </Typography.Paragraph>
+                      {email ? (
+                        <Typography.Paragraph size="sm" color="muted">
+                          {email}
+                        </Typography.Paragraph>
+                      ) : null}
                     </div>
                   </div>
                   <Separator className="my-0" />
                   <div className="flex flex-col gap-1 px-2 py-3 pt-0">
-                    <Button variant="ghost" className="w-full justify-start">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onPress={() => router.push("/w/settings/general")}
+                    >
                       Profile
                     </Button>
-                    <Button variant="ghost" className="w-full justify-start">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onPress={() => router.push("/w/settings/general")}
+                    >
                       Settings
                     </Button>
-                    <Button variant="ghost" className="w-full justify-start">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onPress={() => logout()}
+                    >
                       Sign out
                     </Button>
                   </div>

@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 import { Bricolage_Grotesque } from "next/font/google"
 import "./hero.css"
-// import { QueryProvider } from "@/components/query-provider"
-// import { TooltipProvider } from "@/components/ui/tooltip"
-// import { Toaster } from "@/components/ui/sonner"
+import { QueryProvider } from "@/components/query-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { Toaster } from "@/components/ui/sonner"
 
 const bricolage = Bricolage_Grotesque({})
 export const metadata: Metadata = {
@@ -33,13 +33,11 @@ export default function RootLayout({
     <html lang="en" className="bg-background font-sans antialiased">
       <body
         className={bricolage.className}
-        // style={{ "--font-bricolage": bricolage.style.fontFamily }}
       >
-        {children}
-        {/* <QueryProvider>
+        <QueryProvider>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="top-center" />
-        </QueryProvider> */}
+        </QueryProvider>
       </body>
     </html>
   )

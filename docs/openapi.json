@@ -4681,6 +4681,94 @@
         }
       }
     },
+    "/v1/employees/{id}/sessions/messages": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Creates a web-backed employee session when session_id is omitted, or sends a new turn to an existing web session. Returns a backend SSE URL for the response stream.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Send a web session message",
+        "parameters": [
+          {
+            "description": "Employee agent ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/sendEmployeeSessionMessageRequest"
+              }
+            }
+          },
+          "description": "Message payload",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sendEmployeeSessionMessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/employees/{id}/sessions/{sessionID}/events": {
       "get": {
         "security": [
@@ -4774,6 +4862,120 @@
             "description": "Internal Server Error",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{id}/sessions/{sessionID}/streams/{streamID}": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Proxies a signed runtime SSE stream for an authenticated web session.",
+        "tags": [
+          "employees"
+        ],
+        "summary": "Stream a web session turn",
+        "parameters": [
+          {
+            "description": "Employee agent ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Employee session ID",
+            "name": "sessionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Runtime HTTP stream ID",
+            "name": "streamID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed stream token",
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/event-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/errorResponse"
                 }
@@ -12704,6 +12906,61 @@
             "additionalProperties": {
               "type": "string"
             }
+          }
+        }
+      },
+      "sendEmployeeSessionMessageRequest": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "sendEmployeeSessionMessageResponse": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "boolean"
+          },
+          "employee_session_id": {
+            "type": "string"
+          },
+          "response_stream_url": {
+            "type": "string"
+          },
+          "runtime_conversation_id": {
+            "type": "string"
+          },
+          "runtime_response_stream_id": {
+            "type": "string"
+          },
+          "runtime_session_id": {
+            "type": "string"
+          },
+          "runtime_stream_id": {
+            "type": "string"
+          },
+          "runtime_trace_id": {
+            "type": "string"
+          },
+          "runtime_turn_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_resource_key": {
+            "type": "string"
+          },
+          "stream_url": {
+            "type": "string"
           }
         }
       },

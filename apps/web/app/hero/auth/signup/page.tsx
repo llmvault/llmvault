@@ -1,8 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { Button, Input, InputOTP, Label, Typography } from "@heroui/react"
+import { Suspense, useState, type FormEvent } from "react"
+import { Button, Input, InputOTP, Label, Spinner, Typography } from "@heroui/react"
 import NextLink from "next/link"
+import { useSearchParams } from "next/navigation"
+import {
+  safeAuthRedirect,
+  usePasswordSignup,
+  type PasswordAuthInput,
+} from "@/hooks/use-password-auth"
 import {
   AuthCard,
   AuthDivider,
@@ -12,9 +18,37 @@ import {
   PlaceholderLogo,
 } from "../_components/shared"
 
-export default function SignupPage() {
-  const [emailToConfirm, setEmailToConfirm] = useState<string | null>(null)
+function SignupPageContent() {
+  const searchParams = useSearchParams()
+  const nextPath = safeAuthRedirect(searchParams.get("next"), "/hero/w")
+  const nextQuery =
+    nextPath === "/hero/w" ? "" : `?next=${encodeURIComponent(nextPath)}`
+  const {
+    signup,
+    confirmEmail,
+    resendConfirmation,
+    changeEmail,
+    emailToConfirm,
+    isPending,
+    isConfirming,
+    isResending,
+  } = usePasswordSignup(nextPath)
   const [otpValue, setOtpValue] = useState("")
+
+  const onSignupSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    signup({
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    } satisfies PasswordAuthInput)
+  }
+
+  const onConfirmSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!emailToConfirm) return
+    confirmEmail({ email: emailToConfirm, code: otpValue })
+  }
 
   return (
     <>
@@ -35,7 +69,7 @@ export default function SignupPage() {
 
         <div className="flex flex-col gap-6">
           {emailToConfirm ? (
-            <div className="flex flex-col items-center gap-6">
+            <form onSubmit={onConfirmSubmit} className="flex flex-col items-center gap-6">
               <div className="text-center">
                 <Typography.Paragraph size="sm" color="muted">
                   Enter the 6-digit code sent to{" "}
@@ -46,7 +80,13 @@ export default function SignupPage() {
               <InputOTP
                 maxLength={6}
                 value={otpValue}
-                onChange={setOtpValue}
+                onChange={(value) => {
+                  setOtpValue(value)
+                  if (value.length === 6 && emailToConfirm) {
+                    confirmEmail({ email: emailToConfirm, code: value })
+                  }
+                }}
+                isDisabled={isConfirming}
               >
                 <InputOTP.Group>
                   <InputOTP.Slot index={0} />
@@ -61,65 +101,102 @@ export default function SignupPage() {
                 </InputOTP.Group>
               </InputOTP>
 
-              <Button size="lg" fullWidth>
-                Confirm email
+              <Button
+                type="submit"
+                size="lg"
+                fullWidth
+                isPending={isConfirming}
+                isDisabled={isConfirming || otpValue.length !== 6}
+              >
+                {({ isPending }) => (
+                  <>
+                    {isPending ? <Spinner color="current" size="sm" /> : null}
+                    {isPending ? "Confirming..." : "Confirm email"}
+                  </>
+                )}
               </Button>
 
               <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm">
-                  Resend code
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onPress={resendConfirmation}
+                  isPending={isResending}
+                  isDisabled={isResending}
+                >
+                  {({ isPending }) => (
+                    <>
+                      {isPending ? <Spinner color="current" size="sm" /> : null}
+                      {isPending ? "Sending..." : "Resend code"}
+                    </>
+                  )}
                 </Button>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
                   onPress={() => {
                     setOtpValue("")
-                    setEmailToConfirm(null)
+                    changeEmail()
                   }}
+                  isDisabled={isConfirming}
                 >
                   Use a different email
                 </Button>
               </div>
-            </div>
+            </form>
           ) : (
             <>
-              <OAuthButtons />
+              <OAuthButtons nextPath={nextPath} />
               <AuthDivider />
               <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  setEmailToConfirm("demo@example.com")
-                }}
+                onSubmit={onSignupSubmit}
                 className="flex flex-col gap-3"
               >
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="email">Work email</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     autoComplete="email"
                     required
                     placeholder="you@company.com"
+                    disabled={isPending}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     autoComplete="new-password"
                     required
                     placeholder="Create a password"
+                    disabled={isPending}
                   />
                 </div>
-                <Button type="submit" size="lg" fullWidth>
-                  Create account
+                <Button
+                  type="submit"
+                  size="lg"
+                  fullWidth
+                  isPending={isPending}
+                  isDisabled={isPending}
+                >
+                  {({ isPending }) => (
+                    <>
+                      {isPending ? <Spinner color="current" size="sm" /> : null}
+                      {isPending ? "Creating account..." : "Create account"}
+                    </>
+                  )}
                 </Button>
               </form>
               <div className="text-center">
                 <Typography.Paragraph size="sm" color="muted">
                   Already have an account?{" "}
-                  <NextLink href="/hero/auth/login" className="link">
+                  <NextLink href={`/hero/auth/login${nextQuery}`} className="link">
                     Sign in
                   </NextLink>
                 </Typography.Paragraph>
@@ -132,5 +209,13 @@ export default function SignupPage() {
         <AuthFooter />
       </AuthCard>
     </>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<AuthCard><PlaceholderLogo /></AuthCard>}>
+      <SignupPageContent />
+    </Suspense>
   )
 }

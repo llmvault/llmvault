@@ -14,7 +14,10 @@ function OAuthCallbackContents() {
   const token = searchParams.get("token")
   const error = searchParams.get("error")
   const nextPath = safeAuthRedirect(searchParams.get("next"))
-  const signinHref = `/auth/signin?error=exchange_failed${nextPath === "/w" ? "" : `&next=${encodeURIComponent(nextPath)}`}`
+  const signInPath = nextPath.startsWith("/hero/")
+    ? "/hero/auth/login"
+    : "/auth/signin"
+  const signinHref = `${signInPath}?error=exchange_failed${nextPath === "/w" ? "" : `&next=${encodeURIComponent(nextPath)}`}`
 
   const exchange = $api.useMutation("post", "/oauth/exchange", {
     onSuccess: () => {
@@ -28,7 +31,7 @@ function OAuthCallbackContents() {
   useEffect(() => {
     if (error) {
       const nextQuery = nextPath === "/w" ? "" : `&next=${encodeURIComponent(nextPath)}`
-      router.replace(`/auth/signin?error=${encodeURIComponent(error)}${nextQuery}`)
+      router.replace(`${signInPath}?error=${encodeURIComponent(error)}${nextQuery}`)
       return
     }
 
@@ -36,7 +39,7 @@ function OAuthCallbackContents() {
     exchanged.current = true
 
     exchange.mutate({ body: { token } })
-  }, [token, error, router, exchange, nextPath])
+  }, [token, error, router, exchange, nextPath, signInPath])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

@@ -16,13 +16,17 @@ type sidecarStub struct {
 	mu                sync.Mutex
 	syncConfigCalls   int
 	syncEnvCalls      int
+	httpMessageCalls  int
 	lastSyncBearer    string
 	lastEnvBearer     string
+	lastHTTPBearer    string
 	lastConfigBody    []byte
 	lastRawConfigBody []byte
 	lastEnvBody       []byte
+	lastHTTPBody      []byte
 	syncConfigStatus  int // override; default 200
 	syncConfigErrors  []string
+	httpStreamBody    string
 }
 
 func (s *sidecarStub) snapshot() (calls int, bearer string) {
@@ -53,6 +57,12 @@ func (s *sidecarStub) snapshotRuntime() (calls int, bearer string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.syncEnvCalls, s.lastEnvBearer
+}
+
+func (s *sidecarStub) snapshotHTTPMessage() (calls int, bearer string, body []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.httpMessageCalls, s.lastHTTPBearer, append([]byte(nil), s.lastHTTPBody...)
 }
 
 func (s *sidecarStub) setStatus(status int) {
