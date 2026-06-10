@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -105,4 +106,35 @@ func (h *EmployeeOutboundWebhookHandler) specialistTaskForSandbox(ctx context.Co
 		return nil, false
 	}
 	return &task, true
+}
+
+func (h *EmployeeOutboundWebhookHandler) specialistTaskForPayload(ctx context.Context, sandboxID uuid.UUID, payload map[string]any) (*model.SpecialistTask, bool) {
+	if taskID, err := uuid.Parse(stringValue(payload, "specialist_task_id")); err == nil && taskID != uuid.Nil {
+		var task model.SpecialistTask
+		if err := h.db.WithContext(ctx).
+			Where("id = ? AND sandbox_id = ?", taskID, sandboxID).
+			First(&task).Error; err != nil {
+			return nil, false
+		}
+		return &task, true
+	}
+	if !payloadAllowsSpecialistTaskFallback(payload) {
+		return nil, false
+	}
+	return h.specialistTaskForSandbox(ctx, sandboxID)
+}
+
+func payloadAllowsSpecialistTaskFallback(payload map[string]any) bool {
+	if strings.EqualFold(strings.TrimSpace(stringValue(payload, "mode")), "specialist") {
+		return true
+	}
+	if strings.TrimSpace(stringValue(payload, "specialist_slug")) != "" {
+		return true
+	}
+	switch employeeEventSource(payload) {
+	case "specialist", "specialist_callback", "specialist_launch_task", "specialist_task_send_message":
+		return true
+	default:
+		return false
+	}
 }

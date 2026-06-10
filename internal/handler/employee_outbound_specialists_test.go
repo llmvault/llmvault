@@ -147,6 +147,109 @@ func TestEmployeeOutboundWebhook_SpecialistFinalMarksIdleAndNotifiesParentRuntim
 	}
 }
 
+func TestEmployeeOutboundWebhook_WebEventOnSandboxWithIdleSpecialistTaskStaysOnWebSession(t *testing.T) {
+	db := connectEmployeeSkillSyncTestDB(t)
+	org := model.Org{Name: "web-specialist-routing-" + uuid.NewString()}
+	if err := db.Create(&org).Error; err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	employee := model.Employee{OrgID: &org.ID, Name: "Hivy", Model: "deepseek-v4-flash", Status: "active"}
+	if err := db.Create(&employee).Error; err != nil {
+		t.Fatalf("create employee: %v", err)
+	}
+	parentSandbox := model.Sandbox{
+		ID:                     uuid.New(),
+		OrgID:                  &org.ID,
+		EmployeeID:             &employee.ID,
+		ExternalID:             "parent-runtime",
+		EncryptedRuntimeSecret: []byte("runtime-secret"),
+		Status:                 "running",
+	}
+	specialistSandbox := model.Sandbox{
+		ID:                     uuid.New(),
+		OrgID:                  &org.ID,
+		EmployeeID:             &employee.ID,
+		ExternalID:             "specialist-runtime",
+		EncryptedRuntimeSecret: []byte("runtime-secret"),
+		Status:                 "running",
+	}
+	if err := db.Create(&parentSandbox).Error; err != nil {
+		t.Fatalf("create parent sandbox: %v", err)
+	}
+	if err := db.Create(&specialistSandbox).Error; err != nil {
+		t.Fatalf("create specialist sandbox: %v", err)
+	}
+	parentSession := model.EmployeeSession{
+		ID:                    uuid.New(),
+		OrgID:                 org.ID,
+		EmployeeID:            employee.ID,
+		SandboxID:             parentSandbox.ID,
+		RuntimeConversationID: "http-gateway-parent-session",
+		Source:                "gateway",
+		Status:                "active",
+	}
+	webSession := model.EmployeeSession{
+		ID:                    uuid.New(),
+		OrgID:                 org.ID,
+		EmployeeID:            employee.ID,
+		SandboxID:             specialistSandbox.ID,
+		RuntimeConversationID: "http-web-new-session",
+		Source:                "web",
+		SourceResourceKey:     "web-new-session",
+		Status:                "active",
+	}
+	if err := db.Create(&[]model.EmployeeSession{parentSession, webSession}).Error; err != nil {
+		t.Fatalf("create sessions: %v", err)
+	}
+	task := model.SpecialistTask{
+		ID:                     uuid.New(),
+		OrgID:                  org.ID,
+		EmployeeID:             employee.ID,
+		SpecialistSlug:         "software-engineering-specialist",
+		EmployeeSessionID:      parentSession.RuntimeConversationID,
+		SandboxID:              specialistSandbox.ID,
+		ConversationID:         &parentSession.ID,
+		ParentConversationType: "employee_session",
+		ParentConversationID:   parentSession.RuntimeConversationID,
+		Brief:                  "Old task",
+		Status:                 "idle",
+	}
+	if err := db.Create(&task).Error; err != nil {
+		t.Fatalf("create specialist task: %v", err)
+	}
+	payload := map[string]any{
+		"session_id":          webSession.RuntimeConversationID,
+		"source":              "http",
+		"employee_session_id": webSession.ID.String(),
+		"text":                "Hey hivy",
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	h := NewEmployeeOutboundWebhookHandler(db, nil, nil)
+	h.storeAndMaybeEnqueue(t.Context(), &specialistSandbox, &employeeOutboundEvent{
+		EventType: "user.message.received",
+		Payload:   raw,
+		At:        time.Now().UTC(),
+	})
+
+	var stored model.EmployeeSessionEvent
+	if err := db.Where("org_id = ? AND employee_id = ? AND event_type = ?", org.ID, employee.ID, "user.message.received").First(&stored).Error; err != nil {
+		t.Fatalf("load stored event: %v", err)
+	}
+	if stored.EmployeeSessionID != webSession.ID {
+		t.Fatalf("stored employee session = %s, want web session %s", stored.EmployeeSessionID, webSession.ID)
+	}
+	if stored.Mode != "employee" || stored.SpecialistTaskID != nil {
+		t.Fatalf("stored event incorrectly classified as specialist: %#v", stored)
+	}
+	if stored.SessionID != webSession.RuntimeConversationID {
+		t.Fatalf("stored runtime session = %q, want %q", stored.SessionID, webSession.RuntimeConversationID)
+	}
+}
+
 type employeeruntimeMessage struct {
 	Text           string         `json:"text"`
 	ConversationID string         `json:"conversation_id"`

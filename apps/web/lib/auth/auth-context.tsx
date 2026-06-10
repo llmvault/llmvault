@@ -46,13 +46,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({
-  children,
-  signInPath = "/auth/signin",
-}: {
-  children: React.ReactNode
-  signInPath?: string
-}) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const meQuery = $api.useQuery("get", "/auth/me", {}, { retry: false })
@@ -79,9 +73,9 @@ export function AuthProvider({
   useEffect(() => {
     if (isError && !hasRedirected.current) {
       hasRedirected.current = true
-      router.replace(signInPath)
+      router.replace("/auth/signin")
     }
-  }, [isError, router, signInPath])
+  }, [isError, router])
 
   useEffect(() => {
     const nextOrgId = activeOrg?.id
@@ -115,8 +109,8 @@ export function AuthProvider({
 
   const logout = useCallback(async () => {
     await api.POST("/auth/logout", { body: {} })
-    router.replace(signInPath)
-  }, [router, signInPath])
+    router.replace("/auth/signin")
+  }, [router])
 
   return (
     <AuthContext.Provider

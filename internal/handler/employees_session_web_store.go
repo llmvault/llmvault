@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/employeeruntime"
-	"github.com/usehivy/hivy/internal/employeesandbox"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -41,7 +40,7 @@ func (h *EmployeeHandler) webSessionForMessage(ctx context.Context, orgID, emplo
 		return session, runtimeConversationInput(session.RuntimeConversationID), false, nil
 	}
 
-	sandbox, err := employeesandbox.Selector{DB: h.db}.MainRuntime(ctx, orgID, employeeID)
+	sandbox, err := h.mainEmployeeRuntimeSelector().MainRuntime(ctx, orgID, employeeID)
 	if err != nil {
 		return model.EmployeeSession{}, "", false, fmt.Errorf("load employee sandbox: %w", err)
 	}

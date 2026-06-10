@@ -21,15 +21,10 @@ export type ConfirmEmailInput = Required<
   Pick<ConfirmEmailRequest, "email" | "code">
 >
 
-export function safeAuthRedirect(
-  rawNext: string | null | undefined,
-  fallback = "/w"
-) {
+export function safeAuthRedirect(rawNext: string | null | undefined) {
   const next = rawNext?.trim()
-  if (!next || next.length > 2048) return fallback
-  if (!next.startsWith("/") || next.startsWith("//") || /[\r\n]/.test(next)) {
-    return fallback
-  }
+  if (!next || next.length > 2048) return "/w"
+  if (!next.startsWith("/") || next.startsWith("//") || /[\r\n]/.test(next)) return "/w"
   return next
 }
 
