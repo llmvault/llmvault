@@ -213,6 +213,12 @@ func TestEmployeeHandler_StreamSessionProxiesSignedRuntimeSSE(t *testing.T) {
 	if !strings.Contains(stream.Header().Get("Content-Type"), "text/event-stream") {
 		t.Fatalf("content-type = %q", stream.Header().Get("Content-Type"))
 	}
+	if got := stream.Header().Get("Cache-Control"); got != "no-cache, no-transform" {
+		t.Fatalf("cache-control = %q", got)
+	}
+	if got := stream.Header().Get("X-Accel-Buffering"); got != "no" {
+		t.Fatalf("x-accel-buffering = %q", got)
+	}
 	if !strings.Contains(stream.Body.String(), "event: token") || !strings.Contains(stream.Body.String(), "streamed") {
 		t.Fatalf("stream body = %q", stream.Body.String())
 	}

@@ -103,6 +103,17 @@ type SendSessionMessageResponse = {
   runtime_conversation_id?: string
 }
 
+type StreamAuthTokenResponse = {
+  access_token?: string
+  org_id?: string | null
+  expires_at?: number
+  error?: string
+}
+
+const streamAPIBaseURL = (
+  process.env.NEXT_PUBLIC_HIVY_API_URL ?? ""
+).replace(/\/$/, "")
+
 const sessionSegments: Array<{
   id: SessionSegment
   label: string
@@ -325,13 +336,16 @@ export default function SessionsPage() {
 
       let buffer = ""
       let sequence = 0
-      const streamURL = proxiedStreamURL(sessionStreamURL)
+      const streamURL = await directStreamURL(sessionStreamURL)
+      const streamAuth = streamURL.startsWith("/api/proxy")
+        ? null
+        : await streamAuthToken()
 
       try {
         await fetchEventSource(streamURL, {
           method: "GET",
-          headers: { Accept: "text/event-stream" },
-          credentials: "include",
+          headers: streamHeaders(streamAuth),
+          credentials: streamAuth ? "omit" : "include",
           signal: controller.signal,
           openWhenHidden: true,
           async onopen(response) {
@@ -1409,6 +1423,35 @@ function proxiedStreamURL(url: string) {
   if (url.startsWith("/api/proxy")) return url
   if (url.startsWith("/")) return `/api/proxy${url}`
   return url
+}
+
+async function directStreamURL(url: string) {
+  if (!streamAPIBaseURL) return proxiedStreamURL(url)
+  if (url.startsWith("http")) return url
+  if (!url.startsWith("/")) return url
+  return `${streamAPIBaseURL}${url}`
+}
+
+async function streamAuthToken() {
+  const response = await fetch("/api/auth/stream-token", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  })
+  const data = (await response.json().catch(() => ({}))) as
+    StreamAuthTokenResponse
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error || "Failed to authenticate stream")
+  }
+  return data
+}
+
+function streamHeaders(auth: StreamAuthTokenResponse | null) {
+  const headers: Record<string, string> = { Accept: "text/event-stream" }
+  if (!auth?.access_token) return headers
+  headers.Authorization = `Bearer ${auth.access_token}`
+  if (auth.org_id) headers["X-Org-ID"] = auth.org_id
+  return headers
 }
 
 function parseStreamFrame(data: string): Record<string, unknown> | null {
