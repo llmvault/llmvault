@@ -1,12 +1,12 @@
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import {
   Avatar,
   Button,
   Card,
-  Chip,
   ListBox,
   Popover,
   Select,
@@ -16,6 +16,11 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PlusSignIcon } from "@hugeicons/core-free-icons"
 import { Icon } from "@iconify/react"
+import {
+  fetchEmployeeID,
+  fetchWebSessions,
+  sessionTitle,
+} from "./_lib/sessions"
 import { ClaudeIcon } from "./_components/claude"
 import { DeepseekIcon } from "./_components/deepseek"
 import { GeminiIcon } from "./_components/gemini"
@@ -36,30 +41,17 @@ const models = [
   { id: "xai", label: "xAI", Icon: XaiIcon },
 ]
 
-const channels = [
-  { id: "general", name: "general", private: false, unread: false, unreadCount: 0 },
-  { id: "random", name: "random", private: false, unread: true, unreadCount: 0 },
-  { id: "engineering", name: "engineering", private: false, unread: true, unreadCount: 3 },
-  { id: "design", name: "design", private: false, unread: false, unreadCount: 0 },
-  { id: "exec-updates", name: "exec-updates", private: true, unread: true, unreadCount: 1 },
-  { id: "deploys", name: "deploys", private: false, unread: false, unreadCount: 0 },
-]
-
-export default function WLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function WLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider signInPath="/hero/auth/login">
-      <HeroWorkspaceGate>
-        <HeroWorkspaceShell>{children}</HeroWorkspaceShell>
-      </HeroWorkspaceGate>
+      <WorkspaceGate>
+        <WorkspaceShell>{children}</WorkspaceShell>
+      </WorkspaceGate>
     </AuthProvider>
   )
 }
 
-function HeroWorkspaceGate({ children }: { children: React.ReactNode }) {
+function WorkspaceGate({ children }: { children: React.ReactNode }) {
   const { user, activeOrg, isLoading } = useAuth()
   const router = useRouter()
   const needsOnboarding = activeOrg !== null && !activeOrg.onboarded
@@ -85,11 +77,7 @@ function initials(name?: string | null) {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
 }
 
-function HeroWorkspaceShell({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
@@ -97,10 +85,27 @@ function HeroWorkspaceShell({
   const name = user?.name ?? user?.email ?? "Account"
   const email = user?.email ?? ""
   const fallback = initials(name)
+  const employeeQuery = useQuery({
+    queryKey: ["web-employee"],
+    queryFn: fetchEmployeeID,
+  })
+  const employeeID = employeeQuery.data ?? ""
+  const sessionsQuery = useInfiniteQuery({
+    queryKey: ["web-sessions", employeeID],
+    enabled: Boolean(employeeID),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => fetchWebSessions(employeeID, pageParam),
+    getNextPageParam: (page) =>
+      page.has_more ? (page.next_cursor ?? undefined) : undefined,
+  })
+  const sessions = useMemo(
+    () => sessionsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? [],
+    [sessionsQuery.data]
+  )
 
   return (
     <div className="flex h-screen w-screen">
-      <div className="h-screen w-80 p-2 pr-0">
+      <div className="h-screen w-72 shrink-0 p-2 pr-0">
         <Card className="h-full w-full">
           <Card.Content className="flex h-full flex-col gap-4 py-3">
             <Select variant="primary" className="min-w-36">
@@ -120,7 +125,10 @@ function HeroWorkspaceShell({
                   ))}
                   <ListBox.Item isDisabled>
                     <div className="flex items-center gap-2">
-                      <HugeiconsIcon icon={PlusSignIcon} className="-ml-1 h-4 w-4" />
+                      <HugeiconsIcon
+                        icon={PlusSignIcon}
+                        className="-ml-1 h-4 w-4"
+                      />
                     </div>
                     Add new workspace
                   </ListBox.Item>
@@ -130,35 +138,84 @@ function HeroWorkspaceShell({
 
             <div className="flex flex-1 flex-col gap-6 overflow-y-auto">
               <div className="flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  className="mb-2 h-auto w-full justify-start gap-2 px-3 py-1.5"
+                  onPress={() => router.push("/hero/w")}
+                >
+                  <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
+                  <Typography.Paragraph
+                    size="sm"
+                    color="muted"
+                    className="flex-1"
+                  >
+                    New chat
+                  </Typography.Paragraph>
+                </Button>
                 <div className="flex flex-col gap-1">
-                  {channels.map((channel) => {
-                    const isActive = channel.id === activeChannelId
-                    return (
-                      <Button
-                        key={channel.id}
-                        variant="ghost"
-                        className={`h-auto w-full justify-start gap-2 px-3 py-1.5 ${isActive ? "bg-accent" : ""}`}
-                        onPress={() => router.push(`/hero/w/channels/${channel.id}`)}
-                      >
-                        <Icon
-                          icon={channel.private ? "lucide:lock" : "lucide:hash"}
-                          className={`h-4 w-4 ${isActive ? "text-accent-foreground" : ""}`}
-                        />
-                        <Typography.Paragraph
-                          size="sm"
-                          color="muted"
-                          className={`flex-1 ${isActive ? "text-accent-foreground" : ""}`}
+                  {employeeQuery.isLoading || sessionsQuery.isLoading ? (
+                    <Typography.Paragraph
+                      size="sm"
+                      color="muted"
+                      className="px-3 py-2"
+                    >
+                      Loading sessions
+                    </Typography.Paragraph>
+                  ) : sessionsQuery.isError || employeeQuery.isError ? (
+                    <Typography.Paragraph
+                      size="sm"
+                      color="muted"
+                      className="px-3 py-2"
+                    >
+                      Could not load sessions
+                    </Typography.Paragraph>
+                  ) : sessions.length === 0 ? (
+                    <Typography.Paragraph
+                      size="sm"
+                      color="muted"
+                      className="px-3 py-2"
+                    >
+                      No web sessions yet
+                    </Typography.Paragraph>
+                  ) : (
+                    sessions.map((session) => {
+                      const id = session.id ?? ""
+                      const isActive = id === activeChannelId
+                      return (
+                        <Button
+                          key={id}
+                          variant="ghost"
+                          className={`h-auto w-full justify-start gap-2 px-3 py-1.5 ${isActive ? "bg-accent" : ""}`}
+                          onPress={() => router.push(`/hero/w/channels/${id}`)}
                         >
-                          {channel.name}
-                        </Typography.Paragraph>
-                        {channel.unreadCount > 0 && (
-                          <Chip size="sm" className="ml-auto">
-                            {channel.unreadCount}
-                          </Chip>
-                        )}
-                      </Button>
-                    )
-                  })}
+                          <Icon
+                            icon="lucide:message-circle"
+                            className={`h-4 w-4 ${isActive ? "text-accent-foreground" : ""}`}
+                          />
+                          <Typography.Paragraph
+                            size="sm"
+                            color="muted"
+                            className={`min-w-0 flex-1 truncate ${isActive ? "text-accent-foreground" : ""}`}
+                          >
+                            {sessionTitle(session)}
+                          </Typography.Paragraph>
+                        </Button>
+                      )
+                    })
+                  )}
+                  {sessionsQuery.hasNextPage ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 w-full"
+                      isDisabled={sessionsQuery.isFetchingNextPage}
+                      onPress={() => sessionsQuery.fetchNextPage()}
+                    >
+                      {sessionsQuery.isFetchingNextPage
+                        ? "Loading"
+                        : "Load more"}
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -180,16 +237,16 @@ function HeroWorkspaceShell({
                   ) : null}
                 </div>
               </Popover.Trigger>
-              <Popover.Content className={"w-68 rounded-3xl border border-border"}>
+              <Popover.Content
+                className={"w-68 rounded-3xl border border-border"}
+              >
                 <Popover.Dialog className="flex w-full flex-col gap-4 p-0">
                   <div className="flex items-center gap-2 px-2 py-3 pb-0">
                     <Avatar size="md">
                       <Avatar.Fallback>{fallback}</Avatar.Fallback>
                     </Avatar>
                     <div className="flex flex-col gap-0">
-                      <Typography.Heading level={6}>
-                        {name}
-                      </Typography.Heading>
+                      <Typography.Heading level={6}>{name}</Typography.Heading>
                       {email ? (
                         <Typography.Paragraph size="sm" color="muted">
                           {email}
@@ -228,8 +285,7 @@ function HeroWorkspaceShell({
         </Card>
       </div>
 
-
-        {children}
+      {children}
     </div>
   )
 }
