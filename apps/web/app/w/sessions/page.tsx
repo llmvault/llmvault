@@ -243,6 +243,7 @@ export default function SessionsPage() {
       eventsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? []
     return [...newestFirst].reverse()
   }, [eventsQuery.data])
+  const displayEvents = useMemo(() => normalizeSessionEvents(events), [events])
 
   const selectedPendingMessages = useMemo(() => {
     if (!selectedSessionID) return []
@@ -257,6 +258,10 @@ export default function SessionsPage() {
   const selectedStream = selectedSessionID
     ? streams[selectedSessionID]
     : undefined
+  const selectedStreamEvents = useMemo(
+    () => normalizeSessionEvents(selectedStream?.events ?? []),
+    [selectedStream?.events]
+  )
   const streamPersisted = useMemo(() => {
     if (!selectedStream?.text) return false
     return events.some(
@@ -268,11 +273,13 @@ export default function SessionsPage() {
   const hasLocalStream = selectedStream
     ? selectedStream.isStreaming ||
       Boolean(selectedStream.text) ||
-      selectedStream.events.length > 0 ||
+      selectedStreamEvents.length > 0 ||
       Boolean(selectedStream.error)
     : false
   const hasVisibleMessages =
-    events.length > 0 || selectedPendingMessages.length > 0 || hasLocalStream
+    displayEvents.length > 0 ||
+    selectedPendingMessages.length > 0 ||
+    hasLocalStream
 
   const handleLoadEarlier = useCallback(() => {
     if (eventsQuery.hasNextPage && !eventsQuery.isFetchingNextPage) {
@@ -708,7 +715,7 @@ export default function SessionsPage() {
             <p className="text-sm text-muted-foreground">No events recorded.</p>
           ) : (
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
-              {events.map((event) => (
+              {displayEvents.map((event) => (
                 <SessionEventRow key={event.id} event={event} />
               ))}
               {selectedPendingMessages.map((message) => (
@@ -717,7 +724,7 @@ export default function SessionsPage() {
                   event={localUserMessageToEvent(message)}
                 />
               ))}
-              {selectedStream?.events.map((event) => (
+              {selectedStreamEvents.map((event) => (
                 <SessionEventRow key={event.id} event={event} />
               ))}
               {selectedStream && hasLocalStream ? (
@@ -1017,6 +1024,12 @@ function ExpandableEvent({
               <Badge variant={kind === "error" ? "destructive" : "outline"}>
                 {eventLabel(event, kind)}
               </Badge>
+              {kind === "tool_call" && !toolEventCompleted(event) ? (
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+                />
+              ) : null}
               <span className="truncate text-sm text-foreground">
                 {text || event.event_type || "Event"}
               </span>
@@ -1140,13 +1153,126 @@ function eventKind(event: EmployeeSessionEvent) {
   return "system"
 }
 
+function normalizeSessionEvents(events: EmployeeSessionEvent[]) {
+  const normalized: EmployeeSessionEvent[] = []
+  const toolIndexByID = new Map<string, number>()
+  let thinkingIndex: number | null = null
+
+  for (const event of events) {
+    const kind = eventKind(event)
+
+    if (kind === "token") {
+      continue
+    }
+
+    if (kind === "thinking") {
+      if (thinkingIndex === null) {
+        thinkingIndex = normalized.length
+        normalized.push(normalizedThinkingEvent(event))
+      } else {
+        normalized[thinkingIndex] = appendThinkingEvent(
+          normalized[thinkingIndex],
+          event
+        )
+      }
+      continue
+    }
+
+    thinkingIndex = null
+
+    if (kind === "tool_call" || kind === "tool_result") {
+      const toolID = toolEventID(event)
+      if (toolID && toolIndexByID.has(toolID)) {
+        const index = toolIndexByID.get(toolID)
+        if (index !== undefined) {
+          normalized[index] = mergeToolEvent(normalized[index], event)
+        }
+        continue
+      }
+
+      const normalizedTool = normalizedToolEvent(event)
+      normalized.push(normalizedTool)
+      if (toolID) toolIndexByID.set(toolID, normalized.length - 1)
+      continue
+    }
+
+    normalized.push(event)
+  }
+
+  return normalized
+}
+
+function normalizedThinkingEvent(event: EmployeeSessionEvent) {
+  return {
+    ...event,
+    event_type: "thinking",
+    payload: {
+      ...payloadRecord(event.payload),
+      text: eventText(event),
+    },
+  }
+}
+
+function appendThinkingEvent(
+  current: EmployeeSessionEvent,
+  next: EmployeeSessionEvent
+) {
+  return {
+    ...current,
+    sequence_number: next.sequence_number ?? current.sequence_number,
+    event_at: next.event_at ?? current.event_at,
+    created_at: next.created_at ?? current.created_at,
+    payload: {
+      ...payloadRecord(current.payload),
+      text: eventText(current) + eventText(next),
+    },
+  }
+}
+
+function normalizedToolEvent(event: EmployeeSessionEvent) {
+  const result = toolEventResult(event)
+  return {
+    ...event,
+    event_type: "tool_call",
+    payload: {
+      ...payloadRecord(event.payload),
+      id: toolEventID(event),
+      tool: toolEventName(event),
+      args: toolEventArgs(event),
+      result,
+      status: result === undefined ? "running" : "completed",
+    },
+  }
+}
+
+function mergeToolEvent(
+  current: EmployeeSessionEvent,
+  next: EmployeeSessionEvent
+) {
+  const result = toolEventResult(next) ?? toolEventResult(current)
+  return {
+    ...current,
+    sequence_number: next.sequence_number ?? current.sequence_number,
+    event_at: next.event_at ?? current.event_at,
+    created_at: next.created_at ?? current.created_at,
+    payload: {
+      ...payloadRecord(current.payload),
+      result,
+      result_payload: next.payload,
+      status: result === undefined ? "running" : "completed",
+    },
+  }
+}
+
 function eventLabel(
   event: EmployeeSessionEvent,
   kind: ReturnType<typeof eventKind>
 ) {
   if (kind === "thinking") return "Thinking"
-  if (kind === "tool_call") return "Tool call"
-  if (kind === "tool_result") return "Tool result"
+  if (kind === "tool_call") {
+    return toolEventCompleted(event) ? "Tool completed" : "Tool running"
+  }
+  if (kind === "tool_result") return "Tool completed"
   if (kind === "token") return "Token"
   if (kind === "error") return "Error"
   return event.event_type || "Event"
@@ -1163,9 +1289,70 @@ function eventText(event: EmployeeSessionEvent) {
     nestedPayloadString(payload, ["agent_event", "text"]) ||
     nestedPayloadString(payload, ["agent_event", "content"]) ||
     nestedPayloadString(payload, ["error", "message"]) ||
+    nestedPayloadString(payload, ["agent_event", "tool"]) ||
     payloadString(payload, "tool") ||
     ""
   )
+}
+
+function toolEventID(event: EmployeeSessionEvent) {
+  return (
+    payloadString(event.payload, "id") ||
+    nestedPayloadString(event.payload, ["agent_event", "id"]) ||
+    event.event_id ||
+    ""
+  )
+}
+
+function toolEventName(event: EmployeeSessionEvent) {
+  return (
+    payloadString(event.payload, "tool") ||
+    nestedPayloadString(event.payload, ["agent_event", "tool"]) ||
+    ""
+  )
+}
+
+function toolEventArgs(event: EmployeeSessionEvent) {
+  return (
+    payloadValue(event.payload, "args") ??
+    nestedPayloadValue(event.payload, ["agent_event", "args"])
+  )
+}
+
+function toolEventResult(event: EmployeeSessionEvent) {
+  return (
+    payloadValue(event.payload, "result") ??
+    nestedPayloadValue(event.payload, ["agent_event", "result"])
+  )
+}
+
+function toolEventCompleted(event: EmployeeSessionEvent) {
+  return payloadString(event.payload, "status") === "completed"
+}
+
+function payloadRecord(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return {}
+  }
+  return payload as Record<string, unknown>
+}
+
+function payloadValue(payload: unknown, key: string) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return undefined
+  }
+  return (payload as Record<string, unknown>)[key]
+}
+
+function nestedPayloadValue(payload: unknown, path: string[]) {
+  let value = payload
+  for (const key of path) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return undefined
+    }
+    value = (value as Record<string, unknown>)[key]
+  }
+  return value
 }
 
 function payloadString(payload: unknown, key: string) {
