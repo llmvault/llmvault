@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/token"
 )
@@ -21,7 +23,29 @@ import (
 //
 // The JWT is validated, then checked against the database for revocation.
 // If valid, TokenClaims are placed on the request context.
-func TokenAuth(signingKey []byte, db *gorm.DB) func(http.Handler) http.Handler {
+type ExpiredProxyTokenHandler interface {
+	HandleExpiredProxyToken(context.Context, model.Token) error
+}
+
+type tokenAuthConfig struct {
+	expiredProxyTokenHandler ExpiredProxyTokenHandler
+}
+
+type TokenAuthOption func(*tokenAuthConfig)
+
+func WithExpiredProxyTokenHandler(handler ExpiredProxyTokenHandler) TokenAuthOption {
+	return func(cfg *tokenAuthConfig) {
+		cfg.expiredProxyTokenHandler = handler
+	}
+}
+
+func TokenAuth(signingKey []byte, db *gorm.DB, opts ...TokenAuthOption) func(http.Handler) http.Handler {
+	cfg := tokenAuthConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			rawToken := extractProxyToken(r)
@@ -33,8 +57,11 @@ func TokenAuth(signingKey []byte, db *gorm.DB) func(http.Handler) http.Handler {
 			// Strip the ptok_ prefix if present
 			jwtString, _ := strings.CutPrefix(rawToken, "ptok_")
 
-			claims, err := token.Validate(signingKey, jwtString)
+			claims, reason, err := token.ValidateDetailed(signingKey, jwtString)
 			if err != nil {
+				if reason == token.ValidationExpired {
+					maybeHandleExpiredProxyToken(r.Context(), db, cfg.expiredProxyTokenHandler, claims)
+				}
 				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
 				return
 			}
@@ -62,6 +89,22 @@ func TokenAuth(signingKey []byte, db *gorm.DB) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(w, WithClaims(r, tc))
 		})
+	}
+}
+
+func maybeHandleExpiredProxyToken(ctx context.Context, db *gorm.DB, handler ExpiredProxyTokenHandler, claims *token.Claims) {
+	if db == nil || handler == nil || claims == nil || strings.TrimSpace(claims.ID) == "" {
+		return
+	}
+	var tokenRecord model.Token
+	if err := db.WithContext(ctx).Where("jti = ?", claims.ID).First(&tokenRecord).Error; err != nil {
+		return
+	}
+	if tokenRecord.RevokedAt != nil {
+		return
+	}
+	if err := handler.HandleExpiredProxyToken(ctx, tokenRecord); err != nil {
+		logging.Capture(ctx, err)
 	}
 }
 

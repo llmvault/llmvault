@@ -20,6 +20,10 @@ type TaskCleaner interface {
 	DeleteTask(queue, id string) error
 }
 
+type TaskInspector interface {
+	GetTaskInfo(queue, id string) (*asynq.TaskInfo, error)
+}
+
 type Client struct {
 	asynqClient *asynq.Client
 	inspector   *asynq.Inspector
@@ -59,6 +63,14 @@ func (c *Client) DeleteTask(queue, id string) error {
 		return fmt.Errorf("delete task %s/%s: %w", queue, id, err)
 	}
 	return nil
+}
+
+func (c *Client) GetTaskInfo(queue, id string) (*asynq.TaskInfo, error) {
+	info, err := c.inspector.GetTaskInfo(queue, id)
+	if err != nil {
+		return nil, fmt.Errorf("get task %s/%s: %w", queue, id, err)
+	}
+	return info, nil
 }
 
 func (c *Client) Close() error {
