@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   LayoutDashboard,
+  Chat01Icon,
   Plug01Icon,
   CommandIcon,
   Settings02Icon,
@@ -50,6 +51,7 @@ const navSections = [
     label: "Workspace",
     items: [
       { label: "Dashboard", href: "/w", icon: LayoutDashboard },
+      { label: "Sessions", href: "/w/sessions", icon: Chat01Icon },
       {
         label: "Scheduled tasks",
         href: "/w/scheduled-tasks",
@@ -317,9 +319,11 @@ function EmailConfirmationGate() {
             maxLength={6}
             placeholder="000000"
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            onChange={(e) =>
+              setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+            }
             onKeyDown={handleKeyDown}
-            className="text-center text-2xl tracking-[0.3em] font-mono"
+            className="text-center font-mono text-2xl tracking-[0.3em]"
             autoFocus
           />
 
@@ -337,7 +341,7 @@ function EmailConfirmationGate() {
           <button
             onClick={handleResend}
             disabled={resendMutation.isPending}
-            className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors disabled:opacity-50"
+            className="text-sm text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground disabled:opacity-50"
           >
             {resendMutation.isPending ? "Sending..." : "Resend code"}
           </button>
