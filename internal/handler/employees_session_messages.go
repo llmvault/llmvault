@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -198,5 +199,34 @@ func (h *EmployeeHandler) StreamSession(w http.ResponseWriter, r *http.Request) 
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}
-	_, _ = io.Copy(flushWriter{ResponseWriter: w}, resp.Body)
+	_ = copySSEStream(w, resp.Body)
+}
+
+func copySSEStream(w http.ResponseWriter, r io.Reader) error {
+	reader := bufio.NewReader(r)
+	flusher, _ := w.(http.Flusher)
+	for {
+		line, err := reader.ReadString('\n')
+		if line != "" {
+			if _, writeErr := io.WriteString(w, line); writeErr != nil {
+				return writeErr
+			}
+			if isSSEEventBoundary(line) && flusher != nil {
+				flusher.Flush()
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				if flusher != nil {
+					flusher.Flush()
+				}
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+func isSSEEventBoundary(line string) bool {
+	return strings.TrimRight(line, "\r\n") == ""
 }

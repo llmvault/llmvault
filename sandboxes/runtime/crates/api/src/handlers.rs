@@ -1,7 +1,10 @@
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
+    http::{
+        header::{CACHE_CONTROL, CONNECTION},
+        HeaderName, HeaderValue, StatusCode,
+    },
+    response::{IntoResponse, Response},
     Json,
 };
 use chrono::{DateTime, Utc};
@@ -764,7 +767,7 @@ pub async fn get_http_stream(
     };
     stream_response(http_gateway.broker.clone(), stream_id)
         .await
-        .map(IntoResponse::into_response)
+        .map(sse_stream_response)
         .ok_or(StatusCode::NOT_FOUND)
 }
 
@@ -788,8 +791,23 @@ pub async fn get_http_response_stream(
     };
     stream_response(http_gateway.broker.clone(), stream_id)
         .await
-        .map(IntoResponse::into_response)
+        .map(sse_stream_response)
         .ok_or(StatusCode::NOT_FOUND)
+}
+
+fn sse_stream_response(response: impl IntoResponse) -> Response {
+    let mut response = response.into_response();
+    let headers = response.headers_mut();
+    headers.insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("no-cache, no-transform"),
+    );
+    headers.insert(CONNECTION, HeaderValue::from_static("keep-alive"));
+    headers.insert(
+        HeaderName::from_static("x-accel-buffering"),
+        HeaderValue::from_static("no"),
+    );
+    response
 }
 
 fn parse_cursor(raw: &str) -> Result<DateTime<Utc>, String> {

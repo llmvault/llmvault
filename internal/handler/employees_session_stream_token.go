@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -65,16 +64,4 @@ func (h *EmployeeHandler) verifyWebStreamToken(sessionID uuid.UUID, streamID, to
 	mac := hmac.New(sha256.New, h.compileDeps.SigningKey)
 	_, _ = mac.Write([]byte(payload))
 	return hmac.Equal(sig, mac.Sum(nil))
-}
-
-type flushWriter struct {
-	http.ResponseWriter
-}
-
-func (w flushWriter) Write(p []byte) (int, error) {
-	n, err := w.ResponseWriter.Write(p)
-	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
-	return n, err
 }
