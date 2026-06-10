@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery } from "@tanstack/react-query"
 import { fetchEventSource } from "@microsoft/fetch-event-source"
 import ScrollToBottom, {
   useObserveScrollPosition,
@@ -88,12 +88,14 @@ type LocalMessage = {
 type StreamState = {
   text: string
   isStreaming: boolean
+  events: EmployeeSessionEvent[]
   error?: string
 }
 
 type SendSessionMessageResponse = {
   created?: boolean
   employee_session_id?: string
+  stream_url?: string
   response_stream_url?: string
   runtime_session_id?: string
   source?: string
@@ -118,7 +120,6 @@ function segmentFromParam(value: string | null): SessionSegment {
 export default function SessionsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const queryClient = useQueryClient()
   const querySessionID = searchParams.get("session")
   const [search, setSearch] = useState("")
   const [selectedSegment, setSelectedSegment] = useState<SessionSegment>(() =>
@@ -264,8 +265,12 @@ export default function SessionsPage() {
         eventText(event).trim() === selectedStream.text.trim()
     )
   }, [events, selectedStream])
-  const hasLocalStream =
-    Boolean(selectedStream) && (!streamPersisted || selectedStream?.isStreaming)
+  const hasLocalStream = selectedStream
+    ? selectedStream.isStreaming ||
+      Boolean(selectedStream.text) ||
+      selectedStream.events.length > 0 ||
+      Boolean(selectedStream.error)
+    : false
   const hasVisibleMessages =
     events.length > 0 || selectedPendingMessages.length > 0 || hasLocalStream
 
@@ -275,6 +280,22 @@ export default function SessionsPage() {
     }
   }, [eventsQuery])
 
+  useEffect(() => {
+    if (
+      !selectedSessionID ||
+      !selectedStream ||
+      selectedStream.isStreaming ||
+      !streamPersisted
+    ) {
+      return
+    }
+    setStreams((current) => {
+      const next = { ...current }
+      delete next[selectedSessionID]
+      return next
+    })
+  }, [selectedSessionID, selectedStream, streamPersisted])
+
   const navigateToSession = useCallback(
     (sessionID: string, segment: SessionSegment = selectedSegment) => {
       setSelectedSessionID(sessionID)
@@ -283,20 +304,21 @@ export default function SessionsPage() {
     [router, selectedSegment]
   )
 
-  const startResponseStream = useCallback(
-    async (sessionID: string, responseStreamURL?: string) => {
-      if (!responseStreamURL) return
+  const startSessionStream = useCallback(
+    async (sessionID: string, sessionStreamURL?: string) => {
+      if (!sessionStreamURL) return
 
       streamControllersRef.current[sessionID]?.abort()
       const controller = new AbortController()
       streamControllersRef.current[sessionID] = controller
       setStreams((current) => ({
         ...current,
-        [sessionID]: { text: "", isStreaming: true },
+        [sessionID]: { text: "", events: [], isStreaming: true },
       }))
 
       let buffer = ""
-      const streamURL = proxiedStreamURL(responseStreamURL)
+      let sequence = 0
+      const streamURL = proxiedStreamURL(sessionStreamURL)
 
       try {
         await fetchEventSource(streamURL, {
@@ -326,15 +348,31 @@ export default function SessionsPage() {
               buffer += frame.text
               setStreams((current) => ({
                 ...current,
-                [sessionID]: { text: buffer, isStreaming: true },
+                [sessionID]: {
+                  ...(current[sessionID] ?? {
+                    events: [],
+                    isStreaming: true,
+                  }),
+                  text: buffer,
+                  isStreaming: true,
+                },
               }))
+              return
             }
             if (event.event === "final" && typeof frame.text === "string") {
               buffer = frame.text
               setStreams((current) => ({
                 ...current,
-                [sessionID]: { text: buffer, isStreaming: true },
+                [sessionID]: {
+                  ...(current[sessionID] ?? {
+                    events: [],
+                    isStreaming: true,
+                  }),
+                  text: buffer,
+                  isStreaming: true,
+                },
               }))
+              return
             }
             if (event.event === "error") {
               const message =
@@ -344,15 +382,41 @@ export default function SessionsPage() {
               setStreams((current) => ({
                 ...current,
                 [sessionID]: {
+                  ...(current[sessionID] ?? { events: [] }),
                   text: buffer,
                   isStreaming: false,
                   error: message,
                 },
               }))
+              return
             }
             if (event.event === "done") {
               controller.abort()
+              return
             }
+            sequence += 1
+            const liveEvent = streamFrameToSessionEvent(
+              sessionID,
+              event.event,
+              frame,
+              sequence
+            )
+            setStreams((current) => {
+              const existing = current[sessionID] ?? {
+                text: buffer,
+                events: [],
+                isStreaming: true,
+              }
+              return {
+                ...current,
+                [sessionID]: {
+                  ...existing,
+                  text: existing.text || buffer,
+                  events: [...existing.events, liveEvent],
+                  isStreaming: true,
+                },
+              }
+            })
           },
           onerror(error) {
             throw error
@@ -366,7 +430,12 @@ export default function SessionsPage() {
               : "The response stream failed."
           setStreams((current) => ({
             ...current,
-            [sessionID]: { text: buffer, isStreaming: false, error: message },
+            [sessionID]: {
+              ...(current[sessionID] ?? { events: [] }),
+              text: buffer,
+              isStreaming: false,
+              error: message,
+            },
           }))
         }
       } finally {
@@ -376,20 +445,14 @@ export default function SessionsPage() {
         setStreams((current) => ({
           ...current,
           [sessionID]: {
-            ...(current[sessionID] ?? { text: buffer }),
+            ...(current[sessionID] ?? { events: [] }),
             text: current[sessionID]?.text ?? buffer,
             isStreaming: false,
           },
         }))
-        queryClient.invalidateQueries({
-          queryKey: ["employee-sessions", employeeID],
-        })
-        queryClient.invalidateQueries({
-          queryKey: ["employee-session-events", employeeID, sessionID],
-        })
       }
     },
-    [employeeID, queryClient]
+    []
   )
 
   const sendMessage = useCallback(
@@ -450,16 +513,16 @@ export default function SessionsPage() {
         }
 
         navigateToSession(nextSessionID, "web")
-        startResponseStream(nextSessionID, result.response_stream_url)
-        queryClient.invalidateQueries({
-          queryKey: ["employee-sessions", employeeID, "web"],
-        })
+        startSessionStream(
+          nextSessionID,
+          result.stream_url ?? result.response_stream_url
+        )
         return result
       } finally {
         setIsSending(false)
       }
     },
-    [employeeID, navigateToSession, queryClient, startResponseStream]
+    [employeeID, navigateToSession, startSessionStream]
   )
 
   useEffect(() => {
@@ -653,6 +716,9 @@ export default function SessionsPage() {
                   key={message.id}
                   event={localUserMessageToEvent(message)}
                 />
+              ))}
+              {selectedStream?.events.map((event) => (
+                <SessionEventRow key={event.id} event={event} />
               ))}
               {selectedStream && hasLocalStream ? (
                 <AssistantStreamRow stream={selectedStream} />
@@ -1130,6 +1196,25 @@ function localUserMessageToEvent(message: LocalMessage): EmployeeSessionEvent {
     payload: { text: message.text },
     event_at: message.createdAt,
     created_at: message.createdAt,
+  }
+}
+
+function streamFrameToSessionEvent(
+  sessionID: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+  sequence: number
+): EmployeeSessionEvent {
+  const now = new Date().toISOString()
+  return {
+    id: `live-${sessionID}-${sequence}-${eventType}`,
+    employee_session_id: sessionID,
+    event_type: eventType,
+    source: payloadString(payload, "source") || "web",
+    sequence_number: sequence,
+    payload,
+    event_at: now,
+    created_at: now,
   }
 }
 
