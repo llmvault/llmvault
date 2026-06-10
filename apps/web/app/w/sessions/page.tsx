@@ -279,7 +279,7 @@ export default function SessionsPage() {
     return events.some(
       (event) =>
         eventKind(event) === "assistant" &&
-        eventText(event).trim() === selectedStream.text.trim()
+        assistantTextMatchesStream(eventText(event), selectedStream.text)
     )
   }, [events, selectedStream])
   const hasLocalStream = selectedStream
@@ -1222,12 +1222,19 @@ function eventKind(event: EmployeeSessionEvent) {
 function normalizeSessionEvents(events: EmployeeSessionEvent[]) {
   const normalized: EmployeeSessionEvent[] = []
   const toolIndexByID = new Map<string, number>()
+  const tokenTexts: string[] = []
   let thinkingIndex: number | null = null
 
   for (const event of events) {
     const kind = eventKind(event)
 
-    if (kind === "token" || isHiddenSessionEvent(event)) {
+    if (kind === "token") {
+      const text = eventText(event)
+      if (text) tokenTexts.push(text)
+      continue
+    }
+
+    if (isHiddenSessionEvent(event)) {
       continue
     }
 
@@ -1262,10 +1269,53 @@ function normalizeSessionEvents(events: EmployeeSessionEvent[]) {
       continue
     }
 
+    if (kind === "assistant") {
+      thinkingIndex = null
+      normalized.push(normalizedAssistantEvent(event, tokenTexts))
+      continue
+    }
+
     normalized.push(event)
   }
 
   return normalized
+}
+
+function assistantTextMatchesStream(persistedText: string, streamText: string) {
+  const persisted = persistedText.trim()
+  const streamed = streamText.trim()
+  return persisted === streamed || persisted.endsWith(streamed)
+}
+
+function normalizedAssistantEvent(
+  event: EmployeeSessionEvent,
+  tokenTexts: string[]
+) {
+  const cleanedText = cleanPersistedAssistantText(eventText(event), tokenTexts)
+  if (cleanedText === eventText(event)) return event
+  return {
+    ...event,
+    payload: {
+      ...payloadRecord(event.payload),
+      text: cleanedText,
+    },
+  }
+}
+
+function cleanPersistedAssistantText(text: string, tokenTexts: string[]) {
+  const visibleTokens = tokenTexts.filter((token) => token !== "")
+  if (visibleTokens.length < 2 || text === "") return text
+
+  const lastToken = visibleTokens[visibleTokens.length - 1]
+  const previousTokens = visibleTokens.slice(0, -1).join("")
+  if (previousTokens === "" || lastToken === "") return text
+
+  if (text === previousTokens + lastToken) return lastToken
+  if (text.startsWith(previousTokens)) {
+    const candidate = text.slice(previousTokens.length)
+    if (candidate.trim() === lastToken.trim()) return candidate
+  }
+  return text
 }
 
 function isHiddenSessionEvent(event: EmployeeSessionEvent) {
