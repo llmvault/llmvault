@@ -685,6 +685,7 @@ async fn process_single_turn(
         }
         Err(e) => StreamOutcome {
             text: String::new(),
+            final_message: None,
             error: Some(e.to_string()),
         },
     };
@@ -956,6 +957,7 @@ fn derive_channel_and_thread(session_id: &SessionId) -> (String, String) {
 
 pub(crate) struct StreamOutcome {
     pub text: String,
+    pub final_message: Option<String>,
     pub error: Option<String>,
 }
 
@@ -969,6 +971,7 @@ async fn consume_agent_stream(
     event_sink: &dyn TurnEventSink,
 ) -> StreamOutcome {
     let mut accumulated = String::new();
+    let mut final_message: Option<String> = None;
     let mut error_message: Option<String> = None;
     let mut sequence: u64 = 0;
     while let Some(event) = stream.next().await {
@@ -993,7 +996,13 @@ async fn consume_agent_stream(
         match event {
             AgentEvent::ThinkingChunk { .. } => {}
             AgentEvent::TokenChunk { text } => push_visible_delta(&mut accumulated, &text),
-            AgentEvent::FinalMessage { text } => merge_final_text(&mut accumulated, &text),
+            AgentEvent::FinalMessage { text } => {
+                let normalized = normalize_visible_text(&text);
+                if !normalized.trim().is_empty() {
+                    final_message = Some(normalized);
+                }
+                merge_final_text(&mut accumulated, &text);
+            }
             AgentEvent::Error { message } => error_message = Some(message),
             AgentEvent::RunEvent { .. } => {}
             _ => {}
@@ -1004,6 +1013,7 @@ async fn consume_agent_stream(
         .await;
     StreamOutcome {
         text: accumulated,
+        final_message,
         error: error_message,
     }
 }
@@ -1194,12 +1204,17 @@ fn format_final_message(outcome: &StreamOutcome) -> String {
         );
         return USER_RETRY_MESSAGE.to_string();
     }
-    if outcome.text.trim().is_empty() {
+    let text = outcome
+        .final_message
+        .as_deref()
+        .filter(|text| !text.trim().is_empty())
+        .unwrap_or(&outcome.text);
+    if text.trim().is_empty() {
         warn!("agent produced no response after recovery attempts");
         sentry::capture_message("agent produced empty final response", sentry::Level::Error);
         return USER_RETRY_MESSAGE.to_string();
     }
-    outcome.text.clone()
+    text.to_string()
 }
 
 #[cfg(test)]
@@ -1216,6 +1231,7 @@ mod tests {
     fn empty_outcome_does_not_use_generic_apology() {
         let text = format_final_message(&StreamOutcome {
             text: String::new(),
+            final_message: None,
             error: None,
         });
 
@@ -1257,9 +1273,32 @@ mod tests {
     }
 
     #[test]
+    fn final_message_replaces_pre_tool_stream_text() {
+        let text = format_final_message(&StreamOutcome {
+            text: "Let me check the database.Going good!".to_string(),
+            final_message: Some("Going good!".to_string()),
+            error: None,
+        });
+
+        assert_eq!(text, "Going good!");
+    }
+
+    #[test]
+    fn final_message_falls_back_to_tokens_when_absent() {
+        let text = format_final_message(&StreamOutcome {
+            text: "Streaming answer".to_string(),
+            final_message: None,
+            error: None,
+        });
+
+        assert_eq!(text, "Streaming answer");
+    }
+
+    #[test]
     fn error_outcome_does_not_expose_internal_details() {
         let text = format_final_message(&StreamOutcome {
             text: String::new(),
+            final_message: Some("Do not show this".to_string()),
             error: Some(
                 "error returned from database: attempt to write a readonly database".into(),
             ),

@@ -217,7 +217,30 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("either HIVY_REDIS_URL or HIVY_REDIS_ADDR must be set")
 	}
 
+	cfg.CORSOrigins = includeFrontendCORSOrigin(cfg.CORSOrigins, cfg.FrontendURL)
+
 	return cfg, nil
+}
+
+func includeFrontendCORSOrigin(origins []string, frontendURL string) []string {
+	origin := URLOrigin(frontendURL)
+	if origin == "" {
+		return origins
+	}
+	for _, existing := range origins {
+		if URLOrigin(existing) == origin {
+			return origins
+		}
+	}
+	return append(origins, origin)
+}
+
+func URLOrigin(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return raw
+	}
+	return parsed.Scheme + "://" + parsed.Host
 }
 
 // DatabaseDSN constructs a Postgres connection string from individual fields.

@@ -43,3 +43,43 @@ func TestLoad_NoRedisConfig(t *testing.T) {
 		t.Fatal("expected error when neither HIVY_REDIS_URL nor HIVY_REDIS_ADDR is set")
 	}
 }
+
+func TestLoad_AddsFrontendURLToCORSOrigins(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_CORS_ORIGINS", "https://admin.usehivy.com")
+	t.Setenv("HIVY_FRONTEND_URL", "https://usehivy.com")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if !containsString(cfg.CORSOrigins, "https://admin.usehivy.com") {
+		t.Fatalf("configured CORS origin missing: %#v", cfg.CORSOrigins)
+	}
+	if !containsString(cfg.CORSOrigins, "https://usehivy.com") {
+		t.Fatalf("frontend URL was not added to CORS origins: %#v", cfg.CORSOrigins)
+	}
+}
+
+func TestLoad_DoesNotDuplicateFrontendCORSOrigin(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_CORS_ORIGINS", "https://usehivy.com")
+	t.Setenv("HIVY_FRONTEND_URL", "https://usehivy.com/")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if len(cfg.CORSOrigins) != 1 || cfg.CORSOrigins[0] != "https://usehivy.com" {
+		t.Fatalf("CORS origins = %#v", cfg.CORSOrigins)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
