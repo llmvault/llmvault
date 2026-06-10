@@ -32,6 +32,7 @@ func (c *Client) openStream(ctx context.Context, rawURL string) (*http.Response,
 		return nil, err
 	}
 	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Accept-Encoding", "identity")
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
