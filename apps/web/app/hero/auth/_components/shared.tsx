@@ -1,8 +1,9 @@
 "use client"
 
-import { Button, Card, Link, Separator, Typography } from "@heroui/react"
+import { Button, Link, Separator, Typography } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import NextLink from "next/link"
+import { apiUrl } from "@/lib/api/client"
 
 export function AuthCard({ children }: { children: React.ReactNode }) {
   return (
@@ -55,16 +56,40 @@ export function AuthFooter() {
   )
 }
 
-export function OAuthButtons() {
+export function OAuthButtons({ nextPath = "/hero/w" }: { nextPath?: string }) {
+  const withNext = (path: string) => {
+    if (nextPath === "/w") return apiUrl(path)
+    return apiUrl(`${path}?next=${encodeURIComponent(nextPath)}`)
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <Button className="w-full" variant="tertiary" size="lg">
+      <Button
+        className="w-full"
+        variant="tertiary"
+        size="lg"
+        onPress={() => window.location.assign(withNext("/oauth/google"))}
+      >
         <Icon icon="devicon:google" />
         Continue with Google
       </Button>
-      <Button className="w-full" variant="tertiary" size="lg">
+      <Button
+        className="w-full"
+        variant="tertiary"
+        size="lg"
+        onPress={() => window.location.assign(withNext("/oauth/github"))}
+      >
         <Icon icon="mdi:github" />
         Continue with GitHub
+      </Button>
+      <Button
+        className="w-full"
+        variant="tertiary"
+        size="lg"
+        onPress={() => window.location.assign(withNext("/oauth/x"))}
+      >
+        <Icon icon="ri:twitter-x-fill" />
+        Continue with X
       </Button>
     </div>
   )

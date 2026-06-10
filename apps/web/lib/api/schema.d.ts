@@ -4728,6 +4728,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employees/{id}/sessions/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a web session message
+         * @description Creates a web-backed employee session when session_id is omitted, or sends a new turn to an existing web session. Returns a backend SSE URL for the response stream.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Message payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["sendEmployeeSessionMessageRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sendEmployeeSessionMessageResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employees/{id}/sessions/{sessionID}/events": {
         parameters: {
             query?: never;
@@ -4801,6 +4884,100 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employees/{id}/sessions/{sessionID}/streams/{streamID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream a web session turn
+         * @description Proxies a signed runtime SSE stream for an authenticated web session.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Signed stream token */
+                    token: string;
+                };
+                header?: never;
+                path: {
+                    /** @description Employee agent ID */
+                    id: string;
+                    /** @description Employee session ID */
+                    sessionID: string;
+                    /** @description Runtime HTTP stream ID */
+                    streamID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SSE stream */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["errorResponse"];
                     };
                 };
             };
@@ -10223,6 +10400,25 @@ export interface components {
             refs?: {
                 [key: string]: string;
             };
+        };
+        sendEmployeeSessionMessageRequest: {
+            message?: string;
+            session_id?: string;
+            text?: string;
+        };
+        sendEmployeeSessionMessageResponse: {
+            created?: boolean;
+            employee_session_id?: string;
+            response_stream_url?: string;
+            runtime_conversation_id?: string;
+            runtime_response_stream_id?: string;
+            runtime_session_id?: string;
+            runtime_stream_id?: string;
+            runtime_trace_id?: string;
+            runtime_turn_id?: string;
+            source?: string;
+            source_resource_key?: string;
+            stream_url?: string;
         };
         sessionSummary: {
             created_at?: string;

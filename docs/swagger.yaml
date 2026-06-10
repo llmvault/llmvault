@@ -2275,6 +2275,42 @@ definitions:
           type: string
         type: object
     type: object
+  sendEmployeeSessionMessageRequest:
+    properties:
+      message:
+        type: string
+      session_id:
+        type: string
+      text:
+        type: string
+    type: object
+  sendEmployeeSessionMessageResponse:
+    properties:
+      created:
+        type: boolean
+      employee_session_id:
+        type: string
+      response_stream_url:
+        type: string
+      runtime_conversation_id:
+        type: string
+      runtime_response_stream_id:
+        type: string
+      runtime_session_id:
+        type: string
+      runtime_stream_id:
+        type: string
+      runtime_trace_id:
+        type: string
+      runtime_turn_id:
+        type: string
+      source:
+        type: string
+      source_resource_key:
+        type: string
+      stream_url:
+        type: string
+    type: object
   sessionSummary:
     properties:
       created_at:
@@ -5459,6 +5495,109 @@ paths:
       security:
       - BearerAuth: []
       summary: List persisted session events
+      tags:
+      - employees
+  /v1/employees/{id}/sessions/{sessionID}/streams/{streamID}:
+    get:
+      description: Proxies a signed runtime SSE stream for an authenticated web session.
+      parameters:
+      - description: Employee agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Employee session ID
+        in: path
+        name: sessionID
+        required: true
+        type: string
+      - description: Runtime HTTP stream ID
+        in: path
+        name: streamID
+        required: true
+        type: string
+      - description: Signed stream token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Stream a web session turn
+      tags:
+      - employees
+  /v1/employees/{id}/sessions/messages:
+    post:
+      consumes:
+      - application/json
+      description: Creates a web-backed employee session when session_id is omitted,
+        or sends a new turn to an existing web session. Returns a backend SSE URL
+        for the response stream.
+      parameters:
+      - description: Employee agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sendEmployeeSessionMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/sendEmployeeSessionMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send a web session message
       tags:
       - employees
   /v1/employees/{id}/skills:

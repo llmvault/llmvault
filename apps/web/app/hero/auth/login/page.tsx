@@ -1,7 +1,14 @@
 "use client"
 
-import { Button, Input, Label, Typography } from "@heroui/react"
+import { Button, Input, Label, Spinner, Typography } from "@heroui/react"
 import NextLink from "next/link"
+import { Suspense, type FormEvent } from "react"
+import { useSearchParams } from "next/navigation"
+import {
+  safeAuthRedirect,
+  usePasswordLogin,
+  type PasswordAuthInput,
+} from "@/hooks/use-password-auth"
 import {
   AuthCard,
   AuthDivider,
@@ -11,7 +18,22 @@ import {
   PlaceholderLogo,
 } from "../_components/shared"
 
-export default function LoginPage() {
+function LoginPageContent() {
+  const searchParams = useSearchParams()
+  const nextPath = safeAuthRedirect(searchParams.get("next"), "/hero/w")
+  const nextQuery =
+    nextPath === "/hero/w" ? "" : `?next=${encodeURIComponent(nextPath)}`
+  const { login, isPending } = usePasswordLogin(nextPath)
+
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    login({
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    } satisfies PasswordAuthInput)
+  }
+
   return (
     <>
       <AuthNavHome />
@@ -30,37 +52,52 @@ export default function LoginPage() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <OAuthButtons />
+          <OAuthButtons nextPath={nextPath} />
           <AuthDivider />
-          <form className="flex flex-col gap-3">
+          <form onSubmit={onSubmit} className="flex flex-col gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Work email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 autoComplete="email"
                 required
                 placeholder="you@company.com"
+                disabled={isPending}
               />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
                 placeholder="Enter your password"
+                disabled={isPending}
               />
             </div>
-            <Button type="submit" size="lg" fullWidth>
-              Sign in
+            <Button
+              type="submit"
+              size="lg"
+              fullWidth
+              isPending={isPending}
+              isDisabled={isPending}
+            >
+              {({ isPending }) => (
+                <>
+                  {isPending ? <Spinner color="current" size="sm" /> : null}
+                  {isPending ? "Signing in..." : "Sign in"}
+                </>
+              )}
             </Button>
           </form>
           <div className="text-center">
             <Typography.Paragraph size="sm" color="muted">
               Don&apos;t have an account?{" "}
-              <NextLink href="/hero/auth/signup" className="link">
+              <NextLink href={`/hero/auth/signup${nextQuery}`} className="link">
                 Sign up
               </NextLink>
             </Typography.Paragraph>
@@ -70,5 +107,13 @@ export default function LoginPage() {
         <AuthFooter />
       </AuthCard>
     </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<AuthCard><PlaceholderLogo /></AuthCard>}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
