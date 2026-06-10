@@ -113,6 +113,7 @@ type StreamAuthTokenResponse = {
 const streamAPIBaseURL = (
   process.env.NEXT_PUBLIC_HIVY_API_URL ?? ""
 ).replace(/\/$/, "")
+const liveAssistantEventType = "agent.message.streaming"
 
 const sessionSegments: Array<{
   id: SessionSegment
@@ -366,33 +367,57 @@ export default function SessionsPage() {
             if (!frame) return
 
             if (event.event === "token" && typeof frame.text === "string") {
-              buffer += frame.text
-              setStreams((current) => ({
-                ...current,
-                [sessionID]: {
-                  ...(current[sessionID] ?? {
-                    events: [],
-                    isStreaming: true,
-                  }),
-                  text: buffer,
+              const tokenText = frame.text
+              sequence += 1
+              buffer += tokenText
+              setStreams((current) => {
+                const existing = current[sessionID] ?? {
+                  text: "",
+                  events: [],
                   isStreaming: true,
-                },
-              }))
+                }
+                return {
+                  ...current,
+                  [sessionID]: {
+                    ...existing,
+                    text: buffer,
+                    events: appendLiveTokenEvent(
+                      existing.events,
+                      sessionID,
+                      tokenText,
+                      sequence
+                    ),
+                    isStreaming: true,
+                  },
+                }
+              })
               return
             }
             if (event.event === "final" && typeof frame.text === "string") {
-              buffer = frame.text
-              setStreams((current) => ({
-                ...current,
-                [sessionID]: {
-                  ...(current[sessionID] ?? {
-                    events: [],
-                    isStreaming: true,
-                  }),
-                  text: buffer,
+              const finalText = frame.text
+              sequence += 1
+              buffer = finalText
+              setStreams((current) => {
+                const existing = current[sessionID] ?? {
+                  text: "",
+                  events: [],
                   isStreaming: true,
-                },
-              }))
+                }
+                return {
+                  ...current,
+                  [sessionID]: {
+                    ...existing,
+                    text: buffer,
+                    events: reconcileLiveFinalEvent(
+                      existing.events,
+                      sessionID,
+                      finalText,
+                      sequence
+                    ),
+                    isStreaming: true,
+                  },
+                }
+              })
               return
             }
             if (event.event === "error") {
@@ -405,6 +430,9 @@ export default function SessionsPage() {
                 [sessionID]: {
                   ...(current[sessionID] ?? { events: [] }),
                   text: buffer,
+                  events: completeTrailingLiveAssistant(
+                    current[sessionID]?.events ?? []
+                  ),
                   isStreaming: false,
                   error: message,
                 },
@@ -433,7 +461,10 @@ export default function SessionsPage() {
                 [sessionID]: {
                   ...existing,
                   text: existing.text || buffer,
-                  events: [...existing.events, liveEvent],
+                  events: [
+                    ...completeTrailingLiveAssistant(existing.events),
+                    liveEvent,
+                  ],
                   isStreaming: true,
                 },
               }
@@ -454,6 +485,9 @@ export default function SessionsPage() {
             [sessionID]: {
               ...(current[sessionID] ?? { events: [] }),
               text: buffer,
+              events: completeTrailingLiveAssistant(
+                current[sessionID]?.events ?? []
+              ),
               isStreaming: false,
               error: message,
             },
@@ -468,6 +502,9 @@ export default function SessionsPage() {
           [sessionID]: {
             ...(current[sessionID] ?? { events: [] }),
             text: current[sessionID]?.text ?? buffer,
+            events: completeTrailingLiveAssistant(
+              current[sessionID]?.events ?? []
+            ),
             isStreaming: false,
           },
         }))
@@ -741,8 +778,11 @@ export default function SessionsPage() {
               {selectedStreamEvents.map((event) => (
                 <SessionEventRow key={event.id} event={event} />
               ))}
-              {selectedStream && hasLocalStream ? (
+              {selectedStream && hasLocalStream && selectedStreamEvents.length === 0 ? (
                 <AssistantStreamRow stream={selectedStream} />
+              ) : null}
+              {selectedStream?.error && selectedStreamEvents.length > 0 ? (
+                <ErrorLine message={selectedStream.error} />
               ) : null}
             </div>
           )}
@@ -951,6 +991,9 @@ function EventsScrollObserver({ onNearTop }: { onNearTop: () => void }) {
 function SessionEventRow({ event }: { event: EmployeeSessionEvent }) {
   const kind = eventKind(event)
   const text = eventText(event)
+  const assistantStreaming =
+    event.event_type === liveAssistantEventType &&
+    payloadString(event.payload, "status") === "streaming"
   if (kind === "user" || kind === "assistant") {
     return (
       <div
@@ -968,7 +1011,12 @@ function SessionEventRow({ event }: { event: EmployeeSessionEvent }) {
           )}
         >
           {kind === "assistant" ? (
-            <Streamdown className="text-sm leading-6" mode="static">
+            <Streamdown
+              className="text-sm leading-6"
+              mode={assistantStreaming ? "streaming" : "static"}
+              isAnimating={assistantStreaming}
+              caret={assistantStreaming ? "block" : undefined}
+            >
               {text || event.event_type || "Message"}
             </Streamdown>
           ) : (
@@ -1152,7 +1200,11 @@ function eventKind(event: EmployeeSessionEvent) {
   if (type === "user.message.received" || type === "message_received") {
     return "user"
   }
-  if (type === "agent.message.sent" || type === "response_completed") {
+  if (
+    type === "agent.message.sent" ||
+    type === liveAssistantEventType ||
+    type === "response_completed"
+  ) {
     return "assistant"
   }
   if (type.includes("thinking")) return "thinking"
@@ -1175,7 +1227,7 @@ function normalizeSessionEvents(events: EmployeeSessionEvent[]) {
   for (const event of events) {
     const kind = eventKind(event)
 
-    if (kind === "token") {
+    if (kind === "token" || isHiddenSessionEvent(event)) {
       continue
     }
 
@@ -1214,6 +1266,21 @@ function normalizeSessionEvents(events: EmployeeSessionEvent[]) {
   }
 
   return normalized
+}
+
+function isHiddenSessionEvent(event: EmployeeSessionEvent) {
+  switch (event.event_type) {
+    case "turn_started":
+    case "turn_completed":
+    case "model_request_started":
+    case "model_request_completed":
+    case "model_usage":
+    case "final":
+    case "done":
+      return true
+    default:
+      return false
+  }
 }
 
 function normalizedThinkingEvent(event: EmployeeSessionEvent) {
@@ -1414,6 +1481,109 @@ function streamFrameToSessionEvent(
     source: payloadString(payload, "source") || "web",
     sequence_number: sequence,
     payload,
+    event_at: now,
+    created_at: now,
+  }
+}
+
+function appendLiveTokenEvent(
+  events: EmployeeSessionEvent[],
+  sessionID: string,
+  token: string,
+  sequence: number
+) {
+  if (token === "") return events
+  const last = events.at(-1)
+  if (
+    last?.event_type === liveAssistantEventType &&
+    payloadString(last.payload, "status") === "streaming"
+  ) {
+    const now = new Date().toISOString()
+    return [
+      ...events.slice(0, -1),
+      {
+        ...last,
+        sequence_number: sequence,
+        event_at: now,
+        payload: {
+          ...payloadRecord(last.payload),
+          text: eventText(last) + token,
+          status: "streaming",
+        },
+      },
+    ]
+  }
+  return [
+    ...events,
+    liveAssistantEvent(sessionID, token, sequence, "streaming"),
+  ]
+}
+
+function reconcileLiveFinalEvent(
+  events: EmployeeSessionEvent[],
+  sessionID: string,
+  finalText: string,
+  sequence: number
+) {
+  const completed = completeTrailingLiveAssistant(events)
+  if (finalText.trim() === "") return completed
+
+  const last = completed.at(-1)
+  if (last?.event_type === liveAssistantEventType) {
+    return [
+      ...completed.slice(0, -1),
+      {
+        ...last,
+        sequence_number: sequence,
+        event_at: new Date().toISOString(),
+        payload: {
+          ...payloadRecord(last.payload),
+          text: finalText,
+          status: "completed",
+        },
+      },
+    ]
+  }
+  return [
+    ...completed,
+    liveAssistantEvent(sessionID, finalText, sequence, "completed"),
+  ]
+}
+
+function completeTrailingLiveAssistant(events: EmployeeSessionEvent[]) {
+  const last = events.at(-1)
+  if (
+    last?.event_type !== liveAssistantEventType ||
+    payloadString(last.payload, "status") !== "streaming"
+  ) {
+    return events
+  }
+  return [
+    ...events.slice(0, -1),
+    {
+      ...last,
+      payload: {
+        ...payloadRecord(last.payload),
+        status: "completed",
+      },
+    },
+  ]
+}
+
+function liveAssistantEvent(
+  sessionID: string,
+  text: string,
+  sequence: number,
+  status: "streaming" | "completed"
+): EmployeeSessionEvent {
+  const now = new Date().toISOString()
+  return {
+    id: `live-${sessionID}-${sequence}-assistant`,
+    employee_session_id: sessionID,
+    event_type: liveAssistantEventType,
+    source: "web",
+    sequence_number: sequence,
+    payload: { text, status },
     event_at: now,
     created_at: now,
   }
