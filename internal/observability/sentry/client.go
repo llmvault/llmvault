@@ -2,7 +2,9 @@ package sentry
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"log/slog"
 	"net/url"
 	"os"
@@ -167,14 +169,14 @@ func Close() {
 }
 
 func CaptureException(ctx context.Context, err error) {
-	if !Enabled() || err == nil {
+	if !Enabled() || err == nil || isBenignError(err) {
 		return
 	}
 	hubFromContext(ctx).CaptureException(err)
 }
 
 func CaptureExceptionWithFields(ctx context.Context, err error, fields map[string]any) {
-	if !Enabled() || err == nil {
+	if !Enabled() || err == nil || isBenignError(err) {
 		return
 	}
 	hub := hubFromContext(ctx)
@@ -209,4 +211,17 @@ func hubFromContext(ctx context.Context) *sentrygo.Hub {
 		}
 	}
 	return sentrygo.CurrentHub()
+}
+
+// isBenignError returns true for errors that are expected and should not be
+// reported to Sentry (e.g. client disconnects causing context.Canceled).
+func isBenignError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "context canceled") || strings.Contains(msg, "context deadline exceeded")
 }

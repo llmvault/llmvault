@@ -232,7 +232,7 @@ func (h *EmployeeMemoryRetainHandler) enqueueRetainCheck(ctx context.Context, pa
 		asynq.TaskID(taskID),
 	)
 	_, err = h.enqueuer.EnqueueContext(ctx, task, opts...)
-	duplicate := errors.Is(err, asynq.ErrDuplicateTask)
+	duplicate := errors.Is(err, asynq.ErrDuplicateTask) || errors.Is(err, asynq.ErrTaskIDConflict)
 	if err != nil && !duplicate {
 		fields := employeeMemoryRetainFields(payload)
 		fields["task_id"] = taskID

@@ -52,7 +52,7 @@ func EnqueueEmployeeMemoryRetain(ctx context.Context, enqueuer enqueue.TaskEnque
 		asynq.TaskID(EmployeeMemoryRetainTaskID(payload)),
 	)
 	_, err = enqueuer.EnqueueContext(ctx, task, opts...)
-	if errors.Is(err, asynq.ErrDuplicateTask) {
+	if errors.Is(err, asynq.ErrDuplicateTask) || errors.Is(err, asynq.ErrTaskIDConflict) {
 		return true, nil
 	}
 	return false, err

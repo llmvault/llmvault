@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	employeeProxyTokenRefreshLead    = 4 * time.Hour
+	employeeProxyTokenRefreshLead    = 6 * time.Hour
 	employeeProxyTokenRefreshTimeout = 2 * time.Minute
 	employeeProxyTokenRefreshDedupe  = time.Hour
 	// employeeProxyTokenRevokeGrace protects tokens minted by a concurrent sync

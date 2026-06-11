@@ -178,7 +178,7 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		Session:               session,
 		RuntimeConversationID: conversationID,
 		RuntimeSessionID:      delivery.SessionID,
-		StreamURL:             runtimeURL + "/gateway/http/streams/" + delivery.StreamID,
+		StreamURL:             absoluteRuntimeURL(runtimeURL, "/gateway/http/streams/"+delivery.StreamID),
 		ResponseStreamURL:     responseStreamURL,
 		RuntimeURL:            runtimeURL,
 		RuntimeAPIKey:         runtimeAPIKey,

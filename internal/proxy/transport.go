@@ -12,6 +12,42 @@ import (
 // re-checks and pins the resolved IP, closing the DNS-rebinding TOCTOU window so
 // a short-TTL attacker domain can't re-resolve to a metadata/private IP at dial.
 // AllowLoopback (tests) bypasses checks.
+// RetryTransport wraps an http.RoundTripper to retry 503 responses with backoff.
+type RetryTransport struct {
+	Inner       http.RoundTripper
+	MaxRetries  int
+	InitialWait time.Duration
+}
+
+func (rt *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	maxRetries := rt.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 2
+	}
+	wait := rt.InitialWait
+	if wait <= 0 {
+		wait = 500 * time.Millisecond
+	}
+	var resp *http.Response
+	var err error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		resp, err = rt.Inner.RoundTrip(req)
+		if err != nil || resp.StatusCode != http.StatusServiceUnavailable {
+			return resp, err
+		}
+		if attempt < maxRetries {
+			resp.Body.Close()
+			select {
+			case <-time.After(wait):
+			case <-req.Context().Done():
+				return nil, req.Context().Err()
+			}
+			wait *= 2
+		}
+	}
+	return resp, err
+}
+
 func NewTransport() *http.Transport {
 	dialer := &net.Dialer{
 		Timeout:   5 * time.Second,

@@ -19,7 +19,7 @@ const gatewayFriendlyStreamError = "Something went wrong. Please try again."
 // maxStreamSubscribeAttempts bounds re-subscribes after a transport failure
 // before delivering whatever partial text we have. The broker replays history on
 // each subscribe (so a reconnect can still see the terminal event).
-const maxStreamSubscribeAttempts = 3
+const maxStreamSubscribeAttempts = 5
 
 // errStreamTransport signals that the SSE stream ended due to a transport
 // failure (dropped connection / read error) rather than a clean EOF. The
@@ -75,7 +75,7 @@ func NewGatewayStreamDeliveryService(db *gorm.DB) *GatewayStreamDeliveryService 
 func (s *GatewayStreamDeliveryService) DeliverFromStream(ctx context.Context, payload GatewayStreamPayload, sink GatewayResponseSink, fields map[string]any) (GatewayDeliveryResult, error) {
 	subscribe := s.subscriber
 	if subscribe == nil {
-		subscriber := gateway.NewSSESubscriber(&http.Client{Timeout: 610 * time.Second})
+		subscriber := gateway.NewSSESubscriber(&http.Client{Timeout: 660 * time.Second})
 		subscribe = subscriber.Subscribe
 	}
 

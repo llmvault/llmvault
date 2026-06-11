@@ -36,7 +36,7 @@ func (h *EmployeeMemoryRetainHandler) enqueueRefresh(ctx context.Context, agentI
 		asynq.Unique(2*time.Minute),
 		asynq.TaskID("employee-memory-refresh:"+agentID.String()),
 	)
-	if _, err := h.enqueuer.EnqueueContext(ctx, task, opts...); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
+	if _, err := h.enqueuer.EnqueueContext(ctx, task, opts...); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) && !errors.Is(err, asynq.ErrTaskIDConflict) {
 		logging.CaptureWithFields(ctx, fmt.Errorf("employee memory retain: enqueue refresh: %w", err), map[string]any{
 			"employee_id": agentID.String(),
 			"sandbox_id":  sandboxID.String(),

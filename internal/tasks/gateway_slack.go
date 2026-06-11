@@ -70,7 +70,7 @@ func (h *GatewaySlackHandler) Handle(ctx context.Context, t *asynq.Task) error {
 	client := h.newSlackClient(botToken)
 
 	streamURL := payload.StreamURL
-	subscriber := gateway.NewSSESubscriber(&http.Client{Timeout: 610 * time.Second})
+	subscriber := gateway.NewSSESubscriber(&http.Client{Timeout: 660 * time.Second})
 	events, err := subscriber.Subscribe(ctx, streamURL, payload.RuntimeAPIKey)
 	if err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("gateway slack: subscribe to stream: %w", err), fields)
