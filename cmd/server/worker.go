@@ -35,9 +35,10 @@ import (
 func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	cfg := deps.Config
 
-	goroutine.Go(ctx, func(ctx context.Context) { deps.Flusher.Run(ctx) })
-
-	redisOpt := cfg.AsynqRedisOpt()
+	redisOpt, err := cfg.AsynqRedisOpt()
+	if err != nil {
+		return fmt.Errorf("worker: %w", err)
+	}
 
 	var workerSender email.Sender = &email.LogSender{}
 	if cfg.ResendAPIKey != "" {
@@ -64,7 +65,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 
 	workerDeps := &tasks.WorkerDeps{
 		DB:           deps.DB,
-		Cleanup:      deps.Cleanup,
 		Orchestrator: deps.Orchestrator,
 		EncKey:       deps.SandboxEncKey,
 		EmailSend: func(ctx context.Context, to, subject, body, idempotencyKey string) error {
@@ -145,20 +145,20 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		}
 	})
 
+	var scheduler *asynq.Scheduler
 	periodicConfigs := tasks.PeriodicTaskConfigs(cfg, ragSched)
 	if len(periodicConfigs) > 0 {
-		scheduler := asynq.NewScheduler(redisOpt, sentryobs.AsynqSchedulerOpts(nil))
+		scheduler = asynq.NewScheduler(redisOpt, sentryobs.AsynqSchedulerOpts(nil))
 		for _, pc := range periodicConfigs {
 			if _, err := scheduler.Register(pc.Cronspec, pc.Task, pc.Opts...); err != nil {
 				return fmt.Errorf("registering periodic task %s: %w", pc.Task.Type(), err)
 			}
 			slog.Debug("registered periodic task", "type", pc.Task.Type(), "cron", pc.Cronspec)
 		}
-		goroutine.Go(ctx, func(ctx context.Context) {
-			if err := scheduler.Run(); err != nil {
-				sentryobs.CaptureAsynqSchedulerError(ctx, err)
-			}
-		})
+		if err := scheduler.Start(); err != nil {
+			return fmt.Errorf("starting asynq scheduler: %w", err)
+		}
+		slog.Info("asynq scheduler started", "tasks", len(periodicConfigs))
 	}
 
 	healthMux := http.NewServeMux()
@@ -235,6 +235,12 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	}
 
 	slog.Info("worker shutting down")
+
+	// Stop the scheduler first so no new periodic tasks are enqueued during drain.
+	if scheduler != nil {
+		scheduler.Shutdown()
+		slog.Info("asynq scheduler stopped")
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.AsynqShutdownTimeout)
 	defer cancel()

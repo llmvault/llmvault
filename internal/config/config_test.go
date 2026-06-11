@@ -75,6 +75,77 @@ func TestLoad_DoesNotDuplicateFrontendCORSOrigin(t *testing.T) {
 	}
 }
 
+// --- P2-49: AsynqRedisOpt must fail on parse error ---
+
+func TestAsynqRedisOpt_FailsOnMalformedRedisURL(t *testing.T) {
+	cfg := &Config{
+		RedisURL: "not-a-valid-redis-url",
+	}
+	_, err := cfg.AsynqRedisOpt()
+	if err == nil {
+		t.Fatal("expected error for malformed HIVY_REDIS_URL, got nil")
+	}
+}
+
+func TestAsynqRedisOpt_ReturnsClientOptWhenURLEmpty(t *testing.T) {
+	cfg := &Config{
+		RedisAddr:     "localhost:6379",
+		RedisPassword: "pw",
+		RedisDB:       1,
+	}
+	opt, err := cfg.AsynqRedisOpt()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if opt == nil {
+		t.Fatal("expected non-nil RedisConnOpt")
+	}
+}
+
+func TestAsynqRedisOpt_ParsesValidRedisURL(t *testing.T) {
+	cfg := &Config{
+		RedisURL: "redis://localhost:6379/0",
+	}
+	opt, err := cfg.AsynqRedisOpt()
+	if err != nil {
+		t.Fatalf("unexpected error for valid URL: %v", err)
+	}
+	if opt == nil {
+		t.Fatal("expected non-nil RedisConnOpt")
+	}
+}
+
+// --- P2-31: HIVY_DB_SSLMODE disable in production should warn ---
+
+func TestLoad_WarnOnDisableSSLModeInProduction(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_ENVIRONMENT", "production")
+	t.Setenv("HIVY_DB_SSLMODE", "disable")
+
+	// The test just confirms Load() succeeds (warning only, not error).
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.DBSSLMode != "disable" {
+		t.Fatalf("DBSSLMode = %q, want disable", cfg.DBSSLMode)
+	}
+}
+
+func TestLoad_NoWarnOnRequireSSLModeInProduction(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_ENVIRONMENT", "production")
+	t.Setenv("HIVY_DB_SSLMODE", "require")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.DBSSLMode != "require" {
+		t.Fatalf("DBSSLMode = %q, want require", cfg.DBSSLMode)
+	}
+}
+
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {

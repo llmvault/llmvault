@@ -243,7 +243,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	r.Use(sentryobs.Recoverer())
 	r.Use(sentryobs.Capture5xxResponses())
 	r.Use(middleware.SecurityHeaders())
-	r.Use(middleware.CORS(cfg.CORSOrigins))
+	r.Use(middleware.CORS(cfg.CORSOrigins, cfg.IsProduction()))
 	r.Use(middleware.RequestLog(logger))
 
 	rsaPub := rsaKey.Public().(*rsa.PublicKey)

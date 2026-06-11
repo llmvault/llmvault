@@ -18,18 +18,15 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/skills"
 	"github.com/usehivy/hivy/internal/storage"
-	"github.com/usehivy/hivy/internal/streaming"
 )
 
 // WorkerDeps holds the dependencies needed by task handlers.
 type WorkerDeps struct {
 	DB                *gorm.DB
-	Cleanup           *streaming.Cleanup
 	Orchestrator      *sandbox.Orchestrator   // nil if sandbox not configured
 	EncKey            *crypto.SymmetricKey    // nil if not configured
 	EmailSend         EmailSenderFunc         // nil if email not configured
 	EmailSendTemplate EmailTemplateSenderFunc // nil if template email not configured
-	EventBus          *streaming.EventBus     // nil if streaming not configured
 	SkillFetcher      *skills.GitFetcher      // nil disables git skill hydration
 	NangoClient       *nango.Client           // nil disables deterministic enrichment
 	CacheManager      *cache.Manager          // nil disables tasks that need credential decryption
@@ -67,7 +64,6 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 
 	// Periodic task handlers
 	mux.HandleFunc(TypeTokenCleanup, NewTokenCleanupHandler(deps.DB).Handle)
-	mux.HandleFunc(TypeStreamCleanup, NewStreamCleanupHandler(deps.Cleanup).Handle)
 
 	if deps.Orchestrator != nil {
 		mux.HandleFunc(TypeSandboxHealthCheck, NewSandboxHealthCheckHandler(deps.Orchestrator).Handle)

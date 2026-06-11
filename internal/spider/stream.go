@@ -20,7 +20,17 @@ import (
 // from progressive emission.
 func (client *Client) CrawlStream(ctx context.Context, params SpiderParams) (<-chan Response, <-chan error) {
 	out := make(chan Response, 32)
+	// errs is buffered at 1 and the consumer reads it only after out closes, so
+	// the producer must never block sending on it. sendErr records the first
+	// error non-blockingly; later errors are discarded (the first one is the
+	// meaningful failure, and blocking would deadlock the crawl — P2-41).
 	errs := make(chan error, 1)
+	sendErr := func(err error) {
+		select {
+		case errs <- err:
+		default:
+		}
+	}
 
 	go func() {
 		defer close(out)
@@ -28,13 +38,13 @@ func (client *Client) CrawlStream(ctx context.Context, params SpiderParams) (<-c
 
 		body, err := json.Marshal(params)
 		if err != nil {
-			errs <- fmt.Errorf("marshal: %w", err)
+			sendErr(fmt.Errorf("marshal: %w", err))
 			return
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 			client.endpoint+"/v1/crawl", bytes.NewReader(body))
 		if err != nil {
-			errs <- err
+			sendErr(err)
 			return
 		}
 		req.Header.Set("Authorization", "Bearer "+client.apiKey)
@@ -43,14 +53,14 @@ func (client *Client) CrawlStream(ctx context.Context, params SpiderParams) (<-c
 
 		resp, err := client.httpClient.Do(req)
 		if err != nil {
-			errs <- err
+			sendErr(err)
 			return
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
 			preview, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-			errs <- fmt.Errorf("spider stream %d: %s", resp.StatusCode, string(preview))
+			sendErr(fmt.Errorf("spider stream %d: %s", resp.StatusCode, string(preview)))
 			return
 		}
 
@@ -63,18 +73,20 @@ func (client *Client) CrawlStream(ctx context.Context, params SpiderParams) (<-c
 			}
 			var r Response
 			if err := json.Unmarshal(line, &r); err != nil {
-				errs <- fmt.Errorf("decode line: %w", err)
+				// Record the first decode failure but keep streaming the rest of
+				// the lines; never block on errs (cap 1, read after out closes).
+				sendErr(fmt.Errorf("decode line: %w", err))
 				continue
 			}
 			select {
 			case out <- r:
 			case <-ctx.Done():
-				errs <- ctx.Err()
+				sendErr(ctx.Err())
 				return
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			errs <- fmt.Errorf("read stream: %w", err)
+			sendErr(fmt.Errorf("read stream: %w", err))
 		}
 	}()
 

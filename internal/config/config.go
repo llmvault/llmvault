@@ -2,11 +2,11 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"time"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/hibiken/asynq"
 )
 
 type Config struct {
@@ -237,6 +237,10 @@ func Load() (*Config, error) {
 
 	cfg.CORSOrigins = includeFrontendCORSOrigin(cfg.CORSOrigins, cfg.FrontendURL)
 
+	if cfg.IsProduction() && cfg.DBSSLMode == "disable" {
+		slog.Warn("HIVY_DB_SSLMODE is 'disable' in production — database connections are unencrypted; set HIVY_DB_SSLMODE=require or HIVY_DB_SSLMODE=verify-full")
+	}
+
 	return cfg, nil
 }
 
@@ -261,36 +265,8 @@ func URLOrigin(raw string) string {
 	return parsed.Scheme + "://" + parsed.Host
 }
 
-// DatabaseDSN constructs a Postgres connection string from individual fields.
-// The password is URL-encoded to handle special characters safely.
 // IsProduction reports whether the process is running in the production
 // environment.
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
-}
-
-func (c *Config) DatabaseDSN() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		url.QueryEscape(c.DBUser),
-		url.QueryEscape(c.DBPassword),
-		c.DBHost,
-		c.DBPort,
-		c.DBName,
-		c.DBSSLMode,
-	)
-}
-
-// AsynqRedisOpt returns an asynq.RedisConnOpt from the Redis config fields.
-func (c *Config) AsynqRedisOpt() asynq.RedisConnOpt {
-	if c.RedisURL != "" {
-		opt, err := asynq.ParseRedisURI(c.RedisURL)
-		if err == nil {
-			return opt
-		}
-	}
-	return asynq.RedisClientOpt{
-		Addr:     c.RedisAddr,
-		Password: c.RedisPassword,
-		DB:       c.RedisDB,
-	}
 }

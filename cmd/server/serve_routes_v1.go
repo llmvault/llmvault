@@ -135,22 +135,6 @@ func setupV1Routes(
 			})
 
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("all"))
-			})
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("connect"))
-			})
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("integrations"))
-			})
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("integrations"))
-			})
-
-			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("employees"))
 				if databaseIntegrationHandler != nil {
 					r.Group(func(r chi.Router) {

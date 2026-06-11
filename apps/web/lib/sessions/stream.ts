@@ -16,6 +16,32 @@
 /** Terminal SSE events after which the turn is finished and no resume is needed. */
 export type StreamTerminal = "done" | "final"
 
+/**
+ * Resolve a backend-provided session stream path into a URL on our own
+ * cookie-auth proxy (`/api/proxy/...`).
+ *
+ * The browser must never connect directly to the backend with a raw bearer
+ * access token: the proxy authenticates the browser via the `__session` cookie
+ * and injects the bearer server-side, while the SSE path itself already carries
+ * an HMAC-signed `?token=` minted by the backend (P2-27). Accordingly:
+ *
+ *  - an already-proxied path is returned unchanged,
+ *  - a backend-relative path (`/v1/employees/.../streams/...?token=...`) is
+ *    prefixed with `/api/proxy`, and
+ *  - an **absolute** URL (`http(s)://…` or protocol-relative `//…`) is rejected
+ *    — accepting one would mean attaching credentials to a cross-origin request
+ *    from client JS, exactly the leak this guards against.
+ */
+export function proxiedStreamURL(url: string): string {
+  const trimmed = url.trim()
+  if (trimmed.startsWith("/api/proxy")) return trimmed
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("//")) {
+    throw new Error("Refusing to stream from an absolute URL")
+  }
+  if (trimmed.startsWith("/")) return `/api/proxy${trimmed}`
+  throw new Error("Invalid stream URL")
+}
+
 export interface ReconnectConfig {
   /** Maximum number of reconnect attempts before giving up. */
   maxAttempts: number
@@ -76,8 +102,8 @@ export function decideReconnect(
 }
 
 /**
- * Run an async setup step (e.g. `directStreamURL`, `streamAuthToken`) that
- * must complete before the streaming body starts, catching any thrown error so
+ * Run an async setup step that must resolve the stream URL before the streaming
+ * body starts, catching any thrown error so
  * callers can clear `isStreaming` instead of leaving the composer stuck.
  *
  * Returns `{ ok: true, value }` when both setup and body succeed, or

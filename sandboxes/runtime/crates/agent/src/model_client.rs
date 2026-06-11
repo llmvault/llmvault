@@ -422,11 +422,13 @@ fn stream_response(
                 }
             };
             buffer.push_str(&decode_utf8_carry(&mut utf8_carry, &chunk));
-            while let Some(event) = take_sse_event(&mut buffer) {
-                let data = event.trim_start_matches("data:").trim();
-                if data.is_empty() || data.starts_with(':') {
+            while let Some(block) = take_sse_event(&mut buffer) {
+                let Some(data) = parse_sse_data(&block) else {
+                    // Comment-only event, or an event carrying no `data` field
+                    // (e.g. a bare `event:`/`id:` frame). Nothing to dispatch.
                     continue;
-                }
+                };
+                let data = data.as_str();
                 saw_event = true;
                 if data == "[DONE]" {
                     let calls = tool_accumulator.finish(&json_repair);
@@ -643,11 +645,58 @@ fn decode_utf8_carry(carry: &mut Vec<u8>, chunk: &[u8]) -> String {
     }
 }
 
+/// Extract the next complete SSE event block from the buffer. Per the SSE wire
+/// format an event is terminated by a blank line, which may use any line ending:
+/// `\n\n`, `\r\n\r\n` (CRLF — emitted by some providers and proxies), or `\r\r`.
+/// Returns the raw block (without the terminating blank line) and removes it plus
+/// the separator from the buffer.
 fn take_sse_event(buffer: &mut String) -> Option<String> {
-    let idx = buffer.find("\n\n")?;
-    let event = buffer[..idx].to_string();
-    buffer.replace_range(..idx + 2, "");
+    let (start, len) = find_event_boundary(buffer)?;
+    let event = buffer[..start].to_string();
+    buffer.replace_range(..start + len, "");
     Some(event)
+}
+
+/// Find the earliest blank-line separator in `buffer`. Returns `(start, len)`
+/// where `start` is the byte offset of the separator and `len` its byte length.
+fn find_event_boundary(buffer: &str) -> Option<(usize, usize)> {
+    let candidates = ["\r\n\r\n", "\n\n", "\r\r"];
+    candidates
+        .iter()
+        .filter_map(|sep| buffer.find(sep).map(|idx| (idx, sep.len())))
+        .min_by_key(|(idx, _)| *idx)
+}
+
+/// Parse an SSE event block per the field grammar and return the concatenated
+/// `data` field value (multiple `data:` lines are joined with `\n`). Lines
+/// beginning with `:` are comments and ignored; other field names (`event`,
+/// `id`, `retry`, …) are ignored because the model protocol only carries JSON in
+/// `data`. Lines may be separated by `\n`, `\r\n`, or `\r`. Returns `None` when
+/// the block contains no `data` field at all (comment-only / metadata-only
+/// frames), so callers skip it rather than treating it as empty data.
+fn parse_sse_data(block: &str) -> Option<String> {
+    let mut data = String::new();
+    let mut saw_data = false;
+    for line in block.split(['\n', '\r']) {
+        if line.is_empty() || line.starts_with(':') {
+            // Empty (an artifact of CR/LF splitting) or a comment line.
+            continue;
+        }
+        let (field, value) = match line.split_once(':') {
+            Some((field, value)) => (field, value.strip_prefix(' ').unwrap_or(value)),
+            // A line with no colon is a field with an empty value (spec); none of
+            // the fields we care about are valueless, so ignore it.
+            None => continue,
+        };
+        if field == "data" {
+            if saw_data {
+                data.push('\n');
+            }
+            data.push_str(value);
+            saw_data = true;
+        }
+    }
+    saw_data.then_some(data)
 }
 
 fn parse_thinking_delta(delta: &Value) -> Option<String> {
@@ -783,9 +832,80 @@ mod tests {
     use crate::primitives::{AgentMessage, CacheControlPolicy, ModelRequest, ModelStreamEvent};
 
     use super::{
-        classify_http_error, decode_utf8_carry, parse_thinking_delta, parse_usage, ChatModelClient,
-        ModelErrorClass, ModelRetryPolicy, ModelTimeouts,
+        classify_http_error, decode_utf8_carry, parse_sse_data, parse_thinking_delta, parse_usage,
+        take_sse_event, ChatModelClient, ModelErrorClass, ModelRetryPolicy, ModelTimeouts,
     };
+
+    #[test]
+    fn take_sse_event_handles_lf_crlf_and_cr_boundaries() {
+        // LF-LF
+        let mut buf = "data: a\n\ndata: b\n\n".to_string();
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));
+        assert!(take_sse_event(&mut buf).is_none());
+
+        // CRLF-CRLF (providers/proxies that use Windows line endings)
+        let mut buf = "data: a\r\n\r\ndata: b\r\n\r\n".to_string();
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));
+
+        // CR-CR (legacy Mac line endings, allowed by the SSE grammar)
+        let mut buf = "data: a\r\rdata: b\r\r".to_string();
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));
+    }
+
+    #[test]
+    fn parse_sse_data_concatenates_multiple_data_fields() {
+        // Per spec, multiple data: lines are joined with a newline.
+        let block = "data: line one\ndata: line two";
+        assert_eq!(
+            parse_sse_data(block).as_deref(),
+            Some("line one\nline two")
+        );
+    }
+
+    #[test]
+    fn parse_sse_data_ignores_comments_and_other_fields() {
+        let block = ": this is a keep-alive comment\nevent: message\nid: 42\nretry: 1000\ndata: {\"x\":1}";
+        assert_eq!(parse_sse_data(block).as_deref(), Some("{\"x\":1}"));
+    }
+
+    #[test]
+    fn parse_sse_data_handles_crlf_within_event_and_no_space_after_colon() {
+        let block = "event: message\r\ndata:{\"x\":1}";
+        assert_eq!(parse_sse_data(block).as_deref(), Some("{\"x\":1}"));
+    }
+
+    #[test]
+    fn parse_sse_data_returns_none_for_comment_or_metadata_only_blocks() {
+        assert_eq!(parse_sse_data(": keep-alive"), None);
+        assert_eq!(parse_sse_data("event: ping\nid: 7"), None);
+        assert_eq!(parse_sse_data(""), None);
+    }
+
+    #[tokio::test]
+    async fn stream_parses_crlf_multi_field_sse() {
+        // A provider that emits CRLF line endings, a comment frame, multi-field
+        // events (event:/id:/data:), and a final [DONE]. The old LF-LF +
+        // bare-`data:` parser failed these entirely.
+        let body = ": warmup comment\r\n\r\n\
+             event: message\r\nid: 1\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"Hello \"}}]}\r\n\r\n\
+             event: message\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"world\"},\"finish_reason\":\"stop\"}]}\r\n\r\n\
+             data: [DONE]\r\n\r\n";
+        let server = FakeModelServer::spawn(vec![FakeResponse::raw(body)]).await;
+        let client = ChatModelClient::new(server.base_url(), "test-key");
+
+        let events = collect_events(client.stream(test_request("m")).await.unwrap()).await;
+        let text: String = events
+            .into_iter()
+            .filter_map(|event| match event {
+                ModelStreamEvent::TextDelta(text) => Some(text),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(text, "Hello world");
+    }
 
     #[test]
     fn decode_utf8_carry_handles_multibyte_split_across_chunks() {
@@ -1270,6 +1390,13 @@ mod tests {
                     "data: {{\"choices\":[{{\"delta\":{{\"content\":{}}}}}]}}\n\ndata: [DONE]\n\n",
                     serde_json::to_string(text).unwrap()
                 ),
+            }
+        }
+
+        fn raw(body: &str) -> Self {
+            Self {
+                status: StatusCode::OK,
+                body: body.to_string(),
             }
         }
 

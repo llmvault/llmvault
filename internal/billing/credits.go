@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -178,31 +180,18 @@ func SpendWithTx(tx *gorm.DB, orgID uuid.UUID, amount int64, reason, refType, re
 func IsUniqueViolation(err error) bool { return isUniqueViolation(err) }
 
 // isUniqueViolation reports whether err is a Postgres unique_violation
-// (SQLSTATE 23505). Used to detect idempotency-key collisions without
-// requiring callers to import pgconn.
+// (SQLSTATE 23505). The pgx driver (used by gorm.io/driver/postgres) wraps
+// these as *pgconn.PgError, so we match on the structured Code rather than
+// scanning the message text — message-based matching breaks on localised
+// server messages and gives false positives on unrelated errors that merely
+// mention the string.
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
 	}
-	// The pgx driver wraps errors with a *pgconn.PgError whose Code is 23505
-	// for unique violations. Match on the error message so we don't add a
-	// direct dependency on pgconn here.
-	msg := err.Error()
-	return containsAny(msg, "SQLSTATE 23505", "duplicate key value violates unique constraint")
-}
-
-func containsAny(haystack string, needles ...string) bool {
-	for _, n := range needles {
-		if len(haystack) >= len(n) {
-			// Manual substring scan — cheap, avoids importing strings just for this.
-			for i := 0; i+len(n) <= len(haystack); i++ {
-				if haystack[i:i+len(n)] == n {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	var pgErr *pgconn.PgError
+	// 23505 is the SQLSTATE for unique_violation.
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func sumBalance(db *gorm.DB, orgID uuid.UUID) (int64, error) {
@@ -248,17 +237,19 @@ func (s *CreditsService) SweepAllExpiredGrants(ctx context.Context) error {
 		return fmt.Errorf("find candidate orgs: %w", err)
 	}
 
-	var firstErr error
+	var errs []error
 	for _, orgID := range orgIDs {
 		if err := s.SweepOrgExpiredGrants(ctx, orgID, now); err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
 			// Continue: a single org's failure (e.g. transient lock contention)
-			// shouldn't block the cycle for the rest.
+			// shouldn't block the cycle for the rest. Log each so a recurring
+			// per-org failure is visible, and accumulate them so the caller
+			// (and asynq retry) sees every error, not just the first.
+			logging.FromContext(ctx).ErrorContext(ctx, "expired-grant sweep failed for org",
+				"org_id", orgID, "error", err)
+			errs = append(errs, fmt.Errorf("org %s: %w", orgID, err))
 		}
 	}
-	return firstErr
+	return errors.Join(errs...)
 }
 
 // SweepOrgExpiredGrants runs FIFO attribution over the org's full ledger and,

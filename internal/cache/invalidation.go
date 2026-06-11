@@ -26,10 +26,19 @@ type Invalidator struct {
 	dekCache    *DEKCache
 	apiKeyCache *APIKeyCache
 
-	// In-memory set of recently revoked JTIs (populated by pub/sub).
+	// In-memory map of recently revoked JTIs to the wall-clock time after which
+	// the entry may be evicted. A token whose JWT has expired can no longer be
+	// presented, so remembering its revocation past that point is pointless and
+	// only leaks memory — entries are TTL-bounded and swept (P2-38).
 	revokedMu  sync.RWMutex
-	revokedSet map[string]struct{}
+	revokedSet map[string]time.Time
 }
+
+// revokedEntryMaxTTL bounds how long a locally-cached revocation is retained.
+// Cross-instance revocations arrive over pub/sub carrying only the JTI (no
+// per-token TTL), so they default to this ceiling, which matches the longest
+// token lifetime the platform issues.
+const revokedEntryMaxTTL = 24 * time.Hour
 
 // NewInvalidator creates a new cross-instance invalidator.
 func NewInvalidator(client *redis.Client, memCache *MemoryCache, dekCache *DEKCache, apiKeyCache *APIKeyCache) *Invalidator {
@@ -38,8 +47,33 @@ func NewInvalidator(client *redis.Client, memCache *MemoryCache, dekCache *DEKCa
 		memCache:    memCache,
 		dekCache:    dekCache,
 		apiKeyCache: apiKeyCache,
-		revokedSet:  make(map[string]struct{}),
+		revokedSet:  make(map[string]time.Time),
 	}
+}
+
+// markRevoked records jti as revoked, retaining the entry for at most ttl
+// (capped at revokedEntryMaxTTL). A non-positive ttl uses the ceiling.
+func (inv *Invalidator) markRevoked(jti string, ttl time.Duration) {
+	if ttl <= 0 || ttl > revokedEntryMaxTTL {
+		ttl = revokedEntryMaxTTL
+	}
+	expiry := time.Now().Add(ttl)
+	inv.revokedMu.Lock()
+	inv.revokedSet[jti] = expiry
+	inv.revokedMu.Unlock()
+}
+
+// sweepRevoked drops expired revocation entries. Called opportunistically from
+// the subscribe loop so the map stays bounded without a dedicated goroutine.
+func (inv *Invalidator) sweepRevoked() {
+	now := time.Now()
+	inv.revokedMu.Lock()
+	for jti, expiry := range inv.revokedSet {
+		if now.After(expiry) {
+			delete(inv.revokedSet, jti)
+		}
+	}
+	inv.revokedMu.Unlock()
 }
 
 // PublishCredentialInvalidation notifies all instances to evict a credential.
@@ -58,11 +92,27 @@ func (inv *Invalidator) PublishAPIKeyInvalidation(ctx context.Context, keyHash s
 }
 
 // IsTokenLocallyRevoked checks the in-memory revoked set (populated by pub/sub).
+// An entry whose TTL has lapsed is treated as absent (and lazily evicted): the
+// underlying JWT is itself expired by then, so durable revocation state is no
+// longer needed.
 func (inv *Invalidator) IsTokenLocallyRevoked(jti string) bool {
+	now := time.Now()
 	inv.revokedMu.RLock()
-	defer inv.revokedMu.RUnlock()
-	_, ok := inv.revokedSet[jti]
-	return ok
+	expiry, ok := inv.revokedSet[jti]
+	inv.revokedMu.RUnlock()
+	if !ok {
+		return false
+	}
+	if now.After(expiry) {
+		inv.revokedMu.Lock()
+		// Re-check under the write lock in case it was refreshed concurrently.
+		if exp, ok := inv.revokedSet[jti]; ok && now.After(exp) {
+			delete(inv.revokedSet, jti)
+		}
+		inv.revokedMu.Unlock()
+		return false
+	}
+	return true
 }
 
 // Subscribe listens for invalidation messages, reconnecting with backoff
@@ -141,9 +191,10 @@ func (inv *Invalidator) subscribeOnce(ctx context.Context) error {
 				inv.memCache.Invalidate(msg.Payload)
 				inv.dekCache.Invalidate(msg.Payload)
 			case TokenChannel:
-				inv.revokedMu.Lock()
-				inv.revokedSet[msg.Payload] = struct{}{}
-				inv.revokedMu.Unlock()
+				// Pub/sub carries only the JTI; bound the entry at the ceiling.
+				inv.markRevoked(msg.Payload, revokedEntryMaxTTL)
+				// Opportunistically drop lapsed entries so the map stays bounded.
+				inv.sweepRevoked()
 			case APIKeyChannel:
 				if inv.apiKeyCache != nil {
 					inv.apiKeyCache.Invalidate(msg.Payload)

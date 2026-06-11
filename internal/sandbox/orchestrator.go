@@ -124,20 +124,3 @@ func (o *Orchestrator) CreateSpecialistSandboxWithEnv(ctx context.Context, agent
 func (o *Orchestrator) EmployeeDriveUploadURL(employeeID uuid.UUID) string {
 	return employeeDriveUploadURL(o.cfg, employeeID)
 }
-
-// StartHealthChecker runs a background goroutine that periodically syncs sandbox
-// status from the provider and auto-stops idle sandboxes.
-func (o *Orchestrator) StartHealthChecker(ctx context.Context) {
-	ticker := time.NewTicker(healthCheckInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			logging.FromContext(ctx).InfoContext(ctx, "sandbox health checker stopped")
-			return
-		case <-ticker.C:
-			o.RunHealthCheck(ctx)
-		}
-	}
-}

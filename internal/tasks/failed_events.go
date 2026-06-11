@@ -75,9 +75,6 @@ func RetryFailedEvent(ctx context.Context, db *gorm.DB, enqueuer enqueue.TaskEnq
 	if err := db.WithContext(ctx).Where("id = ?", id).First(&row).Error; err != nil {
 		return nil, fmt.Errorf("load failed_event %s: %w", id, err)
 	}
-	if row.Status != model.FailedEventStatusPending {
-		return nil, ErrFailedEventNotPending
-	}
 	builder, ok := lookupTaskBuilder(row.EventType)
 	if !ok {
 		return nil, fmt.Errorf("no task builder registered for event_type %q", row.EventType)
@@ -86,20 +83,47 @@ func RetryFailedEvent(ctx context.Context, db *gorm.DB, enqueuer enqueue.TaskEnq
 	if err != nil {
 		return nil, fmt.Errorf("build task for retry: %w", err)
 	}
+
+	// CAS the status to "retried" BEFORE enqueueing so two concurrent retries
+	// can't both pass a read-time pending check and enqueue twice (P2-42).
+	// The conditional UPDATE only succeeds for exactly one caller; the loser
+	// sees RowsAffected == 0 and bails with ErrFailedEventNotPending, mirroring
+	// DiscardFailedEvent's claim-then-act pattern.
+	now := time.Now().UTC()
+	claim := db.WithContext(ctx).Model(&model.FailedEvent{}).
+		Where("id = ? AND status = ?", row.ID, model.FailedEventStatusPending).
+		Updates(map[string]any{
+			"status":     model.FailedEventStatusRetried,
+			"retried_at": now,
+		})
+	if claim.Error != nil {
+		return nil, fmt.Errorf("claim failed_event for retry: %w", claim.Error)
+	}
+	if claim.RowsAffected == 0 {
+		return nil, ErrFailedEventNotPending
+	}
+
 	info, err := enqueuer.EnqueueContext(ctx, task, opts...)
 	if err != nil {
+		// Roll the claim back to pending so the retry can be re-attempted; a
+		// permanent "retried" row with no enqueued task would strand the event.
+		if rbErr := db.WithContext(ctx).Model(&model.FailedEvent{}).
+			Where("id = ?", row.ID).
+			Updates(map[string]any{
+				"status":     model.FailedEventStatusPending,
+				"retried_at": nil,
+			}).Error; rbErr != nil {
+			return nil, fmt.Errorf("enqueue retry: %w (and rollback failed: %v)", err, rbErr)
+		}
 		return nil, fmt.Errorf("enqueue retry: %w", err)
 	}
-	now := time.Now().UTC()
-	updates := map[string]any{
-		"status":          model.FailedEventStatusRetried,
-		"retried_at":      now,
-		"retried_task_id": info.ID,
-	}
+
 	if err := db.WithContext(ctx).Model(&model.FailedEvent{}).
 		Where("id = ?", row.ID).
-		Updates(updates).Error; err != nil {
-		return info, fmt.Errorf("mark failed_event retried: %w", err)
+		Update("retried_task_id", info.ID).Error; err != nil {
+		// The task is enqueued and the row is already marked retried; only the
+		// task-id bookkeeping failed. Surface it but return the info.
+		return info, fmt.Errorf("record retried_task_id: %w", err)
 	}
 	return info, nil
 }

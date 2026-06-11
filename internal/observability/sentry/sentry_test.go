@@ -51,7 +51,7 @@ func (*captureTransport) Close()                                {}
 type testUserKey struct{}
 type testOrgKey struct{}
 
-func TestSentryClientOptions_DisablesUnsupportedGlitchTipTelemetry(t *testing.T) {
+func TestSentryClientOptions_WiresTracingFromConfig(t *testing.T) {
 	cfg := &config.Config{
 		SentryDSN:              "https://public@example.com/1",
 		SentryTracesSampleRate: 0.25,
@@ -59,17 +59,34 @@ func TestSentryClientOptions_DisablesUnsupportedGlitchTipTelemetry(t *testing.T)
 
 	options := sentryClientOptions(cfg, "production", "release-abc", "host-xyz")
 
-	if options.EnableTracing {
-		t.Fatal("EnableTracing = true, want false")
+	// EnableTracing must be true when TracesSampleRate > 0.
+	if !options.EnableTracing {
+		t.Fatal("EnableTracing = false, want true when TracesSampleRate > 0")
 	}
-	if options.TracesSampleRate != 0 {
-		t.Fatalf("TracesSampleRate = %v, want 0", options.TracesSampleRate)
+	if options.TracesSampleRate != 0.25 {
+		t.Fatalf("TracesSampleRate = %v, want 0.25", options.TracesSampleRate)
 	}
 	if !options.DisableClientReports {
 		t.Fatal("DisableClientReports = false, want true")
 	}
 	if options.Dsn != cfg.SentryDSN {
 		t.Fatalf("Dsn = %q, want %q", options.Dsn, cfg.SentryDSN)
+	}
+}
+
+func TestSentryClientOptions_DisablesTracingWhenSampleRateZero(t *testing.T) {
+	cfg := &config.Config{
+		SentryDSN:              "https://public@example.com/1",
+		SentryTracesSampleRate: 0,
+	}
+
+	options := sentryClientOptions(cfg, "production", "release-abc", "host-xyz")
+
+	if options.EnableTracing {
+		t.Fatal("EnableTracing = true, want false when TracesSampleRate == 0")
+	}
+	if options.TracesSampleRate != 0 {
+		t.Fatalf("TracesSampleRate = %v, want 0", options.TracesSampleRate)
 	}
 }
 
@@ -181,5 +198,73 @@ func TestCapture5xxResponses_CapturesUnhandledServerResponse(t *testing.T) {
 	}
 	if ev.Tags["http.route"] != "/v1/employees/employee/repositories" {
 		t.Fatalf("http.route tag = %q", ev.Tags["http.route"])
+	}
+}
+
+// --- P2-51 / P2-25: BeforeSend scrubs sensitive query params ---
+
+func TestScrubSensitiveQueryParams_ScrubbsTokenAndKey(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "token param is scrubbed",
+			input: "https://api.usehivy.com/v1/employees/abc/sessions/def/streams/ghi?token=supersecret",
+			want:  "https://api.usehivy.com/v1/employees/abc/sessions/def/streams/ghi?token=%5BFiltered%5D",
+		},
+		{
+			name:  "key param is scrubbed",
+			input: "https://api.usehivy.com/v1/proxy?key=AIzaSySecretKey",
+			want:  "https://api.usehivy.com/v1/proxy?key=%5BFiltered%5D",
+		},
+		{
+			name:  "non-sensitive params preserved",
+			input: "https://api.usehivy.com/v1/sessions?page=2",
+			want:  "https://api.usehivy.com/v1/sessions?page=2",
+		},
+		{
+			name:  "empty url unchanged",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "no query string unchanged",
+			input: "https://api.usehivy.com/v1/sessions",
+			want:  "https://api.usehivy.com/v1/sessions",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := scrubSensitiveQueryParams(tc.input); got != tc.want {
+				t.Fatalf("scrubSensitiveQueryParams(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBeforeSend_ScrubbsRequestURL(t *testing.T) {
+	event := &sentrygo.Event{
+		Request: &sentrygo.Request{
+			URL:         "https://api.usehivy.com/stream?token=secret123",
+			QueryString: "token=secret123",
+		},
+	}
+	result := beforeSend(event, nil)
+	if result == nil {
+		t.Fatal("beforeSend returned nil")
+	}
+	if result.Request.URL == "https://api.usehivy.com/stream?token=secret123" {
+		t.Fatalf("URL was not scrubbed: %q", result.Request.URL)
+	}
+	if result.Request.QueryString == "token=secret123" {
+		t.Fatalf("QueryString was not scrubbed: %q", result.Request.QueryString)
+	}
+}
+
+func TestBeforeSend_NilEventPassesThrough(t *testing.T) {
+	if result := beforeSend(nil, nil); result != nil {
+		t.Fatalf("expected nil for nil event, got %v", result)
 	}
 }

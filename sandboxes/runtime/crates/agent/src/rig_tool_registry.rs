@@ -155,7 +155,11 @@ pub async fn emit_tool_invoked(
                 "session_id": session_id.as_str(),
                 "source": event_source_from_session(session_id),
                 "tool": tool,
-                "args": args,
+                // Outbound events are persisted and surfaced by the control
+                // plane; never ship raw tool arguments (which can carry secrets,
+                // PII, or customer prompts). Summarize them to shape/keys only,
+                // matching the redaction the Sentry capture path already applies.
+                "args_summary": summarize_tool_arguments(args),
                 "result_summary": summary,
             }),
         ))
@@ -177,11 +181,32 @@ pub async fn emit_tool_error(
                 "session_id": session_id.as_str(),
                 "source": event_source_from_session(session_id),
                 "tool": tool,
-                "args": args,
+                // See emit_tool_invoked: raw arguments are summarized, not shipped.
+                "args_summary": summarize_tool_arguments(args),
                 "error": error,
             }),
         ))
         .await;
+}
+
+/// Summarize tool arguments to their structural shape (kind, object keys, or
+/// lengths) without exposing any values. Object keys are retained because they
+/// are non-sensitive and useful for debugging, but their values — which may hold
+/// secrets, credentials, or customer data — are never included. This mirrors the
+/// summarization the Sentry capture path applies in `agent::runner`.
+fn summarize_tool_arguments(arguments: &Value) -> Value {
+    match arguments {
+        Value::Object(map) => {
+            let mut keys: Vec<&str> = map.keys().map(String::as_str).collect();
+            keys.sort_unstable();
+            json!({ "kind": "object", "keys": keys })
+        }
+        Value::Array(items) => json!({ "kind": "array", "length": items.len() }),
+        Value::Null => json!({ "kind": "null" }),
+        Value::Bool(_) => json!({ "kind": "bool" }),
+        Value::Number(_) => json!({ "kind": "number" }),
+        Value::String(value) => json!({ "kind": "string", "length": value.chars().count() }),
+    }
 }
 
 fn event_source_from_session(session_id: &SessionId) -> &'static str {

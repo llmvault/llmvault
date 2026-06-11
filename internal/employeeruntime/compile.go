@@ -223,33 +223,49 @@ func mintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee
 	}, nil
 }
 
-func AttachLatestProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID) error {
-	return attachLatestProxyTokenToSandbox(ctx, deps, agent, sandboxID, model.TokenRuntimeModeEmployee, "")
+func AttachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, jti string) error {
+	return attachProxyTokenToSandbox(ctx, deps, agent, sandboxID, jti, model.TokenRuntimeModeEmployee, "")
 }
 
-func AttachLatestSpecialistProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, specialistSlug string) error {
-	return attachLatestProxyTokenToSandbox(ctx, deps, agent, sandboxID, model.TokenRuntimeModeSpecialist, specialistSlug)
+func AttachSpecialistProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, jti string, specialistSlug string) error {
+	return attachProxyTokenToSandbox(ctx, deps, agent, sandboxID, jti, model.TokenRuntimeModeSpecialist, specialistSlug)
 }
 
-func attachLatestProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, runtimeMode string, specialistSlug string) error {
-	if agent == nil || agent.OrgID == nil || sandboxID == uuid.Nil || deps.DB == nil {
-		return nil
+// attachProxyTokenToSandbox binds the freshly minted proxy token (identified by
+// its JTI) to the sandbox it was minted for. The previous "latest by created_at"
+// lookup could tag a stale row (a token revoked or expired between mint and
+// attach, or a concurrently minted one) and silently swallowed lookup errors,
+// which left the refresh scheduler computing the next refresh from the wrong row
+// (P2-46). We now look up the exact minted token and require it to be live.
+func attachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, jti string, runtimeMode string, specialistSlug string) error {
+	if agent == nil || agent.OrgID == nil {
+		return fmt.Errorf("attach proxy token: agent must have org_id")
 	}
+	if sandboxID == uuid.Nil {
+		return fmt.Errorf("attach proxy token: sandbox id is required")
+	}
+	if deps.DB == nil {
+		return fmt.Errorf("attach proxy token: db is required")
+	}
+	if strings.TrimSpace(jti) == "" {
+		return fmt.Errorf("attach proxy token: jti is required")
+	}
+	now := time.Now().UTC()
 	var tok model.Token
 	q := deps.DB.WithContext(ctx).
-		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ?",
+		Where("jti = ? AND org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND revoked_at IS NULL AND expires_at > ?",
+			jti,
 			*agent.OrgID,
 			model.TokenMetaEmployeeID, agent.ID.String(),
 			model.TokenMetaType, model.TokenTypeEmployeeProxy,
 			model.TokenMetaHarness, model.TokenHarnessEmployeeSandbox,
-			model.TokenMetaRuntimeMode, runtimeMode)
+			model.TokenMetaRuntimeMode, runtimeMode,
+			now)
 	if specialistSlug != "" {
 		q = q.Where("meta->>? = ?", model.TokenMetaSpecialistSlug, specialistSlug)
 	}
-	if err := q.
-		Order("created_at DESC").
-		First(&tok).Error; err != nil {
-		return nil
+	if err := q.First(&tok).Error; err != nil {
+		return fmt.Errorf("attach proxy token: load minted token %s: %w", jti, err)
 	}
 	meta := tok.Meta
 	if meta == nil {

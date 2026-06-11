@@ -22,11 +22,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ---- Runtime stage (no nginx needed for worker) ----
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata \
+    # Create a dedicated non-root user.  The worker binds :8090 (>1024) so no
+    # root privileges are required at runtime.
+    && addgroup -S hivy \
+    && adduser  -S -G hivy hivy
 
 COPY --from=build /hivy /hivy
 COPY --from=build /src/global /global
 
 EXPOSE 8090
+
+# Drop to the non-root user for the worker process.
+USER hivy
 
 CMD ["/hivy", "work"]

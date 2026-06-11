@@ -197,7 +197,7 @@ func createTrialEmployee(ctx context.Context, deps *bootstrap.Deps, suite *Suite
 		Status:                    "draft",
 		Harness:                   "employee-sandbox",
 		Tools:                     model.JSON{},
-		McpServers:                model.JSON{},
+		McpServers:                model.RawJSON("[]"),
 		Skills:                    model.JSON{},
 		RuntimeConfig:             runtimeConfig,
 		Permissions:               model.JSON{},

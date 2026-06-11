@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Result;
 use async_stream::stream;
@@ -46,10 +47,40 @@ pub struct HttpStreamBroker {
 /// replayable.
 const HISTORY_CAPACITY: usize = 512;
 
+/// How long a finished (`done`) stream's state is retained before it is evicted
+/// from the broker's maps. The grace window lets a reconnecting/late subscriber
+/// (Slack asynq task, Go proxy retry, browser reload) still replay the terminal
+/// `final`/`done` from history. After it, the per-stream state and its session
+/// mapping are reclaimed so the maps do not grow without bound (P2-1).
+const STREAM_EVICTION_GRACE: Duration = Duration::from_secs(120);
+
+/// A published event paired with a monotonically increasing per-stream sequence
+/// number. The sequence lets a subscriber that fell behind (`RecvError::Lagged`)
+/// resync precisely against the replay history — replaying exactly the events it
+/// skipped — instead of silently dropping the gap (P2-2). Derefs to the inner
+/// [`HttpStreamEvent`] so `.event`/`.payload` are accessible directly.
+#[derive(Clone)]
+pub struct SeqEvent {
+    pub seq: u64,
+    pub inner: HttpStreamEvent,
+}
+
+impl std::ops::Deref for SeqEvent {
+    type Target = HttpStreamEvent;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 struct StreamState {
-    sender: broadcast::Sender<HttpStreamEvent>,
-    history: VecDeque<HttpStreamEvent>,
+    sender: broadcast::Sender<SeqEvent>,
+    history: VecDeque<SeqEvent>,
     context: Option<StreamObservabilityContext>,
+    /// Next sequence number to assign to a published event.
+    next_seq: u64,
+    /// When the terminal `done` was published, after which the stream becomes
+    /// eligible for eviction once `STREAM_EVICTION_GRACE` has elapsed.
+    done_at: Option<Instant>,
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +101,25 @@ impl HttpStreamBroker {
         self.observability.clone()
     }
 
+    #[cfg(test)]
+    async fn stream_count(&self) -> usize {
+        self.streams.lock().await.len()
+    }
+
+    #[cfg(test)]
+    async fn session_stream_count(&self) -> usize {
+        self.session_streams.lock().await.len()
+    }
+
+    /// Test-only: backdate a finished stream's eviction grace so the next
+    /// opportunistic sweep reclaims it without waiting the real grace window.
+    #[cfg(test)]
+    async fn force_expire_done(&self, stream_id: &str) {
+        if let Some(state) = self.streams.lock().await.get_mut(stream_id) {
+            state.done_at = Some(Instant::now() - STREAM_EVICTION_GRACE - Duration::from_secs(1));
+        }
+    }
+
     pub async fn create_stream(&self) -> String {
         let id = format!(
             "http-stream-{}-{}",
@@ -77,14 +127,23 @@ impl HttpStreamBroker {
             self.counter.fetch_add(1, Ordering::Relaxed)
         );
         let (sender, _) = broadcast::channel(256);
-        self.streams.lock().await.insert(
+        let mut streams = self.streams.lock().await;
+        // Opportunistically reclaim finished streams whose grace window has
+        // elapsed (P2-1). Done lazily here (and in publish) to avoid a background
+        // sweeper task; create_stream runs once per turn so the maps stay bounded.
+        evict_expired_streams(&mut streams, &self.session_streams, &self.active_session_streams)
+            .await;
+        streams.insert(
             id.clone(),
             StreamState {
                 sender,
                 history: VecDeque::with_capacity(HISTORY_CAPACITY),
                 context: None,
+                next_seq: 0,
+                done_at: None,
             },
         );
+        drop(streams);
         id
     }
 
@@ -135,15 +194,29 @@ impl HttpStreamBroker {
         let mut context = None;
         let mut streams = self.streams.lock().await;
         if let Some(state) = streams.get_mut(stream_id) {
+            let seq = state.next_seq;
+            state.next_seq += 1;
+            let seq_event = SeqEvent {
+                seq,
+                inner: event.clone(),
+            };
             // Ring buffer: evict the oldest event when full so terminal events
             // (final/done) at the tail are always retained for replay.
             if state.history.len() == HISTORY_CAPACITY {
                 state.history.pop_front();
             }
-            state.history.push_back(event.clone());
+            state.history.push_back(seq_event.clone());
+            if event.event == "done" && state.done_at.is_none() {
+                // Start the eviction grace window; the state lingers long enough
+                // for late subscribers to replay the terminal events (P2-1).
+                state.done_at = Some(Instant::now());
+            }
             context = state.context.clone();
-            let _ = state.sender.send(event.clone());
+            let _ = state.sender.send(seq_event);
         }
+        // Reclaim any streams whose grace window has now elapsed.
+        evict_expired_streams(&mut streams, &self.session_streams, &self.active_session_streams)
+            .await;
         drop(streams);
         if let Some(context) = context.as_ref() {
             self.record_stream_event(context, &event.event, &event.payload);
@@ -184,11 +257,37 @@ impl HttpStreamBroker {
     pub async fn subscribe(
         &self,
         stream_id: &str,
-    ) -> Option<(Vec<HttpStreamEvent>, broadcast::Receiver<HttpStreamEvent>)> {
+    ) -> Option<(Vec<SeqEvent>, broadcast::Receiver<SeqEvent>)> {
         let streams = self.streams.lock().await;
         let state = streams.get(stream_id)?;
         let history = state.history.iter().cloned().collect();
         Some((history, state.sender.subscribe()))
+    }
+
+    /// Replay-history events with sequence number strictly greater than
+    /// `after_seq`, used to resync a subscriber that fell behind
+    /// (`RecvError::Lagged`) by replaying exactly the events it skipped (P2-2).
+    /// Returns `None` if the stream no longer exists.
+    pub async fn history_after(&self, stream_id: &str, after_seq: u64) -> Option<Vec<SeqEvent>> {
+        let streams = self.streams.lock().await;
+        let state = streams.get(stream_id)?;
+        Some(
+            state
+                .history
+                .iter()
+                .filter(|item| item.seq > after_seq)
+                .cloned()
+                .collect(),
+        )
+    }
+
+    /// Full retained replay-history snapshot for a stream. Used to resync a
+    /// subscriber that lagged before delivering any event. Returns `None` if the
+    /// stream no longer exists.
+    pub async fn history_snapshot(&self, stream_id: &str) -> Option<Vec<SeqEvent>> {
+        let streams = self.streams.lock().await;
+        let state = streams.get(stream_id)?;
+        Some(state.history.iter().cloned().collect())
     }
 
     fn record_stream_event(
@@ -302,6 +401,44 @@ impl HttpStreamBroker {
     }
 }
 
+/// Reclaim per-stream state for streams whose terminal `done` was published more
+/// than `STREAM_EVICTION_GRACE` ago, and drop the session→stream mappings that
+/// still point at them. Without this the broker's `streams`/`session_streams`
+/// maps grow unbounded for the process lifetime (P2-1). Called opportunistically
+/// from `create_stream`/`publish` while the `streams` lock is held; lock order is
+/// always streams → session_streams → active_session_streams to avoid deadlock.
+async fn evict_expired_streams(
+    streams: &mut HashMap<String, StreamState>,
+    session_streams: &Mutex<HashMap<String, String>>,
+    active_session_streams: &Mutex<HashMap<String, String>>,
+) {
+    let now = Instant::now();
+    let expired: Vec<String> = streams
+        .iter()
+        .filter(|(_, state)| {
+            state
+                .done_at
+                .is_some_and(|done_at| now.duration_since(done_at) >= STREAM_EVICTION_GRACE)
+        })
+        .map(|(id, _)| id.clone())
+        .collect();
+    if expired.is_empty() {
+        return;
+    }
+    for id in &expired {
+        streams.remove(id);
+    }
+    let expired_set: std::collections::HashSet<&str> =
+        expired.iter().map(String::as_str).collect();
+    // Drop session mappings that still point at an evicted stream. A session
+    // re-registered onto a fresh stream keeps its newer mapping.
+    let mut session = session_streams.lock().await;
+    session.retain(|_, stream_id| !expired_set.contains(stream_id.as_str()));
+    drop(session);
+    let mut active = active_session_streams.lock().await;
+    active.retain(|_, stream_id| !expired_set.contains(stream_id.as_str()));
+}
+
 #[derive(Debug, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct HttpMessageRequest {
@@ -404,27 +541,105 @@ fn http_session_id_for_conversation(conversation_id: &str) -> SessionId {
     }
 }
 
-pub async fn stream_response(
+/// A frame produced by the replay stream: either a published event or a
+/// synthetic `resync` marker inserted after a `Lagged` gap.
+#[derive(Debug, Clone)]
+enum StreamFrame {
+    Event(HttpStreamEvent),
+    Resync { skipped: u64, from_seq: Option<u64> },
+}
+
+/// Core of the SSE replay stream, decoupled from the `Sse`/`Event` wire types so
+/// the reconnect/resync behavior is unit-testable. Yields history first, then
+/// live events, and on `Lagged` emits a `Resync` frame followed by the exact
+/// missed range from history (P2-2). Stops on `done`.
+fn replay_stream(
     broker: Arc<HttpStreamBroker>,
     stream_id: String,
-) -> Option<Sse<impl futures::Stream<Item = Result<Event, Infallible>>>> {
-    let (history, mut receiver) = broker.subscribe(&stream_id).await?;
-    let output = stream! {
+    history: Vec<SeqEvent>,
+    mut receiver: broadcast::Receiver<SeqEvent>,
+) -> impl futures::Stream<Item = StreamFrame> {
+    stream! {
+        // Track the highest sequence number delivered to this subscriber so a
+        // `Lagged` gap can be resynced precisely from history (P2-2).
+        let mut last_seq: Option<u64> = None;
         for item in history {
-            yield Ok(to_sse_event(item));
+            last_seq = Some(item.seq);
+            let is_done = item.inner.event == "done";
+            yield StreamFrame::Event(item.inner);
+            if is_done {
+                return;
+            }
         }
         loop {
             match receiver.recv().await {
                 Ok(item) => {
-                    let is_done = item.event == "done";
-                    yield Ok(to_sse_event(item));
+                    last_seq = Some(item.seq);
+                    let is_done = item.inner.event == "done";
+                    yield StreamFrame::Event(item.inner);
                     if is_done {
                         break;
                     }
                 }
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                    // The consumer fell more than the channel capacity behind and
+                    // the broadcast dropped `skipped` events. Rather than silently
+                    // leaving a mid-stream gap, resync from the replay history:
+                    // emit a `resync` marker, then replay every buffered event the
+                    // subscriber has not yet seen (seq > last_seq), in order.
+                    yield StreamFrame::Resync { skipped, from_seq: last_seq };
+                    // Replay every buffered event newer than the last one we
+                    // delivered. If nothing was delivered yet, replay the whole
+                    // retained history.
+                    let missed = match last_seq {
+                        Some(s) => broker.history_after(&stream_id, s).await,
+                        None => broker.history_snapshot(&stream_id).await,
+                    }
+                    .unwrap_or_default();
+                    let mut done = false;
+                    for item in missed {
+                        last_seq = Some(item.seq);
+                        if item.inner.event == "done" {
+                            done = true;
+                        }
+                        yield StreamFrame::Event(item.inner);
+                    }
+                    if done {
+                        break;
+                    }
+                    continue;
+                }
                 Err(broadcast::error::RecvError::Closed) => break,
             }
+        }
+    }
+}
+
+fn stream_frame_to_sse(stream_id: &str, frame: StreamFrame) -> Event {
+    match frame {
+        StreamFrame::Event(event) => to_sse_event(event),
+        StreamFrame::Resync { skipped, from_seq } => Event::default()
+            .event("resync")
+            .json_data(json!({
+                "stream_id": stream_id,
+                "skipped": skipped,
+                "from_seq": from_seq,
+            }))
+            .unwrap_or_else(|_| Event::default().event("resync").data("{}")),
+    }
+}
+
+pub async fn stream_response(
+    broker: Arc<HttpStreamBroker>,
+    stream_id: String,
+) -> Option<Sse<impl futures::Stream<Item = Result<Event, Infallible>>>> {
+    let (history, receiver) = broker.subscribe(&stream_id).await?;
+    let frames = replay_stream(broker, stream_id.clone(), history, receiver);
+    let output = stream! {
+        use futures::StreamExt;
+        futures::pin_mut!(frames);
+        while let Some(frame) = frames.next().await {
+            yield Ok(stream_frame_to_sse(&stream_id, frame));
         }
     };
     Some(
@@ -832,5 +1047,152 @@ mod tests {
         assert_eq!(summary.tool_call_count, 1);
         assert_eq!(summary.model_usage.total_tokens, 5);
         assert_eq!(summary.final_text.as_deref(), Some("answer"));
+    }
+
+    // ---- P2-1: stream/session map eviction after done + grace ----
+
+    #[tokio::test]
+    async fn finished_stream_state_is_evicted_after_grace_on_next_activity() {
+        let broker = HttpStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+        broker
+            .register_session("http-session-1", &stream_id)
+            .await;
+        broker
+            .activate_session_stream("http-session-1", &stream_id)
+            .await;
+        broker
+            .publish(&stream_id, "final", json!({"text": "ok"}))
+            .await;
+        broker.publish(&stream_id, "done", json!({})).await;
+
+        // Before the grace elapses the state is retained so a late subscriber can
+        // still replay the terminal events.
+        assert_eq!(broker.stream_count().await, 1);
+        assert!(broker.subscribe(&stream_id).await.is_some());
+
+        // Simulate the grace window having elapsed, then trigger an opportunistic
+        // sweep by creating a new (unrelated) stream.
+        broker.force_expire_done(&stream_id).await;
+        let _other = broker.create_stream().await;
+
+        // The finished stream and its session mappings are reclaimed; only the
+        // freshly created unrelated stream remains.
+        assert_eq!(broker.stream_count().await, 1);
+        assert!(broker.subscribe(&stream_id).await.is_none());
+        assert_eq!(broker.session_stream_count().await, 0);
+        assert!(broker.stream_id_for_session("http-session-1").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn reregistered_session_keeps_newer_mapping_when_old_stream_evicted() {
+        let broker = HttpStreamBroker::new();
+        let old = broker.create_stream().await;
+        broker.register_session("session-x", &old).await;
+        broker.publish(&old, "done", json!({})).await;
+
+        // The session moves on to a fresh stream (a follow-up turn).
+        let new = broker.create_stream().await;
+        broker.register_session("session-x", &new).await;
+
+        broker.force_expire_done(&old).await;
+        let _trigger = broker.create_stream().await;
+
+        // The old finished stream is evicted, but the session mapping now points
+        // at the newer stream and must be preserved.
+        assert!(broker.subscribe(&old).await.is_none());
+        assert_eq!(
+            broker.stream_id_for_session("session-x").await,
+            Some(new)
+        );
+    }
+
+    // ---- P2-2: Lagged resync replays the skipped range from history ----
+
+    #[tokio::test]
+    async fn lagged_subscriber_resyncs_skipped_range_from_history() {
+        use futures::StreamExt;
+
+        let broker = Arc::new(HttpStreamBroker::new());
+        let stream_id = broker.create_stream().await;
+
+        // Subscribe (capacity 256) but do NOT consume, then publish far more than
+        // the channel capacity so the broadcast drops events for this receiver —
+        // forcing a `Lagged` on the first recv.
+        let (history, receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+        assert!(history.is_empty());
+        let total = 400usize; // > broadcast capacity (256), < HISTORY_CAPACITY (512)
+        for i in 0..total {
+            broker
+                .publish(&stream_id, "token", json!({"text": format!("tok-{i}")}))
+                .await;
+        }
+        broker
+            .publish(&stream_id, "final", json!({"text": "the answer"}))
+            .await;
+        broker.publish(&stream_id, "done", json!({})).await;
+
+        // Drive the replay core directly so we can inspect the frame sequence.
+        let frames = replay_stream(broker.clone(), stream_id.clone(), history, receiver);
+        futures::pin_mut!(frames);
+        let mut saw_resync = false;
+        let mut replayed_tokens: Vec<String> = Vec::new();
+        let mut saw_final = false;
+        let mut saw_done = false;
+        while let Some(frame) = frames.next().await {
+            match frame {
+                StreamFrame::Resync { skipped, .. } => {
+                    saw_resync = true;
+                    assert!(skipped > 0, "Lagged must report a positive skip count");
+                }
+                StreamFrame::Event(event) => match event.event.as_str() {
+                    "token" => {
+                        replayed_tokens
+                            .push(event.payload["text"].as_str().unwrap().to_string());
+                    }
+                    "final" => saw_final = true,
+                    "done" => saw_done = true,
+                    _ => {}
+                },
+            }
+        }
+
+        assert!(saw_resync, "a Lagged gap must emit a resync frame, not be skipped silently");
+        assert!(saw_final, "the terminal final must still be replayed after resync");
+        assert!(saw_done, "the terminal done must still be replayed so the client stops");
+        // The resync replays the retained history tail (the ring keeps the newest
+        // HISTORY_CAPACITY events) including the most recent tokens.
+        assert!(
+            replayed_tokens.iter().any(|t| t == "tok-399"),
+            "the newest token before the terminal must be replayed"
+        );
+        // Tokens are replayed in order, each exactly once (no duplication of the
+        // already-delivered prefix — nothing had been delivered before the lag).
+        let mut sorted = replayed_tokens.clone();
+        sorted.dedup();
+        assert_eq!(sorted.len(), replayed_tokens.len(), "no duplicate tokens after resync");
+    }
+
+    #[tokio::test]
+    async fn non_lagged_stream_emits_no_resync_frame() {
+        use futures::StreamExt;
+
+        let broker = Arc::new(HttpStreamBroker::new());
+        let stream_id = broker.create_stream().await;
+        broker
+            .publish(&stream_id, "token", json!({"text": "hi"}))
+            .await;
+        broker.publish(&stream_id, "done", json!({})).await;
+
+        let (history, receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let frames = replay_stream(broker.clone(), stream_id, history, receiver);
+        futures::pin_mut!(frames);
+        let mut resyncs = 0;
+        while let Some(frame) = frames.next().await {
+            if matches!(frame, StreamFrame::Resync { .. }) {
+                resyncs += 1;
+            }
+        }
+        assert_eq!(resyncs, 0, "a healthy stream must never emit a resync frame");
     }
 }

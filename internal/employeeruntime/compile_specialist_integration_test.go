@@ -25,7 +25,7 @@ func TestCompileSpecialist_IncludesDefinitionDefaultSkillsAndEmployeeSkills(t *t
 		Category:      &category,
 		Model:         DefaultEmployeeModel,
 		Tools:         model.JSON{},
-		McpServers:    model.JSON{},
+		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
 		Integrations:  model.JSON{},
 		Resources:     model.JSON{},

@@ -1099,9 +1099,140 @@ async fn process_single_turn(
             )
             .await;
         }
+    } else if let Some(run) = ScheduledRunContext::from_inbound(inbound) {
+        // P2-43: a scheduled (cron/wake) run only reaches a terminal status now
+        // that the turn has actually executed — not when the scheduler enqueued
+        // it. Emit SCHEDULE_RUN_COMPLETED/FAILED, record the run, delete
+        // one-shot/wake jobs, and advance repeat counts here.
+        complete_scheduled_run(
+            cron_repo.as_ref(),
+            emitter.clone(),
+            &run,
+            &session_id,
+            outcome.error.as_deref(),
+        )
+        .await;
     }
 
     Ok(())
+}
+
+/// Run-lifecycle context the scheduler embeds in a scheduled job's inbound `raw`
+/// so the turn handler can complete the run after the turn executes (P2-43).
+struct ScheduledRunContext {
+    job_id: String,
+    run_key: String,
+    scheduled_at: chrono::DateTime<Utc>,
+    started_at: chrono::DateTime<Utc>,
+    is_one_shot: bool,
+    is_wake: bool,
+}
+
+impl ScheduledRunContext {
+    fn from_inbound(inbound: &InboundEvent) -> Option<Self> {
+        let raw = inbound.raw.as_object()?;
+        // Only scheduler-dispatched runs carry these keys; ordinary inbound
+        // messages (and delegates, handled above) do not.
+        let run_key = raw.get("schedule_run_key")?.as_str()?.to_string();
+        let job_id = raw.get("job_id")?.as_str()?.to_string();
+        let scheduled_at = raw
+            .get("schedule_scheduled_at")
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse().ok())?;
+        let started_at = raw
+            .get("schedule_started_at")
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse().ok())?;
+        Some(Self {
+            job_id,
+            run_key,
+            scheduled_at,
+            started_at,
+            is_one_shot: raw
+                .get("schedule_is_one_shot")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            is_wake: raw
+                .get("schedule_is_wake")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        })
+    }
+}
+
+/// Complete a scheduled run after its turn executed: record the run status, emit
+/// the terminal schedule event, and apply lifecycle changes (delete one-shot/wake
+/// jobs, advance repeat counts). Mirrors what the scheduler used to do
+/// immediately after enqueue, but now keyed to the real turn outcome (P2-43).
+async fn complete_scheduled_run(
+    cron_repo: &dyn CronJobRepo,
+    emitter: Arc<OutboundEmitter>,
+    run: &ScheduledRunContext,
+    session_id: &SessionId,
+    error: Option<&str>,
+) {
+    use agent::rig_tool_registry::{emit_schedule_event, ScheduleRunPayload};
+
+    let completed_at = Utc::now();
+    let status = if error.is_some() { "error" } else { "completed" };
+    if let Err(e) = cron_repo
+        .record_run(&run.job_id, completed_at, status, error)
+        .await
+    {
+        warn!(job_id = %run.job_id, error = %e, "cron: failed to record run completion");
+    }
+
+    // Re-fetch the latest job row for the event payload; fall back to skipping the
+    // event if the job is already gone (e.g. cancelled mid-turn).
+    let job = cron_repo.get(&run.job_id).await.ok().flatten();
+    if let Some(job) = job.as_ref() {
+        let event_type = if error.is_some() {
+            event_types::SCHEDULE_RUN_FAILED
+        } else {
+            event_types::SCHEDULE_RUN_COMPLETED
+        };
+        emit_schedule_event(
+            Some(emitter),
+            event_type,
+            job,
+            session_id,
+            "scheduler",
+            Some(ScheduleRunPayload {
+                run_key: run.run_key.clone(),
+                scheduled_at: run.scheduled_at,
+                started_at: Some(run.started_at),
+                completed_at: Some(completed_at),
+                duration_ms: Some((completed_at - run.started_at).num_milliseconds()),
+                error: error.map(ToString::to_string),
+            }),
+        )
+        .await;
+    }
+
+    // One-shot and wake jobs are single-use: remove them now that the turn ran.
+    if run.is_one_shot || run.is_wake {
+        let _ = cron_repo
+            .set_state(&run.job_id, domain::cron::CronJobState::Completed)
+            .await;
+        let _ = cron_repo.delete(&run.job_id).await;
+        info!(job_id = %run.job_id, "cron: completed, removed");
+        return;
+    }
+
+    // Recurring jobs with a bounded repeat count advance toward completion.
+    if let Some(repeat_count) = job.as_ref().and_then(|j| j.repeat_count) {
+        let repeat_completed = job.as_ref().map(|j| j.repeat_completed).unwrap_or(0);
+        if let Err(e) = cron_repo.increment_repeat(&run.job_id).await {
+            warn!(job_id = %run.job_id, error = %e, "cron: failed to increment repeat");
+        }
+        if repeat_completed + 1 >= repeat_count {
+            let _ = cron_repo
+                .set_state(&run.job_id, domain::cron::CronJobState::Completed)
+                .await;
+            let _ = cron_repo.delete(&run.job_id).await;
+            info!(job_id = %run.job_id, "cron: repeat count reached, completed and removed");
+        }
+    }
 }
 
 /// Number of attempts to persist a delegate's result before force-failing the
@@ -1840,5 +1971,320 @@ mod stream_tests {
                 ("stream-b".to_string(), "done".to_string()),
             ]
         );
+    }
+}
+
+#[cfg(test)]
+mod scheduled_run_tests {
+    use super::{complete_scheduled_run, InboundEvent, ScheduledRunContext};
+    use async_trait::async_trait;
+    use chrono::{DateTime, Utc};
+    use domain::cron::{CronJob, CronJobSource, CronJobState};
+    use domain::reply::MessageHandle;
+    use domain::SessionId;
+    use outbound::{OutboundChannel, OutboundEmitter, OutboundError, OutboundRegistry};
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    use storage::{CronJobRepo, OutboxRepo, OutboxRow, Result as StorageResult};
+    use tokio::sync::RwLock;
+
+    #[derive(Default)]
+    struct RecordingOutbox {
+        rows: Mutex<Vec<(String, Value)>>,
+    }
+
+    #[async_trait]
+    impl OutboxRepo for RecordingOutbox {
+        async fn enqueue(
+            &self,
+            _channel: &str,
+            event_type: &str,
+            payload: Value,
+        ) -> StorageResult<i64> {
+            let mut rows = self.rows.lock().unwrap();
+            rows.push((event_type.to_string(), payload));
+            Ok(rows.len() as i64)
+        }
+        async fn claim_due(&self, _limit: u32) -> StorageResult<Vec<OutboxRow>> {
+            Ok(Vec::new())
+        }
+        async fn mark_delivered(&self, _id: i64) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn schedule_retry(
+            &self,
+            _id: i64,
+            _attempts: i32,
+            _next: DateTime<Utc>,
+        ) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn mark_failed(&self, _id: i64) -> StorageResult<()> {
+            Ok(())
+        }
+    }
+
+    struct ScheduleChannel;
+
+    #[async_trait]
+    impl OutboundChannel for ScheduleChannel {
+        fn name(&self) -> &str {
+            "schedule"
+        }
+        fn kind(&self) -> &'static str {
+            "test"
+        }
+        fn accepts(&self, event_type: &str) -> bool {
+            event_type.starts_with("schedule.")
+        }
+        async fn deliver(&self, _event: &domain::OutboundEvent) -> outbound::Result<()> {
+            Err(OutboundError::Delivery("unused".into()))
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeCronRepo {
+        jobs: Mutex<HashMap<String, CronJob>>,
+        run_records: Mutex<Vec<(String, String)>>,
+        increment_calls: Mutex<u32>,
+    }
+
+    impl FakeCronRepo {
+        fn with_job(job: CronJob) -> Arc<Self> {
+            let repo = Self::default();
+            repo.jobs.lock().unwrap().insert(job.id.clone(), job);
+            Arc::new(repo)
+        }
+        fn job_exists(&self, id: &str) -> bool {
+            self.jobs.lock().unwrap().contains_key(id)
+        }
+    }
+
+    #[async_trait]
+    impl CronJobRepo for FakeCronRepo {
+        async fn create(&self, _job: &CronJob) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn get(&self, id: &str) -> StorageResult<Option<CronJob>> {
+            Ok(self.jobs.lock().unwrap().get(id).cloned())
+        }
+        async fn list_all(&self) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn list_by_source(&self, _s: CronJobSource) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn list_due(&self) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn update_prompt(&self, _id: &str, _p: String) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_interval(&self, _id: &str, _i: u64) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_next_run(&self, _id: &str, _n: DateTime<Utc>) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn set_state(&self, id: &str, state: CronJobState) -> StorageResult<()> {
+            if let Some(job) = self.jobs.lock().unwrap().get_mut(id) {
+                job.state = state;
+            }
+            Ok(())
+        }
+        async fn record_run(
+            &self,
+            id: &str,
+            _at: DateTime<Utc>,
+            status: &str,
+            _error: Option<&str>,
+        ) -> StorageResult<()> {
+            self.run_records
+                .lock()
+                .unwrap()
+                .push((id.to_string(), status.to_string()));
+            Ok(())
+        }
+        async fn increment_repeat(&self, id: &str) -> StorageResult<()> {
+            *self.increment_calls.lock().unwrap() += 1;
+            if let Some(job) = self.jobs.lock().unwrap().get_mut(id) {
+                job.repeat_completed += 1;
+            }
+            Ok(())
+        }
+        async fn record_result(&self, _id: &str, _r: &str) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn complete_delegate_result(
+            &self,
+            _id: &str,
+            _at: DateTime<Utc>,
+            _status: &str,
+            _error: Option<&str>,
+            _result: &str,
+        ) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn delete(&self, id: &str) -> StorageResult<()> {
+            self.jobs.lock().unwrap().remove(id);
+            Ok(())
+        }
+    }
+
+    fn emitter(outbox: Arc<RecordingOutbox>) -> Arc<OutboundEmitter> {
+        let registry = OutboundRegistry::new().with_channel(Arc::new(ScheduleChannel));
+        Arc::new(OutboundEmitter::new(
+            outbox,
+            Arc::new(RwLock::new(registry)),
+        ))
+    }
+
+    fn test_job(id: &str, interval: Option<u64>) -> CronJob {
+        CronJob {
+            id: id.to_string(),
+            description: "test".to_string(),
+            channel: "C123".to_string(),
+            task_prompt: "do work".to_string(),
+            cron_expression: None,
+            interval_seconds: interval,
+            repeat_count: None,
+            repeat_completed: 0,
+            state: CronJobState::Active,
+            source: CronJobSource::Cron,
+            next_run_at: Utc::now(),
+            last_run_at: None,
+            last_status: None,
+            last_error: None,
+            delegated_session_id: None,
+            session_continuation_id: None,
+            agent_name: None,
+            last_result: None,
+            delegate_stream_id: None,
+            created_at: Utc::now(),
+            created_by_session: "scheduler".to_string(),
+        }
+    }
+
+    fn scheduled_inbound(job_id: &str, is_one_shot: bool, is_wake: bool) -> InboundEvent {
+        let now = Utc::now();
+        InboundEvent {
+            envelope_id: "cron-1".to_string(),
+            session_id: SessionId::from("C123-cron-1"),
+            user: "cron".to_string(),
+            user_display_name: Some("Scheduler".to_string()),
+            text: "do work".to_string(),
+            attachments: Vec::new(),
+            dynamic_context: Vec::new(),
+            raw: json!({
+                "source": "cron",
+                "job_kind": "cron",
+                "job_id": job_id,
+                "schedule_run_key": format!("{job_id}:run"),
+                "schedule_scheduled_at": now,
+                "schedule_started_at": now,
+                "schedule_is_one_shot": is_one_shot,
+                "schedule_is_wake": is_wake,
+            }),
+            inbound_handle: MessageHandle {
+                channel: "C123".to_string(),
+                ts: String::new(),
+            },
+            is_direct_message: false,
+            is_directly_addressed: true,
+            link_previews: Vec::new(),
+            agent_definition: None,
+        }
+    }
+
+    #[test]
+    fn scheduled_run_context_parses_only_scheduler_dispatched_inbounds() {
+        // A normal user message carries no schedule keys.
+        let ordinary = scheduled_inbound("job-1", false, false);
+        assert!(ScheduledRunContext::from_inbound(&ordinary).is_some());
+
+        let mut not_scheduled = ordinary.clone();
+        not_scheduled.raw = json!({"source": "http"});
+        assert!(ScheduledRunContext::from_inbound(&not_scheduled).is_none());
+    }
+
+    #[tokio::test]
+    async fn completing_a_one_shot_run_emits_completed_and_deletes_job() {
+        let outbox = Arc::new(RecordingOutbox::default());
+        let repo = FakeCronRepo::with_job(test_job("oneshot-1", Some(0)));
+        let inbound = scheduled_inbound("oneshot-1", true, false);
+        let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
+
+        complete_scheduled_run(
+            repo.as_ref(),
+            emitter(outbox.clone()),
+            &run,
+            &SessionId::from("C123-cron-1"),
+            None,
+        )
+        .await;
+
+        // The run was recorded as completed and a SCHEDULE_RUN_COMPLETED emitted.
+        assert_eq!(
+            *repo.run_records.lock().unwrap(),
+            vec![("oneshot-1".to_string(), "completed".to_string())]
+        );
+        let rows = outbox.rows.lock().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "schedule.run_completed");
+        // One-shot jobs are deleted after the turn runs.
+        assert!(!repo.job_exists("oneshot-1"));
+    }
+
+    #[tokio::test]
+    async fn completing_a_failed_run_emits_run_failed() {
+        let outbox = Arc::new(RecordingOutbox::default());
+        let repo = FakeCronRepo::with_job(test_job("recurring-1", Some(600)));
+        let inbound = scheduled_inbound("recurring-1", false, false);
+        let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
+
+        complete_scheduled_run(
+            repo.as_ref(),
+            emitter(outbox.clone()),
+            &run,
+            &SessionId::from("C123-cron-1"),
+            Some("model exploded"),
+        )
+        .await;
+
+        assert_eq!(
+            *repo.run_records.lock().unwrap(),
+            vec![("recurring-1".to_string(), "error".to_string())]
+        );
+        let rows = outbox.rows.lock().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "schedule.run_failed");
+        assert_eq!(rows[0].1["error"], "model exploded");
+        // A recurring job survives a failed run (it will fire again).
+        assert!(repo.job_exists("recurring-1"));
+    }
+
+    #[tokio::test]
+    async fn recurring_run_with_repeat_count_advances_and_completes_on_last() {
+        let outbox = Arc::new(RecordingOutbox::default());
+        let mut job = test_job("repeat-1", Some(600));
+        job.repeat_count = Some(2);
+        job.repeat_completed = 1; // this is the final allowed run
+        let repo = FakeCronRepo::with_job(job);
+        let inbound = scheduled_inbound("repeat-1", false, false);
+        let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
+
+        complete_scheduled_run(
+            repo.as_ref(),
+            emitter(outbox.clone()),
+            &run,
+            &SessionId::from("C123-cron-1"),
+            None,
+        )
+        .await;
+
+        assert_eq!(*repo.increment_calls.lock().unwrap(), 1);
+        // repeat_completed (1) + 1 >= repeat_count (2): job removed.
+        assert!(!repo.job_exists("repeat-1"));
     }
 }

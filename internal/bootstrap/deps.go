@@ -29,7 +29,6 @@ import (
 	"github.com/usehivy/hivy/internal/specialists"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/storage"
-	"github.com/usehivy/hivy/internal/streaming"
 
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
@@ -52,9 +51,6 @@ type Deps struct {
 	SandboxEncKey   *crypto.SymmetricKey
 	Orchestrator    *sandbox.Orchestrator
 	Specialists     *specialists.Catalog
-	EventBus        *streaming.EventBus
-	Flusher         *streaming.Flusher
-	Cleanup         *streaming.Cleanup
 	HindsightClient *hindsight.Client
 	SpiderClient    *spider.Client              // nil if spider not configured
 	ToolUsageWriter *middleware.ToolUsageWriter // nil if spider not configured
@@ -239,10 +235,6 @@ func New(ctx context.Context) (*Deps, error) {
 		}
 	}
 
-	eventBus := streaming.NewEventBus(redisClient)
-	flusher := streaming.NewFlusher(eventBus, database)
-	cleanup := streaming.NewCleanup(eventBus)
-
 	var hClient *hindsight.Client
 	if cfg.HindsightAPIURL != "" {
 		hClient = hindsight.NewClient(cfg.HindsightAPIURL)
@@ -283,9 +275,6 @@ func New(ctx context.Context) (*Deps, error) {
 		SandboxEncKey:   sandboxEncKey,
 		Orchestrator:    orchestrator,
 		Specialists:     specialistCatalog,
-		EventBus:        eventBus,
-		Flusher:         flusher,
-		Cleanup:         cleanup,
 		HindsightClient: hClient,
 		SpiderClient:    spiderClient,
 		ToolUsageWriter: toolUsageWriter,

@@ -182,7 +182,7 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 			logging.Capture(cleanupCtx, fmt.Errorf("specialist launch cleanup: delete sandbox resource %s: %w", sb.ID, err))
 		}
 	}()
-	if err := employeeruntime.AttachLatestSpecialistProxyTokenToSandbox(ctx, s.compileDeps, employee, sb.ID, def.Slug); err != nil {
+	if err := employeeruntime.AttachSpecialistProxyTokenToSandbox(ctx, s.compileDeps, employee, sb.ID, secrets.ProxyTokenJTI, def.Slug); err != nil {
 		return nil, wrapToolError("proxy_token_attach_failed", "The specialist runtime was created, but the control plane could not bind its proxy token to the sandbox.", err, true, "Retry later. If this repeats, report that specialist startup failed after sandbox creation.")
 	}
 	parentSessionID := s.parentSessionIDForRuntimeConversation(ctx, employee, req.EmployeeSessionID)

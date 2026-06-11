@@ -1,11 +1,28 @@
 package middleware
 
-import "net/http"
+import (
+	"log/slog"
+	"net/http"
+)
 
-// CORS returns middleware that allows cross-origin requests from the
-// specified origins. If allowedOrigins is empty, all origins are allowed.
-func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
-	allowAll := len(allowedOrigins) == 0
+// CORS returns middleware that allows cross-origin requests from the specified
+// origins.
+//
+// When allowedOrigins is non-empty, only listed origins receive CORS headers
+// and the Vary/credentials headers are set for cookie-bearing flows.
+//
+// When allowedOrigins is empty the behaviour depends on isProduction:
+//   - production: no CORS headers are emitted (fail-closed). OPTIONS requests
+//     receive a 204 with no allow-origin so the browser rejects cross-origin
+//     requests. A startup warning is logged.
+//   - non-production: all origins are allowed via the wildcard header (legacy
+//     development behaviour).
+func CORS(allowedOrigins []string, isProduction bool) func(http.Handler) http.Handler {
+	allowAll := len(allowedOrigins) == 0 && !isProduction
+
+	if len(allowedOrigins) == 0 && isProduction {
+		slog.Warn("HIVY_CORS_ORIGINS is unset in production — CORS is disabled (fail-closed); set HIVY_CORS_ORIGINS to allow browser clients")
+	}
 
 	allowed := make(map[string]bool, len(allowedOrigins))
 	for _, o := range allowedOrigins {

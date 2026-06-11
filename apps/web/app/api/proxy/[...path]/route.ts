@@ -253,11 +253,16 @@ async function handler(
   // Build response
   // -----------------------------------------------------------------------
   const responseHeaders = new Headers()
-  const skipHeaders = new Set(["transfer-encoding", "content-encoding", "content-length"])
+  const skipHeaders = new Set(["transfer-encoding", "content-encoding", "content-length", "set-cookie"])
   upstream.headers.forEach((value, key) => {
     if (skipHeaders.has(key.toLowerCase())) return
     responseHeaders.set(key, value)
   })
+  // Preserve each Set-Cookie header individually — Headers.set collapses
+  // multiple values into one comma-joined string, which breaks cookie parsing.
+  for (const cookie of upstream.headers.getSetCookie()) {
+    responseHeaders.append("set-cookie", cookie)
+  }
 
   // -----------------------------------------------------------------------
   // Intercept auth responses — persist session, strip tokens from body
@@ -290,6 +295,16 @@ async function handler(
           headers: authHeaders,
         })
       }
+
+      // Tokens absent in an auth response (e.g. OTP challenge, error details).
+      // The body was already consumed via upstream.json() above, so we must
+      // re-serialize rather than falling through to `upstream.body` (which is
+      // now disturbed and would throw a 500).
+      reqLog.info({ status: upstream.status }, "auth path without tokens, re-serializing body")
+      return NextResponse.json(data, {
+        status: upstream.status,
+        headers: responseHeaders,
+      })
     } catch (err) {
       reqLog.error({ err }, "auth response interception failed")
       return NextResponse.json({ error: "session_creation_failed" }, { status: 502 })

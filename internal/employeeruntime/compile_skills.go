@@ -3,12 +3,14 @@ package employeeruntime
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -37,8 +39,10 @@ func buildSkillsWithDefaultNames(ctx context.Context, db *gorm.DB, agentID uuid.
 		return []SkillSpec{}, nil
 	}
 	ids := make([]uuid.UUID, 0, len(links))
+	attached := make(map[uuid.UUID]bool, len(links))
 	for _, link := range links {
 		ids = append(ids, link.SkillID)
+		attached[link.SkillID] = true
 	}
 	var skills []model.Skill
 	if len(ids) > 0 {
@@ -65,11 +69,26 @@ func buildSkillsWithDefaultNames(ctx context.Context, db *gorm.DB, agentID uuid.
 	})
 	out := make([]SkillSpec, 0, len(skills))
 	for _, skill := range skills {
+		// A skill with an empty or unparseable bundle would otherwise be silently
+		// dropped from the compiled agent (P2-47). Explicitly attached skills are
+		// a hard error — the operator asked for them and a silent drop hides a
+		// broken skill bundle. Default skills (pulled in by name) are logged and
+		// skipped so a single bad seed skill cannot break every compile.
 		if len(skill.Bundle) == 0 {
+			if attached[skill.ID] {
+				return nil, fmt.Errorf("compile skills: attached skill %q (%s) has an empty bundle", skill.Slug, skill.ID)
+			}
+			logging.FromContext(ctx).WarnContext(ctx, "dropping default skill with empty bundle",
+				"skill_id", skill.ID.String(), "skill_slug", skill.Slug)
 			continue
 		}
 		var bundle skillBundle
 		if err := json.Unmarshal(skill.Bundle, &bundle); err != nil {
+			if attached[skill.ID] {
+				return nil, fmt.Errorf("compile skills: attached skill %q (%s) has an unparseable bundle: %w", skill.Slug, skill.ID, err)
+			}
+			logging.FromContext(ctx).WarnContext(ctx, "dropping default skill with unparseable bundle",
+				"skill_id", skill.ID.String(), "skill_slug", skill.Slug, "error", err.Error())
 			continue
 		}
 		description := bundle.Description

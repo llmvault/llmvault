@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gorm.io/gorm"
@@ -30,12 +31,18 @@ const (
 	employeeEventShutdownFlushTimeout = 25 * time.Second
 )
 
+type afterWriteFn func(context.Context, []model.EmployeeSessionEvent)
+
 type EmployeeEventWriter struct {
 	db            *gorm.DB
 	entries       chan model.EmployeeSessionEvent
 	wg            sync.WaitGroup
 	flushInterval time.Duration
-	afterWrite    func(context.Context, []model.EmployeeSessionEvent)
+	// afterWrite is set after the drain goroutine has already started (via
+	// SetAfterWrite, wired during handler setup), so the write/read must be
+	// synchronised. atomic.Pointer makes the publish visible to drain without
+	// a data race (P2-39).
+	afterWrite atomic.Pointer[afterWriteFn]
 }
 
 func NewEmployeeEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, flushInterval ...time.Duration) *EmployeeEventWriter {
@@ -54,9 +61,23 @@ func NewEmployeeEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, fl
 }
 
 func (w *EmployeeEventWriter) SetAfterWrite(fn func(context.Context, []model.EmployeeSessionEvent)) {
-	if w != nil {
-		w.afterWrite = fn
+	if w == nil {
+		return
 	}
+	if fn == nil {
+		w.afterWrite.Store(nil)
+		return
+	}
+	cb := afterWriteFn(fn)
+	w.afterWrite.Store(&cb)
+}
+
+// loadAfterWrite returns the currently-registered afterWrite callback, or nil.
+func (w *EmployeeEventWriter) loadAfterWrite() afterWriteFn {
+	if cb := w.afterWrite.Load(); cb != nil {
+		return *cb
+	}
+	return nil
 }
 
 func (w *EmployeeEventWriter) drain(ctx context.Context) {
@@ -85,8 +106,10 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 		if len(batch) == 0 {
 			return
 		}
-		if w.flushBatch(flushCtx, batch) && w.afterWrite != nil {
-			w.afterWrite(flushCtx, append([]model.EmployeeSessionEvent(nil), batch...))
+		if w.flushBatch(flushCtx, batch) {
+			if cb := w.loadAfterWrite(); cb != nil {
+				cb(flushCtx, append([]model.EmployeeSessionEvent(nil), batch...))
+			}
 		}
 		batch = batch[:0]
 	}
@@ -207,8 +230,8 @@ func (w *EmployeeEventWriter) Write(ctx context.Context, entry model.EmployeeSes
 		if err != nil {
 			captureEmployeeSessionEventFailure(ctx, "direct_write", entry, err)
 			logging.FromContext(ctx).ErrorContext(ctx, "employee event direct write failed", "error", err, "event_type", entry.EventType)
-		} else if w.afterWrite != nil {
-			w.afterWrite(ctx, []model.EmployeeSessionEvent{entry})
+		} else if cb := w.loadAfterWrite(); cb != nil {
+			cb(ctx, []model.EmployeeSessionEvent{entry})
 		}
 	}
 }

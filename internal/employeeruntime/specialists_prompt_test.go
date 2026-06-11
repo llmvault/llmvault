@@ -89,6 +89,39 @@ func TestBuildAvailableSpecialistsSection_ListsAttachedSpecialists(t *testing.T)
 	}
 }
 
+// TestBuildAvailableSpecialistsSection_NoMatchReturnsEmpty verifies that
+// attaching specialist slugs that do not appear in the catalog returns an
+// empty section rather than the 14-line header block (P2-20: replaced the
+// fragile len(lines)==14 sentinel with an explicit matched-count check).
+func TestBuildAvailableSpecialistsSection_NoMatchReturnsEmpty(t *testing.T) {
+	catalog, err := specialists.NewCatalog([]specialists.Definition{
+		{
+			Slug:           "software-engineering-specialist",
+			Name:           "Software Engineering",
+			Description:    "Build and verify code changes.",
+			SpecialistType: "engineering",
+			Version:        1,
+			DefaultModel:   "deepseek-v4-pro",
+			SystemPrompt:   "Do engineering work.",
+		},
+	})
+	if err != nil {
+		t.Fatalf("catalog: %v", err)
+	}
+
+	// Agent has a slug that doesn't exist in the catalog.
+	agent := &model.Employee{
+		AttachedSpecialists: []string{"non-existent-specialist"},
+	}
+
+	section := buildAvailableSpecialistsSection(agent, catalog)
+
+	if section.Title != "" || section.Content != "" {
+		t.Fatalf("expected empty section for unmatched specialists, got title=%q content=%q",
+			section.Title, section.Content)
+	}
+}
+
 func TestDefaultRuntimeSurfaceDoesNotExposeGenericDelegation(t *testing.T) {
 	for _, tool := range defaultTools() {
 		if got, _ := tool["type"].(string); got == "builtin.delegate" || got == "builtin.check_delegated_status" {

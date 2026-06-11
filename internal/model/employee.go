@@ -27,7 +27,7 @@ type Employee struct {
 	Instructions              *string        `gorm:"type:text"`
 	Model                     string         `gorm:"not null"`
 	Tools                     JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	McpServers                JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	McpServers                RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
 	Skills                    JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	Integrations              JSON           `gorm:"-"`
 	RuntimeConfig             JSON           `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
