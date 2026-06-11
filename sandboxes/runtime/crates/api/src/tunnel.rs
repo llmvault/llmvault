@@ -745,9 +745,9 @@ mod tests {
 
     #[test]
     fn credential_rejects_when_no_credentials_presented() {
-        // Regression for P1-1: the absence of any credential (which is exactly
-        // what happens when no tunnel password is configured and an anonymous
-        // client connects) must NOT be treated as authorized.
+        // Regression: the absence of any credential (which is exactly what
+        // happens when no tunnel password is configured and an anonymous client
+        // connects) must NOT be treated as authorized.
         let secret = "test-secret-key-for-hmac-signing";
         assert!(!has_valid_tunnel_credential(None, None, 5173, secret));
     }

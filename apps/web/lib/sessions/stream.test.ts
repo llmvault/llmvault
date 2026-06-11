@@ -8,10 +8,6 @@ import {
   type ReconnectConfig,
 } from "./stream"
 
-// ---------------------------------------------------------------------------
-// P2-27: SSE must go through the cookie-auth proxy; absolute URLs are rejected
-// so a raw bearer access token is never attached to a cross-origin request.
-// ---------------------------------------------------------------------------
 describe("proxiedStreamURL", () => {
   it("prefixes a backend-relative signed stream path with /api/proxy", () => {
     expect(
@@ -120,9 +116,6 @@ describe("decideReconnect", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// P1-11 regression: setup failures must clear isStreaming
-// ---------------------------------------------------------------------------
 describe("runWithStreamSetup", () => {
   it("calls the body with the resolved value and returns its result", async () => {
     const result = await runWithStreamSetup(
@@ -138,10 +131,6 @@ describe("runWithStreamSetup", () => {
       () => Promise.reject(err),
       async () => "should-not-reach"
     )
-    // Before the fix, the thrown error escaped the setup await (which was
-    // outside the try/finally), so the finally block never ran and isStreaming
-    // stayed true forever.  The fix catches the error and returns a typed
-    // failure so callers can clear the streaming state.
     expect(result).toEqual({ ok: false, error: err })
   })
 
@@ -218,11 +207,6 @@ describe("StreamBuffer", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// End-to-end reconnect contract: scripted broker replays drive the same
-// decideReconnect + StreamBuffer the client uses, proving a mid-turn drop
-// resumes and renders the answer exactly once (no duplication, no loss).
-// ---------------------------------------------------------------------------
 type ScriptEvent =
   | { event: "token"; text: string }
   | { event: "final"; text: string }
@@ -274,11 +258,6 @@ function runScriptedStream(
 
 describe("scripted reconnect contract", () => {
   it("resumes a turn dropped mid-stream and renders the answer exactly once", () => {
-    // Turn 1 (before the drop): three tokens streamed live, then the proxy
-    // idle/total timeout cuts the connection with NO terminal event.
-    // Reconnect: the broker replays the WHOLE turn from the start (P0-28 ring
-    // buffer guarantees the tail/terminal survive), then streams the remainder
-    // and the terminal final/done.
     const result = runScriptedStream([
       [
         { event: "token", text: "The " },
@@ -336,23 +315,14 @@ describe("scripted reconnect contract", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// P0-31 contract: a follow-up message must NOT wipe the previous turn's answer.
-// The client tracks turns in separate buffers; turn 1's committed text stays
-// rendered while turn 2 streams into its own fresh buffer.
-// ---------------------------------------------------------------------------
 describe("follow-up message preserves the previous turn", () => {
   it("keeps turn 1's answer while turn 2 streams independently", () => {
-    // Turn 1 completed and was rendered.
     const turn1 = new StreamBuffer()
     turn1.liveToken("Paris is ")
     turn1.setFinal("Paris is the capital of France.")
 
-    // Snapshot of what the previous answer must remain.
     const previousAnswer = turn1.text
 
-    // Turn 2 starts on a FRESH buffer (the regression was reusing/clearing the
-    // single shared state, erasing turn 1). Turn 1's buffer is untouched.
     const turn2 = new StreamBuffer()
     turn2.liveToken("It has ")
     turn2.liveToken("about 2 million people.")
@@ -360,7 +330,6 @@ describe("follow-up message preserves the previous turn", () => {
     expect(turn1.text).toBe(previousAnswer)
     expect(turn1.text).toBe("Paris is the capital of France.")
     expect(turn2.text).toBe("It has about 2 million people.")
-    // The two turns never share buffer state.
     expect(turn2.text).not.toContain("Paris")
   })
 
@@ -368,8 +337,6 @@ describe("follow-up message preserves the previous turn", () => {
     const turn1 = new StreamBuffer("Earlier answer.")
     turn1.setFinal("Earlier answer.")
 
-    // Turn 2 (the follow-up) drops mid-stream and reconnects; its replay must
-    // only contain turn 2's own events, never turn 1's.
     const turn2 = runScriptedStream([
       [{ event: "token", text: "Second " }],
       [

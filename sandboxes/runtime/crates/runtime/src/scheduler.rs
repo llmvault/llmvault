@@ -186,9 +186,9 @@ impl CronScheduler {
 
         let mut raw = scheduled_job_raw_metadata(&job);
 
-        // P2-43: a scheduled run is only *enqueued* here — the turn has not run
-        // yet. Carry the run-lifecycle context so the turn handler can mark the
-        // run completed/failed (and delete one-shot/wake jobs, advance repeat
+        // A scheduled run is only *enqueued* here — the turn has not run yet.
+        // Carry the run-lifecycle context so the turn handler can mark the run
+        // completed/failed (and delete one-shot/wake jobs, advance repeat
         // counts) *after* the turn actually executes, instead of the scheduler
         // reporting success the moment it hands off. Delegates already complete
         // via the handler's delegate path, so they are excluded here.
@@ -300,7 +300,7 @@ impl CronScheduler {
             return;
         }
 
-        // P2-43: the run is now enqueued but NOT complete. The turn handler emits
+        // The run is now enqueued but NOT complete. The turn handler emits
         // SCHEDULE_RUN_COMPLETED/FAILED, deletes one-shot/wake jobs, and advances
         // repeat counts once the turn has actually executed (see
         // `complete_scheduled_run` in the handler). Delegates are likewise

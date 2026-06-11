@@ -5,7 +5,7 @@
  * (and the synthetic live events produced by the SSE client) and collapse them
  * into the de-duplicated, render-ready timeline shown in the sessions UI. They
  * are intentionally free of React / network dependencies so the normalization
- * contract can be unit-tested directly (P2-3, P2-4).
+ * contract can be unit-tested directly.
  */
 
 export type EmployeeSessionEvent = {
@@ -66,7 +66,7 @@ export function eventKind(event: EmployeeSessionEvent) {
  * We:
  *   - drop raw `token` deltas (their text is carried by the assistant span that
  *     follows), but accumulate them *per span* so a multi-span turn is not
- *     collapsed to a single bubble (P2-3),
+ *     collapsed to a single bubble,
  *   - coalesce consecutive `thinking` deltas into one bubble,
  *   - merge a `tool_call`/`tool_result` pair into one tool bubble, and
  *   - keep every assistant span as its own completed bubble.
@@ -76,7 +76,7 @@ export function normalizeSessionEvents(events: EmployeeSessionEvent[]) {
   const toolIndexByID = new Map<string, number>()
   // Tokens accumulate per assistant span only: they are reset once their span's
   // assistant message is emitted so a later span's bubble is deduped against its
-  // own tokens, not the whole turn's (which collapsed multi-span turns, P2-3).
+  // own tokens, not the whole turn's (which would collapse multi-span turns).
   let tokenTexts: string[] = []
   let thinkingIndex: number | null = null
 
@@ -168,7 +168,7 @@ export function normalizedAssistantEvent(
  * concatenation of its streamed tokens, and sometimes only the final fragment.
  * When the persisted text exactly equals the concatenation of this span's
  * tokens we keep it verbatim — the previous logic returned only the last token,
- * which collapsed a multi-token span to its tail (P2-3).
+ * which would collapse a multi-token span to its tail.
  */
 export function cleanPersistedAssistantText(
   text: string,
@@ -459,7 +459,7 @@ export function appendLiveTokenEvent(
  * trailing thinking event instead of pushing one event per SSE frame.
  *
  * Without this the live `events` array grew by one entry per reasoning token
- * (P2-5); `normalizeSessionEvents` collapsed them for display but the underlying
+ * `normalizeSessionEvents` collapsed them for display but the underlying
  * array still ballooned for a long-thinking turn. Coalescing keeps the array
  * bounded by the number of distinct thinking *spans*, not frames.
  */
@@ -490,7 +490,7 @@ export function reconcileLiveFinalEvent(
   // If the final text is already fully rendered across the existing assistant
   // bubbles, there is nothing new to show. Previously this still appended a
   // fresh bubble whenever the turn ended on a non-assistant event (e.g. a tool
-  // call), duplicating the answer (P2-4). Return the timeline unchanged.
+  // call), duplicating the answer. Return the timeline unchanged.
   if (finalTextAlreadyRendered(finalText, assistantTexts)) return completed
 
   const displayText = cleanLiveFinalText(finalText, assistantTexts)
@@ -523,7 +523,7 @@ export function reconcileLiveFinalEvent(
 /**
  * Returns true when `finalText` is the same content the existing assistant
  * bubbles already rendered (verbatim or as the concatenation of their text), so
- * the `final` event carries no new content and must not add a bubble (P2-4).
+ * the `final` event carries no new content and must not add a bubble.
  */
 function finalTextAlreadyRendered(finalText: string, assistantTexts: string[]) {
   const visible = assistantTexts.filter((assistantText) => assistantText !== "")

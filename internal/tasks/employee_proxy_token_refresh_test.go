@@ -121,7 +121,7 @@ func TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken(t
 		t.Fatalf("load concurrent token: %v", err)
 	}
 	if concurrent.RevokedAt != nil {
-		t.Fatal("concurrently-minted token within the grace window was revoked (P1-19 regression)")
+		t.Fatal("concurrently-minted token within the grace window was revoked; grace window must protect it")
 	}
 
 	var old model.Token

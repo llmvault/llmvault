@@ -23,12 +23,8 @@ import type { StreamState } from "@/lib/sessions/types"
  * the abort controllers that drive reconnect/abort, and `startSessionStream`,
  * which runs the reconnect loop and accumulates tokens/thinking/tool events.
  *
- * This is the SSE-protocol half of the old monolithic sessions page (P2-21);
- * the page keeps the React-Query data plumbing and renders the result. The
- * behavior is unchanged — the code was moved, not rewritten.
- *
  * `refetchPersistedSession` is invoked on stream completion so the durable
- * events are refetched before the live state is pruned (P0-31).
+ * events are refetched before the live state is pruned.
  */
 export function useSessionStream(refetchPersistedSession: (
   sessionID: string
@@ -68,7 +64,7 @@ export function useSessionStream(refetchPersistedSession: (
       // cookie-auth proxy. Absolute URLs are rejected so the raw bearer access
       // token is never attached to a cross-origin SSE request from client JS;
       // the proxy authenticates the browser via the __session cookie and the
-      // HMAC-signed ?token= already baked into the path (P2-27). Any rejection
+      // HMAC-signed ?token= already baked into the path. Any rejection
       // is caught here so isStreaming is cleared instead of sticking.
       let streamURL: string
       try {
@@ -137,7 +133,7 @@ export function useSessionStream(refetchPersistedSession: (
         // The stream is always served through our cookie-auth proxy: the
         // browser sends its __session cookie (credentials: include) and the
         // proxy injects the bearer server-side. No access token ever touches
-        // client JS (P2-27).
+        // client JS.
         await fetchEventSource(streamURL, {
           method: "GET",
           headers: { Accept: "text/event-stream" },
@@ -237,7 +233,7 @@ export function useSessionStream(refetchPersistedSession: (
                 existing.events
               )
               // Coalesce per-frame thinking deltas into the trailing thinking
-              // event so the live events array stays bounded (P2-5).
+              // event so the live events array stays bounded.
               const nextEvents = isHiddenSessionEvent(liveEvent)
                 ? completedEvents
                 : isThinking
@@ -330,7 +326,7 @@ export function useSessionStream(refetchPersistedSession: (
         setStreams((current) => {
           const existing = current[sessionID]
           // Do NOT resurrect a stream entry that the persisted-events cleanup
-          // effect already pruned (P2-5). Only mark the still-present entry as
+          // effect already pruned. Only mark the still-present entry as
           // no longer streaming.
           if (!existing) return current
           return {

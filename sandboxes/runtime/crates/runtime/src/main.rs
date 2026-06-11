@@ -256,7 +256,7 @@ async fn main() -> Result<()> {
             let cron_repo = cron_repo.clone();
             let inbound_sink = inbound_sink.clone();
             // Capture the session id before moving `inbound` into the task so a
-            // panicking turn can be cleaned up from the coordinator (P0-26).
+            // panicking turn can be cleaned up from the coordinator.
             let session_id = inbound.session_id.clone();
             let panic_guard_coordinator = coordinator.clone();
             tokio::spawn(async move {

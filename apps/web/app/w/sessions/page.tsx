@@ -29,15 +29,12 @@ import type {
 } from "@/lib/sessions/types"
 import { useDebouncedValue } from "@/lib/sessions/use-debounced-value"
 import { useSessionStream } from "@/lib/sessions/use-session-stream"
-import {
-  AssistantStreamRow,
-  ErrorLine,
-  EventsScrollObserver,
-  NewChatDialog,
-  SessionEventRow,
-  SessionHeader,
-  SessionsSidebar,
-} from "./components"
+import { AssistantStreamRow, SessionEventRow } from "./_components/session-event-row"
+import { ErrorLine } from "./_components/error-line"
+import { EventsScrollObserver } from "./_components/events-scroll-observer"
+import { NewChatDialog } from "./_components/new-chat-dialog"
+import { SessionHeader } from "./_components/session-header"
+import { SessionsSidebar } from "./_components/sessions-sidebar"
 
 function segmentFromParam(value: string | null): SessionSegment {
   return value === "slack" ? "slack" : "web"
@@ -49,8 +46,6 @@ export default function SessionsPage() {
   const searchParams = useSearchParams()
   const querySessionID = searchParams.get("session")
   const [search, setSearch] = useState("")
-  // Debounce the value that drives the query so a burst of keystrokes does not
-  // fire one request + mint one infinite-query cache entry per character (P2-9).
   const debouncedSearch = useDebouncedValue(search.trim(), 300)
   const [selectedSegment, setSelectedSegment] = useState<SessionSegment>(() =>
     segmentFromParam(searchParams.get("source"))
@@ -182,8 +177,6 @@ export default function SessionsPage() {
     [employeeID, queryClient]
   )
 
-  // The SSE-protocol half of this page lives in useSessionStream (P2-21): it
-  // owns the live `streams` map, the abort controllers, and the reconnect loop.
   const { streams, startSessionStream, pruneStream } = useSessionStream(
     refetchPersistedSession
   )
@@ -242,11 +235,6 @@ export default function SessionsPage() {
     pruneStream(selectedSessionID)
   }, [pruneStream, selectedSessionID, selectedStream, streamPersisted])
 
-  // Prune the pending-message and optimistic-session maps once the backend has
-  // persisted the corresponding rows. Without this, both maps grew without
-  // bound for the page's lifetime (P2-5): pending messages stayed even after
-  // their persisted user event arrived, and optimistic sessions stayed even
-  // after the real session loaded.
   const loadedSessionIDs = useMemo(
     () =>
       new Set(
@@ -357,9 +345,6 @@ export default function SessionsPage() {
         }
 
         navigateToSession(nextSessionID, "web")
-        // startSessionStream is fire-and-forget: its own try/finally clears
-        // isStreaming on any failure path, so .catch() here only silences the
-        // unhandled-rejection warning — errors are already surfaced in the UI.
         startSessionStream(
           nextSessionID,
           result.stream_url ?? result.response_stream_url
