@@ -110,7 +110,7 @@ func TestGlitchTipProxy_ForwardsAPI0RequestThroughNango(t *testing.T) {
 	if capturedConnectionID != harness.nangoConnectionID {
 		t.Fatalf("connection id = %q, want %q", capturedConnectionID, harness.nangoConnectionID)
 	}
-	if capturedPath != "/proxy/api/0/projects/?limit=1" {
+	if capturedPath != "/proxy/projects/?limit=1" {
 		t.Fatalf("path = %q, want GlitchTip API path", capturedPath)
 	}
 }
