@@ -18,7 +18,12 @@ func Recoverer() func(http.Handler) http.Handler {
 					return
 				}
 				if recovered == http.ErrAbortHandler {
-					panic(recovered)
+					slog.WarnContext(ctx, "request aborted (client disconnect or body too large)",
+						"method", method,
+						"path", path,
+					)
+					writer.WriteHeader(http.StatusServiceUnavailable)
+					return
 				}
 
 				stack := debug.Stack()
