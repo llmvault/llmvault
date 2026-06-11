@@ -206,7 +206,10 @@ impl CronScheduler {
                     "schedule_started_at".to_string(),
                     serde_json::json!(started_at),
                 );
-                obj.insert("schedule_is_one_shot".to_string(), serde_json::json!(is_one_shot));
+                obj.insert(
+                    "schedule_is_one_shot".to_string(),
+                    serde_json::json!(is_one_shot),
+                );
                 obj.insert("schedule_is_wake".to_string(), serde_json::json!(is_wake));
             }
         }

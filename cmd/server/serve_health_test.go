@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,14 +17,22 @@ import (
 // initialize, /readyz must report 503 rather than letting the instance look
 // healthy while the entire employee/gateway subsystem is silently missing.
 func TestReadyzReportsOrchestratorMissing(t *testing.T) {
-	db, err := gorm.Open(postgres.Open(testdb.DatabaseURL()), &gorm.Config{})
+	dsn := testdb.DatabaseURL()
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		t.Fatalf("connect db: %v", err)
+		t.Skipf("cannot connect to Postgres: %v", err)
 	}
 	sqlDB, _ := db.DB()
+	if err := sqlDB.Ping(); err != nil {
+		t.Skipf("cannot ping Postgres: %v", err)
+	}
 	t.Cleanup(func() { sqlDB.Close() })
 
-	rc := redis.NewClient(&redis.Options{Addr: testdb.RedisAddr()})
+	addr := testdb.RedisAddr()
+	rc := redis.NewClient(&redis.Options{Addr: addr})
+	if err := rc.Ping(context.Background()).Err(); err != nil {
+		t.Skipf("redis not reachable at %s: %v", addr, err)
+	}
 	t.Cleanup(func() { rc.Close() })
 
 	t.Run("orchestrator missing -> 503", func(t *testing.T) {

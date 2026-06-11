@@ -647,7 +647,9 @@ mod tests {
     /// Spawn a one-shot HTTP server that always replies with `status`, recording
     /// each received request body. Returns the bound URL and a shared store of
     /// the bodies it observed.
-    async fn spawn_recording_server(status_line: &'static str) -> (String, StdArc<TokioMutex<Vec<Vec<u8>>>>) {
+    async fn spawn_recording_server(
+        status_line: &'static str,
+    ) -> (String, StdArc<TokioMutex<Vec<Vec<u8>>>>) {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let addr = listener.local_addr().expect("addr");
         let bodies: StdArc<TokioMutex<Vec<Vec<u8>>>> = StdArc::new(TokioMutex::new(Vec::new()));
@@ -663,8 +665,7 @@ mod tests {
                     if let Ok(n) = socket.read(&mut buf).await {
                         bodies.lock().await.push(buf[..n].to_vec());
                     }
-                    let response =
-                        format!("HTTP/1.1 {status_line}\r\nContent-Length: 0\r\n\r\n");
+                    let response = format!("HTTP/1.1 {status_line}\r\nContent-Length: 0\r\n\r\n");
                     let _ = socket.write_all(response.as_bytes()).await;
                     let _ = socket.flush().await;
                 });

@@ -1403,7 +1403,11 @@ mod tests {
         let runner = RigAgentRunner::new(config, std::env::temp_dir());
 
         let mut stream = runner
-            .run_turn(&SessionId::from("budget-session"), TurnInput::text("hi"), None)
+            .run_turn(
+                &SessionId::from("budget-session"),
+                TurnInput::text("hi"),
+                None,
+            )
             .await
             .expect("run turn");
 
@@ -1419,10 +1423,12 @@ mod tests {
 
         let warnings = events
             .iter()
-            .filter(|event| matches!(
-                event,
-                AgentEvent::RunEvent { event, .. } if event == "output_budget_warning"
-            ))
+            .filter(|event| {
+                matches!(
+                    event,
+                    AgentEvent::RunEvent { event, .. } if event == "output_budget_warning"
+                )
+            })
             .count();
         assert_eq!(
             warnings, 1,
