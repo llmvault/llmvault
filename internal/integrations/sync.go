@@ -11,54 +11,6 @@ import (
 	"github.com/usehivy/hivy/internal/nango"
 )
 
-func (s *Seeder) syncOne(ctx context.Context, m Manifest) (string, error) {
-	if !enabled(m) {
-		return s.disableOne(ctx, m)
-	}
-	if !m.AllowNoCatalog {
-		if _, ok := s.catalog.GetProvider(m.Provider); !ok {
-			return "", fmt.Errorf("%s: provider %q has no MCP catalog entry", m.SourcePath, m.Provider)
-		}
-	}
-	provider, ok := s.nango.GetProvider(nangoProvider(m))
-	if !ok {
-		if m.Required {
-			return "", fmt.Errorf("%s: Nango provider %q not found", m.SourcePath, nangoProvider(m))
-		}
-		logSkip(ctx, m, "nango provider not found")
-		return "skipped", nil
-	}
-	creds, err := credentialsFromManifest(m, provider)
-	if err != nil {
-		var skipped skippedIntegration
-		if errors.As(err, &skipped) {
-			logSkip(ctx, m, skipped.reason)
-			return "skipped", nil
-		}
-		return "", err
-	}
-	hash, err := manifestHash(m)
-	if err != nil {
-		return "", fmt.Errorf("hash %s: %w", m.SourcePath, err)
-	}
-	if err := s.upsertNango(ctx, m, creds); err != nil {
-		if m.Required {
-			return "", err
-		}
-		logSkip(ctx, m, err.Error())
-		return "skipped", nil
-	}
-	cfg, err := s.fetchConfig(ctx, m)
-	if err != nil {
-		if m.Required {
-			return "", err
-		}
-		logSkip(ctx, m, err.Error())
-		return "skipped", nil
-	}
-	return s.upsertDB(ctx, m, cfg, hash)
-}
-
 func (s *Seeder) upsertNango(ctx context.Context, m Manifest, creds *nango.Credentials) error {
 	key := nangoKey(m.UniqueKey)
 	req := nango.UpdateIntegrationRequest{

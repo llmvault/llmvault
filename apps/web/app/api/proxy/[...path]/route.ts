@@ -115,6 +115,9 @@ function buildUpstreamHeaders(
     if (value) headers.set(key, value)
   }
 
+  const adminSecret = req.headers.get("x-hivy-admin-secret")
+  if (adminSecret) headers.set("X-Hivy-Admin-Secret", adminSecret)
+
   // Forward cookies minus __session
   const rawCookies = req.headers.get("cookie")
   if (rawCookies) {

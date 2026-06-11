@@ -31,29 +31,6 @@ func (s *Seeder) disableOne(ctx context.Context, m Manifest) (string, error) {
 	return "skipped", nil
 }
 
-func (s *Seeder) disableMissing(ctx context.Context, seen map[string]bool) (int, error) {
-	var integrations []model.Integration
-	if err := s.db.WithContext(ctx).
-		Where("managed_by = ? AND deleted_at IS NULL", managedBy).
-		Find(&integrations).Error; err != nil {
-		return 0, fmt.Errorf("load managed integrations: %w", err)
-	}
-	deleted := 0
-	for i := range integrations {
-		if seen[integrations[i].ManagedID] {
-			continue
-		}
-		ok, err := s.disableIntegration(ctx, &integrations[i])
-		if err != nil {
-			return deleted, err
-		}
-		if ok {
-			deleted++
-		}
-	}
-	return deleted, nil
-}
-
 func (s *Seeder) disableIntegration(ctx context.Context, integ *model.Integration) (bool, error) {
 	if integ.DeletedAt != nil {
 		return false, nil

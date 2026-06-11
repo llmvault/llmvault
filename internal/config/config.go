@@ -125,6 +125,7 @@ type Config struct {
 
 	// Platform admin (comma-separated email allowlist)
 	PlatformAdminEmails string `env:"HIVY_PLATFORM_ADMIN_EMAILS"`
+	AdminSecret         string `env:"HIVY_ADMIN_SECRET"`
 
 	// Custom preview domains
 	PreviewCNAMETarget string `env:"HIVY_PREVIEW_CNAME_TARGET" envDefault:"preview-proxy.usehivy.com"`

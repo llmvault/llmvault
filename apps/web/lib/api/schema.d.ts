@@ -1324,6 +1324,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List admin integration definitions
+         * @description Lists supported global integration definitions and existing synced records.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Admin secret */
+                    "X-Hivy-Admin-Secret": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminDefinition"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/integrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sync an admin integration
+         * @description Creates or updates the supported global integration in Nango and the Hivy database.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Admin secret */
+                    "X-Hivy-Admin-Secret": string;
+                };
+                path: {
+                    /** @description Integration definition ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Integration credentials */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["upsertAdminIntegrationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["upsertAdminIntegrationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/api-keys": {
         parameters: {
             query?: never;
@@ -9230,6 +9385,42 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminCredentialField: {
+            label?: string;
+            multiline?: boolean;
+            name?: string;
+            placeholder?: string;
+            required?: boolean;
+            secret?: boolean;
+        };
+        AdminDefinition: {
+            auth_mode?: string;
+            credential_fields?: components["schemas"]["AdminCredentialField"][];
+            display_name?: string;
+            enabled?: boolean;
+            existing?: components["schemas"]["AdminExistingIntegration"];
+            fixed_credentials?: components["schemas"]["AdminFixedCredential"][];
+            id?: string;
+            meta?: components["schemas"]["JSON"];
+            nango_provider?: string;
+            provider?: string;
+            required?: boolean;
+            supports_rag_source?: boolean;
+            unique_key?: string;
+        };
+        AdminExistingIntegration: {
+            active_connections?: number;
+            display_name?: string;
+            id?: string;
+            managed?: boolean;
+            unique_key?: string;
+            updated_at?: string;
+        };
+        AdminFixedCredential: {
+            label?: string;
+            name?: string;
+            value?: string;
+        };
         AvailableResource: {
             id?: string;
             name?: string;
@@ -9271,6 +9462,23 @@ export interface components {
             cache_write?: number;
             input?: number;
             output?: number;
+        };
+        Credentials: {
+            app_id?: string;
+            app_link?: string;
+            client_id?: string;
+            client_logo_uri?: string;
+            /** @description MCP_OAUTH2_GENERIC fields */
+            client_name?: string;
+            client_secret?: string;
+            client_uri?: string;
+            password?: string;
+            private_key?: string;
+            scopes?: string;
+            type?: string;
+            /** @description INSTALL_PLUGIN fields */
+            username?: string;
+            webhook_secret?: string;
         };
         DiscoveryResult: {
             resources?: components["schemas"]["AvailableResource"][];
@@ -10706,6 +10914,13 @@ export interface components {
             repo_ref?: string;
             status?: string;
             tags?: string[];
+        };
+        upsertAdminIntegrationRequest: {
+            credentials?: components["schemas"]["Credentials"];
+        };
+        upsertAdminIntegrationResponse: {
+            definition?: components["schemas"]["AdminDefinition"];
+            state?: string;
         };
         usageResponse: {
             api_keys?: components["schemas"]["apiKeyStats"];

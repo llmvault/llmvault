@@ -999,6 +999,138 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/admin/integrations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists supported global integration definitions and existing synced records.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List admin integration definitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Admin secret",
+                        "name": "X-Hivy-Admin-Secret",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AdminDefinition"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/integrations/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates or updates the supported global integration in Nango and the Hivy database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Sync an admin integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Admin secret",
+                        "name": "X-Hivy-Admin-Secret",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Integration definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Integration credentials",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/upsertAdminIntegrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/upsertAdminIntegrationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/api-keys": {
             "get": {
                 "security": [
@@ -7737,6 +7869,116 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "AdminCredentialField": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "multiline": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "secret": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "AdminDefinition": {
+            "type": "object",
+            "properties": {
+                "auth_mode": {
+                    "type": "string"
+                },
+                "credential_fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AdminCredentialField"
+                    }
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "existing": {
+                    "$ref": "#/definitions/AdminExistingIntegration"
+                },
+                "fixed_credentials": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AdminFixedCredential"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "meta": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "nango_provider": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "supports_rag_source": {
+                    "type": "boolean"
+                },
+                "unique_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "AdminExistingIntegration": {
+            "type": "object",
+            "properties": {
+                "active_connections": {
+                    "type": "integer"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "managed": {
+                    "type": "boolean"
+                },
+                "unique_key": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "AdminFixedCredential": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "AvailableResource": {
             "type": "object",
             "properties": {
@@ -7856,6 +8098,52 @@ const docTemplate = `{
                 },
                 "output": {
                     "type": "number"
+                }
+            }
+        },
+        "Credentials": {
+            "type": "object",
+            "properties": {
+                "app_id": {
+                    "type": "string"
+                },
+                "app_link": {
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "client_logo_uri": {
+                    "type": "string"
+                },
+                "client_name": {
+                    "description": "MCP_OAUTH2_GENERIC fields",
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "client_uri": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "private_key": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "username": {
+                    "description": "INSTALL_PLUGIN fields",
+                    "type": "string"
+                },
+                "webhook_secret": {
+                    "type": "string"
                 }
             }
         },
@@ -12103,6 +12391,25 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "upsertAdminIntegrationRequest": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "$ref": "#/definitions/Credentials"
+                }
+            }
+        },
+        "upsertAdminIntegrationResponse": {
+            "type": "object",
+            "properties": {
+                "definition": {
+                    "$ref": "#/definitions/AdminDefinition"
+                },
+                "state": {
+                    "type": "string"
                 }
             }
         },
