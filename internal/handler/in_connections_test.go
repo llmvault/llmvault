@@ -25,6 +25,7 @@ type nangoConnMockConfig struct {
 	hookListStatus   int
 	hookCreateStatus int
 	hookUpdateStatus int
+	connectionConfig map[string]any
 }
 
 func newNangoConnMock(cfg *nangoConnMockConfig) http.Handler {
@@ -136,9 +137,13 @@ func newNangoConnMock(cfg *nangoConnMockConfig) http.Handler {
 				_ = json.NewEncoder(w).Encode(map[string]any{"error": "nango error"})
 				return
 			}
+			connectionConfig := cfg.connectionConfig
+			if connectionConfig == nil {
+				connectionConfig = map[string]any{"org": "hivy"}
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"provider":          "github",
-				"connection_config": map[string]any{"org": "hivy"},
+				"connection_config": connectionConfig,
 				"credentials":       map[string]any{"access_token": "gho_xxxx"},
 			})
 			return

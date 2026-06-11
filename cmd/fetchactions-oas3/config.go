@@ -95,6 +95,11 @@ func AllServices() []ServiceConfig {
 			NangoProviders: []string{"bugsink"},
 		},
 		{
+			Name:           "glitchtip",
+			SpecSource:     "https://app.glitchtip.com/api/openapi.json",
+			NangoProviders: []string{"glitchtip"},
+		},
+		{
 			Name:           "zendesk",
 			SpecSource:     "https://developer.zendesk.com/zendesk/oas.yaml",
 			NangoProviders: []string{"zendesk"},

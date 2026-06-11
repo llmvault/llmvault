@@ -1,0 +1,7471 @@
+{
+  "display_name": "glitchtip",
+  "resources": {},
+  "actions": {
+    "apps_alerts_api_create_project_alert": {
+      "display_name": "Create Project Alert",
+      "description": "Create Project Alert",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "alertRecipients": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "timespanMinutes": {
+            "type": "string"
+          },
+          "uptime": {
+            "type": "boolean",
+            "description": "Send alert on any uptime monitor check failure"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/alerts/",
+        "body_mapping": {
+          "alertRecipients": "alertRecipients",
+          "name": "name",
+          "quantity": "quantity",
+          "timespanMinutes": "timespanMinutes",
+          "uptime": "uptime"
+        }
+      },
+      "response_schema": "ProjectAlertSchema"
+    },
+    "apps_alerts_api_delete_project_alert": {
+      "display_name": "Delete Project Alert",
+      "description": "Delete Project Alert",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "alert_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "alert_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/alerts/{alert_id}/"
+      }
+    },
+    "apps_alerts_api_list_project_alerts": {
+      "display_name": "List Project Alerts",
+      "description": "List Project Alerts",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/alerts/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "ProjectAlertSchema_list"
+    },
+    "apps_alerts_api_test_project_alert": {
+      "display_name": "Test Project Alert",
+      "description": "Test Project Alert",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "alert_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "recipient_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "alert_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/alerts/{alert_id}/test/",
+        "query_mapping": {
+          "recipient_id": "recipient_id"
+        }
+      },
+      "response_schema": "TestAlertResultSchema_list"
+    },
+    "apps_alerts_api_update_project_alert": {
+      "display_name": "Update Project Alert",
+      "description": "Update Project Alert",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "alertRecipients": {
+            "type": "string"
+          },
+          "alert_id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "timespanMinutes": {
+            "type": "string"
+          },
+          "uptime": {
+            "type": "boolean",
+            "description": "Send alert on any uptime monitor check failure"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "alert_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/alerts/{alert_id}/",
+        "body_mapping": {
+          "alertRecipients": "alertRecipients",
+          "name": "name",
+          "quantity": "quantity",
+          "timespanMinutes": "timespanMinutes",
+          "uptime": "uptime"
+        }
+      },
+      "response_schema": "ProjectAlertSchema"
+    },
+    "apps_api_tokens_api_create_api_token": {
+      "display_name": "Create Api Token",
+      "description": "Create Api Token",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scopes"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/api-tokens/",
+        "body_mapping": {
+          "label": "label",
+          "scopes": "scopes"
+        }
+      },
+      "response_schema": "APITokenSchema"
+    },
+    "apps_api_tokens_api_delete_api_token": {
+      "display_name": "Delete Api Token",
+      "description": "Delete Api Token",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "token_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "token_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/api-tokens/{token_id}/"
+      }
+    },
+    "apps_api_tokens_api_list_api_tokens": {
+      "display_name": "List Api Tokens",
+      "description": "List Api Tokens",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/api-tokens/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "APITokenSchema_list"
+    },
+    "apps_difs_api_difs_assemble_api": {
+      "display_name": "Difs Assemble Api",
+      "description": "Difs Assemble Api",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/files/difs/assemble/"
+      }
+    },
+    "apps_difs_api_list_dsyms": {
+      "display_name": "List Dsyms",
+      "description": "List Dsyms",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/files/dsyms/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "DebugFileSchema_list"
+    },
+    "apps_difs_api_project_reprocessing": {
+      "display_name": "Project Reprocessing",
+      "description": "Not implemented. It is a dummy API to keep `sentry-cli upload-dif` happy",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/reprocessing/"
+      }
+    },
+    "apps_environments_api_list_environment_projects": {
+      "display_name": "List Environment Projects",
+      "description": "List Environment Projects",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/environments/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit",
+          "visibility": "visibility"
+        }
+      },
+      "response_schema": "EnvironmentProjectSchema_list"
+    },
+    "apps_environments_api_list_environments": {
+      "display_name": "List Environments",
+      "description": "List Environments",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/environments/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit",
+          "visibility": "visibility"
+        }
+      },
+      "response_schema": "EnvironmentSchema_list"
+    },
+    "apps_environments_api_update_environment_project": {
+      "display_name": "Update Environment Project",
+      "description": "Update Environment Project",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "isHidden": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "name",
+          "isHidden"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/environments/{name}/",
+        "body_mapping": {
+          "isHidden": "isHidden"
+        }
+      },
+      "response_schema": "EnvironmentProjectSchema"
+    },
+    "apps_event_ingest_api_event_security": {
+      "display_name": "Event Security",
+      "description": "Accept Security (and someday other) issue events. Reformats event to make CSP browser format match more standard event format.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "csp-report": {
+            "type": "object",
+            "description": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy-Report-Only#violation_report_syntax"
+          },
+          "project_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "csp-report"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/{project_id}/security/",
+        "body_mapping": {
+          "csp-report": "csp-report"
+        }
+      }
+    },
+    "apps_event_ingest_api_event_store": {
+      "display_name": "Event Store",
+      "description": "Event store is the original event ingest API from OSS Sentry but is used less often Unlike Envelope, it accepts only one Issue event.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "breadcrumbs": {
+            "type": "string"
+          },
+          "contexts": {
+            "type": "string"
+          },
+          "debug_meta": {
+            "type": "string"
+          },
+          "dist": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "extra": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "logentry": {
+            "type": "string"
+          },
+          "logger": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "modules": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "integer"
+          },
+          "release": {
+            "type": "string"
+          },
+          "request": {
+            "type": "string"
+          },
+          "sdk": {
+            "type": "string"
+          },
+          "server_name": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "string"
+          },
+          "template": {
+            "type": "string"
+          },
+          "threads": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "transaction": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "event_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/{project_id}/store/",
+        "body_mapping": {
+          "breadcrumbs": "breadcrumbs",
+          "contexts": "contexts",
+          "debug_meta": "debug_meta",
+          "dist": "dist",
+          "environment": "environment",
+          "errors": "errors",
+          "event_id": "event_id",
+          "exception": "exception",
+          "extra": "extra",
+          "fingerprint": "fingerprint",
+          "level": "level",
+          "logentry": "logentry",
+          "logger": "logger",
+          "message": "message",
+          "modules": "modules",
+          "platform": "platform",
+          "release": "release",
+          "request": "request",
+          "sdk": "sdk",
+          "server_name": "server_name",
+          "tags": "tags",
+          "template": "template",
+          "threads": "threads",
+          "timestamp": "timestamp",
+          "transaction": "transaction",
+          "user": "user"
+        }
+      },
+      "response_schema": "EventIngestOut"
+    },
+    "apps_event_ingest_embed_api_get_embed_error_page": {
+      "display_name": "Get Embed Error Page",
+      "description": "Get Embed Error Page",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dsn": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "errorFormEntry": {
+            "type": "string"
+          },
+          "errorGeneric": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string"
+          },
+          "labelClose": {
+            "type": "string"
+          },
+          "labelComments": {
+            "type": "string"
+          },
+          "labelEmail": {
+            "type": "string"
+          },
+          "labelName": {
+            "type": "string"
+          },
+          "labelSubmit": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "subtitle2": {
+            "type": "string"
+          },
+          "successMessage": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/embed/error-page/",
+        "query_mapping": {
+          "dsn": "dsn",
+          "email": "email",
+          "errorFormEntry": "errorFormEntry",
+          "errorGeneric": "errorGeneric",
+          "eventId": "eventId",
+          "labelClose": "labelClose",
+          "labelComments": "labelComments",
+          "labelEmail": "labelEmail",
+          "labelName": "labelName",
+          "labelSubmit": "labelSubmit",
+          "name": "name",
+          "subtitle": "subtitle",
+          "subtitle2": "subtitle2",
+          "successMessage": "successMessage",
+          "title": "title"
+        }
+      }
+    },
+    "apps_event_ingest_embed_api_submit_embed_error_page": {
+      "display_name": "Submit Embed Error Page",
+      "description": "Submit Embed Error Page",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dsn": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "errorFormEntry": {
+            "type": "string"
+          },
+          "errorGeneric": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string"
+          },
+          "labelClose": {
+            "type": "string"
+          },
+          "labelComments": {
+            "type": "string"
+          },
+          "labelEmail": {
+            "type": "string"
+          },
+          "labelName": {
+            "type": "string"
+          },
+          "labelSubmit": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "subtitle2": {
+            "type": "string"
+          },
+          "successMessage": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/embed/error-page/",
+        "query_mapping": {
+          "dsn": "dsn",
+          "email": "email",
+          "errorFormEntry": "errorFormEntry",
+          "errorGeneric": "errorGeneric",
+          "eventId": "eventId",
+          "labelClose": "labelClose",
+          "labelComments": "labelComments",
+          "labelEmail": "labelEmail",
+          "labelName": "labelName",
+          "labelSubmit": "labelSubmit",
+          "name": "name",
+          "subtitle": "subtitle",
+          "subtitle2": "subtitle2",
+          "successMessage": "successMessage",
+          "title": "title"
+        }
+      }
+    },
+    "apps_files_api_get_chunk_upload_info": {
+      "display_name": "Get Chunk Upload Info",
+      "description": "Get server settings for chunk file upload",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/chunk-upload/"
+      }
+    },
+    "apps_importer_api_importer": {
+      "display_name": "Importer",
+      "description": "Importer",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "authToken": {
+            "type": "string"
+          },
+          "organizationSlug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "authToken",
+          "organizationSlug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/import/",
+        "body_mapping": {
+          "authToken": "authToken",
+          "organizationSlug": "organizationSlug",
+          "url": "url"
+        }
+      }
+    },
+    "apps_issue_events_api_comments_add_comment": {
+      "display_name": "Add Comment",
+      "description": "Add Comment",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id",
+          "data"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/issues/{issue_id}/comments/",
+        "body_mapping": {
+          "data": "data"
+        }
+      },
+      "response_schema": "CommentSchema"
+    },
+    "apps_issue_events_api_comments_delete_comment": {
+      "display_name": "Delete Comment",
+      "description": "Delete Comment",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "comment_id": {
+            "type": "integer"
+          },
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id",
+          "comment_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/issues/{issue_id}/comments/{comment_id}/"
+      }
+    },
+    "apps_issue_events_api_comments_list_comments": {
+      "display_name": "List Comments",
+      "description": "List Comments",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/comments/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "CommentSchema_list"
+    },
+    "apps_issue_events_api_comments_update_comment": {
+      "display_name": "Update Comment",
+      "description": "Update Comment",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "comment_id": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "object"
+          },
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id",
+          "comment_id",
+          "data"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/issues/{issue_id}/comments/{comment_id}/",
+        "body_mapping": {
+          "data": "data"
+        }
+      },
+      "response_schema": "CommentSchema"
+    },
+    "apps_issue_events_api_events_get_event_json": {
+      "display_name": "Get Event Json",
+      "description": "Get Event Json",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "issue_id",
+          "event_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/issues/{issue_id}/events/{event_id}/json/"
+      },
+      "response_schema": "IssueEventJsonSchema"
+    },
+    "apps_issue_events_api_events_get_issue_event": {
+      "display_name": "Get Issue Event",
+      "description": "Get Issue Event",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id",
+          "event_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/events/{event_id}/",
+        "response_path": "entries"
+      },
+      "response_schema": "IssueEventDetailSchema"
+    },
+    "apps_issue_events_api_events_get_latest_issue_event": {
+      "display_name": "Get Latest Issue Event",
+      "description": "Get Latest Issue Event",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/events/latest/",
+        "response_path": "entries"
+      },
+      "response_schema": "IssueEventDetailSchema"
+    },
+    "apps_issue_events_api_events_get_project_issue_event": {
+      "display_name": "Get Project Issue Event",
+      "description": "Get Project Issue Event",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "event_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/events/{event_id}/",
+        "response_path": "entries"
+      },
+      "response_schema": "IssueEventDetailSchema"
+    },
+    "apps_issue_events_api_events_list_issue_event": {
+      "display_name": "List Issue Event",
+      "description": "List Issue Event",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/events/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "IssueEventSchema_list"
+    },
+    "apps_issue_events_api_events_list_project_issue_event": {
+      "display_name": "List Project Issue Event",
+      "description": "List Project Issue Event",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/events/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "IssueEventSchema_list"
+    },
+    "apps_issue_events_api_hashes_delete_hash": {
+      "display_name": "Delete Hash",
+      "description": "Delete Hash",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "array"
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/issues/{issue_id}/hashes/",
+        "query_mapping": {
+          "id": "id"
+        }
+      }
+    },
+    "apps_issue_events_api_hashes_list_issue_hashes": {
+      "display_name": "List Issue Hashes",
+      "description": "List Issue Hashes",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/issues/{issue_id}/hashes/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "IssueHashSchema_list"
+    },
+    "apps_issue_events_api_issues_delete_issue": {
+      "display_name": "Delete Issue",
+      "description": "Delete Issue",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/issues/{issue_id}/"
+      }
+    },
+    "apps_issue_events_api_issues_delete_issues": {
+      "display_name": "Delete Issues",
+      "description": "Delete Issues",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/issues/",
+        "query_mapping": {
+          "end": "end",
+          "environment": "environment",
+          "id": "id",
+          "project": "project",
+          "query": "query",
+          "start": "start"
+        }
+      },
+      "response_schema": "UpdateIssueSchema"
+    },
+    "apps_issue_events_api_issues_get_issue": {
+      "display_name": "Get Issue",
+      "description": "Get Issue",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/"
+      },
+      "response_schema": "IssueDetailSchema"
+    },
+    "apps_issue_events_api_issues_issue_stats": {
+      "display_name": "Retrieve Statistics for a Set of Issues",
+      "description": "Retrieves aggregated statistics for a given list of issue groups. This endpoint returns data for the last 24 hours, formatted as a series of [timestamp, count] pairs.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "groups": {
+            "type": "array"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "statsPeriod": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/issues-stats/",
+        "query_mapping": {
+          "groups": "groups",
+          "statsPeriod": "statsPeriod"
+        }
+      },
+      "response_schema": "IssueStatsResponse_list"
+    },
+    "apps_issue_events_api_issues_list_issue_commits": {
+      "display_name": "List Issue Commits",
+      "description": "Return commits from the release where this issue first appeared.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "issue_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/commits/"
+      },
+      "response_schema": "CommitSchema_list"
+    },
+    "apps_issue_events_api_issues_list_issue_tags": {
+      "display_name": "List Issue Tags",
+      "description": "List Issue Tags",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "issue_id": {
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/tags/",
+        "query_mapping": {
+          "key": "key"
+        }
+      },
+      "response_schema": "IssueTagSchema_list"
+    },
+    "apps_issue_events_api_issues_list_issues": {
+      "display_name": "List Issues",
+      "description": "List Issues",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "end": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/issues/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "end": "end",
+          "environment": "environment",
+          "id": "id",
+          "limit": "limit",
+          "project": "project",
+          "query": "query",
+          "sort": "sort",
+          "start": "start"
+        }
+      },
+      "response_schema": "IssueSchema_list"
+    },
+    "apps_issue_events_api_issues_list_project_issues": {
+      "display_name": "List Project Issues",
+      "description": "List Project Issues",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "end": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/issues/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "end": "end",
+          "environment": "environment",
+          "id": "id",
+          "limit": "limit",
+          "project": "project",
+          "query": "query",
+          "sort": "sort",
+          "start": "start"
+        }
+      },
+      "response_schema": "IssueSchema_list"
+    },
+    "apps_issue_events_api_issues_update_issue": {
+      "display_name": "Update Issue",
+      "description": "Update Issue",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "assignedTo": {
+            "type": "string"
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "merge": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "statusDetails": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/issues/{issue_id}/",
+        "body_mapping": {
+          "assignedTo": "assignedTo",
+          "merge": "merge",
+          "status": "status",
+          "statusDetails": "statusDetails"
+        }
+      },
+      "response_schema": "IssueDetailSchema"
+    },
+    "apps_issue_events_api_issues_update_issues": {
+      "display_name": "Update Issues",
+      "description": "Update Issues",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "assignedTo": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "merge": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "statusDetails": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/organizations/{organization_slug}/issues/",
+        "body_mapping": {
+          "assignedTo": "assignedTo",
+          "merge": "merge",
+          "status": "status",
+          "statusDetails": "statusDetails"
+        },
+        "query_mapping": {
+          "end": "end",
+          "environment": "environment",
+          "id": "id",
+          "project": "project",
+          "query": "query",
+          "start": "start"
+        }
+      },
+      "response_schema": "UpdateIssueSchema"
+    },
+    "apps_issue_events_api_issues_update_organization_issue": {
+      "display_name": "Update Organization Issue",
+      "description": "Update Organization Issue",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "assignedTo": {
+            "type": "string"
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "merge": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "statusDetails": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/organizations/{organization_slug}/issues/{issue_id}/",
+        "body_mapping": {
+          "assignedTo": "assignedTo",
+          "merge": "merge",
+          "status": "status",
+          "statusDetails": "statusDetails"
+        }
+      },
+      "response_schema": "IssueDetailSchema"
+    },
+    "apps_issue_events_api_user_reports_list_user_reports": {
+      "display_name": "List User Reports",
+      "description": "List User Reports",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "issue_id": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          }
+        },
+        "required": [
+          "issue_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/issues/{issue_id}/user-reports/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "UserReportSchema_list"
+    },
+    "apps_logs_api_get_log": {
+      "display_name": "Get Log",
+      "description": "Get a single log event by ID (searches both hot and cold storage).",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "log_id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "log_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/logs/{log_id}/"
+      },
+      "response_schema": "LogEventSchema"
+    },
+    "apps_logs_api_get_log_stats": {
+      "display_name": "Get Log Stats",
+      "description": "Get log statistics for an organization. Returns hourly counts grouped by level for charting. Supports filtering by project and level. Time range defaults to last 7 days, max 90 days.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end": {
+            "type": "string",
+            "description": "End of time range"
+          },
+          "environment": {
+            "type": "string",
+            "description": "Filter by environment names"
+          },
+          "level": {
+            "type": "string",
+            "description": "Filter by log levels"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string",
+            "description": "Filter by project IDs"
+          },
+          "service": {
+            "type": "string",
+            "description": "Filter by service names"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start of time range"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/logs/stats/",
+        "query_mapping": {
+          "end": "end",
+          "environment": "environment",
+          "level": "level",
+          "project": "project",
+          "service": "service",
+          "start": "start"
+        }
+      },
+      "response_schema": "LogStatsSchema"
+    },
+    "apps_logs_api_list_log_resources": {
+      "display_name": "List Log Resources",
+      "description": "List unique resource names (service, environment, host) for an organization. Returns resources ordered by last_seen (most recent first). Used to populate filter dropdowns in the UI.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "resource_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/logs/resources/",
+        "query_mapping": {
+          "resource_type": "resource_type"
+        }
+      },
+      "response_schema": "LogResourceSchema_list"
+    },
+    "apps_logs_api_list_logs": {
+      "display_name": "List Logs",
+      "description": "List log events for an organization with optional filtering. Queries hot storage (PostgreSQL) for recent data and cold storage (S3 Parquet via DuckDB) for older data seamlessly. Supports filtering ...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Pagination cursor"
+          },
+          "end": {
+            "type": "string",
+            "description": "End of time range"
+          },
+          "environment": {
+            "type": "string",
+            "description": "Filter by environment"
+          },
+          "host": {
+            "type": "string",
+            "description": "Filter by host name"
+          },
+          "level": {
+            "type": "string",
+            "description": "Filter by log levels"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Results per page"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string",
+            "description": "Filter by project IDs"
+          },
+          "query": {
+            "type": "string",
+            "description": "Search in log body"
+          },
+          "service": {
+            "type": "string",
+            "description": "Filter by service name"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start of time range"
+          },
+          "traceId": {
+            "type": "string",
+            "description": "Filter by trace ID"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/logs/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "end": "end",
+          "environment": "environment",
+          "host": "host",
+          "level": "level",
+          "limit": "limit",
+          "project": "project",
+          "query": "query",
+          "service": "service",
+          "start": "start",
+          "traceId": "traceId"
+        }
+      },
+      "response_schema": "LogEventSchema_list"
+    },
+    "apps_organizations_ext_api_accept_invite": {
+      "display_name": "Accept Invite",
+      "description": "Accepts invite to organization",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "acceptInvite": {
+            "type": "boolean"
+          },
+          "org_user_id": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_user_id",
+          "token",
+          "acceptInvite"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/accept/{org_user_id}/{token}/",
+        "body_mapping": {
+          "acceptInvite": "acceptInvite"
+        }
+      },
+      "response_schema": "AcceptInviteSchema"
+    },
+    "apps_organizations_ext_api_create_organization": {
+      "display_name": "Create Organization",
+      "description": "Create new organization The first organization on a server is always allowed to be created. Afterwards, ENABLE_OPEN_USER_REGISTRATION is checked. Superusers are always allowed to create organizations.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the organization"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/",
+        "body_mapping": {
+          "name": "name"
+        }
+      },
+      "response_schema": "OrganizationDetailSchema"
+    },
+    "apps_organizations_ext_api_create_organization_member": {
+      "display_name": "Create Organization Member",
+      "description": "Create Organization Member",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "orgRole": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "reinvite": {
+            "type": "boolean"
+          },
+          "sendInvite": {
+            "type": "boolean"
+          },
+          "teamRoles": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "orgRole",
+          "email"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/members/",
+        "body_mapping": {
+          "email": "email",
+          "orgRole": "orgRole",
+          "reinvite": "reinvite",
+          "sendInvite": "sendInvite",
+          "teamRoles": "teamRoles"
+        }
+      },
+      "response_schema": "OrganizationUserInviteSchema"
+    },
+    "apps_organizations_ext_api_delete_organization": {
+      "display_name": "Delete Organization",
+      "description": "Delete Organization",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/"
+      }
+    },
+    "apps_organizations_ext_api_delete_organization_member": {
+      "display_name": "Delete Organization Member",
+      "description": "Remove member (user) from organization",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "member_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "member_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/members/{member_id}/"
+      }
+    },
+    "apps_organizations_ext_api_get_accept_invite": {
+      "display_name": "Get Accept Invite",
+      "description": "Return relevant organization data around an invite",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "org_user_id": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_user_id",
+          "token"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/accept/{org_user_id}/{token}/"
+      },
+      "response_schema": "AcceptInviteSchema"
+    },
+    "apps_organizations_ext_api_get_organization": {
+      "display_name": "Get Organization",
+      "description": "Return Organization with project and team details.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/"
+      },
+      "response_schema": "OrganizationDetailSchema"
+    },
+    "apps_organizations_ext_api_get_organization_member": {
+      "display_name": "Get Organization Member",
+      "description": "Get Organization Member",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "member_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "member_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/members/{member_id}/"
+      },
+      "response_schema": "OrganizationUserDetailSchema"
+    },
+    "apps_organizations_ext_api_list_organization_members": {
+      "display_name": "List Organization Members",
+      "description": "List Organization Members",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/members/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "OrganizationUserSchema_list"
+    },
+    "apps_organizations_ext_api_list_organizations": {
+      "display_name": "List Organizations",
+      "description": "Return list of all organizations the user has access to.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "owner": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "sortBy": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit",
+          "owner": "owner",
+          "query": "query",
+          "sortBy": "sortBy"
+        }
+      },
+      "response_schema": "OrganizationSchema_list"
+    },
+    "apps_organizations_ext_api_list_team_organization_members": {
+      "display_name": "List Team Organization Members",
+      "description": "List Team Organization Members",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/teams/{organization_slug}/{team_slug}/members/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "OrganizationUserSchema_list"
+    },
+    "apps_organizations_ext_api_set_organization_owner": {
+      "display_name": "Set Organization Owner",
+      "description": "Set this team member as the one and only one Organization owner Only an existing Owner or user with the \"org:admin\" scope is able to perform this. GlitchTip specific API, no sentry api compatibility",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "member_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "member_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/members/{member_id}/set_owner/"
+      },
+      "response_schema": "OrganizationUserDetailSchema"
+    },
+    "apps_organizations_ext_api_update_organization": {
+      "display_name": "Update Organization",
+      "description": "Update an organization.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the organization"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/organizations/{organization_slug}/",
+        "body_mapping": {
+          "name": "name"
+        }
+      },
+      "response_schema": "OrganizationDetailSchema"
+    },
+    "apps_organizations_ext_api_update_organization_member": {
+      "display_name": "Update Organization Member",
+      "description": "Update member role within organization",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "member_id": {
+            "type": "integer"
+          },
+          "orgRole": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "teamRoles": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "member_id",
+          "orgRole"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/organizations/{organization_slug}/members/{member_id}/",
+        "body_mapping": {
+          "orgRole": "orgRole",
+          "teamRoles": "teamRoles"
+        }
+      },
+      "response_schema": "OrganizationUserDetailSchema"
+    },
+    "apps_performance_api_get_transaction_group": {
+      "display_name": "Get Transaction Group",
+      "description": "Get Transaction Group",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/transaction-groups/{id}/"
+      },
+      "response_schema": "TransactionGroupSchema"
+    },
+    "apps_performance_api_get_transaction_trend": {
+      "display_name": "Get Transaction Trend",
+      "description": "Get Transaction Trend",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/transaction-groups/{id}/trend/",
+        "query_mapping": {
+          "end": "end",
+          "start": "start"
+        }
+      },
+      "response_schema": "TransactionTrendSchema_list"
+    },
+    "apps_performance_api_list_n_plus_one_patterns": {
+      "display_name": "List N Plus One Patterns",
+      "description": "List N Plus One Patterns",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "op": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "array"
+          },
+          "start": {
+            "type": "string"
+          },
+          "threshold": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/n-plus-one/",
+        "query_mapping": {
+          "end": "end",
+          "limit": "limit",
+          "op": "op",
+          "project": "project",
+          "start": "start",
+          "threshold": "threshold"
+        }
+      },
+      "response_schema": "NPlusOnePatternSchema_list"
+    },
+    "apps_performance_api_list_span_groups": {
+      "display_name": "List Span Groups",
+      "description": "List Span Groups",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "op": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "array"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/span-groups/",
+        "query_mapping": {
+          "end": "end",
+          "limit": "limit",
+          "op": "op",
+          "project": "project",
+          "sort": "sort",
+          "start": "start"
+        }
+      },
+      "response_schema": "SpanGroupSchema_list"
+    },
+    "apps_performance_api_list_transaction_groups": {
+      "display_name": "List Transaction Groups",
+      "description": "List Transaction Groups",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "end": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "array"
+          },
+          "query": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/transaction-groups/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "end": "end",
+          "limit": "limit",
+          "project": "project",
+          "query": "query",
+          "sort": "sort",
+          "start": "start"
+        }
+      },
+      "response_schema": "TransactionGroupSchema_list"
+    },
+    "apps_performance_api_list_transaction_spans": {
+      "display_name": "List Transaction Spans",
+      "description": "List Transaction Spans",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "end": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/transaction-groups/{id}/spans/",
+        "query_mapping": {
+          "end": "end",
+          "start": "start"
+        }
+      },
+      "response_schema": "SpanGroupSchema_list"
+    },
+    "apps_projects_api_create_project": {
+      "display_name": "Create Project",
+      "description": "Create a new project given a team and organization",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "eventThrottleRate": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "team_slug",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/teams/{organization_slug}/{team_slug}/projects/",
+        "body_mapping": {
+          "eventThrottleRate": "eventThrottleRate",
+          "name": "name",
+          "platform": "platform",
+          "slug": "slug"
+        }
+      },
+      "response_schema": "ProjectSchema"
+    },
+    "apps_projects_api_create_project_key": {
+      "display_name": "Create Project Key",
+      "description": "Create new key for project. Rate limiting not implemented.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "rateLimit": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/keys/",
+        "body_mapping": {
+          "name": "name",
+          "rateLimit": "rateLimit"
+        }
+      },
+      "response_schema": "ProjectKeySchema"
+    },
+    "apps_projects_api_delete_project": {
+      "display_name": "Delete Project",
+      "description": "Delete Project",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/"
+      }
+    },
+    "apps_projects_api_delete_project_key": {
+      "display_name": "Delete Project Key",
+      "description": "Delete Project Key",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "key_id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "key_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/keys/{key_id}/"
+      }
+    },
+    "apps_projects_api_get_project": {
+      "display_name": "Get Project",
+      "description": "Get Project",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/"
+      },
+      "response_schema": "ProjectOrganizationSchema"
+    },
+    "apps_projects_api_get_project_key": {
+      "display_name": "Get Project Key",
+      "description": "Get Project Key",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "key_id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "key_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/keys/{key_id}/"
+      },
+      "response_schema": "ProjectKeySchema"
+    },
+    "apps_projects_api_list_organization_projects": {
+      "display_name": "List Organization Projects",
+      "description": "Fetch list of organizations for a project Contains team information query: Filter on team, ex: ?query=!team:burke-software",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/projects/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit",
+          "query": "query"
+        }
+      },
+      "response_schema": "ProjectTeamSchema_list"
+    },
+    "apps_projects_api_list_project_keys": {
+      "display_name": "List Project Keys",
+      "description": "List all DSN keys for a given project",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/keys/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit",
+          "status": "status"
+        }
+      },
+      "response_schema": "ProjectKeySchema_list"
+    },
+    "apps_projects_api_list_projects": {
+      "display_name": "List Projects",
+      "description": "List all projects that a user has access to",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "ProjectOrganizationSchema_list"
+    },
+    "apps_projects_api_list_team_projects": {
+      "display_name": "List Team Projects",
+      "description": "List all projects for a given team",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/teams/{organization_slug}/{team_slug}/projects/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "ProjectSchema_list"
+    },
+    "apps_projects_api_update_project": {
+      "display_name": "Update Project",
+      "description": "Update Project",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "eventThrottleRate": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/",
+        "body_mapping": {
+          "eventThrottleRate": "eventThrottleRate",
+          "name": "name",
+          "platform": "platform",
+          "slug": "slug"
+        }
+      },
+      "response_schema": "ProjectOrganizationSchema"
+    },
+    "apps_projects_api_update_project_key": {
+      "display_name": "Update Project Key",
+      "description": "Update Project Key",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "key_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "rateLimit": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "key_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/keys/{key_id}/",
+        "body_mapping": {
+          "name": "name",
+          "rateLimit": "rateLimit"
+        }
+      },
+      "response_schema": "ProjectKeySchema"
+    },
+    "apps_projects_api_update_user_notification_alerts": {
+      "display_name": "Update User Notification Alerts",
+      "description": "Update User Notification Alerts",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/users/{user_id}/notifications/alerts/"
+      }
+    },
+    "apps_projects_api_user_notification_alerts": {
+      "display_name": "User Notification Alerts",
+      "description": "Returns dictionary of project_id: status. Now project_id status means it's \"default\" To update, submit `{project_id: status}` where status is -1 (default), 0, or 1",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/users/{user_id}/notifications/alerts/"
+      },
+      "response_schema": "StrKeyIntValue"
+    },
+    "apps_releases_api_assemble_release": {
+      "display_name": "Assemble Release",
+      "description": "Assemble Release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "checksum": {
+            "type": "string"
+          },
+          "chunks": {
+            "type": "array"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version",
+          "checksum",
+          "chunks"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/assemble/",
+        "body_mapping": {
+          "checksum": "checksum",
+          "chunks": "chunks"
+        }
+      }
+    },
+    "apps_releases_api_create_commits": {
+      "display_name": "Create Commits",
+      "description": "Create Commits",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/commits/"
+      },
+      "response_schema": "ReleaseSchema"
+    },
+    "apps_releases_api_create_deploy": {
+      "display_name": "Create Deploy",
+      "description": "Create Deploy",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dateFinished": {
+            "type": "string"
+          },
+          "dateStarted": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version",
+          "environment"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/deploys/",
+        "body_mapping": {
+          "dateFinished": "dateFinished",
+          "dateStarted": "dateStarted",
+          "environment": "environment",
+          "url": "url"
+        }
+      },
+      "response_schema": "DeploySchema"
+    },
+    "apps_releases_api_create_project_release": {
+      "display_name": "Create Project Release",
+      "description": "Create Project Release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dateReleased": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/",
+        "body_mapping": {
+          "dateReleased": "dateReleased",
+          "ref": "ref",
+          "version": "version"
+        }
+      },
+      "response_schema": "ReleaseSchema"
+    },
+    "apps_releases_api_create_release": {
+      "display_name": "Create Release",
+      "description": "Create Release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dateReleased": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "projects": {
+            "type": "array"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version",
+          "projects"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/releases/",
+        "body_mapping": {
+          "dateReleased": "dateReleased",
+          "projects": "projects",
+          "ref": "ref",
+          "version": "version"
+        }
+      },
+      "response_schema": "ReleaseSchema"
+    },
+    "apps_releases_api_delete_organization_release": {
+      "display_name": "Delete Organization Release",
+      "description": "Delete Organization Release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/"
+      }
+    },
+    "apps_releases_api_delete_organization_release_file": {
+      "display_name": "Delete Organization Release File",
+      "description": "Delete Organization Release File",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "file_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version",
+          "file_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/files/{file_id}/"
+      }
+    },
+    "apps_releases_api_delete_project_release": {
+      "display_name": "Delete Project Release",
+      "description": "Delete Project Release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/{version}/"
+      }
+    },
+    "apps_releases_api_delete_project_release_file": {
+      "display_name": "Delete Project Release File",
+      "description": "Delete Project Release File",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "file_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "version",
+          "file_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/{version}/files/{file_id}/"
+      }
+    },
+    "apps_releases_api_get_organization_release_file": {
+      "display_name": "Get Organization Release File",
+      "description": "Get Organization Release File",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "file_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version",
+          "file_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/files/{file_id}/",
+        "query_mapping": {
+          "project_slug": "project_slug"
+        }
+      },
+      "response_schema": "DebugSymbolBundleSchema"
+    },
+    "apps_releases_api_get_project_release": {
+      "display_name": "Get Project Release",
+      "description": "Get Project Release",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/{version}/"
+      },
+      "response_schema": "ReleaseSchema"
+    },
+    "apps_releases_api_get_project_release_file": {
+      "display_name": "Get Project Release File",
+      "description": "Get Project Release File",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "file_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "version",
+          "file_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/{version}/files/{file_id}/"
+      },
+      "response_schema": "DebugSymbolBundleSchema"
+    },
+    "apps_releases_api_get_release": {
+      "display_name": "Get Release",
+      "description": "Get Release",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/"
+      },
+      "response_schema": "ReleaseSchema"
+    },
+    "apps_releases_api_list_commits": {
+      "display_name": "List Commits",
+      "description": "List Commits",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/commits/"
+      },
+      "response_schema": "CommitSchema_list"
+    },
+    "apps_releases_api_list_deploys": {
+      "display_name": "List Deploys",
+      "description": "List Deploys",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/deploys/"
+      },
+      "response_schema": "DeploySchema_list"
+    },
+    "apps_releases_api_list_project_release_files": {
+      "display_name": "List Project Release Files",
+      "description": "List Project Release Files",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/{version}/files/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "DebugSymbolBundleSchema_list"
+    },
+    "apps_releases_api_list_project_releases": {
+      "display_name": "List Project Releases",
+      "description": "List Project Releases",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "ReleaseSchema_list"
+    },
+    "apps_releases_api_list_release_files": {
+      "display_name": "List Release Files",
+      "description": "List Release Files",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/files/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "DebugSymbolBundleSchema_list"
+    },
+    "apps_releases_api_list_releases": {
+      "display_name": "List Releases",
+      "description": "List Releases",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/releases/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "ReleaseSchema_list"
+    },
+    "apps_releases_api_update_project_release": {
+      "display_name": "Update Project Release",
+      "description": "Update Project Release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dateReleased": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/releases/{version}/",
+        "body_mapping": {
+          "dateReleased": "dateReleased",
+          "ref": "ref"
+        }
+      },
+      "response_schema": "ReleaseSchema"
+    },
+    "apps_releases_api_update_release": {
+      "display_name": "Update Release",
+      "description": "Update Release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "dateReleased": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "version"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/organizations/{organization_slug}/releases/{version}/",
+        "body_mapping": {
+          "dateReleased": "dateReleased",
+          "ref": "ref"
+        }
+      },
+      "response_schema": "ReleaseSchema"
+    },
+    "apps_sourcecode_api_artifact_bundle_assemble": {
+      "display_name": "Artifact Bundle Assemble",
+      "description": "Associate files with assembly bundle and optionally release",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "checksum": {
+            "type": "string"
+          },
+          "chunks": {
+            "type": "array"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "projects": {
+            "type": "array"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "checksum",
+          "chunks",
+          "projects"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/artifactbundle/assemble/",
+        "body_mapping": {
+          "checksum": "checksum",
+          "chunks": "chunks",
+          "projects": "projects",
+          "version": "version"
+        }
+      }
+    },
+    "apps_sourcecode_api_create_repository": {
+      "display_name": "Create Repository",
+      "description": "Create Repository",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/repos/",
+        "body_mapping": {
+          "name": "name",
+          "provider": "provider",
+          "url": "url"
+        }
+      },
+      "response_schema": "RepositorySchema"
+    },
+    "apps_sourcecode_api_list_repositories": {
+      "display_name": "List Repositories",
+      "description": "List Repositories",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/repos/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "RepositorySchema_list"
+    },
+    "apps_stats_api_stats_v2": {
+      "display_name": "Stats V2",
+      "description": "Reverse engineered stats v2 endpoint. Endpoint in sentry not documented. Appears similar to documented sessions endpoint. Used by the Sentry Grafana integration. Used to return time series statisti...",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "interval": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/stats_v2/",
+        "query_mapping": {
+          "category": "category",
+          "end": "end",
+          "field": "field",
+          "interval": "interval",
+          "project": "project",
+          "start": "start"
+        }
+      }
+    },
+    "apps_stripe_api_create_stripe_session": {
+      "display_name": "Create Stripe Session",
+      "description": "Create Stripe Checkout, send to client for redirecting to Stripe See https://stripe.com/docs/api/checkout/sessions/create",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "price"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/stripe/organizations/{organization_slug}/create-stripe-subscription-checkout/",
+        "body_mapping": {
+          "price": "price"
+        }
+      },
+      "response_schema": "StripeCheckoutSessionSchema"
+    },
+    "apps_stripe_api_get_stripe_subscription": {
+      "display_name": "Get Stripe Subscription",
+      "description": "Get Stripe Subscription",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/stripe/subscriptions/{organization_slug}/"
+      }
+    },
+    "apps_stripe_api_list_stripe_products": {
+      "display_name": "List Stripe Products",
+      "description": "List Stripe Products",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/stripe/products/"
+      },
+      "response_schema": "StripeProductExpandedPriceSchema_list"
+    },
+    "apps_stripe_api_stripe_billing_portal_session": {
+      "display_name": "Stripe Billing Portal Session",
+      "description": "See https://stripe.com/docs/billing/subscriptions/integrating-self-serve-portal",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/stripe/organizations/{organization_slug}/create-billing-portal/"
+      },
+      "response_schema": "StripePortalSessionSchema"
+    },
+    "apps_stripe_api_stripe_create_subscription": {
+      "display_name": "Stripe Create Subscription",
+      "description": "Stripe Create Subscription",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "price",
+          "organization"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/stripe/subscriptions/",
+        "body_mapping": {
+          "organization": "organization",
+          "price": "price"
+        }
+      },
+      "response_schema": "CreateSubscriptionResponse"
+    },
+    "apps_stripe_api_subscription_events_count_daily": {
+      "display_name": "Subscription Events Count Daily",
+      "description": "Subscription Events Count Daily",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/stripe/subscriptions/{organization_slug}/events_count/daily/",
+        "response_path": "data"
+      },
+      "response_schema": "DailyEventsCountSchema"
+    },
+    "apps_stripe_api_subscription_events_count_for_period": {
+      "display_name": "Subscription Events Count For Period",
+      "description": "Subscription Events Count For Period",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "periods_ago": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/stripe/subscriptions/{organization_slug}/events_count/period/",
+        "query_mapping": {
+          "periods_ago": "periods_ago"
+        }
+      },
+      "response_schema": "SubscriptionUsageSchema"
+    },
+    "apps_teams_api_add_member_to_team": {
+      "display_name": "Add Member To Team",
+      "description": "Add Member To Team",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "member_id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "member_id",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/members/{member_id}/teams/{team_slug}/"
+      },
+      "response_schema": "TeamProjectSchema"
+    },
+    "apps_teams_api_add_team_to_project": {
+      "display_name": "Add Team To Project",
+      "description": "Add team to project",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/teams/{team_slug}/"
+      },
+      "response_schema": "ProjectTeamSchema"
+    },
+    "apps_teams_api_create_team": {
+      "display_name": "Create Team",
+      "description": "Create Team",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/teams/",
+        "body_mapping": {
+          "slug": "slug"
+        }
+      },
+      "response_schema": "TeamProjectSchema"
+    },
+    "apps_teams_api_delete_member_from_team": {
+      "display_name": "Delete Member From Team",
+      "description": "Delete Member From Team",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "member_id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "member_id",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/members/{member_id}/teams/{team_slug}/"
+      },
+      "response_schema": "TeamProjectSchema"
+    },
+    "apps_teams_api_delete_team": {
+      "display_name": "Delete Team",
+      "description": "Delete Team",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/teams/{organization_slug}/{team_slug}/"
+      }
+    },
+    "apps_teams_api_delete_team_from_project": {
+      "display_name": "Delete Team From Project",
+      "description": "Remove team from project",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/teams/{team_slug}/"
+      },
+      "response_schema": "ProjectTeamSchema"
+    },
+    "apps_teams_api_get_team": {
+      "display_name": "Get Team",
+      "description": "Get Team",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "team_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/teams/{organization_slug}/{team_slug}/"
+      },
+      "response_schema": "TeamProjectSchema"
+    },
+    "apps_teams_api_list_project_teams": {
+      "display_name": "List Project Teams",
+      "description": "List Project Teams",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "project_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/projects/{organization_slug}/{project_slug}/teams/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "TeamSchema_list"
+    },
+    "apps_teams_api_list_teams": {
+      "display_name": "List Teams",
+      "description": "List Teams",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/teams/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "TeamProjectSchema_list"
+    },
+    "apps_teams_api_update_team": {
+      "display_name": "Update Team",
+      "description": "Update Team",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "organization_slug": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "team_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "team_slug",
+          "slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/teams/{organization_slug}/{team_slug}/",
+        "body_mapping": {
+          "slug": "slug"
+        }
+      },
+      "response_schema": "TeamProjectSchema"
+    },
+    "apps_uptime_api_create_monitor": {
+      "display_name": "Create Monitor",
+      "description": "Create Monitor",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "expectedBody": {
+            "type": "string"
+          },
+          "expectedStatus": {
+            "type": "string"
+          },
+          "interval": {
+            "type": "integer"
+          },
+          "monitorType": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "timeout": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "expectedBody",
+          "expectedStatus",
+          "timeout",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/monitors/",
+        "body_mapping": {
+          "expectedBody": "expectedBody",
+          "expectedStatus": "expectedStatus",
+          "interval": "interval",
+          "monitorType": "monitorType",
+          "name": "name",
+          "project": "project",
+          "timeout": "timeout",
+          "url": "url"
+        }
+      },
+      "response_schema": "MonitorSchema"
+    },
+    "apps_uptime_api_create_status_page": {
+      "display_name": "Create Status Page",
+      "description": "Create Status Page",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "isPublic": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/status-pages/",
+        "body_mapping": {
+          "isPublic": "isPublic",
+          "name": "name"
+        }
+      },
+      "response_schema": "StatusPageSchema"
+    },
+    "apps_uptime_api_delete_monitor": {
+      "display_name": "Delete Monitor",
+      "description": "Delete Monitor",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "monitor_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "monitor_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/organizations/{organization_slug}/monitors/{monitor_id}/"
+      }
+    },
+    "apps_uptime_api_get_monitor": {
+      "display_name": "Get Monitor",
+      "description": "Get Monitor",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "monitor_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "monitor_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/monitors/{monitor_id}/"
+      },
+      "response_schema": "MonitorDetailSchema"
+    },
+    "apps_uptime_api_heartbeat_check": {
+      "display_name": "Heartbeat Check",
+      "description": "Heartbeat monitors allow an external service to contact this endpoint when the service is up.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "endpoint_id": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "endpoint_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/organizations/{organization_slug}/heartbeat_check/{endpoint_id}/"
+      },
+      "response_schema": "MonitorCheckSchema"
+    },
+    "apps_uptime_api_list_monitor_checks": {
+      "display_name": "List Monitor Checks",
+      "description": "List checks performed for a monitor Set is_change query param to True to show only changes, This is useful to see only when a service went up and down.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "is_change": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "monitor_id": {
+            "type": "integer"
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "monitor_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/monitors/{monitor_id}/checks/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "is_change": "is_change",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "MonitorCheckResponseTimeSchema_list"
+    },
+    "apps_uptime_api_list_monitors": {
+      "display_name": "List Monitors",
+      "description": "List Monitors",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/monitors/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "MonitorSchema_list"
+    },
+    "apps_uptime_api_list_status_pages": {
+      "display_name": "List Status Pages",
+      "description": "List status pages, used for showing the current status of an uptime monitor",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          },
+          "organization_slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/organizations/{organization_slug}/status-pages/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "StatusPageSchema_list"
+    },
+    "apps_uptime_api_update_monitor": {
+      "display_name": "Update Monitor",
+      "description": "Update Monitor",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "expectedBody": {
+            "type": "string"
+          },
+          "expectedStatus": {
+            "type": "string"
+          },
+          "interval": {
+            "type": "integer"
+          },
+          "monitorType": {
+            "type": "string"
+          },
+          "monitor_id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "timeout": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_slug",
+          "monitor_id",
+          "expectedBody",
+          "expectedStatus",
+          "timeout",
+          "name"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/organizations/{organization_slug}/monitors/{monitor_id}/",
+        "body_mapping": {
+          "expectedBody": "expectedBody",
+          "expectedStatus": "expectedStatus",
+          "interval": "interval",
+          "monitorType": "monitorType",
+          "name": "name",
+          "project": "project",
+          "timeout": "timeout",
+          "url": "url"
+        }
+      },
+      "response_schema": "MonitorSchema"
+    },
+    "apps_users_api_create_email": {
+      "display_name": "Create Email",
+      "description": "Create a new unverified email address. Will return 400 if the email already exists and is verified.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/users/{user_id}/emails/",
+        "body_mapping": {
+          "email": "email"
+        }
+      },
+      "response_schema": "EmailAddressSchema"
+    },
+    "apps_users_api_delete_email": {
+      "display_name": "Delete Email",
+      "description": "Delete Email",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/users/{user_id}/emails/",
+        "body_mapping": {
+          "email": "email"
+        }
+      }
+    },
+    "apps_users_api_delete_user": {
+      "display_name": "Delete User",
+      "description": "Delete User",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/users/{user_id}/"
+      }
+    },
+    "apps_users_api_generate_recovery_codes": {
+      "display_name": "Generate Recovery Codes",
+      "description": "Extension of django-allauth headless API to pre-generate recovery codes before saving",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/generate-recovery-codes/"
+      },
+      "response_schema": "RecoveryCodesSchema"
+    },
+    "apps_users_api_get_notifications": {
+      "display_name": "Get Notifications",
+      "description": "Get Notifications",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/users/{user_id}/notifications/"
+      },
+      "response_schema": "UserNotificationsSchema"
+    },
+    "apps_users_api_get_user": {
+      "display_name": "Get User",
+      "description": "Get User",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/users/{user_id}/"
+      },
+      "response_schema": "UserDetailSchema"
+    },
+    "apps_users_api_list_emails": {
+      "display_name": "List Emails",
+      "description": "List Emails",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/users/{user_id}/emails/"
+      },
+      "response_schema": "EmailAddressSchema_list"
+    },
+    "apps_users_api_list_users": {
+      "display_name": "List Users",
+      "description": "Exists in Sentry OSS, unsure what the use case is We make it only list the current user",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "The pagination cursor value."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Number of results to return per page."
+          }
+        },
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/users/",
+        "query_mapping": {
+          "cursor": "cursor",
+          "limit": "limit"
+        }
+      },
+      "response_schema": "UserSchema_list"
+    },
+    "apps_users_api_send_confirm_email": {
+      "display_name": "Send Confirm Email",
+      "description": "Send Confirm Email",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/users/{user_id}/emails/confirm/",
+        "body_mapping": {
+          "email": "email"
+        }
+      }
+    },
+    "apps_users_api_set_email_as_primary": {
+      "display_name": "Set Email As Primary",
+      "description": "Set Email As Primary",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/users/{user_id}/emails/",
+        "body_mapping": {
+          "email": "email"
+        }
+      },
+      "response_schema": "EmailAddressSchema"
+    },
+    "apps_users_api_set_recovery_codes": {
+      "display_name": "Set Recovery Codes",
+      "description": "Extension of django-allauth headless API to set recovery codes",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/generate-recovery-codes/",
+        "body_mapping": {
+          "code": "code"
+        }
+      }
+    },
+    "apps_users_api_update_notifications": {
+      "display_name": "Update Notifications",
+      "description": "Update Notifications",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "subscribeByDefault": {
+            "type": "boolean",
+            "description": "Subscribe to project notifications by default. Overrides project settings"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/users/{user_id}/notifications/",
+        "body_mapping": {
+          "subscribeByDefault": "subscribeByDefault"
+        }
+      },
+      "response_schema": "UserNotificationsSchema"
+    },
+    "apps_users_api_update_user": {
+      "display_name": "Update User",
+      "description": "Update User",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "options": {
+            "type": "object"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "options"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "PUT",
+        "path": "/api/0/users/{user_id}/",
+        "body_mapping": {
+          "name": "name",
+          "options": "options"
+        }
+      },
+      "response_schema": "UserSchema"
+    },
+    "apps_wizard_api_setup_wizard": {
+      "display_name": "Setup Wizard",
+      "description": "First step used by sentry-wizard Generates a random hash for later usage",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/wizard/"
+      },
+      "response_schema": "SetupWizardSchema"
+    },
+    "apps_wizard_api_setup_wizard_delete": {
+      "display_name": "Setup Wizard Delete",
+      "description": "Delete hash used by sentry-wizard. It contains sensitive data, so it makes sense to remove when done.",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "auth": {
+            "type": "string"
+          },
+          "wizard_hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wizard_hash"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "DELETE",
+        "path": "/api/0/wizard/{wizard_hash}/",
+        "query_mapping": {
+          "auth": "auth"
+        }
+      }
+    },
+    "apps_wizard_api_setup_wizard_hash": {
+      "display_name": "Setup Wizard Hash",
+      "description": "Last step used by sentry-wizard For a specified hash, fetch data for projects with organizations and dsn keys Hash replaces user authentication",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "auth": {
+            "type": "string"
+          },
+          "wizard_hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wizard_hash"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/wizard/{wizard_hash}/",
+        "query_mapping": {
+          "auth": "auth"
+        }
+      }
+    },
+    "apps_wizard_api_setup_wizard_set_token": {
+      "display_name": "Setup Wizard Set Token",
+      "description": "Authenticated api for storing projects data to later be used by sentry-wizard",
+      "access": "write",
+      "resource_type": "",
+      "parameters": {
+        "properties": {
+          "hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash"
+        ],
+        "type": "object"
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/0/wizard-set-token/",
+        "body_mapping": {
+          "hash": "hash"
+        }
+      }
+    },
+    "glitchtip_api_api_api_root": {
+      "display_name": "Api Root",
+      "description": "/api/0/ gives information about the server and current user",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/"
+      },
+      "response_schema": "APIRootSchema"
+    },
+    "glitchtip_api_api_get_instance_license": {
+      "display_name": "Get Instance License",
+      "description": "Get Instance License",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/instance-license/"
+      },
+      "response_schema": "InstanceLicenseOut"
+    },
+    "glitchtip_api_api_get_settings": {
+      "display_name": "Get Settings",
+      "description": "Get Settings",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/settings/"
+      },
+      "response_schema": "SettingsOut"
+    },
+    "glitchtip_api_api_get_support_link": {
+      "display_name": "Get Support Link",
+      "description": "Get Support Link",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/0/instance-license/support-link/"
+      },
+      "response_schema": "SupportLinkOut"
+    }
+  },
+  "schemas": {
+    "APIRootSchema": {
+      "type": "object",
+      "properties": {
+        "auth": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "APITokenSchema": {
+      "type": "object",
+      "properties": {
+        "created": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "scopes": {
+          "type": "array"
+        },
+        "token": {
+          "type": "string"
+        }
+      }
+    },
+    "APITokenSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "APITokenSchema"
+      }
+    },
+    "AcceptInviteSchema": {
+      "type": "object",
+      "properties": {
+        "acceptInvite": {
+          "type": "boolean"
+        },
+        "orgUser": {
+          "type": "object",
+          "description": "Organization User Serializer with Organization info",
+          "schema_ref": "OrganizationUserOrganizationSchema"
+        }
+      }
+    },
+    "CommentSchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "CommentSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "CommentSchema"
+      }
+    },
+    "CommitSchema": {
+      "type": "object",
+      "properties": {
+        "authorEmail": {
+          "type": "string"
+        },
+        "authorName": {
+          "type": "string"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "CommitSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "CommitSchema"
+      }
+    },
+    "CreateSubscriptionResponse": {
+      "type": "object",
+      "properties": {
+        "organization": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        },
+        "subscription": {
+          "type": "object",
+          "schema_ref": "StripeSubscriptionSchema"
+        }
+      }
+    },
+    "DailyEventsCountSchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array"
+        }
+      }
+    },
+    "DebugFileSchema": {
+      "type": "object",
+      "properties": {
+        "cpuName": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "debugId": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object"
+        },
+        "id": {
+          "type": "string"
+        },
+        "objectName": {
+          "type": "string"
+        },
+        "sha1": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "symbolType": {
+          "type": "string"
+        },
+        "uuid": {
+          "type": "string"
+        }
+      }
+    },
+    "DebugFileSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "DebugFileSchema"
+      }
+    },
+    "DebugSymbolBundleSchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sha1": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      }
+    },
+    "DebugSymbolBundleSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "DebugSymbolBundleSchema"
+      }
+    },
+    "DeploySchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "dateFinished": {
+          "type": "string"
+        },
+        "dateStarted": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "DeploySchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "DeploySchema"
+      }
+    },
+    "EmailAddressSchema": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "isPrimary": {
+          "type": "boolean"
+        },
+        "isVerified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "EmailAddressSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "EmailAddressSchema"
+      }
+    },
+    "EnvironmentProjectSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "isHidden": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "EnvironmentProjectSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "EnvironmentProjectSchema"
+      }
+    },
+    "EnvironmentSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "EnvironmentSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "EnvironmentSchema"
+      }
+    },
+    "EventIngestOut": {
+      "type": "object",
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string"
+        }
+      }
+    },
+    "InstanceLicenseOut": {
+      "type": "object",
+      "properties": {
+        "billingEmail": {
+          "type": "string"
+        }
+      }
+    },
+    "IssueDetailSchema": {
+      "type": "object",
+      "properties": {
+        "assignedTo": {
+          "type": "string"
+        },
+        "count": {
+          "type": "string"
+        },
+        "culprit": {
+          "type": "string"
+        },
+        "firstRelease": {
+          "type": "string"
+        },
+        "firstSeen": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lastRelease": {
+          "type": "string"
+        },
+        "lastSeen": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "logger": {
+          "type": "string"
+        },
+        "matchingEventId": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "numComments": {
+          "type": "integer"
+        },
+        "permalink": {
+          "type": "string"
+        },
+        "project": {
+          "type": "object",
+          "schema_ref": "ProjectReference"
+        },
+        "shareId": {
+          "type": "string"
+        },
+        "shortId": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "statusDetails": {
+          "type": "string"
+        },
+        "subscriptionDetails": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "userCount": {
+          "type": "string"
+        },
+        "userReportCount": {
+          "type": "integer"
+        }
+      }
+    },
+    "IssueEventDetailSchema": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string"
+        },
+        "contexts": {
+          "type": "string"
+        },
+        "culprit": {
+          "type": "string"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "dateReceived": {
+          "type": "string"
+        },
+        "dist": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array"
+        },
+        "errors": {
+          "type": "string"
+        },
+        "eventID": {
+          "type": "string"
+        },
+        "groupID": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "nextEventID": {
+          "type": "string"
+        },
+        "packages": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "previousEventID": {
+          "type": "string"
+        },
+        "projectID": {
+          "type": "integer"
+        },
+        "sdk": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "userReport": {
+          "type": "string"
+        }
+      }
+    },
+    "IssueEventJsonSchema": {
+      "type": "object",
+      "properties": {
+        "breadcrumbs": {
+          "type": "string"
+        },
+        "contexts": {
+          "type": "string"
+        },
+        "datetime": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "string"
+        },
+        "event_id": {
+          "type": "string"
+        },
+        "exception": {
+          "type": "string"
+        },
+        "extra": {
+          "type": "string"
+        },
+        "hashes": {
+          "type": "array"
+        },
+        "level": {
+          "type": "string"
+        },
+        "modules": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "project": {
+          "type": "integer"
+        },
+        "request": {
+          "type": "string"
+        },
+        "sdk": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "object"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "title": {
+          "type": "string"
+        },
+        "transaction": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "IssueEventSchema": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string"
+        },
+        "contexts": {
+          "type": "string"
+        },
+        "culprit": {
+          "type": "string"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "dateReceived": {
+          "type": "string"
+        },
+        "dist": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array"
+        },
+        "errors": {
+          "type": "string"
+        },
+        "eventID": {
+          "type": "string"
+        },
+        "groupID": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "packages": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "projectID": {
+          "type": "integer"
+        },
+        "sdk": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "IssueEventSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "IssueEventSchema"
+      }
+    },
+    "IssueHashSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "latestEvent": {
+          "type": "string"
+        }
+      }
+    },
+    "IssueHashSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "IssueHashSchema"
+      }
+    },
+    "IssueSchema": {
+      "type": "object",
+      "properties": {
+        "assignedTo": {
+          "type": "string"
+        },
+        "count": {
+          "type": "string"
+        },
+        "culprit": {
+          "type": "string"
+        },
+        "firstRelease": {
+          "type": "string"
+        },
+        "firstSeen": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lastRelease": {
+          "type": "string"
+        },
+        "lastSeen": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "logger": {
+          "type": "string"
+        },
+        "matchingEventId": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "numComments": {
+          "type": "integer"
+        },
+        "permalink": {
+          "type": "string"
+        },
+        "project": {
+          "type": "object",
+          "schema_ref": "ProjectReference"
+        },
+        "shareId": {
+          "type": "string"
+        },
+        "shortId": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "statusDetails": {
+          "type": "string"
+        },
+        "subscriptionDetails": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "userCount": {
+          "type": "string"
+        }
+      }
+    },
+    "IssueSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "IssueSchema"
+      }
+    },
+    "IssueStatsResponse": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "string"
+        },
+        "firstSeen": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isUnhandled": {
+          "type": "boolean"
+        },
+        "lastSeen": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "object",
+          "description": "Represents the 24-hour statistics block.",
+          "schema_ref": "StatsDetailSchema"
+        },
+        "userCount": {
+          "type": "integer"
+        }
+      }
+    },
+    "IssueStatsResponse_list": {
+      "type": "array",
+      "items": {
+        "$ref": "IssueStatsResponse"
+      }
+    },
+    "IssueTagSchema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "topValues": {
+          "type": "array"
+        },
+        "totalValues": {
+          "type": "integer"
+        },
+        "uniqueValues": {
+          "type": "integer"
+        }
+      }
+    },
+    "IssueTagSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "IssueTagSchema"
+      }
+    },
+    "LogEventSchema": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "integer"
+        },
+        "service": {
+          "type": "string"
+        },
+        "severityNumber": {
+          "type": "string"
+        },
+        "spanID": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "traceID": {
+          "type": "string"
+        }
+      }
+    },
+    "LogEventSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "LogEventSchema"
+      }
+    },
+    "LogResourceSchema": {
+      "type": "object",
+      "properties": {
+        "lastSeen": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "LogResourceSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "LogResourceSchema"
+      }
+    },
+    "LogStatsSchema": {
+      "type": "object",
+      "properties": {
+        "intervals": {
+          "type": "array"
+        },
+        "series": {
+          "type": "array"
+        }
+      }
+    },
+    "MonitorCheckResponseTimeSchema": {
+      "type": "object",
+      "properties": {
+        "isUp": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "responseTime": {
+          "type": "string",
+          "description": "Reponse time in milliseconds"
+        },
+        "startCheck": {
+          "type": "string",
+          "description": "Time when the start of this check was performed"
+        }
+      }
+    },
+    "MonitorCheckResponseTimeSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "MonitorCheckResponseTimeSchema"
+      }
+    },
+    "MonitorCheckSchema": {
+      "type": "object",
+      "properties": {
+        "isUp": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "startCheck": {
+          "type": "string",
+          "description": "Time when the start of this check was performed"
+        }
+      }
+    },
+    "MonitorDetailSchema": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array"
+        },
+        "created": {
+          "type": "string"
+        },
+        "endpointID": {
+          "type": "string",
+          "description": "Used for referencing heartbeat endpoint"
+        },
+        "envName": {
+          "type": "string"
+        },
+        "environmentID": {
+          "type": "string"
+        },
+        "expectedBody": {
+          "type": "string"
+        },
+        "expectedStatus": {
+          "type": "string"
+        },
+        "heartbeatEndpoint": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "integer"
+        },
+        "isUp": {
+          "type": "string"
+        },
+        "lastChange": {
+          "type": "string"
+        },
+        "monitorType": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "organizationID": {
+          "type": "integer"
+        },
+        "projectID": {
+          "type": "string"
+        },
+        "projectName": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Blank implies default value of 20"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "MonitorSchema": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array"
+        },
+        "created": {
+          "type": "string"
+        },
+        "endpointID": {
+          "type": "string",
+          "description": "Used for referencing heartbeat endpoint"
+        },
+        "envName": {
+          "type": "string"
+        },
+        "environmentID": {
+          "type": "string"
+        },
+        "expectedBody": {
+          "type": "string"
+        },
+        "expectedStatus": {
+          "type": "string"
+        },
+        "heartbeatEndpoint": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "integer"
+        },
+        "isUp": {
+          "type": "string"
+        },
+        "lastChange": {
+          "type": "string"
+        },
+        "monitorType": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "organizationID": {
+          "type": "integer"
+        },
+        "projectID": {
+          "type": "string"
+        },
+        "projectName": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Blank implies default value of 20"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "MonitorSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "MonitorSchema"
+      }
+    },
+    "NPlusOnePatternSchema": {
+      "type": "object",
+      "properties": {
+        "avgDuration": {
+          "type": "number"
+        },
+        "description": {
+          "type": "string"
+        },
+        "op": {
+          "type": "string"
+        },
+        "spansPerTxn": {
+          "type": "number"
+        },
+        "totalSpans": {
+          "type": "integer"
+        },
+        "totalTime": {
+          "type": "number"
+        },
+        "transactionCount": {
+          "type": "integer"
+        },
+        "transactionName": {
+          "type": "string"
+        }
+      }
+    },
+    "NPlusOnePatternSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "NPlusOnePatternSchema"
+      }
+    },
+    "OrganizationDetailSchema": {
+      "type": "object",
+      "properties": {
+        "access": {
+          "type": "array"
+        },
+        "avatar": {
+          "type": "object"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "eventThrottleRate": {
+          "type": "integer",
+          "description": "Probability (in percent) on how many events are throttled. Used for throttling at project level"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isAcceptingEvents": {
+          "type": "boolean",
+          "description": "Used for throttling at org level"
+        },
+        "isEarlyAdopter": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the organization"
+        },
+        "openMembership": {
+          "type": "boolean",
+          "description": "Allow any organization member to join any team"
+        },
+        "projects": {
+          "type": "array"
+        },
+        "require2fa": {
+          "type": "boolean"
+        },
+        "slug": {
+          "type": "string",
+          "description": "The name in all lowercase, suitable for URL identification"
+        },
+        "status": {
+          "type": "object"
+        },
+        "teams": {
+          "type": "array"
+        }
+      }
+    },
+    "OrganizationSchema": {
+      "type": "object",
+      "properties": {
+        "avatar": {
+          "type": "object"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "eventThrottleRate": {
+          "type": "integer",
+          "description": "Probability (in percent) on how many events are throttled. Used for throttling at project level"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isAcceptingEvents": {
+          "type": "boolean",
+          "description": "Used for throttling at org level"
+        },
+        "isEarlyAdopter": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the organization"
+        },
+        "require2fa": {
+          "type": "boolean"
+        },
+        "slug": {
+          "type": "string",
+          "description": "The name in all lowercase, suitable for URL identification"
+        },
+        "status": {
+          "type": "object"
+        }
+      }
+    },
+    "OrganizationSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "OrganizationSchema"
+      }
+    },
+    "OrganizationUserDetailSchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isOwner": {
+          "type": "boolean"
+        },
+        "pending": {
+          "type": "boolean"
+        },
+        "role": {
+          "type": "string"
+        },
+        "roleName": {
+          "type": "string"
+        },
+        "teams": {
+          "type": "array"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "OrganizationUserInviteSchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "inviteLink": {
+          "type": "string"
+        },
+        "isOwner": {
+          "type": "boolean"
+        },
+        "pending": {
+          "type": "boolean"
+        },
+        "role": {
+          "type": "string"
+        },
+        "roleName": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "OrganizationUserOrganizationSchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isOwner": {
+          "type": "boolean"
+        },
+        "organization": {
+          "type": "object",
+          "schema_ref": "OrganizationSchema"
+        },
+        "pending": {
+          "type": "boolean"
+        },
+        "role": {
+          "type": "string"
+        },
+        "roleName": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "OrganizationUserSchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isOwner": {
+          "type": "boolean"
+        },
+        "pending": {
+          "type": "boolean"
+        },
+        "role": {
+          "type": "string"
+        },
+        "roleName": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "OrganizationUserSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "OrganizationUserSchema"
+      }
+    },
+    "ProjectAlertSchema": {
+      "type": "object",
+      "properties": {
+        "alertRecipients": {
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "timespanMinutes": {
+          "type": "string"
+        },
+        "uptime": {
+          "type": "boolean",
+          "description": "Send alert on any uptime monitor check failure"
+        }
+      }
+    },
+    "ProjectAlertSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "ProjectAlertSchema"
+      }
+    },
+    "ProjectKeySchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "dsn": {
+          "type": "object"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "projectID": {
+          "type": "integer"
+        },
+        "public": {
+          "type": "string"
+        },
+        "rateLimit": {
+          "type": "string"
+        }
+      }
+    },
+    "ProjectKeySchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "ProjectKeySchema"
+      }
+    },
+    "ProjectOrganizationSchema": {
+      "type": "object",
+      "properties": {
+        "avatar": {
+          "type": "object"
+        },
+        "color": {
+          "type": "string"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "eventThrottleRate": {
+          "type": "integer",
+          "description": "Probability (in percent) on how many events are throttled. Used for throttling at project level"
+        },
+        "features": {
+          "type": "array"
+        },
+        "firstEvent": {
+          "type": "string"
+        },
+        "hasAccess": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isBookmarked": {
+          "type": "boolean"
+        },
+        "isInternal": {
+          "type": "boolean"
+        },
+        "isMember": {
+          "type": "boolean"
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "object",
+          "schema_ref": "OrganizationSchema"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "scrubIPAddresses": {
+          "type": "boolean"
+        },
+        "slug": {
+          "type": "string"
+        }
+      }
+    },
+    "ProjectOrganizationSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "ProjectOrganizationSchema"
+      }
+    },
+    "ProjectReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        }
+      }
+    },
+    "ProjectSchema": {
+      "type": "object",
+      "properties": {
+        "avatar": {
+          "type": "object"
+        },
+        "color": {
+          "type": "string"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "eventThrottleRate": {
+          "type": "integer",
+          "description": "Probability (in percent) on how many events are throttled. Used for throttling at project level"
+        },
+        "features": {
+          "type": "array"
+        },
+        "firstEvent": {
+          "type": "string"
+        },
+        "hasAccess": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isBookmarked": {
+          "type": "boolean"
+        },
+        "isInternal": {
+          "type": "boolean"
+        },
+        "isMember": {
+          "type": "boolean"
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "scrubIPAddresses": {
+          "type": "boolean"
+        },
+        "slug": {
+          "type": "string"
+        }
+      }
+    },
+    "ProjectSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "ProjectSchema"
+      }
+    },
+    "ProjectTeamSchema": {
+      "type": "object",
+      "properties": {
+        "avatar": {
+          "type": "object"
+        },
+        "color": {
+          "type": "string"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "eventThrottleRate": {
+          "type": "integer",
+          "description": "Probability (in percent) on how many events are throttled. Used for throttling at project level"
+        },
+        "features": {
+          "type": "array"
+        },
+        "firstEvent": {
+          "type": "string"
+        },
+        "hasAccess": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isBookmarked": {
+          "type": "boolean"
+        },
+        "isInternal": {
+          "type": "boolean"
+        },
+        "isMember": {
+          "type": "boolean"
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "scrubIPAddresses": {
+          "type": "boolean"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "teams": {
+          "type": "array"
+        }
+      }
+    },
+    "ProjectTeamSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "ProjectTeamSchema"
+      }
+    },
+    "RecoveryCodesSchema": {
+      "type": "object",
+      "properties": {
+        "codes": {
+          "type": "array"
+        }
+      }
+    },
+    "ReleaseSchema": {
+      "type": "object",
+      "properties": {
+        "commitCount": {
+          "type": "integer"
+        },
+        "data": {
+          "type": "object"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "dateReleased": {
+          "type": "string"
+        },
+        "deployCount": {
+          "type": "integer"
+        },
+        "projects": {
+          "type": "array"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "shortVersion": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "ReleaseSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "ReleaseSchema"
+      }
+    },
+    "RepositorySchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "RepositorySchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "RepositorySchema"
+      }
+    },
+    "SettingsOut": {
+      "type": "object",
+      "properties": {
+        "billingEnabled": {
+          "type": "boolean"
+        },
+        "chatwootWebsiteToken": {
+          "type": "string"
+        },
+        "enableOrganizationCreation": {
+          "type": "boolean"
+        },
+        "enableSocialAppsUserRegistration": {
+          "type": "boolean"
+        },
+        "enableUserRegistration": {
+          "type": "boolean"
+        },
+        "enabledFeatures": {
+          "type": "array"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "glitchtipInstanceName": {
+          "type": "string"
+        },
+        "iPaidForGlitchTip": {
+          "type": "boolean"
+        },
+        "plausibleDomain": {
+          "type": "string"
+        },
+        "plausibleUrl": {
+          "type": "string"
+        },
+        "sentryDSN": {
+          "type": "string"
+        },
+        "sentryTracesSampleRate": {
+          "type": "string"
+        },
+        "serverTimeZone": {
+          "type": "string"
+        },
+        "socialApps": {
+          "type": "array"
+        },
+        "stripePublicKey": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "SetupWizardSchema": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string"
+        }
+      }
+    },
+    "SpanGroupSchema": {
+      "type": "object",
+      "properties": {
+        "avgDuration": {
+          "type": "number"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "description": {
+          "type": "string"
+        },
+        "op": {
+          "type": "string"
+        },
+        "p95Duration": {
+          "type": "number"
+        },
+        "totalTime": {
+          "type": "number"
+        }
+      }
+    },
+    "SpanGroupSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "SpanGroupSchema"
+      }
+    },
+    "StatsDetailSchema": {
+      "type": "object",
+      "properties": {
+        "14d": {
+          "type": "string"
+        },
+        "24h": {
+          "type": "string"
+        }
+      }
+    },
+    "StatusPageSchema": {
+      "type": "object",
+      "properties": {
+        "isPublic": {
+          "type": "boolean",
+          "description": "When true, the status page URL is publicly accessible"
+        },
+        "monitors": {
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        }
+      }
+    },
+    "StatusPageSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "StatusPageSchema"
+      }
+    },
+    "StrKeyIntValue": {
+      "type": "object"
+    },
+    "StripeCheckoutSessionSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "StripeNestedPriceSchema": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        },
+        "stripeID": {
+          "type": "string"
+        }
+      }
+    },
+    "StripePortalSessionSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "StripeProductExpandedPriceSchema": {
+      "type": "object",
+      "properties": {
+        "defaultPrice": {
+          "type": "object",
+          "schema_ref": "StripeNestedPriceSchema"
+        },
+        "description": {
+          "type": "string"
+        },
+        "events": {
+          "type": "integer"
+        },
+        "marketingFeatures": {
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "prices": {
+          "type": "array"
+        },
+        "stripeID": {
+          "type": "string"
+        }
+      }
+    },
+    "StripeProductExpandedPriceSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "StripeProductExpandedPriceSchema"
+      }
+    },
+    "StripeProductSchema": {
+      "type": "object",
+      "properties": {
+        "default_price_id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "events": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "stripeID": {
+          "type": "string"
+        }
+      }
+    },
+    "StripeSubscriptionSchema": {
+      "type": "object",
+      "properties": {
+        "collectionMethod": {
+          "type": "string"
+        },
+        "created": {
+          "type": "string"
+        },
+        "currentPeriodEnd": {
+          "type": "string"
+        },
+        "currentPeriodStart": {
+          "type": "string"
+        },
+        "price": {
+          "type": "object",
+          "schema_ref": "StripeNestedPriceSchema"
+        },
+        "product": {
+          "type": "object",
+          "schema_ref": "StripeProductSchema"
+        },
+        "startDate": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "stripeID": {
+          "type": "string"
+        },
+        "subscriptionCycleEnd": {
+          "type": "string"
+        },
+        "subscriptionCycleStart": {
+          "type": "string"
+        }
+      }
+    },
+    "SubscriptionUsageSchema": {
+      "type": "object",
+      "properties": {
+        "eventCount": {
+          "type": "integer"
+        },
+        "fileSizeMb": {
+          "type": "integer"
+        },
+        "logEventCount": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "transactionEventCount": {
+          "type": "integer"
+        },
+        "uptimeCheckEventCount": {
+          "type": "integer"
+        }
+      }
+    },
+    "SupportLinkOut": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "TeamProjectSchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isMember": {
+          "type": "boolean"
+        },
+        "memberCount": {
+          "type": "integer"
+        },
+        "projects": {
+          "type": "array"
+        },
+        "slug": {
+          "type": "string"
+        }
+      }
+    },
+    "TeamProjectSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "TeamProjectSchema"
+      }
+    },
+    "TeamSchema": {
+      "type": "object",
+      "properties": {
+        "dateCreated": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isMember": {
+          "type": "boolean"
+        },
+        "memberCount": {
+          "type": "integer"
+        },
+        "slug": {
+          "type": "string"
+        }
+      }
+    },
+    "TeamSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "TeamSchema"
+      }
+    },
+    "TestAlertResultSchema": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "recipientType": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "TestAlertResultSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "TestAlertResultSchema"
+      }
+    },
+    "TransactionGroupSchema": {
+      "type": "object",
+      "properties": {
+        "avgDuration": {
+          "type": "number",
+          "description": "Average duration in ms"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "errorCount": {
+          "type": "integer"
+        },
+        "errorRate": {
+          "type": "number",
+          "description": "Delegates to TransactionGroup.error_rate property."
+        },
+        "firstSeen": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "lastSeen": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "op": {
+          "type": "string"
+        },
+        "p50": {
+          "type": "string"
+        },
+        "p95": {
+          "type": "string"
+        },
+        "project": {
+          "type": "integer"
+        },
+        "throughput": {
+          "type": "string",
+          "description": "Delegates to TransactionGroup.throughput property."
+        },
+        "transaction": {
+          "type": "string"
+        }
+      }
+    },
+    "TransactionGroupSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "TransactionGroupSchema"
+      }
+    },
+    "TransactionTrendSchema": {
+      "type": "object",
+      "properties": {
+        "avgDuration": {
+          "type": "number"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "date": {
+          "type": "string"
+        },
+        "totalTime": {
+          "type": "number"
+        },
+        "transactionCount": {
+          "type": "integer"
+        }
+      }
+    },
+    "TransactionTrendSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "TransactionTrendSchema"
+      }
+    },
+    "UpdateIssueSchema": {
+      "type": "object",
+      "properties": {
+        "assignedTo": {
+          "type": "string"
+        },
+        "merge": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "statusDetails": {
+          "type": "string"
+        }
+      }
+    },
+    "UserDetailSchema": {
+      "type": "object",
+      "properties": {
+        "chatwootIdentifierHash": {
+          "type": "string"
+        },
+        "dateJoined": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "hasPasswordAuth": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "identities": {
+          "type": "array"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Designates whether this user should be treated as active. Unselect this instead of deleting accounts."
+        },
+        "isSuperuser": {
+          "type": "boolean",
+          "description": "Designates that this user has all permissions without explicitly assigning them."
+        },
+        "lastLogin": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "options": {
+          "type": "object",
+          "schema_ref": "UserOptions"
+        },
+        "username": {
+          "type": "string"
+        }
+      }
+    },
+    "UserNotificationsSchema": {
+      "type": "object",
+      "properties": {
+        "subscribeByDefault": {
+          "type": "boolean",
+          "description": "Subscribe to project notifications by default. Overrides project settings"
+        }
+      }
+    },
+    "UserOptions": {
+      "type": "object",
+      "properties": {
+        "clock24Hours": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "preferredTheme": {
+          "type": "string"
+        },
+        "stacktraceOrder": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      }
+    },
+    "UserReportSchema": {
+      "type": "object",
+      "properties": {
+        "comments": {
+          "type": "string"
+        },
+        "dateCreated": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "event": {
+          "type": "object"
+        },
+        "eventID": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "UserReportSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "UserReportSchema"
+      }
+    },
+    "UserSchema": {
+      "type": "object",
+      "properties": {
+        "dateJoined": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "hasPasswordAuth": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "identities": {
+          "type": "array"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Designates whether this user should be treated as active. Unselect this instead of deleting accounts."
+        },
+        "isSuperuser": {
+          "type": "boolean",
+          "description": "Designates that this user has all permissions without explicitly assigning them."
+        },
+        "lastLogin": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "options": {
+          "type": "object",
+          "schema_ref": "UserOptions"
+        },
+        "username": {
+          "type": "string"
+        }
+      }
+    },
+    "UserSchema_list": {
+      "type": "array",
+      "items": {
+        "$ref": "UserSchema"
+      }
+    }
+  }
+}

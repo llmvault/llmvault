@@ -9,6 +9,8 @@ import (
 
 func serviceDiscoveryPrompt(provider string, conn model.Connection) string {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "glitchtip":
+		return glitchTipServiceDiscoveryPrompt(conn)
 	case "linear":
 		return linearServiceDiscoveryPrompt(conn)
 	case "notion":
@@ -43,6 +45,20 @@ Before retaining new facts, recall recent memories for this provider and update,
 Never retain secrets, access tokens, private credentials, raw API payloads, or full unbounded lists.
 If the provider is disconnected or unavailable, retain nothing and finish with a short explanation.
 `, displayName, provider, displayName, conn.ID.String(), provider)
+}
+
+func glitchTipServiceDiscoveryPrompt(conn model.Connection) string {
+	return discoveryPromptHeader("glitchtip", conn) + `
+GlitchTip discovery checklist:
+1. Load the GlitchTip skill instructions and use the Hivy GlitchTip proxy.
+2. Discover accessible organizations and production-relevant projects. For each important project, retain organization slug, project ID, project slug, display name, platform, and dashboard URL pattern when available.
+3. Discover environments and recent releases enough to understand production/staging naming conventions and release identifiers. Retain conventions and important active release/project mappings, not full release history.
+4. Inspect recent unresolved issues only to infer durable operational patterns: high-volume projects, common error categories, environment/release tags, and likely ownership hints. Do not retain full issue lists, raw stacktraces, event payloads, request data, user data, or secrets.
+5. Discover monitors, log resources, and log naming conventions where available. Retain only concise operational notes such as monitor IDs/names or log resource meanings that future debugging work can reuse.
+6. Retain concise memories that help future incident/debug work, such as "GlitchTip org hivy project apiusehivycom has project ID 1 and tracks API errors" or "production environment tag is production".
+7. Avoid mutations. Do not resolve, delete, assign, mute, comment on, or update issues; do not change projects, alerts, monitors, releases, teams, members, API tokens, or billing.
+8. Keep retained memories compact. Start with small limits for issue/event/log calls and summarize; do not retain raw API payloads.
+`
 }
 
 func railwayServiceDiscoveryPrompt(conn model.Connection) string {

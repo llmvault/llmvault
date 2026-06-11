@@ -11,6 +11,18 @@
     { "name": "mailchimp",         "display_name": "Mailchimp",  "auth_mode": "OAUTH2" },
     { "name": "sendgrid",          "display_name": "SendGrid",   "auth_mode": "API_KEY" },
     { "name": "stripe",            "display_name": "Stripe",     "auth_mode": "API_KEY" },
-    { "name": "railway",           "display_name": "Railway",    "auth_mode": "API_KEY" }
+    { "name": "railway",           "display_name": "Railway",    "auth_mode": "API_KEY" },
+    {
+      "name": "glitchtip",
+      "display_name": "GlitchTip",
+      "auth_mode": "API_KEY",
+      "connection_config": {
+        "baseUrl": {
+          "title": "Base URL",
+          "description": "Your GlitchTip instance URL.",
+          "example": "https://app.glitchtip.com"
+        }
+      }
+    }
   ]
 }

@@ -23,7 +23,7 @@ const (
 
 func serviceDiscoveryProviderSupported(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "linear", "notion", "railway", "slack", "vercel":
+	case "glitchtip", "linear", "notion", "railway", "slack", "vercel":
 		return true
 	default:
 		return false

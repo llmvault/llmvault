@@ -44,6 +44,8 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 		EmployeeEnvGitHubNoKeyring:        "1",
 		EmployeeEnvBugsinkURL:             "https://api.example.test/internal/bugsink-proxy/" + employeeID.String(),
 		EmployeeEnvBugsinkToken:           "runtime-secret",
+		EmployeeEnvGlitchTipURL:           "https://api.example.test/internal/glitchtip-proxy/" + employeeID.String(),
+		EmployeeEnvGlitchTipToken:         "runtime-secret",
 		EmployeeEnvLinearURL:              "https://api.example.test/internal/linear-proxy/" + employeeID.String(),
 		EmployeeEnvLinearToken:            "runtime-secret",
 		EmployeeEnvNotionAPIURL:           "https://api.example.test/internal/notion-proxy/" + employeeID.String(),

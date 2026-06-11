@@ -11,7 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.Sandbox, orgID uuid.UUID, agent *model.Employee, secrets *employeeruntime.StartupSecrets, gitIdentity *employeeGitIdentity, bugsinkDashboardURL string) map[string]string {
+func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.Sandbox, orgID uuid.UUID, agent *model.Employee, secrets *employeeruntime.StartupSecrets, gitIdentity *employeeGitIdentity, bugsinkDashboardURL string, glitchTipDashboardURL string) map[string]string {
 	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
 	proxyBaseURL := cfg.ProxyOpenAIBaseURL()
 	envVars := map[string]string{
@@ -34,9 +34,10 @@ func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.
 		employeeruntime.EmployeeEnvOrgID:                    orgID.String(),
 	}
 	opts := employeeruntime.ControlPlaneRuntimeEnvOptions{
-		GitUsername:             employeeGitUsername(agent, gitIdentity),
-		GitEmail:                employeeGitEmail(agent, gitIdentity),
-		BugsinkDashboardBaseURL: bugsinkDashboardURL,
+		GitUsername:               employeeGitUsername(agent, gitIdentity),
+		GitEmail:                  employeeGitEmail(agent, gitIdentity),
+		BugsinkDashboardBaseURL:   bugsinkDashboardURL,
+		GlitchTipDashboardBaseURL: glitchTipDashboardURL,
 	}
 	employeeruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, runtimeSecret, opts)
 	return envVars
