@@ -1,7 +1,6 @@
 package integrations
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,21 +11,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/nango"
 )
 
 const managedBy = "global_integrations"
-const globalIntegrationSeedLockKey int64 = 2026052403
-
-type SeedResult struct {
-	Created   int
-	Updated   int
-	Unchanged int
-	Deleted   int
-	Skipped   int
-}
 
 type Seeder struct {
 	db      *gorm.DB
@@ -39,63 +28,6 @@ func NewSeeder(db *gorm.DB, nangoClient *nango.Client, cat *catalog.Catalog) *Se
 		cat = catalog.Global()
 	}
 	return &Seeder{db: db, nango: nangoClient, catalog: cat}
-}
-
-func SeedGlobalIntegrations(ctx context.Context, db *gorm.DB, nangoClient *nango.Client, cat *catalog.Catalog, dir string) (*SeedResult, error) {
-	return NewSeeder(db, nangoClient, cat).Seed(ctx, dir)
-}
-
-func (s *Seeder) Seed(ctx context.Context, dir string) (*SeedResult, error) {
-	if s.db == nil {
-		return nil, fmt.Errorf("db is required")
-	}
-	if s.nango == nil {
-		return nil, fmt.Errorf("nango client is required")
-	}
-	manifests, err := loadManifests(dir)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateManifests(manifests); err != nil {
-		return nil, err
-	}
-	result := &SeedResult{}
-	seen := map[string]bool{}
-	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", globalIntegrationSeedLockKey).Error; err != nil {
-			return fmt.Errorf("lock global integrations seed: %w", err)
-		}
-		locked := *s
-		locked.db = tx
-		for _, manifest := range manifests {
-			seen[manifest.ID] = true
-			state, err := locked.syncOne(ctx, manifest)
-			if err != nil {
-				return err
-			}
-			switch state {
-			case "created":
-				result.Created++
-			case "updated":
-				result.Updated++
-			case "unchanged":
-				result.Unchanged++
-			case "deleted":
-				result.Deleted++
-			case "skipped":
-				result.Skipped++
-			}
-		}
-		deleted, err := locked.disableMissing(ctx, seen)
-		if err != nil {
-			return err
-		}
-		result.Deleted += deleted
-		return nil
-	}); err != nil {
-		return result, err
-	}
-	return result, nil
 }
 
 func validateManifests(manifests []Manifest) error {
@@ -161,11 +93,6 @@ func nangoProvider(m Manifest) string {
 		return strings.TrimSpace(m.NangoProvider)
 	}
 	return strings.TrimSpace(m.Provider)
-}
-
-func logSkip(ctx context.Context, m Manifest, reason string) {
-	logging.FromContext(ctx).WarnContext(ctx, "global integration skipped",
-		"id", m.ID, "provider", m.Provider, "reason", reason)
 }
 
 func isNotFound(err error) bool {

@@ -10,8 +10,8 @@
   "supports_rag_source": false,
   "credentials": {
     "type": "APP",
-    "app_id_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_ID",
-    "app_link_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_LINK",
-    "private_key_env": "HIVY_NANGO_GITHUB_CODE_REVIEWS_APP_PRIVATE_KEY"
+    "app_id": true,
+    "app_link_field": true,
+    "private_key": true
   }
 }

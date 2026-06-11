@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rsa"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -272,6 +273,13 @@ func setupConnectRoutes(
 		r.Use(middleware.ResolveUser(database))
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequirePlatformAdmin(platformAdminEmails))
+			if strings.TrimSpace(cfg.AdminSecret) != "" {
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireAdminSecret(cfg.AdminSecret))
+					r.Get("/v1/admin/integrations", integrationHandler.ListAdmin)
+					r.Put("/v1/admin/integrations/{id}", integrationHandler.UpsertAdmin)
+				})
+			}
 			r.Post("/v1/integrations", integrationHandler.Create)
 			r.Get("/v1/integrations", integrationHandler.List)
 			r.Get("/v1/integrations/{id}", integrationHandler.Get)

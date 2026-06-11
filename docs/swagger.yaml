@@ -1,5 +1,77 @@
 basePath: /
 definitions:
+  AdminCredentialField:
+    properties:
+      label:
+        type: string
+      multiline:
+        type: boolean
+      name:
+        type: string
+      placeholder:
+        type: string
+      required:
+        type: boolean
+      secret:
+        type: boolean
+    type: object
+  AdminDefinition:
+    properties:
+      auth_mode:
+        type: string
+      credential_fields:
+        items:
+          $ref: '#/definitions/AdminCredentialField'
+        type: array
+      display_name:
+        type: string
+      enabled:
+        type: boolean
+      existing:
+        $ref: '#/definitions/AdminExistingIntegration'
+      fixed_credentials:
+        items:
+          $ref: '#/definitions/AdminFixedCredential'
+        type: array
+      id:
+        type: string
+      meta:
+        $ref: '#/definitions/JSON'
+      nango_provider:
+        type: string
+      provider:
+        type: string
+      required:
+        type: boolean
+      supports_rag_source:
+        type: boolean
+      unique_key:
+        type: string
+    type: object
+  AdminExistingIntegration:
+    properties:
+      active_connections:
+        type: integer
+      display_name:
+        type: string
+      id:
+        type: string
+      managed:
+        type: boolean
+      unique_key:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  AdminFixedCredential:
+    properties:
+      label:
+        type: string
+      name:
+        type: string
+      value:
+        type: string
+    type: object
   AvailableResource:
     properties:
       id:
@@ -79,6 +151,37 @@ definitions:
         type: number
       output:
         type: number
+    type: object
+  Credentials:
+    properties:
+      app_id:
+        type: string
+      app_link:
+        type: string
+      client_id:
+        type: string
+      client_logo_uri:
+        type: string
+      client_name:
+        description: MCP_OAUTH2_GENERIC fields
+        type: string
+      client_secret:
+        type: string
+      client_uri:
+        type: string
+      password:
+        type: string
+      private_key:
+        type: string
+      scopes:
+        type: string
+      type:
+        type: string
+      username:
+        description: INSTALL_PLUGIN fields
+        type: string
+      webhook_secret:
+        type: string
     type: object
   DiscoveryResult:
     properties:
@@ -2861,6 +2964,18 @@ definitions:
           type: string
         type: array
     type: object
+  upsertAdminIntegrationRequest:
+    properties:
+      credentials:
+        $ref: '#/definitions/Credentials'
+    type: object
+  upsertAdminIntegrationResponse:
+    properties:
+      definition:
+        $ref: '#/definitions/AdminDefinition'
+      state:
+        type: string
+    type: object
   usageResponse:
     properties:
       api_keys:
@@ -3611,6 +3726,93 @@ paths:
       summary: X (Twitter) OAuth callback
       tags:
       - oauth
+  /v1/admin/integrations:
+    get:
+      description: Lists supported global integration definitions and existing synced
+        records.
+      parameters:
+      - description: Admin secret
+        in: header
+        name: X-Hivy-Admin-Secret
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/AdminDefinition'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List admin integration definitions
+      tags:
+      - admin
+  /v1/admin/integrations/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Creates or updates the supported global integration in Nango and
+        the Hivy database.
+      parameters:
+      - description: Admin secret
+        in: header
+        name: X-Hivy-Admin-Secret
+        required: true
+        type: string
+      - description: Integration definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Integration credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/upsertAdminIntegrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/upsertAdminIntegrationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Sync an admin integration
+      tags:
+      - admin
   /v1/api-keys:
     get:
       description: Returns API keys for the current organization with cursor pagination.

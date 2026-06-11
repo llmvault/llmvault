@@ -456,15 +456,17 @@ export default function SessionsPage() {
                 events: [],
                 isStreaming: true,
               }
+              const completedEvents = completeTrailingLiveAssistant(
+                existing.events
+              )
               return {
                 ...current,
                 [sessionID]: {
                   ...existing,
                   text: existing.text || buffer,
-                  events: [
-                    ...completeTrailingLiveAssistant(existing.events),
-                    liveEvent,
-                  ],
+                  events: isHiddenSessionEvent(liveEvent)
+                    ? completedEvents
+                    : [...completedEvents, liveEvent],
                   isStreaming: true,
                 },
               }
@@ -1318,6 +1320,17 @@ function cleanPersistedAssistantText(text: string, tokenTexts: string[]) {
   return text
 }
 
+function cleanLiveFinalText(text: string, assistantTexts: string[]) {
+  const previousText = assistantTexts
+    .filter((assistantText) => assistantText !== "")
+    .join("")
+  if (previousText !== "" && text.startsWith(previousText)) {
+    const candidate = text.slice(previousText.length)
+    if (candidate.trim() !== "") return candidate
+  }
+  return cleanPersistedAssistantText(text, assistantTexts)
+}
+
 function isHiddenSessionEvent(event: EmployeeSessionEvent) {
   switch (event.event_type) {
     case "turn_started":
@@ -1553,7 +1566,6 @@ function appendLiveTokenEvent(
       ...events.slice(0, -1),
       {
         ...last,
-        sequence_number: sequence,
         event_at: now,
         payload: {
           ...payloadRecord(last.payload),
@@ -1576,7 +1588,11 @@ function reconcileLiveFinalEvent(
   sequence: number
 ) {
   const completed = completeTrailingLiveAssistant(events)
-  if (finalText.trim() === "") return completed
+  const assistantTexts = completed
+    .filter((event) => event.event_type === liveAssistantEventType)
+    .map((event) => eventText(event))
+  const displayText = cleanLiveFinalText(finalText, assistantTexts)
+  if (displayText.trim() === "") return completed
 
   const last = completed.at(-1)
   if (last?.event_type === liveAssistantEventType) {
@@ -1584,11 +1600,10 @@ function reconcileLiveFinalEvent(
       ...completed.slice(0, -1),
       {
         ...last,
-        sequence_number: sequence,
         event_at: new Date().toISOString(),
         payload: {
           ...payloadRecord(last.payload),
-          text: finalText,
+          text: displayText,
           status: "completed",
         },
       },
@@ -1596,7 +1611,7 @@ function reconcileLiveFinalEvent(
   }
   return [
     ...completed,
-    liveAssistantEvent(sessionID, finalText, sequence, "completed"),
+    liveAssistantEvent(sessionID, displayText, sequence, "completed"),
   ]
 }
 
@@ -1632,7 +1647,6 @@ function liveAssistantEvent(
     employee_session_id: sessionID,
     event_type: liveAssistantEventType,
     source: "web",
-    sequence_number: sequence,
     payload: { text, status },
     event_at: now,
     created_at: now,

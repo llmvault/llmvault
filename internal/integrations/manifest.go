@@ -28,20 +28,20 @@ type Manifest struct {
 }
 
 type CredentialsManifest struct {
-	Type             string `json:"type"`
-	ClientIDEnv      string `json:"client_id_env,omitempty"`
-	ClientSecretEnv  string `json:"client_secret_env,omitempty"`
-	Scopes           string `json:"scopes,omitempty"`
-	AppIDEnv         string `json:"app_id_env,omitempty"`
-	AppLinkEnv       string `json:"app_link_env,omitempty"`
-	AppLink          string `json:"app_link,omitempty"`
-	PrivateKeyEnv    string `json:"private_key_env,omitempty"`
-	WebhookSecretEnv string `json:"webhook_secret_env,omitempty"`
-	ClientName       string `json:"client_name,omitempty"`
-	ClientURI        string `json:"client_uri,omitempty"`
-	ClientLogoURI    string `json:"client_logo_uri,omitempty"`
-	UsernameEnv      string `json:"username_env,omitempty"`
-	PasswordEnv      string `json:"password_env,omitempty"`
+	Type          string `json:"type"`
+	ClientID      bool   `json:"client_id,omitempty"`
+	ClientSecret  bool   `json:"client_secret,omitempty"`
+	Scopes        string `json:"scopes,omitempty"`
+	AppID         bool   `json:"app_id,omitempty"`
+	AppLinkField  bool   `json:"app_link_field,omitempty"`
+	AppLink       string `json:"app_link,omitempty"`
+	PrivateKey    bool   `json:"private_key,omitempty"`
+	WebhookSecret bool   `json:"webhook_secret,omitempty"`
+	ClientName    string `json:"client_name,omitempty"`
+	ClientURI     string `json:"client_uri,omitempty"`
+	ClientLogoURI string `json:"client_logo_uri,omitempty"`
+	Username      bool   `json:"username,omitempty"`
+	Password      bool   `json:"password,omitempty"`
 }
 
 func loadManifests(dir string) ([]Manifest, error) {
