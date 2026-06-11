@@ -222,7 +222,14 @@ func New(ctx context.Context) (*Deps, error) {
 			} else {
 				return nil, fmt.Errorf("creating sandbox provider: %w", err)
 			}
-		} else if err := sandboxProvider.Validate(ctx); err != nil {
+		} else if err := validateSandboxProvider(ctx, cfg, sandboxProvider); err != nil {
+			// A configured sandbox provider that fails validation is a hard error
+			// in production: a flaky provider response at boot must not yield a
+			// "healthy" instance with the entire employee/gateway subsystem silently
+			// missing (P1-20). validateSandboxProvider already retried with backoff.
+			if cfg.IsProduction() {
+				return nil, fmt.Errorf("validating sandbox provider %q: %w", sandboxProvider.ID(), err)
+			}
 			logging.FromContext(ctx).WarnContext(ctx, "sandbox orchestration disabled; selected sandbox provider is unavailable",
 				"provider", sandboxProvider.ID(),
 				"reason", err.Error())
@@ -287,4 +294,38 @@ func New(ctx context.Context) (*Deps, error) {
 		Subscriptions:   subscription.NewService(database, billingRegistry, credits),
 		S3Client:        s3Client,
 	}, nil
+}
+
+// validateSandboxProvider validates the provider, retrying transient failures
+// with a short backoff so a flaky provider response at deploy time does not
+// permanently disable sandbox orchestration for the process lifetime (P1-20).
+// In production the number of attempts is higher and the final error is
+// returned to the caller, which fails bootstrap.
+func validateSandboxProvider(ctx context.Context, cfg *config.Config, provider sandbox.Provider) error {
+	attempts := 3
+	if cfg.IsProduction() {
+		attempts = 6
+	}
+	var err error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err = provider.Validate(ctx); err == nil {
+			return nil
+		}
+		if attempt == attempts {
+			break
+		}
+		backoff := time.Duration(attempt) * 2 * time.Second
+		logging.FromContext(ctx).WarnContext(ctx, "sandbox provider validation failed; retrying",
+			"provider", provider.ID(),
+			"attempt", attempt,
+			"max_attempts", attempts,
+			"retry_in", backoff.String(),
+			"error", err.Error())
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+	}
+	return err
 }

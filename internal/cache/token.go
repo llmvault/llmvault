@@ -64,7 +64,12 @@ func (m *Manager) IsTokenRevoked(ctx context.Context, jti string) (bool, error) 
 }
 
 // InvalidateAPIKey removes an API key from the local cache and publishes
-// a cross-instance invalidation message.
+// a cross-instance invalidation message. Local eviction is synchronous and
+// happens before publishing so the revoking instance never serves the key
+// from its own L1 cache, even if the Redis publish fails.
 func (m *Manager) InvalidateAPIKey(ctx context.Context, keyHash string) error {
+	if m.invalidator.apiKeyCache != nil {
+		m.invalidator.apiKeyCache.Invalidate(keyHash)
+	}
 	return m.invalidator.PublishAPIKeyInvalidation(ctx, keyHash)
 }

@@ -62,44 +62,50 @@ type GatewaySlackStatusPayload struct {
 	ProviderKey  string `json:"provider_config_key"`
 }
 
-func NewGatewaySlackTask(payload GatewaySlackPayload) (*asynq.Task, error) {
+// NewGatewaySlackTask creates a task that delivers a Slack gateway message.
+// Options are returned separately so they survive the enqueue client's Sentry
+// trace-payload rewrite (P0-11).
+func NewGatewaySlackTask(payload GatewaySlackPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal gateway slack payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal gateway slack payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeGatewaySlack,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(2),
-		asynq.Timeout(610*time.Second),
-	), nil
+		asynq.Timeout(610 * time.Second),
+	}
+	return asynq.NewTask(TypeGatewaySlack, encoded), opts, nil
 }
 
-func NewGatewayExternalCallbackTask(payload GatewayExternalCallbackPayload) (*asynq.Task, error) {
+// NewGatewayExternalCallbackTask creates a task that delivers an external
+// callback. Options are returned separately so they survive the enqueue
+// client's Sentry trace-payload rewrite (P0-11).
+func NewGatewayExternalCallbackTask(payload GatewayExternalCallbackPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal gateway external callback payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal gateway external callback payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeGatewayExternalCallback,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(2),
-		asynq.Timeout(610*time.Second),
-	), nil
+		asynq.Timeout(610 * time.Second),
+	}
+	return asynq.NewTask(TypeGatewayExternalCallback, encoded), opts, nil
 }
 
-func NewGatewaySlackStatusTask(payload GatewaySlackStatusPayload) (*asynq.Task, error) {
+// NewGatewaySlackStatusTask creates a task that sends a Slack status update.
+// Options are returned separately so they survive the enqueue client's Sentry
+// trace-payload rewrite (P0-11).
+func NewGatewaySlackStatusTask(payload GatewaySlackStatusPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal gateway slack status payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal gateway slack status payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeGatewaySlackStatus,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(1),
-		asynq.Timeout(30*time.Second),
-	), nil
+		asynq.Timeout(30 * time.Second),
+	}
+	return asynq.NewTask(TypeGatewaySlackStatus, encoded), opts, nil
 }

@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -13,6 +12,13 @@ import (
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/observe"
 )
+
+// maxStreamBufLen caps the partial-line buffer so a malformed provider stream
+// (e.g. a never-terminated line) cannot grow it unboundedly. SSE usage events
+// are small JSON objects; a real `data:` line never approaches this size. When
+// a single un-terminated line exceeds the cap we discard the accumulated prefix
+// rather than retain memory forever.
+const maxStreamBufLen = 1 << 20 // 1 MiB
 
 // CaptureTransport wraps an http.RoundTripper to capture response metadata
 // (usage, TTFB, status) without adding latency to the response.
@@ -151,11 +157,15 @@ func (sc *streamingCapture) Read(p []byte) (int, error) {
 
 	if n > 0 {
 		sc.buf.Write(p[:n])
-		sc.tryParseEvents()
+		sc.tryParseEvents(false)
 	}
 
 	if err != nil {
 		sc.captured.TotalMs = int(time.Since(sc.start).Milliseconds())
+		// EOF (or any terminal error) means no more bytes will arrive: flush any
+		// trailing line that was not newline-terminated so a final usage event
+		// is not dropped.
+		sc.tryParseEvents(true)
 	}
 
 	return n, err
@@ -163,36 +173,69 @@ func (sc *streamingCapture) Read(p []byte) (int, error) {
 
 func (sc *streamingCapture) Close() error {
 	sc.captured.TotalMs = int(time.Since(sc.start).Milliseconds())
-	sc.tryParseEvents()
+	sc.tryParseEvents(true)
 	return sc.inner.Close()
 }
 
-func (sc *streamingCapture) tryParseEvents() {
-	data := sc.buf.Bytes()
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-
-	var lastComplete int
-	for scanner.Scan() {
-		line := scanner.Text()
-		lastComplete = lastComplete + len(line) + 1
-
-		if !strings.HasPrefix(line, "data: ") {
-			continue
+// tryParseEvents parses complete SSE lines out of the accumulated buffer,
+// extracting usage from `data:` events. It scans on raw `\n` byte offsets so
+// the buffer-reset accounting is exact regardless of line content, and trims a
+// trailing `\r` so CRLF-framed provider streams (`\r\n`) parse correctly. Lines
+// without a terminating `\n` are kept buffered for the next read; only the
+// unparsed tail is retained.
+//
+// flush==true (called from Close) parses any final line that arrived without a
+// trailing newline — e.g. a usage event on the last line of a stream that the
+// provider did not terminate with `\n`.
+func (sc *streamingCapture) tryParseEvents(flush bool) {
+	for {
+		data := sc.buf.Bytes()
+		idx := bytes.IndexByte(data, '\n')
+		if idx < 0 {
+			// No complete line. On flush, parse whatever remains as a final
+			// line; otherwise keep it buffered (capped below).
+			if flush && len(data) > 0 {
+				sc.parseLine(data)
+				sc.buf.Reset()
+			}
+			break
 		}
-		payload := strings.TrimPrefix(line, "data: ")
-		if payload == "[DONE]" {
-			continue
-		}
-		u := ParseStreamingChunk(sc.providerID, []byte(payload))
-		if u.InputTokens > 0 || u.OutputTokens > 0 {
-			sc.captured.Usage = toObserveUsage(u)
-		}
-	}
 
-	if lastComplete > 0 && lastComplete <= len(data) {
-		remaining := data[lastComplete:]
+		line := data[:idx]
+		// Strip the trailing CR of a CRLF terminator.
+		if n := len(line); n > 0 && line[n-1] == '\r' {
+			line = line[:n-1]
+		}
+		sc.parseLine(line)
+
+		// Drop the consumed line (including the `\n`) from the buffer.
+		remaining := append([]byte(nil), data[idx+1:]...)
 		sc.buf.Reset()
 		sc.buf.Write(remaining)
+	}
+
+	// Hard cap: an un-terminated line that grows past the limit is malformed;
+	// discard it so memory cannot grow without bound.
+	if !flush && sc.buf.Len() > maxStreamBufLen {
+		sc.buf.Reset()
+	}
+}
+
+// parseLine extracts usage from a single (already newline- and CR-stripped) SSE
+// line. Non-`data:` lines and the `[DONE]` sentinel are ignored.
+func (sc *streamingCapture) parseLine(line []byte) {
+	const prefix = "data:"
+	if !bytes.HasPrefix(line, []byte(prefix)) {
+		return
+	}
+	// Per the SSE grammar a single optional space after the colon is stripped.
+	payload := bytes.TrimPrefix(line[len(prefix):], []byte(" "))
+	if string(payload) == "[DONE]" || len(payload) == 0 {
+		return
+	}
+	u := ParseStreamingChunk(sc.providerID, payload)
+	if u.InputTokens > 0 || u.OutputTokens > 0 {
+		sc.captured.Usage = toObserveUsage(u)
 	}
 }
 

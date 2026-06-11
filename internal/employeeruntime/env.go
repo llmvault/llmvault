@@ -21,6 +21,7 @@ const (
 	EmployeeEnvDBPath                     = "HIVY_DB_PATH"
 	EmployeeEnvRuntimeBindAddr            = "HIVY_RUNTIME_BIND_ADDR"
 	EmployeeEnvRuntimeMode                = "HIVY_RUNTIME_MODE"
+	EmployeeEnvTunnelPassword             = "HIVY_TUNNEL_PASSWORD"
 	EmployeeEnvSandboxID                  = "HIVY_SANDBOX_ID"
 	EmployeeEnvOrgID                      = "HIVY_ORG_ID"
 	EmployeeEnvGitUsername                = "HIVY_GIT_USERNAME"
@@ -109,6 +110,7 @@ var employeeEnvCatalog = []EmployeeEnvSpec{
 	{Key: EmployeeEnvDBPath, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvRuntimeBindAddr, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvRuntimeMode, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvTunnelPassword, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvSandboxID, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvOrgID, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvGitUsername, Source: EmployeeEnvSourceControlPlaneInjected},
@@ -241,6 +243,18 @@ func reportValue(value string, present bool, sensitive bool, includeSensitive bo
 		return EmployeeEnvValueRedacted, true
 	}
 	return value, false
+}
+
+// IsSensitiveEnvKey reports whether an env var should be treated as a secret,
+// either because the catalog flags it Sensitive or because the key name looks
+// like a credential. Used to redact values before they are logged.
+func IsSensitiveEnvKey(key string) bool {
+	for _, spec := range employeeEnvCatalog {
+		if spec.Key == key {
+			return spec.Sensitive
+		}
+	}
+	return looksSensitiveEnvKey(key)
 }
 
 func looksSensitiveEnvKey(key string) bool {

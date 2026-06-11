@@ -9,7 +9,17 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/netguard"
 )
+
+// allowLoopbackForTest permits httptest's 127.0.0.1 callback servers through the
+// SSRF guard for the duration of a test (the guard otherwise blocks loopback).
+func allowLoopbackForTest(t *testing.T) {
+	t.Helper()
+	prev := netguard.AllowLoopback
+	netguard.AllowLoopback = true
+	t.Cleanup(func() { netguard.AllowLoopback = prev })
+}
 
 func TestHTTPAdapterDecodeJSONMarkdown(t *testing.T) {
 	routeID := uuid.New()
@@ -77,6 +87,7 @@ func TestHTTPAdapterDecodeTextMarkdown(t *testing.T) {
 }
 
 func TestHTTPAdapterSendResponsePostsMarkdownCallback(t *testing.T) {
+	allowLoopbackForTest(t)
 	var received map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
@@ -117,5 +128,37 @@ func TestHTTPAdapterSendResponsePostsMarkdownCallback(t *testing.T) {
 	}
 	if received["thread_id"] != "thread-1" {
 		t.Fatalf("callback thread_id = %#v", received["thread_id"])
+	}
+}
+
+// P1-7: callback_url is client-controlled; SendResponse must reject internal /
+// cloud-metadata destinations before issuing the request (blind SSRF + response
+// exfiltration). With AllowLoopback disabled (production behaviour), loopback,
+// private, and metadata targets must all be refused.
+func TestHTTPAdapterSendResponseRejectsSSRFCallback(t *testing.T) {
+	prev := netguard.AllowLoopback
+	netguard.AllowLoopback = false
+	t.Cleanup(func() { netguard.AllowLoopback = prev })
+
+	adapter := NewHTTPAdapter(nil)
+	route := model.EmployeeGatewayRoute{ID: uuid.New(), Provider: HTTPProvider}
+
+	for _, target := range []string{
+		"http://169.254.169.254/latest/meta-data/",
+		"http://127.0.0.1:8080/internal",
+		"http://localhost/admin",
+		"http://10.0.0.5/secret",
+		"http://metadata.google.internal/computeMetadata/v1/",
+	} {
+		payload := ProviderResponsePayload{
+			Route:     route,
+			ChannelID: route.ID.String(),
+			ThreadID:  "thread-1",
+			Text:      "exfil",
+			Raw:       map[string]any{"callback_url": target},
+		}
+		if _, err := adapter.SendResponse(t.Context(), payload); err == nil {
+			t.Fatalf("expected SSRF callback %q to be rejected, but it was allowed", target)
+		}
 	}
 }

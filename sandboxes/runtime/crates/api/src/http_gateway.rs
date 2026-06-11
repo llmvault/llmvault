@@ -671,6 +671,94 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reconnect_mid_stream_replays_tail_then_continues_live() {
+        // Models the Go proxy / web client reconnecting partway through a turn:
+        // the first subscriber reads some tokens, the connection drops, and a
+        // NEW subscriber resubscribes. It must replay the buffered tail (every
+        // event so far, including the ones the first subscriber missed) and then
+        // keep receiving the live remainder up to the terminal `done`.
+        let broker = HttpStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+
+        // First connection sees the first two tokens live.
+        let (history0, mut first) = broker.subscribe(&stream_id).await.expect("stream exists");
+        assert!(history0.is_empty(), "no history before any publish");
+        broker
+            .publish(&stream_id, "token", json!({"text": "The "}))
+            .await;
+        broker
+            .publish(&stream_id, "token", json!({"text": "quick "}))
+            .await;
+        assert_eq!(first.recv().await.unwrap().payload["text"], "The ");
+        assert_eq!(first.recv().await.unwrap().payload["text"], "quick ");
+
+        // Connection drops mid-turn.
+        drop(first);
+
+        // More events are published while nobody is connected.
+        broker
+            .publish(&stream_id, "token", json!({"text": "brown "}))
+            .await;
+
+        // Reconnect: history must contain the WHOLE turn so far (the tail the new
+        // subscriber missed is replayable), then live events continue.
+        let (history1, mut second) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let replayed: Vec<String> = history1
+            .iter()
+            .filter(|e| e.event == "token")
+            .map(|e| e.payload["text"].as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(replayed, vec!["The ", "quick ", "brown "]);
+
+        broker
+            .publish(&stream_id, "token", json!({"text": "fox"}))
+            .await;
+        broker.publish(&stream_id, "final", json!({"text": "The quick brown fox"})).await;
+        broker.publish(&stream_id, "done", json!({})).await;
+
+        assert_eq!(second.recv().await.unwrap().payload["text"], "fox");
+        assert_eq!(second.recv().await.unwrap().event, "final");
+        assert_eq!(second.recv().await.unwrap().event, "done");
+    }
+
+    #[tokio::test]
+    async fn subscriber_after_done_replays_terminal_events_and_does_not_hang() {
+        // A subscriber that arrives only AFTER the turn fully completed (Slack
+        // asynq task scheduled late, a Go proxy retry, a browser reload) must
+        // still receive the terminal `final`/`done` from history so it stops
+        // waiting instead of blocking on recv() forever.
+        let broker = HttpStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+
+        broker
+            .publish(&stream_id, "token", json!({"text": "answer"}))
+            .await;
+        broker
+            .publish(&stream_id, "final", json!({"text": "answer"}))
+            .await;
+        broker.publish(&stream_id, "done", json!({})).await;
+
+        // Subscribe only now — strictly after the stream is done.
+        let (history, mut receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+        assert_eq!(history.last().map(|e| e.event.as_str()), Some("done"));
+        assert!(
+            history.iter().any(|e| e.event == "final"),
+            "terminal final must be replayable to a post-done subscriber"
+        );
+
+        // Crucially, the client must be able to STOP from the replayed `done`
+        // alone: the live broadcast channel yields nothing more (the sender is
+        // still held by the broker, so it is not Closed), so a client that
+        // waited on recv() instead of honoring the history `done` would hang.
+        // This asserts the terminal signal lives in history, not the live tail.
+        let live = tokio::time::timeout(Duration::from_millis(150), receiver.recv()).await;
+        assert!(
+            live.is_err(),
+            "no further live events after done; the terminal signal must come from replayed history"
+        );
+    }
+
+    #[tokio::test]
     async fn active_session_stream_overrides_latest_registered_stream_temporarily() {
         let broker = HttpStreamBroker::new();
         broker

@@ -12,27 +12,53 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
+// PeriodicTaskConfigs returns the set of recurring tasks registered with the
+// asynq Scheduler. Every config carries asynq.Unique(interval) so that N
+// worker replicas each running their own Scheduler don't enqueue N duplicate
+// ticks per interval (P1-23). The Unique TTL is set to the cron interval so
+// a second scheduler firing within the same tick window sees ErrDuplicateTask
+// and skips; subsequent ticks are still enqueued normally.
 func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.PeriodicTaskConfig {
 	configs := []*asynq.PeriodicTaskConfig{
 		{
 			Cronspec: "0 */6 * * *", // every 6 hours
 			Task:     asynq.NewTask(TypeTokenCleanup, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(2), asynq.Timeout(2 * time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(2),
+				asynq.Timeout(2 * time.Minute),
+				asynq.Unique(6 * time.Hour),
+			},
 		},
 		{
 			Cronspec: "@every 5m",
 			Task:     asynq.NewTask(TypeStreamCleanup, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(2 * time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(2 * time.Minute),
+				asynq.Unique(5 * time.Minute),
+			},
 		},
 		{
 			Cronspec: "@every 15m",
 			Task:     asynq.NewTask(TypeCreditsExpire, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(2), asynq.Timeout(10 * time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(2),
+				asynq.Timeout(10 * time.Minute),
+				asynq.Unique(15 * time.Minute),
+			},
 		},
 		{
 			Cronspec: "@every 30s",
 			Task:     asynq.NewTask(TypeBillingBatchProcess, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(5 * time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(5 * time.Minute),
+				asynq.Unique(30 * time.Second),
+			},
 		},
 		{
 			// Subscription renewal sweep. The handler enqueues per-sub
@@ -42,7 +68,12 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			// last_renewal_attempt_at.
 			Cronspec: "@every 1h",
 			Task:     asynq.NewTask(TypeBillingRenewSweep, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(5 * time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(5 * time.Minute),
+				asynq.Unique(time.Hour),
+			},
 		},
 	}
 
@@ -50,7 +81,12 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 		configs = append(configs, &asynq.PeriodicTaskConfig{
 			Cronspec: "@every 30s",
 			Task:     asynq.NewTask(TypeSandboxHealthCheck, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(time.Minute),
+				asynq.Unique(30 * time.Second),
+			},
 		})
 
 		interval := cfg.SandboxResourceCheckInterval
@@ -58,7 +94,12 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			configs = append(configs, &asynq.PeriodicTaskConfig{
 				Cronspec: fmt.Sprintf("@every %s", interval),
 				Task:     asynq.NewTask(TypeSandboxResourceCheck, nil),
-				Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(5 * time.Minute)},
+				Opts: []asynq.Option{
+					asynq.Queue(QueuePeriodic),
+					asynq.MaxRetry(1),
+					asynq.Timeout(5 * time.Minute),
+					asynq.Unique(interval),
+				},
 			})
 		}
 
@@ -68,7 +109,12 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 		configs = append(configs, &asynq.PeriodicTaskConfig{
 			Cronspec: "@every 5m",
 			Task:     asynq.NewTask(TypeSandboxLifecycle, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(10 * time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(10 * time.Minute),
+				asynq.Unique(5 * time.Minute),
+			},
 		})
 
 		// Sandbox reaper: releases leaked paid compute that the inline
@@ -78,7 +124,12 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 		configs = append(configs, &asynq.PeriodicTaskConfig{
 			Cronspec: "@every 5m",
 			Task:     asynq.NewTask(TypeSandboxReap, nil),
-			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(10 * time.Minute)},
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(10 * time.Minute),
+				asynq.Unique(5 * time.Minute),
+			},
 		})
 	}
 

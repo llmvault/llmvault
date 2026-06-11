@@ -18,6 +18,14 @@ func (o *Orchestrator) StopSandbox(ctx context.Context, sb *model.Sandbox) error
 		if errors.Is(err, ErrSandboxNotFound) {
 			return o.purgeMissingSandbox(sb)
 		}
+		if errors.Is(err, ErrUnsupported) {
+			// The provider has no pause primitive (e.g. Railway). Do NOT persist
+			// 'stopped' — the service is still running and billing. Surface the
+			// sentinel so callers can skip the transition or fall back to delete.
+			logging.FromContext(ctx).InfoContext(ctx, "stop sandbox unsupported by provider; leaving running",
+				"sandbox_id", sb.ID, "provider", o.providerID())
+			return err
+		}
 		return fmt.Errorf("stopping sandbox %s: %w", sb.ID, err)
 	}
 	now := time.Now()
@@ -84,6 +92,14 @@ func (o *Orchestrator) ArchiveSandbox(ctx context.Context, sb *model.Sandbox) er
 			if errors.Is(err, ErrSandboxNotFound) {
 				return nil
 			}
+			if errors.Is(err, ErrUnsupported) {
+				// Provider can't stop (Railway): archiving is also a no-op. Delete
+				// the live resource instead of persisting an 'archived' lie that
+				// keeps billing.
+				logging.FromContext(ctx).InfoContext(ctx, "archive sandbox unsupported by provider; deleting resource",
+					"sandbox_id", sb.ID, "provider", o.providerID())
+				return o.DeleteSandboxResource(ctx, sb)
+			}
 			return fmt.Errorf("stopping sandbox before archive: %w", err)
 		}
 	}
@@ -91,6 +107,11 @@ func (o *Orchestrator) ArchiveSandbox(ctx context.Context, sb *model.Sandbox) er
 	if err := o.provider.ArchiveSandbox(ctx, sb.ExternalID); err != nil {
 		if errors.Is(err, ErrSandboxNotFound) {
 			return o.purgeMissingSandbox(sb)
+		}
+		if errors.Is(err, ErrUnsupported) {
+			logging.FromContext(ctx).InfoContext(ctx, "archive sandbox unsupported by provider; deleting resource",
+				"sandbox_id", sb.ID, "provider", o.providerID())
+			return o.DeleteSandboxResource(ctx, sb)
 		}
 		return fmt.Errorf("archiving sandbox %s: %w", sb.ID, err)
 	}

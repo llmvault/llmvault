@@ -138,7 +138,11 @@ func assertEmployeeScheduleMirror(t *testing.T, db *gorm.DB, agentID uuid.UUID, 
 	t.Helper()
 	var eventCount int64
 	db.Model(&model.EmployeeSessionEvent{}).Where("employee_id = ? AND event_type LIKE ?", agentID, "schedule.%").Count(&eventCount)
-	if eventCount != 6 {
+	// Five distinct events: the two byte-identical schedule.cancelled events
+	// (same payload + emission time) are a redelivery and dedupe to one row via
+	// the (sandbox_id, event_id) idempotency key, while the schedule mirror below
+	// must still settle correctly.
+	if eventCount != 5 {
 		t.Fatalf("schedule event count = %d", eventCount)
 	}
 	var schedule model.EmployeeSchedule

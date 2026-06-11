@@ -54,17 +54,18 @@ type ConversationNamePayload struct {
 // credential provider. Bulk queue — this is nice-to-have UX, not critical
 // path. MaxRetry is 3: transient provider failures are common and the
 // handler is idempotent (refuses to overwrite an already-set name).
-func NewConversationNameTask(conversationID uuid.UUID) (*asynq.Task, error) {
+// Options are returned separately so they survive the enqueue client's Sentry
+// trace-payload rewrite (P0-11).
+func NewConversationNameTask(conversationID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(ConversationNamePayload{ConversationID: conversationID})
 	if err != nil {
-		return nil, fmt.Errorf("marshal conversation name payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal conversation name payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeConversationName,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueBulk),
 		asynq.MaxRetry(3),
-		asynq.Timeout(30*time.Second),
-		asynq.Unique(5*time.Minute),
-	), nil
+		asynq.Timeout(30 * time.Second),
+		asynq.Unique(5 * time.Minute),
+	}
+	return asynq.NewTask(TypeConversationName, encoded), opts, nil
 }

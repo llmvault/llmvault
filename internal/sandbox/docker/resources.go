@@ -14,15 +14,29 @@ import (
 
 const bytesPerGiB = int64(1024 * 1024 * 1024)
 
+// Default container limits applied when CreateSandboxOpts carries no explicit
+// size (CPU/Memory == 0). Without these a runaway agent can consume the whole
+// host and take down every co-located sandbox. PidsLimit is always applied to
+// cap fork bombs regardless of the requested size.
+const (
+	defaultCPUCores  = 2
+	defaultMemoryGB  = 4
+	defaultPidsLimit = int64(1024)
+)
+
 func resourceLimits(cpu, memoryGB int) container.Resources {
-	resources := container.Resources{}
-	if cpu > 0 {
-		resources.NanoCPUs = int64(cpu) * 1_000_000_000
+	if cpu <= 0 {
+		cpu = defaultCPUCores
 	}
-	if memoryGB > 0 {
-		resources.Memory = int64(memoryGB) * bytesPerGiB
+	if memoryGB <= 0 {
+		memoryGB = defaultMemoryGB
 	}
-	return resources
+	pids := defaultPidsLimit
+	return container.Resources{
+		NanoCPUs:  int64(cpu) * 1_000_000_000,
+		Memory:    int64(memoryGB) * bytesPerGiB,
+		PidsLimit: &pids,
+	}
 }
 
 func (d *Driver) GetResourceUsage(ctx context.Context, externalID string) (*sandbox.ResourceUsage, error) {

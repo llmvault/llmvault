@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 )
@@ -83,7 +84,9 @@ func (c *GithubConnector) LoadFromCheckpoint(
 	}
 
 	out := make(chan interfaces.DocumentOrFailure, c.channelBuf)
-	go c.run(ctx, src, cp, effectiveStart, end, out)
+	goroutine.Go(ctx, func(ctx context.Context) {
+		c.run(ctx, src, cp, effectiveStart, end, out)
+	})
 	return out, nil
 }
 
@@ -127,6 +130,9 @@ func (c *GithubConnector) run(
 	access := map[string]*interfaces.ExternalAccess{}
 
 	for cp.Stage != StageDone {
+		if ctx.Err() != nil {
+			return
+		}
 		if cp.CurrentRepoFullName == nil {
 			if len(cp.RepoIDsRemaining) == 0 {
 				cp.Stage = c.nextEnabledStage(cp.Stage)
@@ -148,7 +154,9 @@ func (c *GithubConnector) run(
 			ext, err := c.computeRepoAccess(ctx, full)
 			if err != nil {
 				logging.Capture(ctx, fmt.Errorf("github visibility fetch repo=%s: %w", full, err))
-				out <- interfaces.NewDocFailure(entityFailure(full, "github: resolve repo visibility", err))
+				if !interfaces.Send(ctx, out, interfaces.NewDocFailure(entityFailure(full, "github: resolve repo visibility", err))) {
+					return
+				}
 				cp.CurrentRepoFullName = nil
 				continue
 			}

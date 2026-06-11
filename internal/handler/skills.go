@@ -190,9 +190,9 @@ func (h *SkillHandler) Create(w http.ResponseWriter, r *http.Request) {
 		skill = *updated
 	} else {
 		if h.enqueuer != nil {
-			task, err := tasks.NewSkillHydrateTask(skill.ID)
+			task, opts, err := tasks.NewSkillHydrateTask(skill.ID)
 			if err == nil {
-				_, _ = h.enqueuer.Enqueue(task)
+				_, _ = h.enqueuer.Enqueue(task, opts...)
 			}
 		}
 	}

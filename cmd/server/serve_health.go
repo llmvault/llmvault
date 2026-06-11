@@ -13,7 +13,11 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
-func readyz(database *gorm.DB, rc *redis.Client) http.HandlerFunc {
+// orchestratorMissing reports whether sandbox orchestration was expected (a
+// provider is configured) but the orchestrator failed to initialize. Surfacing
+// this in /readyz prevents an instance from reporting healthy while the entire
+// employee/gateway subsystem is silently missing (P1-20).
+func readyz(database *gorm.DB, rc *redis.Client, orchestratorMissing bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -32,6 +36,12 @@ func readyz(database *gorm.DB, rc *redis.Client) http.HandlerFunc {
 		if err := rc.Ping(r.Context()).Err(); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte(`{"status":"error","detail":"redis ping failed"}`))
+			return
+		}
+
+		if orchestratorMissing {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"status":"error","detail":"sandbox orchestrator unavailable"}`))
 			return
 		}
 

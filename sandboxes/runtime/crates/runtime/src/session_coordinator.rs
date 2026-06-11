@@ -20,13 +20,19 @@ impl SessionCoordinator {
 
     pub fn submit_or_queue(&self, inbound: InboundEvent) -> Submission {
         let session_id = inbound.session_id.clone();
-        match self.sessions.get(&session_id) {
-            Some(queue) => {
-                queue.lock().unwrap().push(inbound);
+        // Use DashMap's atomic entry() API: while the entry for this key is held
+        // (Occupied or Vacant) the shard is locked, so two concurrent first
+        // messages for the same session cannot both observe a vacant slot and
+        // both run a turn (P1-31). The previous get()-then-insert() left a window
+        // between the read and the write where a second caller could also see no
+        // entry and start a concurrent turn on the same session.
+        match self.sessions.entry(session_id) {
+            dashmap::mapref::entry::Entry::Occupied(occupied) => {
+                occupied.get().lock().unwrap().push(inbound);
                 Submission::Queued
             }
-            None => {
-                self.sessions.insert(session_id, Mutex::new(Vec::new()));
+            dashmap::mapref::entry::Entry::Vacant(vacant) => {
+                vacant.insert(Mutex::new(Vec::new()));
                 Submission::RunNow
             }
         }
@@ -190,7 +196,8 @@ mod tests {
 
         // The task panicked internally but the guard caught it, so the join
         // succeeds.
-        join.await.expect("panic guard must keep the task from aborting the join");
+        join.await
+            .expect("panic guard must keep the task from aborting the join");
 
         // Without the panic guard's finish_turn, the reservation would still be
         // present and this submission would be Queued (leaked forever). With the
@@ -202,6 +209,61 @@ mod tests {
             ),
             "a panicking turn must release the coordinator entry so the next message runs"
         );
+    }
+
+    #[test]
+    fn concurrent_first_messages_yield_exactly_one_run_now() {
+        // Regression for P1-31: submit_or_queue was a check-then-act race
+        // (get() then insert()), so two concurrent first messages for the same
+        // session could both observe a vacant slot and both return RunNow,
+        // running two concurrent turns on one session. With the atomic entry()
+        // API exactly one caller may win.
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::{Arc, Barrier};
+
+        for iteration in 0..200 {
+            let coordinator = Arc::new(SessionCoordinator::new());
+            let session = format!("race-session-{iteration}");
+            let threads = 8;
+            let barrier = Arc::new(Barrier::new(threads));
+            let run_now_count = Arc::new(AtomicUsize::new(0));
+
+            let handles: Vec<_> = (0..threads)
+                .map(|t| {
+                    let coordinator = coordinator.clone();
+                    let barrier = barrier.clone();
+                    let run_now_count = run_now_count.clone();
+                    let session = session.clone();
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        let envelope = format!("E{t}");
+                        if matches!(
+                            coordinator.submit_or_queue(inbound(&session, &envelope, "hi")),
+                            Submission::RunNow
+                        ) {
+                            run_now_count.fetch_add(1, Ordering::SeqCst);
+                        }
+                    })
+                })
+                .collect();
+
+            for handle in handles {
+                handle.join().unwrap();
+            }
+
+            assert_eq!(
+                run_now_count.load(Ordering::SeqCst),
+                1,
+                "exactly one concurrent first message may run the turn (iteration {iteration})"
+            );
+            // All other messages must have been queued behind the single turn.
+            let queued = coordinator.finish_turn(&SessionId::from(session));
+            assert_eq!(
+                queued.len(),
+                threads - 1,
+                "every losing message must be queued (iteration {iteration})"
+            );
+        }
     }
 
     #[test]

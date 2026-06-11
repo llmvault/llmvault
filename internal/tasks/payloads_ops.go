@@ -15,22 +15,23 @@ type EmployeeCleanupPayload struct {
 	SandboxExternalIDs []string  `json:"sandbox_external_ids,omitempty"`
 }
 
-// NewEmployeeCleanupTask creates a task that cleans up provider sandboxes left behind by an employee hard delete.
-func NewEmployeeCleanupTask(employeeID uuid.UUID, sandboxExternalIDs ...string) (*asynq.Task, error) {
+// NewEmployeeCleanupTask creates a task that cleans up provider sandboxes left
+// behind by an employee hard delete. Options are returned separately so they
+// survive the enqueue client's Sentry trace-payload rewrite (P0-11).
+func NewEmployeeCleanupTask(employeeID uuid.UUID, sandboxExternalIDs ...string) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(EmployeeCleanupPayload{
 		EmployeeID:         employeeID,
 		SandboxExternalIDs: sandboxExternalIDs,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal employee cleanup payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal employee cleanup payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmployeeCleanup,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(3),
-		asynq.Timeout(2*time.Minute),
-	), nil
+		asynq.Timeout(2 * time.Minute),
+	}
+	return asynq.NewTask(TypeEmployeeCleanup, payload), opts, nil
 }
 
 // SandboxTemplateBuildPayload is the payload for TypeSandboxTemplateBuild tasks.
@@ -38,19 +39,20 @@ type SandboxTemplateBuildPayload struct {
 	TemplateID uuid.UUID `json:"template_id"`
 }
 
-// NewSandboxTemplateBuildTask creates a task that builds a sandbox template snapshot.
-func NewSandboxTemplateBuildTask(templateID uuid.UUID) (*asynq.Task, error) {
+// NewSandboxTemplateBuildTask creates a task that builds a sandbox template
+// snapshot. Options are returned separately so they survive the enqueue
+// client's Sentry trace-payload rewrite (P0-11).
+func NewSandboxTemplateBuildTask(templateID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(SandboxTemplateBuildPayload{TemplateID: templateID})
 	if err != nil {
-		return nil, fmt.Errorf("marshal sandbox template build payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal sandbox template build payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeSandboxTemplateBuild,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(2),
-		asynq.Timeout(30*time.Minute),
-	), nil
+		asynq.Timeout(30 * time.Minute),
+	}
+	return asynq.NewTask(TypeSandboxTemplateBuild, payload), opts, nil
 }
 
 // SandboxTemplateRetryBuildPayload is the payload for retry tasks.
@@ -59,23 +61,24 @@ type SandboxTemplateRetryBuildPayload struct {
 	BuildCommands []string  `json:"build_commands,omitempty"`
 }
 
-// NewSandboxTemplateRetryBuildTask creates a task that retries building a sandbox template.
-func NewSandboxTemplateRetryBuildTask(templateID uuid.UUID, buildCommands []string) (*asynq.Task, error) {
+// NewSandboxTemplateRetryBuildTask creates a task that retries building a
+// sandbox template. Options are returned separately so they survive the enqueue
+// client's Sentry trace-payload rewrite (P0-11).
+func NewSandboxTemplateRetryBuildTask(templateID uuid.UUID, buildCommands []string) (*asynq.Task, []asynq.Option, error) {
 	payload := SandboxTemplateRetryBuildPayload{
 		TemplateID:    templateID,
 		BuildCommands: buildCommands,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal sandbox template retry payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal sandbox template retry payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeSandboxTemplateRetryBuild,
-		data,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(2),
-		asynq.Timeout(30*time.Minute),
-	), nil
+		asynq.Timeout(30 * time.Minute),
+	}
+	return asynq.NewTask(TypeSandboxTemplateRetryBuild, data), opts, nil
 }
 
 // SkillHydratePayload is the payload for TypeSkillHydrate tasks.
@@ -84,17 +87,18 @@ type SkillHydratePayload struct {
 }
 
 // NewSkillHydrateTask creates a task that pulls a git-sourced skill at its
-// tracked ref and updates the skill's current bundle.
-func NewSkillHydrateTask(skillID uuid.UUID) (*asynq.Task, error) {
+// tracked ref and updates the skill's current bundle. Options are returned
+// separately so they survive the enqueue client's Sentry trace-payload rewrite
+// (P0-11).
+func NewSkillHydrateTask(skillID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(SkillHydratePayload{SkillID: skillID})
 	if err != nil {
-		return nil, fmt.Errorf("marshal skill hydrate payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal skill hydrate payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeSkillHydrate,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(3),
-		asynq.Timeout(2*time.Minute),
-	), nil
+		asynq.Timeout(2 * time.Minute),
+	}
+	return asynq.NewTask(TypeSkillHydrate, payload), opts, nil
 }

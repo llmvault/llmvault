@@ -359,7 +359,32 @@ export default function SessionsPage() {
       let attempt = 0
       let isReplay = false
       const startedAt = Date.now()
-      const streamURL = await directStreamURL(sessionStreamURL)
+
+      // directStreamURL and streamAuthToken are awaited inside the try/finally
+      // so any thrown error (e.g. failed token fetch) flows to the finally block
+      // and clears isStreaming instead of leaving the composer permanently stuck.
+      let streamURL: string
+      try {
+        streamURL = await directStreamURL(sessionStreamURL)
+      } catch (err) {
+        setStreams((current) => ({
+          ...current,
+          [sessionID]: {
+            ...(current[sessionID] ?? { events: [] }),
+            text: "",
+            events: [],
+            isStreaming: false,
+            error:
+              err instanceof Error
+                ? err.message
+                : "Failed to resolve stream URL",
+          },
+        }))
+        if (streamControllersRef.current[sessionID] === controller) {
+          delete streamControllersRef.current[sessionID]
+        }
+        return
+      }
 
       const commitToken = (tokenText: string) => {
         if (!tokenText) return
@@ -667,10 +692,13 @@ export default function SessionsPage() {
         }
 
         navigateToSession(nextSessionID, "web")
+        // startSessionStream is fire-and-forget: its own try/finally clears
+        // isStreaming on any failure path, so .catch() here only silences the
+        // unhandled-rejection warning — errors are already surfaced in the UI.
         startSessionStream(
           nextSessionID,
           result.stream_url ?? result.response_stream_url
-        )
+        ).catch(() => undefined)
         return result
       } finally {
         setIsSending(false)

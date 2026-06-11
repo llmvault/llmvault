@@ -138,7 +138,7 @@ func (w *EmployeeEventWriter) flushBatch(ctx context.Context, batch []model.Empl
 			}
 		}
 		err := w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.CreateInBatches(batch, employeeEventBatchSize).Error; err != nil {
+			if err := tx.Clauses(employeeSessionEventOnConflict()).CreateInBatches(batch, employeeEventBatchSize).Error; err != nil {
 				return err
 			}
 			for _, entry := range batch {
@@ -191,7 +191,7 @@ func (w *EmployeeEventWriter) Write(ctx context.Context, entry model.EmployeeSes
 	case w.entries <- entry:
 	default:
 		err := w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&entry).Error; err != nil {
+			if err := tx.Clauses(employeeSessionEventOnConflict()).Create(&entry).Error; err != nil {
 				return err
 			}
 			if err := syncEmployeeScheduleEvent(tx, entry); err != nil {

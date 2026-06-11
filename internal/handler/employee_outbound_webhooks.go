@@ -133,7 +133,13 @@ func (h *EmployeeOutboundWebhookHandler) loadSandbox(w http.ResponseWriter, r *h
 
 func (h *EmployeeOutboundWebhookHandler) verifySignature(ctx context.Context, sb *model.Sandbox, body []byte, signature string) bool {
 	if h.encKey == nil {
-		return true
+		// Fail closed: without the encryption key we cannot recover the runtime
+		// secret to verify the HMAC, so we cannot trust the caller. Returning true
+		// here would let anonymous clients forge session events/usage for any
+		// sandbox ID.
+		logging.FromContext(ctx).ErrorContext(ctx, "employee outbound webhook: rejecting request, no encryption key configured for signature verification",
+			"sandbox_id", sb.ID)
+		return false
 	}
 	secret, err := h.encKey.DecryptString(sb.EncryptedRuntimeSecret)
 	if err != nil {
@@ -237,9 +243,10 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	} else {
 		// Synchronous path (no writer configured): the ack must depend on the
 		// durable write, so propagate the failure to a 5xx and let the runtime
-		// outbox redeliver.
+		// outbox redeliver. The insert dedupes on (sandbox_id, event_id) so a
+		// redelivery of the same event is idempotent instead of duplicating the row.
 		err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&stored).Error; err != nil {
+			if err := tx.Clauses(employeeSessionEventOnConflict()).Create(&stored).Error; err != nil {
 				return err
 			}
 			if err := syncEmployeeScheduleEvent(tx, stored); err != nil {

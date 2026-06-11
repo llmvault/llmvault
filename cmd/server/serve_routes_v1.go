@@ -107,18 +107,31 @@ func setupV1Routes(
 			}
 
 			r.Group(func(r chi.Router) {
+				// Creating LLM credentials is escalation-sensitive: a non-admin
+				// org member must not be able to add provider credentials. JWT
+				// callers must be org admins; scoped API-key callers still pass
+				// (scope enforced by RequireAPIKeyScopeOrJWT, admin gate skipped
+				// for API keys by RequireOrgAdminOrAPIKey). Reads stay member-visible.
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("credentials"))
-				r.Post("/credentials", credHandler.Create)
 				r.Get("/credentials", credHandler.List)
 				r.Get("/credentials/{id}", credHandler.Get)
-				r.Delete("/credentials/{id}", credHandler.Revoke)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+					r.Post("/credentials", credHandler.Create)
+					r.Delete("/credentials/{id}", credHandler.Revoke)
+				})
 			})
 
 			r.Group(func(r chi.Router) {
+				// Minting proxy tokens is escalation-sensitive (same rationale as
+				// credentials above): admin-gate JWT callers, allow scoped API keys.
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("tokens"))
 				r.Get("/tokens", tokenHandler.List)
-				r.Post("/tokens", tokenHandler.Mint)
-				r.Delete("/tokens/{jti}", tokenHandler.Revoke)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+					r.Post("/tokens", tokenHandler.Mint)
+					r.Delete("/tokens/{jti}", tokenHandler.Revoke)
+				})
 			})
 
 			r.Group(func(r chi.Router) {
@@ -223,23 +236,28 @@ func setupV1Routes(
 
 			if ragSourceHandler != nil {
 				r.Route("/rag", func(r chi.Router) {
-					// TODO: tighten back to RequireOrgAdmin once the RAG
-					// admin UI is admin-gated.
 					r.Use(middleware.ResolveUser(database))
+					// Reads stay visible to any org member.
 					r.Get("/integrations", ragSourceHandler.ListIntegrations)
-					r.Post("/sources", ragSourceHandler.Create)
 					r.Get("/sources", ragSourceHandler.List)
 					r.Get("/sources/{id}", ragSourceHandler.Get)
-					r.Patch("/sources/{id}", ragSourceHandler.Update)
-					r.Delete("/sources/{id}", ragSourceHandler.Delete)
-					r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
-					r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
-					r.Post("/sources/{id}/perm-sync", ragSourceHandler.TriggerPermSync)
 					r.Get("/sources/{id}/attempts", ragSourceHandler.ListAttempts)
 					r.Get("/sources/{id}/attempts/{attempt_id}", ragSourceHandler.GetAttempt)
 					if ragSearchHandler != nil {
 						r.Post("/search", ragSearchHandler.Search)
 					}
+					// Mutations (creating/deleting sources, triggering sync/prune
+					// jobs) are admin-only — a non-admin member must not be able to
+					// reconfigure org-wide RAG ingestion or kick off jobs.
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.RequireOrgAdmin(database))
+						r.Post("/sources", ragSourceHandler.Create)
+						r.Patch("/sources/{id}", ragSourceHandler.Update)
+						r.Delete("/sources/{id}", ragSourceHandler.Delete)
+						r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
+						r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
+						r.Post("/sources/{id}/perm-sync", ragSourceHandler.TriggerPermSync)
+					})
 				})
 			}
 

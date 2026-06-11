@@ -171,6 +171,16 @@ type Config struct {
 	AsynqConcurrency     int           `env:"HIVY_ASYNQ_CONCURRENCY" envDefault:"30"`
 	AsynqShutdownTimeout time.Duration `env:"HIVY_ASYNQ_SHUTDOWN_TIMEOUT" envDefault:"120s"`
 
+	// Asynqmon dashboard. The dashboard exposes every queued/archived task
+	// payload (customer messages, webhook payloads, emails), so it is disabled
+	// by default and never mounted on the public health port. To enable it, set
+	// HIVY_ASYNQMON_ENABLED=true and provide HTTP basic-auth credentials; it is
+	// served on HIVY_ASYNQMON_PORT (which must differ from the health port).
+	AsynqmonEnabled  bool   `env:"HIVY_ASYNQMON_ENABLED" envDefault:"false"`
+	AsynqmonPort     int    `env:"HIVY_ASYNQMON_PORT" envDefault:"8091"`
+	AsynqmonUser     string `env:"HIVY_ASYNQMON_USER"`
+	AsynqmonPassword string `env:"HIVY_ASYNQMON_PASSWORD"`
+
 	// Sentry error tracking + distributed tracing (empty HIVY_SENTRY_DSN disables
 	// capture). When enabled, the SDK is wired into chi (HTTP transactions),
 	// asynq (per-task transactions), GORM (db.sql spans), go-redis (db.redis
@@ -253,6 +263,12 @@ func URLOrigin(raw string) string {
 
 // DatabaseDSN constructs a Postgres connection string from individual fields.
 // The password is URL-encoded to handle special characters safely.
+// IsProduction reports whether the process is running in the production
+// environment.
+func (c *Config) IsProduction() bool {
+	return c.Environment == "production"
+}
+
 func (c *Config) DatabaseDSN() string {
 	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		url.QueryEscape(c.DBUser),

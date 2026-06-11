@@ -200,7 +200,7 @@ async fn upload_sqlite_backup(
         .with_context(|| format!("read compressed backup {}", gzip_path.display()))?;
     let compressed_bytes = body.len() as u64;
     let checksum = sha256_hex(&body);
-    let http = Client::new();
+    let http = backup_http_client()?;
     let presign = request_backup_presign(&http, config, reason, compressed_bytes).await?;
 
     let put_response = http
@@ -244,6 +244,21 @@ async fn upload_sqlite_backup(
         );
     }
     Ok(compressed_bytes)
+}
+
+/// Backup uploads run while `sync_running` is held, so a hung connection (a
+/// routine half-open socket during a provider/network incident) would block
+/// every future sqlite backup forever. Bound every phase with timeouts so a
+/// stalled upload fails and is retried instead of permanently halting backups.
+const DB_SYNC_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const DB_SYNC_REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
+
+fn backup_http_client() -> Result<Client> {
+    Client::builder()
+        .connect_timeout(DB_SYNC_CONNECT_TIMEOUT)
+        .timeout(DB_SYNC_REQUEST_TIMEOUT)
+        .build()
+        .context("build sqlite backup http client")
 }
 
 #[derive(Serialize)]

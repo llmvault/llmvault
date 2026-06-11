@@ -254,7 +254,7 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 }
 
 func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uuid.UUID, message string) (*MessageResponse, *ToolError) {
-	task, _, toolErr := s.loadOwnedTask(ctx, token, taskID)
+	task, employee, toolErr := s.loadOwnedTask(ctx, token, taskID)
 	if toolErr != nil {
 		return nil, toolErr
 	}
@@ -266,6 +266,9 @@ func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uu
 	if err := s.db.WithContext(ctx).Where("id = ?", task.SandboxID).First(&sb).Error; err != nil {
 		return nil, wrapToolError("sandbox_not_found", "The specialist task sandbox could not be loaded.", err, false, "Call specialist_task_status to check whether the task still exists. If it does, report that its sandbox record is missing.")
 	}
+	// Refresh the specialist proxy token if it is near expiry so a long-running
+	// task does not silently lose LLM/MCP access after its 24h TTL (P1-18).
+	s.refreshSpecialistProxyTokenIfNeeded(ctx, employee, task, &sb)
 	client, err := s.orchestrator.GetRuntimeClient(ctx, &sb)
 	if err != nil {
 		return nil, wrapToolError("runtime_client_failed", "Could not connect to the specialist runtime API.", err, true, "Retry later. If this repeats, report that the specialist runtime is unavailable.")

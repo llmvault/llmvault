@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/netguard"
 )
 
 const HTTPProvider = "http"
@@ -34,7 +35,12 @@ type httpInboundPayload struct {
 
 func NewHTTPAdapter(client *http.Client) *HTTPAdapter {
 	if client == nil {
-		client = &http.Client{Timeout: 15 * time.Second}
+		// The callback URL is client-controlled (route response_url or, when
+		// allow_request_callback_url is set, the inbound payload). Use the
+		// rebinding-safe guarded transport so the actual dial re-checks the
+		// resolved address and pins to a validated IP, closing the DNS-rebinding
+		// TOCTOU window left by a one-shot ValidateBaseURL.
+		client = &http.Client{Timeout: 15 * time.Second, Transport: netguard.NewTransport()}
 	}
 	return &HTTPAdapter{client: client}
 }
@@ -88,6 +94,13 @@ func (a *HTTPAdapter) SendResponse(ctx context.Context, payload ProviderResponse
 	callbackURL = strings.TrimSpace(callbackURL)
 	if callbackURL == "" {
 		return nil, fmt.Errorf("send http gateway response: route config must include response_url, or allow_request_callback_url must be true and inbound payload must include callback_url")
+	}
+	// Reject callbacks to internal/cloud-metadata destinations: the URL is
+	// client-controlled, so an unvalidated POST is a blind SSRF that also
+	// exfiltrates the agent's response. The guarded transport additionally
+	// re-validates at dial time against DNS rebinding.
+	if err := netguard.ValidateURL(callbackURL); err != nil {
+		return nil, fmt.Errorf("send http gateway response: callback_url not allowed: %w", err)
 	}
 	body, err := json.Marshal(map[string]any{
 		"markdown":  payload.Text,

@@ -88,6 +88,10 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	env[EmployeeEnvAgentMultimodalModel] = DefaultEmployeeMultimodalModel
 	env[EmployeeEnvAgentMultimodalAPIKeyEnv] = ProxyAPIKeyEnv
 	env[EmployeeEnvRuntimeMode] = "employee"
+	// Provision a tunnel password so the runtime tunnel proxy fails closed (it is
+	// an open proxy to every sandbox localhost port when unset). The runtime
+	// secret is the same key the tunnel uses to sign its auth cookies/JWTs.
+	env[EmployeeEnvTunnelPassword] = runtimeSecret
 	env[ProxyAPIKeyEnv] = token.Token
 
 	if err := addAgentRuntimeEnv(ctx, deps, env, agent, runtimeSecret); err != nil {

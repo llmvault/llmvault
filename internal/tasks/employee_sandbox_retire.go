@@ -60,7 +60,12 @@ func (h *EmployeeSandboxRetireHandler) retire(ctx context.Context, payload Emplo
 		}
 		return fmt.Errorf("load old employee sandbox: %w", err)
 	}
-	if sb.EmployeeID == nil || *sb.EmployeeID != payload.EmployeeID || sb.Status != string(sandbox.StatusStopped) {
+	// The old sandbox is normally 'stopped' by Phase 6, but providers without a
+	// pause primitive (Railway, which returns ErrUnsupported) leave it 'running'.
+	// Either way the new sandbox is now serving traffic, so the old one must be
+	// deleted to stop billing — retire from both states.
+	if sb.EmployeeID == nil || *sb.EmployeeID != payload.EmployeeID ||
+		(sb.Status != string(sandbox.StatusStopped) && sb.Status != string(sandbox.StatusRunning)) {
 		return nil
 	}
 	if upgrade.NewSandboxID != nil && *upgrade.NewSandboxID == sb.ID {

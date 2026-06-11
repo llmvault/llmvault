@@ -126,10 +126,12 @@ async fn main() -> Result<()> {
         .map_err(|e| anyhow::anyhow!("build outbound registry: {e}"))?;
     let registry = Arc::new(RwLock::new(registry));
     let stream_batcher = Arc::new(RwLock::new(None));
+    let database_event_queue = DatabaseEventQueue::new(sqlite_store.writer());
     let outbound_reloader: Arc<dyn OutboundConfigReloader> = Arc::new(RegistryReloader {
         config: config.clone(),
         registry: registry.clone(),
         stream_batcher: stream_batcher.clone(),
+        database_event_queue: database_event_queue.clone(),
     });
 
     let skill_writer = Arc::new(SkillWriter::new(workspace_root.clone()));
@@ -193,7 +195,6 @@ async fn main() -> Result<()> {
 
     let dispatcher = OutboundDispatcher::new(outbox_repo.clone(), registry.clone());
     let (dispatcher_handle, dispatcher_cancel) = dispatcher.spawn();
-    let database_event_queue = DatabaseEventQueue::new(sqlite_store.writer());
     info!(
         database_channel = "queued",
         db_flush_max_events = DATABASE_BATCH_MAX_EVENTS,
@@ -359,6 +360,7 @@ struct RegistryReloader {
     config: ConfigStore,
     registry: Arc<RwLock<OutboundRegistry>>,
     stream_batcher: Arc<RwLock<Option<Arc<StreamBatcher>>>>,
+    database_event_queue: Arc<DatabaseEventQueue>,
 }
 
 #[async_trait]
@@ -369,7 +371,8 @@ impl OutboundConfigReloader for RegistryReloader {
             .map_err(|error| anyhow::anyhow!("build outbound registry: {error}"))?;
         let names = next.names();
         let next_batcher = StreamBatcher::from_specs(specs, &runtime_env)
-            .map_err(|error| anyhow::anyhow!("build stream batcher: {error}"))?;
+            .map_err(|error| anyhow::anyhow!("build stream batcher: {error}"))?
+            .map(|b| b.with_requeue(self.database_event_queue.clone()));
         *self.registry.write().await = next;
         *self.stream_batcher.write().await = next_batcher;
         info!(channels = ?names, "outbound registry reloaded from config");

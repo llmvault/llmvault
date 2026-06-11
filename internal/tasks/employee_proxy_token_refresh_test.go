@@ -34,6 +34,13 @@ func TestEmployeeProxyTokenRefreshHandler_InjectsNewTokenRevokesOldAndSchedulesN
 	if err != nil {
 		t.Fatalf("mint old proxy token: %v", err)
 	}
+	// The token being replaced was minted at sandbox launch (~20h ago). Backdate
+	// its created_at past the revoke grace window so it is eligible for
+	// revocation (P1-19 only protects tokens minted within the grace window).
+	if err := f.db.Model(&model.Token{}).Where("jti = ?", oldToken.JTI).
+		Update("created_at", time.Now().Add(-2*employeeProxyTokenRevokeGrace)).Error; err != nil {
+		t.Fatalf("backdate old token: %v", err)
+	}
 
 	task, _, err := NewEmployeeProxyTokenRefreshTask(EmployeeProxyTokenRefreshPayload{
 		EmployeeID:  f.agent.ID,
@@ -92,6 +99,58 @@ func TestEmployeeProxyTokenRefreshHandler_InjectsNewTokenRevokesOldAndSchedulesN
 	}
 
 	_ = requireProxyRefreshTask(t, f.enqueuer)
+}
+
+// TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken
+// verifies P1-19: a proxy token minted by a concurrent sync (within the grace
+// window) must survive the refresh's revoke-older sweep so the runtime is not
+// left authenticating with a revoked token.
+func TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken(t *testing.T) {
+	f := newEmployeeProxyTokenRefreshFixture(t, 0)
+
+	// The token currently in use, minted long ago at launch.
+	oldToken, err := employeeruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
+	if err != nil {
+		t.Fatalf("mint old proxy token: %v", err)
+	}
+	if err := f.db.Model(&model.Token{}).Where("jti = ?", oldToken.JTI).
+		Update("created_at", time.Now().Add(-2*employeeProxyTokenRevokeGrace)).Error; err != nil {
+		t.Fatalf("backdate old token: %v", err)
+	}
+
+	// A concurrent sync mints a fresh token just before the refresh runs.
+	concurrentToken, err := employeeruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
+	if err != nil {
+		t.Fatalf("mint concurrent proxy token: %v", err)
+	}
+
+	task, _, err := NewEmployeeProxyTokenRefreshTask(EmployeeProxyTokenRefreshPayload{
+		EmployeeID:  f.agent.ID,
+		SandboxID:   f.sandbox.ID,
+		ScheduledAt: oldToken.ExpiresAt.Add(-employeeProxyTokenRefreshLead),
+	})
+	if err != nil {
+		t.Fatalf("new refresh task: %v", err)
+	}
+	if err := f.handler.Handle(context.Background(), task); err != nil {
+		t.Fatalf("handle refresh: %v", err)
+	}
+
+	var concurrent model.Token
+	if err := f.db.First(&concurrent, "jti = ?", concurrentToken.JTI).Error; err != nil {
+		t.Fatalf("load concurrent token: %v", err)
+	}
+	if concurrent.RevokedAt != nil {
+		t.Fatal("concurrently-minted token within the grace window was revoked (P1-19 regression)")
+	}
+
+	var old model.Token
+	if err := f.db.First(&old, "jti = ?", oldToken.JTI).Error; err != nil {
+		t.Fatalf("load old token: %v", err)
+	}
+	if old.RevokedAt == nil {
+		t.Fatal("old (pre-grace) token should still be revoked")
+	}
 }
 
 func TestEmployeeProxyTokenRefreshHandler_RevokesMintedTokenWhenRuntimeRejectsEnv(t *testing.T) {

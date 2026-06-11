@@ -25,6 +25,11 @@ const (
 	StatusArchived  SandboxStatus = "archived"
 	StatusArchiving SandboxStatus = "archiving"
 	StatusError     SandboxStatus = "error"
+	// StatusUpgrading marks the freshly-created replacement sandbox during an
+	// employee sandbox upgrade. It is deliberately NOT in the selector's
+	// activeSandboxStatuses, so live traffic keeps routing to the old sandbox
+	// until the new one has been restored and synced and is flipped to running.
+	StatusUpgrading SandboxStatus = "upgrading"
 )
 
 // CreateSandboxOpts configures a new sandbox.
@@ -146,6 +151,14 @@ type Provider interface {
 type WarmPoolCapable interface {
 	UsesWarmPool() bool
 }
+
+// ErrUnsupported is returned by a provider when a lifecycle operation has no
+// meaningful provider-side implementation (e.g. Railway has no scale-to-zero
+// for individual services). Callers must treat this as "the provider could not
+// perform the transition" and skip the corresponding control-plane state change
+// rather than persisting a state the provider never reached. Wrap with %w so
+// errors.Is works through a provider's contextual error string.
+var ErrUnsupported = errors.New("operation not supported by sandbox provider")
 
 // RuntimeCommandContext bundles what a provider needs for runtime-based command execution.
 type RuntimeCommandContext struct {

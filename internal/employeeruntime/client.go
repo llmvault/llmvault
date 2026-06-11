@@ -19,6 +19,13 @@ type Client struct {
 	baseURL string
 	apiKey  string
 	http    *http.Client
+	// stream is a dedicated client for long-lived SSE bodies. Unlike `http`,
+	// it has no overall `Timeout` (which in Go covers the entire body read and
+	// would cut every agent turn longer than ~2 minutes mid-answer); instead it
+	// bounds only connection setup and the response-header phase at the
+	// transport level, and relies on the request context / idle-read deadlines
+	// for liveness (P0-29).
+	stream *http.Client
 }
 
 const defaultHTTPTimeout = 2 * time.Minute
@@ -94,7 +101,30 @@ func NewClientWithTimeout(baseURL, apiKey string, timeout time.Duration) *Client
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
 		http:    &http.Client{Timeout: timeout},
+		stream:  newStreamingHTTPClient(),
 	}
+}
+
+// newStreamingHTTPClient builds the SSE client used for live runtime streams.
+// `Timeout` is deliberately 0 (no overall deadline) so a turn that streams for
+// minutes is not cut mid-body; only dial/TLS/header phases are bounded at the
+// transport level. Liveness during the body read is enforced by the request
+// context (and the broker's 15s keep-alive frames).
+func newStreamingHTTPClient() *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		// Never compress an SSE body; we also send Accept-Encoding: identity.
+		DisableCompression: true,
+		ForceAttemptHTTP2:  true,
+	}
+	return &http.Client{Transport: transport, Timeout: 0}
 }
 
 func (c *Client) Healthz(ctx context.Context) error {
@@ -135,7 +165,10 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 		body.RuntimeEnv = map[string]string{}
 	}
 	if os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD") == "true" {
-		payload, err := json.Marshal(body)
+		// Redact secrets (runtime secret, sensitive env values, MCP Authorization
+		// headers) before logging so a forgotten debug flag in production cannot
+		// exfiltrate every org's live credentials into the log pipeline.
+		payload, err := json.Marshal(redactConfigUpdateRequest(body))
 		if err != nil {
 			slog.WarnContext(ctx, "runtime config debug payload marshal failed", "error", err)
 		} else {
@@ -143,7 +176,7 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 		}
 	}
 	if path := strings.TrimSpace(os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD_FILE")); path != "" {
-		payload, err := json.MarshalIndent(body, "", "  ")
+		payload, err := json.MarshalIndent(redactConfigUpdateRequest(body), "", "  ")
 		if err != nil {
 			slog.WarnContext(ctx, "runtime config debug payload file marshal failed", "error", err)
 		} else if err := os.WriteFile(path, payload, 0o600); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"strings"
 	"time"
 
@@ -191,31 +192,62 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 	if desired <= 0 {
 		return nil, nil
 	}
-	logger := logging.FromContext(ctx)
-	var available int64
 	image := p.runtimeImage(mode)
 	if image == "" {
 		return nil, fmt.Errorf("runtime image for warm %s sandbox is not configured", mode)
 	}
+
+	// Serialise reconciles for this (provider, mode) across pods. Without this the
+	// count-then-provision below races: two reconciles each read 'available < desired'
+	// and both provision, permanently over-provisioning paid services. A
+	// transaction-scoped advisory lock blocks concurrent reconciles for the same
+	// (provider, mode) while letting unrelated modes/providers proceed.
+	var created []uuid.UUID
+	err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", warmPoolReconcileLockKey(p.provider.ID(), mode)).Error; err != nil {
+			return fmt.Errorf("acquire warm pool reconcile lock: %w", err)
+		}
+		var rerr error
+		created, rerr = p.reconcileLocked(ctx, tx, mode, image, desired, onCreated)
+		return rerr
+	})
+	return created, err
+}
+
+func (p *WarmPool) reconcileLocked(ctx context.Context, tx *gorm.DB, mode, image string, desired int, onCreated func(context.Context, uuid.UUID) error) ([]uuid.UUID, error) {
+	logger := logging.FromContext(ctx)
 	if err := p.deleteStaleAvailableSlots(ctx, mode, image); err != nil {
 		return nil, err
 	}
-	if err := p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
+
+	var availableSlots []model.SandboxWarmSlot
+	if err := tx.WithContext(ctx).
 		Where("provider_id = ? AND mode = ? AND runtime_image = ? AND status IN ?", p.provider.ID(), mode, image, []string{
 			model.SandboxWarmSlotStatusWarm,
 			model.SandboxWarmSlotStatusWarming,
 		}).
-		Count(&available).Error; err != nil {
+		Order("created_at ASC").
+		Find(&availableSlots).Error; err != nil {
 		return nil, err
 	}
+	available := int64(len(availableSlots))
 	logger.InfoContext(ctx, "sandbox warm pool reconcile",
 		"provider", p.provider.ID(), "mode", mode, "desired", desired, "available", available,
 		"runtime_image", image)
-	createCount := int64(desired) - available
-	if createCount < 0 {
-		createCount = 0
+
+	// Scale down: trim surplus warm slots beyond desired so a lowered pool size
+	// (or a transient over-provision) releases the extra paid services instead of
+	// leaving them running forever. Prefer trimming 'warm' (idle) slots over
+	// 'warming' ones, oldest first.
+	if int(available) > desired {
+		surplus := int(available) - desired
+		if err := p.trimSurplusSlots(ctx, availableSlots, surplus); err != nil {
+			return nil, err
+		}
+		return nil, nil
 	}
-	created := make([]uuid.UUID, 0, int(createCount))
+
+	created := make([]uuid.UUID, 0, desired-int(available))
 	for i := available; i < int64(desired); i++ {
 		slotID, err := p.provision(ctx, mode)
 		if err != nil {
@@ -229,7 +261,7 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 		}
 	}
 	var warming []model.SandboxWarmSlot
-	if err := p.db.WithContext(ctx).
+	if err := tx.WithContext(ctx).
 		Where("provider_id = ? AND mode = ? AND runtime_image = ? AND status = ?", p.provider.ID(), mode, image, model.SandboxWarmSlotStatusWarming).
 		Find(&warming).Error; err != nil {
 		return created, err
@@ -245,6 +277,52 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 		}
 	}
 	return created, nil
+}
+
+// trimSurplusSlots releases the `surplus` newest idle warm slots, preferring
+// fully 'warm' slots over still-'warming' ones. Deletion runs through MarkError
+// so the provider resource is released (P0-19) rather than just flipping the row.
+func (p *WarmPool) trimSurplusSlots(ctx context.Context, slots []model.SandboxWarmSlot, surplus int) error {
+	if surplus <= 0 {
+		return nil
+	}
+	// Trim newest-first so the longest-lived (most likely already healthy) slots
+	// survive; within that, warm before warming.
+	ordered := make([]model.SandboxWarmSlot, 0, len(slots))
+	for _, s := range slots {
+		if s.Status == model.SandboxWarmSlotStatusWarm {
+			ordered = append(ordered, s)
+		}
+	}
+	for _, s := range slots {
+		if s.Status == model.SandboxWarmSlotStatusWarming {
+			ordered = append(ordered, s)
+		}
+	}
+	logger := logging.FromContext(ctx)
+	for i := len(ordered) - 1; i >= 0 && surplus > 0; i-- {
+		slot := ordered[i]
+		logger.InfoContext(ctx, "trimming surplus sandbox warm slot",
+			"provider", p.provider.ID(), "mode", slot.Mode, "slot_id", slot.ID,
+			"external_id", slot.ExternalID, "status", slot.Status)
+		if err := p.MarkError(ctx, slot.ID, "trimmed surplus warm slot"); err != nil {
+			return fmt.Errorf("trim surplus warm slot %s: %w", slot.ID, err)
+		}
+		surplus--
+	}
+	return nil
+}
+
+// warmPoolReconcileLockKey derives a stable bigint advisory-lock key for a
+// (provider, mode) pair. Collisions only ever serialise unrelated reconciles,
+// which is harmless.
+func warmPoolReconcileLockKey(providerID, mode string) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte("warm-pool-reconcile:"))
+	_, _ = h.Write([]byte(providerID))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(mode))
+	return int64(h.Sum64()) // #nosec G115 -- hash truncation; sign bit is part of the hash distribution
 }
 
 func (p *WarmPool) provision(ctx context.Context, mode string) (uuid.UUID, error) {

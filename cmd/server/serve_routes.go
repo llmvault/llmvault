@@ -37,9 +37,10 @@ func setupPublicRoutes(
 	kms *crypto.KeyWrapper,
 	uploadsHandler *handler.UploadsHandler,
 	sqliteBackupHandler *handler.EmployeeSQLiteBackupHandler,
+	orchestratorMissing bool,
 ) {
 	r.Get("/healthz", healthz)
-	r.Get("/readyz", readyz(database, redisClient))
+	r.Get("/readyz", readyz(database, redisClient, orchestratorMissing))
 
 	// Provider discovery (no auth)
 	r.Get("/v1/providers", providerHandler.List)

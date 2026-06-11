@@ -32,6 +32,12 @@ type Orchestrator struct {
 	// terminal error (P0-21).
 	healthFailureMu     sync.Mutex
 	healthFailureCounts map[uuid.UUID]int
+
+	// lastActiveTouch debounces the last_active_at write performed on every
+	// runtime-client fetch so the hot path does not issue a DB UPDATE per
+	// request (P1-16).
+	lastActiveTouchMu sync.Mutex
+	lastActiveTouch   map[uuid.UUID]time.Time
 }
 
 func NewOrchestrator(db *gorm.DB, provider Provider, encKey *crypto.SymmetricKey, cfg *config.Config) *Orchestrator {
@@ -95,7 +101,7 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 			return nil, fmt.Errorf("refreshing runtime URL: %w", err)
 		}
 	}
-	o.touchLastActive(sb)
+	o.touchLastActive(ctx, sb)
 	return employeeruntime.NewClient(sb.RuntimeURL, apiKey), nil
 }
 

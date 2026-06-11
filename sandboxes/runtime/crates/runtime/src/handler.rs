@@ -279,14 +279,21 @@ pub async fn handle_inbound(
     if matches!(submission, Submission::Queued) {
         let event_source = inbound_event_source(&inbound);
         emit_user_message_received(&emitter, &inbound, event_source, true).await;
+        // P1-30: this follow-up was queued behind an in-flight turn and will be
+        // merged into it. The merged turn streams its tokens to the ACTIVE turn's
+        // stream, not to this message's stream, so emitting a bare `done` here
+        // leaves the client (which opened a fresh stream for the follow-up and
+        // aborted the old one) showing nothing. Instead emit a `session_waiting`
+        // event so the stream stays open, and bridge the merged turn's terminal
+        // output back to it (see merge_queued_inbound + process_single_turn).
         if let Some(stream_id) = session_stream_id(&inbound) {
             turn_event_sink
-                .publish_done(&stream_id, &inbound.session_id)
+                .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
                 .await;
         }
         if let Some(stream_id) = session_response_stream_id(&inbound) {
             turn_event_sink
-                .publish_done(&stream_id, &inbound.session_id)
+                .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
                 .await;
         }
         return Ok(());
@@ -310,6 +317,7 @@ pub async fn handle_inbound(
         .await?;
 
         let mut published_waiting = false;
+        let mut delegate_wait_deadline: Option<std::time::Instant> = None;
         loop {
             let follow_ups = coordinator.drain_queued(&current_inbound.session_id);
             if !follow_ups.is_empty() {
@@ -318,6 +326,21 @@ pub async fn handle_inbound(
             }
 
             if session_has_active_delegates(cron_repo.as_ref(), &current_inbound.session_id).await {
+                // Bound how long the parent turn waits on its delegates. A
+                // delegate whose complete_delegate_result write never lands (or
+                // a sub-agent that never reports back) would otherwise leave the
+                // job Active forever and spin this loop indefinitely (P1-34).
+                let deadline = *delegate_wait_deadline
+                    .get_or_insert_with(|| std::time::Instant::now() + MAX_DELEGATE_WAIT);
+                if std::time::Instant::now() >= deadline {
+                    warn!(
+                        session = %current_inbound.session_id,
+                        "delegate wait exceeded maximum; force-failing stuck delegates"
+                    );
+                    force_fail_active_delegates(cron_repo.as_ref(), &current_inbound.session_id)
+                        .await;
+                    continue;
+                }
                 if !published_waiting {
                     if let Some(stream_id) = http_stream_id.as_deref() {
                         turn_event_sink
@@ -333,6 +356,7 @@ pub async fn handle_inbound(
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 continue;
             }
+            delegate_wait_deadline = None;
 
             if runner.active_background_processes(&current_inbound.session_id) > 0 {
                 if !published_waiting {
@@ -384,6 +408,11 @@ pub async fn handle_inbound(
     Ok(())
 }
 
+/// Maximum time the parent turn will wait for its delegates to report back
+/// before force-failing them. Without this bound a delegate whose result write
+/// never lands keeps the job Active and spins the parent loop forever (P1-34).
+const MAX_DELEGATE_WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+
 async fn session_has_active_delegates(repo: &dyn CronJobRepo, session_id: &SessionId) -> bool {
     let Ok(jobs) = repo
         .list_by_source(domain::cron::CronJobSource::Delegate)
@@ -397,14 +426,65 @@ async fn session_has_active_delegates(repo: &dyn CronJobRepo, session_id: &Sessi
     })
 }
 
+/// Force every still-Active delegate job for this session into a terminal state
+/// so the parent turn's busy-poll loop can exit. Used only after the parent has
+/// waited past MAX_DELEGATE_WAIT.
+async fn force_fail_active_delegates(repo: &dyn CronJobRepo, session_id: &SessionId) {
+    let jobs = match repo
+        .list_by_source(domain::cron::CronJobSource::Delegate)
+        .await
+    {
+        Ok(jobs) => jobs,
+        Err(e) => {
+            warn!(error = %e, session = %session_id, "failed to list delegates while force-failing");
+            return;
+        }
+    };
+    for job in jobs {
+        if job.created_by_session == session_id.as_str()
+            && matches!(job.state, domain::cron::CronJobState::Active)
+        {
+            if let Err(e) = repo
+                .complete_delegate_result(
+                    &job.id,
+                    Utc::now(),
+                    "failed",
+                    Some("delegate did not report back within the maximum wait"),
+                    "",
+                )
+                .await
+            {
+                warn!(error = %e, job_id = %job.id, "failed to force-fail delegate via result write");
+                if let Err(e) = repo
+                    .set_state(&job.id, domain::cron::CronJobState::Completed)
+                    .await
+                {
+                    warn!(error = %e, job_id = %job.id, "failed to force-fail delegate via set_state");
+                }
+            }
+        }
+    }
+}
+
 fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> InboundEvent {
     let mut merged = current.clone();
     let mut text =
         String::from("[Additional request(s) received while working on the previous task]\n");
     let mut attachments = Vec::new();
     let mut raw_events = Vec::new();
+    // Collect the stream ids of every queued follow-up so the merged turn's
+    // terminal output can be bridged back to the streams those clients are
+    // watching (P1-30). Carry any already-bridged ids forward across repeated
+    // merges so nothing is dropped over multiple follow-ups.
+    let mut bridged_stream_ids: Vec<String> = bridged_stream_ids_from_raw(&current.raw);
 
     for (index, event) in queued.into_iter().enumerate() {
+        if let Some(id) = session_stream_id(&event) {
+            bridged_stream_ids.push(id);
+        }
+        if let Some(id) = session_response_stream_id(&event) {
+            bridged_stream_ids.push(id);
+        }
         let number = index + 1;
         let source = inbound_event_source(&event);
         let display_name = event
@@ -449,12 +529,60 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
     merged.user_display_name = Some("Queued inbound messages".to_string());
     merged.text = text;
     merged.attachments = attachments;
-    merged.raw = serde_json::json!({
+    let mut raw = serde_json::json!({
         "source": "queued_batch",
         "events": raw_events,
     });
+    // Preserve the running turn's primary stream ids (replacing merged.raw would
+    // otherwise drop them, so the merged turn would stop streaming entirely) and
+    // record the follow-ups' streams so terminal output can be bridged to them.
+    if let Some(map) = raw.as_object_mut() {
+        if let Some(id) = session_stream_id(current) {
+            map.insert("http_stream_id".to_string(), Value::String(id));
+        }
+        if let Some(id) = session_response_stream_id(current) {
+            map.insert("http_response_stream_id".to_string(), Value::String(id));
+        }
+        if !bridged_stream_ids.is_empty() {
+            map.insert(
+                "bridged_stream_ids".to_string(),
+                Value::Array(bridged_stream_ids.into_iter().map(Value::String).collect()),
+            );
+        }
+    }
+    merged.raw = raw;
     merged.inbound_handle.ts = merged.envelope_id.clone();
     merged
+}
+
+fn bridged_stream_ids_from_raw(raw: &Value) -> Vec<String> {
+    raw.get("bridged_stream_ids")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(ToString::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn bridged_stream_ids(inbound: &InboundEvent) -> Vec<String> {
+    bridged_stream_ids_from_raw(&inbound.raw)
+}
+
+/// Publish the merged turn's final answer plus a terminal `done` to every queued
+/// follow-up's stream (P1-30) so those clients render the response instead of
+/// hanging on a stream that was only told `session_waiting`.
+async fn bridge_terminal_to_streams(
+    sink: &dyn TurnEventSink,
+    stream_ids: &[String],
+    session_id: &SessionId,
+    final_text: &str,
+) {
+    for stream_id in stream_ids {
+        sink.publish_final(stream_id, session_id, final_text).await;
+        sink.publish_done(stream_id, session_id).await;
+    }
 }
 
 #[cfg(test)]
@@ -530,6 +658,106 @@ mod queue_tests {
             "Bug"
         );
         assert_eq!(merged.inbound_handle.ts, "E1-queued");
+    }
+
+    #[test]
+    fn merged_turn_preserves_primary_stream_and_bridges_followup_streams() {
+        // Regression for P1-30: a queued follow-up opens its own SSE stream and
+        // the client aborts the previous one. The merged turn must keep streaming
+        // to the running turn's primary stream AND record the follow-ups' stream
+        // ids so their terminal output can be bridged, instead of those clients
+        // hanging on a stream that only ever received a bare `done`.
+        let current = inbound(
+            "C123-T1",
+            "E1",
+            "working",
+            serde_json::json!({
+                "source": "http",
+                "http_stream_id": "stream-primary",
+                "http_response_stream_id": "stream-primary-resp"
+            }),
+        );
+        let queued = vec![
+            inbound(
+                "C123-T1",
+                "E2",
+                "follow-up",
+                serde_json::json!({
+                    "source": "http",
+                    "http_stream_id": "stream-followup-1",
+                    "http_response_stream_id": "stream-followup-1-resp"
+                }),
+            ),
+            inbound(
+                "C123-T1",
+                "E3",
+                "another follow-up",
+                serde_json::json!({
+                    "source": "http",
+                    "http_stream_id": "stream-followup-2"
+                }),
+            ),
+        ];
+
+        let merged = merge_queued_inbound(&current, queued);
+
+        // Primary stream ids survive the merge (without this the merged turn
+        // would stop streaming entirely).
+        assert_eq!(
+            session_stream_id(&merged).as_deref(),
+            Some("stream-primary")
+        );
+        assert_eq!(
+            session_response_stream_id(&merged).as_deref(),
+            Some("stream-primary-resp")
+        );
+
+        // Every follow-up's stream id is captured for bridging.
+        let bridged = super::bridged_stream_ids(&merged);
+        assert!(bridged.contains(&"stream-followup-1".to_string()));
+        assert!(bridged.contains(&"stream-followup-1-resp".to_string()));
+        assert!(bridged.contains(&"stream-followup-2".to_string()));
+    }
+
+    #[test]
+    fn repeated_merges_accumulate_bridged_streams() {
+        // Multiple rounds of follow-ups must not drop earlier bridged stream ids.
+        let current = inbound(
+            "C123-T1",
+            "E1",
+            "working",
+            serde_json::json!({
+                "source": "http",
+                "http_stream_id": "stream-primary"
+            }),
+        );
+        let first = merge_queued_inbound(
+            &current,
+            vec![inbound(
+                "C123-T1",
+                "E2",
+                "follow-up 1",
+                serde_json::json!({"source": "http", "http_stream_id": "stream-a"}),
+            )],
+        );
+        let second = merge_queued_inbound(
+            &first,
+            vec![inbound(
+                "C123-T1",
+                "E3",
+                "follow-up 2",
+                serde_json::json!({"source": "http", "http_stream_id": "stream-b"}),
+            )],
+        );
+
+        let bridged = super::bridged_stream_ids(&second);
+        assert!(bridged.contains(&"stream-a".to_string()));
+        assert!(bridged.contains(&"stream-b".to_string()));
+        // The primary stream is still preserved after repeated merges.
+        assert_eq!(
+            session_stream_id(&second).as_deref(),
+            Some("stream-primary")
+        );
     }
 
     #[test]
@@ -706,10 +934,24 @@ async fn process_single_turn(
             .publish_final(stream_id, &session_id, &final_text)
             .await;
     } else {
-        if let Err(e) = gateway.reply(&session_id, Reply::Text(final_text)).await {
+        if let Err(e) = gateway
+            .reply(&session_id, Reply::Text(final_text.clone()))
+            .await
+        {
             warn!(error = %e, "reply failed");
         }
     }
+    // P1-30: bridge the merged turn's answer to every queued follow-up's stream.
+    // Those clients opened fresh streams that were told `session_waiting`; emit
+    // the real answer plus a terminal `done` so they render the response instead
+    // of hanging.
+    bridge_terminal_to_streams(
+        turn_event_sink.as_ref(),
+        &bridged_stream_ids(inbound),
+        &session_id,
+        &final_text,
+    )
+    .await;
 
     if let Some(error_message) = outcome.error.as_ref() {
         emitter
@@ -843,22 +1085,69 @@ async fn process_single_turn(
             }
 
             // NOW mark the job as completed (after notification is queued).
-            if let Err(e) = cron_repo
-                .complete_delegate_result(
-                    job_id,
-                    Utc::now(),
-                    delegate_status,
-                    delegate_error,
-                    &result_text,
-                )
-                .await
-            {
-                warn!(error = %e, job_id = %job_id, "failed to record delegate result");
-            }
+            // This MUST eventually move the job out of the `Active` state: the
+            // parent turn busy-polls session_has_active_delegates(), so a job
+            // stuck Active leaves the parent spinning forever (P1-34). Retry the
+            // result write, and if it keeps failing force the job to a terminal
+            // state so the parent's poll loop can exit.
+            complete_delegate_result_or_force_fail(
+                cron_repo.as_ref(),
+                job_id,
+                delegate_status,
+                delegate_error,
+                &result_text,
+            )
+            .await;
         }
     }
 
     Ok(())
+}
+
+/// Number of attempts to persist a delegate's result before force-failing the
+/// job to a terminal state so the parent turn is never blocked forever.
+const COMPLETE_DELEGATE_RESULT_ATTEMPTS: usize = 3;
+
+async fn complete_delegate_result_or_force_fail(
+    cron_repo: &dyn CronJobRepo,
+    job_id: &str,
+    status: &str,
+    error: Option<&str>,
+    result_text: &str,
+) {
+    for attempt in 1..=COMPLETE_DELEGATE_RESULT_ATTEMPTS {
+        match cron_repo
+            .complete_delegate_result(job_id, Utc::now(), status, error, result_text)
+            .await
+        {
+            Ok(()) => return,
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    job_id = %job_id,
+                    attempt,
+                    "failed to record delegate result"
+                );
+                if attempt < COMPLETE_DELEGATE_RESULT_ATTEMPTS {
+                    tokio::time::sleep(std::time::Duration::from_millis(200 * attempt as u64))
+                        .await;
+                }
+            }
+        }
+    }
+
+    // Last resort: force the job out of the Active state so the parent's
+    // busy-poll loop terminates even though we could not persist the result.
+    if let Err(e) = cron_repo
+        .set_state(job_id, domain::cron::CronJobState::Completed)
+        .await
+    {
+        warn!(
+            error = %e,
+            job_id = %job_id,
+            "failed to force-complete delegate job after result write failures; parent turn may block"
+        );
+    }
 }
 
 async fn emit_user_message_received(
@@ -1409,6 +1698,20 @@ mod stream_tests {
 
     #[async_trait]
     impl TurnEventSink for RecordingSink {
+        async fn publish_final(&self, stream_id: &str, _session_id: &SessionId, _text: &str) {
+            self.events
+                .lock()
+                .expect("events lock")
+                .push((stream_id.to_string(), "final".to_string()));
+        }
+
+        async fn publish_done(&self, stream_id: &str, _session_id: &SessionId) {
+            self.events
+                .lock()
+                .expect("events lock")
+                .push((stream_id.to_string(), "done".to_string()));
+        }
+
         async fn publish_agent_event(
             &self,
             stream_id: &str,
@@ -1513,6 +1816,29 @@ mod stream_tests {
                 .cloned()
                 .collect::<Vec<_>>(),
             vec![("response-stream".to_string(), "token".to_string())]
+        );
+    }
+
+    #[tokio::test]
+    async fn bridge_terminal_publishes_final_and_done_to_each_followup_stream() {
+        // Regression for P1-30: the merged turn must deliver the real answer plus
+        // a terminal `done` to every queued follow-up's stream (which were only
+        // told `session_waiting`), not leave them hanging.
+        let sink = RecordingSink::default();
+        let session_id = SessionId::from("C123-T1");
+        let bridged = vec!["stream-a".to_string(), "stream-b".to_string()];
+
+        super::bridge_terminal_to_streams(&sink, &bridged, &session_id, "the answer").await;
+
+        let events = sink.events.lock().expect("events lock").clone();
+        assert_eq!(
+            events,
+            vec![
+                ("stream-a".to_string(), "final".to_string()),
+                ("stream-a".to_string(), "done".to_string()),
+                ("stream-b".to_string(), "final".to_string()),
+                ("stream-b".to_string(), "done".to_string()),
+            ]
         );
     }
 }

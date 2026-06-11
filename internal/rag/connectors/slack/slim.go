@@ -3,6 +3,7 @@ package slack
 import (
 	"context"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 )
 
@@ -15,48 +16,57 @@ func (c *SlackConnector) ListAllSlim(
 ) (<-chan interfaces.SlimDocOrFailure, error) {
 	c.ctx = ctx
 	out := make(chan interfaces.SlimDocOrFailure, c.channelBuf)
-	go func() {
+	goroutine.Go(ctx, func(ctx context.Context) {
 		defer close(out)
 		if c.workspaceURL == "" {
 			if err := c.initWorkspace(ctx); err != nil {
-				out <- interfaces.NewSlimFailure(entityFailure(
+				interfaces.Send(ctx, out, interfaces.NewSlimFailure(entityFailure(
 					"workspace", "slack: auth.test", err,
-				))
+				)))
 				return
 			}
 		}
 		channels, err := c.fetchMemberChannels(ctx)
 		if err != nil {
-			out <- interfaces.NewSlimFailure(entityFailure(
+			interfaces.Send(ctx, out, interfaces.NewSlimFailure(entityFailure(
 				"channels", "slack: list channels", err,
-			))
+			)))
 			return
 		}
 		c.memberChannels = channels
 
 		for _, ch := range channels {
 			access := c.channelAccess(ch)
-			if err := c.streamChannelSlim(ctx, ch, access, out); err != nil {
-				out <- interfaces.NewSlimFailure(entityFailure(
+			err, cancelled := c.streamChannelSlim(ctx, ch, access, out)
+			if cancelled {
+				return
+			}
+			if err != nil {
+				if !interfaces.Send(ctx, out, interfaces.NewSlimFailure(entityFailure(
 					ch.ID, "slack: slim channel "+ch.Name, err,
-				))
+				))) {
+					return
+				}
 			}
 		}
-	}()
+	})
 	return out, nil
 }
 
+// streamChannelSlim returns (err, cancelled). cancelled is true when the
+// consumer abandoned the stream (ctx done during a send) and the caller
+// must stop producing.
 func (c *SlackConnector) streamChannelSlim(
 	ctx context.Context,
 	channel SlackChannel,
 	access *interfaces.ExternalAccess,
 	out chan<- interfaces.SlimDocOrFailure,
-) error {
+) (error, bool) {
 	latest := ""
 	for {
 		messages, hasMore, err := c.api.getChannelHistory(ctx, channel.ID, "", latest)
 		if err != nil {
-			return err
+			return err, false
 		}
 
 		seen := make(map[string]struct{})
@@ -69,15 +79,17 @@ func (c *SlackConnector) streamChannelSlim(
 				continue
 			}
 			seen[docID] = struct{}{}
-			out <- interfaces.NewSlimResult(&interfaces.SlimDocument{
+			if !interfaces.Send(ctx, out, interfaces.NewSlimResult(&interfaces.SlimDocument{
 				DocID:          docID,
 				ExternalAccess: access,
-			})
+			})) {
+				return nil, true
+			}
 		}
 
 		if !hasMore || len(messages) == 0 {
 			break
 		}
 	}
-	return nil
+	return nil, false
 }
