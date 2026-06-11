@@ -259,9 +259,8 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 		return nil, err
 	}
 	if found && existing.Status != "failed" {
-		// A successful (or in-flight) delivery already occupies the dedupe key;
-		// returning it prevents a duplicate reply. Only "failed" rows are retried
-		// below so a transient send error does not permanently drop the reply.
+		// A successful/in-flight delivery occupies the dedupe key; return it to
+		// prevent a duplicate reply. Only "failed" rows are retried below.
 		return existing, nil
 	}
 

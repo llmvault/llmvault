@@ -26,7 +26,7 @@ func TestDocumentOrFailure_ConstructorsAreMutuallyExclusive(t *testing.T) {
 		t.Fatalf("NewDocFailure: Doc should be nil, got %v", fail.Doc)
 	}
 
-	// Nil guards: both panic to catch programming errors early.
+	// Nil guards that both panic to catch programming errors early.
 	defer func() {
 		if r := recover(); r == nil {
 			t.Fatalf("NewDocResult(nil) should panic")

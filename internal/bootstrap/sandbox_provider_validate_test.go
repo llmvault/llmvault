@@ -9,9 +9,8 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-// flakyProvider satisfies sandbox.Provider but only implements ID/Validate;
-// every other method is unused by validateSandboxProvider. Embedding the
-// interface gives nil implementations that would panic if called.
+// flakyProvider implements only ID/Validate; embedding the interface gives nil
+// implementations for the rest (unused by validateSandboxProvider).
 type flakyProvider struct {
 	sandbox.Provider
 	failUntil int // number of initial Validate calls that fail
@@ -28,9 +27,8 @@ func (p *flakyProvider) Validate(context.Context) error {
 	return nil
 }
 
-// TestValidateSandboxProviderRetriesTransientFailure verifies P1-20: a flaky
-// provider that fails the first couple of probes but recovers is retried until
-// it succeeds rather than permanently disabling orchestration.
+// A flaky provider that fails early probes but recovers must be retried until it
+// succeeds rather than permanently disabling orchestration.
 func TestValidateSandboxProviderRetriesTransientFailure(t *testing.T) {
 	p := &flakyProvider{failUntil: 2}
 	if err := validateSandboxProvider(context.Background(), &config.Config{}, p); err != nil {
@@ -41,8 +39,7 @@ func TestValidateSandboxProviderRetriesTransientFailure(t *testing.T) {
 	}
 }
 
-// TestValidateSandboxProviderFailsAfterExhaustingRetries verifies a persistently
-// failing provider surfaces an error (which fails bootstrap in production).
+// A persistently failing provider must surface an error (failing bootstrap).
 func TestValidateSandboxProviderFailsAfterExhaustingRetries(t *testing.T) {
 	p := &flakyProvider{failUntil: 1000}
 	cfg := &config.Config{Environment: "production"}
@@ -54,8 +51,7 @@ func TestValidateSandboxProviderFailsAfterExhaustingRetries(t *testing.T) {
 	}
 }
 
-// TestValidateSandboxProviderHonorsContextCancellation verifies the backoff
-// loop aborts when the context is cancelled.
+// The backoff loop must abort on context cancellation.
 func TestValidateSandboxProviderHonorsContextCancellation(t *testing.T) {
 	p := &flakyProvider{failUntil: 1000}
 	ctx, cancel := context.WithCancel(context.Background())

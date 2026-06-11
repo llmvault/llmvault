@@ -14,10 +14,8 @@ import (
 )
 
 // maxStreamBufLen caps the partial-line buffer so a malformed provider stream
-// (e.g. a never-terminated line) cannot grow it unboundedly. SSE usage events
-// are small JSON objects; a real `data:` line never approaches this size. When
-// a single un-terminated line exceeds the cap we discard the accumulated prefix
-// rather than retain memory forever.
+// (a never-terminated line) cannot grow it unboundedly; real SSE usage events
+// never approach this size. An un-terminated line past the cap is discarded.
 const maxStreamBufLen = 1 << 20 // 1 MiB
 
 // CaptureTransport wraps an http.RoundTripper to capture response metadata
@@ -162,9 +160,7 @@ func (sc *streamingCapture) Read(p []byte) (int, error) {
 
 	if err != nil {
 		sc.captured.TotalMs = int(time.Since(sc.start).Milliseconds())
-		// EOF (or any terminal error) means no more bytes will arrive: flush any
-		// trailing line that was not newline-terminated so a final usage event
-		// is not dropped.
+		// Terminal error: flush any unterminated trailing line so final usage isn't lost.
 		sc.tryParseEvents(true)
 	}
 
@@ -177,23 +173,15 @@ func (sc *streamingCapture) Close() error {
 	return sc.inner.Close()
 }
 
-// tryParseEvents parses complete SSE lines out of the accumulated buffer,
-// extracting usage from `data:` events. It scans on raw `\n` byte offsets so
-// the buffer-reset accounting is exact regardless of line content, and trims a
-// trailing `\r` so CRLF-framed provider streams (`\r\n`) parse correctly. Lines
-// without a terminating `\n` are kept buffered for the next read; only the
-// unparsed tail is retained.
-//
-// flush==true (called from Close) parses any final line that arrived without a
-// trailing newline — e.g. a usage event on the last line of a stream that the
-// provider did not terminate with `\n`.
+// tryParseEvents extracts usage from complete `data:` SSE lines, scanning raw
+// `\n` offsets (exact reset accounting) and trimming `\r` so CRLF parses.
+// Unterminated lines stay buffered; flush==true parses a final trailing one.
 func (sc *streamingCapture) tryParseEvents(flush bool) {
 	for {
 		data := sc.buf.Bytes()
 		idx := bytes.IndexByte(data, '\n')
 		if idx < 0 {
-			// No complete line. On flush, parse whatever remains as a final
-			// line; otherwise keep it buffered (capped below).
+			// No complete line. On flush, parse the remainder as a final line.
 			if flush && len(data) > 0 {
 				sc.parseLine(data)
 				sc.buf.Reset()
@@ -214,15 +202,14 @@ func (sc *streamingCapture) tryParseEvents(flush bool) {
 		sc.buf.Write(remaining)
 	}
 
-	// Hard cap: an un-terminated line that grows past the limit is malformed;
-	// discard it so memory cannot grow without bound.
+	// Hard cap: discard an un-terminated line past the limit so memory is bounded.
 	if !flush && sc.buf.Len() > maxStreamBufLen {
 		sc.buf.Reset()
 	}
 }
 
-// parseLine extracts usage from a single (already newline- and CR-stripped) SSE
-// line. Non-`data:` lines and the `[DONE]` sentinel are ignored.
+// parseLine extracts usage from a single (newline/CR-stripped) SSE line,
+// ignoring non-`data:` lines and `[DONE]`.
 func (sc *streamingCapture) parseLine(line []byte) {
 	const prefix = "data:"
 	if !bytes.HasPrefix(line, []byte(prefix)) {
@@ -239,7 +226,6 @@ func (sc *streamingCapture) parseLine(line []byte) {
 	}
 }
 
-// toObserveUsage converts proxy.UsageData to observe.UsageData.
 func toObserveUsage(u UsageData) observe.UsageData {
 	return observe.UsageData{
 		InputTokens:     u.InputTokens,

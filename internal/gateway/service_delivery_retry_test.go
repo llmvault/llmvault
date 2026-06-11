@@ -12,9 +12,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// flakyAdapter wraps the fake-slack adapter but fails SendResponse a configurable
-// number of times before succeeding, so we can exercise the failed-delivery
-// retry path (P0-13).
+// flakyAdapter wraps the fake-slack adapter but fails SendResponse a configurable number of times
+// before succeeding, so we can exercise the failed-delivery retry path.
 type flakyAdapter struct {
 	provider     string
 	mu           sync.Mutex
@@ -60,9 +59,8 @@ func (a *flakyAdapter) successfulSends() int {
 	return a.sends
 }
 
-// TestHandleRuntimeFinalRetriesFailedDelivery asserts that a transient send
-// failure does not permanently occupy the dedupe key: a later HandleRuntimeFinal
-// for the same turn re-sends and the reply is delivered (P0-13).
+// A transient send failure does not permanently occupy the dedupe key: a later HandleRuntimeFinal
+// for the same turn re-sends and the reply is delivered.
 func TestHandleRuntimeFinalRetriesFailedDelivery(t *testing.T) {
 	db := connectGatewayTestDB(t)
 	adapter := &flakyAdapter{provider: "flaky-slack", failuresLeft: 1}
@@ -84,7 +82,6 @@ func TestHandleRuntimeFinalRetriesFailedDelivery(t *testing.T) {
 		Text:             "All done.",
 	}
 
-	// First attempt: SendResponse fails, delivery row recorded as "failed".
 	firstDelivery, err := service.HandleRuntimeFinal(t.Context(), final)
 	if err != nil {
 		t.Fatalf("handle runtime final (first): %v", err)
@@ -96,7 +93,6 @@ func TestHandleRuntimeFinalRetriesFailedDelivery(t *testing.T) {
 		t.Fatalf("no successful send expected yet, got %d", adapter.successfulSends())
 	}
 
-	// Second attempt: must retry and succeed instead of returning the failed row.
 	secondDelivery, err := service.HandleRuntimeFinal(t.Context(), final)
 	if err != nil {
 		t.Fatalf("handle runtime final (retry): %v", err)
@@ -111,7 +107,6 @@ func TestHandleRuntimeFinalRetriesFailedDelivery(t *testing.T) {
 		t.Fatalf("expected exactly one successful send, got %d", adapter.successfulSends())
 	}
 
-	// Third attempt: now deduped (terminal success), no further sends.
 	thirdDelivery, err := service.HandleRuntimeFinal(t.Context(), final)
 	if err != nil {
 		t.Fatalf("handle runtime final (dedupe): %v", err)

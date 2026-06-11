@@ -52,9 +52,8 @@ func TestEmployeeHandlerEnsureServiceDiscoveryScheduleForConnection(t *testing.T
 		t.Fatalf("schedule prompt missing Railway checklist: %s", schedule.TaskPrompt)
 	}
 
-	// Regression: the schedule must be bound to the employee sandbox via the
-	// *uuid.UUID SandboxID pointer field. A nil/zero value here means the
-	// upsert wrote a NULL sandbox association for a sandbox-backed schedule.
+	// The schedule must be bound to the sandbox via the *uuid.UUID SandboxID; a
+	// nil/zero value means the upsert wrote a NULL association.
 	if schedule.SandboxID == nil {
 		t.Fatal("service discovery schedule should reference the employee sandbox")
 	}

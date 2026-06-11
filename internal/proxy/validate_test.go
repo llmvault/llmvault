@@ -8,13 +8,11 @@ import (
 )
 
 func TestValidateBaseURL_RejectsResolutionFailure(t *testing.T) {
-	// AllowLoopback must be false so the resolution path runs.
 	old := AllowLoopback
 	AllowLoopback = false
 	defer func() { AllowLoopback = old }()
 
-	// A guaranteed-nonexistent host (.invalid is reserved by RFC 2606) must
-	// fail validation instead of being silently allowed through.
+	// A nonexistent host (.invalid, RFC 2606) must fail validation, not pass.
 	err := ValidateBaseURL("https://this-host-does-not-exist.invalid")
 	if err == nil {
 		t.Fatal("expected resolution failure to be rejected, got nil")
@@ -63,10 +61,8 @@ func TestGuardedDialContext_BlocksRebindingToMetadataIP(t *testing.T) {
 	AllowLoopback = false
 	defer func() { AllowLoopback = old }()
 
-	// Simulate the dial resolving the attacker host to a metadata IP by
-	// validating the IP-check helper that the dialer relies on. A hostname
-	// that resolves to a disallowed address at dial time must be blocked
-	// before any connection is attempted.
+	// A hostname that resolves to a disallowed address at dial time must be
+	// blocked before any connection is attempted.
 	if !isDisallowedIP(net.ParseIP("169.254.169.254")) {
 		t.Fatal("expected 169.254.169.254 to be disallowed")
 	}
@@ -84,8 +80,7 @@ func TestGuardedDialContext_AllowsLoopbackInTestMode(t *testing.T) {
 	AllowLoopback = true
 	defer func() { AllowLoopback = old }()
 
-	// Listen on loopback and confirm the guarded dialer can reach it when
-	// AllowLoopback is set (test mode), proving the bypass path works.
+	// With AllowLoopback set (test mode) the guarded dialer can reach loopback.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)

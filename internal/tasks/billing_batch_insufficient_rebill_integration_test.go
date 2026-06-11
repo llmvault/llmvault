@@ -6,18 +6,15 @@ import (
 	"github.com/usehivy/hivy/internal/billing"
 )
 
-// TestBatch_InsufficientThenTopupRebills exercises the P0-8 fix: a row that
-// fails with insufficient_credits is NOT written off. It stays in the unbilled
-// queue (billed_at NULL), and once the org tops up, the next batch run debits
-// it. Before the fix the row was stamped billed_at with credits_debited=0 and
-// the spend was lost forever.
+// A row that fails with insufficient_credits must NOT be written off: it stays in
+// the unbilled queue (billed_at NULL) so once the org tops up the next batch run
+// debits it, rather than losing the spend forever.
 func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 	db := connectDB(t)
 	orgID, credID := seedOrgWithCredentialAndCredits(t, db, 10) // far less than one gen costs
 
 	genID := insertGeneration(t, db, orgID, credID, defaultGenOpts())
 
-	// First sweep: balance is too low, row goes insufficient but stays unbilled.
 	runBatch(t, db)
 
 	g := loadGen(t, db, genID)
@@ -36,13 +33,11 @@ func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 		t.Fatalf("balance should be untouched while insufficient: %d", balBefore)
 	}
 
-	// Top up the org so it can now afford the generation.
 	if err := billing.NewCreditsService(db).Grant(orgID, 10_000, billing.ReasonTopup, "topup", "tx-1", nil); err != nil {
 		t.Fatalf("topup grant: %v", err)
 	}
 
-	// Second sweep: the previously-insufficient row is still in the queue and
-	// now gets billed.
+	// Second sweep: the previously-insufficient row now gets billed.
 	runBatch(t, db)
 
 	g2 := loadGen(t, db, genID)
@@ -63,17 +58,15 @@ func TestBatch_InsufficientThenTopupRebills(t *testing.T) {
 	}
 }
 
-// TestBatch_InsufficientHotLoopCapped verifies that a permanently underfunded
-// row does not stay in the queue forever: after the retry cap is reached it is
-// stamped billed_at (with credits_debited=0) so it cannot hot-loop the batch.
+// A permanently underfunded row must not hot-loop forever: after the retry cap
+// it is stamped billed_at (credits_debited=0) and leaves the queue.
 func TestBatch_InsufficientHotLoopCapped(t *testing.T) {
 	db := connectDB(t)
 	orgID, credID := seedOrgWithCredentialAndCredits(t, db, 10) // never enough
 
 	genID := insertGeneration(t, db, orgID, credID, defaultGenOpts())
 
-	// Run the batch enough times to exhaust the attempt cap. The cap is small;
-	// 10 runs is comfortably more than enough.
+	// Run enough times to exhaust the (small) attempt cap.
 	var g genFixture
 	for i := 0; i < 10; i++ {
 		runBatch(t, db)
@@ -93,8 +86,7 @@ func TestBatch_InsufficientHotLoopCapped(t *testing.T) {
 		t.Errorf("written-off row should have credits_debited 0, got %d", g.CreditsDebited)
 	}
 
-	// Once written off the row no longer appears in the unbilled queue, so its
-	// attempt counter stops climbing — confirm a further run does not change it.
+	// Written-off row leaves the queue; its attempt counter must stop climbing.
 	attemptsAtWriteOff := g.BillingAttempts
 	runBatch(t, db)
 	if after := loadGen(t, db, genID).BillingAttempts; after != attemptsAtWriteOff {

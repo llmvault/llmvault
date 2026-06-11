@@ -16,21 +16,17 @@ import (
 )
 
 const (
-	// specialistProxyTokenRefreshLead refreshes a specialist proxy token once it
-	// is within this window of expiry. Specialist tokens are minted with the same
-	// 24h TTL as employee tokens but were never refreshed (P1-18); a long-running
-	// specialist task would silently lose LLM and MCP access after ~24h.
+	// specialistProxyTokenRefreshLead refreshes a specialist proxy token within
+	// this window of expiry. These share the 24h employee-token TTL but were never
+	// refreshed, so a long-running task would lose LLM/MCP access after ~24h.
 	specialistProxyTokenRefreshLead = 4 * time.Hour
-	// specialistProxyTokenRevokeGrace mirrors the employee refresh grace window:
-	// only tokens older than this are revoked so a token minted by a concurrent
-	// path is not pulled out from under the runtime.
+	// specialistProxyTokenRevokeGrace mirrors the employee refresh grace window: only
+	// tokens older than this are revoked, sparing one minted by a concurrent path.
 	specialistProxyTokenRevokeGrace = 10 * time.Minute
 )
 
-// refreshSpecialistProxyTokenIfNeeded mints a fresh specialist proxy token and
-// pushes an updated runtime config when the sandbox's current specialist token
-// is near expiry. It is best-effort: a refresh failure is logged but does not
-// block message delivery, since the existing token may still be valid.
+// refreshSpecialistProxyTokenIfNeeded mints a fresh specialist token and pushes the config when
+// the current one is near expiry. Best-effort: a failure is logged but does not block delivery.
 func (s *Service) refreshSpecialistProxyTokenIfNeeded(ctx context.Context, employee *model.Employee, task *model.SpecialistTask, sb *model.Sandbox) {
 	if s == nil || employee == nil || employee.OrgID == nil || sb == nil || task == nil {
 		return
@@ -45,10 +41,7 @@ func (s *Service) refreshSpecialistProxyTokenIfNeeded(ctx context.Context, emplo
 		logging.Capture(ctx, fmt.Errorf("specialist token refresh: load latest token: %w", err))
 		return
 	}
-	// No live token (already expired/revoked) or comfortably far from expiry:
-	// nothing to do. If the token is already gone the next message would fail
-	// anyway; refreshing here would not help because the runtime is unreachable
-	// without a working token only when it is still valid.
+	// No live token, or far from expiry: nothing to do.
 	if latest == nil {
 		return
 	}

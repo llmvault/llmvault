@@ -19,10 +19,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// P1-4: a self-service email change must never be treated as confirmed, even
-// when HIVY_AUTO_CONFIRM_EMAIL is enabled. Otherwise a user could change their
-// email to an allowlisted platform-admin address and silently gain platform
-// admin (which is derived from the mutable email value).
+// A self-service email change must never be auto-confirmed, even when
+// HIVY_AUTO_CONFIRM_EMAIL is set: otherwise a user could change to an
+// allowlisted platform-admin address and gain platform admin.
 func TestIntegration_UpdateProfile_EmailChangeRequiresReverification_WithAutoConfirm(t *testing.T) {
 	db := connectTestDB(t)
 
@@ -41,7 +40,6 @@ func TestIntegration_UpdateProfile_EmailChangeRequiresReverification_WithAutoCon
 		billing.NewCreditsService(db),
 	)
 
-	// Seed a confirmed user.
 	now := time.Now().UTC()
 	original := "p14-original-" + uuid.NewString() + "@example.com"
 	user := model.User{Email: original, Name: "P1-4 User", EmailConfirmedAt: &now}
@@ -74,7 +72,6 @@ func TestIntegration_UpdateProfile_EmailChangeRequiresReverification_WithAutoCon
 		t.Fatal("email change must reset email_confirmed_at to require re-verification, but it remained confirmed (auto-confirm escalation path)")
 	}
 
-	// The response DTO must also reflect the unconfirmed state.
 	var resp struct {
 		Email          string `json:"email"`
 		EmailConfirmed bool   `json:"email_confirmed"`

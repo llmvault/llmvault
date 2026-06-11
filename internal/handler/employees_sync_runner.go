@@ -19,12 +19,10 @@ func (h *EmployeeHandler) ensureEmployeeSandbox(ctx context.Context, agent *mode
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent must have org_id")
 	}
-	// Concurrent syncs (org PATCH, env-var writes, Nango webhooks, model
-	// changes) all reach here during onboarding. Without serialisation each one
-	// runs the check-then-create below and provisions its own billing sandbox;
-	// the losers run and bill forever. Hold a per-employee advisory lock for the
-	// whole ensure so only one sync provisions at a time; the others block, then
-	// see the row the winner created and reuse it via EnsureSandboxActive.
+	// Concurrent syncs (org PATCH, env-var writes, webhooks) all reach here during
+	// onboarding; without serialisation each runs check-then-create and provisions
+	// its own billing sandbox. A per-employee advisory lock lets only one provision;
+	// the others block, then reuse the winner's row.
 	var sb *model.Sandbox
 	txErr := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", employeeSandboxLockKey(agent.ID)).Error; err != nil {
@@ -46,10 +44,9 @@ func (h *EmployeeHandler) ensureEmployeeSandbox(ctx context.Context, agent *mode
 func (h *EmployeeHandler) ensureEmployeeSandboxLocked(ctx context.Context, agent *model.Employee) (*model.Sandbox, error) {
 	sb, err := h.mainEmployeeRuntimeSelector().MainRuntime(ctx, *agent.OrgID, agent.ID)
 	if err == nil {
-		// The selector now also returns creating/starting/stopped rows; route
-		// them through EnsureSandboxActive so an in-flight or idle sandbox is
-		// reused (and woken) instead of leaving it abandoned and minting a new
-		// one alongside it.
+		// The selector also returns creating/starting/stopped rows; route them
+		// through EnsureSandboxActive so an in-flight/idle sandbox is reused (and
+		// woken), not abandoned alongside a new one.
 		active, ensureErr := h.orchestrator.EnsureSandboxActive(ctx, sb)
 		if ensureErr != nil {
 			return nil, fmt.Errorf("ensure existing employee sandbox active: %w", ensureErr)
@@ -79,9 +76,8 @@ func (h *EmployeeHandler) ensureEmployeeSandboxLocked(ctx context.Context, agent
 	return created, nil
 }
 
-// employeeSandboxLockKey hashes an employee UUID down to a bigint for
-// pg_advisory_xact_lock. Collisions are harmless — two unrelated employees
-// occasionally serialising their sandbox provisioning is fine.
+// employeeSandboxLockKey hashes an employee UUID to a bigint for pg_advisory_xact_lock.
+// Collisions only serialise unrelated employees, which is harmless.
 func employeeSandboxLockKey(employeeID uuid.UUID) int64 {
 	return int64(binary.BigEndian.Uint64(employeeID[:8])) // #nosec G115 -- hash truncation; sign bit is part of the hash distribution
 }

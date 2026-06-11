@@ -14,10 +14,8 @@ import (
 
 const bytesPerGiB = int64(1024 * 1024 * 1024)
 
-// Default container limits applied when CreateSandboxOpts carries no explicit
-// size (CPU/Memory == 0). Without these a runaway agent can consume the whole
-// host and take down every co-located sandbox. PidsLimit is always applied to
-// cap fork bombs regardless of the requested size.
+// Default container limits when CreateSandboxOpts carries no size; without them a
+// runaway agent can take down every co-located sandbox (PidsLimit caps fork bombs).
 const (
 	defaultCPUCores  = 2
 	defaultMemoryGB  = 4

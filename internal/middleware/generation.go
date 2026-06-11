@@ -53,10 +53,8 @@ func NewGenerationWriter(ctx context.Context, db *gorm.DB, reg *registry.Registr
 	return gw
 }
 
-// SetEnqueuer wires a task enqueuer used as a durable fallback: rows that can't
-// be flushed (insert failure, full buffer, shutdown deadline) are spilled to the
-// asynq generation:write task instead of being dropped. Generation rows are
-// billing-bearing, so dropping them is silent lost LLM revenue.
+// SetEnqueuer wires a durable fallback: billing-bearing rows that can't be flushed
+// (insert failure, full buffer, shutdown deadline) spill to asynq instead of dropping.
 func (gw *GenerationWriter) SetEnqueuer(enqueuer enqueue.TaskEnqueuer) {
 	gw.enqueuer = enqueuer
 }
@@ -109,14 +107,12 @@ func (gw *GenerationWriter) drain(ctx context.Context) {
 	}
 }
 
-// flushRetryDelays is the backoff schedule used when a batch insert fails
-// transiently before falling back to the durable asynq spill.
+// flushRetryDelays is the backoff before falling back to the durable asynq spill.
 var flushRetryDelays = []time.Duration{50 * time.Millisecond, 200 * time.Millisecond}
 
-// flushBatch writes the batch with a short bounded retry. On persistent failure
-// it spills every row to the durable asynq generation:write task so billable
-// usage is never silently dropped on a DB blip. The batch slice is owned by the
-// caller and must not be reused after this returns.
+// flushBatch writes the batch with a short bounded retry, spilling every row to
+// the durable asynq task on persistent failure so billable usage is never
+// dropped on a DB blip. The caller must not reuse batch after this returns.
 func (gw *GenerationWriter) flushBatch(ctx context.Context, batch []model.Generation) {
 	var err error
 	for attempt := 0; ; attempt++ {
@@ -141,8 +137,8 @@ func (gw *GenerationWriter) flushBatch(ctx context.Context, batch []model.Genera
 }
 
 // spill enqueues a single generation row on the durable asynq generation:write
-// task (MaxRetry 3). Only when the enqueuer is unset or itself fails is the row
-// dropped — and that is loud, since these rows are billing-bearing.
+// task (MaxRetry 3). Only when the enqueuer is unset or itself fails is the
+// billing-bearing row dropped — and that is logged loudly.
 func (gw *GenerationWriter) spill(ctx context.Context, gen model.Generation, reason string) {
 	if gw.enqueuer == nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "generation dropped (no spill enqueuer configured)",
@@ -161,9 +157,8 @@ func (gw *GenerationWriter) spill(ctx context.Context, gen model.Generation, rea
 	}
 }
 
-// Write queues a generation entry. It never blocks the request hot path — if the
-// in-memory buffer is full it applies backpressure by spilling the billing-bearing
-// entry to the durable asynq generation:write task instead of dropping it.
+// Write queues a generation entry, never blocking the request hot path: a full
+// buffer spills the billing-bearing entry to the durable asynq task.
 func (gw *GenerationWriter) Write(ctx context.Context, gen model.Generation) {
 	select {
 	case gw.entries <- gen:
@@ -174,8 +169,8 @@ func (gw *GenerationWriter) Write(ctx context.Context, gen model.Generation) {
 }
 
 // Shutdown closes the channel and waits for all queued entries to be flushed.
-// If the deadline is hit before the drain completes, any entries still queued
-// are spilled to the durable asynq generation:write task rather than abandoned.
+// If the drain misses the deadline, queued entries spill to the durable asynq
+// task rather than being abandoned.
 func (gw *GenerationWriter) Shutdown(ctx context.Context) {
 	close(gw.entries)
 
@@ -189,10 +184,8 @@ func (gw *GenerationWriter) Shutdown(ctx context.Context) {
 	case <-done:
 	case <-ctx.Done():
 		logging.FromContext(ctx).WarnContext(ctx, "generation shutdown timed out, spilling remaining entries to asynq")
-		// The drain goroutine raced the deadline; drain whatever it left in the
-		// channel ourselves and spill it durably. Reads here are safe: the
-		// channel is closed, so this ranges to completion once the drain
-		// goroutine stops consuming.
+		// The drain raced the deadline; drain and spill the rest ourselves. The
+		// channel is closed, so this ranges to completion safely.
 		for gen := range gw.entries {
 			gw.spill(context.WithoutCancel(ctx), gen, "shutdown_timeout")
 		}

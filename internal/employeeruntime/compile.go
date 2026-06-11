@@ -162,7 +162,7 @@ func MintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee
 
 // MintSpecialistProxyToken mints a specialist-mode proxy token bound to the
 // given sandbox and specialist slug. Used to refresh a specialist runtime's
-// credentials before its 24h token expires (P1-18).
+// credentials before its 24h token expires.
 func MintSpecialistProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, specialistSlug string) (*ProxyTokenResult, error) {
 	return mintProxyToken(ctx, deps, agent, sandboxID, model.TokenRuntimeModeSpecialist, specialistSlug)
 }
@@ -231,12 +231,8 @@ func AttachSpecialistProxyTokenToSandbox(ctx context.Context, deps CompileDeps, 
 	return attachProxyTokenToSandbox(ctx, deps, agent, sandboxID, jti, model.TokenRuntimeModeSpecialist, specialistSlug)
 }
 
-// attachProxyTokenToSandbox binds the freshly minted proxy token (identified by
-// its JTI) to the sandbox it was minted for. The previous "latest by created_at"
-// lookup could tag a stale row (a token revoked or expired between mint and
-// attach, or a concurrently minted one) and silently swallowed lookup errors,
-// which left the refresh scheduler computing the next refresh from the wrong row
-// (P2-46). We now look up the exact minted token and require it to be live.
+// attachProxyTokenToSandbox binds the minted token by JTI (not "latest by created_at", which could
+// tag a stale/concurrent row and leave the refresh scheduler on the wrong one).
 func attachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, jti string, runtimeMode string, specialistSlug string) error {
 	if agent == nil || agent.OrgID == nil {
 		return fmt.Errorf("attach proxy token: agent must have org_id")

@@ -27,15 +27,13 @@ type Orchestrator struct {
 	reconcileWarmPool func(context.Context, string, string) error
 	pushRuntimeConfig func(context.Context, *model.Sandbox) error
 
-	// healthFailureCounts tracks consecutive bad provider health observations
-	// per sandbox so a single transient CRASHED reading does not persist a
-	// terminal error (P0-21).
+	// healthFailureCounts tracks consecutive bad provider health observations per sandbox so a
+	// single transient CRASHED reading does not persist a terminal error.
 	healthFailureMu     sync.Mutex
 	healthFailureCounts map[uuid.UUID]int
 
-	// lastActiveTouch debounces the last_active_at write performed on every
-	// runtime-client fetch so the hot path does not issue a DB UPDATE per
-	// request (P1-16).
+	// lastActiveTouch debounces the last_active_at write done on every runtime-client
+	// fetch so the hot path does not issue a DB UPDATE per request.
 	lastActiveTouchMu sync.Mutex
 	lastActiveTouch   map[uuid.UUID]time.Time
 }

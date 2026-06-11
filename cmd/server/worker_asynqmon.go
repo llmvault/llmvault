@@ -18,11 +18,9 @@ import (
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
-// buildAsynqmonServer returns an http.Server hosting the asynqmon dashboard
-// behind HTTP basic auth on its own port, or nil if the dashboard is disabled
-// or misconfigured. The dashboard is fail-closed: it requires both
-// HIVY_ASYNQMON_ENABLED=true and basic-auth credentials, and it must not share
-// the public health port.
+// buildAsynqmonServer hosts the asynqmon dashboard behind HTTP basic auth on its
+// own port, or returns nil if disabled/misconfigured. Fail-closed: it requires
+// HIVY_ASYNQMON_ENABLED=true plus basic-auth credentials and never shares the health port.
 func buildAsynqmonServer(ctx context.Context, cfg *config.Config, redisOpt asynq.RedisConnOpt) *http.Server {
 	if !cfg.AsynqmonEnabled {
 		slog.Info("asynqmon dashboard disabled (set HIVY_ASYNQMON_ENABLED=true with basic-auth credentials to enable)")

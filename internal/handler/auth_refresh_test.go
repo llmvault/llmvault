@@ -23,10 +23,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// ---------------------------------------------------------------------------
-// Refresh-rotation harness (P0-32 / P1-9)
-// ---------------------------------------------------------------------------
-
 type refreshTestHarness struct {
 	db         *gorm.DB
 	router     *chi.Mux
@@ -67,8 +63,7 @@ func hashRefresh(token string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// seedUserWithRefreshToken creates a user, org membership, and a stored,
-// signed, single-use refresh token, returning the token string.
+// seedUserWithRefreshToken creates a user, membership, and a stored refresh token.
 func (h *refreshTestHarness) seedUserWithRefreshToken(t *testing.T) (model.User, string) {
 	t.Helper()
 
@@ -134,8 +129,7 @@ func (h *refreshTestHarness) doRefresh(token string) (int, map[string]any) {
 	return rr.Code, out
 }
 
-// TestRefreshConcurrentSameTokenSharesRotatedPair is the core P0-32 regression:
-// two concurrent presentations of the SAME single-use refresh token must both
+// Two concurrent presentations of the SAME single-use refresh token must both
 // succeed and receive the SAME rotated pair (grace window) — never a 401 that
 // would force-log-out the loser of the race.
 func TestRefreshConcurrentSameTokenSharesRotatedPair(t *testing.T) {
@@ -177,14 +171,12 @@ func TestRefreshConcurrentSameTokenSharesRotatedPair(t *testing.T) {
 			wantRefresh = refresh[i]
 			continue
 		}
-		// All concurrent callers must converge on the SAME rotated pair, or
-		// they'd each have a different session and clobber each other's cookie.
+		// All callers must converge on the same rotated pair or clobber each other.
 		if access[i] != wantAccess || refresh[i] != wantRefresh {
 			t.Fatalf("concurrent refresh %d got a different rotated pair: pairs diverged", i)
 		}
 	}
 
-	// Exactly one fresh refresh-token row should have been minted by the winner.
 	var newCount int64
 	h.db.Model(&model.RefreshToken{}).
 		Where("token_hash = ? AND revoked_at IS NULL", hashRefresh(wantRefresh)).
@@ -194,9 +186,8 @@ func TestRefreshConcurrentSameTokenSharesRotatedPair(t *testing.T) {
 	}
 }
 
-// TestRefreshSequentialReuseSucceedsWithinGrace confirms the grace window also
-// covers sequential (non-concurrent) presentations of the same token within the
-// window — both calls return the same pair.
+// The grace window also covers sequential reuse within the window — both calls
+// return the same pair.
 func TestRefreshSequentialReuseSucceedsWithinGrace(t *testing.T) {
 	h := newRefreshHarness(t)
 	_, token := h.seedUserWithRefreshToken(t)
@@ -214,8 +205,7 @@ func TestRefreshSequentialReuseSucceedsWithinGrace(t *testing.T) {
 	}
 }
 
-// TestRefreshReuseAfterGraceRejected confirms that once the grace window has
-// elapsed, replaying the old single-use token is rejected (no indefinite reuse).
+// Once the grace window elapses, replaying the old single-use token is rejected.
 func TestRefreshReuseAfterGraceRejected(t *testing.T) {
 	h := newRefreshHarness(t)
 	_, token := h.seedUserWithRefreshToken(t)
@@ -225,7 +215,6 @@ func TestRefreshReuseAfterGraceRejected(t *testing.T) {
 		t.Fatalf("first refresh returned %d, want 200", code1)
 	}
 
-	// Simulate the grace window having elapsed by backdating replaced_at.
 	stale := time.Now().Add(-1 * time.Hour)
 	if err := h.db.Model(&model.RefreshToken{}).
 		Where("token_hash = ?", hashRefresh(token)).
@@ -242,8 +231,7 @@ func TestRefreshReuseAfterGraceRejected(t *testing.T) {
 	}
 }
 
-// TestRefreshRevokedTokenRejected confirms a token revoked without a recorded
-// replacement (e.g. logout) is rejected outright.
+// A token revoked without a recorded replacement (e.g. logout) is rejected.
 func TestRefreshRevokedTokenRejected(t *testing.T) {
 	h := newRefreshHarness(t)
 	_, token := h.seedUserWithRefreshToken(t)

@@ -10,11 +10,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestEmployeeEventWriterFlushesOnShutdownAfterRootCancel guards P0-15: the
-// drain goroutine captures the root (signal) context, which is already cancelled
-// during graceful shutdown. The final flush must run on a detached context so the
-// buffered events (including agent.message.sent, the only durable record of a
-// reply) are persisted instead of discarded.
+// During graceful shutdown the root signal context is already cancelled, so the
+// final flush must run on a detached context — otherwise buffered events (the
+// only durable record of a reply) are discarded.
 func TestEmployeeEventWriterFlushesOnShutdownAfterRootCancel(t *testing.T) {
 	db := connectEmployeeSkillSyncTestDB(t)
 	org := model.Org{Name: "event-writer-shutdown-" + uuid.NewString(), RateLimit: 1000, Active: true}
@@ -41,7 +39,6 @@ func TestEmployeeEventWriterFlushesOnShutdownAfterRootCancel(t *testing.T) {
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})
 
-	// Long flush interval so the events stay buffered until shutdown.
 	rootCtx, cancelRoot := context.WithCancel(context.Background())
 	writer := NewEmployeeEventWriter(rootCtx, db, 100, time.Hour)
 
@@ -61,8 +58,7 @@ func TestEmployeeEventWriterFlushesOnShutdownAfterRootCancel(t *testing.T) {
 		})
 	}
 
-	// Simulate graceful shutdown: the root signal context is cancelled, then the
-	// writer is drained on a fresh context (as cmd/server/serve.go does).
+	// Graceful shutdown: root ctx cancelled, then drain on a fresh context.
 	cancelRoot()
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.WithoutCancel(rootCtx), 30*time.Second)
 	defer cancelShutdown()

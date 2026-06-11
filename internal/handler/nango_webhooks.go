@@ -148,10 +148,9 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 		result, err := h.gatewayService.ReceiveWebhookFromConnection(r.Context(), envelope)
 		if err != nil {
-			// Delivery to the runtime failed (sandbox waking, runtime restart,
-			// post timeout) and the inbound event was marked "failed". Return 5xx
-			// so the provider redelivers the webhook; the gateway reclaims the
-			// failed dedupe row and re-runs Send instead of dropping the message.
+			// Delivery to the runtime failed and the event was marked "failed".
+			// Return 5xx so the provider redelivers; the gateway reclaims the failed
+			// dedupe row and re-runs Send instead of dropping the message.
 			slackFields["stage"] = "gateway_receive"
 			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: receive: %w", err), slackFields)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process webhook"})

@@ -11,9 +11,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// claimWarmRuntimeForMode provisions one warm slot of the given mode and runs the
-// full claimWarmRuntime path against a freshly created sandbox, recording whether
-// the employee-config pusher callback fired.
+// claimWarmRuntimeForMode runs the full claimWarmRuntime path for the given mode,
+// recording whether the employee-config pusher callback fired.
 func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	t.Helper()
 	db := setupTestDB(t)
@@ -44,7 +43,6 @@ func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	if err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
-	// Ensure at least one slot is ready to claim.
 	var slots []model.SandboxWarmSlot
 	if err := db.Where("provider_id = ? AND mode = ?", provider.ID(), mode).Find(&slots).Error; err != nil {
 		t.Fatalf("load slots: %v", err)
@@ -91,11 +89,9 @@ func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	return pushed
 }
 
-// TestClaimWarmRuntime_PushesEmployeeConfigOnlyForEmployeeMode is the P0-5
-// regression: the warm-claim config push is mode-aware. Employee warm claims get
-// the employee config pushed; specialist warm claims must NOT (the specialist task
-// launcher pushes the real specialist definition, and pushing the employee config
-// would also repoint the employee's cron schedules onto the specialist sandbox).
+// The warm-claim config push is mode-aware: employee claims get the employee
+// config; specialist claims must NOT (the launcher pushes the specialist
+// definition, and the employee config would repoint schedules onto it).
 func TestClaimWarmRuntime_PushesEmployeeConfigOnlyForEmployeeMode(t *testing.T) {
 	if pushed := claimWarmRuntimeForMode(t, model.SandboxWarmSlotModeEmployee); !pushed {
 		t.Fatal("employee warm claim must push the employee runtime config")

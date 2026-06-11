@@ -34,9 +34,9 @@ func (s *recordingGatewaySink) OnFailure(context.Context, GatewayStreamPayload, 
 	return nil
 }
 
-// The runtime's final event is authoritative: it must win over the streamed
-// token accumulation (which can drop/duplicate tokens). Falls back to
-// streamed text only when the final event is empty.
+// The runtime's final event is authoritative: it must win over the streamed token
+// accumulation (which can drop/duplicate tokens), falling back to streamed text
+// only when the final event is empty.
 func TestGatewayStreamDeliveryPrefersFinalTextOverAccumulatedTokens(t *testing.T) {
 	sink := &recordingGatewaySink{}
 	result, err := NewGatewayStreamDeliveryService(nil).DeliverEvents(
@@ -96,10 +96,9 @@ func TestGatewayStreamDeliverySendsFriendlyTextOnStreamError(t *testing.T) {
 	}
 }
 
-// A transport-level stream failure (EventStreamError) must trigger a
-// subscription retry rather than being delivered as a truncated final
-// response. The broker replays history, so the retry observes the real
-// final event and delivers the full answer.
+// A transport-level stream failure (EventStreamError) must trigger a subscription
+// retry, not be delivered as a truncated final response. The broker replays
+// history, so the retry observes the real final event.
 func TestGatewayStreamDeliveryRetriesOnTransportError(t *testing.T) {
 	sink := &recordingGatewaySink{}
 	var attempts int
@@ -107,13 +106,11 @@ func TestGatewayStreamDeliveryRetriesOnTransportError(t *testing.T) {
 	svc.subscriber = func(context.Context, string, string) (<-chan gateway.SSEEvent, error) {
 		attempts++
 		if attempts == 1 {
-			// First attempt: a couple tokens then the connection drops.
 			return gatewaySlackEvents(
 				gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"par"}`)},
 				gateway.SSEEvent{Type: gateway.EventStreamError, Err: errors.New("connection reset")},
 			), nil
 		}
-		// Retry: broker replays the full turn including the final event.
 		return gatewaySlackEvents(
 			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"par"}`)},
 			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"tial"}`)},
@@ -138,9 +135,8 @@ func TestGatewayStreamDeliveryRetriesOnTransportError(t *testing.T) {
 	}
 }
 
-// A clean EOF without a terminal event is a genuine truncation, not a
-// transport blip: it must NOT trigger a retry. The accumulated partial text
-// is delivered after the single attempt.
+// A clean EOF without a terminal event is genuine truncation, not a transport
+// blip: it must NOT trigger a retry; the partial text is delivered as-is.
 func TestGatewayStreamDeliveryDoesNotRetryOnCleanEOF(t *testing.T) {
 	sink := &recordingGatewaySink{}
 	var attempts int

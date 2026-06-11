@@ -33,14 +33,9 @@ func BuildRuntimeSchedules(ctx context.Context, db *gorm.DB, agent *model.Employ
 	return out, nil
 }
 
-// RepointEmployeeSchedules repoints every active/paused schedule for the agent to the
-// given sandbox. It must only be called after a successful main-runtime config push,
-// and never for specialist sandboxes — schedules belong to the main employee runtime.
-//
-// Repointing is intentionally separated from BuildRuntimeSchedules (a read path) so a
-// failed compile/push never mutates schedule rows. Because the schedule->sandbox FK is
-// ON DELETE SET NULL, a later sandbox hard-delete nulls sandbox_id instead of cascading
-// the schedule away.
+// RepointEmployeeSchedules repoints active/paused schedules to the sandbox. Call
+// only after a successful main-runtime push, never for specialists. Kept off the
+// read path so a failed push never mutates rows; the FK is ON DELETE SET NULL.
 func RepointEmployeeSchedules(ctx context.Context, db *gorm.DB, agent *model.Employee, sb *model.Sandbox) error {
 	if db == nil || agent == nil || sb == nil {
 		return nil

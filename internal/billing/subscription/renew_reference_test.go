@@ -10,11 +10,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestService_Renew_DeterministicChargeReference exercises the P0-6 fix: the
-// renewal charge must carry a deterministic idempotency reference derived from
-// the subscription id and the period boundary being renewed, so a retry after a
-// post-charge crash re-presents the same reference (letting Paystack dedupe the
-// card charge) instead of charging again.
+// The renewal charge must carry a deterministic idempotency reference derived from
+// the subscription id and period boundary, so a retry after a post-charge crash
+// re-presents the same reference (Paystack dedupes) instead of charging again.
 func TestService_Renew_DeterministicChargeReference(t *testing.T) {
 	h := newHarness(t)
 	h.seedOwnerEmail(t)
@@ -35,8 +33,7 @@ func TestService_Renew_DeterministicChargeReference(t *testing.T) {
 	}
 }
 
-// TestService_Renew_RetryAfterCommitFailureReusesReference simulates the
-// double-charge window: the charge succeeds at the provider but the DB advance
+// Double-charge window: the charge succeeds at the provider but the DB advance
 // fails, so the worker retries. Both attempts must present the SAME deterministic
 // reference — that is what makes Paystack dedupe the card charge.
 func TestService_Renew_RetryAfterCommitFailureReusesReference(t *testing.T) {
@@ -46,17 +43,12 @@ func TestService_Renew_RetryAfterCommitFailureReusesReference(t *testing.T) {
 
 	wantRef := fmt.Sprintf("renew-%s-%d", sub.ID, sub.CurrentPeriodEnd.UTC().Unix())
 
-	// First attempt: provider charges, then the renewal returns an error before
-	// the period advances. We model the failure by pointing the charge at a
-	// reference but forcing the DB advance to be re-run (the period stays in the
-	// past because the charge result carries no usable payment method that would
-	// matter here — the point is the reference, not the side effects).
 	if _, err := h.service.Renew(context.Background(), sub.ID); err != nil {
 		t.Fatalf("first Renew: %v", err)
 	}
 
-	// Reset the subscription's period back to the past to model "the first
-	// advance did not durably commit" and force a second renewal attempt.
+	// Reset the period to the past to model "the first advance did not durably
+	// commit", forcing a second renewal attempt.
 	if err := h.db.Model(&model.Subscription{}).Where("id = ?", sub.ID).
 		Updates(map[string]any{
 			"current_period_end":   sub.CurrentPeriodEnd,
@@ -82,8 +74,7 @@ func TestService_Renew_RetryAfterCommitFailureReusesReference(t *testing.T) {
 	}
 }
 
-// TestService_Renew_DistinctPeriodsGetDistinctReferences guards the inverse: a
-// genuinely new renewal cycle (advanced CurrentPeriodEnd) must get a different
+// The inverse: a genuinely new renewal cycle (advanced CurrentPeriodEnd) must get a different
 // reference so the next cycle's charge is not dedup-suppressed by Paystack.
 func TestService_Renew_DistinctPeriodsGetDistinctReferences(t *testing.T) {
 	h := newHarness(t)
@@ -95,8 +86,7 @@ func TestService_Renew_DistinctPeriodsGetDistinctReferences(t *testing.T) {
 	}
 	firstRef := h.provider.Charges()[0].Reference
 
-	// Advance the clock past the freshly written period end so a second,
-	// legitimate renewal becomes due.
+	// Advance the clock past the new period end so a second renewal becomes due.
 	var advanced model.Subscription
 	if err := h.db.First(&advanced, "id = ?", sub.ID).Error; err != nil {
 		t.Fatalf("reload: %v", err)

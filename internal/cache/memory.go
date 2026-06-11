@@ -108,8 +108,7 @@ func (d *DEKCache) Invalidate(credentialID string) {
 	d.lru.Remove(credentialID)
 }
 
-// Purge removes all entries from the cache (running the evict hook on each,
-// which destroys the sealed DEK buffers).
+// Purge removes all entries, running the evict hook (which destroys sealed DEKs).
 func (d *DEKCache) Purge() {
 	d.lru.Purge()
 }

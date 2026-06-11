@@ -92,12 +92,9 @@ func GrantWithTx(tx *gorm.DB, orgID uuid.UUID, amount int64, reason, refType, re
 	} else if alreadyRecorded {
 		return ErrAlreadyRecorded
 	}
-	// The existence check above narrows the race, but two concurrent grants
-	// with the same non-empty reference can both pass it. Rely on the partial
-	// unique index on (org_id, reason, ref_type, ref_id) WHERE ref_id <> '' for
-	// the final arbitration: ON CONFLICT DO NOTHING lets the loser's insert no-op
-	// without poisoning the surrounding transaction (a bare 23505 would abort it,
-	// which matters because callers run GrantWithTx inside a larger renewal tx).
+	// The check above only narrows the race; the partial unique index is the real
+	// arbiter. ON CONFLICT DO NOTHING lets the loser no-op without poisoning the
+	// surrounding tx (a bare 23505 would abort the caller's renewal tx).
 	res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.CreditLedgerEntry{
 		OrgID:     orgID,
 		Amount:    amount,
@@ -180,11 +177,8 @@ func SpendWithTx(tx *gorm.DB, orgID uuid.UUID, amount int64, reason, refType, re
 func IsUniqueViolation(err error) bool { return isUniqueViolation(err) }
 
 // isUniqueViolation reports whether err is a Postgres unique_violation
-// (SQLSTATE 23505). The pgx driver (used by gorm.io/driver/postgres) wraps
-// these as *pgconn.PgError, so we match on the structured Code rather than
-// scanning the message text — message-based matching breaks on localised
-// server messages and gives false positives on unrelated errors that merely
-// mention the string.
+// (SQLSTATE 23505). pgx wraps these as *pgconn.PgError, so we match the
+// structured Code, not the message text (which breaks on localised messages).
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
@@ -240,10 +234,8 @@ func (s *CreditsService) SweepAllExpiredGrants(ctx context.Context) error {
 	var errs []error
 	for _, orgID := range orgIDs {
 		if err := s.SweepOrgExpiredGrants(ctx, orgID, now); err != nil {
-			// Continue: a single org's failure (e.g. transient lock contention)
-			// shouldn't block the cycle for the rest. Log each so a recurring
-			// per-org failure is visible, and accumulate them so the caller
-			// (and asynq retry) sees every error, not just the first.
+			// Continue: a single org's failure must not block the cycle. Accumulate
+			// errors so the caller (and asynq retry) sees every one, not just the first.
 			logging.FromContext(ctx).ErrorContext(ctx, "expired-grant sweep failed for org",
 				"org_id", orgID, "error", err)
 			errs = append(errs, fmt.Errorf("org %s: %w", orgID, err))

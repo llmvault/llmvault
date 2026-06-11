@@ -53,9 +53,8 @@ func (c *SlackConnector) ListAllSlim(
 	return out, nil
 }
 
-// streamChannelSlim returns (err, cancelled). cancelled is true when the
-// consumer abandoned the stream (ctx done during a send) and the caller
-// must stop producing.
+// streamChannelSlim returns (err, cancelled). cancelled is true when the consumer abandoned the
+// stream (ctx done during a send) and the caller must stop producing.
 func (c *SlackConnector) streamChannelSlim(
 	ctx context.Context,
 	channel SlackChannel,

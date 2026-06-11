@@ -8,9 +8,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestWarmPoolReconcileTrimsSurplusSlots verifies P1-12 scale-down: when more
-// warm slots exist than desired, Reconcile trims (deletes the provider resource
-// of) the surplus instead of leaving paid services running forever.
+// Scale-down: when more warm slots exist than desired, Reconcile deletes the
+// surplus provider resources rather than leaving them running forever.
 func TestWarmPoolReconcileTrimsSurplusSlots(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -22,7 +21,6 @@ func TestWarmPoolReconcileTrimsSurplusSlots(t *testing.T) {
 	}
 
 	const image = "runtime:test"
-	// Seed 3 warm slots while desired is 1 → expect 2 trimmed.
 	for i := 0; i < 3; i++ {
 		ext := "warm-surplus-" + string(rune('a'+i))
 		provider.registerSandbox(ext, StatusRunning)
@@ -71,10 +69,8 @@ func TestWarmPoolReconcileTrimsSurplusSlots(t *testing.T) {
 	}
 }
 
-// TestWarmPoolReconcileSerializesConcurrentCalls verifies the advisory lock in
-// Reconcile prevents two concurrent reconciles from both provisioning past
-// desired. Without the lock both calls would read available=0 and each create a
-// slot, over-provisioning.
+// The Reconcile advisory lock must prevent two concurrent reconciles from both
+// reading available=0 and each provisioning, over-provisioning past desired.
 func TestWarmPoolReconcileSerializesConcurrentCalls(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()

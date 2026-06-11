@@ -14,8 +14,7 @@ import (
 
 // uploadProxyHTTPClient is a shared client with a bounded timeout for proxying
 // uploads to S3. http.DefaultClient has no timeout, so a stalled S3 endpoint
-// would hold the request goroutine (and the buffered file body) open
-// indefinitely.
+// would hold the request goroutine (and the buffered file body) open forever.
 var uploadProxyHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // Upload handles POST /v1/uploads/upload — a server-side upload that accepts

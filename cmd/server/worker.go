@@ -187,10 +187,9 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		_, _ = w.Write([]byte(`{"status":"ok","service":"worker"}`))
 	})
 
-	// The asynqmon dashboard exposes every queued/archived task payload
-	// (customer Slack messages, webhook payloads, emails). It is never mounted on
-	// the public health port; it is opt-in, requires HTTP basic-auth credentials,
-	// and is served on its own port. ReadOnly only blocks mutations, not reads.
+	// The asynqmon dashboard exposes every queued/archived task payload (customer
+	// messages, webhooks, emails), so it is opt-in, basic-auth protected, and on its
+	// own port. ReadOnly only blocks mutations, not reads.
 	dashboardSrv := buildAsynqmonServer(ctx, cfg, redisOpt)
 
 	healthPort := cfg.WorkerHealthPort

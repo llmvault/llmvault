@@ -10,10 +10,8 @@ import (
 	"github.com/usehivy/hivy/internal/cache"
 )
 
-// TestInvalidateAPIKey_EvictsLocalCacheSynchronously verifies P1-26: the
-// revoking instance must drop the key from its own L1 cache before/while
-// publishing, so it can never serve the revoked key from memory even if the
-// cross-instance publish is delayed.
+// Revoking instance must drop the key from its own L1 cache before/while publishing, so it can
+// never serve the revoked key from memory even if the cross-instance publish is delayed.
 func TestInvalidateAPIKey_EvictsLocalCacheSynchronously(t *testing.T) {
 	rc := connectTestRedis(t)
 	apiKeyCache := cache.NewAPIKeyCache(100, 5*time.Minute)
@@ -39,10 +37,8 @@ func TestInvalidateAPIKey_EvictsLocalCacheSynchronously(t *testing.T) {
 	}
 }
 
-// TestSubscribe_PurgesLocalCachesOnSubscribe verifies P1-26: every
-// (re)subscribe purges L1 so a missed-invalidation window can't keep a stale
-// API key cached. We seed the cache, run a subscription session, and confirm
-// the seeded entry is gone once the subscription is live.
+// Every (re)subscribe must purge L1 so a missed-invalidation window can't keep a
+// stale API key cached.
 func TestSubscribe_PurgesLocalCachesOnSubscribe(t *testing.T) {
 	rc := connectTestRedis(t)
 	memCache := cache.NewMemoryCache(100, 5*time.Minute)
@@ -57,7 +53,6 @@ func TestSubscribe_PurgesLocalCachesOnSubscribe(t *testing.T) {
 	defer cancel()
 	go func() { _ = inv.Subscribe(ctx) }()
 
-	// Wait for the subscription to take effect and purge the caches.
 	deadline := time.After(3 * time.Second)
 	for {
 		if _, ok := apiKeyCache.Get(keyHash); !ok {

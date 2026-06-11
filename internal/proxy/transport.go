@@ -8,16 +8,10 @@ import (
 	"time"
 )
 
-// NewTransport creates an http.Transport optimized for proxying to LLM providers.
-//
-// The DialContext re-checks every resolved address against the disallowed-IP
-// list and pins the connection to a validated IP. This closes the DNS-rebinding
-// TOCTOU window between ValidateBaseURL (which resolves the host once) and the
-// actual dial (which would otherwise re-resolve independently): a short-TTL
-// attacker domain that passed validation pointing at a public IP cannot be
-// re-resolved to 169.254.169.254/10.x/127.0.0.1 at connection time.
-//
-// AllowLoopback (set in tests) bypasses the IP checks but keeps the dial logic.
+// NewTransport creates an http.Transport for LLM providers whose DialContext
+// re-checks and pins the resolved IP, closing the DNS-rebinding TOCTOU window so
+// a short-TTL attacker domain can't re-resolve to a metadata/private IP at dial.
+// AllowLoopback (tests) bypasses checks.
 func NewTransport() *http.Transport {
 	dialer := &net.Dialer{
 		Timeout:   5 * time.Second,
@@ -35,8 +29,7 @@ func NewTransport() *http.Transport {
 }
 
 // guardedDialContext returns a DialContext that resolves the host once, rejects
-// the dial if any candidate address is disallowed, and connects to a validated
-// IP literal so the kernel does not re-resolve the hostname.
+// disallowed candidates, and connects to the validated IP literal (no re-resolve).
 func guardedDialContext(dialer *net.Dialer) func(ctx context.Context, network, address string) (net.Conn, error) {
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
@@ -66,8 +59,7 @@ func guardedDialContext(dialer *net.Dialer) func(ctx context.Context, network, a
 			if !AllowLoopback && isDisallowedIP(ip) {
 				return nil, errors.New("proxy: dial to disallowed address blocked")
 			}
-			// Pin the connection to the validated IP literal so there is no
-			// second, unvalidated resolution.
+			// Pin to the validated IP literal so there is no second resolution.
 			conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
 			if err != nil {
 				lastErr = err

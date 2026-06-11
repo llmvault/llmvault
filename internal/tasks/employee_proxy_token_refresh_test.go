@@ -17,9 +17,8 @@ func TestEmployeeProxyTokenRefreshHandler_InjectsNewTokenRevokesOldAndSchedulesN
 	if err != nil {
 		t.Fatalf("mint old proxy token: %v", err)
 	}
-	// The token being replaced was minted at sandbox launch (~20h ago). Backdate
-	// its created_at past the revoke grace window so it is eligible for
-	// revocation (P1-19 only protects tokens minted within the grace window).
+	// Backdate the launch token past the revoke grace window so it is eligible for
+	// revocation (the refresh only protects tokens within the grace window).
 	if err := f.db.Model(&model.Token{}).Where("jti = ?", oldToken.JTI).
 		Update("created_at", time.Now().Add(-2*employeeProxyTokenRevokeGrace)).Error; err != nil {
 		t.Fatalf("backdate old token: %v", err)
@@ -84,10 +83,8 @@ func TestEmployeeProxyTokenRefreshHandler_InjectsNewTokenRevokesOldAndSchedulesN
 	_ = requireProxyRefreshTask(t, f.enqueuer)
 }
 
-// TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken
-// verifies P1-19: a proxy token minted by a concurrent sync (within the grace
-// window) must survive the refresh's revoke-older sweep so the runtime is not
-// left authenticating with a revoked token.
+// A proxy token minted by a concurrent sync (within the grace window) must survive the refresh's
+// revoke-older sweep, or the runtime authenticates with a revoked token.
 func TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken(t *testing.T) {
 	f := newEmployeeProxyTokenRefreshFixture(t, 0)
 

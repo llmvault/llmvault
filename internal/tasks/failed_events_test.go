@@ -113,7 +113,7 @@ func TestRetryFailedEvent_EnqueuesAndMarksRetried(t *testing.T) {
 	}
 	enqueuer.AssertEnqueued(t, tasks.TypeEmployeeTriggerDispatch)
 
-	// P0-11: the retry must re-apply the task's original critical-queue option
+	// the retry must re-apply the task's original critical-queue option
 	// (passed at enqueue time) instead of falling back to asynq defaults.
 	enqueuedTasks := enqueuer.Tasks()
 	if len(enqueuedTasks) != 1 {
@@ -143,10 +143,8 @@ func TestRetryFailedEvent_EnqueuesAndMarksRetried(t *testing.T) {
 	}
 }
 
-// TestRetryFailedEvent_ConcurrentRetriesEnqueueOnce guards P2-42: two retries of
-// the same pending row racing each other must enqueue exactly one task. The CAS
-// claim before enqueue ensures only one caller wins; the others must observe
-// ErrFailedEventNotPending.
+// Two retries of the same pending row racing must enqueue exactly one task: the
+// CAS claim lets one win, the others observe ErrFailedEventNotPending.
 func TestRetryFailedEvent_ConcurrentRetriesEnqueueOnce(t *testing.T) {
 	db := connectFailedEventsTestDB(t)
 	orgID := uuid.New()

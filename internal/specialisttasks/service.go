@@ -97,10 +97,8 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 		return nil, wrapToolError("sandbox_create_failed", "Could not create the specialist runtime sandbox.", err, true, "Retry later. If this repeats, report the sandbox provisioning error to the user.")
 	}
 	// Once the sandbox exists, every later failure must release the provider
-	// resource — otherwise a failed launch leaves a live billing sandbox and
-	// tells the LLM to retry, minting another. Cleared once the launch fully
-	// succeeds. Runs on context.WithoutCancel so it executes even when the
-	// originating request context is already cancelled.
+	// resource, or a failed launch leaves a live billing sandbox and the LLM mints
+	// another. Runs on WithoutCancel so a cancelled ctx still executes it.
 	launchOK := false
 	defer func() {
 		if launchOK {
@@ -196,7 +194,7 @@ func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uu
 		return nil, wrapToolError("sandbox_not_found", "The specialist task sandbox could not be loaded.", err, false, "Call specialist_task_status to check whether the task still exists. If it does, report that its sandbox record is missing.")
 	}
 	// Refresh the specialist proxy token if it is near expiry so a long-running
-	// task does not silently lose LLM/MCP access after its 24h TTL (P1-18).
+	// task does not silently lose LLM/MCP access after its 24h TTL.
 	s.refreshSpecialistProxyTokenIfNeeded(ctx, employee, task, &sb)
 	client, err := s.orchestrator.GetRuntimeClient(ctx, &sb)
 	if err != nil {

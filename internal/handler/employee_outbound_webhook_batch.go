@@ -57,10 +57,9 @@ func (h *EmployeeOutboundWebhookHandler) HandleBatch(w http.ResponseWriter, r *h
 			event.At = h.now().UTC()
 		}
 		if err := h.storeAndMaybeEnqueue(ctx, sb, &event); err != nil {
-			// A revenue- or reply-bearing record in this batch could not be
-			// durably persisted. Return 5xx so the runtime outbox redelivers the
-			// whole batch; the generation insert is idempotent (deterministic ID)
-			// so already-stored usage rows are not double-billed on retry.
+			// A revenue/reply-bearing record could not persist. Return 5xx so the
+			// outbox redelivers the batch; the generation insert is idempotent
+			// (deterministic ID), so stored rows are not double-billed on retry.
 			captureEmployeeWebhookIngest(ctx, "store_outbound_batch_event", sb, &event, "", "", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to persist batch event"})
 			return

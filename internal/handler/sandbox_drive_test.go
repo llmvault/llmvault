@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// TestExtractWebStreamToken_PrefersHeaderOverQueryParam verifies that the
-// X-Stream-Token header takes precedence over the ?token= query parameter so
-// that tokens stay out of access logs and Sentry breadcrumbs when clients
-// supply the header (P2-25 regression test).
+// X-Stream-Token header takes precedence over the ?token= query parameter so that tokens stay out
+// of access logs and Sentry breadcrumbs when clients supply the header.
 func TestExtractWebStreamToken_PrefersHeaderOverQueryParam(t *testing.T) {
 	req := httptest.NewRequest("GET", "/v1/employees/x/sessions/y/streams/z?token=from-query", nil)
 	req.Header.Set(streamTokenHeader, "from-header")
@@ -18,8 +16,7 @@ func TestExtractWebStreamToken_PrefersHeaderOverQueryParam(t *testing.T) {
 	}
 }
 
-// TestExtractWebStreamToken_FallsBackToQueryParam verifies backward compatibility:
-// when no header is set, the ?token= query parameter is still accepted.
+// With no header set, the ?token= query parameter is still accepted.
 func TestExtractWebStreamToken_FallsBackToQueryParam(t *testing.T) {
 	req := httptest.NewRequest("GET", "/v1/employees/x/sessions/y/streams/z?token=from-query", nil)
 
@@ -28,8 +25,7 @@ func TestExtractWebStreamToken_FallsBackToQueryParam(t *testing.T) {
 	}
 }
 
-// TestExtractWebStreamToken_EmptyWhenNeitherSet verifies that an empty string
-// is returned when neither the header nor the query param is present.
+// An empty string is returned when neither the header nor the query param is present.
 func TestExtractWebStreamToken_EmptyWhenNeitherSet(t *testing.T) {
 	req := httptest.NewRequest("GET", "/v1/employees/x/sessions/y/streams/z", nil)
 

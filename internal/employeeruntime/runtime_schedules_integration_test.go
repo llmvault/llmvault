@@ -11,8 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// scheduleTestFixture creates an org, employee, and a sandbox the schedule is
-// initially pointed at.
+// scheduleTestFixture creates an org, employee, and the sandbox the schedule initially points at.
 func scheduleTestFixture(t *testing.T, db *gorm.DB) (model.Employee, model.Sandbox) {
 	t.Helper()
 	org := model.Org{Name: "Sched-" + uuid.NewString()}
@@ -73,16 +72,14 @@ func createSchedule(t *testing.T, db *gorm.DB, agent model.Employee, sandboxID u
 	return sched
 }
 
-// TestBuildRuntimeSchedules_DoesNotRepointSandbox verifies that the read path no
-// longer mutates schedule rows: compiling a config for a different sandbox must
-// leave the schedule's sandbox_id untouched.
+// The read path must not mutate schedule rows: compiling a config for a
+// different sandbox must leave the schedule's sandbox_id untouched.
 func TestBuildRuntimeSchedules_DoesNotRepointSandbox(t *testing.T) {
 	db := connectCompileTestDB(t)
 	agent, origSb := scheduleTestFixture(t, db)
 	sched := createSchedule(t, db, agent, origSb.ID)
 
-	// A second sandbox the config is being compiled for (e.g. an upgrade target
-	// or, before the fix, a specialist sandbox).
+	// A second sandbox the config is being compiled for (e.g. an upgrade target).
 	otherSb := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  agent.OrgID,
@@ -114,8 +111,7 @@ func TestBuildRuntimeSchedules_DoesNotRepointSandbox(t *testing.T) {
 	}
 }
 
-// TestRepointEmployeeSchedules_RepointsAfterPush verifies the explicit repoint
-// path moves active/paused schedules onto the new sandbox.
+// The explicit repoint path moves active/paused schedules onto the new sandbox.
 func TestRepointEmployeeSchedules_RepointsAfterPush(t *testing.T) {
 	db := connectCompileTestDB(t)
 	agent, origSb := scheduleTestFixture(t, db)
@@ -148,9 +144,8 @@ func TestRepointEmployeeSchedules_RepointsAfterPush(t *testing.T) {
 	}
 }
 
-// TestSandboxDelete_SetsScheduleSandboxNull verifies the FK is ON DELETE SET NULL:
-// hard-deleting the sandbox a schedule points at must null sandbox_id, not delete
-// the schedule (which CASCADE used to do — the data-loss bug).
+// The FK is ON DELETE SET NULL: hard-deleting the sandbox a schedule points at
+// must null sandbox_id, not cascade-delete the schedule (the data-loss bug).
 func TestSandboxDelete_SetsScheduleSandboxNull(t *testing.T) {
 	db := connectCompileTestDB(t)
 	agent, sb := scheduleTestFixture(t, db)

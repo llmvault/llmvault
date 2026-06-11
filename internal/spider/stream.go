@@ -20,10 +20,9 @@ import (
 // from progressive emission.
 func (client *Client) CrawlStream(ctx context.Context, params SpiderParams) (<-chan Response, <-chan error) {
 	out := make(chan Response, 32)
-	// errs is buffered at 1 and the consumer reads it only after out closes, so
-	// the producer must never block sending on it. sendErr records the first
-	// error non-blockingly; later errors are discarded (the first one is the
-	// meaningful failure, and blocking would deadlock the crawl — P2-41).
+	// errs is buffered at 1 and read only after out closes, so the producer must
+	// never block on it: sendErr records the first error non-blockingly and
+	// discards later ones (blocking would deadlock the crawl).
 	errs := make(chan error, 1)
 	sendErr := func(err error) {
 		select {

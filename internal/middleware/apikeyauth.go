@@ -32,7 +32,6 @@ func APIKeyAuth(db *gorm.DB, keyCache *cache.APIKeyCache, enqueuer enqueue.TaskE
 
 			keyHash := model.HashAPIKey(rawKey)
 
-			// L1: Check in-memory cache
 			if cached, ok := keyCache.Get(keyHash); ok {
 				var org model.Org
 				if err := db.Where("id = ?", cached.OrgID).First(&org).Error; err != nil {
@@ -60,7 +59,6 @@ func APIKeyAuth(db *gorm.DB, keyCache *cache.APIKeyCache, enqueuer enqueue.TaskE
 				return
 			}
 
-			// L2: Database lookup
 			var apiKey model.APIKey
 			if err := db.Preload("Org").Where("key_hash = ? AND revoked_at IS NULL", keyHash).
 				First(&apiKey).Error; err != nil {
@@ -78,7 +76,6 @@ func APIKeyAuth(db *gorm.DB, keyCache *cache.APIKeyCache, enqueuer enqueue.TaskE
 				return
 			}
 
-			// Promote to cache
 			keyCache.Set(keyHash, &cache.CachedAPIKey{
 				ID:        apiKey.ID,
 				OrgID:     apiKey.OrgID,
@@ -148,7 +145,6 @@ func ResolveOrgFlexible(db *gorm.DB) func(http.Handler) http.Handler {
 func RequireAPIKeyScopeOrJWT(scope string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// JWT-authenticated requests bypass scope checks
 			if _, ok := AuthClaimsFromContext(r.Context()); ok {
 				next.ServeHTTP(w, r)
 				return

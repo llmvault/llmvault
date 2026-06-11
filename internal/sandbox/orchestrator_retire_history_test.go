@@ -12,9 +12,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// seedSandboxWithHistory creates a running sandbox plus one persisted session
-// and one session event that FK the sandbox ON DELETE CASCADE — the org-owned
-// conversation timeline that an upgrade is meant to carry forward.
+// seedSandboxWithHistory creates a running sandbox plus a session and event that
+// FK the sandbox ON DELETE CASCADE — the org history an upgrade must carry forward.
 func seedSandboxWithHistory(t *testing.T, db *gorm.DB) (model.Sandbox, model.EmployeeSession, model.EmployeeSessionEvent) {
 	t.Helper()
 	org := createTestOrg(t, db)
@@ -68,12 +67,9 @@ func countSandboxHistory(t *testing.T, db *gorm.DB, sandboxID, sessionID, eventI
 	return sandboxes, sessions, events
 }
 
-// TestDeleteSandboxResourcePreservesHistory locks the retire-path invariant:
-// retiring the old sandbox after a successful upgrade must release the provider
-// resource (stop billing) WITHOUT cascade-deleting the org's conversation
-// history. DeleteSandboxResource archives the row and keeps the session/event
-// children; DeleteSandbox would cascade-wipe them. The retire task uses the
-// former (employee_sandbox_retire.go).
+// Retire-path invariant: retiring the old sandbox must release the provider
+// resource WITHOUT cascade-deleting the org's history. DeleteSandboxResource
+// archives the row and keeps the session/event children; DeleteSandbox wipes them.
 func TestDeleteSandboxResourcePreservesHistory(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -85,7 +81,6 @@ func TestDeleteSandboxResourcePreservesHistory(t *testing.T) {
 		t.Fatalf("DeleteSandboxResource: %v", err)
 	}
 
-	// Provider resource released so billing stops.
 	if len(provider.deletedIDs) != 1 || provider.deletedIDs[0] != sb.ExternalID {
 		t.Fatalf("provider delete calls = %v, want [%s]", provider.deletedIDs, sb.ExternalID)
 	}
@@ -95,8 +90,6 @@ func TestDeleteSandboxResourcePreservesHistory(t *testing.T) {
 		t.Fatalf("history must survive retire: sandbox=%d session=%d event=%d, want 1/1/1", sandboxes, sessions, events)
 	}
 
-	// Row is archived: excluded from the selector's active statuses, so it stops
-	// serving live traffic while its history persists.
 	var refreshed model.Sandbox
 	if err := db.Where("id = ?", sb.ID).First(&refreshed).Error; err != nil {
 		t.Fatalf("reload sandbox: %v", err)
@@ -107,8 +100,8 @@ func TestDeleteSandboxResourcePreservesHistory(t *testing.T) {
 }
 
 // TestDeleteSandboxCascadesHistory documents the contrast: the hard row delete
-// DOES cascade-wipe the session/event children. This is why the retire path
-// must NOT use it for a sandbox that still owns live org history.
+// DOES cascade-wipe the session/event children, which is why the retire path must
+// not use it for a sandbox that still owns live org history.
 func TestDeleteSandboxCascadesHistory(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()

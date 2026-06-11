@@ -37,11 +37,8 @@ func flushWrite(t *testing.T, w http.ResponseWriter, s string) {
 	}
 }
 
-// TestClientStreamHTTPNotBoundByGeneralTimeout is the P0-29 regression: the SSE
-// body read must NOT be cut by the client's general 2-minute Timeout. We use a
-// tiny general timeout (50ms) and a server that streams chunks SLOWER than that
-// over a span far exceeding it; the old code (StreamHTTP using c.http) would
-// kill the body, the dedicated untimed stream client must read it to the end.
+// The SSE body read must NOT be cut by the client's general Timeout: a server
+// streaming far longer than it must still be read to the end via the stream client.
 func TestClientStreamHTTPNotBoundByGeneralTimeout(t *testing.T) {
 	const chunkDelay = 30 * time.Millisecond
 	const chunks = 10 // ~300ms total, 6x the 50ms general Timeout.
@@ -60,7 +57,6 @@ func TestClientStreamHTTPNotBoundByGeneralTimeout(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	// General timeout of 50ms: any code that streams via c.http would die.
 	client := NewClientWithTimeout(srv.URL, "runtime-secret", 50*time.Millisecond)
 
 	resp, err := client.StreamHTTP(context.Background(), "gateway/http/streams/long")
@@ -82,9 +78,8 @@ func TestClientStreamHTTPNotBoundByGeneralTimeout(t *testing.T) {
 	}
 }
 
-// TestClientStreamHTTPContextCancelStopsBody verifies the stream still honors
-// the request context for liveness (the untimed client must not become
-// uncancellable). Cancelling mid-body unblocks the reader with an error.
+// The untimed stream client must still honor the request context: cancelling
+// mid-body must unblock the reader with an error.
 func TestClientStreamHTTPContextCancelStopsBody(t *testing.T) {
 	release := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,9 +123,8 @@ func TestClientStreamHTTPContextCancelStopsBody(t *testing.T) {
 	}
 }
 
-// TestClientStreamHTTPDisconnectMidBody verifies that when the server closes
-// the connection mid-stream (the disconnect-mid-body case), the reader sees a
-// clean EOF after the partial bytes rather than hanging.
+// When the server closes the connection mid-stream, the reader must see a clean
+// EOF after the partial bytes rather than hanging.
 func TestClientStreamHTTPDisconnectMidBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

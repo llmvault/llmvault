@@ -14,10 +14,8 @@ type RefreshToken struct {
 	RevokedAt *time.Time
 	CreatedAt time.Time
 
-	// Grace window for single-use rotation. When this token is rotated, the
-	// replacement pair is stored here so a concurrent presentation of the same
-	// single-use token within the grace window receives the same rotated pair
-	// instead of being force-logged-out.
+	// Grace window for single-use rotation: the replacement pair is stored here so a
+	// concurrent presentation within the window gets it instead of a force-logout.
 	ReplacedAt             *time.Time
 	ReplacedByAccessToken  string
 	ReplacedByRefreshToken string

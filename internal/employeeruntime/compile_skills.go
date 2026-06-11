@@ -69,11 +69,9 @@ func buildSkillsWithDefaultNames(ctx context.Context, db *gorm.DB, agentID uuid.
 	})
 	out := make([]SkillSpec, 0, len(skills))
 	for _, skill := range skills {
-		// A skill with an empty or unparseable bundle would otherwise be silently
-		// dropped from the compiled agent (P2-47). Explicitly attached skills are
-		// a hard error — the operator asked for them and a silent drop hides a
-		// broken skill bundle. Default skills (pulled in by name) are logged and
-		// skipped so a single bad seed skill cannot break every compile.
+		// A bad bundle is otherwise silently dropped. Explicitly attached skills are
+		// a hard error (the operator asked for them); default skills are logged and
+		// skipped so one bad seed skill can't break every compile.
 		if len(skill.Bundle) == 0 {
 			if attached[skill.ID] {
 				return nil, fmt.Errorf("compile skills: attached skill %q (%s) has an empty bundle", skill.Slug, skill.ID)

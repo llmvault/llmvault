@@ -5,25 +5,13 @@ import (
 	"net/http"
 )
 
-// CORS returns middleware that allows cross-origin requests from the specified
-// origins.
-//
-// When allowedOrigins is non-empty, only listed origins receive CORS headers
-// and the Vary/credentials headers are set for cookie-bearing flows.
-//
-// When allowedOrigins is empty the behaviour depends on isProduction:
-//   - production: no CORS headers are emitted (fail-closed). OPTIONS requests
-//     receive a 204 with no allow-origin so the browser rejects cross-origin
-//     requests. A startup warning is logged.
-//   - non-production: all origins are allowed via the wildcard header (legacy
-//     development behaviour).
+// CORS allows cross-origin requests from the given origins. An empty allowedOrigins fails closed
+// in production (no headers) and falls back to the legacy wildcard in non-production.
 func CORS(allowedOrigins []string, isProduction bool) func(http.Handler) http.Handler {
 	allowAll := len(allowedOrigins) == 0 && !isProduction
 
 	if len(allowedOrigins) == 0 && isProduction {
-		// One-time startup warning emitted while the router is being constructed;
-		// there is no request context in scope and threading one through the
-		// middleware constructor would only serve to satisfy the linter.
+		// One-time startup warning during router construction; no request ctx here.
 		slog.Default().Warn("HIVY_CORS_ORIGINS is unset in production — CORS is disabled (fail-closed); set HIVY_CORS_ORIGINS to allow browser clients") //nolint:sloglint // startup-time warning, no request context available
 	}
 

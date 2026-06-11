@@ -9,13 +9,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestInsertInboundEventNullRouteDedupe guards the connection-path idempotency
-// invariant: events created without a resolved route (route_id IS NULL, the
-// uuid.Nil-route shape produced by service.go / service_connection.go) must
-// still dedupe on (org_id, dedupe_key). Before migration 000034 added the
-// partial unique index for NULL route_id, the ON CONFLICT DO NOTHING never
-// fired for these rows (Postgres treats NULL as distinct), so a webhook
-// redelivery double-inserted and re-drove the agent.
+// Connection-path events with route_id IS NULL must still dedupe on
+// (org_id, dedupe_key). Postgres treats NULL as distinct, so without the partial
+// unique index ON CONFLICT never fires and a redelivery double-inserts.
 func TestInsertInboundEventNullRouteDedupe(t *testing.T) {
 	db := connectGatewayTestDB(t)
 	route := seedGatewayRoute(t, db)

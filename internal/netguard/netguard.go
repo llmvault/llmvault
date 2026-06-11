@@ -1,8 +1,7 @@
-// Package netguard provides rebinding-safe SSRF protections: validation of a
-// destination URL plus an http.Transport whose DialContext re-checks and pins
-// the resolved address. It mirrors the logic in internal/proxy but lives in a
-// dependency-free leaf package so callers (e.g. internal/gateway) can reuse it
-// without creating an import cycle through internal/proxy's other files.
+// Package netguard provides rebinding-safe SSRF protections: destination-URL
+// validation plus an http.Transport whose DialContext re-checks and pins the
+// resolved address. A dependency-free leaf package, to avoid an import cycle
+// through internal/proxy.
 package netguard
 
 import (
@@ -16,7 +15,6 @@ import (
 )
 
 var (
-	// Disallowed networks (IPv4)
 	_, loopback4, _    = net.ParseCIDR("127.0.0.0/8")
 	_, linkLocal4, _   = net.ParseCIDR("169.254.0.0/16")
 	_, privateA, _     = net.ParseCIDR("10.0.0.0/8")
@@ -26,7 +24,6 @@ var (
 	_, multicast4, _   = net.ParseCIDR("224.0.0.0/4")
 	_, reserved4, _    = net.ParseCIDR("240.0.0.0/4")
 	_, unspecified4, _ = net.ParseCIDR("0.0.0.0/8")
-	// Disallowed networks (IPv6)
 	_, loopback6, _    = net.ParseCIDR("::1/128")
 	_, linkLocal6, _   = net.ParseCIDR("fe80::/10")
 	_, uniqueLocal6, _ = net.ParseCIDR("fc00::/7")
@@ -54,8 +51,8 @@ func ipInNets(ip net.IP, nets ...*net.IPNet) bool {
 	return false
 }
 
-// IsDisallowedIP reports whether the address falls in a loopback, link-local,
-// private, CGNAT, multicast, reserved, or unspecified range.
+// IsDisallowedIP reports whether the address is in a loopback/private/CGNAT/
+// multicast/reserved/unspecified range.
 func IsDisallowedIP(ip net.IP) bool {
 	if ip == nil {
 		return true
@@ -66,10 +63,9 @@ func IsDisallowedIP(ip net.IP) bool {
 	return ipInNets(ip, loopback6, linkLocal6, uniqueLocal6, multicast6, unspecified6)
 }
 
-// ValidateURL verifies that the provided URL is http(s), has a hostname, and
-// does not resolve to a disallowed range. A resolution error is fatal: allowing
-// it through would let an unresolvable (or attacker-timed) host reach the dial
-// path, where it could re-resolve to a disallowed address.
+// ValidateURL verifies the URL is http(s), has a hostname, and resolves only to
+// allowed ranges. A resolution error is fatal: an unresolvable (attacker-timed)
+// host could re-resolve to a disallowed address at dial time.
 func ValidateURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -109,10 +105,9 @@ func ValidateURL(raw string) error {
 	return nil
 }
 
-// NewTransport returns an http.Transport whose DialContext resolves the host
-// once, rejects the dial if any candidate address is disallowed, and pins the
-// connection to a validated IP literal so the kernel does not re-resolve the
-// hostname (closing the DNS-rebinding TOCTOU window).
+// NewTransport returns an http.Transport whose DialContext resolves once,
+// rejects disallowed candidates, and pins to a validated IP literal so the
+// kernel can't re-resolve (closing the DNS-rebinding TOCTOU window).
 func NewTransport() *http.Transport {
 	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
 	return &http.Transport{

@@ -22,11 +22,9 @@ const (
 	employeeProxyTokenRefreshLead    = 4 * time.Hour
 	employeeProxyTokenRefreshTimeout = 2 * time.Minute
 	employeeProxyTokenRefreshDedupe  = time.Hour
-	// employeeProxyTokenRevokeGrace protects proxy tokens minted by a concurrent
-	// sync from being revoked by an in-flight refresh. A sync mints a fresh token
-	// uncoordinated with the refresh worker; revoking only tokens older than this
-	// grace window ensures a just-minted token survives long enough for the
-	// runtime to receive its config push (P1-19).
+	// employeeProxyTokenRevokeGrace protects tokens minted by a concurrent sync
+	// from an in-flight refresh: revoking only tokens older than this window lets a
+	// just-minted token survive until the runtime receives its config push.
 	employeeProxyTokenRevokeGrace = 10 * time.Minute
 )
 
@@ -230,11 +228,8 @@ func (h *EmployeeProxyTokenRefreshHandler) revokeOlderTokens(ctx context.Context
 		return nil
 	}
 	now := time.Now().UTC()
-	// Only revoke tokens older than the grace window. A concurrent employee sync
-	// may have just minted a fresh proxy token that the runtime is about to (or
-	// already does) rely on; revoking it would leave the runtime authenticating
-	// with a revoked token for up to ~20h until the next refresh. The grace
-	// window keeps recently-minted tokens alive (P1-19).
+	// Only revoke tokens older than the grace window (see employeeProxyTokenRevokeGrace):
+	// a concurrent sync may have just minted one the runtime now relies on.
 	revokeBefore := now.Add(-employeeProxyTokenRevokeGrace)
 	if err := h.db.WithContext(ctx).Model(&model.Token{}).
 		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND jti != ? AND revoked_at IS NULL AND created_at < ?",

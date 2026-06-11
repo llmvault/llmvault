@@ -50,9 +50,8 @@ func (d *Driver) ExecuteCommandWithTimeout(ctx context.Context, externalID strin
 	}
 	defer attached.Close()
 
-	// stdcopy.StdCopy blocks reading the hijacked connection and does not honor
-	// ctx on its own. Run it in a goroutine and select on ctx so a timeout
-	// unblocks us; closing the connection forces the in-flight read to return.
+	// stdcopy.StdCopy blocks on the hijacked connection and ignores ctx, so run it
+	// in a goroutine and select on ctx; closing the connection unblocks the read.
 	var output bytes.Buffer
 	copyDone := make(chan error, 1)
 	go func() {
@@ -81,12 +80,8 @@ func (d *Driver) ExecuteCommandWithTimeout(ctx context.Context, externalID strin
 	return output.String(), nil
 }
 
-// wrapWithTimeout wraps a command in `timeout <secs>` so the in-container
-// process is actually killed when the deadline fires. Cancelling our ctx alone
-// tears down the hijacked read but leaves the shell running inside the
-// container; the SIGKILL fallback (-k) covers commands that ignore the initial
-// SIGTERM. The timeout is rounded up so a sub-second deadline still arms
-// `timeout` with at least 1s.
+// wrapWithTimeout wraps a command in `timeout <secs>` so the in-container process is killed at the
+// deadline (cancelling our ctx only tears down the read, leaving the shell running).
 func wrapWithTimeout(command string, timeout time.Duration) string {
 	secs := int(math.Ceil(timeout.Seconds()))
 	if secs < 1 {
@@ -95,8 +90,7 @@ func wrapWithTimeout(command string, timeout time.Duration) string {
 	return fmt.Sprintf("timeout -k 5s %ds /bin/sh -c %s", secs, shellQuote(command))
 }
 
-// shellQuote wraps s in single quotes for safe interpolation into a /bin/sh
-// command line, escaping any embedded single quotes.
+// shellQuote single-quotes s for safe /bin/sh interpolation, escaping embedded quotes.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

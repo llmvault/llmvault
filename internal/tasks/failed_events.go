@@ -44,10 +44,8 @@ func PersistTerminalFailure(ctx context.Context, db *gorm.DB, in FailedEventInpu
 	return nil
 }
 
-// TaskBuilder rebuilds a task (and its enqueue options) from a stored payload.
-// Options are returned separately so the failed-event retry path re-applies the
-// task's original Queue/MaxRetry/Timeout instead of silently falling back to
-// asynq defaults (see P0-11).
+// TaskBuilder rebuilds a task and its enqueue options from a stored payload. Options
+// are returned separately so the retry path re-applies the original Queue/MaxRetry/Timeout.
 type TaskBuilder func(payload []byte) (*asynq.Task, []asynq.Option, error)
 
 var (
@@ -85,10 +83,8 @@ func RetryFailedEvent(ctx context.Context, db *gorm.DB, enqueuer enqueue.TaskEnq
 	}
 
 	// CAS the status to "retried" BEFORE enqueueing so two concurrent retries
-	// can't both pass a read-time pending check and enqueue twice (P2-42).
-	// The conditional UPDATE only succeeds for exactly one caller; the loser
-	// sees RowsAffected == 0 and bails with ErrFailedEventNotPending, mirroring
-	// DiscardFailedEvent's claim-then-act pattern.
+	// can't both enqueue: the conditional UPDATE succeeds for exactly one caller,
+	// the loser sees RowsAffected==0 and bails with ErrFailedEventNotPending.
 	now := time.Now().UTC()
 	claim := db.WithContext(ctx).Model(&model.FailedEvent{}).
 		Where("id = ? AND status = ?", row.ID, model.FailedEventStatusPending).

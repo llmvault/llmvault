@@ -12,10 +12,9 @@ import (
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
-// TestReadyzReportsOrchestratorMissing is the P1-20 regression guard: when a
-// sandbox provider is configured but the orchestrator failed to initialize,
-// /readyz must report 503 rather than letting the instance look healthy while
-// the entire employee/gateway subsystem is silently missing.
+// When a sandbox provider is configured but the orchestrator failed to
+// initialize, /readyz must report 503 rather than letting the instance look
+// healthy while the entire employee/gateway subsystem is silently missing.
 func TestReadyzReportsOrchestratorMissing(t *testing.T) {
 	db, err := gorm.Open(postgres.Open(testdb.DatabaseURL()), &gorm.Config{})
 	if err != nil {

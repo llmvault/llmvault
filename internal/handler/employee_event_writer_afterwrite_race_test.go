@@ -8,10 +8,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestEmployeeEventWriter_AfterWriteNoRace exercises the atomic afterWrite
-// publish/consume path concurrently (P2-39). Run with -race; the previous
-// plain-func field produced a data race between SetAfterWrite (called after the
-// drain goroutine started) and the drain's read.
+// The atomic afterWrite publish/consume path must be race-free (run with -race):
+// the plain-func field used to race SetAfterWrite against the drain's read.
 func TestEmployeeEventWriter_AfterWriteNoRace(t *testing.T) {
 	w := &EmployeeEventWriter{}
 
@@ -22,7 +20,6 @@ func TestEmployeeEventWriter_AfterWriteNoRace(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
-	// Writers: repeatedly (re)register callbacks.
 	for range 4 {
 		wg.Add(1)
 		go func() {
@@ -38,7 +35,6 @@ func TestEmployeeEventWriter_AfterWriteNoRace(t *testing.T) {
 		}()
 	}
 
-	// Readers: repeatedly load and invoke.
 	for range 4 {
 		wg.Add(1)
 		go func() {
@@ -56,17 +52,14 @@ func TestEmployeeEventWriter_AfterWriteNoRace(t *testing.T) {
 		}()
 	}
 
-	// Let them race briefly, then stop all goroutines before asserting
-	// anything about the stored value: while the writers are running they can
-	// store a non-nil callback at any time, so the nil-clear check below must
-	// happen with no concurrent writers active.
+	// Stop all goroutines before asserting: the nil-clear check below must run
+	// with no concurrent writers active.
 	for range 1000 {
 		w.SetAfterWrite(func(context.Context, []model.EmployeeSessionEvent) {})
 	}
 	close(stop)
 	wg.Wait()
 
-	// No goroutines are running now: clearing must be observable.
 	w.SetAfterWrite(nil)
 	if cb := w.loadAfterWrite(); cb != nil {
 		t.Fatal("expected nil afterWrite after Set(nil)")

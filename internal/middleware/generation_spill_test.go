@@ -14,8 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
-// fakeEnqueuer records the tasks it is asked to enqueue. It satisfies
-// enqueue.TaskEnqueuer for the durable-spill fallback path.
+// fakeEnqueuer records enqueued tasks, satisfying TaskEnqueuer for the spill path.
 type fakeEnqueuer struct {
 	mu    sync.Mutex
 	tasks []*asynq.Task
@@ -60,8 +59,7 @@ func connectGenTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// brokenDB returns a gorm handle whose underlying connection is closed, so every
-// write fails — used to exercise the flush-failure fallback deterministically.
+// brokenDB returns a gorm handle with a closed connection so every write fails.
 func brokenDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := connectGenTestDB(t)
@@ -75,9 +73,8 @@ func brokenDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// TestGenerationWriter_FlushFailureSpillsToAsynq exercises P0-9: when the DB
-// insert keeps failing, the batch is not silently dropped — each row is spilled
-// to the durable asynq generation:write task.
+// When the DB insert keeps failing, the batch must not be silently dropped: each
+// row is spilled to the durable asynq generation:write task.
 func TestGenerationWriter_FlushFailureSpillsToAsynq(t *testing.T) {
 	enq := &fakeEnqueuer{}
 
@@ -102,14 +99,12 @@ func TestGenerationWriter_FlushFailureSpillsToAsynq(t *testing.T) {
 	}
 }
 
-// TestGenerationWriter_BufferFullSpillsToAsynq exercises the backpressure path:
-// when the in-memory channel is full, Write spills the billing-bearing entry to
-// asynq rather than dropping it.
+// When the in-memory channel is full, Write must spill the billing-bearing entry
+// to asynq rather than dropping it.
 func TestGenerationWriter_BufferFullSpillsToAsynq(t *testing.T) {
 	enq := &fakeEnqueuer{}
 
-	// No drain goroutine, buffer size 1: the first Write fills the channel, the
-	// second has nowhere to go and must spill.
+	// No drain goroutine, buffer size 1: the second Write has nowhere to go.
 	gw := &GenerationWriter{
 		entries:       make(chan model.Generation, 1),
 		flushInterval: time.Second,
@@ -124,9 +119,8 @@ func TestGenerationWriter_BufferFullSpillsToAsynq(t *testing.T) {
 	}
 }
 
-// TestGenerationWriter_ShutdownTimeoutSpillsQueue exercises the shutdown path:
-// if the drain cannot finish before the deadline, queued entries are spilled to
-// asynq instead of being abandoned.
+// If the drain cannot finish before the shutdown deadline, queued entries must
+// be spilled to asynq instead of abandoned.
 func TestGenerationWriter_ShutdownTimeoutSpillsQueue(t *testing.T) {
 	enq := &fakeEnqueuer{}
 
@@ -136,10 +130,8 @@ func TestGenerationWriter_ShutdownTimeoutSpillsQueue(t *testing.T) {
 	}
 	gw.SetEnqueuer(enq)
 
-	// Hold the WaitGroup with a goroutine that stays blocked until we release it.
-	// This guarantees Shutdown's wg.Wait never completes before the (already
-	// expired) deadline, so the ctx.Done branch — and the spill loop — runs
-	// deterministically. This models a drain goroutine that raced the deadline.
+	// Hold the WaitGroup blocked so Shutdown's wg.Wait never completes before the
+	// already-expired deadline, making the spill loop run deterministically.
 	release := make(chan struct{})
 	gw.wg.Add(1)
 	go func() {

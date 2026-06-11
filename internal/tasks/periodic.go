@@ -12,12 +12,9 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-// PeriodicTaskConfigs returns the set of recurring tasks registered with the
-// asynq Scheduler. Every config carries asynq.Unique(interval) so that N
-// worker replicas each running their own Scheduler don't enqueue N duplicate
-// ticks per interval (P1-23). The Unique TTL is set to the cron interval so
-// a second scheduler firing within the same tick window sees ErrDuplicateTask
-// and skips; subsequent ticks are still enqueued normally.
+// PeriodicTaskConfigs returns the recurring tasks for the asynq Scheduler. Every
+// config carries asynq.Unique(interval) so N worker-replica schedulers don't
+// enqueue N duplicate ticks within a tick window.
 func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.PeriodicTaskConfig {
 	configs := []*asynq.PeriodicTaskConfig{
 		{
@@ -51,11 +48,8 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		},
 		{
-			// Subscription renewal sweep. The handler enqueues per-sub
-			// renewal tasks which own the attempt counter — at most one
-			// attempt per subscription per RenewalRetryInterval is
-			// dispatched because the sweep query filters on
-			// last_renewal_attempt_at.
+			// Subscription renewal sweep: enqueues per-sub tasks that own the attempt
+			// counter. Filtering on last_renewal_attempt_at caps attempts per interval.
 			Cronspec: "@every 1h",
 			Task:     asynq.NewTask(TypeBillingRenewSweep, nil),
 			Opts: []asynq.Option{
@@ -93,9 +87,8 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			})
 		}
 
-		// Sandbox lifecycle policy: runs every 5 minutes. Stops sandboxes idle
-		// for >10 min and archives sandboxes stopped for >24 h. Timeout
-		// generous enough to stop/archive dozens of sandboxes in a single tick.
+		// Sandbox lifecycle policy (every 5 min): stops sandboxes idle >10 min,
+		// archives sandboxes stopped >24 h.
 		configs = append(configs, &asynq.PeriodicTaskConfig{
 			Cronspec: "@every 5m",
 			Task:     asynq.NewTask(TypeSandboxLifecycle, nil),
@@ -107,10 +100,8 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		})
 
-		// Sandbox reaper: releases leaked paid compute that the inline
-		// post-create cleanup could not — sandboxes stuck in creating/error
-		// beyond a TTL, idle/terminated specialist sandboxes, and warm slots
-		// stranded in claiming/deleting.
+		// Sandbox reaper: releases leaked paid compute the inline cleanup missed
+		// (stuck creating/error, idle specialists, stranded warm slots).
 		configs = append(configs, &asynq.PeriodicTaskConfig{
 			Cronspec: "@every 5m",
 			Task:     asynq.NewTask(TypeSandboxReap, nil),

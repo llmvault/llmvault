@@ -4,11 +4,9 @@ import "encoding/json"
 
 const redactedValue = "<redacted>"
 
-// redactConfigUpdateRequest returns a copy of the runtime config payload with
-// every secret removed, suitable for debug logging. It redacts the runtime
-// secret, any RuntimeEnv value whose key is sensitive (per the env catalog /
-// name heuristics), and MCP server Authorization headers carried in the agent
-// definition. The original request is never mutated.
+// redactConfigUpdateRequest returns a copy of the config payload safe for debug
+// logging: the runtime secret, sensitive RuntimeEnv values, and MCP Authorization
+// headers are redacted. The original is never mutated.
 func redactConfigUpdateRequest(body ConfigUpdateRequest) map[string]any {
 	out := map[string]any{}
 
@@ -41,9 +39,8 @@ func redactConfigUpdateRequest(body ConfigUpdateRequest) map[string]any {
 	return out
 }
 
-// redactDefinition round-trips the definition through JSON into a generic map
-// and redacts MCP server Authorization headers (which may carry tokens). Using
-// a generic map keeps the redaction robust against the untyped McpServers slice.
+// redactDefinition round-trips the definition through a generic map and redacts
+// MCP Authorization headers, robust against the untyped McpServers slice.
 func redactDefinition(def AgentDefinition) any {
 	raw, err := json.Marshal(def)
 	if err != nil {

@@ -39,9 +39,7 @@ func TestCORS_BlocksUnlistedOrigins(t *testing.T) {
 	}
 }
 
-// TestCORS_ProductionFailsClosedWhenOriginsEmpty verifies that an empty
-// allowedOrigins slice in production does NOT emit a wildcard header — the
-// middleware must fail closed so cross-origin requests are blocked.
+// An empty allowedOrigins slice in production must NOT emit a wildcard header (fail closed).
 func TestCORS_ProductionFailsClosedWhenOriginsEmpty(t *testing.T) {
 	handler := CORS([]string{}, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -57,9 +55,7 @@ func TestCORS_ProductionFailsClosedWhenOriginsEmpty(t *testing.T) {
 	}
 }
 
-// TestCORS_NonProductionAllowsAllWhenOriginsEmpty verifies that development /
-// self-hosted deployments without HIVY_CORS_ORIGINS still get the legacy
-// wildcard behaviour.
+// Non-production deployments without HIVY_CORS_ORIGINS still get the legacy wildcard behaviour.
 func TestCORS_NonProductionAllowsAllWhenOriginsEmpty(t *testing.T) {
 	handler := CORS([]string{}, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -75,9 +71,7 @@ func TestCORS_NonProductionAllowsAllWhenOriginsEmpty(t *testing.T) {
 	}
 }
 
-// TestCORS_ProductionOptionsFailsClosedWhenOriginsEmpty verifies that
-// preflight OPTIONS requests also get no allow-origin in production with no
-// configured origins.
+// Preflight OPTIONS also get no allow-origin in production with no origins.
 func TestCORS_ProductionOptionsFailsClosedWhenOriginsEmpty(t *testing.T) {
 	handler := CORS([]string{}, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

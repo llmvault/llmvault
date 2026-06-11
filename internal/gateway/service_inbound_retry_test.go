@@ -38,10 +38,8 @@ func (r *flakyRuntime) successfulSends() int {
 	return r.sends
 }
 
-// TestReceiveRetriesFailedInboundEvent asserts that an inbound message whose
-// first delivery to the runtime failed is NOT permanently dropped as a duplicate:
-// a redelivery (same dedupe key) reclaims the failed event row and re-runs Send
-// (P0-12).
+// An inbound message whose first delivery to the runtime failed is NOT permanently dropped as a
+// duplicate: a redelivery (same dedupe key) reclaims the failed event row and re-runs Send.
 func TestReceiveRetriesFailedInboundEvent(t *testing.T) {
 	db := connectGatewayTestDB(t)
 	route := seedGatewayRoute(t, db)
@@ -50,7 +48,6 @@ func TestReceiveRetriesFailedInboundEvent(t *testing.T) {
 
 	body := fakeSlackBody("500.000", "", "Please handle this")
 
-	// First delivery: runtime Send fails, event marked failed, error returned.
 	if _, err := service.ReceiveWebhook(t.Context(), WebhookEnvelope{RouteID: route.ID, Body: body}); err == nil {
 		t.Fatalf("expected error from failed runtime send")
 	}
@@ -66,7 +63,6 @@ func TestReceiveRetriesFailedInboundEvent(t *testing.T) {
 		t.Fatalf("event status = %q, want failed", status)
 	}
 
-	// Redelivery of the same webhook must reclaim the failed row and re-run Send.
 	result, err := service.ReceiveWebhook(t.Context(), WebhookEnvelope{RouteID: route.ID, Body: body})
 	if err != nil {
 		t.Fatalf("retry receive webhook: %v", err)
@@ -78,7 +74,6 @@ func TestReceiveRetriesFailedInboundEvent(t *testing.T) {
 		t.Fatalf("retry should have re-run Send, successful sends = %d", runtime.successfulSends())
 	}
 
-	// A subsequent identical redelivery once delivered IS a duplicate.
 	dup, err := service.ReceiveWebhook(t.Context(), WebhookEnvelope{RouteID: route.ID, Body: body})
 	if err != nil {
 		t.Fatalf("duplicate receive webhook: %v", err)

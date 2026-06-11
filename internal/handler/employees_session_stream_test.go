@@ -57,9 +57,7 @@ func TestCopySSEStreamFlushesAtEventBoundaries(t *testing.T) {
 	}
 }
 
-// slowReader emits SSE chunks one at a time with a delay between them and
-// records the timestamp at which each chunk is read, simulating a runtime that
-// streams tokens slowly over a long turn.
+// slowReader emits SSE chunks one at a time with a delay, simulating a slow runtime.
 type slowReader struct {
 	mu        sync.Mutex
 	chunks    [][]byte
@@ -92,8 +90,7 @@ func (r *slowReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-// timestampWriter records when each Flush happens so we can assert the proxy
-// forwards chunks progressively rather than buffering the whole stream.
+// timestampWriter records Flush times so a test can assert progressive forwarding.
 type timestampWriter struct {
 	header     http.Header
 	body       bytes.Buffer
@@ -109,11 +106,8 @@ func (w *timestampWriter) Flush() {
 	w.flushTimes = append(w.flushTimes, time.Now())
 }
 
-// TestCopySSEStreamForwardsSlowChunksProgressively verifies the proxy forwards
-// a slowly-streamed body chunk-by-chunk (flushing at each event boundary as it
-// arrives) without buffering the whole turn — the proxy must not impose a kill
-// on long turns (P0-29). It also confirms a complete slow stream is delivered
-// in full with the terminal event last.
+// The proxy must forward a slowly-streamed body chunk-by-chunk (flushing at each
+// event boundary as it arrives) without buffering the whole turn or killing it.
 func TestCopySSEStreamForwardsSlowChunksProgressively(t *testing.T) {
 	const delay = 20 * time.Millisecond
 	reader := &slowReader{
@@ -140,22 +134,18 @@ func TestCopySSEStreamForwardsSlowChunksProgressively(t *testing.T) {
 	if !strings.HasSuffix(strings.TrimRight(body, "\n"), "data: {}") {
 		t.Fatalf("expected terminal done event last, body = %q", body)
 	}
-	// At least one flush per event boundary => progressive delivery.
 	if len(writer.flushTimes) < 4 {
 		t.Fatalf("expected >= 4 flushes (one per event), got %d", len(writer.flushTimes))
 	}
-	// The total time should reflect the per-chunk delays (not instant), proving
-	// chunks were consumed as they arrived rather than buffered.
+	// Elapsed time must reflect the per-chunk delays, proving progressive consumption.
 	if elapsed := time.Since(start); elapsed < 3*delay {
 		t.Fatalf("stream completed too fast (%v); expected progressive consumption", elapsed)
 	}
 }
 
-// TestCopySSEStreamPropagatesMidBodyDropError verifies that a transport drop
-// mid-stream surfaces as an error from the proxy copy (so the caller's request
-// scope ends) after the partial bytes have already been flushed to the client —
-// it does not silently complete or hang. The web client's reconnect logic then
-// resumes against the broker's replay buffer.
+// A transport drop mid-stream must surface as an error from the proxy copy
+// (after partial bytes are flushed), not silently complete or hang, so the
+// caller's request scope ends and the client can reconnect to the replay buffer.
 func TestCopySSEStreamPropagatesMidBodyDropError(t *testing.T) {
 	reader := &slowReader{
 		delay:     5 * time.Millisecond,

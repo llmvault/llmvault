@@ -13,10 +13,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// testSymmetricKey creates a SymmetricKey from a deterministic 32-byte key for use in tests.
 func testSymmetricKey(t *testing.T) *crypto.SymmetricKey {
 	t.Helper()
-	// 32 zero bytes, base64-encoded.
 	key, err := crypto.NewSymmetricKey(base64.StdEncoding.EncodeToString(make([]byte, 32)))
 	if err != nil {
 		t.Fatalf("create enc key: %v", err)
@@ -24,7 +22,6 @@ func testSymmetricKey(t *testing.T) *crypto.SymmetricKey {
 	return key
 }
 
-// testEncryptJSON is a test helper that encrypts a JSON object using the given key.
 func testEncryptJSON(t *testing.T, key *crypto.SymmetricKey, obj map[string]string) []byte {
 	t.Helper()
 	data, err := json.Marshal(obj)
@@ -103,9 +100,8 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 	}
 }
 
-// TestBuildRuntimeEnvProvisionsTunnelPassword is the regression for P1-1: the
-// runtime tunnel proxy is an unauthenticated open proxy when HIVY_TUNNEL_PASSWORD
-// is unset, so the control plane must always provision it.
+// The runtime tunnel proxy is an unauthenticated open proxy when
+// HIVY_TUNNEL_PASSWORD is unset, so the control plane must always provision it.
 func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 	orgID := uuid.New()
 	agent := &model.Employee{
@@ -134,10 +130,8 @@ func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 	}
 }
 
-// TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv is the
-// regression test for P2-29: reserved HIVY_ runtime keys (proxy key,
-// runtime secret, drive bearer) must not be clobbered by org-supplied env
-// vars that share the same name, regardless of what the user sets.
+// Reserved HIVY_ runtime keys (proxy key, runtime secret, drive bearer) must not
+// be clobbered by org-supplied env vars that share the same name.
 func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testing.T) {
 	encKey := testSymmetricKey(t)
 
@@ -145,12 +139,12 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testin
 	agent := &model.Employee{
 		ID:    uuid.New(),
 		OrgID: &orgID,
-		// User has smuggled reserved HIVY_ keys into their org env vars.
+		// Org env vars smuggling reserved HIVY_ keys.
 		EncryptedEnvVars: testEncryptJSON(t, encKey, map[string]string{
 			EmployeeEnvRuntimeSecret:     "user-controlled-secret",
 			EmployeeEnvProxyAPIKey:       "user-controlled-proxy-key",
 			EmployeeEnvDriveUploadBearer: "user-controlled-bearer",
-			"MY_CUSTOM_VAR":             "custom-value",
+			"MY_CUSTOM_VAR":              "custom-value",
 		}),
 	}
 
@@ -188,7 +182,6 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testin
 			EmployeeEnvDriveUploadBearer, got, runtimeSecret)
 	}
 
-	// Non-reserved user env vars must still be present.
 	if got := env["MY_CUSTOM_VAR"]; got != "custom-value" {
 		t.Errorf("MY_CUSTOM_VAR = %q, want custom-value; non-reserved user env must be preserved", got)
 	}

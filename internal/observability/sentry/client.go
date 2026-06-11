@@ -14,14 +14,11 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 )
 
-// sensitiveQueryParams lists URL query parameter names whose values must be
-// scrubbed from Sentry events to prevent tokens from appearing in breadcrumbs
-// or request data.
+// sensitiveQueryParams lists URL query parameter names whose values must be scrubbed from Sentry
+// events to prevent tokens from appearing in breadcrumbs or request data.
 var sensitiveQueryParams = []string{"token", "key"}
 
-// scrubQueryString removes sensitive token values from a query string
-// (either a bare "key=val&..." string or an empty string), returning the
-// scrubbed form.  Values are replaced with "[Filtered]".
+// scrubQueryString replaces sensitive token values in a query string with "[Filtered]".
 func scrubQueryString(qs string) string {
 	if qs == "" {
 		return qs
@@ -43,8 +40,7 @@ func scrubQueryString(qs string) string {
 	return q.Encode()
 }
 
-// scrubSensitiveQueryParams removes sensitive token values from a full URL
-// string, replacing them with "[Filtered]".
+// scrubSensitiveQueryParams replaces sensitive token values in a URL with [Filtered].
 func scrubSensitiveQueryParams(rawURL string) string {
 	if rawURL == "" {
 		return rawURL
@@ -61,8 +57,7 @@ func scrubSensitiveQueryParams(rawURL string) string {
 	return u.String()
 }
 
-// beforeSend scrubs sensitive query parameters from request URLs before the
-// event is transmitted to Sentry.
+// beforeSend scrubs sensitive query params from request URLs before transmission.
 func beforeSend(event *sentrygo.Event, _ *sentrygo.EventHint) *sentrygo.Event {
 	if event == nil {
 		return event

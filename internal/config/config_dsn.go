@@ -7,8 +7,7 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// DatabaseDSN constructs a Postgres connection string from individual fields.
-// The password is URL-encoded to handle special characters safely.
+// DatabaseDSN constructs a Postgres connection string, URL-encoding the password.
 func (c *Config) DatabaseDSN() string {
 	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		url.QueryEscape(c.DBUser),

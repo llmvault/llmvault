@@ -46,10 +46,8 @@ func (s *GatewayStreamDeliveryService) recordDelivery(ctx context.Context, paylo
 	return s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error
 }
 
-// deliveryDedupeKey derives the stable dedupe identity for a delivery.
-// Prefer the runtime trace+turn (stable across asynq retries and independent
-// of text); fall back to runtime session + text hash only when those are
-// absent.
+// deliveryDedupeKey derives the stable dedupe identity, preferring the runtime
+// trace+turn (stable across retries) and falling back to session + text hash.
 func deliveryDedupeKey(payload GatewayStreamPayload, text string) string {
 	dedupe := payload.TraceID + ":" + payload.TurnID
 	if strings.Trim(dedupe, ":") == "" {

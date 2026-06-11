@@ -12,9 +12,8 @@ import (
 	"github.com/usehivy/hivy/internal/crypto"
 )
 
-// credentialFetchTimeout bounds the detached singleflight fetch so a hung
-// L2/L3 lookup can't pin the flight (and its waiters) indefinitely after the
-// originating request ctx is gone.
+// credentialFetchTimeout bounds the detached singleflight fetch so a hung L2/L3 lookup can't pin
+// the flight (and its waiters) indefinitely after the originating request ctx is gone.
 const credentialFetchTimeout = 15 * time.Second
 
 // DecryptedCredential is the fully resolved, plaintext credential returned
@@ -24,9 +23,8 @@ type DecryptedCredential struct {
 	BaseURL    string
 	AuthScheme string
 	ProviderID string
-	// OrgID is the owning org of the resolved credential (uuid.Nil for
-	// global credentials). Callers use it to re-assert org isolation on
-	// singleflight-shared results.
+	// OrgID is the owning org of the resolved credential (uuid.Nil for global credentials).
+	// Callers use it to re-assert org isolation on singleflight-shared results.
 	OrgID uuid.UUID
 }
 
@@ -116,13 +114,11 @@ func (m *Manager) GetDecryptedCredential(ctx context.Context, credentialID strin
 	}
 
 	// Key the flight by credential AND org: two orgs must never share a
-	// resolution (a uuid.Nil-org credential and an org-scoped one with the
-	// same ID would otherwise collide and return the wrong, unvalidated row).
+	// resolution, or a Nil-org and org-scoped credential with the same ID collide.
 	flightKey := credentialID + "|" + orgID.String()
 
-	// Detach the shared fetch from the leader's request ctx: otherwise the
-	// first caller disconnecting cancels the fetch for every waiter, 5xx-ing
-	// unrelated proxy requests. Give it its own bounded deadline.
+	// Detach the shared fetch from the leader's ctx, or the first caller
+	// disconnecting cancels it for every waiter. Give it a bounded deadline.
 	v, err, _ := m.flight.Do(flightKey, func() (any, error) {
 		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), credentialFetchTimeout)
 		defer cancel()
@@ -132,9 +128,7 @@ func (m *Manager) GetDecryptedCredential(ctx context.Context, credentialID strin
 		return nil, err
 	}
 	cred := v.(*DecryptedCredential)
-	// resolveFromDB/L2 already filter by orgID, but the result is shared
-	// across all waiters on this key; re-assert the invariant defensively so
-	// a future key change can never leak a credential across orgs.
+	// Lower tiers filter by orgID, but the result is shared; re-assert it here.
 	if cred.OrgID != orgID {
 		return nil, fmt.Errorf("credential not found or revoked")
 	}

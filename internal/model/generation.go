@@ -15,31 +15,25 @@ type Generation struct {
 	CredentialID uuid.UUID `gorm:"type:uuid;not null;index:idx_gen_org_credential" json:"credential_id"`
 	TokenJTI     string    `gorm:"column:token_jti;not null" json:"token_jti"`
 
-	// Request metadata
 	ProviderID  string `gorm:"not null;index:idx_gen_org_provider" json:"provider_id"`
 	Model       string `gorm:"index:idx_gen_org_model" json:"model"`
 	RequestPath string `json:"request_path"`
 	IsStreaming bool   `gorm:"default:false" json:"is_streaming"`
 
-	// Token usage
 	InputTokens     int `gorm:"default:0" json:"input_tokens"`
 	OutputTokens    int `gorm:"default:0" json:"output_tokens"`
 	CachedTokens    int `gorm:"default:0" json:"cached_tokens"`
 	ReasoningTokens int `gorm:"default:0" json:"reasoning_tokens"`
 
-	// Cost in USD
 	Cost float64 `gorm:"type:numeric(12,8);default:0" json:"cost"`
 
-	// Timing
 	TTFBMs         *int `gorm:"column:ttfb_ms" json:"ttfb_ms,omitempty"`
 	TotalMs        int  `gorm:"column:total_ms" json:"total_ms"`
 	UpstreamStatus int  `gorm:"column:upstream_status" json:"upstream_status"`
 
-	// Attribution (from token.meta)
 	UserID string         `gorm:"index:idx_gen_org_user" json:"user_id,omitempty"`
 	Tags   pq.StringArray `gorm:"type:text[]" json:"tags,omitempty"`
 
-	// Error tracking
 	ErrorType    string `json:"error_type,omitempty"`
 	ErrorMessage string `gorm:"type:text" json:"error_message,omitempty"`
 
@@ -53,10 +47,9 @@ type Generation struct {
 	CreditsDebited    int64  `gorm:"default:0;not null" json:"credits_debited"`
 	BillingCostSource string `gorm:"type:text;default:'';not null" json:"billing_cost_source,omitempty"`
 
-	// BillingAttempts counts how many times the billing batch has tried to debit
-	// this row. Rows that fail with insufficient_credits keep billed_at NULL and
-	// stay in the unbilled queue so a later top-up rebills them; this counter
-	// caps the retries so a permanently underfunded org can't hot-loop the batch.
+	// BillingAttempts counts batch debit attempts. Insufficient-credits rows stay
+	// queued (billed_at NULL) for a top-up; this caps retries so a permanently
+	// underfunded org can't hot-loop the batch.
 	BillingAttempts int `gorm:"default:0;not null" json:"billing_attempts"`
 }
 

@@ -6,29 +6,17 @@ import (
 	"strings"
 )
 
-// trueClientIPHeader, xRealIPHeader, and xForwardedForHeader are the headers a
-// reverse proxy may use to convey the originating client IP. They are also the
-// headers a malicious client can spoof, which is why they are only honoured when
-// the immediate peer is a trusted proxy.
+// Headers a reverse proxy uses to convey the originating client IP. A malicious client can spoof
+// them, so they are only honoured when the peer is a trusted proxy.
 const (
 	trueClientIPHeader  = "True-Client-IP"
 	xRealIPHeader       = "X-Real-IP"
 	xForwardedForHeader = "X-Forwarded-For"
 )
 
-// RealIP returns middleware that sets r.RemoteAddr to the originating client IP,
-// but only trusts client-supplied forwarding headers (True-Client-IP,
-// X-Real-IP, X-Forwarded-For) when the immediate connection peer falls inside
-// one of the configured trusted-proxy CIDRs.
-//
-// chi's middleware.RealIP trusts these headers unconditionally, which lets any
-// client spoof their source IP and bypass per-IP auth brute-force rate limiting
-// and poison audit-log IPs. This extractor closes that hole: untrusted peers
-// keep their real socket address, trusted proxies (nginx on loopback, and any
-// additional configured hops) get their forwarded IP honoured.
-//
-// Trusted CIDRs that fail to parse are skipped; if none parse, all forwarding
-// headers are ignored (fail closed).
+// RealIP sets r.RemoteAddr to the client IP, trusting forwarding headers only
+// when the peer is inside a trusted-proxy CIDR (unlike chi's RealIP, which trusts
+// them unconditionally and lets any client spoof its source IP).
 func RealIP(trustedCIDRs []string) func(http.Handler) http.Handler {
 	nets := parseCIDRs(trustedCIDRs)
 
@@ -42,8 +30,8 @@ func RealIP(trustedCIDRs []string) func(http.Handler) http.Handler {
 	}
 }
 
-// realIPFromRequest derives the client IP from forwarding headers when the peer
-// is trusted, otherwise returns "" (leaving r.RemoteAddr untouched).
+// realIPFromRequest derives the client IP from forwarding headers for a trusted
+// peer, else returns "".
 func realIPFromRequest(r *http.Request, trusted []*net.IPNet) string {
 	peerHost := r.RemoteAddr
 	if h, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {

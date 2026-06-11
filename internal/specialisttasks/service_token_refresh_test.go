@@ -84,8 +84,7 @@ func seedSpecialistRefreshScope(t *testing.T) (*Service, employeeruntime.Compile
 	return svc, compileDeps, org, employee, sb
 }
 
-// TestLatestSpecialistToken verifies the helper selects the newest live
-// specialist token bound to the sandbox+slug, ignoring revoked ones.
+// Helper selects the newest live specialist token bound to the sandbox+slug.
 func TestLatestSpecialistToken(t *testing.T) {
 	svc, deps, org, employee, sb := seedSpecialistRefreshScope(t)
 	slug := "software-engineering-specialist"
@@ -115,9 +114,8 @@ func TestLatestSpecialistToken(t *testing.T) {
 	}
 }
 
-// TestRevokeOlderSpecialistTokens verifies the P1-18/P1-19 revoke logic for
-// specialists: the kept token and any token minted within the grace window
-// survive; older tokens are revoked.
+// The kept token and any token minted within the grace window survive the
+// specialist revoke sweep; older tokens are revoked.
 func TestRevokeOlderSpecialistTokens(t *testing.T) {
 	svc, deps, org, employee, sb := seedSpecialistRefreshScope(t)
 	slug := "software-engineering-specialist"

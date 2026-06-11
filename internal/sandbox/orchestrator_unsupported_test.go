@@ -10,10 +10,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestStopSandboxUnsupportedDoesNotPersistStopped verifies P1-13: when the
-// provider has no pause primitive (ErrUnsupported), the orchestrator must NOT
-// flip the row to 'stopped' (which would be a lie while the service keeps
-// billing). It returns the sentinel so callers can skip the transition.
+// When the provider has no pause primitive (ErrUnsupported), the orchestrator
+// must NOT flip to 'stopped' (a lie while the service bills); it returns the
+// sentinel so callers skip the transition.
 func TestStopSandboxUnsupportedDoesNotPersistStopped(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -47,9 +46,8 @@ func TestStopSandboxUnsupportedDoesNotPersistStopped(t *testing.T) {
 	}
 }
 
-// TestArchiveSandboxUnsupportedDeletesResource verifies that archive on an
-// unsupported provider deletes the live resource instead of persisting an
-// 'archived' lie that keeps billing.
+// Archive on an unsupported provider must delete the live resource instead of
+// persisting an 'archived' lie that keeps billing.
 func TestArchiveSandboxUnsupportedDeletesResource(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()

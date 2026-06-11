@@ -98,11 +98,9 @@ func (p *WarmPool) MarkClaimed(ctx context.Context, slotID uuid.UUID) error {
 		Update("status", model.SandboxWarmSlotStatusClaimed).Error
 }
 
-// MarkError flips a slot to the terminal error state and deletes its provider
-// resource so the paid compute is released. Nothing else in the system ever
-// processes error slots, so failing to delete here leaks a live billing service
-// forever. The provider delete runs first; on a transient delete failure the
-// slot is parked in 'deleting' and the periodic reaper retries.
+// MarkError flips a slot to error and deletes its provider resource. Nothing
+// else processes error slots, so failing to delete leaks a live billing service
+// forever; on a transient failure the slot parks in 'deleting' for the reaper.
 func (p *WarmPool) MarkError(ctx context.Context, slotID uuid.UUID, message string) error {
 	var slot model.SandboxWarmSlot
 	if err := p.db.WithContext(ctx).First(&slot, "id = ?", slotID).Error; err != nil {
@@ -111,8 +109,8 @@ func (p *WarmPool) MarkError(ctx context.Context, slotID uuid.UUID, message stri
 	if slot.ExternalID != "" {
 		if err := p.provider.DeleteSandbox(ctx, slot.ExternalID); err != nil && !errors.Is(err, ErrSandboxNotFound) {
 			logging.Capture(ctx, fmt.Errorf("mark warm slot %s error: delete provider resource %s: %w", slotID, slot.ExternalID, err))
-			// Leave a breadcrumb in 'deleting' so the reaper retries the delete
-			// rather than abandoning the slot in 'error' with a live resource.
+			// Park in 'deleting' so the reaper retries rather than abandoning a live
+			// resource in 'error'.
 			_ = p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
 				Where("id = ?", slotID).
 				Updates(map[string]any{
@@ -130,11 +128,9 @@ func (p *WarmPool) MarkError(ctx context.Context, slotID uuid.UUID, message stri
 		}).Error
 }
 
-// ReapStaleSlots releases provider resources for warm slots stranded in
-// 'claiming' (a claim that crashed mid-flight before MarkClaimed/MarkError) and
-// retries provider deletion for slots left in 'deleting'. Without this a claim
-// that dies between Claim and the orchestrator finishing leaves a live billing
-// service that no path ever deletes.
+// ReapStaleSlots releases provider resources for slots stranded in 'claiming' (a
+// claim that crashed mid-flight) and retries deletion for 'deleting' slots,
+// otherwise a dead claim leaks a live billing service no path ever deletes.
 func (p *WarmPool) ReapStaleSlots(ctx context.Context) error {
 	if p == nil {
 		return nil

@@ -143,13 +143,10 @@ func (h *AuthHandler) issueTokensAndRespond(ctx context.Context, w http.Response
 	writeJSON(w, status, resp)
 }
 
-// mintAuthResponse issues a fresh access/refresh token pair, persists the
-// refresh token, and assembles the full authResponse. It writes an error
-// response and returns ok=false on failure so callers can simply return.
-//
-// Unlike issueTokensAndRespond it does not write the success response itself,
-// so callers (e.g. the refresh-rotation grace window) can persist the minted
-// tokens before delivering them.
+// mintAuthResponse issues and persists a fresh token pair and assembles the
+// authResponse, returning ok=false on failure. Unlike issueTokensAndRespond it
+// does not write the success response, so callers (e.g. the refresh grace window)
+// can persist the tokens before delivering them.
 func (h *AuthHandler) mintAuthResponse(ctx context.Context, w http.ResponseWriter, user model.User, orgID, role string) (authResponse, bool) {
 	accessToken, err := auth.IssueAccessToken(h.privateKey, h.issuer, h.audience, user.ID.String(), orgID, role, h.accessTTL)
 	if err != nil {
@@ -179,8 +176,7 @@ func (h *AuthHandler) mintAuthResponse(ctx context.Context, w http.ResponseWrite
 	return h.buildAuthResponse(ctx, user, accessToken, refreshToken), true
 }
 
-// buildAuthResponse assembles the authResponse DTO for an already-minted token
-// pair, loading the user's org memberships and plans.
+// buildAuthResponse assembles the authResponse for an already-minted token pair.
 func (h *AuthHandler) buildAuthResponse(ctx context.Context, user model.User, accessToken, refreshToken string) authResponse {
 	var memberships []model.OrgMembership
 	h.db.Preload("Org").Where("user_id = ?", user.ID).Find(&memberships)

@@ -227,7 +227,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	// Sandbox orchestration is expected whenever a provider is configured; if it
 	// is configured but the orchestrator is nil, the subsystem is silently
-	// missing and /readyz must report unavailable (P1-20).
+	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
 	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestratorMissing)
@@ -245,11 +245,10 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, driveHandler, sandboxEncKey, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)
 
 	srv := &http.Server{
-		Addr: fmt.Sprintf(":%d", cfg.Port),
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: r,
-		// ReadHeaderTimeout protects against Slowloris without killing long
-		// request bodies (drive uploads, sqlite backups from slow clients).
-		// Per-handler deadlines are set via request context instead.
+		// ReadHeaderTimeout guards against Slowloris without killing long request
+		// bodies (drive uploads, sqlite backups); per-handler deadlines use the ctx.
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      0,
 		IdleTimeout:       120 * time.Second,

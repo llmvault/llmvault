@@ -24,12 +24,9 @@ const (
 	billingErrUnresolved = "model_unresolved"
 	billingErrInsufFunds = "insufficient_credits"
 
-	// maxInsufficientCreditAttempts caps how many times the batch will retry a
-	// row that keeps failing with insufficient_credits before writing it off.
-	// Rows below the cap keep billed_at NULL and stay in the unbilled queue so
-	// a top-up rebills them; once the cap is hit the row is stamped billed
-	// (with credits_debited=0) so a permanently underfunded org can't hot-loop
-	// the batch forever.
+	// maxInsufficientCreditAttempts caps retries of an insufficient_credits row
+	// before write-off: at the cap it's stamped billed (credits_debited=0) so an
+	// underfunded org can't hot-loop the batch.
 	maxInsufficientCreditAttempts = 5
 )
 
@@ -108,10 +105,8 @@ func (h *BillingBatchProcessHandler) Handle(ctx context.Context, _ *asynq.Task) 
 			if result.CostUSD > 0 {
 				updates["cost"] = result.CostUSD
 			}
-			// Insufficient-credits rows are not written off: leave billed_at NULL
-			// so the next sweep retries them after a top-up, bumping the attempt
-			// counter to bound the retries. Only once the cap is reached do we
-			// stamp billed_at and give up on the row.
+			// Insufficient rows stay queued (billed_at NULL) for a top-up, bumping
+			// the attempt counter; only at the cap do we stamp billed_at.
 			if result.BillingErr == billingErrInsufFunds && r.BillingAttempts+1 < maxInsufficientCreditAttempts {
 				updates["billing_attempts"] = r.BillingAttempts + 1
 			} else {

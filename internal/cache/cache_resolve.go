@@ -67,8 +67,7 @@ func (m *Manager) resolveFromDB(ctx context.Context, credentialID string, orgID 
 	}, nil
 }
 
-// decryptWithDEKCache decrypts an API key using a DEK from the DEK cache
-// (or falls back to KMS unwrap if the DEK isn't cached).
+// decryptWithDEKCache decrypts an API key via a cached DEK, falling back to KMS.
 func (m *Manager) decryptWithDEKCache(ctx context.Context, credentialID string, encryptedKey, wrappedDEK []byte) ([]byte, error) {
 
 	if enclave, ok := m.dekCache.Get(credentialID); ok {

@@ -22,12 +22,10 @@ func New(rdb *redis.Client, db *gorm.DB) *Counter {
 	return &Counter{rdb: rdb, db: db}
 }
 
-// credKey returns the Redis key for a credential counter.
 func credKey(credentialID string) string {
 	return "pbreq:cred:" + credentialID
 }
 
-// tokKey returns the Redis key for a token counter.
 func tokKey(jti string) string {
 	return "pbreq:tok:" + jti
 }
@@ -51,12 +49,8 @@ func (c *Counter) SeedToken(ctx context.Context, jti string, value int64, tokenT
 	return c.Seed(ctx, tokKey(jti), value, tokenTTL+time.Minute)
 }
 
-// decrementScript atomically decrements a key by 1 if it exists and is > 0.
-// Returns:
-//
-//	1  = success (decremented)
-//	0  = exhausted (counter is 0)
-//	-1 = key does not exist (no cap configured)
+// decrementScript decrements a key by 1 if it exists and is > 0. Returns 1
+// (decremented), 0 (exhausted), or -1 (key absent / no cap).
 var decrementScript = redis.NewScript(`
 local v = redis.call("GET", KEYS[1])
 if v == false then
@@ -88,16 +82,9 @@ func (c *Counter) Decrement(ctx context.Context, key string) (DecrementResult, e
 	return DecrementResult(val), nil
 }
 
-// undoScript increments a counter by 1 only when the key still exists,
-// preserving its TTL. A bare INCR would recreate an expired (or never-seeded)
-// key as a TTL-less counter of 1, which then caps the token/credential at a
-// single request forever. EXISTS-then-INCR keeps INCR's TTL-preserving
-// behavior on a live key and no-ops on a missing one.
-//
-// Returns:
-//
-//	1 = incremented (key existed)
-//	0 = key did not exist (nothing to undo)
+// undoScript increments only when the key still exists, preserving its TTL. A
+// bare INCR would resurrect an expired key as a TTL-less counter of 1, capping
+// it at one request forever; EXISTS-then-INCR no-ops on a missing key (returns 0).
 var undoScript = redis.NewScript(`
 if redis.call("EXISTS", KEYS[1]) == 0 then
     return 0
@@ -106,9 +93,7 @@ redis.call("INCR", KEYS[1])
 return 1
 `)
 
-// Undo increments the counter by 1 (used to roll back a token decrement when the
-// credential counter rejects the request). It only increments when the key
-// still exists so an expired key is not resurrected as a TTL-less counter of 1.
+// Undo rolls back a token decrement when the credential counter rejects.
 func (c *Counter) Undo(ctx context.Context, key string) error {
 	return undoScript.Run(ctx, c.rdb, []string{key}).Err()
 }
@@ -174,10 +159,9 @@ func (c *Counter) CheckAndRefillCredential(ctx context.Context, credentialID str
 		return false, fmt.Errorf("updating credential: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		// Another instance won the CAS and refilled Postgres. Its Redis seed
-		// may have failed (or be in-flight), so reconcile Redis to the
-		// authoritative current value rather than leaving it exhausted. Seeding
-		// is idempotent: re-running it converges Redis to Postgres.
+		// Another instance won the CAS and refilled Postgres; its Redis seed may
+		// have failed, so reconcile Redis to the authoritative value rather than
+		// leaving it exhausted (seeding is idempotent).
 		var current model.Credential
 		if err := c.db.Where("id = ?", credentialID).First(&current).Error; err != nil {
 			return false, fmt.Errorf("reloading credential: %w", err)
@@ -244,9 +228,8 @@ func (c *Counter) CheckAndRefillToken(ctx context.Context, jti string) (bool, er
 	}
 
 	if result.RowsAffected == 0 {
-		// Another instance won the CAS and refilled Postgres; reconcile Redis to
-		// the authoritative current value (idempotent re-seed) so a failed seed
-		// by the winner does not leave the token capped at exhausted.
+		// Another instance won the CAS; reconcile Redis to the authoritative value
+		// (idempotent) so the winner's failed seed doesn't leave it exhausted.
 		var current model.Token
 		if err := c.db.Where("jti = ?", jti).First(&current).Error; err != nil {
 			return false, fmt.Errorf("reloading token: %w", err)

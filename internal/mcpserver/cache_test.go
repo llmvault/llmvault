@@ -13,9 +13,8 @@ func newTestServer() *mcp.Server {
 	return mcp.NewServer(&mcp.Implementation{Name: "test", Version: "v0"}, nil)
 }
 
-// TestServerCache_PerKeySingleflight verifies a slow build for one JTI does not
-// block a build/serve for a different JTI (P2-37: build no longer runs under
-// the global write lock).
+// A slow build for one JTI does not block a build/serve for a different JTI (build no longer runs
+// under the global write lock).
 func TestServerCache_PerKeySingleflight(t *testing.T) {
 	c := NewServerCache()
 
@@ -34,7 +33,6 @@ func TestServerCache_PerKeySingleflight(t *testing.T) {
 
 	<-slowStarted // ensure the slow build holds its key's flight slot
 
-	// A different key must build immediately, even while "slow" is in flight.
 	fastDone := make(chan struct{})
 	go func() {
 		_, err := c.GetOrBuild("fast", func() (*mcp.Server, time.Time, error) {
@@ -56,8 +54,7 @@ func TestServerCache_PerKeySingleflight(t *testing.T) {
 	<-slowDone
 }
 
-// TestServerCache_SingleflightDedupesSameKey verifies concurrent requests for
-// the same JTI trigger exactly one build.
+// Concurrent requests for the same JTI must trigger exactly one build.
 func TestServerCache_SingleflightDedupesSameKey(t *testing.T) {
 	c := NewServerCache()
 
@@ -83,7 +80,6 @@ func TestServerCache_SingleflightDedupesSameKey(t *testing.T) {
 		}(i)
 	}
 
-	// Give the goroutines time to converge on the single flight before release.
 	time.Sleep(100 * time.Millisecond)
 	close(release)
 	wg.Wait()
@@ -98,8 +94,7 @@ func TestServerCache_SingleflightDedupesSameKey(t *testing.T) {
 	}
 }
 
-// TestServerCache_ServesCachedAndExpires verifies cache hits skip the build and
-// expired entries rebuild.
+// Cache hits skip the build; expired entries rebuild.
 func TestServerCache_ServesCachedAndExpires(t *testing.T) {
 	c := NewServerCache()
 
@@ -121,7 +116,6 @@ func TestServerCache_ServesCachedAndExpires(t *testing.T) {
 		t.Fatalf("cache hit still rebuilt: builds=%d", got)
 	}
 
-	// Expired entry must rebuild.
 	c.Evict("k")
 	if _, err := c.GetOrBuild("k", build(time.Now().Add(-time.Minute))); err != nil {
 		t.Fatalf("rebuild after evict: %v", err)

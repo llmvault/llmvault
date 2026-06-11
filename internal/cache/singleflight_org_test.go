@@ -11,10 +11,8 @@ import (
 	"github.com/usehivy/hivy/internal/cache"
 )
 
-// TestIntegration_CacheManager_SingleflightDoesNotLeakAcrossOrgs verifies
-// P1-27: when two orgs concurrently resolve the same credential ID on an L1
-// miss, the singleflight must not hand one org the other org's decrypted
-// secret. The credential belongs to orgA; a concurrent request scoped to a
+// When two orgs concurrently resolve the same credential ID on an L1 miss, the
+// singleflight must not hand one org the other's secret: a request scoped to a
 // different org must fail with not-found, never return orgA's key.
 func TestIntegration_CacheManager_SingleflightDoesNotLeakAcrossOrgs(t *testing.T) {
 	db := connectTestDB(t)
@@ -26,7 +24,6 @@ func TestIntegration_CacheManager_SingleflightDoesNotLeakAcrossOrgs(t *testing.T
 	cred := createTestCredential(t, db, kms, orgA.ID, "sk-org-a-secret")
 	otherOrg := uuid.New() // not the owning org
 
-	// Ensure a cold L1 so both requests contend on the singleflight.
 	mgr.Memory().Invalidate(cred.ID.String())
 	_ = rc.Del(context.Background(), "pbcred:"+cred.ID.String())
 

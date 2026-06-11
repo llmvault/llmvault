@@ -26,11 +26,8 @@ func (h *NangoWebhookHandler) identify(ctx context.Context, wh *nangoWebhook) *w
 }
 
 func verifyNangoSignature(body []byte, secret string, signature string) bool {
-	// Fail closed: without a configured webhook secret we cannot verify the HMAC,
-	// so we cannot trust the caller. Proceeding would let an attacker forge a
-	// valid X-Nango-Hmac-Sha256 header by computing HMAC with an empty key over
-	// their chosen body, enabling forged connection-state / Slack inbound events
-	// for arbitrary orgs. Mirrors the employee-outbound webhook hardening.
+	// Fail closed: without a webhook secret we can't verify the HMAC, so an
+	// attacker could forge a valid empty-key HMAC for arbitrary orgs.
 	if secret == "" {
 		return false
 	}

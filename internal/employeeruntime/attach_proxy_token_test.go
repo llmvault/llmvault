@@ -10,18 +10,15 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestAttachProxyTokenToSandbox verifies P2-46: the attach binds the exact
-// minted token to the sandbox, refuses revoked/expired/unknown tokens, and
-// surfaces lookup errors instead of swallowing them — so the refresh scheduler
-// never computes its schedule from the wrong row.
+// The attach must bind the exact minted token, refuse revoked/expired/unknown tokens, and surface
+// lookup errors — so the refresh scheduler never uses the wrong row.
 func TestAttachProxyTokenToSandbox_TagsMintedTokenOnly(t *testing.T) {
 	db := connectCompileTestDB(t)
 	agent := createCompileTokenAgent(t, db)
 	deps := CompileDeps{DB: db, SigningKey: []byte("test-signing-key-32-bytes-long!!")}
 	sandboxID := uuid.New()
 
-	// An older token for the same employee/sandbox that must NOT be re-tagged
-	// just because it is the most recent matching row.
+	// An older token that must NOT be re-tagged just for being the latest match.
 	stale, err := MintProxyToken(context.Background(), deps, &agent, uuid.Nil)
 	if err != nil {
 		t.Fatalf("mint stale token: %v", err)

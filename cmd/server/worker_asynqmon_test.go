@@ -11,7 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 )
 
-// P1-8: the asynqmon dashboard exposes every queued/archived task payload. It
+// the asynqmon dashboard exposes every queued/archived task payload. It
 // must be fail-closed: disabled by default, never mounted without basic-auth
 // credentials, and never on the public health port.
 func TestBuildAsynqmonServer_FailClosed(t *testing.T) {
@@ -71,7 +71,6 @@ func TestBasicAuth(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// No credentials -> 401, handler not called.
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest("GET", "/asynq/", nil))
 	if rr.Code != http.StatusUnauthorized || called {
@@ -81,7 +80,6 @@ func TestBasicAuth(t *testing.T) {
 		t.Fatal("expected WWW-Authenticate challenge header")
 	}
 
-	// Wrong password -> 401.
 	rr = httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/asynq/", nil)
 	req.SetBasicAuth("ops", "wrong")
@@ -90,7 +88,6 @@ func TestBasicAuth(t *testing.T) {
 		t.Fatalf("expected 401 with wrong password, got %d called=%v", rr.Code, called)
 	}
 
-	// Correct credentials -> handler runs.
 	rr = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/asynq/", nil)
 	req.SetBasicAuth("ops", "secret")

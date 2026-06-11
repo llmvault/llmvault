@@ -12,8 +12,8 @@ import (
 	"github.com/usehivy/hivy/internal/observe"
 )
 
-// chunkWriter is an upstream that writes raw byte chunks (so the test controls
-// exact framing) and flushes between them to keep the response streaming.
+// sseUpstream writes raw byte chunks (so the test controls exact SSE framing),
+// flushing between them to keep the response streaming.
 func sseUpstream(t *testing.T, chunks ...string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,10 +46,8 @@ func runCapture(t *testing.T, upstream *httptest.Server, providerID string) *obs
 	return captured
 }
 
-// TestStreamingCapture_CRLF verifies that CRLF-framed (\r\n) SSE streams have
-// their usage parsed. With the old bufio.Scanner offset accounting (+len+1 per
-// line, but Text() also strips the \r) the buffer reset drifted and the usage
-// event was dropped.
+// CRLF-framed (\r\n) SSE streams must have their usage parsed; byte-offset
+// accounting must not drift on the stripped \r.
 func TestStreamingCapture_CRLF(t *testing.T) {
 	upstream := sseUpstream(t,
 		"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\r\n\r\n",
@@ -68,14 +66,11 @@ func TestStreamingCapture_CRLF(t *testing.T) {
 	}
 }
 
-// TestStreamingCapture_NoTrailingNewline verifies that a final usage event that
-// arrives without a trailing newline (provider closes the connection right after
-// the JSON) is still parsed. The old code only parsed complete \n-terminated
-// lines, so this usage was lost.
+// A final usage event with no trailing newline (provider closes right after the
+// JSON) must still be parsed on flush.
 func TestStreamingCapture_NoTrailingNewline(t *testing.T) {
 	upstream := sseUpstream(t,
 		"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
-		// Final usage line: no trailing newline at all.
 		"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":42,\"completion_tokens\":7}}",
 	)
 	defer upstream.Close()
@@ -90,10 +85,8 @@ func TestStreamingCapture_NoTrailingNewline(t *testing.T) {
 	}
 }
 
-// TestStreamingCapture_LargeLine verifies that a usage event preceded by a very
-// large (>64KB) data line is still parsed. The old bufio.Scanner had a 64KB
-// MaxScanTokenSize and silently stopped (scanner.Err ignored) on oversized
-// lines, dropping all subsequent usage.
+// Usage after a >64KB data line must still parse; bufio.Scanner's 64KB
+// MaxScanTokenSize used to silently drop everything past it.
 func TestStreamingCapture_LargeLine(t *testing.T) {
 	big := strings.Repeat("x", 200*1024) // 200KB, well past bufio's 64KB cap
 	upstream := sseUpstream(t,
@@ -113,9 +106,8 @@ func TestStreamingCapture_LargeLine(t *testing.T) {
 	}
 }
 
-// TestStreamingCapture_SplitAcrossReads verifies a usage event split across
-// multiple Read() calls (partial-line buffering) parses correctly with the
-// byte-offset accounting.
+// A usage event split across multiple Read() calls must parse correctly under
+// the partial-line buffering.
 func TestStreamingCapture_SplitAcrossReads(t *testing.T) {
 	full := "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":55,\"completion_tokens\":66}}\n\n"
 	mid := len(full) / 2
@@ -130,12 +122,9 @@ func TestStreamingCapture_SplitAcrossReads(t *testing.T) {
 	}
 }
 
-// TestStreamingCapture_BufferCapped verifies that an un-terminated, ever-growing
-// line does not accumulate past the hard cap. We drive the buffer directly to
-// avoid depending on HTTP framing for a >1MiB single line.
+// An un-terminated, ever-growing line must not accumulate past the hard cap.
 func TestStreamingCapture_BufferCapped(t *testing.T) {
 	sc := &streamingCapture{captured: &observe.CapturedData{}}
-	// Write a single line with no newline, larger than the cap.
 	sc.buf.WriteString(strings.Repeat("y", maxStreamBufLen+1024))
 	sc.tryParseEvents(false)
 	if sc.buf.Len() > maxStreamBufLen {

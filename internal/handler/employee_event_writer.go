@@ -17,10 +17,8 @@ import (
 
 const employeeEventBatchSize = 100
 
-// employeeEventFlushRetries bounds how many times the drain re-attempts a failed
-// batch insert before giving up. A transient Postgres blip must not silently
-// drop session events (notably agent.message.sent, the only durable record of a
-// reply), so we retry with backoff before logging/capturing a hard loss.
+// employeeEventFlushRetries bounds drain re-attempts before giving up. A transient
+// Postgres blip must not silently drop session events (notably agent.message.sent).
 const employeeEventFlushRetries = 5
 
 const (
@@ -38,10 +36,8 @@ type EmployeeEventWriter struct {
 	entries       chan model.EmployeeSessionEvent
 	wg            sync.WaitGroup
 	flushInterval time.Duration
-	// afterWrite is set after the drain goroutine has already started (via
-	// SetAfterWrite, wired during handler setup), so the write/read must be
-	// synchronised. atomic.Pointer makes the publish visible to drain without
-	// a data race (P2-39).
+	// afterWrite is set (via SetAfterWrite) after the drain goroutine starts, so
+	// atomic.Pointer synchronises the publish to drain without a data race.
 	afterWrite atomic.Pointer[afterWriteFn]
 }
 
@@ -72,7 +68,6 @@ func (w *EmployeeEventWriter) SetAfterWrite(fn func(context.Context, []model.Emp
 	w.afterWrite.Store(&cb)
 }
 
-// loadAfterWrite returns the currently-registered afterWrite callback, or nil.
 func (w *EmployeeEventWriter) loadAfterWrite() afterWriteFn {
 	if cb := w.afterWrite.Load(); cb != nil {
 		return *cb
@@ -98,10 +93,9 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 	timer := time.NewTimer(w.flushInterval)
 	defer timer.Stop()
 
-	// flush persists the current batch with bounded retries. flushCtx is the
-	// context used for the DB write: during normal operation it is the drain's
-	// long-lived ctx; on shutdown the caller passes a non-cancelled context so
-	// the final flush is not aborted by the cancelled root signal context.
+	// flush persists the current batch with bounded retries. On shutdown the
+	// caller passes a non-cancelled flushCtx so the final flush is not aborted by
+	// the cancelled root signal context.
 	flush := func(flushCtx context.Context) {
 		if len(batch) == 0 {
 			return
@@ -118,8 +112,7 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 		select {
 		case entry, ok := <-w.entries:
 			if !ok {
-				// Shutdown: the root ctx is already cancelled, so persist the
-				// remaining buffer on a detached, time-bounded context.
+				// Shutdown: root ctx cancelled, so persist the buffer on a detached ctx.
 				flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), employeeEventShutdownFlushTimeout)
 				flush(flushCtx)
 				cancel()
@@ -179,8 +172,7 @@ func (w *EmployeeEventWriter) flushBatch(ctx context.Context, batch []model.Empl
 		if err == nil {
 			return true
 		}
-		// A unique-violation means a prior attempt (or retry) already durably
-		// persisted these rows; treat it as success rather than a loss.
+		// A unique-violation means a prior attempt already persisted these rows.
 		if isDuplicateKeyError(err) {
 			return true
 		}
@@ -193,8 +185,6 @@ func (w *EmployeeEventWriter) flushBatch(ctx context.Context, batch []model.Empl
 	return false
 }
 
-// sleepCtx sleeps for d unless ctx is cancelled first. It returns true if the
-// full sleep elapsed.
 func sleepCtx(ctx context.Context, d time.Duration) bool {
 	timer := time.NewTimer(d)
 	defer timer.Stop()

@@ -60,10 +60,8 @@ func TestCrawlStream_EmitsResponsesInOrder(t *testing.T) {
 	}
 }
 
-// TestCrawlStream_MultipleDecodeErrorsDoNotDeadlock guards P2-41: more than one
-// undecodable line must not deadlock the producer. The consumer (like the real
-// website connector) only drains errs after out closes, and errs is buffered at
-// 1, so blocking error sends would wedge the crawl forever.
+// More than one undecodable line must not deadlock the producer: the consumer only drains errs
+// after out closes and errs is buffered at 1, so a blocking error send would wedge the crawl.
 func TestCrawlStream_MultipleDecodeErrorsDoNotDeadlock(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/crawl" {
@@ -96,8 +94,7 @@ func TestCrawlStream_MultipleDecodeErrorsDoNotDeadlock(t *testing.T) {
 
 	out, errs := c.CrawlStream(ctx, SpiderParams{URL: "https://example.com"})
 
-	// Consume all responses first (mirrors the real connector); the producer
-	// must finish even though it hit multiple decode errors with errs full.
+	// Consume all responses first (mirrors the real connector).
 	done := make(chan struct{})
 	var got []Response
 	go func() {
