@@ -140,6 +140,32 @@ fn is_browser_request(headers: &HeaderMap) -> bool {
         .unwrap_or(false)
 }
 
+/// Pure authorization decision for a tunnel request, independent of axum types.
+///
+/// Returns `true` only when a valid signed credential (cookie or JWT, both
+/// signed with the control-plane runtime secret) is presented. Crucially, the
+/// absence of a configured tunnel password must NEVER grant access — otherwise
+/// the tunnel becomes an unauthenticated open proxy to every sandbox localhost
+/// port.
+fn has_valid_tunnel_credential(
+    cookie_token: Option<&str>,
+    jwt_token: Option<&str>,
+    port: u16,
+    secret: &str,
+) -> bool {
+    if let Some(token) = cookie_token {
+        if verify_cookie(token, secret) {
+            return true;
+        }
+    }
+    if let Some(jwt) = jwt_token {
+        if verify_jwt(jwt, secret, port) {
+            return true;
+        }
+    }
+    false
+}
+
 fn authenticate(
     headers: &HeaderMap,
     query_params: &HashMap<String, String>,
@@ -147,32 +173,31 @@ fn authenticate(
     request_path: &str,
     state: &ApiState,
 ) -> Result<(), Box<Response>> {
-    if let Some(cookies) = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()) {
-        let parsed = parse_cookies(cookies);
-        if let Some(token) = parsed.get(TUNNEL_COOKIE_NAME) {
-            let bearer = state.bearer_token.try_read();
-            if let Ok(secret) = bearer {
-                if verify_cookie(token, &secret) {
-                    return Ok(());
-                }
-            }
+    let cookie_token = headers
+        .get(header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|cookies| {
+            parse_cookies(cookies)
+                .get(TUNNEL_COOKIE_NAME)
+                .copied()
+                .map(String::from)
+        });
+    let jwt_token = query_params.get("token").cloned();
+
+    if let Ok(secret) = state.bearer_token.try_read() {
+        if has_valid_tunnel_credential(cookie_token.as_deref(), jwt_token.as_deref(), port, &secret)
+        {
+            return Ok(());
         }
     }
 
-    if let Some(jwt) = query_params.get("token") {
-        let bearer = state.bearer_token.try_read();
-        if let Ok(secret) = bearer {
-            if verify_jwt(jwt, &secret, port) {
-                return Ok(());
-            }
-        }
-    }
-
-    if state.tunnel_password.is_none() {
-        return Ok(());
-    }
-
-    if is_browser_request(headers) {
+    // Fail closed: when no tunnel password is configured there is no way for a
+    // client to authenticate interactively, so the only accepted credentials are
+    // the cookie/JWT checked above (both signed with the control-plane runtime
+    // secret). Never grant access just because a password was not set — that
+    // would turn the tunnel into an unauthenticated open proxy to every sandbox
+    // localhost port.
+    if state.tunnel_password.is_some() && is_browser_request(headers) {
         let return_to = urlencoding_encode(request_path);
         return Err(Box::new(
             Redirect::temporary(&format!("/tunnel/auth?return_to={return_to}")).into_response(),
@@ -190,19 +215,15 @@ pub async fn get_tunnel_auth(
 ) -> Response {
     let return_to = params.get("return_to").cloned().unwrap_or_default();
 
-    if state.tunnel_password.is_none() && !return_to.is_empty() {
-        let cookie = sign_cookie(
-            now_unix() + COOKIE_MAX_AGE,
-            &state.bearer_token.read().await,
-        );
-        let mut response = Redirect::temporary(&return_to).into_response();
-        if let Ok(val) = HeaderValue::from_str(&format!(
-            "{}={}; Path=/tunnel; Max-Age={}; HttpOnly; Secure; SameSite=Lax",
-            TUNNEL_COOKIE_NAME, cookie, COOKIE_MAX_AGE,
-        )) {
-            response.headers_mut().insert(header::SET_COOKIE, val);
-        }
-        return response;
+    // Fail closed: without a configured password there is no interactive way to
+    // prove authorization, so refuse to hand out a cookie. Access requires a
+    // control-plane-minted JWT/cookie signed with the runtime secret.
+    if state.tunnel_password.is_none() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            "tunnel authentication is not available",
+        )
+            .into_response();
     }
 
     let error = params.get("error").cloned().unwrap_or_default();
@@ -260,21 +281,27 @@ pub async fn post_tunnel_auth(
             (req.password, String::new(), false)
         };
 
-    if let Some(ref expected) = state.tunnel_password {
-        if password.len() != expected.len()
-            || !constant_time_eq(password.as_bytes(), expected.as_bytes())
-        {
-            if is_form {
-                let return_param = if return_to.is_empty() {
-                    String::new()
-                } else {
-                    format!("&return_to={}", urlencoding_encode(&return_to))
-                };
-                return Redirect::temporary(&format!("/tunnel/auth?error=1{return_param}"))
-                    .into_response();
-            }
-            return (StatusCode::UNAUTHORIZED, "invalid password").into_response();
+    let Some(ref expected) = state.tunnel_password else {
+        // Fail closed: no password configured means no interactive auth path.
+        return (
+            StatusCode::UNAUTHORIZED,
+            "tunnel authentication is not available",
+        )
+            .into_response();
+    };
+    if password.len() != expected.len()
+        || !constant_time_eq(password.as_bytes(), expected.as_bytes())
+    {
+        if is_form {
+            let return_param = if return_to.is_empty() {
+                String::new()
+            } else {
+                format!("&return_to={}", urlencoding_encode(&return_to))
+            };
+            return Redirect::temporary(&format!("/tunnel/auth?error=1{return_param}"))
+                .into_response();
         }
+        return (StatusCode::UNAUTHORIZED, "invalid password").into_response();
     }
 
     let cookie = sign_cookie(
@@ -695,6 +722,50 @@ mod tests {
         assert_eq!(parsed.get("foo"), Some(&"bar"));
         assert_eq!(parsed.get("hivy_tunnel_token"), Some(&"abc123"));
         assert_eq!(parsed.get("other"), Some(&"val"));
+    }
+
+    #[test]
+    fn credential_accepts_valid_cookie() {
+        let secret = "test-secret-key-for-hmac-signing";
+        let cookie = sign_cookie(now_unix() + 3600, secret);
+        assert!(has_valid_tunnel_credential(
+            Some(&cookie),
+            None,
+            5173,
+            secret
+        ));
+    }
+
+    #[test]
+    fn credential_accepts_valid_jwt() {
+        let secret = "test-secret-key-for-hmac-signing";
+        let jwt = sign_jwt(5173, secret);
+        assert!(has_valid_tunnel_credential(None, Some(&jwt), 5173, secret));
+    }
+
+    #[test]
+    fn credential_rejects_when_no_credentials_presented() {
+        // Regression: the absence of any credential (which is exactly what
+        // happens when no tunnel password is configured and an anonymous client
+        // connects) must NOT be treated as authorized.
+        let secret = "test-secret-key-for-hmac-signing";
+        assert!(!has_valid_tunnel_credential(None, None, 5173, secret));
+    }
+
+    #[test]
+    fn credential_rejects_wrong_secret_and_port() {
+        let secret = "test-secret-key-for-hmac-signing";
+        let cookie = sign_cookie(now_unix() + 3600, secret);
+        let jwt = sign_jwt(5173, secret);
+        // Cookie signed with a different secret is rejected.
+        assert!(!has_valid_tunnel_credential(
+            Some(&cookie),
+            None,
+            5173,
+            "other-secret"
+        ));
+        // JWT minted for a different port is rejected.
+        assert!(!has_valid_tunnel_credential(None, Some(&jwt), 3000, secret));
     }
 
     #[test]

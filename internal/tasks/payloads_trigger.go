@@ -24,18 +24,19 @@ type EmployeeTriggerDispatchPayload struct {
 	PayloadJSON  []byte     `json:"payload"`
 }
 
-func NewEmployeeTriggerDispatchTask(payload EmployeeTriggerDispatchPayload) (*asynq.Task, error) {
+// NewEmployeeTriggerDispatchTask returns the task plus its enqueue options.
+// Options are returned separately (see NewWebhookForwardTask).
+func NewEmployeeTriggerDispatchTask(payload EmployeeTriggerDispatchPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal employee trigger dispatch payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal employee trigger dispatch payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmployeeTriggerDispatch,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(3),
-		asynq.Timeout(2*time.Minute),
-	), nil
+		asynq.Timeout(2 * time.Minute),
+	}
+	return asynq.NewTask(TypeEmployeeTriggerDispatch, encoded), opts, nil
 }
 
 // ConversationNamePayload is the payload for TypeConversationName tasks.
@@ -50,17 +51,17 @@ type ConversationNamePayload struct {
 // credential provider. Bulk queue — this is nice-to-have UX, not critical
 // path. MaxRetry is 3: transient provider failures are common and the
 // handler is idempotent (refuses to overwrite an already-set name).
-func NewConversationNameTask(conversationID uuid.UUID) (*asynq.Task, error) {
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
+func NewConversationNameTask(conversationID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(ConversationNamePayload{ConversationID: conversationID})
 	if err != nil {
-		return nil, fmt.Errorf("marshal conversation name payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal conversation name payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeConversationName,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueBulk),
 		asynq.MaxRetry(3),
-		asynq.Timeout(30*time.Second),
-		asynq.Unique(5*time.Minute),
-	), nil
+		asynq.Timeout(30 * time.Second),
+		asynq.Unique(5 * time.Minute),
+	}
+	return asynq.NewTask(TypeConversationName, encoded), opts, nil
 }

@@ -14,7 +14,7 @@ use gateway::ChannelGateway;
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
 use safety::error_tracker::ToolErrorTracker;
-use safety::thinking_guard::ThinkingGuard;
+use safety::thinking_guard::ThinkingStreamFilter;
 use safety::{overthinking_feedback, xml_repair_reminder, SafetyHarness, TurnSafety};
 use storage::CronJobRepo;
 use tools::{JsonTool, ToolBuildContext};
@@ -37,6 +37,12 @@ use crate::{AgentEvent, AgentRunner, Result, TurnInput};
 const CREDITS_EXHAUSTED_MESSAGE: &str =
     "Sorry, it seems your organisation ran out of credits. Please visit https://usehivy.com/w to resolve this and you'll be back up and running immediately.";
 
+/// Maximum number of consecutive model failures (request failure, stream
+/// failure, cut-off, thinking-only, or empty response) before the turn aborts.
+/// Without this cap a persistently failing model endpoint would spin the turn
+/// forever and queue every subsequent session message behind it.
+const MAX_CONSECUTIVE_MODEL_FAILURES: u32 = 3;
+
 pub struct RigAgentRunner {
     config: ConfigStore,
     tool_context: ToolBuildContext,
@@ -47,7 +53,6 @@ pub struct RigAgentRunner {
     mcp_registry: Option<Arc<McpRegistry>>,
     delegate_stream_creator: Option<crate::rig_tool_registry::DelegateStreamCreator>,
     safety: SafetyHarness,
-    thinking_guard: ThinkingGuard,
 }
 
 impl RigAgentRunner {
@@ -62,7 +67,6 @@ impl RigAgentRunner {
             mcp_registry: None,
             delegate_stream_creator: None,
             safety: SafetyHarness::new(SafetyConfig::default()),
-            thinking_guard: ThinkingGuard::new(),
         }
     }
 
@@ -177,7 +181,6 @@ impl AgentRunner for RigAgentRunner {
         let event_repo = self.event_repo.clone();
         let emitter = self.outbound_emitter.clone();
         let safety = SafetyHarness::new(safety_config);
-        let thinking_guard = self.thinking_guard.clone();
         Ok(Box::pin(stream! {
             let mut final_text = String::new();
             let turn_id = format!("turn-{}", chrono::Utc::now().timestamp_millis());
@@ -194,6 +197,10 @@ impl AgentRunner for RigAgentRunner {
             let mut consecutive_empty_responses = 0u32;
             let mut consecutive_model_failures = 0u32;
             let mut cumulative_completion_tokens: u64 = 0;
+            // Latch so the output-budget warning is injected at most once per
+            // turn. Without it the instruction was re-appended on every iteration
+            // past 80%, bloating the prompt and wasting tokens it was meant to save.
+            let mut budget_warned = false;
             while effective_turn < max_turns {
                 let mut turn_safety = TurnSafety::new(&safety);
                 let mut error_tracker = ToolErrorTracker::new(3);
@@ -283,6 +290,14 @@ impl AgentRunner for RigAgentRunner {
                                 "consecutive_failures": consecutive_model_failures,
                             }),
                         };
+                        if consecutive_model_failures >= MAX_CONSECUTIVE_MODEL_FAILURES {
+                            yield AgentEvent::Error {
+                                message: format!(
+                                    "model request failed {consecutive_model_failures} times consecutively: {error}"
+                                ),
+                            };
+                            return;
+                        }
                         if consecutive_model_failures % 3 == 0 {
                             messages.push(AgentMessage::user(
                                 "[system instruction] The model request failed multiple times. \
@@ -306,18 +321,25 @@ impl AgentRunner for RigAgentRunner {
                 let mut killed_by_stream_failure = false;
                 let mut had_thinking = false;
                 let mut last_finish_reason: Option<FinishReason> = None;
+                // Stateful across the deltas of this model response so a
+                // `<think>` tag split across deltas does not leak reasoning into
+                // the visible answer.
+                let mut thinking_filter = ThinkingStreamFilter::new();
                 while let Some(event) = model_stream.next().await {
                     match event {
                         Ok(ModelStreamEvent::TextDelta(text)) => {
                             if safety.config().thinking_strip {
-                                let (cleaned, had_thinking) = thinking_guard.strip_thinking(&text);
-                                if had_thinking {
-                                    if let Some(thinking) = thinking_guard.extract_thinking_content(&text) {
-                                        yield AgentEvent::ThinkingChunk { text: thinking };
-                                    }
+                                let split = thinking_filter.push(&text);
+                                if split.had_thinking {
+                                    had_thinking = true;
                                 }
-                                turn_text.push_str(&cleaned);
-                                yield AgentEvent::TokenChunk { text: cleaned.to_string() };
+                                if !split.thinking.is_empty() {
+                                    yield AgentEvent::ThinkingChunk { text: split.thinking };
+                                }
+                                if !split.visible.is_empty() {
+                                    turn_text.push_str(&split.visible);
+                                    yield AgentEvent::TokenChunk { text: split.visible };
+                                }
                             } else {
                                 turn_text.push_str(&text);
                                 yield AgentEvent::TokenChunk { text };
@@ -395,7 +417,7 @@ impl AgentRunner for RigAgentRunner {
                                     "consecutive_failures": consecutive_model_failures,
                                 }),
                             };
-                            if consecutive_model_failures >= 3 {
+                            if consecutive_model_failures >= MAX_CONSECUTIVE_MODEL_FAILURES {
                                 yield AgentEvent::Error {
                                     message: format!(
                                         "model stream failed {consecutive_model_failures} times consecutively: {error}"
@@ -412,6 +434,22 @@ impl AgentRunner for RigAgentRunner {
                             killed_by_stream_failure = true;
                             break;
                         }
+                    }
+                }
+
+                // Flush any partial tag the streaming filter was holding back at
+                // the end of the response so no content is silently dropped.
+                if safety.config().thinking_strip {
+                    let tail = thinking_filter.finish();
+                    if tail.had_thinking {
+                        had_thinking = true;
+                    }
+                    if !tail.thinking.is_empty() {
+                        yield AgentEvent::ThinkingChunk { text: tail.thinking };
+                    }
+                    if !tail.visible.is_empty() {
+                        turn_text.push_str(&tail.visible);
+                        yield AgentEvent::TokenChunk { text: tail.visible };
                     }
                 }
 
@@ -480,6 +518,14 @@ impl AgentRunner for RigAgentRunner {
                                 "consecutive": consecutive_empty_responses,
                             }),
                         };
+                        if consecutive_empty_responses >= MAX_CONSECUTIVE_MODEL_FAILURES {
+                            yield AgentEvent::Error {
+                                message: format!(
+                                    "model produced no usable response {consecutive_empty_responses} times consecutively (cut off)"
+                                ),
+                            };
+                            return;
+                        }
                         messages.push(AgentMessage::user(
                             "[system instruction] Your response was interrupted. \
                              You must act immediately — call a tool, write code, or provide your \
@@ -505,22 +551,19 @@ impl AgentRunner for RigAgentRunner {
                             }),
                         };
                         had_thinking = false;
-                        if consecutive_empty_responses <= 2 {
-                            // Per Forgecode's approach: do NOT inject anything into the conversation.
-                            // Retry with the exact same context — the model has no knowledge of
-                            // the failed attempt. This prevents the model from restarting thinking
-                            // from scratch in response to injected instructions.
-                        } else {
-                            // After 2 silent retries, the model is stuck in a thinking loop.
-                            // Inject a prompt to break the loop and force actual content.
-                            messages.push(AgentMessage::user(
-                                "[system instruction] You have been producing only internal \
-                                 reasoning without any visible response. You MUST produce \
-                                 actual text content or call a tool immediately. Do not \
-                                 continue thinking — provide your response now."
-                                    .to_string(),
-                            ));
+                        if consecutive_empty_responses >= MAX_CONSECUTIVE_MODEL_FAILURES {
+                            yield AgentEvent::Error {
+                                message: format!(
+                                    "model produced only internal reasoning {consecutive_empty_responses} times consecutively"
+                                ),
+                            };
+                            return;
                         }
+                        // Per Forgecode's approach: do NOT inject anything into the conversation
+                        // for these early retries. Retry with the exact same context — the model
+                        // has no knowledge of the failed attempt. This prevents the model from
+                        // restarting thinking from scratch in response to injected instructions.
+                        // Persistent thinking-only loops are bounded by the cap above.
                         let backoff = std::time::Duration::from_millis(
                             500 * 2u64.saturating_pow(consecutive_empty_responses.saturating_sub(1)),
                         ).min(std::time::Duration::from_secs(30));
@@ -557,6 +600,14 @@ impl AgentRunner for RigAgentRunner {
                             "consecutive_empty": consecutive_empty_responses,
                         }),
                     };
+                    if consecutive_empty_responses >= MAX_CONSECUTIVE_MODEL_FAILURES {
+                        yield AgentEvent::Error {
+                            message: format!(
+                                "model produced an empty response {consecutive_empty_responses} times consecutively"
+                            ),
+                        };
+                        return;
+                    }
                     messages.push(AgentMessage::user(
                         "[system instruction] You produced an empty response. \
                          Please continue working on the task. Call a tool, write code, \
@@ -646,7 +697,20 @@ impl AgentRunner for RigAgentRunner {
                         }
                     }
                 }
-                if cumulative_completion_tokens >= snapshot.limits.output_token_budget as u64 * 80 / 100 {
+                if !budget_warned
+                    && cumulative_completion_tokens
+                        >= snapshot.limits.output_token_budget as u64 * 80 / 100
+                {
+                    budget_warned = true;
+                    yield AgentEvent::RunEvent {
+                        event: "output_budget_warning".to_string(),
+                        payload: serde_json::json!({
+                            "session_id": session_id.as_str(),
+                            "turn_id": turn_id,
+                            "completion_tokens": cumulative_completion_tokens,
+                            "output_token_budget": snapshot.limits.output_token_budget,
+                        }),
+                    };
                     messages.push(AgentMessage::user(format!(
                         "[system instruction] Approaching output token budget ({} of {} used). \
                          Be concise and prioritize completing the task now.",
@@ -1171,6 +1235,205 @@ mod tests {
                     AgentEvent::RunEvent { event, .. } if event == "model_request_failed"
                 )
         }));
+    }
+
+    #[tokio::test]
+    async fn empty_responses_abort_turn_instead_of_looping_forever() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        // Server always returns a well-formed SSE stream that finishes with `stop`
+        // but no content — the `model_empty_response` path. Without a cap the
+        // runner would reprompt forever; it must abort after the cap.
+        let hits = Arc::new(AtomicUsize::new(0));
+        let hits_handler = hits.clone();
+        async fn empty_handler(
+            axum::extract::State(hits): axum::extract::State<Arc<AtomicUsize>>,
+        ) -> impl IntoResponse {
+            hits.fetch_add(1, Ordering::SeqCst);
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n\
+                 data: [DONE]\n\n"
+                    .to_string(),
+            )
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new()
+            .route("/chat/completions", post(empty_handler))
+            .with_state(hits_handler);
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir());
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("empty-session"),
+                TurnInput::text("hello"),
+                None,
+            )
+            .await
+            .expect("run turn");
+
+        // The turn must terminate (not hang) and emit an Error.
+        let events = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            let mut events = Vec::new();
+            while let Some(event) = stream.next().await {
+                events.push(event);
+            }
+            events
+        })
+        .await
+        .expect("turn must terminate, not loop forever");
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, AgentEvent::Error { .. })),
+            "expected an Error event after the empty-response cap, got: {events:?}"
+        );
+        // The model must have been called a bounded number of times, not forever.
+        assert!(
+            hits.load(Ordering::SeqCst) <= 4,
+            "empty-response retries must be capped, got {} calls",
+            hits.load(Ordering::SeqCst)
+        );
+    }
+
+    #[tokio::test]
+    async fn request_failures_abort_turn_instead_of_looping_forever() {
+        // Server always returns 500 (retryable Server class). The model client
+        // exhausts its internal retries and surfaces a request failure to the
+        // runner on every turn; the runner must cap consecutive request failures
+        // and abort rather than spinning forever.
+        async fn error_handler() -> impl IntoResponse {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": {"message": "boom"}})),
+            )
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new().route("/chat/completions", post(error_handler));
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir());
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("error-session"),
+                TurnInput::text("hello"),
+                None,
+            )
+            .await
+            .expect("run turn");
+
+        let events = tokio::time::timeout(std::time::Duration::from_secs(30), async {
+            let mut events = Vec::new();
+            while let Some(event) = stream.next().await {
+                events.push(event);
+            }
+            events
+        })
+        .await
+        .expect("turn must terminate, not loop forever");
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, AgentEvent::Error { .. })),
+            "expected an Error event after the request-failure cap, got: {events:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn output_budget_warning_is_latched_to_a_single_emission() {
+        // Every model response is a tool call (so the loop iterates) plus a usage
+        // event whose completion tokens alone exceed 80% of the budget. The
+        // warning instruction must be injected at most once across all
+        // iterations, not re-appended every turn past the threshold.
+        async fn tool_call_handler() -> impl IntoResponse {
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                // usage.completion_tokens = 7000 ≥ 80% of an 8000 budget.
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c1\",\"function\":{\"name\":\"does_not_exist\",\"arguments\":\"{}\"}}]}}]}\n\n\
+                 data: {\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":7000,\"total_tokens\":7001}}\n\n\
+                 data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n\
+                 data: [DONE]\n\n"
+                    .to_string(),
+            )
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new().route("/chat/completions", post(tool_call_handler));
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        // Keep the loop short and the budget small so the threshold trips early.
+        definition.limits.max_turns_per_session = 4;
+        definition.limits.output_token_budget = 8_000;
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir());
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("budget-session"),
+                TurnInput::text("hi"),
+                None,
+            )
+            .await
+            .expect("run turn");
+
+        let events = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+            let mut events = Vec::new();
+            while let Some(event) = stream.next().await {
+                events.push(event);
+            }
+            events
+        })
+        .await
+        .expect("turn must terminate");
+
+        let warnings = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    AgentEvent::RunEvent { event, .. } if event == "output_budget_warning"
+                )
+            })
+            .count();
+        assert_eq!(
+            warnings, 1,
+            "budget warning must be latched to exactly one emission, got {warnings}"
+        );
     }
 
     fn test_system_prompt() -> SystemPromptConfig {

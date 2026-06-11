@@ -47,7 +47,7 @@ func TestGatewaySlackHandler_HandleStatusSetsSlackLoading(t *testing.T) {
 		}
 		return slacksdk.New(token, slacksdk.OptionAPIURL(slackServer.URL+"/"))
 	}
-	task, err := NewGatewaySlackStatusTask(GatewaySlackStatusPayload{
+	task, _, err := NewGatewaySlackStatusTask(GatewaySlackStatusPayload{
 		ConnectionID: "conn-1",
 		OrgID:        "org-1",
 		EmployeeID:   "employee-1",

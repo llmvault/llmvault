@@ -111,7 +111,7 @@ func (handler *HTTPTriggerHandler) Handle(writer http.ResponseWriter, request *h
 	writeJSON(writer, http.StatusOK, map[string]string{"status": "ok"})
 
 	deliveryID := triggerID.String() + ":" + uuid.New().String()
-	task, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
+	task, opts, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
 		Provider:    "http",
 		EventType:   "http",
 		DeliveryID:  deliveryID,
@@ -134,7 +134,7 @@ func (handler *HTTPTriggerHandler) Handle(writer http.ResponseWriter, request *h
 		return
 	}
 
-	if _, enqueueErr := handler.enqueuer.Enqueue(task); enqueueErr != nil {
+	if _, enqueueErr := handler.enqueuer.Enqueue(task, opts...); enqueueErr != nil {
 		logging.FromContext(request.Context()).ErrorContext(request.Context(), "http trigger: failed to enqueue dispatch task",
 			"trigger_id", triggerID,
 			"error", enqueueErr,

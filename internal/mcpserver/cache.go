@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/usehivy/hivy/internal/goroutine"
 )
@@ -14,6 +15,10 @@ import (
 type ServerCache struct {
 	mu      sync.RWMutex
 	servers map[string]*cachedServer
+
+	// flight deduplicates concurrent builds for the same JTI. The build runs outside c.mu so a
+	// slow build for one key never blocks reads or builds for another.
+	flight singleflight.Group
 }
 
 type cachedServer struct {
@@ -31,32 +36,41 @@ func NewServerCache() *ServerCache {
 // GetOrBuild returns a cached server or calls the build function to create one.
 // The build function returns the server and its expiry time.
 func (c *ServerCache) GetOrBuild(jti string, build func() (*mcp.Server, time.Time, error)) (*mcp.Server, error) {
-	c.mu.RLock()
-	if cs, ok := c.servers[jti]; ok && time.Now().Before(cs.expiresAt) {
-		c.mu.RUnlock()
-		return cs.server, nil
-	}
-	c.mu.RUnlock()
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Double-check after acquiring write lock
-	if cs, ok := c.servers[jti]; ok && time.Now().Before(cs.expiresAt) {
-		return cs.server, nil
+	if srv, ok := c.lookup(jti); ok {
+		return srv, nil
 	}
 
-	srv, expiresAt, err := build()
+	// Build (or join an in-flight build) for this JTI without holding c.mu, so
+	// other keys keep being served. singleflight collapses the thundering herd
+	// for the same JTI into a single build.
+	v, err, _ := c.flight.Do(jti, func() (any, error) {
+		// Re-check: a concurrent request may have populated the cache before this flight slot.
+		if srv, ok := c.lookup(jti); ok {
+			return srv, nil
+		}
+		srv, expiresAt, err := build()
+		if err != nil {
+			return nil, err
+		}
+		c.mu.Lock()
+		c.servers[jti] = &cachedServer{server: srv, expiresAt: expiresAt}
+		c.mu.Unlock()
+		return srv, nil
+	})
 	if err != nil {
 		return nil, err
 	}
+	return v.(*mcp.Server), nil
+}
 
-	c.servers[jti] = &cachedServer{
-		server:    srv,
-		expiresAt: expiresAt,
+// lookup returns a live (non-expired) cached server for jti.
+func (c *ServerCache) lookup(jti string) (*mcp.Server, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if cs, ok := c.servers[jti]; ok && time.Now().Before(cs.expiresAt) {
+		return cs.server, true
 	}
-
-	return srv, nil
+	return nil, false
 }
 
 // Evict removes a cached server by JTI.

@@ -342,7 +342,7 @@ func createTestEmployee(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Employ
 		Model:         "test-model",
 		Status:        "active",
 		Tools:         model.JSON{},
-		McpServers:    model.JSON{},
+		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
 		RuntimeConfig: model.JSON{},
 		Permissions:   model.JSON{},

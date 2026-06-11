@@ -7,6 +7,7 @@ import {
   clearSessionCookie,
   type SessionData,
 } from "@/lib/auth/session"
+import { refreshCoordinator, type RefreshOutcome } from "@/lib/auth/refresh"
 import { log } from "@/lib/logger"
 
 const HIVY_API_URL = process.env.HIVY_API_URL ?? process.env.NEXT_PUBLIC_HIVY_API_URL as string
@@ -23,12 +24,6 @@ const AUTH_PATHS = new Set([
 ])
 
 const LOGOUT_PATH = "auth/logout"
-
-// ---------------------------------------------------------------------------
-// Concurrent refresh lock
-// ---------------------------------------------------------------------------
-
-let refreshPromise: Promise<SessionData | null> | null = null
 
 function captureRefreshFailure(
   stage: string,
@@ -48,7 +43,7 @@ function captureRefreshFailure(
   })
 }
 
-async function refreshTokens(refreshToken: string): Promise<SessionData | null> {
+async function refreshTokens(refreshToken: string): Promise<RefreshOutcome> {
   let res: Response
   try {
     res = await fetch(`${HIVY_API_URL}/auth/refresh`, {
@@ -63,7 +58,8 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       scope.setExtra("reason", "auth_refresh_fetch_failed")
       Sentry.captureException(err)
     })
-    return null
+    // Transient (network) — do not force-logout.
+    return { session: null, definitivelyRejected: false }
   }
 
   if (!res.ok) {
@@ -71,7 +67,10 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       status: res.status,
       statusText: res.statusText,
     })
-    return null
+    // 401 means the refresh token is genuinely dead — the backend serves a
+    // grace pair for concurrent rotations, so a 401 is authoritative. Other
+    // statuses (5xx, etc.) are transient and must not force-logout.
+    return { session: null, definitivelyRejected: res.status === 401 }
   }
 
   const data = await res.json()
@@ -81,27 +80,24 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       hasAccessToken: Boolean(data.access_token),
       hasRefreshToken: Boolean(data.refresh_token),
     })
-    return null
+    return { session: null, definitivelyRejected: false }
   }
 
   return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: Date.now() + (data.expires_in ?? 900) * 1000,
+    session: {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + (data.expires_in ?? 900) * 1000,
+    },
+    definitivelyRejected: false,
   }
 }
 
-async function safeRefresh(refreshToken: string): Promise<SessionData | null> {
-  if (refreshPromise) return refreshPromise
-  refreshPromise = refreshTokens(refreshToken).finally(() => {
-    refreshPromise = null
-  })
-  return refreshPromise
+// Dedupes concurrent refreshes by token hash so user B can never receive a
+// session minted from user A's refresh token (see refreshCoordinator docs).
+async function safeRefresh(refreshToken: string): Promise<RefreshOutcome> {
+  return refreshCoordinator.refresh(refreshToken, refreshTokens)
 }
-
-// ---------------------------------------------------------------------------
-// Build headers for upstream request
-// ---------------------------------------------------------------------------
 
 function buildUpstreamHeaders(
   req: NextRequest,
@@ -118,19 +114,16 @@ function buildUpstreamHeaders(
   const adminSecret = req.headers.get("x-hivy-admin-secret")
   if (adminSecret) headers.set("X-Hivy-Admin-Secret", adminSecret)
 
-  // Forward cookies minus __session
   const rawCookies = req.headers.get("cookie")
   if (rawCookies) {
     const cleaned = stripSessionCookie(rawCookies)
     if (cleaned) headers.set("cookie", cleaned)
   }
 
-  // Inject auth from session
   if (session) {
     headers.set("authorization", `Bearer ${session.access_token}`)
   }
 
-  // Inject active org from cookie
   const activeOrgCookie = req.cookies.get("hivy_active_org")
   if (activeOrgCookie?.value) {
     headers.set("X-Org-ID", activeOrgCookie.value)
@@ -138,10 +131,6 @@ function buildUpstreamHeaders(
 
   return headers
 }
-
-// ---------------------------------------------------------------------------
-// Forward a request to the Go backend
-// ---------------------------------------------------------------------------
 
 async function forward(
   url: URL,
@@ -151,10 +140,6 @@ async function forward(
 ) {
   return fetch(url, { method, headers, body })
 }
-
-// ---------------------------------------------------------------------------
-// Main handler
-// ---------------------------------------------------------------------------
 
 async function handler(
   req: NextRequest,
@@ -182,9 +167,6 @@ async function handler(
       ? await req.arrayBuffer()
       : undefined
 
-  // -----------------------------------------------------------------------
-  // Logout interception: inject refresh_token into request body
-  // -----------------------------------------------------------------------
   let upstreamBody: ArrayBuffer | undefined = body
   const isLogout = apiPath === LOGOUT_PATH && req.method === "POST"
 
@@ -194,13 +176,10 @@ async function handler(
     upstreamBody = new TextEncoder().encode(JSON.stringify(payload)).buffer as ArrayBuffer
   }
 
-  // -----------------------------------------------------------------------
-  // Proactive refresh if token is about to expire
-  // -----------------------------------------------------------------------
   if (session && !AUTH_PATHS.has(apiPath) && session.expires_at - Date.now() < 60_000) {
     const refreshed = await safeRefresh(session.refresh_token)
-    if (refreshed) {
-      session = refreshed
+    if (refreshed.session) {
+      session = refreshed.session
     } else {
       captureRefreshFailure("proactive", {
         path: apiPath,
@@ -209,9 +188,6 @@ async function handler(
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Forward to backend
-  // -----------------------------------------------------------------------
   const headers = buildUpstreamHeaders(req, session)
   let upstream: Response
   try {
@@ -222,22 +198,21 @@ async function handler(
     return NextResponse.json({ error: "upstream_unavailable" }, { status: 502 })
   }
 
-  // -----------------------------------------------------------------------
-  // Auto-refresh on 401 (retry once)
-  // -----------------------------------------------------------------------
   let refreshedSession: SessionData | null = null
+  let refreshDefinitivelyRejected = false
 
   if (upstream.status === 401 && session && !AUTH_PATHS.has(apiPath) && !isLogout) {
     reqLog.info("got 401, attempting token refresh")
-    const newSession = await safeRefresh(session.refresh_token)
-    if (newSession) {
+    const outcome = await safeRefresh(session.refresh_token)
+    if (outcome.session) {
       reqLog.info("token refresh succeeded, retrying request")
-      refreshedSession = newSession
-      session = newSession
-      const retryHeaders = buildUpstreamHeaders(req, newSession)
+      refreshedSession = outcome.session
+      session = outcome.session
+      const retryHeaders = buildUpstreamHeaders(req, outcome.session)
       upstream = await forward(url, req.method, retryHeaders, body)
       reqLog.info({ status: upstream.status }, "retry response received")
     } else {
+      refreshDefinitivelyRejected = outcome.definitivelyRejected
       reqLog.warn("token refresh failed")
       captureRefreshFailure("retry_after_401", {
         path: apiPath,
@@ -247,19 +222,18 @@ async function handler(
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Build response
-  // -----------------------------------------------------------------------
   const responseHeaders = new Headers()
-  const skipHeaders = new Set(["transfer-encoding", "content-encoding", "content-length"])
+  const skipHeaders = new Set(["transfer-encoding", "content-encoding", "content-length", "set-cookie"])
   upstream.headers.forEach((value, key) => {
     if (skipHeaders.has(key.toLowerCase())) return
     responseHeaders.set(key, value)
   })
+  // Preserve each Set-Cookie header individually — Headers.set collapses
+  // multiple values into one comma-joined string, which breaks cookie parsing.
+  for (const cookie of upstream.headers.getSetCookie()) {
+    responseHeaders.append("set-cookie", cookie)
+  }
 
-  // -----------------------------------------------------------------------
-  // Intercept auth responses — persist session, strip tokens from body
-  // -----------------------------------------------------------------------
   if (AUTH_PATHS.has(apiPath) && upstream.ok) {
     reqLog.info("intercepting auth response")
     try {
@@ -288,13 +262,22 @@ async function handler(
           headers: authHeaders,
         })
       }
+
+      // Tokens absent in an auth response (e.g. OTP challenge, error details).
+      // The body was already consumed via upstream.json() above, so we must
+      // re-serialize rather than falling through to `upstream.body` (which is
+      // now disturbed and would throw a 500).
+      reqLog.info({ status: upstream.status }, "auth path without tokens, re-serializing body")
+      return NextResponse.json(data, {
+        status: upstream.status,
+        headers: responseHeaders,
+      })
     } catch (err) {
       reqLog.error({ err }, "auth response interception failed")
       return NextResponse.json({ error: "session_creation_failed" }, { status: 502 })
     }
   }
 
-  // Attach updated session cookie if we refreshed mid-request
   if (refreshedSession) {
     responseHeaders.append(
       "set-cookie",
@@ -302,7 +285,6 @@ async function handler(
     )
   }
 
-  // Proactive refresh — also persist the updated cookie
   if (
     !AUTH_PATHS.has(apiPath) &&
     !refreshedSession &&
@@ -318,13 +300,22 @@ async function handler(
     }
   }
 
-  // Logout — clear session cookie
   if (isLogout && upstream.ok) {
     responseHeaders.append("set-cookie", clearSessionCookie())
   }
 
-  // Clear session on auth failure when refresh also failed
-  if (upstream.status === 401 && session && !refreshedSession && !AUTH_PATHS.has(apiPath)) {
+  // Clear the session only when the refresh token was *definitively* rejected
+  // (backend 401 — dead even after the grace window). A transient refresh
+  // failure or a lost concurrent-rotation race must not force-logout the user;
+  // the backend grace window + shared single-flight let the next request
+  // recover instead.
+  if (
+    upstream.status === 401 &&
+    session &&
+    !refreshedSession &&
+    !AUTH_PATHS.has(apiPath) &&
+    refreshDefinitivelyRejected
+  ) {
     responseHeaders.append("set-cookie", clearSessionCookie())
   }
 

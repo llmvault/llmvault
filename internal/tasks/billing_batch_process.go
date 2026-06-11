@@ -23,6 +23,11 @@ const (
 	billingErrUnknownMod = "unknown_model"
 	billingErrUnresolved = "model_unresolved"
 	billingErrInsufFunds = "insufficient_credits"
+
+	// maxInsufficientCreditAttempts caps retries of an insufficient_credits row
+	// before write-off: at the cap it's stamped billed (credits_debited=0) so an
+	// underfunded org can't hot-loop the batch.
+	maxInsufficientCreditAttempts = 5
 )
 
 var errBillingModelUnresolved = errors.New("billing model unresolved")
@@ -47,6 +52,7 @@ type unbilledRow struct {
 	CachedTokens    int64
 	ReasoningTokens int64
 	Cost            float64
+	BillingAttempts int
 }
 
 type rowBillingResult struct {
@@ -92,13 +98,22 @@ func (h *BillingBatchProcessHandler) Handle(ctx context.Context, _ *asynq.Task) 
 		for _, r := range rows {
 			result := perRowResults[r.ID]
 			updates := map[string]any{
-				"billed_at":           now,
 				"billing_error":       result.BillingErr,
 				"credits_debited":     result.Credits,
 				"billing_cost_source": result.CostSource,
 			}
 			if result.CostUSD > 0 {
 				updates["cost"] = result.CostUSD
+			}
+			// Insufficient rows stay queued (billed_at NULL) for a top-up, bumping
+			// the attempt counter; only at the cap do we stamp billed_at.
+			if result.BillingErr == billingErrInsufFunds && r.BillingAttempts+1 < maxInsufficientCreditAttempts {
+				updates["billing_attempts"] = r.BillingAttempts + 1
+			} else {
+				updates["billed_at"] = now
+				if result.BillingErr == billingErrInsufFunds {
+					updates["billing_attempts"] = r.BillingAttempts + 1
+				}
 			}
 			if err := tx.Model(&model.Generation{}).Where("id = ?", r.ID).Updates(updates).Error; err != nil {
 				return fmt.Errorf("mark billed %s: %w", r.ID, err)
@@ -126,7 +141,8 @@ func selectUnbilledBatch(tx *gorm.DB, limit int) ([]unbilledRow, error) {
 		SELECT g.id, g.org_id, g.provider_id, g.model,
 		       a.model AS agent_model,
 		       g.input_tokens, g.output_tokens,
-		       g.cached_tokens, g.reasoning_tokens, g.cost
+		       g.cached_tokens, g.reasoning_tokens, g.cost,
+		       g.billing_attempts
 		FROM generations AS g
 		LEFT JOIN tokens AS t ON t.jti = g.token_jti
 		LEFT JOIN employees AS a ON a.id = NULLIF(t.meta->>'employee_id', '')::uuid

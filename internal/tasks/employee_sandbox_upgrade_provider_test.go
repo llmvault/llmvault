@@ -25,6 +25,7 @@ type employeeUpgradeProvider struct {
 	deleted      []string
 	commands     []string
 	nextExternal int
+	onCreate     func() // optional hook invoked at the start of CreateSandbox
 }
 
 func (p *employeeUpgradeProvider) ID() string { return sandbox.ProviderDaytona }
@@ -39,6 +40,12 @@ func (p *employeeUpgradeProvider) RuntimeLayout() sandbox.RuntimeLayout {
 }
 
 func (p *employeeUpgradeProvider) CreateSandbox(_ context.Context, opts sandbox.CreateSandboxOpts) (*sandbox.SandboxInfo, error) {
+	p.mu.Lock()
+	hook := p.onCreate
+	p.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.failCreate {

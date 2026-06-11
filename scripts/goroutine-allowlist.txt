@@ -1,0 +1,49 @@
+# Allowlist for bare 'go' statements (checked by scripts/check-bare-goroutines.sh).
+#
+# Format: file:line  # justification
+#
+# Only add entries here when goroutine.Go / conc pools are not suitable.
+# The bar is high: each entry must have a comment explaining why.
+# Shrinking this list over time is always welcome.
+
+# --- Drain goroutines with inline panic recovery and WaitGroup ---
+# These own their own recover()+wg.Done() pattern; converting to goroutine.Go
+# would add a double-recovery wrapper without benefit.
+
+internal/handler/employee_event_writer.go:55   # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
+internal/middleware/generation.go:52            # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
+internal/middleware/audit.go:45                 # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
+internal/middleware/tool_usage.go:37            # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
+
+# --- Bounded fan-out with WaitGroup + inline panic recovery ---
+# wg.Add(N) before the go statements; wg.Wait() immediately after;
+# each goroutine has a deferred recover. This is the canonical Go fan-out
+# pattern; goroutine.Go is for singleton background goroutines, not fan-out.
+
+internal/precontext/service.go:94              # wg fan-out (3 goroutines); each has defer recover; wg.Wait() follows
+internal/precontext/service.go:95              # wg fan-out (3 goroutines); each has defer recover; wg.Wait() follows
+internal/precontext/service.go:96              # wg fan-out (3 goroutines); each has defer recover; wg.Wait() follows
+
+# --- Bounded channel-producer goroutines ---
+# Lifetime is tied to the returned channel: when the goroutine returns it
+# closes the channel, unblocking any blocked consumer. The caller propagates
+# cancellation via ctx.Done().
+
+internal/gateway/sse_subscriber.go:55          # channel producer; ctx.Done() + channel close bound the lifetime
+internal/rag/connectors/website/runnable.go:36 # channel producer; ctx.Done() + channel close bound the lifetime
+internal/rag/connectors/slack/connector.go:139 # channel producer (runIngest); channel close bounds the lifetime
+internal/spider/stream.go:34                   # channel producer; ctx embedded in request; channel close bounds lifetime
+
+# --- Infrastructure / SDK bridging goroutines ---
+# Lifetime is bounded by an explicit stopCh/cancel or by the external SDK
+# channel draining; no long-running unbounded risk.
+
+internal/rag/tasks/heartbeat.go:48             # hbCtx cancel + stoppedCh close strictly bound this ticker goroutine
+internal/sandbox/daytona/driver_snapshot.go:77 # drains external SDK log channel; channel close bounds the goroutine
+internal/sandbox/docker/exec.go:57             # goroutine to unblock stdcopy while ctx.Done() races; bounded by copyDone
+
+# --- Eval worker pool ---
+# Fixed-size worker pool (parallel goroutines); wg.Wait() blocks until all
+# finish; work channel close signals completion.
+
+internal/evals/runner.go:79                    # fixed-size worker pool; wg.Done() + work channel close bound lifetime

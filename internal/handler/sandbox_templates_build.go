@@ -54,12 +54,12 @@ func (h *SandboxTemplateHandler) TriggerBuild(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	task, err := tasks.NewSandboxTemplateBuildTask(tmpl.ID)
+	task, taskOpts, err := tasks.NewSandboxTemplateBuildTask(tmpl.ID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enqueue build task"})
 		return
 	}
-	if _, err := h.enqueuer.Enqueue(task); err != nil {
+	if _, err := h.enqueuer.Enqueue(task, taskOpts...); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enqueue build task"})
 		return
 	}
@@ -130,12 +130,12 @@ func (h *SandboxTemplateHandler) RetryBuild(w http.ResponseWriter, r *http.Reque
 	tmpl.BuildError = nil
 	tmpl.BuildLogs = ""
 
-	task, err := tasks.NewSandboxTemplateRetryBuildTask(tmpl.ID, req.BuildCommands)
+	task, taskOpts, err := tasks.NewSandboxTemplateRetryBuildTask(tmpl.ID, req.BuildCommands)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enqueue retry task"})
 		return
 	}
-	if _, err := h.enqueuer.Enqueue(task); err != nil {
+	if _, err := h.enqueuer.Enqueue(task, taskOpts...); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enqueue retry task"})
 		return
 	}

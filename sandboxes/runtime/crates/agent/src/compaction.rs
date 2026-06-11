@@ -7,6 +7,24 @@ use crate::primitives::{AgentMessage, AgentMessageRole, MessagePart};
 const DEFAULT_CONTEXT_WINDOW: u64 = 128_000;
 const DEFAULT_TOKEN_THRESHOLD: u64 = 100_000;
 
+/// Truncate `text` to at most `max_bytes` bytes without splitting a UTF-8
+/// character, appending `"..."` when truncation occurs.
+///
+/// Slicing a `&str` at an arbitrary byte offset panics when the offset lands in
+/// the middle of a multi-byte UTF-8 sequence (emoji, CJK, accented text). This
+/// helper backs the cut point down to the nearest char boundary so summary
+/// building can never panic and kill the turn task.
+fn truncate_on_char_boundary(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut boundary = max_bytes;
+    while boundary > 0 && !text.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+    format!("{}...", &text[..boundary])
+}
+
 #[derive(Debug, Clone)]
 pub struct CompactContext {
     pub estimated_tokens: u64,
@@ -114,19 +132,25 @@ fn find_eviction_range(
         return None;
     }
 
-    if messages[end].role == AgentMessageRole::Tool && end > start {
+    // If the eviction boundary falls inside a tool run (the retained side would
+    // begin with `Tool` results), walk the boundary back to the assistant
+    // message that issued the matching `tool_calls`. Evicting that assistant
+    // message while keeping its tool results — or vice versa — produces history
+    // the provider rejects with 400 (orphaned tool results / dangling
+    // tool_calls). Pulling the boundary back to the start of the tool run keeps
+    // the assistant + its tool results together on the retained side.
+    if messages[end].role == AgentMessageRole::Tool {
         let mut tool_start = end;
         while tool_start > start && messages[tool_start].role == AgentMessageRole::Tool {
             tool_start -= 1;
         }
-        let adjusted = if tool_start + 1 > start {
-            tool_start + 1
-        } else {
-            end
-        };
-        if adjusted > start {
-            return Some(start..adjusted);
+        // `tool_start` now points at the assistant message carrying tool_calls
+        // (or the first message of the run if it has no preceding assistant).
+        // Evict up to but excluding it so the whole tool run is retained.
+        if tool_start > start {
+            return Some(start..tool_start);
         }
+        return None;
     }
 
     Some(start..end)
@@ -179,11 +203,7 @@ fn build_entry(msg: &AgentMessage) -> Option<SummaryEntry> {
         AgentMessageRole::Assistant if !msg.tool_calls.is_empty() => {
             let call = &msg.tool_calls[0];
             let args = serde_json::to_string(&call.arguments).unwrap_or_else(|_| "{}".to_string());
-            let args_short = if args.len() > 200 {
-                format!("{}...", &args[..200])
-            } else {
-                args
-            };
+            let args_short = truncate_on_char_boundary(&args, 200);
             Some(SummaryEntry::ToolCall {
                 name: call.name.clone(),
                 args: args_short,
@@ -251,11 +271,7 @@ fn is_prompt_segment(text: &str) -> bool {
 }
 
 fn format_tool_result(text: &str) -> String {
-    if text.len() > 300 {
-        format!("{}...", &text[..300])
-    } else {
-        text.to_string()
-    }
+    truncate_on_char_boundary(text, 300)
 }
 
 fn deduplicate_entries(entries: Vec<SummaryEntry>) -> Vec<SummaryEntry> {
@@ -314,19 +330,11 @@ fn render_summary_template(entries: &[SummaryEntry]) -> String {
         let num = idx + 1;
         match entry {
             SummaryEntry::UserText { text } => {
-                let short = if text.len() > 200 {
-                    format!("{}...", &text[..200])
-                } else {
-                    text.clone()
-                };
+                let short = truncate_on_char_boundary(text, 200);
                 lines.push(format!("{num}. [User] {short}"));
             }
             SummaryEntry::AssistantText { text } => {
-                let short = if text.len() > 200 {
-                    format!("{}...", &text[..200])
-                } else {
-                    text.clone()
-                };
+                let short = truncate_on_char_boundary(text, 200);
                 lines.push(format!("{num}. [Assistant] {short}"));
             }
             SummaryEntry::ToolCall {
@@ -342,11 +350,7 @@ fn render_summary_template(entries: &[SummaryEntry]) -> String {
                 lines.push(format!("{num}. [{name}{status}] {args}"));
             }
             SummaryEntry::SystemMsg { text } => {
-                let short = if text.len() > 200 {
-                    format!("{}...", &text[..200])
-                } else {
-                    text.clone()
-                };
+                let short = truncate_on_char_boundary(text, 200);
                 lines.push(format!("{num}. [System] {short}"));
             }
         }
@@ -482,5 +486,131 @@ mod tests {
         };
         compact(&mut messages, &config);
         assert!(messages.len() < before);
+    }
+
+    fn assistant_with_tool_call(id: &str) -> AgentMessage {
+        let mut msg = make_msg(AgentMessageRole::Assistant, "");
+        msg.tool_calls = vec![crate::primitives::ToolCall {
+            id: id.into(),
+            name: "bash".into(),
+            arguments: serde_json::json!({"command": "ls"}),
+        }];
+        msg
+    }
+
+    #[test]
+    fn truncate_on_char_boundary_handles_multibyte_at_cut_point() {
+        // A run of 4-byte emoji: slicing at any non-multiple-of-4 byte offset
+        // would land mid-character and panic with naive `&s[..n]`.
+        let text = "😀".repeat(100);
+        let truncated = truncate_on_char_boundary(&text, 201);
+        assert!(truncated.ends_with("..."));
+        // 201 bytes -> 200 is the nearest lower char boundary (50 emoji).
+        assert_eq!(truncated, format!("{}...", "😀".repeat(50)));
+    }
+
+    #[test]
+    fn truncate_on_char_boundary_returns_short_text_unchanged() {
+        assert_eq!(truncate_on_char_boundary("hello", 200), "hello");
+    }
+
+    #[test]
+    fn compaction_does_not_panic_on_multibyte_content() {
+        // Long multi-byte user/assistant/tool content that crosses the 200/300
+        // byte truncation boundaries inside a multi-byte character.
+        let emoji_blob = "🚀".repeat(400);
+        let mut messages: Vec<AgentMessage> = vec![
+            make_msg(AgentMessageRole::System, "sys prompt"),
+            make_msg(AgentMessageRole::User, &emoji_blob),
+            make_msg(AgentMessageRole::Assistant, &emoji_blob),
+            make_msg(AgentMessageRole::User, "follow up"),
+            make_msg(AgentMessageRole::Assistant, &emoji_blob),
+            make_msg(AgentMessageRole::User, "go ahead"),
+        ];
+        let before = messages.len();
+        let config = CompactionConfig {
+            enabled: true,
+            token_threshold: Some(10),
+            token_threshold_percentage: None,
+            turn_threshold: None,
+            message_threshold: None,
+            eviction_window: 0.2,
+            retention_window: 0,
+            overlap_event_count: 1,
+            chars_per_token: 4,
+            on_turn_end: None,
+        };
+        // Must not panic on byte-offset slicing of multi-byte content.
+        compact(&mut messages, &config);
+        assert!(messages.len() < before);
+    }
+
+    #[test]
+    fn eviction_keeps_assistant_tool_calls_with_tool_results() {
+        // History: system, user, assistant(tool_call), tool_result, assistant, user
+        // The eviction boundary must not split the assistant(tool_call) from its
+        // tool_result. With retention=2 the boundary lands on the tool_result, so
+        // the range must stop before the assistant(tool_call) message.
+        let messages: Vec<AgentMessage> = vec![
+            make_msg(AgentMessageRole::System, "sys"),
+            make_msg(AgentMessageRole::User, "do a thing"),
+            assistant_with_tool_call("c1"),
+            make_msg(AgentMessageRole::Tool, r#"{"status":"ok"}"#),
+            make_msg(AgentMessageRole::Assistant, "done"),
+            make_msg(AgentMessageRole::User, "thanks"),
+        ];
+
+        // end = 6 - 2 - 1 = 3 -> the tool_result message.
+        let range = find_eviction_range(&messages, 2).expect("eviction range should be produced");
+
+        // The retained tail (range.end onward) must not start with a Tool message
+        // that has no preceding assistant tool_calls message.
+        let retained_head = &messages[range.end];
+        assert_ne!(
+            retained_head.role,
+            AgentMessageRole::Tool,
+            "retained history must not begin with an orphaned tool result"
+        );
+        // The assistant message carrying tool_calls and its tool result must both
+        // be on the same side of the boundary (both retained here).
+        let assistant_idx = 2;
+        let tool_idx = 3;
+        let assistant_evicted = range.contains(&assistant_idx);
+        let tool_evicted = range.contains(&tool_idx);
+        assert_eq!(
+            assistant_evicted, tool_evicted,
+            "assistant tool_calls and its tool result must stay together"
+        );
+    }
+
+    #[test]
+    fn eviction_keeps_multi_call_tool_run_together() {
+        // Multiple consecutive tool results following one assistant tool_calls
+        // message must all stay grouped with that assistant message.
+        let messages: Vec<AgentMessage> = vec![
+            make_msg(AgentMessageRole::System, "sys"),
+            make_msg(AgentMessageRole::User, "u1"),
+            make_msg(AgentMessageRole::Assistant, "a1"),
+            make_msg(AgentMessageRole::User, "u2"),
+            assistant_with_tool_call("c1"),
+            make_msg(AgentMessageRole::Tool, r#"{"r":1}"#),
+            make_msg(AgentMessageRole::Tool, r#"{"r":2}"#),
+            make_msg(AgentMessageRole::Assistant, "final"),
+            make_msg(AgentMessageRole::User, "u3"),
+        ];
+
+        // retention=3 -> end = 9-3-1 = 5, which is a Tool message mid-run.
+        let range = find_eviction_range(&messages, 3).expect("eviction range should be produced");
+
+        assert_ne!(
+            messages[range.end].role,
+            AgentMessageRole::Tool,
+            "retained history must not begin with an orphaned tool result"
+        );
+        // The assistant(tool_call) at index 4 and both tool results (5, 6) must
+        // all be retained (not evicted), since the boundary fell inside the run.
+        assert!(!range.contains(&4));
+        assert!(!range.contains(&5));
+        assert!(!range.contains(&6));
     }
 }

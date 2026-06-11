@@ -38,13 +38,15 @@ func buildAvailableSpecialistsSection(agent *model.Employee, catalog *specialist
 		"Drive is the shared artifact location. If the employee needs files produced by a specialist, ask the specialist to upload those files to Drive instead of trying to read specialist sandbox paths locally.",
 		"Attached specialist agents:",
 	}
+	matched := 0
 	for _, def := range catalog.List() {
 		if !attached[def.Slug] {
 			continue
 		}
 		lines = append(lines, fmt.Sprintf("- %s (%s): %s", def.Name, def.Slug, strings.TrimSpace(def.Description)))
+		matched++
 	}
-	if len(lines) == 14 {
+	if matched == 0 {
 		return PromptSection{}
 	}
 	return PromptSection{

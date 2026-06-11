@@ -160,9 +160,10 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			updates["email"] = trimmed
-			if !h.autoConfirmEmail {
-				emailChanged = true
-			}
+			// A self-service email change must always be re-verified (even with
+			// HIVY_AUTO_CONFIRM_EMAIL), or a user could change to an allowlisted
+			// platform-admin address and gain platform admin (derived from email).
+			emailChanged = true
 		}
 	}
 

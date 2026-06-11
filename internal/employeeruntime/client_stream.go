@@ -26,6 +26,14 @@ func (c *Client) StreamHTTP(ctx context.Context, path string) (*http.Response, e
 	return c.openStream(ctx, fallbackBase+path)
 }
 
+// streamClient returns the untimed SSE client, falling back to the general one.
+func (c *Client) streamClient() *http.Client {
+	if c.stream != nil {
+		return c.stream
+	}
+	return c.http
+}
+
 func (c *Client) openStream(ctx context.Context, rawURL string) (*http.Response, error) {
 	req, err := c.newRequest(ctx, http.MethodGet, rawURL, nil, true)
 	if err != nil {
@@ -33,7 +41,9 @@ func (c *Client) openStream(ctx context.Context, rawURL string) (*http.Response,
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Accept-Encoding", "identity")
-	resp, err := c.http.Do(req)
+	// Use the dedicated streaming client (no overall Timeout) so long agent
+	// turns are not cut mid-body at the default 2-minute boundary.
+	resp, err := c.streamClient().Do(req)
 	if err != nil {
 		return nil, err
 	}

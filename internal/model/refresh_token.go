@@ -13,6 +13,12 @@ type RefreshToken struct {
 	ExpiresAt time.Time `gorm:"not null"`
 	RevokedAt *time.Time
 	CreatedAt time.Time
+
+	// Grace window for single-use rotation: the replacement pair is stored here so a
+	// concurrent presentation within the window gets it instead of a force-logout.
+	ReplacedAt             *time.Time
+	ReplacedByAccessToken  string
+	ReplacedByRefreshToken string
 }
 
 func (RefreshToken) TableName() string { return "refresh_tokens" }

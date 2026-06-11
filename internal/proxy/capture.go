@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -13,6 +12,11 @@ import (
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/observe"
 )
+
+// maxStreamBufLen caps the partial-line buffer so a malformed provider stream
+// (a never-terminated line) cannot grow it unboundedly; real SSE usage events
+// never approach this size. An un-terminated line past the cap is discarded.
+const maxStreamBufLen = 1 << 20 // 1 MiB
 
 // CaptureTransport wraps an http.RoundTripper to capture response metadata
 // (usage, TTFB, status) without adding latency to the response.
@@ -151,11 +155,13 @@ func (sc *streamingCapture) Read(p []byte) (int, error) {
 
 	if n > 0 {
 		sc.buf.Write(p[:n])
-		sc.tryParseEvents()
+		sc.tryParseEvents(false)
 	}
 
 	if err != nil {
 		sc.captured.TotalMs = int(time.Since(sc.start).Milliseconds())
+		// Terminal error: flush any unterminated trailing line so final usage isn't lost.
+		sc.tryParseEvents(true)
 	}
 
 	return n, err
@@ -163,40 +169,63 @@ func (sc *streamingCapture) Read(p []byte) (int, error) {
 
 func (sc *streamingCapture) Close() error {
 	sc.captured.TotalMs = int(time.Since(sc.start).Milliseconds())
-	sc.tryParseEvents()
+	sc.tryParseEvents(true)
 	return sc.inner.Close()
 }
 
-func (sc *streamingCapture) tryParseEvents() {
-	data := sc.buf.Bytes()
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-
-	var lastComplete int
-	for scanner.Scan() {
-		line := scanner.Text()
-		lastComplete = lastComplete + len(line) + 1
-
-		if !strings.HasPrefix(line, "data: ") {
-			continue
+// tryParseEvents extracts usage from complete `data:` SSE lines, scanning raw
+// `\n` offsets (exact reset accounting) and trimming `\r` so CRLF parses.
+// Unterminated lines stay buffered; flush==true parses a final trailing one.
+func (sc *streamingCapture) tryParseEvents(flush bool) {
+	for {
+		data := sc.buf.Bytes()
+		idx := bytes.IndexByte(data, '\n')
+		if idx < 0 {
+			// No complete line. On flush, parse the remainder as a final line.
+			if flush && len(data) > 0 {
+				sc.parseLine(data)
+				sc.buf.Reset()
+			}
+			break
 		}
-		payload := strings.TrimPrefix(line, "data: ")
-		if payload == "[DONE]" {
-			continue
-		}
-		u := ParseStreamingChunk(sc.providerID, []byte(payload))
-		if u.InputTokens > 0 || u.OutputTokens > 0 {
-			sc.captured.Usage = toObserveUsage(u)
-		}
-	}
 
-	if lastComplete > 0 && lastComplete <= len(data) {
-		remaining := data[lastComplete:]
+		line := data[:idx]
+		// Strip the trailing CR of a CRLF terminator.
+		if n := len(line); n > 0 && line[n-1] == '\r' {
+			line = line[:n-1]
+		}
+		sc.parseLine(line)
+
+		// Drop the consumed line (including the `\n`) from the buffer.
+		remaining := append([]byte(nil), data[idx+1:]...)
 		sc.buf.Reset()
 		sc.buf.Write(remaining)
 	}
+
+	// Hard cap: discard an un-terminated line past the limit so memory is bounded.
+	if !flush && sc.buf.Len() > maxStreamBufLen {
+		sc.buf.Reset()
+	}
 }
 
-// toObserveUsage converts proxy.UsageData to observe.UsageData.
+// parseLine extracts usage from a single (newline/CR-stripped) SSE line,
+// ignoring non-`data:` lines and `[DONE]`.
+func (sc *streamingCapture) parseLine(line []byte) {
+	const prefix = "data:"
+	if !bytes.HasPrefix(line, []byte(prefix)) {
+		return
+	}
+	// Per the SSE grammar a single optional space after the colon is stripped.
+	payload := bytes.TrimPrefix(line[len(prefix):], []byte(" "))
+	if string(payload) == "[DONE]" || len(payload) == 0 {
+		return
+	}
+	u := ParseStreamingChunk(sc.providerID, payload)
+	if u.InputTokens > 0 || u.OutputTokens > 0 {
+		sc.captured.Usage = toObserveUsage(u)
+	}
+}
+
 func toObserveUsage(u UsageData) observe.UsageData {
 	return observe.UsageData{
 		InputTokens:     u.InputTokens,

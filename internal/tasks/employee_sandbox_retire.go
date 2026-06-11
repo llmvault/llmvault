@@ -60,7 +60,10 @@ func (h *EmployeeSandboxRetireHandler) retire(ctx context.Context, payload Emplo
 		}
 		return fmt.Errorf("load old employee sandbox: %w", err)
 	}
-	if sb.EmployeeID == nil || *sb.EmployeeID != payload.EmployeeID || sb.Status != string(sandbox.StatusStopped) {
+	// The old sandbox is usually 'stopped', but pause-less providers (Railway) leave it 'running'.
+	// Either way the new one serves traffic, so retire the old from both states to stop billing.
+	if sb.EmployeeID == nil || *sb.EmployeeID != payload.EmployeeID ||
+		(sb.Status != string(sandbox.StatusStopped) && sb.Status != string(sandbox.StatusRunning)) {
 		return nil
 	}
 	if upgrade.NewSandboxID != nil && *upgrade.NewSandboxID == sb.ID {
@@ -73,8 +76,11 @@ func (h *EmployeeSandboxRetireHandler) retire(ctx context.Context, payload Emplo
 		"sandbox_id", sb.ID,
 		"external_id", sb.ExternalID,
 	)
-	if err := h.orchestrator.DeleteSandbox(ctx, &sb); err != nil {
-		return fmt.Errorf("delete retired employee sandbox: %w", err)
+	// Release the provider resource but KEEP the control-plane row: a hard
+	// DeleteSandbox would cascade-delete the org's pre-upgrade history (FK ON DELETE
+	// CASCADE) the upgrade must carry forward.
+	if err := h.orchestrator.DeleteSandboxResource(ctx, &sb); err != nil {
+		return fmt.Errorf("retire employee sandbox resource: %w", err)
 	}
 	return nil
 }

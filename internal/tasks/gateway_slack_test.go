@@ -208,7 +208,10 @@ func TestGatewaySlackHandler_DoesNotPostWhenDoneHasNoVisibleResponse(t *testing.
 	}
 }
 
-func TestGatewaySlackHandler_PrefersStreamedTokensOverFinalText(t *testing.T) {
+// The runtime's final event text is authoritative and must win over the
+// streamed token concatenation (which can drop/duplicate tokens on the wire).
+func TestGatewaySlackHandler_PrefersFinalTextOverStreamedTokens(t *testing.T) {
+	wantText := "notion railway Deploy Hivy's Vercel rollbacks"
 	var calls []slackAPICall
 	server := newGatewaySlackAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
 		call := recordSlackAPICall(t, r)
@@ -217,7 +220,6 @@ func TestGatewaySlackHandler_PrefersStreamedTokensOverFinalText(t *testing.T) {
 		case "/assistant.threads.setStatus":
 			writeSlackOK(t, w, "")
 		case "/chat.postMessage":
-			wantText := "notion railway Deploy Hivy's Vercel rollbacks"
 			if call.Form.Get("text") != wantText {
 				t.Fatalf("postMessage text = %q", call.Form.Get("text"))
 			}
@@ -237,15 +239,15 @@ func TestGatewaySlackHandler_PrefersStreamedTokensOverFinalText(t *testing.T) {
 			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"not"}`)},
 			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"ion rail"}`)},
 			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"way Deploy Hiv"}`)},
-			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"y's Vercel rollbacks"}`)},
-			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"not ion rail way De ploy Hiv y's Verc el roll backs"}`)},
+			gateway.SSEEvent{Type: "token", Data: json.RawMessage(`{"text":"y's Vercel BROKEN"}`)},
+			gateway.SSEEvent{Type: "final", Data: json.RawMessage(`{"text":"notion railway Deploy Hivy's Vercel rollbacks"}`)},
 		),
 		map[string]any{},
 	)
 	if err != nil {
 		t.Fatalf("deliver slack response: %v", err)
 	}
-	if !delivered || text != "notion railway Deploy Hivy's Vercel rollbacks" {
+	if !delivered || text != wantText {
 		t.Fatalf("delivered=%v text=%q", delivered, text)
 	}
 }

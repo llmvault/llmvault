@@ -126,7 +126,7 @@ func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Employee {
 		Model:        DefaultEmployeeModel,
 		Status:       "active",
 		Tools:        model.JSON{},
-		McpServers:   model.JSON{},
+		McpServers:   model.RawJSON("[]"),
 		Skills:       model.JSON{},
 		Resources:    model.JSON{},
 		Permissions:  model.JSON{},

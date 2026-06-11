@@ -29,6 +29,7 @@ func TestEmployeeEnvCatalogGolden(t *testing.T) {
 		EmployeeEnvDBPath,
 		EmployeeEnvRuntimeBindAddr,
 		EmployeeEnvRuntimeMode,
+		EmployeeEnvTunnelPassword,
 		EmployeeEnvSandboxID,
 		EmployeeEnvOrgID,
 		EmployeeEnvGitUsername,

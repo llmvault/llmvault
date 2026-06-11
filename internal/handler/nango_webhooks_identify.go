@@ -26,6 +26,11 @@ func (h *NangoWebhookHandler) identify(ctx context.Context, wh *nangoWebhook) *w
 }
 
 func verifyNangoSignature(body []byte, secret string, signature string) bool {
+	// Fail closed: without a webhook secret we can't verify the HMAC, so an
+	// attacker could forge a valid empty-key HMAC for arbitrary orgs.
+	if secret == "" {
+		return false
+	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(body)
 	expected := hex.EncodeToString(mac.Sum(nil))

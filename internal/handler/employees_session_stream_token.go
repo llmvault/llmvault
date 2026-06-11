@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,11 @@ import (
 )
 
 const webStreamTokenLifetime = time.Hour
+
+// streamTokenHeader is the preferred header name for the signed stream token:
+// clients use it instead of the ?token= query parameter to keep the token out
+// of access logs and Sentry breadcrumbs.
+const streamTokenHeader = "X-Stream-Token" // #nosec G101 -- HTTP header name, not a credential
 
 func (h *EmployeeHandler) signedWebStreamURL(employeeID, sessionID uuid.UUID, streamID string) (string, error) {
 	if strings.TrimSpace(streamID) == "" {
@@ -24,6 +30,16 @@ func (h *EmployeeHandler) signedWebStreamURL(employeeID, sessionID uuid.UUID, st
 		return "", err
 	}
 	return fmt.Sprintf("/v1/employees/%s/sessions/%s/streams/%s?token=%s", employeeID, sessionID, streamID, token), nil
+}
+
+// extractWebStreamToken extracts the signed stream token from the request,
+// preferring the X-Stream-Token header over the ?token= query parameter so
+// that tokens are not captured in access logs or Sentry breadcrumbs.
+func extractWebStreamToken(r *http.Request) string {
+	if tok := r.Header.Get(streamTokenHeader); tok != "" {
+		return tok
+	}
+	return r.URL.Query().Get("token")
 }
 
 func (h *EmployeeHandler) signWebStreamToken(sessionID uuid.UUID, streamID string, expiresAt int64) (string, error) {

@@ -8,18 +8,47 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (o *Orchestrator) touchLastActive(sb *model.Sandbox) {
+// lastActiveTouchInterval is the minimum gap between persisted last_active_at
+// writes for a single sandbox. It must stay well under the idle-stop cutoff so
+// the lifecycle sweep never sees a stale timestamp for an active sandbox.
+const lastActiveTouchInterval = 60 * time.Second
+
+func (o *Orchestrator) touchLastActive(ctx context.Context, sb *model.Sandbox) {
 	now := time.Now()
 	sb.LastActiveAt = &now
-	go func(id uuid.UUID) {
-		_ = o.db.Model(&model.Sandbox{}).
+	if !o.shouldPersistLastActive(sb.ID, now) {
+		return
+	}
+	id := sb.ID
+	goroutine.Go(context.WithoutCancel(ctx), func(ctx context.Context) {
+		if err := o.db.Model(&model.Sandbox{}).
 			Where("id = ?", id).
-			Update("last_active_at", now).Error
-	}(sb.ID)
+			Update("last_active_at", now).Error; err != nil {
+			logging.FromContext(ctx).WarnContext(ctx, "failed to persist last_active_at",
+				"sandbox_id", id, "error", err)
+			logging.Capture(ctx, err)
+		}
+	})
+}
+
+// shouldPersistLastActive reports whether enough time has elapsed since the last
+// touch to warrant another DB write.
+func (o *Orchestrator) shouldPersistLastActive(id uuid.UUID, now time.Time) bool {
+	o.lastActiveTouchMu.Lock()
+	defer o.lastActiveTouchMu.Unlock()
+	if o.lastActiveTouch == nil {
+		o.lastActiveTouch = make(map[uuid.UUID]time.Time)
+	}
+	if last, ok := o.lastActiveTouch[id]; ok && now.Sub(last) < lastActiveTouchInterval {
+		return false
+	}
+	o.lastActiveTouch[id] = now
+	return true
 }
 
 func (o *Orchestrator) needsURLRefresh(sb *model.Sandbox) bool {

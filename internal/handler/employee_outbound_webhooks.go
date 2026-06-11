@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -98,7 +97,14 @@ func (h *EmployeeOutboundWebhookHandler) Handle(w http.ResponseWriter, r *http.R
 	if event.At.IsZero() {
 		event.At = h.now().UTC()
 	}
-	h.storeAndMaybeEnqueue(ctx, sb, &event)
+	if err := h.storeAndMaybeEnqueue(ctx, sb, &event); err != nil {
+		// A revenue- or reply-bearing record could not be durably persisted.
+		// Return 5xx so the runtime outbox redelivers; the generation insert is
+		// idempotent (deterministic ID), so the retry will not double-bill.
+		captureEmployeeWebhookIngest(ctx, "store_outbound_event", sb, &event, "", "", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to persist event"})
+		return
+	}
 	if err := h.db.WithContext(ctx).Model(sb).Update("last_active_at", h.now()).Error; err != nil {
 		captureEmployeeWebhookIngest(ctx, "update_last_active", sb, &event, "", "", err)
 	}
@@ -126,7 +132,11 @@ func (h *EmployeeOutboundWebhookHandler) loadSandbox(w http.ResponseWriter, r *h
 
 func (h *EmployeeOutboundWebhookHandler) verifySignature(ctx context.Context, sb *model.Sandbox, body []byte, signature string) bool {
 	if h.encKey == nil {
-		return true
+		// Fail closed: without the encryption key we can't recover the runtime
+		// secret to verify the HMAC, so anyone could forge events for any sandbox.
+		logging.FromContext(ctx).ErrorContext(ctx, "employee outbound webhook: rejecting request, no encryption key configured for signature verification",
+			"sandbox_id", sb.ID)
+		return false
 	}
 	secret, err := h.encKey.DecryptString(sb.EncryptedRuntimeSecret)
 	if err != nil {
@@ -143,136 +153,4 @@ func (h *EmployeeOutboundWebhookHandler) verifySignature(ctx context.Context, sb
 	mac.Write(body)
 	expected := hex.EncodeToString(mac.Sum(nil))
 	return hmac.Equal([]byte(expected), []byte(signature))
-}
-
-func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, sb *model.Sandbox, event *employeeOutboundEvent) {
-	payload := map[string]any{}
-	if len(event.Payload) > 0 {
-		if err := json.Unmarshal(event.Payload, &payload); err != nil {
-			captureEmployeeWebhookIngest(ctx, "decode_event_payload", sb, event, "", "", err)
-		}
-	}
-	sessionID := stringValue(payload, "session_id")
-	source := employeeEventSource(payload)
-	specialistTask, taskFound := h.specialistTaskForPayload(ctx, sb.ID, payload)
-	if taskFound {
-		sessionID = specialistTask.EmployeeSessionID
-		payload["mode"] = "specialist"
-		payload["specialist_slug"] = specialistTask.SpecialistSlug
-		payload["specialist_task_id"] = specialistTask.ID.String()
-		if enriched, err := json.Marshal(payload); err == nil {
-			event.Payload = enriched
-		}
-	} else if _, ok := payload["mode"]; !ok {
-		payload["mode"] = "employee"
-	}
-	if event.EventType == "agent.run.model.usage" {
-		if err := h.recordRuntimeModelUsageGeneration(ctx, sb, event, payload); err != nil {
-			captureEmployeeWebhookIngest(ctx, "record_runtime_generation", sb, event, sessionID, source, err)
-		}
-	}
-	if event.EventType == "skill.synced" {
-		if err := h.syncSkillEvent(ctx, sb, payload); err != nil {
-			captureEmployeeWebhookIngest(ctx, "sync_skill", sb, event, sessionID, source, err)
-		}
-	}
-	if event.EventType == "session.created" {
-		session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload, specialistTask)
-		if err != nil {
-			captureEmployeeWebhookIngest(ctx, "ensure_employee_session", sb, event, sessionID, source, err)
-			return
-		}
-		if createdSession {
-			precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
-			h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
-		}
-		return
-	}
-	if !shouldStoreEmployeeSessionEvent(event.EventType) {
-		return
-	}
-	session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload, specialistTask)
-	if err != nil {
-		captureEmployeeWebhookIngest(ctx, "ensure_employee_session", sb, event, sessionID, source, err)
-		return
-	}
-	if createdSession {
-		precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
-		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
-	}
-	stored, ok := employeeSessionEventFromOutbound(sb, event, payload, session.ID, sessionID)
-	if !ok {
-		captureEmployeeWebhookIngest(ctx, "drop_missing_sandbox_owner", sb, event, sessionID, source, fmt.Errorf("employee sandbox missing org_id or employee_id"))
-		return
-	}
-	if taskFound {
-		stored.Mode = "specialist"
-		stored.SpecialistSlug = specialistTask.SpecialistSlug
-		stored.SpecialistTaskID = &specialistTask.ID
-	} else {
-		stored.Mode = "employee"
-	}
-	if h.writer != nil {
-		h.writer.Write(ctx, stored)
-	} else {
-		err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&stored).Error; err != nil {
-				return err
-			}
-			if err := syncEmployeeScheduleEvent(tx, stored); err != nil {
-				captureEmployeeSessionEventFailure(ctx, "sync_schedule", stored, err)
-			}
-			return nil
-		})
-		if err != nil {
-			captureEmployeeSessionEventFailure(ctx, "store_memory_event", stored, err)
-			return
-		}
-		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.EmployeeID)
-	}
-	if event.EventType == "agent.message.sent" {
-		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "agent_message_sent", "agent.message.sent")
-	}
-	if event.EventType == "agent.message.sent" && taskFound {
-		h.handleSpecialistAgentMessage(ctx, sb, specialistTask, payload, sessionID)
-	}
-	if event.EventType == "agent.message.sent" && h.gateway != nil && shouldDeliverGatewayRuntimeFinal(session, payload) {
-		if _, err := h.gateway.HandleRuntimeFinal(ctx, gateway.AgentResponse{
-			EmployeeSession:  *session,
-			RuntimeSessionID: sessionID,
-			TraceID:          stringValue(payload, "trace_id"),
-			TurnID:           stringValue(payload, "turn_id"),
-			ChannelID:        stringValue(payload, "channel_id"),
-			ThreadID:         stringValue(payload, "thread_id"),
-			Text:             stringValue(payload, "text"),
-			Raw:              payload,
-		}); err != nil {
-			captureEmployeeWebhookIngest(ctx, "gateway_deliver_runtime_final", sb, event, sessionID, source, err)
-		}
-	}
-	if event.EventType == "session.completed" {
-		h.markEmployeeSessionEnded(ctx, session.ID, event.At)
-	}
-}
-
-func shouldDeliverGatewayRuntimeFinal(session *model.EmployeeSession, payload map[string]any) bool {
-	if session == nil || session.Source != gateway.Source {
-		return false
-	}
-	if isSpecialistRuntimeEvent(payload) {
-		return false
-	}
-	return !isSlackGatewayEvent(payload)
-}
-
-func isSpecialistRuntimeEvent(payload map[string]any) bool {
-	if strings.EqualFold(strings.TrimSpace(stringValue(payload, "mode")), "specialist") {
-		return true
-	}
-	return strings.TrimSpace(stringValue(payload, "specialist_task_id")) != "" ||
-		strings.TrimSpace(stringValue(payload, "specialist_slug")) != ""
-}
-
-func isSlackGatewayEvent(payload map[string]any) bool {
-	return strings.EqualFold(strings.TrimSpace(stringValue(payload, "provider")), gateway.SlackProvider)
 }

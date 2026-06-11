@@ -90,9 +90,14 @@ func setupV1Routes(
 				r.Get("/database-integrations", databaseIntegrationHandler.List)
 			}
 
-			r.Post("/api-keys", apiKeyHandler.Create)
 			r.Get("/api-keys", apiKeyHandler.List)
-			r.Delete("/api-keys/{id}", apiKeyHandler.Revoke)
+			// Escalation-sensitive: JWT callers must be org admins; API-key callers
+			// may only mint keys within their own scopes (APIKeyHandler.Create).
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+				r.Post("/api-keys", apiKeyHandler.Create)
+				r.Delete("/api-keys/{id}", apiKeyHandler.Revoke)
+			})
 
 			mountBillingRoutes(r, billingHandler, subscriptionHandler)
 			if slackChannelHandler != nil {
@@ -101,34 +106,27 @@ func setupV1Routes(
 			}
 
 			r.Group(func(r chi.Router) {
+				// Escalation-sensitive: JWT callers must be org admins; scoped API-key
+				// callers pass (admin gate skipped for keys). Reads stay member-visible.
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("credentials"))
-				r.Post("/credentials", credHandler.Create)
 				r.Get("/credentials", credHandler.List)
 				r.Get("/credentials/{id}", credHandler.Get)
-				r.Delete("/credentials/{id}", credHandler.Revoke)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+					r.Post("/credentials", credHandler.Create)
+					r.Delete("/credentials/{id}", credHandler.Revoke)
+				})
 			})
 
 			r.Group(func(r chi.Router) {
+				// Escalation-sensitive (as credentials above): admin-gate JWT, allow keys.
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("tokens"))
 				r.Get("/tokens", tokenHandler.List)
-				r.Post("/tokens", tokenHandler.Mint)
-				r.Delete("/tokens/{jti}", tokenHandler.Revoke)
-			})
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("all"))
-			})
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("connect"))
-			})
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("integrations"))
-			})
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("integrations"))
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+					r.Post("/tokens", tokenHandler.Mint)
+					r.Delete("/tokens/{jti}", tokenHandler.Revoke)
+				})
 			})
 
 			r.Group(func(r chi.Router) {
@@ -217,23 +215,27 @@ func setupV1Routes(
 
 			if ragSourceHandler != nil {
 				r.Route("/rag", func(r chi.Router) {
-					// TODO: tighten back to RequireOrgAdmin once the RAG
-					// admin UI is admin-gated.
 					r.Use(middleware.ResolveUser(database))
+					// Reads stay visible to any org member.
 					r.Get("/integrations", ragSourceHandler.ListIntegrations)
-					r.Post("/sources", ragSourceHandler.Create)
 					r.Get("/sources", ragSourceHandler.List)
 					r.Get("/sources/{id}", ragSourceHandler.Get)
-					r.Patch("/sources/{id}", ragSourceHandler.Update)
-					r.Delete("/sources/{id}", ragSourceHandler.Delete)
-					r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
-					r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
-					r.Post("/sources/{id}/perm-sync", ragSourceHandler.TriggerPermSync)
 					r.Get("/sources/{id}/attempts", ragSourceHandler.ListAttempts)
 					r.Get("/sources/{id}/attempts/{attempt_id}", ragSourceHandler.GetAttempt)
 					if ragSearchHandler != nil {
 						r.Post("/search", ragSearchHandler.Search)
 					}
+					// Mutations (sources, sync/prune jobs) are admin-only: a non-admin
+					// must not reconfigure org-wide RAG ingestion.
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.RequireOrgAdmin(database))
+						r.Post("/sources", ragSourceHandler.Create)
+						r.Patch("/sources/{id}", ragSourceHandler.Update)
+						r.Delete("/sources/{id}", ragSourceHandler.Delete)
+						r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
+						r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
+						r.Post("/sources/{id}/perm-sync", ragSourceHandler.TriggerPermSync)
+					})
 				})
 			}
 

@@ -113,7 +113,7 @@ func (h *GatewayExternalHandler) enqueueExternalCallback(r *http.Request, route 
 	if streamURL == "" && result.Runtime.StreamID != "" {
 		streamURL = strings.TrimRight(sandbox.RuntimeURL, "/") + "/gateway/http/streams/" + result.Runtime.StreamID
 	}
-	task, err := tasks.NewGatewayExternalCallbackTask(tasks.GatewayExternalCallbackPayload{
+	task, taskOpts, err := tasks.NewGatewayExternalCallbackTask(tasks.GatewayExternalCallbackPayload{
 		RouteID:        route.ID.String(),
 		OrgID:          route.OrgID.String(),
 		EmployeeID:     route.EmployeeID.String(),
@@ -135,6 +135,6 @@ func (h *GatewayExternalHandler) enqueueExternalCallback(r *http.Request, route 
 	if err != nil {
 		return err
 	}
-	_, err = h.enqueuer.Enqueue(task)
+	_, err = h.enqueuer.Enqueue(task, taskOpts...)
 	return err
 }

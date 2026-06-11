@@ -21,8 +21,6 @@ const (
 	runtimeHealthInterval   = 2 * time.Second
 	runtimeURLRefreshBuffer = 5 * time.Minute
 	runtimeURLTTL           = 55 * time.Minute
-
-	healthCheckInterval = 30 * time.Second
 )
 
 func baseEnvVars(cfg *config.Config, runtimeSecret string, sandboxID uuid.UUID, webhookURL string) map[string]string {
