@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import * as Sentry from "@sentry/nextjs"
-import { getSessionFromHeader, createSessionCookie, type SessionData } from "@/lib/auth/session"
+import { getSessionFromHeader, createSessionCookie } from "@/lib/auth/session"
+import { refreshCoordinator, type RefreshOutcome } from "@/lib/auth/refresh"
 
 const HIVY_API_URL = process.env.HIVY_API_URL ?? process.env.NEXT_PUBLIC_HIVY_API_URL as string
 
-/** Minimum remaining lifetime (ms) before we refresh. */
+/**
+ * Minimum remaining lifetime (ms) before we refresh. A live SSE stream needs
+ * more headroom than an ordinary proxied request, so this is larger than the
+ * proxy's reactive threshold — but the refresh itself runs through the shared
+ * refreshCoordinator so it can never double-spend a single-use refresh token
+ * that the proxy is rotating concurrently.
+ */
 const MIN_TTL = 5 * 60 * 1000 // 5 minutes
 
 function captureRefreshFailure(
@@ -19,7 +26,7 @@ function captureRefreshFailure(
   })
 }
 
-async function refreshTokens(refreshToken: string): Promise<SessionData | null> {
+async function refreshTokens(refreshToken: string): Promise<RefreshOutcome> {
   let res: Response
   try {
     res = await fetch(`${HIVY_API_URL}/auth/refresh`, {
@@ -34,7 +41,7 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       scope.setExtra("reason", "auth_refresh_fetch_failed")
       Sentry.captureException(err)
     })
-    return null
+    return { session: null, definitivelyRejected: false }
   }
 
   if (!res.ok) {
@@ -42,7 +49,7 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       status: res.status,
       statusText: res.statusText,
     })
-    return null
+    return { session: null, definitivelyRejected: res.status === 401 }
   }
 
   const data = await res.json()
@@ -52,13 +59,16 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       hasAccessToken: Boolean(data.access_token),
       hasRefreshToken: Boolean(data.refresh_token),
     })
-    return null
+    return { session: null, definitivelyRejected: false }
   }
 
   return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: Date.now() + (data.expires_in ?? 900) * 1000,
+    session: {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + (data.expires_in ?? 900) * 1000,
+    },
+    definitivelyRejected: false,
   }
 }
 
@@ -78,18 +88,23 @@ export async function GET(req: NextRequest) {
 
   let setCookie: string | null = null
 
-  // Refresh if token doesn't have enough remaining lifetime for a stream
+  // Refresh if token doesn't have enough remaining lifetime for a stream.
+  // Routed through the shared coordinator so a concurrent proxy refresh of the
+  // same single-use token is reused rather than racing it.
   if (session.expires_at - Date.now() < MIN_TTL) {
-    const refreshed = await refreshTokens(session.refresh_token)
-    if (!refreshed) {
+    const outcome = await refreshCoordinator.refresh(
+      session.refresh_token,
+      refreshTokens
+    )
+    if (!outcome.session) {
       captureRefreshFailure("stream_token", {
         path: "/api/auth/stream-token",
         method: req.method,
       })
       return NextResponse.json({ error: "refresh_failed" }, { status: 401 })
     }
-    session = refreshed
-    setCookie = await createSessionCookie(refreshed)
+    session = outcome.session
+    setCookie = await createSessionCookie(outcome.session)
   }
 
   const activeOrg = req.cookies.get("hivy_active_org")?.value ?? null

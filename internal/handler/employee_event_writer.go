@@ -16,6 +16,20 @@ import (
 
 const employeeEventBatchSize = 100
 
+// employeeEventFlushRetries bounds how many times the drain re-attempts a failed
+// batch insert before giving up. A transient Postgres blip must not silently
+// drop session events (notably agent.message.sent, the only durable record of a
+// reply), so we retry with backoff before logging/capturing a hard loss.
+const employeeEventFlushRetries = 5
+
+const (
+	employeeEventFlushBackoff    = 250 * time.Millisecond
+	employeeEventFlushBackoffMax = 5 * time.Second
+	// employeeEventShutdownFlushTimeout bounds the final flush so a wedged DB
+	// cannot hang process shutdown indefinitely.
+	employeeEventShutdownFlushTimeout = 25 * time.Second
+)
+
 type EmployeeEventWriter struct {
 	db            *gorm.DB
 	entries       chan model.EmployeeSessionEvent
@@ -63,9 +77,65 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 	timer := time.NewTimer(w.flushInterval)
 	defer timer.Stop()
 
-	flush := func() {
+	// flush persists the current batch with bounded retries. flushCtx is the
+	// context used for the DB write: during normal operation it is the drain's
+	// long-lived ctx; on shutdown the caller passes a non-cancelled context so
+	// the final flush is not aborted by the cancelled root signal context.
+	flush := func(flushCtx context.Context) {
 		if len(batch) == 0 {
 			return
+		}
+		if w.flushBatch(flushCtx, batch) && w.afterWrite != nil {
+			w.afterWrite(flushCtx, append([]model.EmployeeSessionEvent(nil), batch...))
+		}
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case entry, ok := <-w.entries:
+			if !ok {
+				// Shutdown: the root ctx is already cancelled, so persist the
+				// remaining buffer on a detached, time-bounded context.
+				flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), employeeEventShutdownFlushTimeout)
+				flush(flushCtx)
+				cancel()
+				return
+			}
+			batch = append(batch, entry)
+			if len(batch) >= employeeEventBatchSize {
+				flush(ctx)
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(w.flushInterval)
+			}
+		case <-timer.C:
+			flush(ctx)
+			timer.Reset(w.flushInterval)
+		}
+	}
+}
+
+// flushBatch inserts batch, retrying transient failures with capped backoff.
+// It reports whether the batch was durably persisted. Schedule-sync failures are
+// non-fatal (logged) and do not fail the batch.
+func (w *EmployeeEventWriter) flushBatch(ctx context.Context, batch []model.EmployeeSessionEvent) bool {
+	backoff := employeeEventFlushBackoff
+	var lastErr error
+	for attempt := 0; attempt < employeeEventFlushRetries; attempt++ {
+		if attempt > 0 {
+			if !sleepCtx(ctx, backoff) {
+				// Context cancelled mid-retry: stop retrying and report failure.
+				break
+			}
+			backoff *= 2
+			if backoff > employeeEventFlushBackoffMax {
+				backoff = employeeEventFlushBackoffMax
+			}
 		}
 		err := w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if err := tx.CreateInBatches(batch, employeeEventBatchSize).Error; err != nil {
@@ -83,37 +153,33 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 			}
 			return nil
 		})
-		if err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("employee event batch write failed: %w", err), employeeEventBatchSentryFields("batch_write", batch))
-			logging.FromContext(ctx).ErrorContext(ctx, "employee event batch write failed", "error", err, "count", len(batch))
-		} else if w.afterWrite != nil {
-			w.afterWrite(ctx, append([]model.EmployeeSessionEvent(nil), batch...))
+		if err == nil {
+			return true
 		}
-		batch = batch[:0]
+		// A unique-violation means a prior attempt (or retry) already durably
+		// persisted these rows; treat it as success rather than a loss.
+		if isDuplicateKeyError(err) {
+			return true
+		}
+		lastErr = err
+		logging.FromContext(ctx).WarnContext(ctx, "employee event batch write retrying",
+			"error", err, "attempt", attempt+1, "count", len(batch))
 	}
+	logging.CaptureWithFields(ctx, fmt.Errorf("employee event batch write failed: %w", lastErr), employeeEventBatchSentryFields("batch_write", batch))
+	logging.FromContext(ctx).ErrorContext(ctx, "employee event batch write failed after retries", "error", lastErr, "count", len(batch))
+	return false
+}
 
-	for {
-		select {
-		case entry, ok := <-w.entries:
-			if !ok {
-				flush()
-				return
-			}
-			batch = append(batch, entry)
-			if len(batch) >= employeeEventBatchSize {
-				flush()
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(w.flushInterval)
-			}
-		case <-timer.C:
-			flush()
-			timer.Reset(w.flushInterval)
-		}
+// sleepCtx sleeps for d unless ctx is cancelled first. It returns true if the
+// full sleep elapsed.
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }
 

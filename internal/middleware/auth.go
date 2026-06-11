@@ -169,6 +169,23 @@ func RequireOrgAdmin(db *gorm.DB) func(http.Handler) http.Handler {
 	}
 }
 
+// RequireOrgAdminOrAPIKey enforces org-admin for JWT-authenticated callers
+// while letting API-key-authenticated callers through. It is for routes that an
+// API key may use subject to a handler-level scope ceiling (e.g. minting
+// narrower API keys), but which non-admin human users must not reach.
+func RequireOrgAdminOrAPIKey(db *gorm.DB) func(http.Handler) http.Handler {
+	orgAdmin := RequireOrgAdmin(db)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := APIKeyClaimsFromContext(r.Context()); ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+			orgAdmin(next).ServeHTTP(w, r)
+		})
+	}
+}
+
 // RequirePlatformAdmin returns middleware that checks if the authenticated user's
 // email is in the platform admin allowlist.
 func RequirePlatformAdmin(adminEmails []string) func(http.Handler) http.Handler {

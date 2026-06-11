@@ -185,7 +185,7 @@ func seedDashboardSchedule(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 		ID:           uuid.New(),
 		OrgID:        orgID,
 		EmployeeID:   employee.ID,
-		SandboxID:    sandbox.ID,
+		SandboxID:    &sandbox.ID,
 		RuntimeJobID: "cron-test",
 		Status:       "cancelled",
 	}

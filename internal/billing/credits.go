@@ -90,14 +90,27 @@ func GrantWithTx(tx *gorm.DB, orgID uuid.UUID, amount int64, reason, refType, re
 	} else if alreadyRecorded {
 		return ErrAlreadyRecorded
 	}
-	return tx.Create(&model.CreditLedgerEntry{
+	// The existence check above narrows the race, but two concurrent grants
+	// with the same non-empty reference can both pass it. Rely on the partial
+	// unique index on (org_id, reason, ref_type, ref_id) WHERE ref_id <> '' for
+	// the final arbitration: ON CONFLICT DO NOTHING lets the loser's insert no-op
+	// without poisoning the surrounding transaction (a bare 23505 would abort it,
+	// which matters because callers run GrantWithTx inside a larger renewal tx).
+	res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.CreditLedgerEntry{
 		OrgID:     orgID,
 		Amount:    amount,
 		Reason:    reason,
 		RefType:   refType,
 		RefID:     refID,
 		ExpiresAt: expiresAt,
-	}).Error
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrAlreadyRecorded
+	}
+	return nil
 }
 
 // Spend deducts credits. amount must be positive.
@@ -144,13 +157,22 @@ func SpendWithTx(tx *gorm.DB, orgID uuid.UUID, amount int64, reason, refType, re
 		return ErrAlreadyRecorded
 	}
 
-	return tx.Create(&model.CreditLedgerEntry{
+	// ON CONFLICT DO NOTHING arbitrates concurrent spends with the same
+	// reference via the partial unique index without aborting the transaction.
+	res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.CreditLedgerEntry{
 		OrgID:   orgID,
 		Amount:  -amount,
 		Reason:  reason,
 		RefType: refType,
 		RefID:   refID,
-	}).Error
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrAlreadyRecorded
+	}
+	return nil
 }
 
 func IsUniqueViolation(err error) bool { return isUniqueViolation(err) }

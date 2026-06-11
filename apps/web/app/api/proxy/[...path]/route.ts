@@ -7,6 +7,7 @@ import {
   clearSessionCookie,
   type SessionData,
 } from "@/lib/auth/session"
+import { refreshCoordinator, type RefreshOutcome } from "@/lib/auth/refresh"
 import { log } from "@/lib/logger"
 
 const HIVY_API_URL = process.env.HIVY_API_URL ?? process.env.NEXT_PUBLIC_HIVY_API_URL as string
@@ -23,12 +24,6 @@ const AUTH_PATHS = new Set([
 ])
 
 const LOGOUT_PATH = "auth/logout"
-
-// ---------------------------------------------------------------------------
-// Concurrent refresh lock
-// ---------------------------------------------------------------------------
-
-let refreshPromise: Promise<SessionData | null> | null = null
 
 function captureRefreshFailure(
   stage: string,
@@ -48,7 +43,7 @@ function captureRefreshFailure(
   })
 }
 
-async function refreshTokens(refreshToken: string): Promise<SessionData | null> {
+async function refreshTokens(refreshToken: string): Promise<RefreshOutcome> {
   let res: Response
   try {
     res = await fetch(`${HIVY_API_URL}/auth/refresh`, {
@@ -63,7 +58,8 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       scope.setExtra("reason", "auth_refresh_fetch_failed")
       Sentry.captureException(err)
     })
-    return null
+    // Transient (network) — do not force-logout.
+    return { session: null, definitivelyRejected: false }
   }
 
   if (!res.ok) {
@@ -71,7 +67,10 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       status: res.status,
       statusText: res.statusText,
     })
-    return null
+    // 401 means the refresh token is genuinely dead — the backend serves a
+    // grace pair for concurrent rotations, so a 401 is authoritative. Other
+    // statuses (5xx, etc.) are transient and must not force-logout.
+    return { session: null, definitivelyRejected: res.status === 401 }
   }
 
   const data = await res.json()
@@ -81,22 +80,23 @@ async function refreshTokens(refreshToken: string): Promise<SessionData | null> 
       hasAccessToken: Boolean(data.access_token),
       hasRefreshToken: Boolean(data.refresh_token),
     })
-    return null
+    return { session: null, definitivelyRejected: false }
   }
 
   return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: Date.now() + (data.expires_in ?? 900) * 1000,
+    session: {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + (data.expires_in ?? 900) * 1000,
+    },
+    definitivelyRejected: false,
   }
 }
 
-async function safeRefresh(refreshToken: string): Promise<SessionData | null> {
-  if (refreshPromise) return refreshPromise
-  refreshPromise = refreshTokens(refreshToken).finally(() => {
-    refreshPromise = null
-  })
-  return refreshPromise
+// Dedupes concurrent refreshes by token hash so user B can never receive a
+// session minted from user A's refresh token (see refreshCoordinator docs).
+async function safeRefresh(refreshToken: string): Promise<RefreshOutcome> {
+  return refreshCoordinator.refresh(refreshToken, refreshTokens)
 }
 
 // ---------------------------------------------------------------------------
@@ -199,8 +199,8 @@ async function handler(
   // -----------------------------------------------------------------------
   if (session && !AUTH_PATHS.has(apiPath) && session.expires_at - Date.now() < 60_000) {
     const refreshed = await safeRefresh(session.refresh_token)
-    if (refreshed) {
-      session = refreshed
+    if (refreshed.session) {
+      session = refreshed.session
     } else {
       captureRefreshFailure("proactive", {
         path: apiPath,
@@ -226,18 +226,20 @@ async function handler(
   // Auto-refresh on 401 (retry once)
   // -----------------------------------------------------------------------
   let refreshedSession: SessionData | null = null
+  let refreshDefinitivelyRejected = false
 
   if (upstream.status === 401 && session && !AUTH_PATHS.has(apiPath) && !isLogout) {
     reqLog.info("got 401, attempting token refresh")
-    const newSession = await safeRefresh(session.refresh_token)
-    if (newSession) {
+    const outcome = await safeRefresh(session.refresh_token)
+    if (outcome.session) {
       reqLog.info("token refresh succeeded, retrying request")
-      refreshedSession = newSession
-      session = newSession
-      const retryHeaders = buildUpstreamHeaders(req, newSession)
+      refreshedSession = outcome.session
+      session = outcome.session
+      const retryHeaders = buildUpstreamHeaders(req, outcome.session)
       upstream = await forward(url, req.method, retryHeaders, body)
       reqLog.info({ status: upstream.status }, "retry response received")
     } else {
+      refreshDefinitivelyRejected = outcome.definitivelyRejected
       reqLog.warn("token refresh failed")
       captureRefreshFailure("retry_after_401", {
         path: apiPath,
@@ -323,8 +325,18 @@ async function handler(
     responseHeaders.append("set-cookie", clearSessionCookie())
   }
 
-  // Clear session on auth failure when refresh also failed
-  if (upstream.status === 401 && session && !refreshedSession && !AUTH_PATHS.has(apiPath)) {
+  // Clear the session only when the refresh token was *definitively* rejected
+  // (backend 401 — dead even after the grace window). A transient refresh
+  // failure or a lost concurrent-rotation race must not force-logout the user;
+  // the backend grace window + shared single-flight let the next request
+  // recover instead.
+  if (
+    upstream.status === 401 &&
+    session &&
+    !refreshedSession &&
+    !AUTH_PATHS.has(apiPath) &&
+    refreshDefinitivelyRejected
+  ) {
     responseHeaders.append("set-cookie", clearSessionCookie())
   }
 

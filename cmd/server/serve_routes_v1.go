@@ -90,9 +90,15 @@ func setupV1Routes(
 				r.Get("/database-integrations", databaseIntegrationHandler.List)
 			}
 
-			r.Post("/api-keys", apiKeyHandler.Create)
 			r.Get("/api-keys", apiKeyHandler.List)
-			r.Delete("/api-keys/{id}", apiKeyHandler.Revoke)
+			// API-key management is escalation-sensitive: JWT callers must be
+			// org admins, and API-key callers may only mint keys no broader
+			// than their own scopes (enforced in APIKeyHandler.Create).
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireOrgAdminOrAPIKey(database))
+				r.Post("/api-keys", apiKeyHandler.Create)
+				r.Delete("/api-keys/{id}", apiKeyHandler.Revoke)
+			})
 
 			mountBillingRoutes(r, billingHandler, subscriptionHandler)
 			if slackChannelHandler != nil {

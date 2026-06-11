@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -36,16 +38,17 @@ func (h *EmployeeOutboundWebhookHandler) recordRuntimeModelUsageGeneration(ctx c
 
 	sessionID := stringValue(payload, "session_id")
 	source := employeeEventSource(payload)
+	sequence := intValue(payload, "sequence")
 	tags := pq.StringArray{"employee-runtime", "source:" + source, "sandbox:" + sb.ID.String()}
 	if sessionID != "" {
 		tags = append(tags, "session:"+sessionID)
 	}
-	if sequence := intValue(payload, "sequence"); sequence > 0 {
+	if sequence > 0 {
 		tags = append(tags, fmt.Sprintf("sequence:%d", sequence))
 	}
 
 	gen := model.Generation{
-		ID:              "gen_" + ulid.Make().String(),
+		ID:              runtimeGenerationID(sb.ID, sessionID, sequence),
 		OrgID:           *sb.OrgID,
 		CredentialID:    tokenRecord.CredentialID,
 		TokenJTI:        tokenRecord.JTI,
@@ -64,7 +67,30 @@ func (h *EmployeeOutboundWebhookHandler) recordRuntimeModelUsageGeneration(ctx c
 		CreatedAt:       event.At.UTC(),
 		IsSystem:        true,
 	}
-	return h.db.WithContext(ctx).Create(&gen).Error
+	if err := h.db.WithContext(ctx).Create(&gen).Error; err != nil {
+		// The generation ID is derived deterministically from
+		// (sandbox_id, session_id, sequence) so a runtime outbox retry of the
+		// same usage event collides on the primary key. Treat that collision as
+		// already-recorded so the retry acks 200 instead of re-failing forever.
+		if isDuplicateKeyError(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// runtimeGenerationID derives a stable generation primary key from the runtime
+// usage event's identity tuple so retries of the same billable event are
+// idempotent. When the tuple is incomplete (no session/sequence) we fall back to
+// a random ULID — those events cannot be safely deduped, and dropping them would
+// be worse than a rare duplicate.
+func runtimeGenerationID(sandboxID uuid.UUID, sessionID string, sequence int) string {
+	if sessionID == "" || sequence <= 0 {
+		return "gen_" + ulid.Make().String()
+	}
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%d", sandboxID.String(), sessionID, sequence)))
+	return "gen_rt_" + hex.EncodeToString(sum[:16])
 }
 
 func (h *EmployeeOutboundWebhookHandler) runtimeProxyToken(ctx context.Context, orgID, employeeID, sandboxID uuid.UUID) (model.Token, error) {

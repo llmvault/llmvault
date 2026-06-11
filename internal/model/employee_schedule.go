@@ -7,13 +7,13 @@ import (
 )
 
 type EmployeeSchedule struct {
-	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID      uuid.UUID `gorm:"type:uuid;not null;index"`
-	Org        Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	EmployeeID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_employee_schedule_employee_runtime"`
-	Employee   Employee  `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE"`
-	SandboxID  uuid.UUID `gorm:"type:uuid;not null;index"`
-	Sandbox    Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:CASCADE"`
+	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID      uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Org        Org        `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	EmployeeID uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_employee_schedule_employee_runtime"`
+	Employee   Employee   `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE"`
+	SandboxID  *uuid.UUID `gorm:"type:uuid;index"`
+	Sandbox    *Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:SET NULL"`
 
 	RuntimeJobID    string      `gorm:"not null;size:255;uniqueIndex:idx_employee_schedule_employee_runtime"`
 	IsSystem        bool        `gorm:"not null;default:false;index"`

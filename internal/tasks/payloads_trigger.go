@@ -24,18 +24,22 @@ type EmployeeTriggerDispatchPayload struct {
 	PayloadJSON  []byte     `json:"payload"`
 }
 
-func NewEmployeeTriggerDispatchTask(payload EmployeeTriggerDispatchPayload) (*asynq.Task, error) {
+// NewEmployeeTriggerDispatchTask returns the task plus its enqueue options.
+// Options are returned separately (rather than baked into the task) so they
+// survive the enqueue client's Sentry trace-payload rewrite — a task rebuilt via
+// asynq.NewTask drops baked options, which would silently demote this
+// critical-queue task to the default queue with default retry/timeout (P0-11).
+func NewEmployeeTriggerDispatchTask(payload EmployeeTriggerDispatchPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal employee trigger dispatch payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal employee trigger dispatch payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmployeeTriggerDispatch,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(3),
-		asynq.Timeout(2*time.Minute),
-	), nil
+		asynq.Timeout(2 * time.Minute),
+	}
+	return asynq.NewTask(TypeEmployeeTriggerDispatch, encoded), opts, nil
 }
 
 // ConversationNamePayload is the payload for TypeConversationName tasks.

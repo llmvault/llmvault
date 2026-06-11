@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -40,9 +40,15 @@ pub struct HttpStreamBroker {
     counter: AtomicU64,
 }
 
+/// Maximum number of events retained for replay to late/reconnecting
+/// subscribers. The buffer is a ring: once full, the oldest event is evicted so
+/// the newest events — crucially the terminal `final`/`done` — are always
+/// replayable.
+const HISTORY_CAPACITY: usize = 512;
+
 struct StreamState {
     sender: broadcast::Sender<HttpStreamEvent>,
-    history: Vec<HttpStreamEvent>,
+    history: VecDeque<HttpStreamEvent>,
     context: Option<StreamObservabilityContext>,
 }
 
@@ -75,7 +81,7 @@ impl HttpStreamBroker {
             id.clone(),
             StreamState {
                 sender,
-                history: Vec::new(),
+                history: VecDeque::with_capacity(HISTORY_CAPACITY),
                 context: None,
             },
         );
@@ -129,8 +135,12 @@ impl HttpStreamBroker {
         let mut context = None;
         let mut streams = self.streams.lock().await;
         if let Some(state) = streams.get_mut(stream_id) {
-            state.history.push(event.clone());
-            state.history.truncate(512);
+            // Ring buffer: evict the oldest event when full so terminal events
+            // (final/done) at the tail are always retained for replay.
+            if state.history.len() == HISTORY_CAPACITY {
+                state.history.pop_front();
+            }
+            state.history.push_back(event.clone());
             context = state.context.clone();
             let _ = state.sender.send(event.clone());
         }
@@ -177,7 +187,8 @@ impl HttpStreamBroker {
     ) -> Option<(Vec<HttpStreamEvent>, broadcast::Receiver<HttpStreamEvent>)> {
         let streams = self.streams.lock().await;
         let state = streams.get(stream_id)?;
-        Some((state.history.clone(), state.sender.subscribe()))
+        let history = state.history.iter().cloned().collect();
+        Some((history, state.sender.subscribe()))
     }
 
     fn record_stream_event(
@@ -600,6 +611,63 @@ mod tests {
         let live = receiver.recv().await.expect("live event");
         assert_eq!(live.event, "final");
         assert_eq!(live.payload["text"], "done");
+    }
+
+    #[tokio::test]
+    async fn late_subscriber_after_history_overflow_still_sees_terminal_events() {
+        let broker = HttpStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+
+        // A token-heavy turn: publish far more than the history capacity, then
+        // the terminal events. A FIRST-512 buffer would drop these terminals.
+        let total_tokens = HISTORY_CAPACITY + 200;
+        for i in 0..total_tokens {
+            broker
+                .publish(&stream_id, "token", json!({"text": format!("tok-{i}")}))
+                .await;
+        }
+        broker
+            .publish(&stream_id, "final", json!({"text": "the answer"}))
+            .await;
+        broker.publish(&stream_id, "done", json!({})).await;
+
+        // A subscriber arriving only now (reconnect / Slack asynq task / Go
+        // proxy retry) must replay the NEWEST events, including final + done.
+        let (history, _receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+
+        assert_eq!(
+            history.len(),
+            HISTORY_CAPACITY,
+            "history is bounded to the ring capacity"
+        );
+
+        let final_event = history
+            .iter()
+            .find(|e| e.event == "final")
+            .expect("terminal final event must be replayable");
+        assert_eq!(final_event.payload["text"], "the answer");
+        assert!(
+            history.iter().any(|e| e.event == "done"),
+            "terminal done event must be replayable so the client stops waiting"
+        );
+
+        // The two terminal events are the very last in the replay, in order.
+        assert_eq!(history[history.len() - 2].event, "final");
+        assert_eq!(history[history.len() - 1].event, "done");
+
+        // The oldest tokens were evicted; the earliest retained token is recent.
+        let first_token_text = history
+            .iter()
+            .find(|e| e.event == "token")
+            .expect("some tokens retained")
+            .payload["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_ne!(
+            first_token_text, "tok-0",
+            "the oldest tokens must have been evicted by the ring buffer"
+        );
     }
 
     #[tokio::test]
