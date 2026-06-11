@@ -2,6 +2,7 @@ package sentry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -167,14 +168,14 @@ func Close() {
 }
 
 func CaptureException(ctx context.Context, err error) {
-	if !Enabled() || err == nil {
+	if !Enabled() || err == nil || errors.Is(err, context.Canceled) {
 		return
 	}
 	hubFromContext(ctx).CaptureException(err)
 }
 
 func CaptureExceptionWithFields(ctx context.Context, err error, fields map[string]any) {
-	if !Enabled() || err == nil {
+	if !Enabled() || err == nil || errors.Is(err, context.Canceled) {
 		return
 	}
 	hub := hubFromContext(ctx)
