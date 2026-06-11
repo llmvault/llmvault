@@ -424,7 +424,10 @@ mod tests {
 
     #[test]
     fn stream_filter_handles_single_char_deltas() {
-        let chars: Vec<&str> = "a<think>x</think>b".split("").filter(|s| !s.is_empty()).collect();
+        let chars: Vec<&str> = "a<think>x</think>b"
+            .split("")
+            .filter(|s| !s.is_empty())
+            .collect();
         let (visible, thinking, had) = run_filter(&chars);
         assert_eq!(visible, "ab");
         assert_eq!(thinking, "x");

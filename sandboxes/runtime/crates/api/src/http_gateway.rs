@@ -131,8 +131,12 @@ impl HttpStreamBroker {
         // Opportunistically reclaim finished streams whose grace window has
         // elapsed (P2-1). Done lazily here (and in publish) to avoid a background
         // sweeper task; create_stream runs once per turn so the maps stay bounded.
-        evict_expired_streams(&mut streams, &self.session_streams, &self.active_session_streams)
-            .await;
+        evict_expired_streams(
+            &mut streams,
+            &self.session_streams,
+            &self.active_session_streams,
+        )
+        .await;
         streams.insert(
             id.clone(),
             StreamState {
@@ -215,8 +219,12 @@ impl HttpStreamBroker {
             let _ = state.sender.send(seq_event);
         }
         // Reclaim any streams whose grace window has now elapsed.
-        evict_expired_streams(&mut streams, &self.session_streams, &self.active_session_streams)
-            .await;
+        evict_expired_streams(
+            &mut streams,
+            &self.session_streams,
+            &self.active_session_streams,
+        )
+        .await;
         drop(streams);
         if let Some(context) = context.as_ref() {
             self.record_stream_event(context, &event.event, &event.payload);
@@ -428,8 +436,7 @@ async fn evict_expired_streams(
     for id in &expired {
         streams.remove(id);
     }
-    let expired_set: std::collections::HashSet<&str> =
-        expired.iter().map(String::as_str).collect();
+    let expired_set: std::collections::HashSet<&str> = expired.iter().map(String::as_str).collect();
     // Drop session mappings that still point at an evicted stream. A session
     // re-registered onto a fresh stream keeps its newer mapping.
     let mut session = session_streams.lock().await;
@@ -928,7 +935,9 @@ mod tests {
         broker
             .publish(&stream_id, "token", json!({"text": "fox"}))
             .await;
-        broker.publish(&stream_id, "final", json!({"text": "The quick brown fox"})).await;
+        broker
+            .publish(&stream_id, "final", json!({"text": "The quick brown fox"}))
+            .await;
         broker.publish(&stream_id, "done", json!({})).await;
 
         assert_eq!(second.recv().await.unwrap().payload["text"], "fox");
@@ -1055,9 +1064,7 @@ mod tests {
     async fn finished_stream_state_is_evicted_after_grace_on_next_activity() {
         let broker = HttpStreamBroker::new();
         let stream_id = broker.create_stream().await;
-        broker
-            .register_session("http-session-1", &stream_id)
-            .await;
+        broker.register_session("http-session-1", &stream_id).await;
         broker
             .activate_session_stream("http-session-1", &stream_id)
             .await;
@@ -1081,7 +1088,10 @@ mod tests {
         assert_eq!(broker.stream_count().await, 1);
         assert!(broker.subscribe(&stream_id).await.is_none());
         assert_eq!(broker.session_stream_count().await, 0);
-        assert!(broker.stream_id_for_session("http-session-1").await.is_none());
+        assert!(broker
+            .stream_id_for_session("http-session-1")
+            .await
+            .is_none());
     }
 
     #[tokio::test]
@@ -1101,10 +1111,7 @@ mod tests {
         // The old finished stream is evicted, but the session mapping now points
         // at the newer stream and must be preserved.
         assert!(broker.subscribe(&old).await.is_none());
-        assert_eq!(
-            broker.stream_id_for_session("session-x").await,
-            Some(new)
-        );
+        assert_eq!(broker.stream_id_for_session("session-x").await, Some(new));
     }
 
     // ---- P2-2: Lagged resync replays the skipped range from history ----
@@ -1147,8 +1154,7 @@ mod tests {
                 }
                 StreamFrame::Event(event) => match event.event.as_str() {
                     "token" => {
-                        replayed_tokens
-                            .push(event.payload["text"].as_str().unwrap().to_string());
+                        replayed_tokens.push(event.payload["text"].as_str().unwrap().to_string());
                     }
                     "final" => saw_final = true,
                     "done" => saw_done = true,
@@ -1157,9 +1163,18 @@ mod tests {
             }
         }
 
-        assert!(saw_resync, "a Lagged gap must emit a resync frame, not be skipped silently");
-        assert!(saw_final, "the terminal final must still be replayed after resync");
-        assert!(saw_done, "the terminal done must still be replayed so the client stops");
+        assert!(
+            saw_resync,
+            "a Lagged gap must emit a resync frame, not be skipped silently"
+        );
+        assert!(
+            saw_final,
+            "the terminal final must still be replayed after resync"
+        );
+        assert!(
+            saw_done,
+            "the terminal done must still be replayed so the client stops"
+        );
         // The resync replays the retained history tail (the ring keeps the newest
         // HISTORY_CAPACITY events) including the most recent tokens.
         assert!(
@@ -1170,7 +1185,11 @@ mod tests {
         // already-delivered prefix — nothing had been delivered before the lag).
         let mut sorted = replayed_tokens.clone();
         sorted.dedup();
-        assert_eq!(sorted.len(), replayed_tokens.len(), "no duplicate tokens after resync");
+        assert_eq!(
+            sorted.len(),
+            replayed_tokens.len(),
+            "no duplicate tokens after resync"
+        );
     }
 
     #[tokio::test]
@@ -1193,6 +1212,9 @@ mod tests {
                 resyncs += 1;
             }
         }
-        assert_eq!(resyncs, 0, "a healthy stream must never emit a resync frame");
+        assert_eq!(
+            resyncs, 0,
+            "a healthy stream must never emit a resync frame"
+        );
     }
 }

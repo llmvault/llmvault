@@ -859,15 +859,13 @@ mod tests {
     fn parse_sse_data_concatenates_multiple_data_fields() {
         // Per spec, multiple data: lines are joined with a newline.
         let block = "data: line one\ndata: line two";
-        assert_eq!(
-            parse_sse_data(block).as_deref(),
-            Some("line one\nline two")
-        );
+        assert_eq!(parse_sse_data(block).as_deref(), Some("line one\nline two"));
     }
 
     #[test]
     fn parse_sse_data_ignores_comments_and_other_fields() {
-        let block = ": this is a keep-alive comment\nevent: message\nid: 42\nretry: 1000\ndata: {\"x\":1}";
+        let block =
+            ": this is a keep-alive comment\nevent: message\nid: 42\nretry: 1000\ndata: {\"x\":1}";
         assert_eq!(parse_sse_data(block).as_deref(), Some("{\"x\":1}"));
     }
 

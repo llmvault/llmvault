@@ -1174,7 +1174,11 @@ async fn complete_scheduled_run(
     use agent::rig_tool_registry::{emit_schedule_event, ScheduleRunPayload};
 
     let completed_at = Utc::now();
-    let status = if error.is_some() { "error" } else { "completed" };
+    let status = if error.is_some() {
+        "error"
+    } else {
+        "completed"
+    };
     if let Err(e) = cron_repo
         .record_run(&run.job_id, completed_at, status, error)
         .await

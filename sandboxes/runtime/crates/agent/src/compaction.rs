@@ -561,8 +561,7 @@ mod tests {
         ];
 
         // end = 6 - 2 - 1 = 3 -> the tool_result message.
-        let range =
-            find_eviction_range(&messages, 2).expect("eviction range should be produced");
+        let range = find_eviction_range(&messages, 2).expect("eviction range should be produced");
 
         // The retained tail (range.end onward) must not start with a Tool message
         // that has no preceding assistant tool_calls message.
@@ -601,8 +600,7 @@ mod tests {
         ];
 
         // retention=3 -> end = 9-3-1 = 5, which is a Tool message mid-run.
-        let range =
-            find_eviction_range(&messages, 3).expect("eviction range should be produced");
+        let range = find_eviction_range(&messages, 3).expect("eviction range should be produced");
 
         assert_ne!(
             messages[range.end].role,
