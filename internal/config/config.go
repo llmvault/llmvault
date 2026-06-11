@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -82,9 +83,9 @@ type Config struct {
 	TrustedProxyCIDRs []string `env:"HIVY_TRUSTED_PROXY_CIDRS" envSeparator:"," envDefault:"127.0.0.0/8,::1/128"`
 
 	// Nango (OAuth integration proxy)
-	NangoEndpoint       string `env:"HIVY_NANGO_ENDPOINT"`        // e.g. http://localhost:3004
-	NangoSecretKey      string `env:"HIVY_NANGO_SECRET_KEY"`      // Nango secret key for API auth
-	NangoWebhooksSecret string `env:"HIVY_NANGO_WEBHOOKS_SECRET"` // Nango secret key for webhook signature verification
+	NangoEndpoint       string `env:"HIVY_NANGO_ENDPOINT"`                 // e.g. http://localhost:3004
+	NangoSecretKey      string `env:"HIVY_NANGO_SECRET_KEY"`               // Nango secret key for API auth
+	NangoWebhooksSecret string `env:"HIVY_NANGO_WEBHOOKS_SECRET,required"` // Nango secret key for webhook signature verification
 
 	// GitHub API token used by the skill hydrator. Optional — raises the
 	// anonymous rate limit from 60 req/hr to 5000 req/hr per token.
@@ -235,10 +236,22 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("either HIVY_REDIS_URL or HIVY_REDIS_ADDR must be set")
 	}
 
+	// Fail closed at startup: an empty Nango webhook secret would let attackers
+	// forge webhook signatures (HMAC computed with an empty key over a chosen
+	// body). The `,required` env tag only rejects a fully-unset var; an
+	// explicitly-empty value (HIVY_NANGO_WEBHOOKS_SECRET=) still slips through,
+	// so we reject empty here too. verifyNangoSignature also fails closed.
+	if strings.TrimSpace(cfg.NangoWebhooksSecret) == "" {
+		return nil, fmt.Errorf("HIVY_NANGO_WEBHOOKS_SECRET must be set and non-empty")
+	}
+
 	cfg.CORSOrigins = includeFrontendCORSOrigin(cfg.CORSOrigins, cfg.FrontendURL)
 
 	if cfg.IsProduction() && cfg.DBSSLMode == "disable" {
-		slog.Warn("HIVY_DB_SSLMODE is 'disable' in production — database connections are unencrypted; set HIVY_DB_SSLMODE=require or HIVY_DB_SSLMODE=verify-full")
+		// config is loaded before logging is wired, and it cannot import
+		// internal/logging without an import cycle (logging -> observability/sentry
+		// -> config). The global default logger is the only option here.
+		slog.Default().Warn("HIVY_DB_SSLMODE is 'disable' in production — database connections are unencrypted; set HIVY_DB_SSLMODE=require or HIVY_DB_SSLMODE=verify-full") //nolint:sloglint // startup warning before logging wired; import cycle prevents logging.FromContext
 	}
 
 	return cfg, nil

@@ -27,6 +27,19 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("HIVY_CORS_ORIGINS", "http://localhost:3000")
 	t.Setenv("HIVY_AUTH_RSA_PRIVATE_KEY", "dGVzdC1wZW0=")
 	t.Setenv("HIVY_FRONTEND_URL", "http://localhost:3000")
+	t.Setenv("HIVY_NANGO_WEBHOOKS_SECRET", "test-nango-webhook-secret")
+}
+
+// The Nango webhook signing secret must be required so the server fails to boot
+// rather than running with an empty secret, which would let attackers forge
+// webhook signatures (HMAC computed with an empty key). See verifyNangoSignature.
+func TestLoad_RequiresNangoWebhooksSecret(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_NANGO_WEBHOOKS_SECRET", "")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error when HIVY_NANGO_WEBHOOKS_SECRET is unset")
+	}
 }
 
 // TestLoad_NoRedisConfig tests error handling when neither HIVY_REDIS_URL nor HIVY_REDIS_ADDR is set.

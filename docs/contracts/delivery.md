@@ -46,7 +46,13 @@ If `gatewayService.ReceiveWebhookFromConnection`/`Receive` returns an error
 
 - Inbound events are keyed by `(route_id, dedupe_key)` (or
   `(route_id IS NULL, org_id, dedupe_key)` for the connection path). The insert
-  uses `ON CONFLICT DO NOTHING` (`store.go insertInboundEvent`).
+  uses `ON CONFLICT DO NOTHING` (`store.go insertInboundEvent`). Both keys are
+  enforced by partial unique indexes: `idx_employee_gateway_events_route_dedupe`
+  for the route path and `idx_employee_gateway_events_null_route_dedupe`
+  (migration 000034) for the NULL-route connection path — without the latter,
+  Postgres treats the NULL route_id as distinct and the connection-path
+  `ON CONFLICT` never fires, so a webhook redelivery double-inserts and
+  re-drives the agent.
 - A conflicting row with status `received`/`delivered` is a **duplicate**:
   return it, do not re-`Send`.
 - A conflicting row with status **`failed`** means the prior `Send` never
@@ -118,7 +124,11 @@ Tested by: `internal/handler/employee_event_writer_retry_test.go`,
 
 When an `agent.message.sent` event drives a gateway reply,
 `gateway.Service.HandleRuntimeFinal` sends the provider reply keyed by an
-outbound dedupe key on `(route_id, dedupe_key)`:
+outbound dedupe key on `(route_id, dedupe_key)`, enforced by
+`idx_employee_gateway_deliveries_route_dedupe`. The NULL-route connection path
+deduplicates on `dedupe_key` alone (matching `loadDeliveryByDedupe` and the
+`gateway_stream_delivery` pre-send read), enforced by
+`idx_employee_gateway_deliveries_null_route_dedupe` (migration 000034):
 
 - A `sent` (or in-flight) delivery row short-circuits — no duplicate reply.
 - A **`failed`** delivery row is **retried in place** (`upsertDelivery` updates

@@ -78,8 +78,17 @@ func (h *EmployeeSandboxRetireHandler) retire(ctx context.Context, payload Emplo
 		"sandbox_id", sb.ID,
 		"external_id", sb.ExternalID,
 	)
-	if err := h.orchestrator.DeleteSandbox(ctx, &sb); err != nil {
-		return fmt.Errorf("delete retired employee sandbox: %w", err)
+	// Release the provider resource (the retire's billing goal) but KEEP the
+	// control-plane sandbox row. A hard DeleteSandbox here would cascade-delete
+	// the org's pre-upgrade conversation history — employee_session_events,
+	// employee_sessions, specialist_tasks, employee_schedule_runs all FK the
+	// sandbox ON DELETE CASCADE — which the upgrade is supposed to carry forward,
+	// not destroy. DeleteSandboxResource marks the row 'archived' (excluded from
+	// the runtime selector's active statuses) so it stops serving traffic while
+	// the history it owns survives. Same blast-radius class as the
+	// employee_schedules->sandboxes SET NULL fix.
+	if err := h.orchestrator.DeleteSandboxResource(ctx, &sb); err != nil {
+		return fmt.Errorf("retire employee sandbox resource: %w", err)
 	}
 	return nil
 }

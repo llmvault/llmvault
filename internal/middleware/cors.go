@@ -21,7 +21,10 @@ func CORS(allowedOrigins []string, isProduction bool) func(http.Handler) http.Ha
 	allowAll := len(allowedOrigins) == 0 && !isProduction
 
 	if len(allowedOrigins) == 0 && isProduction {
-		slog.Warn("HIVY_CORS_ORIGINS is unset in production — CORS is disabled (fail-closed); set HIVY_CORS_ORIGINS to allow browser clients")
+		// One-time startup warning emitted while the router is being constructed;
+		// there is no request context in scope and threading one through the
+		// middleware constructor would only serve to satisfy the linter.
+		slog.Default().Warn("HIVY_CORS_ORIGINS is unset in production — CORS is disabled (fail-closed); set HIVY_CORS_ORIGINS to allow browser clients") //nolint:sloglint // startup-time warning, no request context available
 	}
 
 	allowed := make(map[string]bool, len(allowedOrigins))

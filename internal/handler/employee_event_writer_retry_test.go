@@ -53,7 +53,7 @@ func TestEmployeeEventWriterRetriesTransientFlushFailure(t *testing.T) {
 			}
 		}
 		if atomic.CompareAndSwapInt32(&fail, 1, 0) {
-			tx.AddError(fmt.Errorf("simulated transient db error"))
+			_ = tx.AddError(fmt.Errorf("simulated transient db error"))
 		}
 	})
 	if err != nil {

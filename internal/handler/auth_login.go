@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/usehivy/hivy/internal/auth"
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -86,7 +88,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	logging.FromContext(r.Context()).InfoContext(r.Context(), "user logged in", "user_id", user.ID, "email", user.Email)
 
 	if user.EmailConfirmedAt == nil {
-		go h.resendConfirmationInBackground(user)
+		goroutine.Go(r.Context(), func(ctx context.Context) { h.resendConfirmationInBackground(ctx, user) })
 	}
 
 	h.issueTokensAndRespond(r.Context(), w, http.StatusOK, user, orgID, role)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +43,7 @@ func TestReadHeaderTimeoutNotReadTimeout(t *testing.T) {
 
 	srv := httptest.NewUnstartedServer(handler)
 	srv.Config.ReadHeaderTimeout = 10 * time.Second
-	srv.Config.ReadTimeout = 0        // must NOT be set — the regression condition
+	srv.Config.ReadTimeout = 0 // must NOT be set — the regression condition
 	srv.Config.WriteTimeout = 0
 	srv.Config.IdleTimeout = 120 * time.Second
 	srv.Start()
@@ -65,7 +66,7 @@ func TestReadHeaderTimeoutNotReadTimeout(t *testing.T) {
 		pw.Close()
 	}()
 
-	req, err := http.NewRequest(http.MethodPost, srv.URL+"/echo", pr)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/echo", pr)
 	if err != nil {
 		t.Fatalf("build request: %v", err)
 	}

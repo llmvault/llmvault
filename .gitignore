@@ -89,3 +89,7 @@ jira.txt
 caching.txt
 refactor.txt
 spider.txt
+fixes-todo.txt
+
+# Scratch/triage files inside nested packages.
+sandboxes/runtime/db-todos.txt
