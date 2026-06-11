@@ -63,7 +63,6 @@ func (o *Orchestrator) DeleteSandbox(ctx context.Context, sb *model.Sandbox) err
 	return o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error
 }
 
-// isAuthError checks if an error indicates an authentication/authorization failure.
 func isAuthError(err error) bool {
 	if err == nil {
 		return false

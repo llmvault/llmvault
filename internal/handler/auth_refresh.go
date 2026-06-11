@@ -198,7 +198,6 @@ func (h *AuthHandler) refreshGraceUser(userID uuid.UUID) model.User {
 // serveRefreshGraceForExpired handles refresh with an expired-but-recently-issued token.
 // It checks if the token was issued within the grace window and if so, re-issues tokens.
 func (h *AuthHandler) serveRefreshGraceForExpired(ctx context.Context, w http.ResponseWriter, rawToken string) {
-	// Parse without expiration to extract user ID for grace recovery.
 	parser := jwt.NewParser(jwt.WithValidMethods([]string{"HS256"}))
 	var claims auth.RefreshClaims
 	_, _, err := parser.ParseUnverified(rawToken, &claims)
@@ -206,7 +205,6 @@ func (h *AuthHandler) serveRefreshGraceForExpired(ctx context.Context, w http.Re
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid refresh token"})
 		return
 	}
-	// Only allow grace if the token was issued recently (within grace window of its expiry).
 	if claims.IssuedAt == nil {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid refresh token"})
 		return
@@ -221,7 +219,6 @@ func (h *AuthHandler) serveRefreshGraceForExpired(ctx context.Context, w http.Re
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "refresh token expired"})
 		return
 	}
-	// Token is within grace window — look up user and re-issue.
 	var user model.User
 	if err := h.db.WithContext(ctx).Where("id = ?", claims.UserID).First(&user).Error; err != nil {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "user not found"})
