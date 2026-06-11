@@ -18,7 +18,7 @@ func TestEmployeeSandboxEnvVarsUseAPIWebhookBaseURL(t *testing.T) {
 	}
 	agent := &model.Employee{ID: uuid.New()}
 	sb := &model.Sandbox{ID: uuid.New()}
-	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &employeeruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "")
+	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &employeeruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
 
 	if got := env[employeeruntime.EmployeeEnvCloudControlPlaneURL]; got != "http://host.docker.internal:8080" {
 		t.Fatalf("control plane url = %q", got)
@@ -50,7 +50,7 @@ func TestEmployeeSandboxEnvVarsUseAgentSandboxSentryDSN(t *testing.T) {
 	agent := &model.Employee{ID: uuid.New()}
 	sb := &model.Sandbox{ID: uuid.New()}
 
-	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &employeeruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "")
+	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &employeeruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
 
 	if got := env[employeeruntime.EmployeeEnvSentryDSN]; got != cfg.AgentSandboxSentryDSN {
 		t.Fatalf("sentry dsn = %q, want agent sandbox dsn", got)

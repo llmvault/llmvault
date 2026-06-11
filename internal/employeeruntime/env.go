@@ -31,6 +31,9 @@ const (
 	EmployeeEnvBugsinkURL                 = "HIVY_BUGSINK_URL"
 	EmployeeEnvBugsinkDashboardBaseURL    = "HIVY_BUGSINK_DASHBOARD_BASE_URL"
 	EmployeeEnvBugsinkToken               = "HIVY_BUGSINK_TOKEN"
+	EmployeeEnvGlitchTipURL               = "HIVY_GLITCHTIP_URL"
+	EmployeeEnvGlitchTipDashboardBaseURL  = "HIVY_GLITCHTIP_DASHBOARD_BASE_URL"
+	EmployeeEnvGlitchTipToken             = "HIVY_GLITCHTIP_TOKEN"
 	EmployeeEnvLinearURL                  = "HIVY_LINEAR_URL"
 	EmployeeEnvLinearToken                = "HIVY_LINEAR_TOKEN"
 	EmployeeEnvNotionAPIURL               = "HIVY_NOTION_API_URL"
@@ -116,6 +119,9 @@ var employeeEnvCatalog = []EmployeeEnvSpec{
 	{Key: EmployeeEnvBugsinkURL, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvBugsinkDashboardBaseURL, Source: EmployeeEnvSourceControlPlaneInjected, Optional: true},
 	{Key: EmployeeEnvBugsinkToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: EmployeeEnvGlitchTipURL, Source: EmployeeEnvSourceControlPlaneInjected},
+	{Key: EmployeeEnvGlitchTipDashboardBaseURL, Source: EmployeeEnvSourceControlPlaneInjected, Optional: true},
+	{Key: EmployeeEnvGlitchTipToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvLinearURL, Source: EmployeeEnvSourceControlPlaneInjected},
 	{Key: EmployeeEnvLinearToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: EmployeeEnvNotionAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},

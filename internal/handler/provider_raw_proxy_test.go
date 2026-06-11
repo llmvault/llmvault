@@ -85,6 +85,60 @@ func TestSlackProxy_ForwardsSlackWebAPIMethodThroughNango(t *testing.T) {
 	}
 }
 
+func TestGlitchTipProxy_ForwardsAPI0RequestThroughNango(t *testing.T) {
+	var capturedProviderConfigKey string
+	var capturedConnectionID string
+	var capturedPath string
+
+	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedProviderConfigKey = r.Header.Get("Provider-Config-Key")
+		capturedConnectionID = r.Header.Get("Connection-Id")
+		capturedPath = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":1,"slug":"web","name":"Web"}]`))
+	})
+
+	harness := newRawProviderProxyHarness(t, "glitchtip", nangoHandler)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/internal/glitchtip-proxy/"+harness.agentID.String()+"/api/0/projects/?limit=1",
+		nil,
+	)
+	req.Header.Set("Authorization", "Bearer "+harness.runtimeSecret)
+	recorder := httptest.NewRecorder()
+	harness.router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if capturedProviderConfigKey != harness.providerConfigKey {
+		t.Fatalf("provider config key = %q, want %q", capturedProviderConfigKey, harness.providerConfigKey)
+	}
+	if capturedConnectionID != harness.nangoConnectionID {
+		t.Fatalf("connection id = %q, want %q", capturedConnectionID, harness.nangoConnectionID)
+	}
+	if capturedPath != "/proxy/api/0/projects/?limit=1" {
+		t.Fatalf("path = %q, want GlitchTip API path", capturedPath)
+	}
+}
+
+func TestGlitchTipProxy_RejectsNonAPI0Path(t *testing.T) {
+	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("nango should not be called for invalid glitchtip path")
+	})
+	harness := newRawProviderProxyHarness(t, "glitchtip", nangoHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/internal/glitchtip-proxy/"+harness.agentID.String()+"/api/settings/", nil)
+	req.Header.Set("Authorization", "Bearer "+harness.runtimeSecret)
+	recorder := httptest.NewRecorder()
+	harness.router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestSlackProxy_RejectsNonSlackWebAPIPath(t *testing.T) {
 	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("nango should not be called for invalid slack path")
@@ -233,6 +287,8 @@ func newRawProviderProxyHarness(t *testing.T, provider string, nangoHandler http
 	switch provider {
 	case "vercel":
 		router.Handle("/internal/vercel-proxy/{employeeID}/*", http.HandlerFunc(handler.NewVercelProxyHandler(db, encKey, nangoClient).Handle))
+	case "glitchtip":
+		router.Handle("/internal/glitchtip-proxy/{employeeID}/*", http.HandlerFunc(handler.NewGlitchTipProxyHandler(db, encKey, nangoClient).Handle))
 	case "slack":
 		router.Handle("/internal/slack-proxy/{employeeID}/*", http.HandlerFunc(handler.NewSlackProxyHandler(db, encKey, nangoClient).Handle))
 	default:

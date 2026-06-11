@@ -8,6 +8,7 @@ const LOGO_PROVIDER_ALIASES: Record<string, string> = {
 }
 
 const LOCAL_PROVIDER_LOGOS: Record<string, string> = {
+  glitchtip: "/logomarks/glitchtip.svg",
   mongodb: "/logomarks/mongodb.svg",
   mysql: "/logomarks/mysql.svg",
   postgres: "/logomarks/postgres.svg",

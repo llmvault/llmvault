@@ -19,4 +19,5 @@ Provider requirements checked against real Nango `/providers`:
 | `railway` | `railway` | `OAUTH2` | client id, client secret | `openid,offline_access,email,profile,workspace:admin` | none |
 | `slack` | `slack` | `OAUTH2` | client id, client secret | configured in `slack.json` | none |
 | `bugsink` | `bugsink` | `API_KEY` | none | none | `baseUrl` |
+| `glitchtip` | `glitchtip` | `API_KEY` | none | none | `baseUrl` |
 | `vercel` | `vercel` | `API_KEY` | none | none | none |

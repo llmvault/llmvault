@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="GlitchTip">
+  <rect width="64" height="64" rx="14" fill="#101828"/>
+  <path d="M17 18h30v8H26v23h-9V18z" fill="#F04438"/>
+  <path d="M30 30h17v8h-8v11h-9V30z" fill="#FDB022"/>
+  <path d="M26 41h13v8H26z" fill="#12B76A"/>
+</svg>

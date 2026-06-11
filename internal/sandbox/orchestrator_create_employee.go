@@ -53,7 +53,8 @@ func (o *Orchestrator) CreateEmployeeSandbox(ctx context.Context, agent *model.E
 	}
 
 	bugsinkDashboardURL := employeeruntime.BugsinkDashboardBaseURL(ctx, o.db, orgID, *agent)
-	envVars := employeeSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL)
+	glitchTipDashboardURL := employeeruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
+	envVars := employeeSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
 	labels := map[string]string{
 		"org_id":      orgID.String(),
 		"sandbox_id":  sb.ID.String(),
@@ -187,7 +188,8 @@ func (o *Orchestrator) CreateSpecialistRuntimeSandbox(ctx context.Context, agent
 	}
 
 	bugsinkDashboardURL := employeeruntime.BugsinkDashboardBaseURL(ctx, o.db, orgID, *agent)
-	envVars := employeeSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL)
+	glitchTipDashboardURL := employeeruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
+	envVars := employeeSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
 	envVars[employeeruntime.EmployeeEnvRuntimeMode] = "specialist"
 	labels := map[string]string{
 		"org_id":      orgID.String(),

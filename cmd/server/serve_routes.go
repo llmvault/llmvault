@@ -83,6 +83,9 @@ func setupPublicRoutes(
 		bugsinkProxyHandler := handler.NewBugsinkProxyHandler(database, sandboxEncKey, nangoClient)
 		r.Handle("/internal/bugsink-proxy/{employeeID}/*", http.HandlerFunc(bugsinkProxyHandler.Handle))
 
+		glitchTipProxyHandler := handler.NewGlitchTipProxyHandler(database, sandboxEncKey, nangoClient)
+		r.Handle("/internal/glitchtip-proxy/{employeeID}/*", http.HandlerFunc(glitchTipProxyHandler.Handle))
+
 		linearProxyHandler := handler.NewLinearProxyHandler(database, sandboxEncKey, nangoClient)
 		r.Post("/internal/linear-proxy/{employeeID}", linearProxyHandler.Handle)
 

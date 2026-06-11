@@ -17,6 +17,7 @@ type ServiceProxyEnvSpec struct {
 
 var serviceProxyEnvSpecs = []ServiceProxyEnvSpec{
 	{Provider: "bugsink", SkillName: "bugsink", BaseURLEnv: EmployeeEnvBugsinkURL, AuthEnv: EmployeeEnvBugsinkToken, Path: "/internal/bugsink-proxy/%s"},
+	{Provider: "glitchtip", SkillName: "glitchtip", BaseURLEnv: EmployeeEnvGlitchTipURL, AuthEnv: EmployeeEnvGlitchTipToken, Path: "/internal/glitchtip-proxy/%s"},
 	{Provider: "linear", SkillName: "linear", BaseURLEnv: EmployeeEnvLinearURL, AuthEnv: EmployeeEnvLinearToken, Path: "/internal/linear-proxy/%s"},
 	{Provider: "notion", SkillName: "notion", BaseURLEnv: EmployeeEnvNotionAPIURL, AuthEnv: EmployeeEnvNotionToken, Path: "/internal/notion-proxy/%s"},
 	{Provider: "railway", SkillName: "railway", BaseURLEnv: EmployeeEnvRailwayAPIURL, AuthEnv: EmployeeEnvRailwayAPIKey, Path: "/internal/railway-proxy/%s"},

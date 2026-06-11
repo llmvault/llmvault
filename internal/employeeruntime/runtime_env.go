@@ -127,14 +127,16 @@ func addControlPlaneRuntimeEnv(ctx context.Context, deps CompileDeps, env map[st
 	opts := ControlPlaneRuntimeEnvOptions{}
 	if deps.DB != nil && agent.OrgID != nil {
 		opts.BugsinkDashboardBaseURL = BugsinkDashboardBaseURL(ctx, deps.DB, *agent.OrgID, *agent)
+		opts.GlitchTipDashboardBaseURL = GlitchTipDashboardBaseURL(ctx, deps.DB, *agent.OrgID, *agent)
 	}
 	ApplyControlPlaneRuntimeEnv(env, deps.Cfg, agent, runtimeSecret, opts)
 }
 
 type ControlPlaneRuntimeEnvOptions struct {
-	GitUsername             string
-	GitEmail                string
-	BugsinkDashboardBaseURL string
+	GitUsername               string
+	GitEmail                  string
+	BugsinkDashboardBaseURL   string
+	GlitchTipDashboardBaseURL string
 }
 
 func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agent *model.Employee, runtimeSecret string, opts ControlPlaneRuntimeEnvOptions) {
@@ -161,6 +163,9 @@ func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agen
 	}
 	if strings.TrimSpace(opts.BugsinkDashboardBaseURL) != "" {
 		env[EmployeeEnvBugsinkDashboardBaseURL] = strings.TrimSpace(opts.BugsinkDashboardBaseURL)
+	}
+	if strings.TrimSpace(opts.GlitchTipDashboardBaseURL) != "" {
+		env[EmployeeEnvGlitchTipDashboardBaseURL] = strings.TrimSpace(opts.GlitchTipDashboardBaseURL)
 	}
 	ApplySandboxSentryEnv(env, cfg, cfg.AgentSandboxSentryDSN)
 }
