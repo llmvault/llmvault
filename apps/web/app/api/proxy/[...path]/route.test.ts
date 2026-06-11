@@ -1,22 +1,7 @@
-/**
- * Regression tests for the proxy route fixes:
- *
- * P2-11: Multiple upstream Set-Cookie headers were collapsed into one via
- *        Headers.set(), losing all but the last cookie. Fix: skip Set-Cookie in
- *        the forEach loop and re-add via getSetCookie() + append().
- *
- * P2-12: AUTH_PATHS interception consumed upstream.body via upstream.json().
- *        If the response had no tokens (e.g. OTP challenge), the handler fell
- *        through to `new NextResponse(upstream.body, ...)` where upstream.body
- *        was already disturbed, causing a 500. Fix: re-serialize the parsed JSON.
- */
-
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { NextRequest } from "next/server"
 
-// ---------------------------------------------------------------------------
-// Module-level mocks that must be set up BEFORE the route module is loaded.
-// ---------------------------------------------------------------------------
+// Module-level mocks must be set up before the route module is loaded.
 
 vi.mock("@sentry/nextjs", () => ({
   withScope: vi.fn(),
@@ -52,19 +37,10 @@ vi.mock("@/lib/auth/refresh", () => ({
   },
 }))
 
-// Set HIVY_API_URL before the route module is loaded (it reads the env at
-// module initialization time).
+// Set HIVY_API_URL before the route module is loaded (it reads the env at module init time).
 process.env.HIVY_API_URL = "http://backend-test"
 
-// ---------------------------------------------------------------------------
-// Import the route handler after mocks are configured.
-// ---------------------------------------------------------------------------
-
 const { POST } = await import("./route")
-
-// ---------------------------------------------------------------------------
-// Helper to build a minimal NextRequest for the proxy.
-// ---------------------------------------------------------------------------
 
 function makeRequest(path: string, options: { method?: string; body?: unknown } = {}) {
   const method = options.method ?? "GET"
@@ -79,11 +55,7 @@ function makeRequest(path: string, options: { method?: string; body?: unknown } 
   return new NextRequest(url, { method })
 }
 
-// ---------------------------------------------------------------------------
-// P2-11: Multiple Set-Cookie headers are forwarded individually.
-// ---------------------------------------------------------------------------
-
-describe("P2-11: Set-Cookie header forwarding", () => {
+describe("Set-Cookie header forwarding", () => {
   const originalFetch = global.fetch
 
   afterEach(() => {
@@ -91,13 +63,9 @@ describe("P2-11: Set-Cookie header forwarding", () => {
   })
 
   it("forwards all upstream Set-Cookie headers without collapsing them", async () => {
-    // Simulate an upstream response that sets two separate cookies.
-    // A real multi-cookie response would have two distinct Set-Cookie headers;
-    // the Fetch API exposes them via getSetCookie().
     const upstreamHeaders = new Headers({
       "content-type": "application/json",
     })
-    // Headers.append creates multiple Set-Cookie entries.
     upstreamHeaders.append("set-cookie", "session_id=abc; HttpOnly; Path=/")
     upstreamHeaders.append("set-cookie", "theme=dark; Path=/; Max-Age=86400")
 
@@ -113,7 +81,6 @@ describe("P2-11: Set-Cookie header forwarding", () => {
     const res = await POST(req, { params: Promise.resolve({ path: ["v1", "some-endpoint"] }) })
 
     const setCookieValues = res.headers.getSetCookie()
-    // Both cookies must survive independently — not collapsed into one.
     expect(setCookieValues.length).toBe(2)
     expect(setCookieValues.some((c) => c.includes("session_id=abc"))).toBe(true)
     expect(setCookieValues.some((c) => c.includes("theme=dark"))).toBe(true)
@@ -141,11 +108,7 @@ describe("P2-11: Set-Cookie header forwarding", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// P2-12: AUTH_PATHS body fallthrough when tokens are absent.
-// ---------------------------------------------------------------------------
-
-describe("P2-12: AUTH_PATHS consumed-body fallthrough", () => {
+describe("AUTH_PATHS consumed-body fallthrough", () => {
   const originalFetch = global.fetch
 
   beforeEach(() => {
@@ -157,7 +120,6 @@ describe("P2-12: AUTH_PATHS consumed-body fallthrough", () => {
   })
 
   it("returns 200 JSON when an auth path responds without tokens (OTP challenge)", async () => {
-    // Simulates auth/login returning an OTP challenge instead of tokens.
     const challengeBody = { requires_otp: true, message: "Enter your OTP" }
 
     global.fetch = vi.fn().mockResolvedValue(
@@ -170,7 +132,6 @@ describe("P2-12: AUTH_PATHS consumed-body fallthrough", () => {
     const req = makeRequest("auth/login", { method: "POST", body: { email: "a@b.com", password: "pass" } })
     const res = await POST(req, { params: Promise.resolve({ path: ["auth", "login"] }) })
 
-    // Must not be a 500 (disturbed-body error) and must return the parsed body.
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.requires_otp).toBe(true)
@@ -178,9 +139,8 @@ describe("P2-12: AUTH_PATHS consumed-body fallthrough", () => {
   })
 
   it("returns a non-200 auth response body correctly (e.g. 422 validation error)", async () => {
-    // When the auth path returns a non-2xx (upstream.ok is false), the
-    // interception block is skipped entirely — this test ensures auth errors
-    // pass through.
+    // The token-interception block only runs when upstream.ok is true; auth
+    // errors are passed through without modification.
     const errBody = { error: "invalid_credentials" }
 
     global.fetch = vi.fn().mockResolvedValue(
@@ -218,12 +178,9 @@ describe("P2-12: AUTH_PATHS consumed-body fallthrough", () => {
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    // Tokens must NOT be in the response body.
     expect(json.access_token).toBeUndefined()
     expect(json.refresh_token).toBeUndefined()
-    // The user data should still be there.
     expect(json.user).toEqual({ id: "u1" })
-    // A session cookie should be set.
     const cookies = res.headers.getSetCookie()
     expect(cookies.some((c) => c.startsWith("__session=mock"))).toBe(true)
   })

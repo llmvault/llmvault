@@ -23,7 +23,7 @@ impl SessionCoordinator {
         // Use DashMap's atomic entry() API: while the entry for this key is held
         // (Occupied or Vacant) the shard is locked, so two concurrent first
         // messages for the same session cannot both observe a vacant slot and
-        // both run a turn (P1-31). The previous get()-then-insert() left a window
+        // both run a turn. The previous get()-then-insert() left a window
         // between the read and the write where a second caller could also see no
         // entry and start a concurrent turn on the same session.
         match self.sessions.entry(session_id) {
@@ -118,8 +118,8 @@ mod tests {
         // Models the delegate-completion path: the parent turn has already
         // finished (no coordinator entry), so submit_or_queue takes a fresh
         // reservation and returns RunNow. The handler MUST react to RunNow by
-        // re-dispatching the inbound (P0-27); otherwise the entry it just
-        // inserted is owned by no task and the session is reserved forever.
+        // re-dispatching the inbound; otherwise the entry it just inserted is
+        // owned by no task and the session is reserved forever.
         let coordinator = SessionCoordinator::new();
         let session = SessionId::from("parent-session".to_string());
 
@@ -157,8 +157,7 @@ mod tests {
     #[tokio::test]
     async fn panicking_turn_task_releases_coordinator_entry() {
         // Models the spawned turn task in main.rs: handle_inbound reserves the
-        // session via submit_or_queue, then the turn body panics (P0-26: a
-        // multi-byte slice panic or any other remaining panic source). The panic
+        // session via submit_or_queue, then the turn body panics. The panic
         // guard around the spawned task MUST call finish_turn so future inbound
         // messages for the session are not queued forever behind a turn that will
         // never finish.
@@ -213,7 +212,7 @@ mod tests {
 
     #[test]
     fn concurrent_first_messages_yield_exactly_one_run_now() {
-        // Regression for P1-31: submit_or_queue was a check-then-act race
+        // Regression: submit_or_queue was a check-then-act race
         // (get() then insert()), so two concurrent first messages for the same
         // session could both observe a vacant slot and both return RunNow,
         // running two concurrent turns on one session. With the atomic entry()

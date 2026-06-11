@@ -152,6 +152,6 @@ func TestRevokeOlderSpecialistTokens(t *testing.T) {
 		}
 	}
 	assertRevoked(oldTok.JTI, true)         // older than grace -> revoked
-	assertRevoked(concurrentTok.JTI, false) // within grace -> kept (P1-19)
+	assertRevoked(concurrentTok.JTI, false) // within grace -> kept
 	assertRevoked(keepTok.JTI, false)       // the kept token -> kept
 }

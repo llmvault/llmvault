@@ -202,11 +202,11 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 				t.Fatalf("constructor error: %v", err)
 			}
 			if len(opts) == 0 {
-				t.Fatal("options slice is empty — options must be returned separately (P0-11)")
+				t.Fatal("options slice is empty — options must be returned separately")
 			}
 			queue, ok := queueFromOptions(opts)
 			if !ok {
-				t.Fatalf("no Queue option found in returned options slice (P0-11)")
+				t.Fatalf("no Queue option found in returned options slice")
 			}
 			if queue != tc.expectedQueue {
 				t.Fatalf("queue = %q, want %q", queue, tc.expectedQueue)
@@ -226,11 +226,11 @@ func TestPeriodicConfigsCarryDedupeOptions(t *testing.T) {
 		t.Run(cfg.Task.Type(), func(t *testing.T) {
 			ttl, ok := uniqueTTLFromOptions(cfg.Opts)
 			if !ok {
-				t.Errorf("periodic config for %q is missing asynq.Unique(…) — N scheduler replicas will fire N duplicate ticks (P1-23)", cfg.Task.Type())
+				t.Errorf("periodic config for %q is missing asynq.Unique(…) — N scheduler replicas will fire N duplicate ticks", cfg.Task.Type())
 				return
 			}
 			if ttl <= 0 {
-				t.Errorf("periodic config for %q has Unique(0) — must be positive (P1-23)", cfg.Task.Type())
+				t.Errorf("periodic config for %q has Unique(0) — must be positive", cfg.Task.Type())
 			}
 		})
 	}

@@ -42,7 +42,7 @@ func TestIntegration_UpdateProfile_EmailChangeRequiresReverification_WithAutoCon
 
 	now := time.Now().UTC()
 	original := "p14-original-" + uuid.NewString() + "@example.com"
-	user := model.User{Email: original, Name: "P1-4 User", EmailConfirmedAt: &now}
+	user := model.User{Email: original, Name: "Email Change User", EmailConfirmedAt: &now}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}

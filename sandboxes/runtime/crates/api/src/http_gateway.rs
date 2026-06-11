@@ -51,13 +51,13 @@ const HISTORY_CAPACITY: usize = 512;
 /// from the broker's maps. The grace window lets a reconnecting/late subscriber
 /// (Slack asynq task, Go proxy retry, browser reload) still replay the terminal
 /// `final`/`done` from history. After it, the per-stream state and its session
-/// mapping are reclaimed so the maps do not grow without bound (P2-1).
+/// mapping are reclaimed so the maps do not grow without bound.
 const STREAM_EVICTION_GRACE: Duration = Duration::from_secs(120);
 
 /// A published event paired with a monotonically increasing per-stream sequence
 /// number. The sequence lets a subscriber that fell behind (`RecvError::Lagged`)
 /// resync precisely against the replay history — replaying exactly the events it
-/// skipped — instead of silently dropping the gap (P2-2). Derefs to the inner
+/// skipped — instead of silently dropping the gap. Derefs to the inner
 /// [`HttpStreamEvent`] so `.event`/`.payload` are accessible directly.
 #[derive(Clone)]
 pub struct SeqEvent {
@@ -129,7 +129,7 @@ impl HttpStreamBroker {
         let (sender, _) = broadcast::channel(256);
         let mut streams = self.streams.lock().await;
         // Opportunistically reclaim finished streams whose grace window has
-        // elapsed (P2-1). Done lazily here (and in publish) to avoid a background
+        // elapsed. Done lazily here (and in publish) to avoid a background
         // sweeper task; create_stream runs once per turn so the maps stay bounded.
         evict_expired_streams(
             &mut streams,
@@ -212,7 +212,7 @@ impl HttpStreamBroker {
             state.history.push_back(seq_event.clone());
             if event.event == "done" && state.done_at.is_none() {
                 // Start the eviction grace window; the state lingers long enough
-                // for late subscribers to replay the terminal events (P2-1).
+                // for late subscribers to replay the terminal events.
                 state.done_at = Some(Instant::now());
             }
             context = state.context.clone();
@@ -274,7 +274,7 @@ impl HttpStreamBroker {
 
     /// Replay-history events with sequence number strictly greater than
     /// `after_seq`, used to resync a subscriber that fell behind
-    /// (`RecvError::Lagged`) by replaying exactly the events it skipped (P2-2).
+    /// (`RecvError::Lagged`) by replaying exactly the events it skipped.
     /// Returns `None` if the stream no longer exists.
     pub async fn history_after(&self, stream_id: &str, after_seq: u64) -> Option<Vec<SeqEvent>> {
         let streams = self.streams.lock().await;
@@ -412,8 +412,8 @@ impl HttpStreamBroker {
 /// Reclaim per-stream state for streams whose terminal `done` was published more
 /// than `STREAM_EVICTION_GRACE` ago, and drop the session→stream mappings that
 /// still point at them. Without this the broker's `streams`/`session_streams`
-/// maps grow unbounded for the process lifetime (P2-1). Called opportunistically
-/// from `create_stream`/`publish` while the `streams` lock is held; lock order is
+/// maps grow unbounded for the process lifetime. Called opportunistically from
+/// `create_stream`/`publish` while the `streams` lock is held; lock order is
 /// always streams → session_streams → active_session_streams to avoid deadlock.
 async fn evict_expired_streams(
     streams: &mut HashMap<String, StreamState>,
@@ -559,7 +559,7 @@ enum StreamFrame {
 /// Core of the SSE replay stream, decoupled from the `Sse`/`Event` wire types so
 /// the reconnect/resync behavior is unit-testable. Yields history first, then
 /// live events, and on `Lagged` emits a `Resync` frame followed by the exact
-/// missed range from history (P2-2). Stops on `done`.
+/// missed range from history. Stops on `done`.
 fn replay_stream(
     broker: Arc<HttpStreamBroker>,
     stream_id: String,
@@ -568,7 +568,7 @@ fn replay_stream(
 ) -> impl futures::Stream<Item = StreamFrame> {
     stream! {
         // Track the highest sequence number delivered to this subscriber so a
-        // `Lagged` gap can be resynced precisely from history (P2-2).
+        // `Lagged` gap can be resynced precisely from history.
         let mut last_seq: Option<u64> = None;
         for item in history {
             last_seq = Some(item.seq);
@@ -1058,8 +1058,6 @@ mod tests {
         assert_eq!(summary.final_text.as_deref(), Some("answer"));
     }
 
-    // ---- P2-1: stream/session map eviction after done + grace ----
-
     #[tokio::test]
     async fn finished_stream_state_is_evicted_after_grace_on_next_activity() {
         let broker = HttpStreamBroker::new();
@@ -1113,8 +1111,6 @@ mod tests {
         assert!(broker.subscribe(&old).await.is_none());
         assert_eq!(broker.stream_id_for_session("session-x").await, Some(new));
     }
-
-    // ---- P2-2: Lagged resync replays the skipped range from history ----
 
     #[tokio::test]
     async fn lagged_subscriber_resyncs_skipped_range_from_history() {

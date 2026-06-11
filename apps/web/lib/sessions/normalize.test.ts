@@ -41,10 +41,7 @@ function normalizeAssistantKind(event: EmployeeSessionEvent) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// P2-3: multi-span turns must keep every assistant span as its own full bubble.
-// ---------------------------------------------------------------------------
-describe("normalizeSessionEvents — multi-span turns (P2-3)", () => {
+describe("normalizeSessionEvents — multi-span turns", () => {
   it("keeps each assistant span's full text instead of collapsing to the last token", () => {
     // One turn: span 1 streams "AB", a tool runs, span 2 streams "CD".
     const events = [
@@ -57,8 +54,6 @@ describe("normalizeSessionEvents — multi-span turns (P2-3)", () => {
     ]
     const normalized = normalizeSessionEvents(events)
     const texts = assistantTexts(normalized)
-    // Before the fix, span 1 collapsed to just "B" (its last token) because the
-    // per-turn token list was deduped against the whole turn.
     expect(texts).toEqual(["AB", "CD"])
   })
 
@@ -90,10 +85,7 @@ describe("normalizeSessionEvents — multi-span turns (P2-3)", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// P2-5: live thinking deltas coalesce into one event instead of one-per-frame.
-// ---------------------------------------------------------------------------
-describe("appendLiveThinkingEvent — coalescing (P2-5)", () => {
+describe("appendLiveThinkingEvent — coalescing", () => {
   it("merges consecutive thinking deltas into a single trailing event", () => {
     let events: EmployeeSessionEvent[] = []
     events = appendLiveThinkingEvent(events, ev("thinking", { text: "Let " }))
@@ -137,16 +129,10 @@ describe("cleanPersistedAssistantText", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// P2-4: a `final` event must not duplicate the assistant bubble when the turn
-// ends on a non-assistant event and the final text is already rendered.
-// ---------------------------------------------------------------------------
-describe("reconcileLiveFinalEvent — no duplicate bubble (P2-4)", () => {
+describe("reconcileLiveFinalEvent — no duplicate bubble", () => {
   const sessionID = "s1"
 
   it("returns the timeline unchanged when the turn ends on a tool call and final equals rendered", () => {
-    // Streamed assistant bubble, then a tool call (the trailing entry), then a
-    // `final` event repeating the already-rendered answer.
     const events: EmployeeSessionEvent[] = [
       {
         id: "a1",
@@ -160,7 +146,6 @@ describe("reconcileLiveFinalEvent — no duplicate bubble (P2-4)", () => {
       },
     ]
     const result = reconcileLiveFinalEvent(events, sessionID, "All done.", 5)
-    // Before the fix this appended a second "All done." assistant bubble.
     expect(result).toBe(events)
     const assistant = result.filter(
       (event) => event.event_type === liveAssistantEventType
@@ -169,9 +154,6 @@ describe("reconcileLiveFinalEvent — no duplicate bubble (P2-4)", () => {
   })
 
   it("completes the trailing streamed assistant bubble in place when final matches it", () => {
-    // Realistic flow: tokens already filled the bubble with the full streamed
-    // text, then `final` repeats it. The bubble is marked completed, not
-    // duplicated, and its text is preserved.
     const events: EmployeeSessionEvent[] = [
       {
         id: "a1",

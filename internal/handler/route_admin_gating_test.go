@@ -122,7 +122,7 @@ func TestRouteGating_RAGMutationsAdminOnly(t *testing.T) {
 		t.Fatalf("member GET /rag/sources = %d, want 200", code)
 	}
 	if code := doJWT(t, router, http.MethodPost, "/v1/rag/sources", member.ID, memberOrg.ID); code != http.StatusForbidden {
-		t.Fatalf("member POST /rag/sources = %d, want 403 (was loosened pre-P1-5)", code)
+		t.Fatalf("member POST /rag/sources = %d, want 403", code)
 	}
 	if code := doJWT(t, router, http.MethodPost, "/v1/rag/sources/"+uuid.NewString()+"/sync", member.ID, memberOrg.ID); code != http.StatusForbidden {
 		t.Fatalf("member POST /rag/sources/{id}/sync = %d, want 403", code)

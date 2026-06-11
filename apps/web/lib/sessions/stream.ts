@@ -23,7 +23,7 @@ export type StreamTerminal = "done" | "final"
  * The browser must never connect directly to the backend with a raw bearer
  * access token: the proxy authenticates the browser via the `__session` cookie
  * and injects the bearer server-side, while the SSE path itself already carries
- * an HMAC-signed `?token=` minted by the backend (P2-27). Accordingly:
+ * an HMAC-signed `?token=` minted by the backend. Accordingly:
  *
  *  - an already-proxied path is returned unchanged,
  *  - a backend-relative path (`/v1/employees/.../streams/...?token=...`) is
@@ -114,7 +114,7 @@ export function decideReconnect(
  * This function is extracted here so it can be unit-tested without a React
  * environment — the actual error path used to live as a bare `await` before
  * the try/finally in `startSessionStream`, which meant any setup failure
- * bypassed the finally block and left `isStreaming: true` forever (P1-11).
+ * bypassed the finally block and left `isStreaming: true` forever.
  */
 export async function runWithStreamSetup<T, R>(
   setup: () => Promise<T>,

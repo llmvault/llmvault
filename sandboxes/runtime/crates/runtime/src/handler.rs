@@ -279,8 +279,8 @@ pub async fn handle_inbound(
     if matches!(submission, Submission::Queued) {
         let event_source = inbound_event_source(&inbound);
         emit_user_message_received(&emitter, &inbound, event_source, true).await;
-        // P1-30: this follow-up was queued behind an in-flight turn and will be
-        // merged into it. The merged turn streams its tokens to the ACTIVE turn's
+        // This follow-up was queued behind an in-flight turn and will be merged
+        // into it. The merged turn streams its tokens to the ACTIVE turn's
         // stream, not to this message's stream, so emitting a bare `done` here
         // leaves the client (which opened a fresh stream for the follow-up and
         // aborted the old one) showing nothing. Instead emit a `session_waiting`
@@ -329,7 +329,7 @@ pub async fn handle_inbound(
                 // Bound how long the parent turn waits on its delegates. A
                 // delegate whose complete_delegate_result write never lands (or
                 // a sub-agent that never reports back) would otherwise leave the
-                // job Active forever and spin this loop indefinitely (P1-34).
+                // job Active forever and spin this loop indefinitely.
                 let deadline = *delegate_wait_deadline
                     .get_or_insert_with(|| std::time::Instant::now() + MAX_DELEGATE_WAIT);
                 if std::time::Instant::now() >= deadline {
@@ -410,7 +410,7 @@ pub async fn handle_inbound(
 
 /// Maximum time the parent turn will wait for its delegates to report back
 /// before force-failing them. Without this bound a delegate whose result write
-/// never lands keeps the job Active and spins the parent loop forever (P1-34).
+/// never lands keeps the job Active and spins the parent loop forever.
 const MAX_DELEGATE_WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 
 async fn session_has_active_delegates(repo: &dyn CronJobRepo, session_id: &SessionId) -> bool {
@@ -474,8 +474,8 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
     let mut raw_events = Vec::new();
     // Collect the stream ids of every queued follow-up so the merged turn's
     // terminal output can be bridged back to the streams those clients are
-    // watching (P1-30). Carry any already-bridged ids forward across repeated
-    // merges so nothing is dropped over multiple follow-ups.
+    // watching. Carry any already-bridged ids forward across repeated merges
+    // so nothing is dropped over multiple follow-ups.
     let mut bridged_stream_ids: Vec<String> = bridged_stream_ids_from_raw(&current.raw);
 
     for (index, event) in queued.into_iter().enumerate() {
@@ -571,8 +571,8 @@ fn bridged_stream_ids(inbound: &InboundEvent) -> Vec<String> {
 }
 
 /// Publish the merged turn's final answer plus a terminal `done` to every queued
-/// follow-up's stream (P1-30) so those clients render the response instead of
-/// hanging on a stream that was only told `session_waiting`.
+/// follow-up's stream so those clients render the response instead of hanging
+/// on a stream that was only told `session_waiting`.
 async fn bridge_terminal_to_streams(
     sink: &dyn TurnEventSink,
     stream_ids: &[String],
@@ -662,11 +662,11 @@ mod queue_tests {
 
     #[test]
     fn merged_turn_preserves_primary_stream_and_bridges_followup_streams() {
-        // Regression for P1-30: a queued follow-up opens its own SSE stream and
-        // the client aborts the previous one. The merged turn must keep streaming
-        // to the running turn's primary stream AND record the follow-ups' stream
-        // ids so their terminal output can be bridged, instead of those clients
-        // hanging on a stream that only ever received a bare `done`.
+        // Regression: a queued follow-up opens its own SSE stream and the client
+        // aborts the previous one. The merged turn must keep streaming to the
+        // running turn's primary stream AND record the follow-ups' stream ids so
+        // their terminal output can be bridged, instead of those clients hanging
+        // on a stream that only ever received a bare `done`.
         let current = inbound(
             "C123-T1",
             "E1",
@@ -941,7 +941,7 @@ async fn process_single_turn(
             warn!(error = %e, "reply failed");
         }
     }
-    // P1-30: bridge the merged turn's answer to every queued follow-up's stream.
+    // Bridge the merged turn's answer to every queued follow-up's stream.
     // Those clients opened fresh streams that were told `session_waiting`; emit
     // the real answer plus a terminal `done` so they render the response instead
     // of hanging.
@@ -1087,9 +1087,9 @@ async fn process_single_turn(
             // NOW mark the job as completed (after notification is queued).
             // This MUST eventually move the job out of the `Active` state: the
             // parent turn busy-polls session_has_active_delegates(), so a job
-            // stuck Active leaves the parent spinning forever (P1-34). Retry the
-            // result write, and if it keeps failing force the job to a terminal
-            // state so the parent's poll loop can exit.
+            // stuck Active leaves the parent spinning forever. Retry the result
+            // write, and if it keeps failing force the job to a terminal state
+            // so the parent's poll loop can exit.
             complete_delegate_result_or_force_fail(
                 cron_repo.as_ref(),
                 job_id,
@@ -1100,9 +1100,9 @@ async fn process_single_turn(
             .await;
         }
     } else if let Some(run) = ScheduledRunContext::from_inbound(inbound) {
-        // P2-43: a scheduled (cron/wake) run only reaches a terminal status now
-        // that the turn has actually executed — not when the scheduler enqueued
-        // it. Emit SCHEDULE_RUN_COMPLETED/FAILED, record the run, delete
+        // A scheduled (cron/wake) run only reaches a terminal status now that
+        // the turn has actually executed — not when the scheduler enqueued it.
+        // Emit SCHEDULE_RUN_COMPLETED/FAILED, record the run, delete
         // one-shot/wake jobs, and advance repeat counts here.
         complete_scheduled_run(
             cron_repo.as_ref(),
@@ -1118,7 +1118,7 @@ async fn process_single_turn(
 }
 
 /// Run-lifecycle context the scheduler embeds in a scheduled job's inbound `raw`
-/// so the turn handler can complete the run after the turn executes (P2-43).
+/// so the turn handler can complete the run after the turn executes.
 struct ScheduledRunContext {
     job_id: String,
     run_key: String,
@@ -1162,8 +1162,8 @@ impl ScheduledRunContext {
 
 /// Complete a scheduled run after its turn executed: record the run status, emit
 /// the terminal schedule event, and apply lifecycle changes (delete one-shot/wake
-/// jobs, advance repeat counts). Mirrors what the scheduler used to do
-/// immediately after enqueue, but now keyed to the real turn outcome (P2-43).
+/// jobs, advance repeat counts). Keyed to the real turn outcome rather than the
+/// scheduler's enqueue time.
 async fn complete_scheduled_run(
     cron_repo: &dyn CronJobRepo,
     emitter: Arc<OutboundEmitter>,
@@ -1956,8 +1956,8 @@ mod stream_tests {
 
     #[tokio::test]
     async fn bridge_terminal_publishes_final_and_done_to_each_followup_stream() {
-        // Regression for P1-30: the merged turn must deliver the real answer plus
-        // a terminal `done` to every queued follow-up's stream (which were only
+        // Regression: the merged turn must deliver the real answer plus a
+        // terminal `done` to every queued follow-up's stream (which were only
         // told `session_waiting`), not leave them hanging.
         let sink = RecordingSink::default();
         let session_id = SessionId::from("C123-T1");

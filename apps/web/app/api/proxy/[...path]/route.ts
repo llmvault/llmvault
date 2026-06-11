@@ -99,10 +99,6 @@ async function safeRefresh(refreshToken: string): Promise<RefreshOutcome> {
   return refreshCoordinator.refresh(refreshToken, refreshTokens)
 }
 
-// ---------------------------------------------------------------------------
-// Build headers for upstream request
-// ---------------------------------------------------------------------------
-
 function buildUpstreamHeaders(
   req: NextRequest,
   session: SessionData | null
@@ -118,19 +114,16 @@ function buildUpstreamHeaders(
   const adminSecret = req.headers.get("x-hivy-admin-secret")
   if (adminSecret) headers.set("X-Hivy-Admin-Secret", adminSecret)
 
-  // Forward cookies minus __session
   const rawCookies = req.headers.get("cookie")
   if (rawCookies) {
     const cleaned = stripSessionCookie(rawCookies)
     if (cleaned) headers.set("cookie", cleaned)
   }
 
-  // Inject auth from session
   if (session) {
     headers.set("authorization", `Bearer ${session.access_token}`)
   }
 
-  // Inject active org from cookie
   const activeOrgCookie = req.cookies.get("hivy_active_org")
   if (activeOrgCookie?.value) {
     headers.set("X-Org-ID", activeOrgCookie.value)
@@ -138,10 +131,6 @@ function buildUpstreamHeaders(
 
   return headers
 }
-
-// ---------------------------------------------------------------------------
-// Forward a request to the Go backend
-// ---------------------------------------------------------------------------
 
 async function forward(
   url: URL,
@@ -151,10 +140,6 @@ async function forward(
 ) {
   return fetch(url, { method, headers, body })
 }
-
-// ---------------------------------------------------------------------------
-// Main handler
-// ---------------------------------------------------------------------------
 
 async function handler(
   req: NextRequest,
@@ -182,9 +167,6 @@ async function handler(
       ? await req.arrayBuffer()
       : undefined
 
-  // -----------------------------------------------------------------------
-  // Logout interception: inject refresh_token into request body
-  // -----------------------------------------------------------------------
   let upstreamBody: ArrayBuffer | undefined = body
   const isLogout = apiPath === LOGOUT_PATH && req.method === "POST"
 
@@ -194,9 +176,6 @@ async function handler(
     upstreamBody = new TextEncoder().encode(JSON.stringify(payload)).buffer as ArrayBuffer
   }
 
-  // -----------------------------------------------------------------------
-  // Proactive refresh if token is about to expire
-  // -----------------------------------------------------------------------
   if (session && !AUTH_PATHS.has(apiPath) && session.expires_at - Date.now() < 60_000) {
     const refreshed = await safeRefresh(session.refresh_token)
     if (refreshed.session) {
@@ -209,9 +188,6 @@ async function handler(
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Forward to backend
-  // -----------------------------------------------------------------------
   const headers = buildUpstreamHeaders(req, session)
   let upstream: Response
   try {
@@ -222,9 +198,6 @@ async function handler(
     return NextResponse.json({ error: "upstream_unavailable" }, { status: 502 })
   }
 
-  // -----------------------------------------------------------------------
-  // Auto-refresh on 401 (retry once)
-  // -----------------------------------------------------------------------
   let refreshedSession: SessionData | null = null
   let refreshDefinitivelyRejected = false
 
@@ -249,9 +222,6 @@ async function handler(
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Build response
-  // -----------------------------------------------------------------------
   const responseHeaders = new Headers()
   const skipHeaders = new Set(["transfer-encoding", "content-encoding", "content-length", "set-cookie"])
   upstream.headers.forEach((value, key) => {
@@ -264,9 +234,6 @@ async function handler(
     responseHeaders.append("set-cookie", cookie)
   }
 
-  // -----------------------------------------------------------------------
-  // Intercept auth responses — persist session, strip tokens from body
-  // -----------------------------------------------------------------------
   if (AUTH_PATHS.has(apiPath) && upstream.ok) {
     reqLog.info("intercepting auth response")
     try {
@@ -311,7 +278,6 @@ async function handler(
     }
   }
 
-  // Attach updated session cookie if we refreshed mid-request
   if (refreshedSession) {
     responseHeaders.append(
       "set-cookie",
@@ -319,7 +285,6 @@ async function handler(
     )
   }
 
-  // Proactive refresh — also persist the updated cookie
   if (
     !AUTH_PATHS.has(apiPath) &&
     !refreshedSession &&
@@ -335,7 +300,6 @@ async function handler(
     }
   }
 
-  // Logout — clear session cookie
   if (isLogout && upstream.ok) {
     responseHeaders.append("set-cookie", clearSessionCookie())
   }
