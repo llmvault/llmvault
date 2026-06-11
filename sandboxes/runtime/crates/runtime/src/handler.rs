@@ -1568,7 +1568,10 @@ fn capture_agent_internal_error(
             scope.set_extra("internal_error", error.into());
         },
         || {
-            sentry::capture_message("agent turn internal error", sentry::Level::Error);
+            sentry::capture_message(
+                &format!("agent turn internal error: {}", error),
+                sentry::Level::Error,
+            );
         },
     );
 }
