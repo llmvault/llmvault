@@ -150,7 +150,7 @@ func (h *LinearProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eventCtx.StatusCode = resp.StatusCode
-	if resp.StatusCode >= http.StatusBadRequest {
+	if resp.StatusCode >= http.StatusInternalServerError {
 		h.captureProxyFailure(ctx, eventCtx, resp.StatusCode, "linear upstream returned error")
 	}
 	copyProxyHeaders(w.Header(), resp.Header)

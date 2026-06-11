@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -37,7 +39,9 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	userID, _, err := auth.ValidateRefreshToken(h.signingKey, req.RefreshToken)
 	if err != nil {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid refresh token"})
+		// Allow recently-expired tokens a grace window so the web frontend
+		// can recover from clock skew or brief network lapses.
+		h.serveRefreshGraceForExpired(r.Context(), w, req.RefreshToken)
 		return
 	}
 
@@ -188,6 +192,54 @@ func (h *AuthHandler) refreshGraceUser(userID uuid.UUID) model.User {
 		return user
 	}
 	return model.User{ID: userID}
+}
+
+
+// serveRefreshGraceForExpired handles refresh with an expired-but-recently-issued token.
+// It checks if the token was issued within the grace window and if so, re-issues tokens.
+func (h *AuthHandler) serveRefreshGraceForExpired(ctx context.Context, w http.ResponseWriter, rawToken string) {
+	// Parse without expiration to extract user ID for grace recovery.
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{"HS256"}))
+	var claims auth.RefreshClaims
+	_, _, err := parser.ParseUnverified(rawToken, &claims)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid refresh token"})
+		return
+	}
+	// Only allow grace if the token was issued recently (within grace window of its expiry).
+	if claims.IssuedAt == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid refresh token"})
+		return
+	}
+	if claims.ExpiresAt == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid refresh token"})
+		return
+	}
+	expiry := claims.ExpiresAt.Time
+	graceDeadline := expiry.Add(refreshGraceWindow)
+	if time.Now().After(graceDeadline) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "refresh token expired"})
+		return
+	}
+	// Token is within grace window — look up user and re-issue.
+	var user model.User
+	if err := h.db.WithContext(ctx).Where("id = ?", claims.UserID).First(&user).Error; err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "user not found"})
+		return
+	}
+	var memberships []model.OrgMembership
+	h.db.Preload("Org").Where("user_id = ?", user.ID).Find(&memberships)
+	if len(memberships) == 0 {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "no organization memberships"})
+		return
+	}
+	orgID := memberships[0].OrgID.String()
+	role := memberships[0].Role
+	resp, ok := h.mintAuthResponse(ctx, w, user, orgID, role)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // Logout handles POST /auth/logout.

@@ -14,6 +14,8 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 )
 
+const gatewayStreamClientTimeout = 900 * time.Second
+
 const gatewayFriendlyStreamError = "Something went wrong. Please try again."
 
 // maxStreamSubscribeAttempts bounds re-subscribes after a transport failure
@@ -75,7 +77,7 @@ func NewGatewayStreamDeliveryService(db *gorm.DB) *GatewayStreamDeliveryService 
 func (s *GatewayStreamDeliveryService) DeliverFromStream(ctx context.Context, payload GatewayStreamPayload, sink GatewayResponseSink, fields map[string]any) (GatewayDeliveryResult, error) {
 	subscribe := s.subscriber
 	if subscribe == nil {
-		subscriber := gateway.NewSSESubscriber(&http.Client{Timeout: 610 * time.Second})
+		subscriber := gateway.NewSSESubscriber(&http.Client{Timeout: gatewayStreamClientTimeout})
 		subscribe = subscriber.Subscribe
 	}
 

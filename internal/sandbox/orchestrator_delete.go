@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"errors"
+	"strings"
 	"fmt"
 	"time"
 
@@ -45,10 +46,31 @@ func (o *Orchestrator) DeleteSandbox(ctx context.Context, sb *model.Sandbox) err
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return err
 	}
-	if err := o.provider.DeleteSandbox(ctx, sb.ExternalID); err != nil && !errors.Is(err, ErrSandboxNotFound) {
-		logging.Capture(ctx, fmt.Errorf("delete sandbox %s from provider: %w", sb.ID, err))
+	err := o.provider.DeleteSandbox(ctx, sb.ExternalID)
+	if err != nil && !errors.Is(err, ErrSandboxNotFound) {
+		// Retry once on auth failures (401/403) — the provider token may be stale.
+		if isAuthError(err) {
+			logging.FromContext(ctx).WarnContext(ctx, "delete sandbox: auth failure, retrying with fresh provider",
+				"sandbox_id", sb.ID, "external_id", sb.ExternalID, "error", err)
+			if refreshErr := o.ensureSandboxProvider(sb); refreshErr == nil {
+				err = o.provider.DeleteSandbox(ctx, sb.ExternalID)
+			}
+		}
+		if err != nil && !errors.Is(err, ErrSandboxNotFound) {
+			logging.Capture(ctx, fmt.Errorf("delete sandbox %s from provider: %w", sb.ID, err))
+		}
 	}
 	return o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error
+}
+
+// isAuthError checks if an error indicates an authentication/authorization failure.
+func isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "401") || strings.Contains(msg, "403") ||
+		strings.Contains(msg, "Unauthorized") || strings.Contains(msg, "Forbidden")
 }
 
 // DeleteSandboxResource deletes the provider resource but keeps the control

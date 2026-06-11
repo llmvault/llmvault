@@ -50,7 +50,14 @@ func (p *BankProvisioner) EnsureOrgBank(ctx context.Context, orgID uuid.UUID) er
 	}
 
 	if err := p.client.ConfigureBank(ctx, bankID, cfg.ToBankConfigUpdate()); err != nil {
-		return fmt.Errorf("configure hindsight org bank: %w", err)
+		// Bank may not exist yet on the Hindsight side. A retain call with an
+		// empty items list auto-provisions it, then we retry the configure.
+		if _, retainErr := p.client.Retain(ctx, bankID, &RetainRequest{Items: []RetainItem{}, Async: true}); retainErr != nil {
+			return fmt.Errorf("configure hindsight org bank: %w (retain fallback: %v)", err, retainErr)
+		}
+		if retryErr := p.client.ConfigureBank(ctx, bankID, cfg.ToBankConfigUpdate()); retryErr != nil {
+			return fmt.Errorf("configure hindsight org bank after provisioning: %w", retryErr)
+		}
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if createErr := p.client.CreateMentalModel(ctx, bankID, &CreateMentalModelRequest{

@@ -155,7 +155,7 @@ func (h *RawProviderProxyHandler) Handle(w http.ResponseWriter, r *http.Request)
 	}
 
 	eventCtx.StatusCode = resp.StatusCode
-	if resp.StatusCode >= http.StatusBadRequest {
+	if resp.StatusCode >= http.StatusInternalServerError {
 		h.captureProxyFailure(ctx, eventCtx, resp.StatusCode, h.provider+" upstream returned error")
 	}
 	copyProxyHeaders(w.Header(), resp.Header)

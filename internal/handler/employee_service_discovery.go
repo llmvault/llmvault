@@ -156,6 +156,7 @@ func upsertServiceDiscoverySchedule(ctx context.Context, db *gorm.DB, orgID, emp
 			"description",
 			"task_prompt",
 			"interval_seconds",
+			"next_run_at",
 			"cancelled_at",
 			"updated_at",
 		}),
