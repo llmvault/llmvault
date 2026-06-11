@@ -68,10 +68,9 @@ func (h *EmployeeOutboundWebhookHandler) recordRuntimeModelUsageGeneration(ctx c
 		IsSystem:        true,
 	}
 	if err := h.db.WithContext(ctx).Create(&gen).Error; err != nil {
-		// The generation ID is derived deterministically from
-		// (sandbox_id, session_id, sequence) so a runtime outbox retry of the
-		// same usage event collides on the primary key. Treat that collision as
-		// already-recorded so the retry acks 200 instead of re-failing forever.
+		// The generation ID is deterministic from (sandbox_id, session_id,
+		// sequence), so an outbox retry collides on the PK; treat that as
+		// already-recorded and ack 200 instead of re-failing forever.
 		if isDuplicateKeyError(err) {
 			return nil
 		}
@@ -80,11 +79,9 @@ func (h *EmployeeOutboundWebhookHandler) recordRuntimeModelUsageGeneration(ctx c
 	return nil
 }
 
-// runtimeGenerationID derives a stable generation primary key from the runtime
-// usage event's identity tuple so retries of the same billable event are
-// idempotent. When the tuple is incomplete (no session/sequence) we fall back to
-// a random ULID — those events cannot be safely deduped, and dropping them would
-// be worse than a rare duplicate.
+// runtimeGenerationID derives a stable PK from the usage event's identity tuple
+// so retries are idempotent. An incomplete tuple falls back to a random ULID —
+// undedupable, but a rare duplicate beats dropping a billable event.
 func runtimeGenerationID(sandboxID uuid.UUID, sessionID string, sequence int) string {
 	if sessionID == "" || sequence <= 0 {
 		return "gen_" + ulid.Make().String()

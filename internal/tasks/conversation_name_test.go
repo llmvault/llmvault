@@ -121,7 +121,6 @@ func TestGenerateConversationTitle_ToolPath(t *testing.T) {
 		t.Errorf("title = %q, want %q", title, "Debug Safari Login Regression")
 	}
 
-	// Verify the request was structured for tool use.
 	req := mock.LastRequest()
 	if req.ToolChoice != "required" {
 		t.Errorf("ToolChoice = %q, want %q", req.ToolChoice, "required")
@@ -129,7 +128,6 @@ func TestGenerateConversationTitle_ToolPath(t *testing.T) {
 	if len(req.Tools) != 1 || req.Tools[0].Name != "submit_title" {
 		t.Errorf("expected single submit_title tool, got %+v", req.Tools)
 	}
-	// The tool parameter schema should be valid JSON.
 	var schema map[string]any
 	if err := json.Unmarshal(req.Tools[0].Parameters, &schema); err != nil {
 		t.Errorf("tool parameters not valid JSON: %v", err)
@@ -153,7 +151,6 @@ func TestGenerateConversationTitle_TextPath(t *testing.T) {
 		t.Errorf("title = %q, want %q", title, "Debug Safari Login")
 	}
 
-	// Verify the request did NOT configure tools when the model doesn't support them.
 	req := mock.LastRequest()
 	if req.ToolChoice != "" {
 		t.Errorf("ToolChoice = %q, want empty (no tools)", req.ToolChoice)
@@ -222,7 +219,7 @@ func TestNewConversationNameTask(t *testing.T) {
 	}
 
 	// Options must be returned separately (not baked into the task) so they
-	// survive the enqueue client's Sentry trace-payload rewrite (P0-11).
+	// survive the enqueue client's Sentry trace-payload rewrite.
 	queue, ok := queueFromOptions(opts)
 	if !ok || queue != QueueBulk {
 		t.Errorf("expected bulk queue option, got %q (present=%v)", queue, ok)

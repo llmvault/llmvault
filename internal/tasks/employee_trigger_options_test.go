@@ -19,11 +19,9 @@ func queueFromOptions(opts []asynq.Option) (string, bool) {
 	return "", false
 }
 
-// TestTriggerDispatchTaskOptionsAreReturnedSeparately guards P0-11: the
-// critical-queue routing/retry/timeout must be returned as options (not baked
-// into the task), so they are passed at enqueue time and survive the enqueue
-// client's Sentry trace-payload rewrite. A task carrying baked options would be
-// silently demoted to the default queue when the payload is rewritten.
+// The critical-queue routing/retry/timeout must be returned as options, not
+// baked into the task, or they are silently demoted to the default queue when
+// the enqueue client rewrites the payload for the Sentry trace header.
 func TestTriggerDispatchTaskOptionsAreReturnedSeparately(t *testing.T) {
 	task, opts, err := NewEmployeeTriggerDispatchTask(EmployeeTriggerDispatchPayload{
 		OrgID:      uuid.New(),
@@ -41,9 +39,8 @@ func TestTriggerDispatchTaskOptionsAreReturnedSeparately(t *testing.T) {
 	}
 }
 
-// TestTriggerDispatchTaskBuilderReturnsOptions guards the failed-event retry
-// path: the registered TaskBuilder must surface the options so RetryFailedEvent
-// re-applies the critical queue/retry/timeout instead of asynq defaults (P0-11).
+// The registered TaskBuilder must surface the options so the failed-event retry
+// re-applies the critical queue/retry/timeout instead of asynq defaults.
 func TestTriggerDispatchTaskBuilderReturnsOptions(t *testing.T) {
 	builder, ok := lookupTaskBuilder(TypeEmployeeTriggerDispatch)
 	if !ok {

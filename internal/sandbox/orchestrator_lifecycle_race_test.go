@@ -8,8 +8,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestSandboxStillIdle_SkipsRecentlyActive verifies the P1-16 guarded
-// conditional stop: a sandbox that was listed as idle but whose last_active_at
+// Conditional stop: a sandbox that was listed as idle but whose last_active_at
 // advanced past the cutoff (an in-flight request landed) must not be stopped.
 func TestSandboxStillIdle_SkipsRecentlyActive(t *testing.T) {
 	orch, _, db := setupOrchestrator(t)
@@ -19,7 +18,6 @@ func TestSandboxStillIdle_SkipsRecentlyActive(t *testing.T) {
 
 	idleCutoff := time.Now().Add(-10 * time.Minute)
 
-	// Originally idle.
 	staleAt := time.Now().Add(-30 * time.Minute)
 	sb := newRunningSandbox(t, db, &org.ID, &agent.ID, "ext-race", staleAt)
 
@@ -31,7 +29,7 @@ func TestSandboxStillIdle_SkipsRecentlyActive(t *testing.T) {
 		t.Fatal("expected sandbox to be idle before any activity")
 	}
 
-	// Simulate an in-flight request touching last_active_at after the bulk list.
+	// In-flight request touches last_active_at after the bulk list.
 	freshAt := time.Now()
 	if err := db.Model(&model.Sandbox{}).Where("id = ?", sb.ID).Update("last_active_at", freshAt).Error; err != nil {
 		t.Fatalf("touch last_active_at: %v", err)
@@ -46,8 +44,7 @@ func TestSandboxStillIdle_SkipsRecentlyActive(t *testing.T) {
 	}
 }
 
-// TestSandboxStillIdle_SkipsNonRunning verifies a sandbox that left the running
-// state between the list and the re-check is not stopped.
+// A sandbox that left the running state between the list and the re-check is not stopped.
 func TestSandboxStillIdle_SkipsNonRunning(t *testing.T) {
 	orch, _, db := setupOrchestrator(t)
 	org := createTestOrg(t, db)
@@ -70,9 +67,8 @@ func TestSandboxStillIdle_SkipsNonRunning(t *testing.T) {
 	}
 }
 
-// TestRunSandboxLifecycle_DoesNotStopRecentlyActive verifies that a freshly
-// active sandbox (last_active_at within the cutoff) is never selected for an
-// idle stop by the full lifecycle pass.
+// A freshly active sandbox (last_active_at within the cutoff) must never be
+// selected for an idle stop.
 func TestRunSandboxLifecycle_DoesNotStopRecentlyActive(t *testing.T) {
 	orch, provider, db := setupOrchestrator(t)
 	org := createTestOrg(t, db)
@@ -95,9 +91,8 @@ func TestRunSandboxLifecycle_DoesNotStopRecentlyActive(t *testing.T) {
 	}
 }
 
-// TestTouchLastActiveDebounces verifies the P1-16 debounce: repeated touches
-// within the interval persist the timestamp only once, while the in-memory
-// LastActiveAt is always updated.
+// Repeated touches within the interval persist the timestamp only once, while
+// the in-memory LastActiveAt is always updated.
 func TestTouchLastActiveDebounces(t *testing.T) {
 	orch, _, db := setupOrchestrator(t)
 	org := createTestOrg(t, db)
@@ -113,7 +108,6 @@ func TestTouchLastActiveDebounces(t *testing.T) {
 		t.Fatal("expected in-memory LastActiveAt to advance on touch")
 	}
 
-	// Wait for the first async persist to land.
 	deadline := time.Now().Add(3 * time.Second)
 	var firstPersist model.Sandbox
 	for {

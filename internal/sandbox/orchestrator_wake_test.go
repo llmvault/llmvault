@@ -11,16 +11,13 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestWakeSandboxFlipsRunningOnlyAfterHealthy verifies P2-35: the row must not
-// be persisted as 'running' until waitForEmployeeRuntimeLive confirms the
-// runtime is healthy. Otherwise a concurrent EnsureSandboxActive would observe
-// 'running' and route traffic to a sandbox that never actually came back up.
+// The row must not be persisted 'running' until the runtime is confirmed healthy, or a concurrent
+// EnsureSandboxActive would route traffic to a sandbox that never came back up.
 func TestWakeSandboxFlipsRunningOnlyAfterHealthy(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
 
-	// healthy only flips true once the test allows the probe to succeed; until
-	// then /healthz returns 503 so the wake stays blocked in the health wait.
+	// /healthz returns 503 until the test closes healthy.
 	healthy := make(chan struct{})
 	health := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/healthz" {
@@ -62,9 +59,7 @@ func TestWakeSandboxFlipsRunningOnlyAfterHealthy(t *testing.T) {
 		done <- result{out, err}
 	}()
 
-	// While the runtime is still unhealthy, the persisted status must not be
-	// 'running'. Give the wake a beat to run StartSandbox + RefreshURL + begin
-	// the health wait.
+	// While the runtime is still unhealthy, the persisted status must not be 'running'.
 	time.Sleep(150 * time.Millisecond)
 	var midflight model.Sandbox
 	if err := db.First(&midflight, "id = ?", sb.ID).Error; err != nil {
@@ -74,8 +69,6 @@ func TestWakeSandboxFlipsRunningOnlyAfterHealthy(t *testing.T) {
 		t.Fatalf("status persisted as running before health wait completed; got %q", midflight.Status)
 	}
 
-	// Now allow the runtime to report healthy; the wake should complete and
-	// flip to running.
 	close(healthy)
 
 	select {
@@ -99,9 +92,8 @@ func TestWakeSandboxFlipsRunningOnlyAfterHealthy(t *testing.T) {
 	}
 }
 
-// TestWakeSandboxMarksErrorWhenRuntimeNeverHealthy verifies the failure side of
-// P2-35: when the runtime never becomes healthy the row must end in 'error',
-// never left asserting 'running'.
+// When the runtime never becomes healthy the row must end in 'error', never left
+// asserting 'running'.
 func TestWakeSandboxMarksErrorWhenRuntimeNeverHealthy(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -127,8 +119,7 @@ func TestWakeSandboxMarksErrorWhenRuntimeNeverHealthy(t *testing.T) {
 		t.Fatalf("create sandbox: %v", err)
 	}
 
-	// Short deadline so the health wait bails quickly instead of polling for the
-	// full 90s employeeHealthTimeout.
+	// Short deadline so the health wait bails quickly instead of the full 90s.
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 

@@ -10,18 +10,15 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// healthErrorThreshold is the number of consecutive bad provider observations
-// required before a running sandbox is persisted as error. Railway maps any
-// unknown/transient deployment state (e.g. a momentary CRASHED that auto-
-// recovers) to error, so persisting on the first observation permanently bricks
-// the row — and P0-17 would then provision a duplicate. Requiring N consecutive
-// bad reads lets transient blips heal.
+// healthErrorThreshold is the consecutive bad observations required before a
+// running sandbox is persisted as error. Railway maps transient states (a momentary
+// CRASHED that auto-recovers) to error, so persisting on the first read would brick
+// the row and provision a duplicate.
 const healthErrorThreshold = 3
 
 func (o *Orchestrator) RunHealthCheck(ctx context.Context) {
 	var sandboxes []model.Sandbox
-	// Include error rows so a sandbox the provider has since recovered can be
-	// re-probed back to running instead of being terminal forever.
+	// Include error rows so a since-recovered sandbox can be re-probed to running.
 	if err := o.db.WithContext(ctx).Where("status IN ?", []string{string(StatusRunning), string(StatusError)}).Find(&sandboxes).Error; err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "health check: failed to query sandboxes", "error", err)
 		return
@@ -43,9 +40,8 @@ func (o *Orchestrator) checkSandboxHealth(ctx context.Context, sb *model.Sandbox
 	}
 	status, err := o.provider.GetStatus(ctx, sb.ExternalID)
 	if err != nil {
-		// Surface GetStatus failures: a silently-swallowed error means a deleted
-		// or unreachable resource stays 'running' forever. Don't flip status on a
-		// transport error — only on observed terminal provider states.
+		// Surface GetStatus failures (a swallowed error leaves a dead resource
+		// 'running' forever), but only flip status on observed terminal states.
 		logging.Capture(ctx, fmt.Errorf("health check: get status for sandbox %s (%s): %w", sb.ID, sb.ExternalID, err))
 		return
 	}
@@ -56,9 +52,8 @@ func (o *Orchestrator) checkSandboxHealth(ctx context.Context, sb *model.Sandbox
 		return
 	}
 
-	// Error is only persisted after N consecutive bad observations so a single
-	// transient CRASHED reading does not brick a sandbox that the provider auto-
-	// recovers.
+	// Persist error only after N consecutive bad observations, so a transient
+	// CRASHED that the provider auto-recovers does not brick the sandbox.
 	if providerStatus == string(StatusError) {
 		count := o.incrHealthFailureCount(sb.ID)
 		if count < healthErrorThreshold {

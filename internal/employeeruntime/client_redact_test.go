@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// P1-6: the debug config payload must never leak the runtime secret, sensitive
+// the debug config payload must never leak the runtime secret, sensitive
 // env values, or MCP Authorization headers when logged.
 func TestRedactConfigUpdateRequestStripsSecrets(t *testing.T) {
 	body := ConfigUpdateRequest{
@@ -53,14 +53,12 @@ func TestRedactConfigUpdateRequestStripsSecrets(t *testing.T) {
 		}
 	}
 
-	// Non-sensitive values must be preserved for debugging.
 	for _, keep := range []string{"https://llm.local", "on", "keep-this", "https://mcp.example/abc"} {
 		if !strings.Contains(dump, keep) {
 			t.Fatalf("redacted payload dropped non-sensitive value %q: %s", keep, dump)
 		}
 	}
 
-	// The original request must not be mutated.
 	if body.RuntimeSecret != "super-secret-runtime-value" {
 		t.Fatal("redaction mutated the original RuntimeSecret")
 	}

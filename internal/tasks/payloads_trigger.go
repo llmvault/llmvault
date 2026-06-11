@@ -25,10 +25,7 @@ type EmployeeTriggerDispatchPayload struct {
 }
 
 // NewEmployeeTriggerDispatchTask returns the task plus its enqueue options.
-// Options are returned separately (rather than baked into the task) so they
-// survive the enqueue client's Sentry trace-payload rewrite — a task rebuilt via
-// asynq.NewTask drops baked options, which would silently demote this
-// critical-queue task to the default queue with default retry/timeout (P0-11).
+// Options are returned separately (see NewWebhookForwardTask).
 func NewEmployeeTriggerDispatchTask(payload EmployeeTriggerDispatchPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -54,8 +51,7 @@ type ConversationNamePayload struct {
 // credential provider. Bulk queue — this is nice-to-have UX, not critical
 // path. MaxRetry is 3: transient provider failures are common and the
 // handler is idempotent (refuses to overwrite an already-set name).
-// Options are returned separately so they survive the enqueue client's Sentry
-// trace-payload rewrite (P0-11).
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewConversationNameTask(conversationID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(ConversationNamePayload{ConversationID: conversationID})
 	if err != nil {

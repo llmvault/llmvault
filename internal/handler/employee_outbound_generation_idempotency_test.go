@@ -14,9 +14,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestRuntimeModelUsageGenerationIsIdempotent guards P0-10: a runtime outbox
-// redelivery of the same model-usage event (same sandbox/session/sequence) must
-// not create a second billable generation row.
+// A runtime outbox redelivery of the same model-usage event must not create a
+// second billable generation row.
 func TestRuntimeModelUsageGenerationIsIdempotent(t *testing.T) {
 	db := connectEmployeeSkillSyncTestDB(t)
 	org := model.Org{Name: "runtime-usage-idem-" + uuid.NewString(), RateLimit: 1000, Active: true}
@@ -67,7 +66,6 @@ func TestRuntimeModelUsageGenerationIsIdempotent(t *testing.T) {
 	if err := h.storeAndMaybeEnqueue(t.Context(), &sandbox, event()); err != nil {
 		t.Fatalf("first ingest: %v", err)
 	}
-	// Redelivery must be idempotent and ack (return nil), not error.
 	if err := h.storeAndMaybeEnqueue(t.Context(), &sandbox, event()); err != nil {
 		t.Fatalf("redelivery ingest should ack, got %v", err)
 	}
@@ -79,9 +77,8 @@ func TestRuntimeModelUsageGenerationIsIdempotent(t *testing.T) {
 	}
 }
 
-// TestRuntimeModelUsageWebhookReturns5xxOnPersistFailure guards P0-10: when the
-// generation row cannot be persisted, the webhook must return 5xx so the runtime
-// outbox retries, rather than acking 200 and losing the billing record.
+// When the generation row cannot be persisted, the webhook must return 5xx so
+// the outbox retries, not ack 200 and lose the billing record.
 func TestRuntimeModelUsageWebhookReturns5xxOnPersistFailure(t *testing.T) {
 	db := connectEmployeeSkillSyncTestDB(t)
 	encKey := outboundWebhookTestSymmetricKey(t)

@@ -59,9 +59,8 @@ func seedGatewayDeliveryParents(t *testing.T, db *gorm.DB) (orgID, employeeID, s
 	return orgID, agent.ID, session.ID
 }
 
-// TestGatewayStreamDeliverySkipsDuplicateSendOnRetry verifies that a second
-// run of the same turn (an asynq retry) does NOT re-post to the provider:
-// the pre-send dedupe check finds the prior "sent" row and short-circuits.
+// An asynq retry of the same turn must NOT re-post: the pre-send dedupe check
+// finds the prior "sent" row and short-circuits.
 func TestGatewayStreamDeliverySkipsDuplicateSendOnRetry(t *testing.T) {
 	db := openTasksMemoryTestDB(t)
 	orgID, employeeID, sessionID := seedGatewayDeliveryParents(t, db)
@@ -86,7 +85,6 @@ func TestGatewayStreamDeliverySkipsDuplicateSendOnRetry(t *testing.T) {
 
 	sink := &countingGatewaySink{}
 
-	// First delivery sends and records a "sent" row.
 	res1, err := svc.DeliverEvents(context.Background(), payload, sink, events(), map[string]any{})
 	if err != nil {
 		t.Fatalf("first delivery: %v", err)
@@ -95,7 +93,6 @@ func TestGatewayStreamDeliverySkipsDuplicateSendOnRetry(t *testing.T) {
 		t.Fatalf("first delivery delivered=%v sends=%d", res1.Delivered, sink.sends)
 	}
 
-	// asynq retry of the same turn: must NOT re-post to the provider.
 	res2, err := svc.DeliverEvents(context.Background(), payload, sink, events(), map[string]any{})
 	if err != nil {
 		t.Fatalf("retry delivery: %v", err)
@@ -107,7 +104,6 @@ func TestGatewayStreamDeliverySkipsDuplicateSendOnRetry(t *testing.T) {
 		t.Fatalf("expected no second provider send, got %d sends", sink.sends)
 	}
 
-	// Exactly one persisted delivery row for this dedupe key.
 	var count int64
 	dedupe := deliveryDedupeKey(payload, "the answer")
 	if err := db.Model(&model.EmployeeGatewayDelivery{}).

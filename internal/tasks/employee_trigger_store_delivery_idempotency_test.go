@@ -10,10 +10,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestStoreDelivery_IsIdempotentUnderRetry verifies P2-45: the store-delivery
-// task upserts onto the unique (trigger_id, delivery_id) row, so an asynq retry
-// of the same task does not insert a duplicate delivery row and instead refreshes
-// the runtime correlation fields on the existing row.
+// The store-delivery task must upsert onto the unique (trigger_id, delivery_id) row, so an asynq
+// retry refreshes the existing row instead of inserting a duplicate.
 func TestStoreDelivery_IsIdempotentUnderRetry(t *testing.T) {
 	db := openTasksMemoryTestDB(t)
 	orgID := uuid.New()

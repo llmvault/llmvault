@@ -16,10 +16,8 @@ type ServerCache struct {
 	mu      sync.RWMutex
 	servers map[string]*cachedServer
 
-	// flight deduplicates concurrent builds for the same JTI. The build runs
-	// outside c.mu so a slow build for one key never blocks reads or builds
-	// for any other key (the previous implementation built under the global
-	// write lock, head-of-line-stalling all MCP traffic — P2-37).
+	// flight deduplicates concurrent builds for the same JTI. The build runs outside c.mu so a
+	// slow build for one key never blocks reads or builds for another.
 	flight singleflight.Group
 }
 
@@ -46,8 +44,7 @@ func (c *ServerCache) GetOrBuild(jti string, build func() (*mcp.Server, time.Tim
 	// other keys keep being served. singleflight collapses the thundering herd
 	// for the same JTI into a single build.
 	v, err, _ := c.flight.Do(jti, func() (any, error) {
-		// Re-check: a concurrent request may have populated the cache between
-		// the lookup above and acquiring the flight slot.
+		// Re-check: a concurrent request may have populated the cache before this flight slot.
 		if srv, ok := c.lookup(jti); ok {
 			return srv, nil
 		}

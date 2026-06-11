@@ -5,18 +5,16 @@ import (
 	"time"
 )
 
-// TestRevokedSet_TTLBounded verifies the in-memory revoked set evicts entries
-// once their TTL lapses, instead of growing for the process lifetime (P2-38).
+// The in-memory revoked set must evict entries once their TTL lapses, not grow
+// for the process lifetime.
 func TestRevokedSet_TTLBounded(t *testing.T) {
 	inv := NewInvalidator(nil, nil, nil, nil)
 
-	// A live entry is reported revoked.
 	inv.markRevoked("live", time.Hour)
 	if !inv.IsTokenLocallyRevoked("live") {
 		t.Fatal("freshly revoked JTI should be reported revoked")
 	}
 
-	// An already-lapsed entry is treated as absent and lazily evicted on read.
 	inv.markRevoked("stale", -time.Second) // non-positive ttl is capped, so set directly
 	inv.revokedMu.Lock()
 	inv.revokedSet["stale"] = time.Now().Add(-time.Minute)
@@ -33,8 +31,7 @@ func TestRevokedSet_TTLBounded(t *testing.T) {
 	}
 }
 
-// TestRevokedSet_Sweep verifies the opportunistic sweep drops lapsed entries
-// while retaining live ones.
+// The opportunistic sweep must drop lapsed entries while retaining live ones.
 func TestRevokedSet_Sweep(t *testing.T) {
 	inv := NewInvalidator(nil, nil, nil, nil)
 
@@ -56,7 +53,7 @@ func TestRevokedSet_Sweep(t *testing.T) {
 	}
 }
 
-// TestRevokedSet_TTLCapped verifies a TTL longer than the ceiling is capped.
+// A TTL longer than the ceiling is capped.
 func TestRevokedSet_TTLCapped(t *testing.T) {
 	inv := NewInvalidator(nil, nil, nil, nil)
 	before := time.Now().Add(revokedEntryMaxTTL)

@@ -8,10 +8,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestBatch_UnbilledIndexExistsAndSupportsScan verifies migration 000033
-// (P2-44): the supporting indexes for the billing batch tick are present, the
-// partial unbilled index covers exactly the selectUnbilledBatch predicate, and
-// the batch still bills correctly with the index in place.
+// The supporting indexes for the billing batch tick must be present, the partial
+// unbilled index must cover the selectUnbilledBatch predicate, and the batch must
+// still bill correctly with the index in place.
 func TestBatch_UnbilledIndexExistsAndSupportsScan(t *testing.T) {
 	db := connectDB(t)
 

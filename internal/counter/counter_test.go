@@ -40,17 +40,14 @@ func uniqueKey(prefix string) string {
 	return prefix + ":" + uuid.NewString()
 }
 
-// TestUndo_ExpiredKeyNotResurrected is the core P1-22 regression: Undo on a key
-// that has expired (or was never seeded) must NOT recreate it. A bare INCR would
-// recreate the key as a TTL-less counter of 1, capping the token/credential at a
-// single request forever.
+// Undo on an expired or never-seeded key must NOT recreate it: a bare INCR would resurrect it as a
+// TTL-less counter of 1, capping the token at one request forever.
 func TestUndo_ExpiredKeyNotResurrected(t *testing.T) {
 	rdb := testRedis(t)
 	c := New(rdb, nil)
 	ctx := context.Background()
 
 	key := uniqueKey("pbreq:test:expired")
-	// Simulate an expired / missing key: never seed it.
 
 	if err := c.Undo(ctx, key); err != nil {
 		t.Fatalf("Undo: %v", err)
@@ -65,7 +62,7 @@ func TestUndo_ExpiredKeyNotResurrected(t *testing.T) {
 	}
 }
 
-// TestUndo_PreservesTTL verifies Undo increments a live key and keeps its TTL.
+// Undo must increment a live key and keep its TTL.
 func TestUndo_PreservesTTL(t *testing.T) {
 	rdb := testRedis(t)
 	c := New(rdb, nil)
@@ -75,7 +72,6 @@ func TestUndo_PreservesTTL(t *testing.T) {
 	if err := c.Seed(ctx, key, 5, 10*time.Minute); err != nil {
 		t.Fatalf("Seed: %v", err)
 	}
-	// Consume one (simulate a decrement) then undo it.
 	if _, err := c.Decrement(ctx, key); err != nil {
 		t.Fatalf("Decrement: %v", err)
 	}
@@ -101,11 +97,8 @@ func TestUndo_PreservesTTL(t *testing.T) {
 	t.Cleanup(func() { rdb.Del(ctx, key) })
 }
 
-// TestCheckAndRefillToken_ReseedsOnCASLoss verifies the loser of the optimistic
-// CAS still reconciles Redis to the authoritative Postgres value (idempotent
-// re-seed), rather than leaving the counter exhausted. Two concurrent refill
-// calls race: the winner refills Postgres+Redis, the loser (RowsAffected==0)
-// must still leave Redis seeded to the refilled value.
+// The loser of the optimistic CAS (RowsAffected==0) must still reconcile Redis
+// to the authoritative Postgres value rather than leaving the counter exhausted.
 func TestCheckAndRefillToken_ReseedsOnCASLoss(t *testing.T) {
 	db := testDB(t)
 	rdb := testRedis(t)
@@ -113,7 +106,6 @@ func TestCheckAndRefillToken_ReseedsOnCASLoss(t *testing.T) {
 	ctx := context.Background()
 
 	tok := seedRefillableToken(t, db)
-	// Make it due so both racers attempt the CAS.
 	past := time.Now().Add(-time.Hour)
 	low := int64(0)
 	if err := db.Model(&model.Token{}).Where("jti = ?", tok.JTI).
@@ -126,7 +118,6 @@ func TestCheckAndRefillToken_ReseedsOnCASLoss(t *testing.T) {
 		t.Fatalf("seed redis: %v", err)
 	}
 
-	// Run two concurrent refills; exactly one wins the CAS.
 	type res struct {
 		refilled bool
 		err      error
@@ -152,8 +143,6 @@ func TestCheckAndRefillToken_ReseedsOnCASLoss(t *testing.T) {
 		t.Fatalf("expected exactly 1 CAS winner, got %d", winners)
 	}
 
-	// Regardless of which goroutine ran last, Redis must reflect the refilled
-	// value (100), not be left exhausted at 0.
 	val, err := c.Read(ctx, key)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
@@ -164,8 +153,6 @@ func TestCheckAndRefillToken_ReseedsOnCASLoss(t *testing.T) {
 	t.Cleanup(func() { rdb.Del(ctx, key) })
 }
 
-// TestCheckAndRefillToken_PerformsRefill verifies the happy path: a due,
-// not-yet-refilled token refills Postgres and re-seeds Redis to the full amount.
 func TestCheckAndRefillToken_PerformsRefill(t *testing.T) {
 	db := testDB(t)
 	rdb := testRedis(t)
@@ -173,7 +160,6 @@ func TestCheckAndRefillToken_PerformsRefill(t *testing.T) {
 	ctx := context.Background()
 
 	tok := seedRefillableToken(t, db)
-	// Make it due: last_refill_at far in the past, remaining low.
 	past := time.Now().Add(-time.Hour)
 	low := int64(0)
 	if err := db.Model(&model.Token{}).Where("jti = ?", tok.JTI).
@@ -203,9 +189,8 @@ func TestCheckAndRefillToken_PerformsRefill(t *testing.T) {
 	t.Cleanup(func() { rdb.Del(ctx, key) })
 }
 
-// seedRefillableToken creates an org, credential, and a token that is configured
-// for refill and already shows a completed refill (last_refill_at = now,
-// remaining = refill amount). Returns the token.
+// seedRefillableToken creates an org, credential, and a refill-configured token
+// showing a completed refill (last_refill_at = now, remaining = refill amount).
 func seedRefillableToken(t *testing.T, db *gorm.DB) model.Token {
 	t.Helper()
 

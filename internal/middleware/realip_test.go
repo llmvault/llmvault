@@ -66,8 +66,7 @@ func TestRealIP_TrustedPeerUsesFirstXForwardedForHop(t *testing.T) {
 }
 
 func TestRealIP_NoTrustedCIDRsFailsClosed(t *testing.T) {
-	// With no parseable trusted ranges, forwarding headers are never honoured,
-	// even from loopback.
+	// With no parseable trusted ranges, forwarding headers are never honoured, even from loopback.
 	got := captureRemoteAddr(t, nil, "127.0.0.1:443", map[string]string{
 		"True-Client-IP": "198.51.100.10",
 	})

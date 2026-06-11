@@ -16,9 +16,8 @@ const (
 	sandboxArchiveAfterHours  = 24
 )
 
-// sandboxStillIdle re-reads the sandbox row and reports whether it is still a
-// running sandbox whose last_active_at is older than the idle cutoff. It guards
-// the idle-stop against a request that became active after the bulk list query.
+// sandboxStillIdle re-reads the row and reports whether it is still running and idle past the
+// cutoff, guarding the idle-stop against a request that became active after the bulk list query.
 func (o *Orchestrator) sandboxStillIdle(ctx context.Context, id uuid.UUID, idleCutoff time.Time) (bool, error) {
 	var current model.Sandbox
 	if err := o.db.WithContext(ctx).
@@ -52,10 +51,8 @@ func (o *Orchestrator) RunSandboxLifecycle(ctx context.Context) {
 	} else {
 		for i := range idleRunning {
 			sb := &idleRunning[i]
-			// Re-check the row immediately before stopping: an in-flight request
-			// may have touched last_active_at between the list query above and
-			// now. Skipping when the sandbox is no longer idle (or no longer
-			// running) avoids stopping a sandbox mid-turn.
+			// Re-check before stopping: an in-flight request may have touched
+			// last_active_at since the list query (don't stop mid-turn).
 			stillIdle, err := o.sandboxStillIdle(ctx, sb.ID, idleCutoff)
 			if err != nil {
 				logging.FromContext(ctx).WarnContext(ctx, "sandbox lifecycle: re-check idle sandbox failed",

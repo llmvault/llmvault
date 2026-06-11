@@ -46,9 +46,8 @@ func createSelectorEmployee(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Em
 	return emp
 }
 
-// TestSelectorReturnsNonRunningSandbox verifies P0-17: the selector returns
-// 'creating'/'stopped' rows so concurrent syncs reuse an in-flight or idle
-// sandbox instead of treating it as absent and minting a duplicate.
+// The selector must return 'creating'/'stopped' rows so concurrent syncs reuse
+// an in-flight or idle sandbox instead of minting a duplicate.
 func TestSelectorReturnsNonRunningSandbox(t *testing.T) {
 	db := connectSelectorTestDB(t)
 	org := createSelectorOrg(t, db)
@@ -79,18 +78,14 @@ func TestSelectorReturnsNonRunningSandbox(t *testing.T) {
 }
 
 // employeeSandboxLockKey mirrors the handler's per-employee advisory-lock key
-// derivation so this DB-level test exercises the exact serialization the
-// ensureEmployeeSandbox path relies on for P0-17.
+// derivation so this DB-level test exercises the exact serialization.
 func employeeSandboxLockKey(employeeID uuid.UUID) int64 {
 	return int64(binary.BigEndian.Uint64(employeeID[:8])) // #nosec G115
 }
 
-// TestEmployeeSandboxAdvisoryLockSerializes verifies the P0-17 primary
-// mechanism: a per-employee pg_advisory_xact_lock serialises concurrent ensure
-// runs so only one provisions at a time (the loser waits, then reuses), instead
-// of both racing through check-then-create and minting duplicate billing
-// sandboxes. The same employee maps to the same lock key; a different employee
-// does not block.
+// A per-employee pg_advisory_xact_lock serialises concurrent ensure runs so only
+// one provisions (the loser waits, then reuses) instead of both racing
+// check-then-create. A different employee maps to a different key and does not block.
 func TestEmployeeSandboxAdvisoryLockSerializes(t *testing.T) {
 	db := connectSelectorTestDB(t)
 	org := createSelectorOrg(t, db)

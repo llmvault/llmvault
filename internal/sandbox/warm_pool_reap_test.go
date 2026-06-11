@@ -9,8 +9,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestWarmPoolMarkErrorDeletesProviderResource verifies P0-19: MarkError
-// releases the warm slot's paid provider resource.
+// MarkError releases the warm slot's paid provider resource.
 func TestWarmPoolMarkErrorDeletesProviderResource(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -48,8 +47,7 @@ func TestWarmPoolMarkErrorDeletesProviderResource(t *testing.T) {
 	}
 }
 
-// TestWarmPoolReapStaleSlots verifies P0-19: warm slots stranded in 'claiming'
-// beyond the TTL have their provider resources deleted.
+// Warm slots stranded in 'claiming' beyond the TTL must have their provider resources deleted.
 func TestWarmPoolReapStaleSlots(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -71,7 +69,6 @@ func TestWarmPoolReapStaleSlots(t *testing.T) {
 		t.Fatalf("create warm slot: %v", err)
 	}
 	t.Cleanup(func() { db.Where("id = ?", slot.ID).Delete(&model.SandboxWarmSlot{}) })
-	// Force updated_at older than the 10 min TTL.
 	if err := db.Model(&model.SandboxWarmSlot{}).Where("id = ?", slot.ID).
 		Update("updated_at", time.Now().Add(-20*time.Minute)).Error; err != nil {
 		t.Fatalf("backdate slot: %v", err)
@@ -92,8 +89,7 @@ func TestWarmPoolReapStaleSlots(t *testing.T) {
 	}
 }
 
-// TestWarmPoolReapStaleSlotsLeavesFreshClaiming verifies the reaper does not
-// touch a recently-claimed slot (claim still in flight).
+// Reaper does not touch a recently-claimed slot (claim still in flight).
 func TestWarmPoolReapStaleSlotsLeavesFreshClaiming(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()

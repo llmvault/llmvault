@@ -8,9 +8,8 @@ import (
 	"github.com/usehivy/hivy/internal/middleware"
 )
 
-// API-key-authenticated requests must pass through RequireOrgAdminOrAPIKey
-// (the scope ceiling is enforced in the handler). The DB is never touched on
-// this path, so a nil *gorm.DB is safe here.
+// API-key-authenticated requests must pass through RequireOrgAdminOrAPIKey (the scope ceiling is
+// enforced in the handler). The DB is never touched on this path, so a nil *gorm.DB is safe here.
 func TestRequireOrgAdminOrAPIKey_APIKeyPassesThrough(t *testing.T) {
 	called := false
 	mw := middleware.RequireOrgAdminOrAPIKey(nil)

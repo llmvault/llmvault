@@ -12,13 +12,11 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestCreateEmployeeSandboxCleansUpOnEndpointFailure verifies P0-18: a failure
-// after provider-create deletes the provider resource and revokes the minted
-// proxy token instead of leaking a live billing sandbox.
+// A failure after provider-create must delete the provider resource and revoke
+// the minted proxy token instead of leaking a live billing sandbox.
 func TestCreateEmployeeSandboxCleansUpOnEndpointFailure(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
-	// Fail GetEndpoint so create fails after the provider resource exists.
 	provider.getEndpointFn = func(_ context.Context, _ string, _ int) (string, error) {
 		return "", fmt.Errorf("boom: endpoint unavailable")
 	}
@@ -34,12 +32,10 @@ func TestCreateEmployeeSandboxCleansUpOnEndpointFailure(t *testing.T) {
 		t.Fatal("expected CreateEmployeeSandbox to fail")
 	}
 
-	// The provider resource must have been deleted.
 	if len(provider.deletedIDs) != 1 {
 		t.Fatalf("provider delete calls = %d, want 1 (resource must be released)", len(provider.deletedIDs))
 	}
 
-	// The sandbox row must be marked error with the external id recorded.
 	var sb model.Sandbox
 	if err := db.Where("employee_id = ?", agent.ID).First(&sb).Error; err != nil {
 		t.Fatalf("load sandbox row: %v", err)
@@ -53,8 +49,7 @@ func TestCreateEmployeeSandboxCleansUpOnEndpointFailure(t *testing.T) {
 	}
 }
 
-// TestCleanupFailedSandboxRevokesProxyTokens verifies the shared cleanup helper
-// revokes proxy tokens tagged to the sandbox.
+// Shared cleanup helper revokes proxy tokens tagged to the sandbox.
 func TestCleanupFailedSandboxRevokesProxyTokens(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -102,8 +97,7 @@ func TestCleanupFailedSandboxRevokesProxyTokens(t *testing.T) {
 	}
 }
 
-// TestReapStuckSandboxes verifies the reaper releases sandboxes stuck in
-// 'creating' beyond the TTL (P0-18 backstop).
+// The reaper releases sandboxes stuck in 'creating' beyond the TTL.
 func TestReapStuckSandboxes(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -142,9 +136,8 @@ func TestReapStuckSandboxes(t *testing.T) {
 	}
 }
 
-// TestReapIdleSpecialistSandboxes verifies P0-20: a specialist sandbox whose
-// task is idle beyond the TTL has its provider resource released even though the
-// LLM never called terminate.
+// A specialist sandbox whose task is idle beyond the TTL must have its provider
+// resource released even though the LLM never called terminate.
 func TestReapIdleSpecialistSandboxes(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()

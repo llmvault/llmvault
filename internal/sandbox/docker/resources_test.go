@@ -2,9 +2,8 @@ package docker
 
 import "testing"
 
-// TestResourceLimitsAppliesDefaults verifies that zero-valued CreateSandboxOpts
-// sizes (the path every employee/specialist creation currently takes) still
-// produce concrete CPU/memory/pids limits rather than an unbounded container.
+// Zero-valued CreateSandboxOpts sizes (the path every employee/specialist creation currently
+// takes) still produce concrete CPU/memory/pids limits rather than an unbounded container.
 func TestResourceLimitsAppliesDefaults(t *testing.T) {
 	res := resourceLimits(0, 0)
 
@@ -24,8 +23,7 @@ func TestResourceLimitsAppliesDefaults(t *testing.T) {
 	}
 }
 
-// TestResourceLimitsHonorsExplicitSizes verifies per-plan sizes override the
-// defaults while pids stays bounded.
+// Per-plan sizes override the defaults while pids stays bounded.
 func TestResourceLimitsHonorsExplicitSizes(t *testing.T) {
 	res := resourceLimits(8, 16)
 

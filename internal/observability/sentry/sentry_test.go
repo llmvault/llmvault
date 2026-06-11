@@ -59,7 +59,6 @@ func TestSentryClientOptions_WiresTracingFromConfig(t *testing.T) {
 
 	options := sentryClientOptions(cfg, "production", "release-abc", "host-xyz")
 
-	// EnableTracing must be true when TracesSampleRate > 0.
 	if !options.EnableTracing {
 		t.Fatal("EnableTracing = false, want true when TracesSampleRate > 0")
 	}
@@ -200,8 +199,6 @@ func TestCapture5xxResponses_CapturesUnhandledServerResponse(t *testing.T) {
 		t.Fatalf("http.route tag = %q", ev.Tags["http.route"])
 	}
 }
-
-// --- P2-51 / P2-25: BeforeSend scrubs sensitive query params ---
 
 func TestScrubSensitiveQueryParams_ScrubbsTokenAndKey(t *testing.T) {
 	tests := []struct {

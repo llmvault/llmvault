@@ -6,10 +6,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestJsonArray_MCPServersArrayRoundtrip verifies that jsonArray correctly
-// decodes a JSON array stored in a RawJSON column (the mcp_servers bug: the
-// old code used model.JSON / map[string]any which can never represent an
-// array, so jsonArray always returned empty).
+// jsonArray must decode a JSON array stored in a RawJSON column; the old
+// map[string]any code could never represent an array and returned empty.
 func TestJsonArray_MCPServersArrayRoundtrip(t *testing.T) {
 	raw := model.RawJSON(`[{"name":"hivy","transport":{"type":"streamable_http","url":"https://mcp.example.com"}}]`)
 	got := jsonArray(raw)
@@ -25,8 +23,7 @@ func TestJsonArray_MCPServersArrayRoundtrip(t *testing.T) {
 	}
 }
 
-// TestJsonArray_EmptyArray ensures an empty JSON array produces an empty slice
-// (not nil, not a panic).
+// An empty JSON array must produce an empty slice (not nil, not a panic).
 func TestJsonArray_EmptyArray(t *testing.T) {
 	got := jsonArray(model.RawJSON("[]"))
 	if got == nil || len(got) != 0 {
@@ -34,9 +31,7 @@ func TestJsonArray_EmptyArray(t *testing.T) {
 	}
 }
 
-// TestJsonArray_EmptyObject is a backward-compat case: rows created before the
-// schema fix may have '{}' stored; jsonArray should return an empty slice
-// without panicking.
+// Backward-compat: rows with '{}' stored must return an empty slice, not panic.
 func TestJsonArray_EmptyObject(t *testing.T) {
 	got := jsonArray(model.RawJSON("{}"))
 	if len(got) != 0 {
@@ -44,7 +39,7 @@ func TestJsonArray_EmptyObject(t *testing.T) {
 	}
 }
 
-// TestJsonArray_Nil ensures a nil/zero-length RawJSON returns an empty slice.
+// A nil/zero-length RawJSON returns an empty slice.
 func TestJsonArray_Nil(t *testing.T) {
 	got := jsonArray(model.RawJSON(nil))
 	if len(got) != 0 {

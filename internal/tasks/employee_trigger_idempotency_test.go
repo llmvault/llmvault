@@ -8,10 +8,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestClaimTriggerDelivery_IsIdempotent asserts that claiming the same
-// (trigger_id, delivery_id) twice only wins the claim once. asynq retries the
-// whole dispatch batch on failure, so without this the agent re-receives already
-// delivered triggers (P0-14).
+// Claiming the same (trigger_id, delivery_id) twice must win only once, or an
+// asynq batch retry re-delivers triggers the agent already received.
 func TestClaimTriggerDelivery_IsIdempotent(t *testing.T) {
 	db := openTasksMemoryTestDB(t)
 	orgID := uuid.New()
@@ -78,7 +76,6 @@ func TestClaimTriggerDelivery_IsIdempotent(t *testing.T) {
 		t.Fatalf("expected exactly one delivery row, got %d", rows)
 	}
 
-	// Releasing the claim (post failed before delivery) allows a re-claim.
 	h.releaseTriggerDeliveryClaim(t.Context(), trigger.ID, payload.DeliveryID)
 	reclaimed, err := h.claimTriggerDelivery(t.Context(), payload, trigger, &conv, compiled)
 	if err != nil {

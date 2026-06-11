@@ -132,10 +132,8 @@ func (h *EmployeeOutboundWebhookHandler) loadSandbox(w http.ResponseWriter, r *h
 
 func (h *EmployeeOutboundWebhookHandler) verifySignature(ctx context.Context, sb *model.Sandbox, body []byte, signature string) bool {
 	if h.encKey == nil {
-		// Fail closed: without the encryption key we cannot recover the runtime
-		// secret to verify the HMAC, so we cannot trust the caller. Returning true
-		// here would let anonymous clients forge session events/usage for any
-		// sandbox ID.
+		// Fail closed: without the encryption key we can't recover the runtime
+		// secret to verify the HMAC, so anyone could forge events for any sandbox.
 		logging.FromContext(ctx).ErrorContext(ctx, "employee outbound webhook: rejecting request, no encryption key configured for signature verification",
 			"sandbox_id", sb.ID)
 		return false

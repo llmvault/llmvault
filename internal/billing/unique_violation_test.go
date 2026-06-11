@@ -8,10 +8,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// TestIsUniqueViolation_MatchesStructuredCode verifies that idempotency-key
-// collisions are detected by the pgconn SQLSTATE rather than by scanning the
-// error message — message scanning gave false positives on unrelated errors
-// that merely mentioned the constraint text (P2-34).
+// Idempotency-key collisions must be detected by the pgconn SQLSTATE, not by
+// scanning the error message (which false-positives on unrelated errors).
 func TestIsUniqueViolation_MatchesStructuredCode(t *testing.T) {
 	t.Run("structured 23505 is a unique violation", func(t *testing.T) {
 		err := fmt.Errorf("create entry: %w", &pgconn.PgError{Code: "23505", Message: "duplicate key"})

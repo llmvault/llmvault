@@ -81,9 +81,8 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	var newSandbox *model.Sandbox
 	fail := func(phase string, cause error) error {
 		msg := cause.Error()
-		// Rollback must complete even when the task context is already cancelled
-		// (asynq deadline, worker drain). A cancelled ctx would no-op the provider
-		// delete and DB writes below, stranding both the new and old sandboxes.
+		// Rollback must run on WithoutCancel: a cancelled task ctx (asynq deadline, worker drain)
+		// would no-op the provider delete and DB writes, stranding both sandboxes.
 		rollbackCtx := context.WithoutCancel(ctx)
 		recordEmployeeSandboxUpgradeFailure(rollbackCtx, upgrade, phase, msg)
 		log.ErrorContext(ctx, "employee sandbox upgrade failed",
@@ -117,7 +116,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 		return cause
 	}
 
-	// Phase 1: Snapshot the old runtime while it is still available.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseBackup); err != nil {
 		return err
 	}
@@ -130,7 +128,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	}
 	recordEmployeeSandboxUpgradeBackup(ctx, upgrade, backupMeta)
 
-	// Phase 2: Create new sandbox.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseCreatingNew); err != nil {
 		return err
 	}
@@ -142,11 +139,9 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	if err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseCreatingNew, err)
 	}
-	// CreateEmployeeSandbox marks the new sandbox 'running'. The runtime selector
-	// orders main runtimes by created_at DESC, so a running new sandbox would be
-	// picked for live traffic immediately — before the old session DB is restored
-	// (Phase 3) and synced (Phase 5). Park it in the non-selectable 'upgrading'
-	// status so turns keep landing on the old sandbox until the new one is ready.
+	// CreateEmployeeSandbox marks it 'running', and the selector orders by
+	// created_at DESC, so it would be picked for live traffic before restore/sync.
+	// Park it 'upgrading' (non-selectable) so turns stay on the old sandbox.
 	if err := h.db.WithContext(ctx).Model(newSandbox).Update("status", string(sandbox.StatusUpgrading)).Error; err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseCreatingNew, fmt.Errorf("park new sandbox as upgrading: %w", err))
 	}
@@ -157,7 +152,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	upgrade.NewSandboxID = &newSandbox.ID
 	recordEmployeeSandboxUpgradeNewSandbox(ctx, upgrade, newSandbox)
 
-	// Phase 3: Restore the verified SQLite snapshot into the new runtime.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseRestore); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseRestore, err)
 	}
@@ -165,7 +159,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 		return fail(model.EmployeeSandboxUpgradePhaseRestore, err)
 	}
 
-	// Phase 4: Restart new sandbox so the runtime opens the restored DB cleanly.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseRestartNew); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseRestartNew, err)
 	}
@@ -179,16 +172,14 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	}
 	newSandbox.Status = string(sandbox.StatusUpgrading)
 
-	// Phase 5: Sync current control-plane config to the restored runtime.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseSync); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseSync, err)
 	}
 	if err := h.syncEmployeeRuntime(ctx, agent, newSandbox); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseSync, err)
 	}
-	// The new runtime is restored, restarted and synced. Flip it to 'running'
-	// now so the selector starts routing live traffic to it — and only now, after
-	// the old session DB has been transferred, so no pre-restore turn is lost.
+	// Restored, restarted and synced — only now flip to 'running' so the selector
+	// routes live traffic, after the old session DB transferred so no turn is lost.
 	activatedAt := time.Now()
 	if err := h.db.WithContext(ctx).Model(newSandbox).Updates(map[string]any{
 		"status":         string(sandbox.StatusRunning),
@@ -204,11 +195,9 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 		return fail(model.EmployeeSandboxUpgradePhasePausingOld, err)
 	}
 	if err := h.orchestrator.StopSandbox(ctx, oldSandbox); err != nil {
-		// Some providers (Railway) have no pause primitive. That is fine here:
-		// the new sandbox is already serving traffic and Phase 7 schedules the old
-		// sandbox's retirement (deletion), so we don't roll back over an
-		// unsupported pause — only over a real stop failure. oldPaused stays false
-		// so a later-phase rollback won't try to restart a sandbox we never stopped.
+		// Pause-less providers (Railway): fine here, since the new sandbox serves
+		// traffic and Phase 7 retires the old one. Don't roll back over an unsupported
+		// pause; oldPaused stays false so a later rollback won't restart it.
 		if !errors.Is(err, sandbox.ErrUnsupported) {
 			return fail(model.EmployeeSandboxUpgradePhasePausingOld, err)
 		}
@@ -218,7 +207,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 		oldPaused = true
 	}
 
-	// Phase 7: Schedule old sandbox retirement.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseCleanupOld); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseCleanupOld, err)
 	}
@@ -226,7 +214,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 		logging.Capture(ctx, fmt.Errorf("employee sandbox upgrade %s: schedule old sandbox retirement failed: %w", upgrade.ID, err))
 	}
 
-	// Phase 8: Mark succeeded.
 	now := time.Now().UTC()
 	if err := h.db.WithContext(ctx).Model(upgrade).Updates(map[string]any{
 		"status":       model.EmployeeSandboxUpgradeStatusSucceeded,

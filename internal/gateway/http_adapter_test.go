@@ -131,10 +131,8 @@ func TestHTTPAdapterSendResponsePostsMarkdownCallback(t *testing.T) {
 	}
 }
 
-// P1-7: callback_url is client-controlled; SendResponse must reject internal /
-// cloud-metadata destinations before issuing the request (blind SSRF + response
-// exfiltration). With AllowLoopback disabled (production behaviour), loopback,
-// private, and metadata targets must all be refused.
+// callback_url is client-controlled; SendResponse must reject internal/metadata
+// destinations before issuing the request (blind SSRF + response exfiltration).
 func TestHTTPAdapterSendResponseRejectsSSRFCallback(t *testing.T) {
 	prev := netguard.AllowLoopback
 	netguard.AllowLoopback = false

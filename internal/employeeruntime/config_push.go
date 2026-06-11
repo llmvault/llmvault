@@ -54,9 +54,8 @@ func PushEmployeeRuntimeConfig(ctx context.Context, deps CompileDeps, agent *mod
 	if err := client.Readyz(ctx); err != nil {
 		return fmt.Errorf("employee runtime readyz: %w", err)
 	}
-	// Only repoint schedules once the main runtime has accepted the config that
-	// carries them. Doing it here (rather than during compile) means a failed
-	// compile/push never mutates schedule rows.
+	// Repoint schedules only after the runtime accepts the config carrying them, so
+	// a failed compile/push never mutates schedule rows.
 	if err := RepointEmployeeSchedules(ctx, deps.DB, agent, sb); err != nil {
 		return fmt.Errorf("repoint employee schedules: %w", err)
 	}

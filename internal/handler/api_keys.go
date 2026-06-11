@@ -94,11 +94,8 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Privilege-escalation guard. API keys must never be able to mint a key
-	// with scopes broader than their own (a narrow key minting an "all" key is
-	// a full privilege escalation). JWT-authenticated callers must be org
-	// admins to manage keys at all (enforced on the route); they may mint any
-	// valid scope.
+	// Privilege-escalation guard: an API key must never mint a key with broader scopes than its
+	// own. JWT callers are already org-admin-gated on the route and may mint any valid scope.
 	if apiClaims, ok := middleware.APIKeyClaimsFromContext(r.Context()); ok {
 		if !scopesWithinCeiling(req.Scopes, apiClaims.Scopes) {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "api key cannot mint a key with broader scopes than its own"})
@@ -159,8 +156,7 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // scopesWithinCeiling reports whether every requested scope is permitted given
 // the caller's own scopes. A caller holding "all" may mint any scope; otherwise
-// each requested scope must be one the caller already holds, and the broad
-// "all" scope can only be minted by a caller that itself holds "all".
+// each requested scope must be one the caller already holds.
 func scopesWithinCeiling(requested, callerScopes []string) bool {
 	held := make(map[string]bool, len(callerScopes))
 	for _, s := range callerScopes {

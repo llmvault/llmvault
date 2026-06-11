@@ -12,16 +12,14 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// P1-2: HMAC verification must fail closed when no encryption key is configured.
-// Returning true there would let anonymous callers forge session events / usage
-// for any sandbox ID.
+// HMAC verification must fail closed when no encryption key is configured. Returning true there
+// would let anonymous callers forge session events / usage for any sandbox ID.
 func TestVerifySignatureFailsClosedWithoutEncKey(t *testing.T) {
 	h := NewEmployeeOutboundWebhookHandler(nil, nil, nil)
 	sb := &model.Sandbox{ID: uuid.New()}
 	body := []byte(`{"event_type":"agent.run.model.usage"}`)
 
-	// Even a "correctly shaped" signature (any value) must be rejected because
-	// the server has no key with which to verify the HMAC.
+	// Any signature must be rejected: the server has no key to verify the HMAC.
 	if h.verifySignature(context.Background(), sb, body, "sha256=deadbeef") {
 		t.Fatal("verifySignature returned true with nil encryption key (fail-open SSRF/forgery)")
 	}

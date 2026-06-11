@@ -89,10 +89,8 @@ func TestBuildAvailableSpecialistsSection_ListsAttachedSpecialists(t *testing.T)
 	}
 }
 
-// TestBuildAvailableSpecialistsSection_NoMatchReturnsEmpty verifies that
-// attaching specialist slugs that do not appear in the catalog returns an
-// empty section rather than the 14-line header block (P2-20: replaced the
-// fragile len(lines)==14 sentinel with an explicit matched-count check).
+// Attaching specialist slugs that do not appear in the catalog must return an
+// empty section rather than the header block.
 func TestBuildAvailableSpecialistsSection_NoMatchReturnsEmpty(t *testing.T) {
 	catalog, err := specialists.NewCatalog([]specialists.Definition{
 		{
@@ -109,7 +107,6 @@ func TestBuildAvailableSpecialistsSection_NoMatchReturnsEmpty(t *testing.T) {
 		t.Fatalf("catalog: %v", err)
 	}
 
-	// Agent has a slug that doesn't exist in the catalog.
 	agent := &model.Employee{
 		AttachedSpecialists: []string{"non-existent-specialist"},
 	}

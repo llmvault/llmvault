@@ -15,14 +15,10 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestEmployeeSessionEventRedeliveryIsIdempotent guards the ack-means-durable
-// contract for session events (P0-15): the runtime outbox redelivers an event
-// whenever it does not observe a clean 2xx ack — including when Go committed the
-// row but the ack response was lost in transit, or when one event in a batch
-// failed and the whole batch is redelivered. A redelivery of the same
-// (sandbox_id, session_id, sequence) event must NOT create a second
-// session-event row (which would duplicate the agent's reply in the persisted
-// timeline and re-drive memory retain / gateway delivery).
+// Ack-means-durable contract: the runtime outbox redelivers an event whenever it
+// does not observe a clean 2xx ack. A redelivery of the same (sandbox_id,
+// session_id, sequence) must NOT create a second row, which would duplicate the
+// agent's reply and re-drive memory retain / gateway delivery.
 func TestEmployeeSessionEventRedeliveryIsIdempotent(t *testing.T) {
 	db := connectEmployeeSkillSyncTestDB(t)
 	encKey := outboundWebhookTestSymmetricKey(t)
@@ -83,7 +79,6 @@ func TestEmployeeSessionEventRedeliveryIsIdempotent(t *testing.T) {
 	if code := deliver(); code != http.StatusOK {
 		t.Fatalf("first delivery status = %d, want 200", code)
 	}
-	// Ack lost in transit / batch redelivered: the runtime re-POSTs the same event.
 	if code := deliver(); code != http.StatusOK {
 		t.Fatalf("redelivery status = %d, want 200 (idempotent ack)", code)
 	}
@@ -97,10 +92,8 @@ func TestEmployeeSessionEventRedeliveryIsIdempotent(t *testing.T) {
 	}
 }
 
-// TestEmployeeEventWriterRedeliveryIsIdempotent guards the same contract on the
-// buffered writer path used in production (cmd/server/serve.go). The HTTP ack is
-// returned immediately, but a redelivery of the same event must still not produce
-// a duplicate row once both have been flushed.
+// Same contract on the buffered writer path (production): the HTTP ack returns immediately, but a
+// redelivery must still not produce a duplicate row once both are flushed.
 func TestEmployeeEventWriterRedeliveryIsIdempotent(t *testing.T) {
 	db := connectEmployeeSkillSyncTestDB(t)
 	org := model.Org{Name: "writer-redeliver-" + uuid.NewString(), RateLimit: 1000, Active: true}

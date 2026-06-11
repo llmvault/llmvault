@@ -44,8 +44,7 @@ type EmployeeTriggerStoreDeliveryPayload struct {
 }
 
 // NewEmployeeTriggerStoreDeliveryTask returns the task plus its enqueue options.
-// Options are returned separately so they survive the enqueue client's Sentry
-// trace-payload rewrite (see P0-11).
+// Options are returned separately (see NewWebhookForwardTask).
 func NewEmployeeTriggerStoreDeliveryTask(payload EmployeeTriggerStoreDeliveryPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -94,10 +93,8 @@ func (h *EmployeeTriggerStoreDeliveryHandler) Handle(ctx context.Context, task *
 		RuntimeTurnID:         payload.RuntimeTurnID,
 		Payload:               model.RawJSON(raw),
 	}
-	// The dispatcher claims a row for (trigger_id, delivery_id) before posting,
-	// so this row usually already exists. Upsert the runtime correlation fields
-	// onto the claimed row; this also makes the store task itself idempotent
-	// under asynq retries (it no longer inserts duplicate rows — see P2-45).
+	// The dispatcher already claimed the (trigger_id, delivery_id) row, so upsert the runtime
+	// correlation fields onto it; this also keeps the store task idempotent under asynq retries.
 	db := h.db.WithContext(ctx)
 	if strings.TrimSpace(payload.DeliveryID) != "" {
 		db = db.Clauses(clause.OnConflict{

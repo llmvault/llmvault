@@ -15,10 +15,9 @@ import (
 
 const webStreamTokenLifetime = time.Hour
 
-// streamTokenHeader is the preferred header name for the signed stream token.
-// Clients that can set request headers should use this instead of the ?token=
-// query parameter to avoid the token appearing in access logs and Sentry
-// breadcrumbs.
+// streamTokenHeader is the preferred header name for the signed stream token:
+// clients use it instead of the ?token= query parameter to keep the token out
+// of access logs and Sentry breadcrumbs.
 const streamTokenHeader = "X-Stream-Token" // #nosec G101 -- HTTP header name, not a credential
 
 func (h *EmployeeHandler) signedWebStreamURL(employeeID, sessionID uuid.UUID, streamID string) (string, error) {

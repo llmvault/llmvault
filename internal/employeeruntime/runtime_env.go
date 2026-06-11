@@ -68,13 +68,11 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 		return nil, fmt.Errorf("runtime env proxy token is required")
 	}
 
-	// Step 1: merge user-supplied env vars first so that reserved HIVY_ keys
-	// set in step 2 always win and cannot be clobbered by the org's env vars.
+	// Merge user env first so the reserved HIVY_ keys written below always win.
 	if err := mergeAgentEnvVars(deps, env, agent); err != nil {
 		return nil, err
 	}
 
-	// Step 2: overlay all control-plane-reserved keys last.
 	if sb != nil {
 		env[EmployeeEnvSandboxID] = sb.ID.String()
 	}
@@ -96,9 +94,8 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	env[EmployeeEnvAgentMultimodalModel] = DefaultEmployeeMultimodalModel
 	env[EmployeeEnvAgentMultimodalAPIKeyEnv] = ProxyAPIKeyEnv
 	env[EmployeeEnvRuntimeMode] = "employee"
-	// Provision a tunnel password so the runtime tunnel proxy fails closed (it is
-	// an open proxy to every sandbox localhost port when unset). The runtime
-	// secret is the same key the tunnel uses to sign its auth cookies/JWTs.
+	// Provision a tunnel password so the tunnel proxy fails closed (it is an open
+	// proxy to every sandbox localhost port when unset).
 	env[EmployeeEnvTunnelPassword] = runtimeSecret
 	env[ProxyAPIKeyEnv] = token.Token
 	addControlPlaneRuntimeEnv(ctx, deps, env, agent, runtimeSecret)
@@ -106,9 +103,9 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	return env, nil
 }
 
-// mergeAgentEnvVars decrypts and merges the org-supplied env vars into env.
-// It must be called before the reserved control-plane keys are written so that
-// any HIVY_* key supplied by the user is overwritten by the authoritative value.
+// mergeAgentEnvVars decrypts and merges org-supplied env vars into env. It must
+// run before the reserved control-plane keys are written so a user HIVY_* key is
+// overwritten by the authoritative value.
 func mergeAgentEnvVars(deps CompileDeps, env map[string]string, agent *model.Employee) error {
 	if len(agent.EncryptedEnvVars) == 0 {
 		return nil

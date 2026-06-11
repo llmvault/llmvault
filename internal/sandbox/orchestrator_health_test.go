@@ -8,8 +8,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestHealthCheckRequiresConsecutiveBadObservations verifies P0-21: a single
-// transient bad observation does not persist 'error'; N consecutive do.
+// A single transient bad observation does not persist 'error'; N consecutive do.
 func TestHealthCheckRequiresConsecutiveBadObservations(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -43,7 +42,6 @@ func TestHealthCheckRequiresConsecutiveBadObservations(t *testing.T) {
 	}
 
 	badStatus = StatusError
-	// First two bad observations must NOT brick the row.
 	orch.RunHealthCheck(context.Background())
 	if got := statusOf(); got != "running" {
 		t.Fatalf("after 1 bad observation status = %q, want running", got)
@@ -52,15 +50,13 @@ func TestHealthCheckRequiresConsecutiveBadObservations(t *testing.T) {
 	if got := statusOf(); got != "running" {
 		t.Fatalf("after 2 bad observations status = %q, want running", got)
 	}
-	// Third consecutive bad observation persists error.
 	orch.RunHealthCheck(context.Background())
 	if got := statusOf(); got != string(StatusError) {
 		t.Fatalf("after 3 bad observations status = %q, want error", got)
 	}
 }
 
-// TestHealthCheckTransientBadThenRecoverDoesNotBrick verifies a recovery before
-// the threshold resets the counter so the sandbox stays running.
+// A recovery before the threshold resets the counter so the sandbox stays running.
 func TestHealthCheckTransientBadThenRecoverDoesNotBrick(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -100,8 +96,7 @@ func TestHealthCheckTransientBadThenRecoverDoesNotBrick(t *testing.T) {
 	}
 }
 
-// TestHealthCheckReprobesErrorRows verifies P0-21: an error-state row that the
-// provider now reports as running is recovered.
+// An error-state row that the provider now reports as running is recovered.
 func TestHealthCheckReprobesErrorRows(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()

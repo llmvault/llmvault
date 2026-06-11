@@ -24,11 +24,9 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 		return o.UnarchiveSandbox(ctx, sb)
 
 	case string(StatusCreating), string(StatusStarting):
-		// A 'creating'/'starting' row may not have its runtime_url populated yet
-		// (e.g. a concurrent warm claim is still in flight). Probing an empty URL
-		// would build a bare "/healthz" and hammer localhost for the full timeout,
-		// so poll the row for a populated runtime_url first and fail fast if it
-		// never appears.
+		// A 'creating'/'starting' row may not have runtime_url yet (concurrent warm
+		// claim in flight). Probing an empty URL hammers localhost/healthz for the
+		// full timeout, so poll for a populated URL first and fail fast otherwise.
 		if err := o.waitForPopulatedRuntimeURL(ctx, sb); err != nil {
 			return nil, err
 		}
@@ -36,8 +34,8 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 			return nil, fmt.Errorf("waiting for in-flight sandbox: %w", err)
 		}
 		now := time.Now()
-		// Guard the flip so a concurrent transition (e.g. a rollback flipping the
-		// row to 'error', or a delete) is not silently overwritten with 'running'.
+		// Guard the flip so a concurrent transition (rollback to 'error', delete) is
+		// not overwritten with 'running'.
 		res := o.db.WithContext(ctx).Model(&model.Sandbox{}).
 			Where("id = ? AND status IN ?", sb.ID, []string{string(StatusCreating), string(StatusStarting)}).
 			Updates(map[string]any{
@@ -48,8 +46,7 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 			return nil, fmt.Errorf("activating in-flight sandbox %s: %w", sb.ID, res.Error)
 		}
 		if res.RowsAffected == 0 {
-			// Something else moved the row out from under us; reload and re-resolve
-			// instead of asserting a stale 'running'.
+			// Something else moved the row; reload and re-resolve, not assert stale 'running'.
 			if err := o.db.WithContext(ctx).First(sb, "id = ?", sb.ID).Error; err != nil {
 				return nil, fmt.Errorf("reloading in-flight sandbox %s: %w", sb.ID, err)
 			}
@@ -66,9 +63,8 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 		return nil, fmt.Errorf("sandbox %s is in error state", sb.ID)
 
 	case string(StatusUpgrading):
-		// The sandbox is mid-upgrade and intentionally non-selectable; callers
-		// should not be routing traffic to it. Surface a clear error rather than
-		// probing or flipping it.
+		// Mid-upgrade and intentionally non-selectable; surface a clear error
+		// rather than probing or flipping it.
 		return nil, fmt.Errorf("sandbox %s is mid-upgrade", sb.ID)
 
 	default:
@@ -89,11 +85,8 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 
 const inFlightRuntimeURLInterval = 1 * time.Second
 
-// waitForPopulatedRuntimeURL polls the sandbox row until its runtime_url is
-// populated (a concurrent create/warm-claim writes it once the provider
-// resource is addressable). It returns fast with a clear error if the URL never
-// appears within the health timeout, rather than letting waitForEmployeeRuntimeLive
-// probe a bare "/healthz" against localhost for the full window.
+// waitForPopulatedRuntimeURL polls until runtime_url is populated (written by a
+// concurrent create/warm-claim), failing fast if it never appears.
 func (o *Orchestrator) waitForPopulatedRuntimeURL(ctx context.Context, sb *model.Sandbox) error {
 	if strings.TrimSpace(sb.RuntimeURL) != "" {
 		return nil

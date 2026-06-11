@@ -7,16 +7,13 @@ import (
 	"testing"
 )
 
-// verifyNangoSignature must fail closed when the configured webhook secret is
-// empty. Otherwise an attacker can forge a valid X-Nango-Hmac-Sha256 header by
-// computing HMAC-SHA256 with an empty key over a body of their choosing,
-// allowing forged connection-state / Slack inbound webhook events for arbitrary
-// orgs. Mirrors the employee-outbound webhook fail-closed hardening.
+// verifyNangoSignature must fail closed on an empty webhook secret: otherwise an
+// attacker forges a valid X-Nango-Hmac-Sha256 by HMAC-ing with an empty key,
+// enabling forged inbound events for arbitrary orgs.
 func TestVerifyNangoSignatureFailsClosedWithoutSecret(t *testing.T) {
 	body := []byte(`{"type":"forward","connectionId":"victim-org-conn"}`)
 
-	// An attacker who knows the secret is unset can compute the HMAC with an
-	// empty key and submit the matching signature. This must be rejected.
+	// An empty-key HMAC the attacker can compute must be rejected.
 	forged := func(b []byte) string {
 		mac := hmac.New(sha256.New, []byte(""))
 		mac.Write(b)

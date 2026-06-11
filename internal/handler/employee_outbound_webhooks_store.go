@@ -13,11 +13,9 @@ import (
 	"github.com/usehivy/hivy/internal/precontext"
 )
 
-// storeAndMaybeEnqueue persists the event and triggers any follow-up work. It
-// returns a non-nil error only for failures that lose a revenue- or reply-bearing
-// record (the runtime model-usage generation row), so the caller can return 5xx
-// and have the runtime outbox redeliver. Best-effort side effects (memory retain,
-// gateway delivery, schedule sync) are captured to Sentry but never bubble up.
+// storeAndMaybeEnqueue persists the event and triggers follow-up work. It errors
+// only when a revenue/reply-bearing record is lost (so the caller returns 5xx and
+// the outbox redelivers); best-effort side effects are captured to Sentry.
 func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, sb *model.Sandbox, event *employeeOutboundEvent) error {
 	payload := map[string]any{}
 	if len(event.Payload) > 0 {
@@ -41,10 +39,8 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	}
 	if event.EventType == "agent.run.model.usage" {
 		if err := h.recordRuntimeModelUsageGeneration(ctx, sb, event, payload); err != nil {
-			// This is the sole billing record for runtime LLM usage; losing it is
-			// unbilled revenue. Surface the failure so the webhook returns 5xx and
-			// the runtime outbox retries (the row's deterministic ID makes the
-			// retry idempotent).
+			// Sole billing record for runtime LLM usage; surface the failure for a 5xx
+			// so the outbox retries (deterministic ID makes the retry idempotent).
 			captureEmployeeWebhookIngest(ctx, "record_runtime_generation", sb, event, sessionID, source, err)
 			return fmt.Errorf("record runtime model usage: %w", err)
 		}
@@ -91,15 +87,12 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		stored.Mode = "employee"
 	}
 	if h.writer != nil {
-		// Buffered path: durability is provided by the writer's retrying drain
-		// (see EmployeeEventWriter.flushBatch). The ack does not block on the
-		// async write, but a transient DB error no longer silently drops the row.
+		// Buffered path: the writer's retrying drain provides durability; the ack
+		// doesn't block on the async write but a DB error no longer drops the row.
 		h.writer.Write(ctx, stored)
 	} else {
-		// Synchronous path (no writer configured): the ack must depend on the
-		// durable write, so propagate the failure to a 5xx and let the runtime
-		// outbox redeliver. The insert dedupes on (sandbox_id, event_id) so a
-		// redelivery of the same event is idempotent instead of duplicating the row.
+		// Synchronous path: the ack must depend on the durable write, so a failure
+		// returns 5xx. The (sandbox_id, event_id) dedupe makes redelivery idempotent.
 		err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if err := tx.Clauses(employeeSessionEventOnConflict()).Create(&stored).Error; err != nil {
 				return err

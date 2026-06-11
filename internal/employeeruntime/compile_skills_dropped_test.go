@@ -10,13 +10,12 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// badBundle is valid jsonb (so the NOT NULL bundle column accepts it) but fails
-// to unmarshal into skillBundle, exercising the "unparseable bundle" drop path.
+// badBundle is valid jsonb the column accepts but fails to unmarshal into
+// skillBundle, exercising the unparseable-bundle drop path.
 const badBundle = `[1,2,3]`
 
-// TestBuildSkills_AttachedSkillWithBadBundleFailsCompile verifies P2-47: an
-// explicitly attached skill whose bundle does not parse must fail the compile
-// rather than being silently dropped from the agent.
+// An explicitly attached skill with an unparseable bundle must fail the compile,
+// not be silently dropped.
 func TestBuildSkills_AttachedSkillWithBadBundleFailsCompile(t *testing.T) {
 	db := connectCompileTestDB(t)
 	org := model.Org{Name: "Skill drop-" + uuid.NewString()}
@@ -58,10 +57,8 @@ func TestBuildSkills_AttachedSkillWithBadBundleFailsCompile(t *testing.T) {
 	}
 }
 
-// TestBuildSkills_DefaultSkillWithBadBundleIsDropped verifies P2-47: a default
-// (by-name, not explicitly attached) skill with a broken bundle is dropped, not
-// fatal, so a single bad seed skill cannot break every compile. A valid sibling
-// default still compiles.
+// A default (by-name) skill with a broken bundle is dropped, not fatal, so one
+// bad seed skill can't break every compile.
 func TestBuildSkills_DefaultSkillWithBadBundleIsDropped(t *testing.T) {
 	db := connectCompileTestDB(t)
 	agentID := uuid.New() // no EmployeeSkill links -> nothing explicitly attached

@@ -13,9 +13,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestEmployeeEventWriterRetriesTransientFlushFailure guards P0-15: a transient
-// Postgres error on a batch flush must not silently drop the events. The drain
-// retries with backoff, so the events are eventually persisted.
+// A transient Postgres error on a batch flush must not silently drop the events. The drain retries
+// with backoff, so the events are eventually persisted.
 func TestEmployeeEventWriterRetriesTransientFlushFailure(t *testing.T) {
 	db := connectEmployeeSkillSyncTestDB(t)
 	org := model.Org{Name: "event-writer-retry-" + uuid.NewString(), RateLimit: 1000, Active: true}
@@ -63,7 +62,6 @@ func TestEmployeeEventWriterRetriesTransientFlushFailure(t *testing.T) {
 
 	rootCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	// Short flush interval and short backoff window via the writer's defaults.
 	writer := NewEmployeeEventWriter(rootCtx, db, 100, 50*time.Millisecond)
 
 	writer.Write(rootCtx, model.EmployeeSessionEvent{

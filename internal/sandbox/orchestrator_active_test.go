@@ -12,11 +12,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestEnsureSandboxActiveCreatingFailsFastOnEmptyURL verifies P1-15: a 'creating'
-// row with no runtime_url must not probe a bare "/healthz" against localhost for
-// the full 90s and then blind-write 'running'. When the row transitions to
-// 'error' while waiting for the URL, EnsureSandboxActive returns promptly with an
-// error instead of asserting 'running'.
+// A 'creating' row with no runtime_url must not probe a bare "/healthz" for 90s
+// and blind-write 'running': if the row flips to 'error' while waiting for the
+// URL, EnsureSandboxActive must return promptly with an error.
 func TestEnsureSandboxActiveCreatingFailsFastOnEmptyURL(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -35,7 +33,7 @@ func TestEnsureSandboxActiveCreatingFailsFastOnEmptyURL(t *testing.T) {
 		t.Fatalf("create sandbox: %v", err)
 	}
 
-	// Simulate the in-flight creator failing: flip the row to error shortly after.
+	// Simulate the in-flight creator failing shortly after.
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		db.Model(&model.Sandbox{}).Where("id = ?", sb.ID).Update("status", string(StatusError))
@@ -54,7 +52,6 @@ func TestEnsureSandboxActiveCreatingFailsFastOnEmptyURL(t *testing.T) {
 		t.Fatalf("err = %v, want error-state failure", err)
 	}
 
-	// The row must not have been flipped to 'running'.
 	var reloaded model.Sandbox
 	if err := db.First(&reloaded, "id = ?", sb.ID).Error; err != nil {
 		t.Fatalf("reload: %v", err)
@@ -64,9 +61,8 @@ func TestEnsureSandboxActiveCreatingFailsFastOnEmptyURL(t *testing.T) {
 	}
 }
 
-// TestEnsureSandboxActiveCreatingActivatesWhenURLPopulates verifies the happy
-// path: once the in-flight creator writes runtime_url and the runtime is live,
-// the guarded flip moves the row to 'running'.
+// Once the in-flight creator writes runtime_url and the runtime is live, the
+// guarded flip moves the row to 'running'.
 func TestEnsureSandboxActiveCreatingActivatesWhenURLPopulates(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
@@ -114,8 +110,7 @@ func TestEnsureSandboxActiveCreatingActivatesWhenURLPopulates(t *testing.T) {
 	}
 }
 
-// TestEnsureSandboxActiveUpgradingIsNonSelectable verifies P1-14's invariant
-// from the orchestrator side: a sandbox parked in 'upgrading' is mid-upgrade and
+// From the orchestrator side: a sandbox parked in 'upgrading' is mid-upgrade and
 // must not be routed to / flipped to running by EnsureSandboxActive.
 func TestEnsureSandboxActiveUpgradingErrors(t *testing.T) {
 	db := setupTestDB(t)

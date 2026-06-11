@@ -169,10 +169,9 @@ func RequireOrgAdmin(db *gorm.DB) func(http.Handler) http.Handler {
 	}
 }
 
-// RequireOrgAdminOrAPIKey enforces org-admin for JWT-authenticated callers
-// while letting API-key-authenticated callers through. It is for routes that an
-// API key may use subject to a handler-level scope ceiling (e.g. minting
-// narrower API keys), but which non-admin human users must not reach.
+// RequireOrgAdminOrAPIKey enforces org-admin for JWT-authenticated callers while
+// letting API-key-authenticated callers through (subject to a handler-level scope
+// ceiling). For routes that non-admin human users must not reach.
 func RequireOrgAdminOrAPIKey(db *gorm.DB) func(http.Handler) http.Handler {
 	orgAdmin := RequireOrgAdmin(db)
 	return func(next http.Handler) http.Handler {

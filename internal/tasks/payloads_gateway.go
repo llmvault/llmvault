@@ -63,8 +63,7 @@ type GatewaySlackStatusPayload struct {
 }
 
 // NewGatewaySlackTask creates a task that delivers a Slack gateway message.
-// Options are returned separately so they survive the enqueue client's Sentry
-// trace-payload rewrite (P0-11).
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewGatewaySlackTask(payload GatewaySlackPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -79,8 +78,7 @@ func NewGatewaySlackTask(payload GatewaySlackPayload) (*asynq.Task, []asynq.Opti
 }
 
 // NewGatewayExternalCallbackTask creates a task that delivers an external
-// callback. Options are returned separately so they survive the enqueue
-// client's Sentry trace-payload rewrite (P0-11).
+// callback. Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewGatewayExternalCallbackTask(payload GatewayExternalCallbackPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -95,8 +93,7 @@ func NewGatewayExternalCallbackTask(payload GatewayExternalCallbackPayload) (*as
 }
 
 // NewGatewaySlackStatusTask creates a task that sends a Slack status update.
-// Options are returned separately so they survive the enqueue client's Sentry
-// trace-payload rewrite (P0-11).
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewGatewaySlackStatusTask(payload GatewaySlackStatusPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {

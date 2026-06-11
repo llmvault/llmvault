@@ -42,10 +42,7 @@ func TestLoad_RequiresNangoWebhooksSecret(t *testing.T) {
 	}
 }
 
-// TestLoad_NoRedisConfig tests error handling when neither HIVY_REDIS_URL nor HIVY_REDIS_ADDR is set.
-// This is the only valuable test in this file as it tests actual error handling behavior.
-// All other tests were removed as they test library configuration parsing behavior.
-// See USELESS_TESTS_RECOMMENDATIONS.md for details.
+// Load must error when neither HIVY_REDIS_URL nor HIVY_REDIS_ADDR is set.
 func TestLoad_NoRedisConfig(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("HIVY_REDIS_ADDR", "")
@@ -88,8 +85,6 @@ func TestLoad_DoesNotDuplicateFrontendCORSOrigin(t *testing.T) {
 	}
 }
 
-// --- P2-49: AsynqRedisOpt must fail on parse error ---
-
 func TestAsynqRedisOpt_FailsOnMalformedRedisURL(t *testing.T) {
 	cfg := &Config{
 		RedisURL: "not-a-valid-redis-url",
@@ -128,14 +123,11 @@ func TestAsynqRedisOpt_ParsesValidRedisURL(t *testing.T) {
 	}
 }
 
-// --- P2-31: HIVY_DB_SSLMODE disable in production should warn ---
-
 func TestLoad_WarnOnDisableSSLModeInProduction(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("HIVY_ENVIRONMENT", "production")
 	t.Setenv("HIVY_DB_SSLMODE", "disable")
 
-	// The test just confirms Load() succeeds (warning only, not error).
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)

@@ -13,16 +13,10 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// cleanupFailedSandbox is the single shared post-create failure handler. Any
-// failure after a provider resource has been created (or warm-claimed) must run
-// through this so the paid compute is released and the minted proxy token is
-// revoked instead of leaking a live sandbox with valid credentials baked in.
-//
-// It records the failure on the row (status=error + message), deletes the
-// provider resource, and revokes every proxy token minted for the sandbox. The
-// provider delete and token revoke run on context.WithoutCancel so they still
-// execute when the originating request context is already cancelled (the common
-// case when a sync times out mid-provision).
+// cleanupFailedSandbox is the shared post-create failure handler: any failure
+// after a provider resource exists must run through it to release the compute and
+// revoke the proxy token. Runs on context.WithoutCancel so it executes even when
+// the request ctx is cancelled (the common timeout-mid-provision case).
 func (o *Orchestrator) cleanupFailedSandbox(ctx context.Context, sb *model.Sandbox, externalID, message string) {
 	if sb == nil {
 		return
@@ -49,10 +43,9 @@ func (o *Orchestrator) cleanupFailedSandbox(ctx context.Context, sb *model.Sandb
 	o.revokeSandboxProxyTokens(cleanupCtx, sb.ID)
 }
 
-// deleteProviderResource deletes the provider-side sandbox compute. Missing
-// resources are treated as success. Errors are captured but not surfaced — the
-// caller is already returning a failure and the stuck-creating/error reaper is
-// the backstop for a transient provider error here.
+// deleteProviderResource deletes the provider-side compute (missing = success).
+// Errors are captured but not surfaced; the caller already fails and the
+// stuck-creating/error reaper is the backstop for a transient provider error.
 func (o *Orchestrator) deleteProviderResource(ctx context.Context, sandboxID uuid.UUID, externalID string) {
 	if externalID == "" {
 		return
@@ -62,9 +55,8 @@ func (o *Orchestrator) deleteProviderResource(ctx context.Context, sandboxID uui
 	}
 }
 
-// revokeSandboxProxyTokens revokes every non-revoked proxy token minted for the
-// sandbox so a leaked or to-be-deleted sandbox cannot keep using its LLM/MCP
-// credentials.
+// revokeSandboxProxyTokens revokes every non-revoked proxy token minted for the sandbox so a
+// leaked or to-be-deleted sandbox cannot keep using its LLM/MCP credentials.
 func (o *Orchestrator) revokeSandboxProxyTokens(ctx context.Context, sandboxID uuid.UUID) {
 	now := time.Now()
 	if err := o.db.WithContext(ctx).Model(&model.Token{}).
@@ -74,8 +66,8 @@ func (o *Orchestrator) revokeSandboxProxyTokens(ctx context.Context, sandboxID u
 	}
 }
 
-// RunSandboxReaper releases leaked paid compute: stuck creating/error
-// sandboxes, idle/terminated specialist sandboxes, and stranded warm slots.
+// RunSandboxReaper releases leaked paid compute: stuck creating/error sandboxes,
+// idle specialists, and stranded warm slots.
 func (o *Orchestrator) RunSandboxReaper(ctx context.Context) {
 	o.ReapStuckSandboxes(ctx)
 	if o.warmPool != nil {
@@ -85,12 +77,9 @@ func (o *Orchestrator) RunSandboxReaper(ctx context.Context) {
 	}
 }
 
-// ReapStuckSandboxes deletes provider resources for sandboxes left in
-// 'creating' or 'error' beyond a TTL. Failed provisioning paths run
-// cleanupFailedSandbox inline, but a worker death mid-create (or a transient
-// provider error during that cleanup) can still strand a live, billing sandbox;
-// this is the backstop. It also reaps idle/terminated specialist sandboxes that
-// the LLM never explicitly terminated.
+// ReapStuckSandboxes deletes provider resources for sandboxes left 'creating'/
+// 'error' beyond a TTL — the backstop for a worker death mid-create that the
+// inline cleanupFailedSandbox missed. Also reaps idle/terminated specialists.
 func (o *Orchestrator) ReapStuckSandboxes(ctx context.Context) {
 	const (
 		creatingTTL = 30 * time.Minute
@@ -129,10 +118,9 @@ func (o *Orchestrator) reapSandboxesByStatus(ctx context.Context, status string,
 	}
 }
 
-// reapIdleSpecialistSandboxes deletes the provider resource for specialist
-// sandboxes whose task is idle/terminated/error beyond a TTL. Normal specialist
-// task completion only marks the task idle; without this the sandbox runs and
-// bills forever.
+// reapIdleSpecialistSandboxes releases specialist sandboxes whose task is
+// idle/terminated/error beyond a TTL; task completion only marks the task idle, so
+// without this the sandbox bills forever.
 func (o *Orchestrator) reapIdleSpecialistSandboxes(ctx context.Context, now time.Time) {
 	const idleSpecialistTTL = 1 * time.Hour
 	cutoff := now.Add(-idleSpecialistTTL)

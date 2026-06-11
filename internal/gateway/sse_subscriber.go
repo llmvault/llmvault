@@ -9,20 +9,13 @@ import (
 	"strings"
 )
 
-// Sentinel event types emitted by the subscriber after the underlying HTTP
-// body closes, so consumers can tell a clean end-of-stream apart from a
-// transport failure (a dropped connection, idle-read timeout, or scanner
-// error). These are never produced by the runtime — they are synthesized
-// locally and must not be forwarded to users.
+// Sentinel event types synthesized locally after the HTTP body closes (never from
+// the runtime) so consumers can tell a clean end-of-stream from a transport failure.
 const (
-	// EventStreamEOF is emitted when the response body reached EOF cleanly
-	// (the server closed the stream). Any missing terminal event here is a
-	// genuine truncation, not a retryable transport blip.
+	// EventStreamEOF: clean EOF; a missing terminal event is truncation, not retryable.
 	EventStreamEOF = "__stream_eof"
-	// EventStreamError is emitted when the stream ended due to a read/scanner
-	// error. The turn may still be running on the broker (which supports
-	// replay), so the consumer should retry the subscription before falling
-	// back to partial text.
+	// EventStreamError: stream ended on a read/scanner error. The turn may still
+	// be running on the broker (replay), so the consumer should retry.
 	EventStreamError = "__stream_error"
 )
 
@@ -94,10 +87,8 @@ func (s *SSESubscriber) Subscribe(ctx context.Context, streamURL, apiKey string)
 			}
 		}
 
-		// Distinguish a clean EOF from a transport failure so the consumer
-		// can retry instead of treating a dropped connection as a final
-		// (truncated) response. ctx cancellation is the caller's own doing —
-		// no sentinel needed.
+		// Distinguish a clean EOF from a transport failure so the consumer can
+		// retry instead of treating a dropped connection as a truncated response.
 		if ctx.Err() != nil {
 			return
 		}

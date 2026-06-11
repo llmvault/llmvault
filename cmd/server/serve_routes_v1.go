@@ -91,9 +91,8 @@ func setupV1Routes(
 			}
 
 			r.Get("/api-keys", apiKeyHandler.List)
-			// API-key management is escalation-sensitive: JWT callers must be
-			// org admins, and API-key callers may only mint keys no broader
-			// than their own scopes (enforced in APIKeyHandler.Create).
+			// Escalation-sensitive: JWT callers must be org admins; API-key callers
+			// may only mint keys within their own scopes (APIKeyHandler.Create).
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireOrgAdminOrAPIKey(database))
 				r.Post("/api-keys", apiKeyHandler.Create)
@@ -107,11 +106,8 @@ func setupV1Routes(
 			}
 
 			r.Group(func(r chi.Router) {
-				// Creating LLM credentials is escalation-sensitive: a non-admin
-				// org member must not be able to add provider credentials. JWT
-				// callers must be org admins; scoped API-key callers still pass
-				// (scope enforced by RequireAPIKeyScopeOrJWT, admin gate skipped
-				// for API keys by RequireOrgAdminOrAPIKey). Reads stay member-visible.
+				// Escalation-sensitive: JWT callers must be org admins; scoped API-key
+				// callers pass (admin gate skipped for keys). Reads stay member-visible.
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("credentials"))
 				r.Get("/credentials", credHandler.List)
 				r.Get("/credentials/{id}", credHandler.Get)
@@ -123,8 +119,7 @@ func setupV1Routes(
 			})
 
 			r.Group(func(r chi.Router) {
-				// Minting proxy tokens is escalation-sensitive (same rationale as
-				// credentials above): admin-gate JWT callers, allow scoped API keys.
+				// Escalation-sensitive (as credentials above): admin-gate JWT, allow keys.
 				r.Use(middleware.RequireAPIKeyScopeOrJWT("tokens"))
 				r.Get("/tokens", tokenHandler.List)
 				r.Group(func(r chi.Router) {
@@ -230,9 +225,8 @@ func setupV1Routes(
 					if ragSearchHandler != nil {
 						r.Post("/search", ragSearchHandler.Search)
 					}
-					// Mutations (creating/deleting sources, triggering sync/prune
-					// jobs) are admin-only — a non-admin member must not be able to
-					// reconfigure org-wide RAG ingestion or kick off jobs.
+					// Mutations (sources, sync/prune jobs) are admin-only: a non-admin
+					// must not reconfigure org-wide RAG ingestion.
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
 						r.Post("/sources", ragSourceHandler.Create)

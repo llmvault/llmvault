@@ -31,12 +31,8 @@ func NewIncomingWebhookHandler(db *gorm.DB, enqueuer enqueue.TaskEnqueuer) *Inco
 	return &IncomingWebhookHandler{db: db, enqueuer: enqueuer}
 }
 
-// Handle processes POST /incoming/webhooks/{provider}/{connectionID}.
-//
-// The endpoint is unauthenticated — the connectionID in the URL acts as a
-// bearer token identifying the org and connection. Providers that support
-// HMAC signing should be verified here; providers without signing (e.g.
-// Railway) rely on the unguessable UUID for security.
+// Handle processes POST /incoming/webhooks/{provider}/{connectionID}. The endpoint
+// is unauthenticated — the unguessable connectionID acts as a bearer token.
 // @Summary Receive incoming webhook from external provider
 // @Description Receives webhook events directly from providers that require manual webhook URL configuration (e.g. Railway). The connection UUID in the URL identifies the org and connection.
 // @Tags webhooks
@@ -159,9 +155,8 @@ func inferDirectWebhookEvent(provider string, body []byte) (eventType, eventActi
 	return "", ""
 }
 
-// inferRailwayEvent extracts the event type from a Railway webhook payload.
-// Railway sends {"type": "Deployment.failed", ...}. The type field maps
-// directly to trigger keys — no splitting needed.
+// inferRailwayEvent extracts the event type from a Railway webhook payload
+// ({"type":"Deployment.failed"}); the type maps directly to trigger keys.
 func inferRailwayEvent(body []byte) (eventType, eventAction string) {
 	var probe struct {
 		Type string `json:"type"`

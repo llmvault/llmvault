@@ -21,10 +21,8 @@ func (o *Orchestrator) WakeSandbox(ctx context.Context, sb *model.Sandbox) (*mod
 		return nil, fmt.Errorf("refreshing runtime URL after wake: %w", err)
 	}
 
-	// Only flip the row to 'running' after the runtime is confirmed healthy.
-	// Persisting 'running' before the health wait lets a concurrent
-	// EnsureSandboxActive observe an in-memory/DB 'running' for a sandbox that
-	// never came back, skipping a real wake and routing traffic to a dead URL.
+	// Flip to 'running' only after the runtime is confirmed healthy: persisting it
+	// earlier lets a concurrent EnsureSandboxActive route traffic to a dead URL.
 	if err := o.waitForEmployeeRuntimeLive(ctx, sb); err != nil {
 		if dbErr := o.db.Model(sb).Updates(map[string]any{
 			"status":        "error",

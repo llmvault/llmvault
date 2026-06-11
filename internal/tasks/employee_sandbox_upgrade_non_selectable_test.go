@@ -8,14 +8,9 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-// TestEmployeeSandboxUpgradeKeepsNewSandboxNonSelectableUntilSync verifies P1-14:
-// the new sandbox must NOT receive live traffic before the session DB is
-// restored and synced. The runtime selector orders by created_at DESC, so a
-// newly-created 'running' sandbox would be picked immediately. We park it as
-// 'upgrading' (non-selectable) and only flip to 'running' after Phase 5 sync.
-//
-// The hook fires during the Phase 5 /config sync (which targets the NEW
-// sandbox); at that moment the selector must still resolve to the OLD sandbox.
+// The new sandbox must NOT receive live traffic before its session DB is restored
+// and synced. It is parked 'upgrading' (non-selectable) until sync, so the selector
+// must resolve to the OLD sandbox while the new one syncs.
 func TestEmployeeSandboxUpgradeKeepsNewSandboxNonSelectableUntilSync(t *testing.T) {
 	f := newEmployeeUpgradeFixture(t)
 
@@ -42,7 +37,6 @@ func TestEmployeeSandboxUpgradeKeepsNewSandboxNonSelectableUntilSync(t *testing.
 			selectedDuringSync.ID, f.old.ID)
 	}
 
-	// After success the NEW sandbox must be running and now selected.
 	var upgrade model.EmployeeSandboxUpgrade
 	if err := f.db.First(&upgrade, "id = ?", f.upgrade.ID).Error; err != nil {
 		t.Fatalf("load upgrade: %v", err)
@@ -66,8 +60,7 @@ func TestEmployeeSandboxUpgradeKeepsNewSandboxNonSelectableUntilSync(t *testing.
 	}
 }
 
-// TestEmployeeSandboxUpgradeRollbackRunsOnCancelledContext verifies P1-14's
-// rollback-on-WithoutCancel fix: a create failure with an already-cancelled task
+// Rollback-on-WithoutCancel fix: a create failure with an already-cancelled task
 // context must still roll back (mark failed, leave old running) rather than
 // no-op on the cancelled ctx and strand both sandboxes.
 func TestEmployeeSandboxUpgradeRollbackRunsOnCancelledContext(t *testing.T) {
@@ -75,10 +68,8 @@ func TestEmployeeSandboxUpgradeRollbackRunsOnCancelledContext(t *testing.T) {
 	f.provider.failCreate = true
 
 	ctx, cancel := context.WithCancel(context.Background())
-	// Cancel the task context exactly when the new-sandbox create is attempted, so
-	// the create fails AND the rollback that follows sees an already-cancelled ctx.
-	// Without context.WithoutCancel in the rollback, the mark-failed / restore-old
-	// DB writes would no-op and strand both sandboxes.
+	// Cancel the task context when create is attempted, so the rollback that
+	// follows sees an already-cancelled ctx (the WithoutCancel regression).
 	f.provider.onCreate = cancel
 
 	_ = f.handler.Handle(ctx, employeeUpgradeTask(t, f.upgrade.ID, f.agent.ID))

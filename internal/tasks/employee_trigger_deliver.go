@@ -72,11 +72,9 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		return err
 	}
 
-	// Claim this (trigger, delivery) before the irreversible PostHTTPMessage.
-	// asynq retries the whole batch on any failure, so without this claim a retry
-	// re-delivers triggers 1..N-1 that already succeeded — the agent would act
-	// twice (open duplicate PRs, send duplicate messages). A claimed row means a
-	// prior attempt already posted, so skip.
+	// Claim before the irreversible PostHTTPMessage: asynq retries the whole batch,
+	// so without a claim a retry re-delivers already-succeeded triggers and the
+	// agent acts twice. A claimed row means a prior attempt posted, so skip.
 	claimed, err := h.claimTriggerDelivery(ctx, payload, trigger, conv, compiled)
 	if err != nil {
 		captureTriggerDispatchBoundary(ctx, "claim_trigger_delivery", payload, trigger, compiled.ResourceKey, conv.ID.String(), err)
@@ -99,9 +97,8 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		Raw:             compiled.Raw,
 	})
 	if err != nil {
-		// The post never reached the runtime, so release the claim to allow the
-		// asynq retry to re-deliver this trigger. Earlier triggers in the batch
-		// keep their claims and are not re-delivered.
+		// The post never reached the runtime, so release the claim for the asynq
+		// retry; earlier triggers keep their claims and are not re-delivered.
 		h.releaseTriggerDeliveryClaim(ctx, trigger.ID, payload.DeliveryID)
 		captureTriggerDispatchBoundary(ctx, "post_http_message", payload, trigger, compiled.ResourceKey, conv.ID.String(), err)
 		return fmt.Errorf("post employee trigger message: %w", err)
@@ -110,11 +107,9 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 	return nil
 }
 
-// claimTriggerDelivery inserts the delivery row for (trigger_id, delivery_id)
-// before the message is posted, using ON CONFLICT DO NOTHING against the unique
-// index. It returns true if this attempt won the claim (and should post), false
-// if a prior attempt already claimed it (already delivered, skip). Runtime
-// correlation fields are filled in afterwards by the store-delivery task.
+// claimTriggerDelivery inserts the (trigger_id, delivery_id) row before posting
+// via ON CONFLICT DO NOTHING, returning true if this attempt won the claim and
+// false if a prior attempt already delivered it.
 func (h *EmployeeTriggerDispatchHandler) claimTriggerDelivery(ctx context.Context, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage) (bool, error) {
 	if strings.TrimSpace(payload.DeliveryID) == "" {
 		// No stable delivery id to dedupe on; fall back to always-deliver.

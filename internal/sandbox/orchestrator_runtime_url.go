@@ -37,7 +37,7 @@ func (o *Orchestrator) touchLastActive(ctx context.Context, sb *model.Sandbox) {
 }
 
 // shouldPersistLastActive reports whether enough time has elapsed since the last
-// persisted touch for this sandbox to warrant another DB write.
+// touch to warrant another DB write.
 func (o *Orchestrator) shouldPersistLastActive(id uuid.UUID, now time.Time) bool {
 	o.lastActiveTouchMu.Lock()
 	defer o.lastActiveTouchMu.Unlock()

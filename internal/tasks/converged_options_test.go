@@ -1,9 +1,8 @@
 package tasks
 
-// Tests for the P0-11 convergence: every task constructor must return options
-// separately (not baked into the asynq.Task) so they survive the enqueue
-// client's Sentry trace-payload rewrite; and for P1-23: every periodic config
-// must carry asynq.Unique so N scheduler replicas don't fire N duplicate ticks.
+// Every task constructor must return options separately (not baked into the
+// asynq.Task) so they survive the enqueue client's Sentry trace-payload rewrite,
+// and every periodic config must carry asynq.Unique against duplicate ticks.
 
 import (
 	"testing"
@@ -15,7 +14,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// uniqueTTLFromOptions extracts the Unique TTL option value, if present.
 func uniqueTTLFromOptions(opts []asynq.Option) (time.Duration, bool) {
 	for _, opt := range opts {
 		if opt.Type() == asynq.UniqueOpt {
@@ -27,11 +25,9 @@ func uniqueTTLFromOptions(opts []asynq.Option) (time.Duration, bool) {
 	return 0, false
 }
 
-// TestAllConvergedConstructorsReturnOptionsSeparately asserts that the
-// converged task constructors (P0-11) return options as a separate slice and
-// that the slice contains the expected queue routing option. A baked-in option
-// would be silently stripped when the enqueue client rebuilds the task to wrap
-// the Sentry trace header into the payload.
+// Constructors must return the queue routing option in a separate slice: a
+// baked-in option is silently stripped when the enqueue client rebuilds the task
+// to wrap the Sentry trace header into the payload.
 func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 	type constructorTest struct {
 		name          string
@@ -178,7 +174,6 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 				return opts, err
 			},
 		},
-		// Already-converged constructors — included to guard against regression.
 		{
 			name:          "WebhookForward",
 			expectedQueue: QueueCritical,
@@ -220,9 +215,8 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 	}
 }
 
-// TestPeriodicConfigsCarryDedupeOptions asserts that every periodic task config
-// carries asynq.Unique so that N worker-replica schedulers each firing at the
-// same tick don't enqueue N copies of the same billing/cleanup sweep (P1-23).
+// Every periodic config must carry asynq.Unique so N worker-replica schedulers
+// firing at the same tick don't enqueue N copies of the same sweep.
 func TestPeriodicConfigsCarryDedupeOptions(t *testing.T) {
 	configs := PeriodicTaskConfigs(nil, nil)
 	if len(configs) == 0 {

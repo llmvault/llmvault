@@ -37,10 +37,8 @@ const (
 	slackAssistantStatus = "is thinking..."
 )
 
-// slackPostHTTPClient is a shared client with a bounded timeout for the
-// slack-go SDK calls (chat.postMessage, assistant.threads.setStatus). The SDK
-// defaults to http.DefaultClient, which has no timeout, so a stalled Slack
-// connection would block a worker goroutine indefinitely.
+// slackPostHTTPClient is a shared, bounded-timeout client for slack-go SDK calls; the SDK's
+// default http.DefaultClient has no timeout and would block a worker goroutine if Slack stalls.
 var slackPostHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 func (h *GatewaySlackHandler) Handle(ctx context.Context, t *asynq.Task) error {

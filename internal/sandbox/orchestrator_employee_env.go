@@ -30,10 +30,8 @@ func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.
 		employeeruntime.EmployeeEnvDBPath:                   "/app/data/hivy-sandboxes-runtime.db",
 		employeeruntime.EmployeeEnvRuntimeBindAddr:          fmt.Sprintf("0.0.0.0:%d", EmployeeSandboxPort),
 		employeeruntime.EmployeeEnvRuntimeMode:              "employee",
-		// Provision a tunnel password so the runtime tunnel proxy fails closed
-		// (it is an open proxy to every sandbox localhost port when unset). The
-		// runtime secret is already control-plane-minted and is the same key the
-		// tunnel uses to sign auth cookies/JWTs.
+		// Provision a tunnel password so the tunnel proxy fails closed (an open proxy
+		// to every sandbox localhost port when unset).
 		employeeruntime.EmployeeEnvTunnelPassword: runtimeSecret,
 		employeeruntime.EmployeeEnvSandboxID:      sb.ID.String(),
 		employeeruntime.EmployeeEnvOrgID:          orgID.String(),

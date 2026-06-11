@@ -15,9 +15,8 @@ type EmployeeCleanupPayload struct {
 	SandboxExternalIDs []string  `json:"sandbox_external_ids,omitempty"`
 }
 
-// NewEmployeeCleanupTask creates a task that cleans up provider sandboxes left
-// behind by an employee hard delete. Options are returned separately so they
-// survive the enqueue client's Sentry trace-payload rewrite (P0-11).
+// NewEmployeeCleanupTask creates a task that cleans up provider sandboxes left behind by an
+// employee hard delete. Options are returned separately (see NewWebhookForwardTask).
 func NewEmployeeCleanupTask(employeeID uuid.UUID, sandboxExternalIDs ...string) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(EmployeeCleanupPayload{
 		EmployeeID:         employeeID,
@@ -40,8 +39,7 @@ type SandboxTemplateBuildPayload struct {
 }
 
 // NewSandboxTemplateBuildTask creates a task that builds a sandbox template
-// snapshot. Options are returned separately so they survive the enqueue
-// client's Sentry trace-payload rewrite (P0-11).
+// snapshot. Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewSandboxTemplateBuildTask(templateID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(SandboxTemplateBuildPayload{TemplateID: templateID})
 	if err != nil {
@@ -62,8 +60,7 @@ type SandboxTemplateRetryBuildPayload struct {
 }
 
 // NewSandboxTemplateRetryBuildTask creates a task that retries building a
-// sandbox template. Options are returned separately so they survive the enqueue
-// client's Sentry trace-payload rewrite (P0-11).
+// sandbox template. Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewSandboxTemplateRetryBuildTask(templateID uuid.UUID, buildCommands []string) (*asynq.Task, []asynq.Option, error) {
 	payload := SandboxTemplateRetryBuildPayload{
 		TemplateID:    templateID,
@@ -87,9 +84,7 @@ type SkillHydratePayload struct {
 }
 
 // NewSkillHydrateTask creates a task that pulls a git-sourced skill at its
-// tracked ref and updates the skill's current bundle. Options are returned
-// separately so they survive the enqueue client's Sentry trace-payload rewrite
-// (P0-11).
+// tracked ref and updates the skill's current bundle. Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewSkillHydrateTask(skillID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(SkillHydratePayload{SkillID: skillID})
 	if err != nil {

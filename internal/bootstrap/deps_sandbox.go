@@ -14,11 +14,9 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-// buildSandboxOrchestrator wires the sandbox encryption key and orchestrator.
-// Both are nil (orchestration disabled) when no provider is configured, the
-// encryption key is missing, or the provider is incomplete/unavailable outside
-// production. A configured-but-failing provider is a hard error in production
-// (P1-20).
+// buildSandboxOrchestrator wires the encryption key and orchestrator, returning
+// nil (disabled) when no provider/key is configured or the provider is unavailable
+// outside production; a configured-but-failing provider is fatal in production.
 func buildSandboxOrchestrator(ctx context.Context, cfg *config.Config, database *gorm.DB) (*crypto.SymmetricKey, *sandbox.Orchestrator, error) {
 	if cfg.SandboxProviderID == "" {
 		logging.FromContext(ctx).WarnContext(ctx, "sandbox orchestration disabled; no sandbox provider configured",
@@ -48,10 +46,9 @@ func buildSandboxOrchestrator(ctx context.Context, cfg *config.Config, database 
 		return nil, nil, fmt.Errorf("creating sandbox provider: %w", err)
 	}
 	if err := validateSandboxProvider(ctx, cfg, sandboxProvider); err != nil {
-		// A configured sandbox provider that fails validation is a hard error
-		// in production: a flaky provider response at boot must not yield a
-		// "healthy" instance with the entire employee/gateway subsystem silently
-		// missing (P1-20). validateSandboxProvider already retried with backoff.
+		// A configured provider that fails validation is a hard error in production:
+		// a boot-time blip must not yield a "healthy" instance with the whole
+		// employee/gateway subsystem missing (validation already retried).
 		if cfg.IsProduction() {
 			return nil, nil, fmt.Errorf("validating sandbox provider %q: %w", sandboxProvider.ID(), err)
 		}
@@ -66,11 +63,9 @@ func buildSandboxOrchestrator(ctx context.Context, cfg *config.Config, database 
 	return sandboxEncKey, orchestrator, nil
 }
 
-// validateSandboxProvider validates the provider, retrying transient failures
-// with a short backoff so a flaky provider response at deploy time does not
-// permanently disable sandbox orchestration for the process lifetime (P1-20).
-// In production the number of attempts is higher and the final error is
-// returned to the caller, which fails bootstrap.
+// validateSandboxProvider validates the provider with retry/backoff so a
+// deploy-time blip does not permanently disable orchestration. In production it
+// retries more and returns the final error (failing bootstrap).
 func validateSandboxProvider(ctx context.Context, cfg *config.Config, provider sandbox.Provider) error {
 	attempts := 3
 	if cfg.IsProduction() {

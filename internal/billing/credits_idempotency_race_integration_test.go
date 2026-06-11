@@ -8,11 +8,10 @@ import (
 	"github.com/usehivy/hivy/internal/billing"
 )
 
-// TestIntegration_Credits_ConcurrentGrantSameRef_NoDoubleGrant exercises the
-// P0-7 fix: two concurrent GrantWithTx calls with the same idempotency tuple
+// Two concurrent GrantWithTx calls with the same idempotency tuple
 // (org_id, reason, ref_type, ref_id) must result in exactly one ledger entry.
-// Without the partial unique index (and the ON CONFLICT arbitration) both
-// goroutines pass the check-then-insert and the org receives free credits.
+// Without the partial unique index both goroutines pass the check-then-insert and
+// the org receives free credits.
 func TestIntegration_Credits_ConcurrentGrantSameRef_NoDoubleGrant(t *testing.T) {
 	db := connectCreditsTestDB(t)
 	svc := billing.NewCreditsService(db)
@@ -31,7 +30,6 @@ func TestIntegration_Credits_ConcurrentGrantSameRef_NoDoubleGrant(t *testing.T) 
 		go func(idx int) {
 			defer wg.Done()
 			<-start
-			// Every goroutine grants the SAME reference — only one should land.
 			results[idx] = svc.Grant(orgID, amount, billing.ReasonPlanGrant, "subscription_renewal", "ref-race-1", nil)
 		}(i)
 	}
@@ -53,9 +51,7 @@ func TestIntegration_Credits_ConcurrentGrantSameRef_NoDoubleGrant(t *testing.T) 
 	if other != 0 {
 		t.Fatalf("had %d unexpected errors", other)
 	}
-	// At most one goroutine actually inserts the row; the rest must observe the
-	// idempotent replay. (It is acceptable for the winner to also report
-	// ErrAlreadyRecorded if it lost the insert race after passing the check.)
+	// At most one goroutine inserts; the rest observe the idempotent replay.
 	if successes > 1 {
 		t.Errorf("got %d successful grants, want at most 1 (double-grant race)", successes)
 	}

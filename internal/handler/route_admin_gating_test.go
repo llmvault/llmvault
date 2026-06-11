@@ -14,11 +14,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// These tests pin the route-level authorization decisions that P1-3 (credentials
-// / tokens mutations) and P1-5 (RAG source mutations) restored: a non-admin org
-// member must be able to read but must NOT be able to mutate, while an admin can
-// do both. They mirror the exact middleware chains wired in
-// cmd/server/serve_routes_v1.go over sentinel handlers.
+// These pin route-level authorization: a non-admin org member may read but not
+// mutate credentials/tokens or RAG sources, while an admin can do both. They
+// mirror the middleware chains in cmd/server/serve_routes_v1.go.
 
 func seedMember(t *testing.T, db *gorm.DB, role string) (model.Org, model.User) {
 	t.Helper()
@@ -54,15 +52,13 @@ func doJWT(t *testing.T, router http.Handler, method, path string, userID, orgID
 	return rr.Code
 }
 
-// P1-3: credentials/tokens mutation routes are admin-gated for JWT callers;
-// reads stay member-visible.
+// credentials/tokens mutations are admin-gated for JWT callers; reads stay open.
 func TestRouteGating_CredentialsTokensMutationsAdminOnly(t *testing.T) {
 	db := connectTestDB(t)
 
 	router := chi.NewRouter()
 	router.Route("/v1", func(r chi.Router) {
 		r.Use(middleware.ResolveOrgFromHeader(db))
-		// credentials
 		r.Group(func(r chi.Router) {
 			r.Get("/credentials", okHandler)
 			r.Group(func(r chi.Router) {
@@ -71,7 +67,6 @@ func TestRouteGating_CredentialsTokensMutationsAdminOnly(t *testing.T) {
 				r.Delete("/credentials/{id}", okHandler)
 			})
 		})
-		// tokens
 		r.Group(func(r chi.Router) {
 			r.Get("/tokens", okHandler)
 			r.Group(func(r chi.Router) {
@@ -85,7 +80,6 @@ func TestRouteGating_CredentialsTokensMutationsAdminOnly(t *testing.T) {
 	adminOrg, admin := seedMember(t, db, "admin")
 	memberOrg, member := seedMember(t, db, "member")
 
-	// Non-admin member: reads OK, mutations forbidden.
 	if code := doJWT(t, router, http.MethodGet, "/v1/credentials", member.ID, memberOrg.ID); code != http.StatusOK {
 		t.Fatalf("member GET /credentials = %d, want 200", code)
 	}
@@ -96,7 +90,6 @@ func TestRouteGating_CredentialsTokensMutationsAdminOnly(t *testing.T) {
 		t.Fatalf("member POST /tokens = %d, want 403 (escalation)", code)
 	}
 
-	// Admin: mutations allowed.
 	if code := doJWT(t, router, http.MethodPost, "/v1/credentials", admin.ID, adminOrg.ID); code != http.StatusOK {
 		t.Fatalf("admin POST /credentials = %d, want 200", code)
 	}
@@ -105,8 +98,7 @@ func TestRouteGating_CredentialsTokensMutationsAdminOnly(t *testing.T) {
 	}
 }
 
-// P1-5: RAG source mutations (create/delete/sync/prune/perm-sync) are admin-only;
-// reads stay member-visible.
+// RAG source mutations are admin-only; reads stay member-visible.
 func TestRouteGating_RAGMutationsAdminOnly(t *testing.T) {
 	db := connectTestDB(t)
 

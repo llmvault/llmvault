@@ -17,12 +17,9 @@ type Client struct {
 	baseURL string
 	apiKey  string
 	http    *http.Client
-	// stream is a dedicated client for long-lived SSE bodies. Unlike `http`,
-	// it has no overall `Timeout` (which in Go covers the entire body read and
-	// would cut every agent turn longer than ~2 minutes mid-answer); instead it
-	// bounds only connection setup and the response-header phase at the
-	// transport level, and relies on the request context / idle-read deadlines
-	// for liveness (P0-29).
+	// stream is a dedicated client for long-lived SSE bodies: no overall Timeout
+	// (Go's covers the whole body read and would cut long turns mid-answer); only
+	// dial/header bounded, liveness from the request context.
 	stream *http.Client
 }
 
@@ -103,11 +100,8 @@ func NewClientWithTimeout(baseURL, apiKey string, timeout time.Duration) *Client
 	}
 }
 
-// newStreamingHTTPClient builds the SSE client used for live runtime streams.
-// `Timeout` is deliberately 0 (no overall deadline) so a turn that streams for
-// minutes is not cut mid-body; only dial/TLS/header phases are bounded at the
-// transport level. Liveness during the body read is enforced by the request
-// context (and the broker's 15s keep-alive frames).
+// newStreamingHTTPClient builds the SSE client for live runtime streams (Timeout
+// 0; only dial/TLS/header bounded), per the `stream` field contract above.
 func newStreamingHTTPClient() *http.Client {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -163,9 +157,7 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 		body.RuntimeEnv = map[string]string{}
 	}
 	if os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD") == "true" {
-		// Redact secrets (runtime secret, sensitive env values, MCP Authorization
-		// headers) before logging so a forgotten debug flag in production cannot
-		// exfiltrate every org's live credentials into the log pipeline.
+		// Redact secrets before logging so a debug flag can't exfiltrate credentials.
 		payload, err := json.Marshal(redactConfigUpdateRequest(body))
 		if err != nil {
 			slog.WarnContext(ctx, "runtime config debug payload marshal failed", "error", err)

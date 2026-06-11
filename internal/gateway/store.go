@@ -58,11 +58,9 @@ func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGa
 		if err := query.First(&existing).Error; err != nil {
 			return existing, true, err
 		}
-		// A prior row marked "failed" means delivery to the runtime never
-		// succeeded (sandbox waking, runtime restart, post timeout). The provider
-		// retries the webhook, so re-claim the row and re-run Send instead of
-		// dropping the message as a duplicate. Successful/in-flight rows
-		// ("received"/"delivered") stay deduped.
+		// A prior "failed" row means delivery never succeeded; the provider retries,
+		// so re-claim and re-run Send rather than dropping as a duplicate.
+		// Successful/in-flight rows stay deduped.
 		if existing.Status == "failed" {
 			if err := s.db.WithContext(ctx).Model(&model.EmployeeGatewayEvent{}).
 				Where("id = ? AND status = ?", existing.ID, "failed").
@@ -188,12 +186,9 @@ func (s *Service) loadLatestEventForSession(ctx context.Context, sessionID uuid.
 	return model.EmployeeGatewayEvent{}, false, fmt.Errorf("load latest gateway event: %w", err)
 }
 
-// upsertDelivery records the delivery outcome. When a prior delivery row exists
-// for the dedupe key (always a "failed" row at this point — successful rows
-// short-circuit earlier) it updates that row in place rather than inserting a
-// duplicate, which would violate the (route_id, dedupe_key) unique index. This is
-// what lets a transient send failure be retried instead of permanently dropping
-// the reply under the occupied dedupe key.
+// upsertDelivery records the delivery outcome, updating any prior "failed" row in
+// place rather than inserting a duplicate (violating the (route_id, dedupe_key)
+// unique index). This lets a transient failure be retried instead of dropped.
 func (s *Service) upsertDelivery(ctx context.Context, route model.EmployeeGatewayRoute, session model.EmployeeSession, response AgentResponse, dedupe string, existing *model.EmployeeGatewayDelivery, handles []MessageHandle, status string, errText string) (*model.EmployeeGatewayDelivery, error) {
 	if existing == nil {
 		return s.insertDelivery(ctx, route, session, response, dedupe, handles, status, errText)

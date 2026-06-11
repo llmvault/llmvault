@@ -245,9 +245,8 @@ func reportValue(value string, present bool, sensitive bool, includeSensitive bo
 	return value, false
 }
 
-// IsSensitiveEnvKey reports whether an env var should be treated as a secret,
-// either because the catalog flags it Sensitive or because the key name looks
-// like a credential. Used to redact values before they are logged.
+// IsSensitiveEnvKey reports whether an env var should be treated as a secret (for
+// log redaction), by catalog Sensitive flag or a credential-looking key name.
 func IsSensitiveEnvKey(key string) bool {
 	for _, spec := range employeeEnvCatalog {
 		if spec.Key == key {

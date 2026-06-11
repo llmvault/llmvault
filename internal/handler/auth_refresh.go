@@ -44,11 +44,9 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	tokenHash := hashToken(req.RefreshToken)
 	now := time.Now()
 
-	// Atomically claim this single-use token: only the caller whose UPDATE
-	// flips revoked_at from NULL gets to rotate it. Concurrent presentations of
-	// the same token (multiple tabs, the proxy, the stream-token route, or
-	// another instance) lose the race and fall through to the grace window
-	// instead of force-logging the user out.
+	// Atomically claim this single-use token: only the caller whose UPDATE flips
+	// revoked_at from NULL rotates it. Concurrent presentations lose the race and
+	// fall through to the grace window instead of force-logging the user out.
 	res := h.db.Model(&model.RefreshToken{}).
 		Where("token_hash = ? AND revoked_at IS NULL", tokenHash).
 		Updates(map[string]any{"revoked_at": &now})
@@ -58,13 +56,12 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if res.RowsAffected == 0 {
-		// We did not win the rotation. Either the token was already rotated
-		// (recently, by a concurrent refresh) or it is genuinely revoked.
+		// Lost the rotation (concurrent refresh or genuinely revoked); the grace
+		// window disambiguates.
 		h.serveRefreshGrace(r.Context(), w, tokenHash)
 		return
 	}
 
-	// We won the rotation; load the row we just revoked.
 	var storedToken model.RefreshToken
 	if err := h.db.Where("token_hash = ?", tokenHash).First(&storedToken).Error; err != nil {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "refresh token revoked or not found"})
@@ -113,10 +110,9 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Record the replacement pair on the rotated row so a concurrent caller
-	// presenting the same single-use token within the grace window receives the
-	// same rotated pair (rather than a force-logout). Best-effort: a write
-	// failure here only forfeits the grace window, not the rotation.
+	// Record the replacement pair so a concurrent caller within the grace window
+	// receives the same rotated pair. Best-effort: a write failure here only
+	// forfeits the grace window, not the rotation.
 	if err := h.db.Model(&model.RefreshToken{}).
 		Where("token_hash = ?", tokenHash).
 		Updates(map[string]any{
@@ -130,25 +126,21 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// refreshGraceWindow is how long after a single-use refresh token has been
-// rotated a concurrent presentation of the same token may still receive the
-// rotated pair instead of being rejected.
+// refreshGraceWindow is how long after a single-use refresh token has been rotated a concurrent
+// presentation of the same token may still receive the rotated pair instead of being rejected.
 const refreshGraceWindow = 30 * time.Second
 
 // refreshGraceWaitTotal bounds how long a refresh that lost the rotation race
-// waits for the winning request to finish persisting its replacement pair. This
-// closes the visibility gap between the winner revoking the row and writing the
-// replacement tokens, so a concurrent loser never sees a half-rotated row and
-// force-logs the user out.
+// waits for the winner to persist its replacement pair, closing the gap between
+// revoking the row and writing the tokens so a loser never sees a half-rotated row.
 const (
 	refreshGraceWaitTotal = 2 * time.Second
 	refreshGraceWaitStep  = 20 * time.Millisecond
 )
 
-// serveRefreshGrace handles a refresh request that lost the rotation race. If
-// the token was rotated within the grace window and the replacement pair is
-// recorded, it returns that same pair so concurrent refreshes converge on one
-// session instead of force-logging the user out. Otherwise it rejects.
+// serveRefreshGrace handles a refresh that lost the rotation race. If the token
+// was rotated within the grace window and its replacement pair is recorded, it
+// returns that pair so concurrent refreshes converge on one session; else rejects.
 func (h *AuthHandler) serveRefreshGrace(ctx context.Context, w http.ResponseWriter, tokenHash string) {
 	deadline := time.Now().Add(refreshGraceWaitTotal)
 	for {
@@ -174,10 +166,8 @@ func (h *AuthHandler) serveRefreshGrace(ctx context.Context, w http.ResponseWrit
 			break
 		}
 
-		// No replacement recorded yet. If the row was revoked only just now, a
-		// concurrent winner is likely still persisting its replacement — wait
-		// briefly and re-check. Otherwise (revoked long ago, e.g. logout) reject
-		// immediately.
+		// No replacement yet. If revoked just now, a winner is likely still persisting its
+		// replacement — wait and re-check. If revoked long ago (e.g. logout), reject immediately.
 		if storedToken.RevokedAt == nil || time.Since(*storedToken.RevokedAt) > refreshGraceWindow {
 			break
 		}
@@ -190,9 +180,8 @@ func (h *AuthHandler) serveRefreshGrace(ctx context.Context, w http.ResponseWrit
 	writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "refresh token revoked or not found"})
 }
 
-// refreshGraceUser loads the user backing a grace-window reuse. The org/plan
-// detail in buildAuthResponse is re-derived from the DB, so we only need the ID
-// and the fields userResponse surfaces.
+// refreshGraceUser loads the user backing a grace-window reuse; buildAuthResponse
+// re-derives org/plan detail from the DB, so only the ID is needed here.
 func (h *AuthHandler) refreshGraceUser(userID uuid.UUID) model.User {
 	var user model.User
 	if err := h.db.Where("id = ?", userID).First(&user).Error; err == nil {

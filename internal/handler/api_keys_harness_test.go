@@ -62,9 +62,8 @@ func (h *apiKeyTestHarness) doRequest(t *testing.T, method, path string, body an
 	return h.doRequestWithAPIKey(t, method, path, body, org, nil)
 }
 
-// doRequestWithAPIKey behaves like doRequest but additionally attaches API-key
-// claims to the request context (simulating API-key authentication) when
-// callerScopes is non-nil. This exercises the scope-ceiling escalation guard.
+// doRequestWithAPIKey attaches API-key claims (when callerScopes is non-nil) to
+// exercise the scope-ceiling escalation guard.
 func (h *apiKeyTestHarness) doRequestWithAPIKey(t *testing.T, method, path string, body any, org *model.Org, callerScopes []string) *httptest.ResponseRecorder {
 	t.Helper()
 	var buf bytes.Buffer

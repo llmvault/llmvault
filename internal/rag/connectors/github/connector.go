@@ -207,9 +207,8 @@ func Build(src interfaces.Source, deps interfaces.BuildDeps) (interfaces.Connect
 	return NewConnector(cfg, newNangoProxy(deps.Nango, providerKey, connectionID)), nil
 }
 
-// connectionFromSource returns ("", "") when the Source doesn't expose
-// the Nango fields — the connector then fails fast on the first proxy
-// call rather than silently no-op'ing.
+// connectionFromSource returns ("","") when the Source lacks Nango fields, so the
+// connector fails fast on the first proxy call.
 func connectionFromSource(src interfaces.Source) (string, string) {
 	type connectionSource interface {
 		NangoConnectionID() string

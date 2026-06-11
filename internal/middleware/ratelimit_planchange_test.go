@@ -12,9 +12,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// TestRateLimit_PlanChangeRaisesCeiling verifies the cached limiter picks up a
-// new (higher) RateLimit without a process restart (P2-36). An org throttled
-// at rpm=1 is upgraded to a high limit and must stop returning 429.
+// The cached limiter must pick up a higher RateLimit without a restart: an org
+// throttled at rpm=1, upgraded to a high limit, must stop returning 429.
 func TestRateLimit_PlanChangeRaisesCeiling(t *testing.T) {
 	orgID := uuid.New()
 	org := model.Org{ID: orgID, Name: "rl-plan-change", RateLimit: 1, Active: true}
@@ -31,7 +30,7 @@ func TestRateLimit_PlanChangeRaisesCeiling(t *testing.T) {
 		return rr.Code
 	}
 
-	// burst = max(1/10,1) = 1, so the second request on the free plan is throttled.
+	// burst=1 on the free plan, so the second request is throttled.
 	if got := serve(&org); got != http.StatusOK {
 		t.Fatalf("first request: got %d, want 200", got)
 	}
@@ -39,13 +38,8 @@ func TestRateLimit_PlanChangeRaisesCeiling(t *testing.T) {
 		t.Fatalf("second request (free plan): got %d, want 429", got)
 	}
 
-	// Plan upgrade: same org ID, much higher rpm (6000/min = 100/sec). The first
-	// request after the upgrade triggers SetLimit, re-pointing the existing
-	// bucket at the higher rate (it may be throttled because the bucket is still
-	// empty from the free-plan window). Tokens then accrue at 100/sec, so after a
-	// short wait the limiter allows again — proof the new ceiling is live without
-	// a process restart. On the free plan this same wait leaves the bucket empty
-	// (rps≈0.017), so this asserts the rate actually changed.
+	// Upgrade to 100/sec: SetLimit re-points the cached bucket, so after a short
+	// wait the limiter allows again — at the free rate (rps≈0.017) it would not.
 	upgraded := org
 	upgraded.RateLimit = 6000
 	_ = serve(&upgraded) // apply SetLimit/SetBurst to the cached limiter
@@ -55,8 +49,7 @@ func TestRateLimit_PlanChangeRaisesCeiling(t *testing.T) {
 	}
 }
 
-// TestRateLimit_PlanChangeLowersCeiling verifies a downgrade is also applied in
-// place: an org on a high plan that drops to rpm=1 starts being throttled.
+// A downgrade is applied in place: an org dropping to rpm=1 starts being throttled.
 func TestRateLimit_PlanChangeLowersCeiling(t *testing.T) {
 	orgID := uuid.New()
 	high := model.Org{ID: orgID, Name: "rl-downgrade", RateLimit: 6000, Active: true}
@@ -77,13 +70,10 @@ func TestRateLimit_PlanChangeLowersCeiling(t *testing.T) {
 		t.Fatalf("high-plan request: got %d, want 200", got)
 	}
 
-	// Downgrade to rpm=1 (burst=1). The token consumed above plus the new low
-	// burst means the next two requests after the downgrade are throttled.
+	// Downgrade to rpm=1: SetBurst=1 lowers the ceiling in place.
 	low := high
 	low.RateLimit = 1
-	// First request after downgrade re-points the limiter (SetBurst=1) and may
-	// still have a token; drain it.
-	_ = serve(&low)
+	_ = serve(&low) // re-points the limiter; may still have a token, so drain it
 	if got := serve(&low); got != http.StatusTooManyRequests {
 		t.Fatalf("post-downgrade request: got %d, want 429 (limit not lowered?)", got)
 	}

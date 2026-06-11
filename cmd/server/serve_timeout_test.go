@@ -10,25 +10,11 @@ import (
 	"time"
 )
 
-// TestReadHeaderTimeoutNotReadTimeout is the P1-10 regression guard.
-//
-// Before the fix the server used ReadTimeout:10s which covered the entire
-// request including the body.  Any request whose body took >10 s to upload
-// (drive uploads, sqlite backups from slow clients) was killed mid-stream.
-//
-// The fix replaces it with ReadHeaderTimeout:10s so only the header phase is
-// bounded; the body may take as long as the handler allows.  We verify two
-// things with a tiny httptest server that mirrors the production config:
-//
-//  1. A slow body (simulated by a blocking reader that blocks for > header
-//     timeout duration) is NOT killed by the server — the handler receives
-//     the full body.
-//  2. The server's ReadTimeout field is zero (not set) so the stdlib never
-//     imposes a whole-request deadline on its own.
+// The server must use ReadHeaderTimeout, not ReadTimeout: ReadTimeout bounds the
+// whole request including the body, killing slow uploads (drive uploads, sqlite
+// backups). ReadHeaderTimeout bounds only the header phase, so a slow body must
+// survive and ReadTimeout must remain zero.
 func TestReadHeaderTimeoutNotReadTimeout(t *testing.T) {
-	// Build a minimal handler that reads the full request body and echoes it
-	// back, so we can observe whether the body was truncated or the connection
-	// killed mid-flight.
 	done := make(chan struct{})
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -49,15 +35,11 @@ func TestReadHeaderTimeoutNotReadTimeout(t *testing.T) {
 	srv.Start()
 	t.Cleanup(srv.Close)
 
-	// Verify ReadTimeout is zero on the server config (regression guard for
-	// reintroduction of the old timeout).
 	if srv.Config.ReadTimeout != 0 {
 		t.Fatalf("ReadTimeout must be 0 (not set); got %s — slow uploads would be killed", srv.Config.ReadTimeout)
 	}
 
-	// Send a request whose body arrives in two parts with a brief pause between
-	// them, simulating a slow client upload.  The handler must receive the
-	// complete body without a deadline error.
+	// Body arrives in two parts with a pause, simulating a slow client upload.
 	pr, pw := io.Pipe()
 	go func() {
 		_, _ = pw.Write([]byte("first-chunk"))

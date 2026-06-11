@@ -6,10 +6,8 @@ import (
 	"time"
 )
 
-// TestWrapWithTimeout verifies P2-32: a timed exec wraps the command in
-// `timeout` so the in-container process is killed when the deadline fires,
-// rather than relying solely on ctx cancellation (which only tears down our
-// hijacked read).
+// A timed exec must wrap the command in `timeout` so the in-container process is
+// killed at the deadline, not just our hijacked read torn down by ctx cancel.
 func TestWrapWithTimeout(t *testing.T) {
 	got := wrapWithTimeout("echo hi", 30*time.Second)
 	want := "timeout -k 5s 30s /bin/sh -c 'echo hi'"
@@ -18,7 +16,7 @@ func TestWrapWithTimeout(t *testing.T) {
 	}
 }
 
-// TestWrapWithTimeoutRoundsUpSubSecond verifies a sub-second timeout still arms
+// A sub-second timeout still arms
 // `timeout` with at least 1s rather than `timeout 0s` (which would never fire).
 func TestWrapWithTimeoutRoundsUpSubSecond(t *testing.T) {
 	got := wrapWithTimeout("sleep 5", 200*time.Millisecond)
@@ -27,9 +25,8 @@ func TestWrapWithTimeoutRoundsUpSubSecond(t *testing.T) {
 	}
 }
 
-// TestShellQuoteEscapesSingleQuotes verifies commands containing single quotes
-// are safely quoted so the `timeout`/sh wrapper does not break or allow
-// injection out of the quoted argument.
+// Commands containing single quotes must be safely quoted so the `timeout`/sh
+// wrapper does not break or allow injection out of the quoted argument.
 func TestShellQuoteEscapesSingleQuotes(t *testing.T) {
 	got := shellQuote(`echo 'don't'`)
 	want := `'echo '\''don'\''t'\'''`

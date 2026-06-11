@@ -15,9 +15,8 @@ type AuditWritePayload struct {
 	Entry model.AuditEntry `json:"entry"`
 }
 
-// NewAuditWriteTask creates a task that writes an audit log entry. Options are
-// returned separately so they survive the enqueue client's Sentry trace-payload
-// rewrite (P0-11).
+// NewAuditWriteTask creates a task that writes an audit log entry. Options are returned separately
+// so they survive the enqueue client's Sentry trace-payload rewrite.
 func NewAuditWriteTask(entry model.AuditEntry) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(AuditWritePayload{Entry: entry})
 	if err != nil {
@@ -37,8 +36,7 @@ type GenerationWritePayload struct {
 }
 
 // NewGenerationWriteTask creates a task that writes a generation record.
-// Options are returned separately so they survive the enqueue client's Sentry
-// trace-payload rewrite (P0-11).
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewGenerationWriteTask(entry model.Generation) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(GenerationWritePayload{Entry: entry})
 	if err != nil {

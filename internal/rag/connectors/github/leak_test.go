@@ -27,11 +27,8 @@ func waitGoroutinesBelow(t *testing.T, baseline, slack int) {
 	}
 }
 
-// TestSlim_ProducerExitsOnConsumerAbandon verifies that the ListAllSlim
-// producer goroutine unwinds when the consumer reads one item then stops
-// reading and cancels the context. Before the ctx-select fix the producer
-// blocked forever on the full output channel and leaked for the process
-// lifetime.
+// The ListAllSlim producer goroutine must unwind (not leak) when the consumer
+// reads one item, stops, and cancels the context.
 func TestSlim_ProducerExitsOnConsumerAbandon(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 
@@ -57,7 +54,7 @@ func TestSlim_ProducerExitsOnConsumerAbandon(t *testing.T) {
 		t.Fatalf("ListAllSlim: %v", err)
 	}
 
-	// Consume exactly one item, then abandon: cancel and never read again.
+	// Consume one item, then abandon: cancel and never read again.
 	select {
 	case <-ch:
 	case <-time.After(2 * time.Second):
@@ -65,12 +62,10 @@ func TestSlim_ProducerExitsOnConsumerAbandon(t *testing.T) {
 	}
 	cancel()
 
-	// The producer must observe ctx.Done() on its blocked send and return.
 	waitGoroutinesBelow(t, baseline, 0)
 }
 
-// TestSyncExternalGroups_ProducerExitsOnConsumerAbandon covers the
-// perm_sync producer path the same way.
+// Covers the perm_sync producer path the same way.
 func TestSyncExternalGroups_ProducerExitsOnConsumerAbandon(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 

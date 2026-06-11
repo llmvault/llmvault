@@ -25,8 +25,7 @@ type EmployeeMemoryRetainPayload struct {
 }
 
 // NewEmployeeMemoryRetainTask creates a task that retains employee memory.
-// Options are returned separately so they survive the enqueue client's Sentry
-// trace-payload rewrite (P0-11).
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewEmployeeMemoryRetainTask(payload EmployeeMemoryRetainPayload) (*asynq.Task, []asynq.Option, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -73,8 +72,7 @@ type EmployeeMemoryRefreshPayload struct {
 }
 
 // NewEmployeeMemoryRefreshTask creates a task that refreshes employee memory.
-// Options are returned separately so they survive the enqueue client's Sentry
-// trace-payload rewrite (P0-11).
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewEmployeeMemoryRefreshTask(payload EmployeeMemoryRefreshPayload) (*asynq.Task, []asynq.Option, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {

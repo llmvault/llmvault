@@ -16,11 +16,9 @@ import (
 
 const gatewayFriendlyStreamError = "Something went wrong. Please try again."
 
-// maxStreamSubscribeAttempts bounds how many times DeliverFromStream
-// re-subscribes after a transport-level stream failure before giving up and
-// delivering whatever partial text it has. The broker replays history on
-// each subscribe (so a reconnect can still observe the terminal event), but
-// we must not retry forever.
+// maxStreamSubscribeAttempts bounds re-subscribes after a transport failure
+// before delivering whatever partial text we have. The broker replays history on
+// each subscribe (so a reconnect can still see the terminal event).
 const maxStreamSubscribeAttempts = 3
 
 // errStreamTransport signals that the SSE stream ended due to a transport
@@ -28,7 +26,9 @@ const maxStreamSubscribeAttempts = 3
 // caller should retry the subscription before falling back to partial text.
 type errStreamTransport struct{ err error }
 
-func (e errStreamTransport) Error() string { return "gateway stream transport failure: " + e.err.Error() }
+func (e errStreamTransport) Error() string {
+	return "gateway stream transport failure: " + e.err.Error()
+}
 func (e errStreamTransport) Unwrap() error { return e.err }
 
 type GatewayStreamPayload struct {
@@ -89,7 +89,6 @@ func (s *GatewayStreamDeliveryService) DeliverFromStream(ctx context.Context, pa
 		if err != nil {
 			lastErr = fmt.Errorf("subscribe to gateway response stream: %w", err)
 			logging.CaptureWithFields(ctx, lastErr, fields)
-			// A connection-level subscribe failure is itself retryable.
 			continue
 		}
 		result, err := s.deliverEventsOnce(ctx, payload, sink, events, fields)
@@ -119,9 +118,9 @@ func (s *GatewayStreamDeliveryService) DeliverFromStream(ctx context.Context, pa
 }
 
 // DeliverEvents consumes a single SSE event stream to completion. A
-// transport-level stream failure (EventStreamError) is treated as a
-// non-retryable end here — direct callers get the accumulated partial text.
-// DeliverFromStream wraps this with subscription retries.
+// transport-level stream failure (EventStreamError) is treated as a non-retryable
+// end here — direct callers get the accumulated partial text. DeliverFromStream
+// wraps this with subscription retries.
 func (s *GatewayStreamDeliveryService) DeliverEvents(ctx context.Context, payload GatewayStreamPayload, sink GatewayResponseSink, events <-chan gateway.SSEEvent, fields map[string]any) (GatewayDeliveryResult, error) {
 	result, err := s.deliverEventsOnce(ctx, payload, sink, events, fields)
 	var transport errStreamTransport
@@ -137,10 +136,9 @@ func (s *GatewayStreamDeliveryService) DeliverEvents(ctx context.Context, payloa
 	return result, err
 }
 
-// deliverEventsOnce runs one pass over an event stream. It returns an
-// errStreamTransport when the stream ended on a transport failure (the
-// caller may re-subscribe); the returned result carries the accumulated
-// partial text/token count so the caller can fall back to it.
+// deliverEventsOnce runs one pass over an event stream, returning
+// errStreamTransport on a transport failure (caller may re-subscribe); the
+// result carries the accumulated partial text so the caller can fall back.
 func (s *GatewayStreamDeliveryService) deliverEventsOnce(ctx context.Context, payload GatewayStreamPayload, sink GatewayResponseSink, events <-chan gateway.SSEEvent, fields map[string]any) (GatewayDeliveryResult, error) {
 	if sink == nil {
 		return GatewayDeliveryResult{}, fmt.Errorf("gateway response sink is required")
@@ -217,10 +215,9 @@ func firstNonNilErr(errs ...error) error {
 }
 
 func (s *GatewayStreamDeliveryService) sendFinal(ctx context.Context, payload GatewayStreamPayload, sink GatewayResponseSink, text string, tokenCount int, fields map[string]any) (GatewayDeliveryResult, error) {
-	// Pre-send dedupe: an asynq retry of this task re-runs the whole stream.
-	// The post-send dedupe row alone can't prevent a duplicate provider
-	// message because SendFinal happens before the row is written. If a prior
-	// attempt already delivered this turn, skip the send entirely.
+	// Pre-send dedupe: an asynq retry re-runs the whole stream, and SendFinal
+	// happens before the row is written, so the post-send row alone can't prevent
+	// a duplicate provider message. Skip the send if a prior attempt delivered.
 	if existing, ok := s.alreadyDelivered(ctx, payload, text); ok {
 		logging.FromContext(ctx).InfoContext(ctx, "gateway delivery already sent; skipping duplicate",
 			"provider", payload.Provider, "route_id", payload.RouteID, "session_id", payload.SessionID)
