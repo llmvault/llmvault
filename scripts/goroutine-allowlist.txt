@@ -10,7 +10,7 @@
 # These own their own recover()+wg.Done() pattern; converting to goroutine.Go
 # would add a double-recovery wrapper without benefit.
 
-internal/handler/employee_event_writer.go:59   # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
+internal/handler/employee_event_writer.go:55   # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
 internal/middleware/generation.go:52            # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
 internal/middleware/audit.go:45                 # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
 internal/middleware/tool_usage.go:37            # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
@@ -29,10 +29,10 @@ internal/precontext/service.go:96              # wg fan-out (3 goroutines); each
 # closes the channel, unblocking any blocked consumer. The caller propagates
 # cancellation via ctx.Done().
 
-internal/gateway/sse_subscriber.go:62          # channel producer; ctx.Done() + channel close bound the lifetime
+internal/gateway/sse_subscriber.go:55          # channel producer; ctx.Done() + channel close bound the lifetime
 internal/rag/connectors/website/runnable.go:36 # channel producer; ctx.Done() + channel close bound the lifetime
 internal/rag/connectors/slack/connector.go:139 # channel producer (runIngest); channel close bounds the lifetime
-internal/spider/stream.go:35                   # channel producer; ctx embedded in request; channel close bounds lifetime
+internal/spider/stream.go:34                   # channel producer; ctx embedded in request; channel close bounds lifetime
 
 # --- Infrastructure / SDK bridging goroutines ---
 # Lifetime is bounded by an explicit stopCh/cancel or by the external SDK
@@ -40,7 +40,7 @@ internal/spider/stream.go:35                   # channel producer; ctx embedded 
 
 internal/rag/tasks/heartbeat.go:48             # hbCtx cancel + stoppedCh close strictly bound this ticker goroutine
 internal/sandbox/daytona/driver_snapshot.go:77 # drains external SDK log channel; channel close bounds the goroutine
-internal/sandbox/docker/exec.go:58             # goroutine to unblock stdcopy while ctx.Done() races; bounded by copyDone
+internal/sandbox/docker/exec.go:57             # goroutine to unblock stdcopy while ctx.Done() races; bounded by copyDone
 
 # --- Eval worker pool ---
 # Fixed-size worker pool (parallel goroutines); wg.Wait() blocks until all

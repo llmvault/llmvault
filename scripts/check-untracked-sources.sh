@@ -49,7 +49,7 @@ fatal_tmp="$(mktemp)"
 warn_tmp="$(mktemp)"
 trap 'rm -f "$fatal_tmp" "$warn_tmp"' EXIT
 
-for f in "${untracked[@]}"; do
+for f in ${untracked[@]+"${untracked[@]}"}; do
   case "$f" in
     vendor/*|.ignored/*)
       continue ;;
