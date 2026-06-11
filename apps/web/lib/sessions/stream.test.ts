@@ -3,9 +3,47 @@ import {
   DEFAULT_RECONNECT_CONFIG,
   StreamBuffer,
   decideReconnect,
+  proxiedStreamURL,
   runWithStreamSetup,
   type ReconnectConfig,
 } from "./stream"
+
+// ---------------------------------------------------------------------------
+// P2-27: SSE must go through the cookie-auth proxy; absolute URLs are rejected
+// so a raw bearer access token is never attached to a cross-origin request.
+// ---------------------------------------------------------------------------
+describe("proxiedStreamURL", () => {
+  it("prefixes a backend-relative signed stream path with /api/proxy", () => {
+    expect(
+      proxiedStreamURL("/v1/employees/e1/sessions/s1/streams/st1?token=abc")
+    ).toBe("/api/proxy/v1/employees/e1/sessions/s1/streams/st1?token=abc")
+  })
+
+  it("returns an already-proxied path unchanged", () => {
+    expect(proxiedStreamURL("/api/proxy/v1/x?token=abc")).toBe(
+      "/api/proxy/v1/x?token=abc"
+    )
+  })
+
+  it("rejects an absolute http(s) URL", () => {
+    expect(() =>
+      proxiedStreamURL("https://api.example.com/v1/streams/st1?token=abc")
+    ).toThrow(/absolute/i)
+    expect(() => proxiedStreamURL("http://internal/v1/streams")).toThrow(
+      /absolute/i
+    )
+  })
+
+  it("rejects a protocol-relative URL", () => {
+    expect(() => proxiedStreamURL("//evil.example/v1/streams")).toThrow(
+      /absolute/i
+    )
+  })
+
+  it("rejects a non-path value", () => {
+    expect(() => proxiedStreamURL("not-a-path")).toThrow(/invalid/i)
+  })
+})
 
 const config: ReconnectConfig = {
   maxAttempts: 4,

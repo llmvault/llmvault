@@ -9,9 +9,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const Provider = "slack"
+
+// slackHTTPClient is a shared client with a bounded timeout for Slack Web API
+// introspection calls (auth.test, apps.connections.open). http.DefaultClient
+// has no timeout and would hang a request goroutine indefinitely if Slack
+// stalls the connection.
+var slackHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // Mirrors the bot scopes in apps/web/app/onboarding/slack-manifest.ts —
 // keep the two lists in sync.
@@ -191,7 +198,7 @@ func slackPost(ctx context.Context, url, token string) ([]byte, http.Header, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := slackHTTPClient.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}

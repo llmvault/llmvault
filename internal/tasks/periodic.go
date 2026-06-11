@@ -31,16 +31,6 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		},
 		{
-			Cronspec: "@every 5m",
-			Task:     asynq.NewTask(TypeStreamCleanup, nil),
-			Opts: []asynq.Option{
-				asynq.Queue(QueuePeriodic),
-				asynq.MaxRetry(1),
-				asynq.Timeout(2 * time.Minute),
-				asynq.Unique(5 * time.Minute),
-			},
-		},
-		{
 			Cronspec: "@every 15m",
 			Task:     asynq.NewTask(TypeCreditsExpire, nil),
 			Opts: []asynq.Option{

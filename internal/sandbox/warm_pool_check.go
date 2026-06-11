@@ -13,8 +13,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-const warmSlotHealthTimeout = 5 * time.Minute
-
 type WarmSlotCheckResult struct {
 	Ready   bool
 	Pending bool
@@ -61,38 +59,6 @@ func (p *WarmPool) CheckWarmSlot(ctx context.Context, slotID uuid.UUID) (*WarmSl
 		"provider", p.provider.ID(), "mode", slot.Mode, "external_id", slot.ExternalID,
 		"endpoint_url", slot.EndpointURL)
 	return &WarmSlotCheckResult{Ready: true}, nil
-}
-
-func waitForWarmSlotHealth(ctx context.Context, endpoint string) error {
-	deadline := time.Now().Add(warmSlotHealthTimeout)
-	client := &http.Client{Timeout: 5 * time.Second}
-	url := strings.TrimRight(endpoint, "/") + "/healthz"
-	var lastErr error
-	for time.Now().Before(deadline) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
-			return err
-		}
-		resp, err := client.Do(req)
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-			lastErr = fmt.Errorf("healthz returned %s", resp.Status)
-		} else {
-			lastErr = err
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(3 * time.Second):
-		}
-	}
-	if lastErr == nil {
-		return fmt.Errorf("warm slot did not become healthy")
-	}
-	return fmt.Errorf("warm slot did not become healthy: %w", lastErr)
 }
 
 func checkWarmSlotHealth(ctx context.Context, endpoint string) error {

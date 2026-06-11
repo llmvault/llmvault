@@ -39,6 +39,7 @@ serialized as SSE frames (`event: <name>\ndata: <json>\n\n`).
 | `model_usage`     | per-request token usage (billing/observability)      | no       |
 | `subagent_*`      | delegate lifecycle (`subagent_errored`, …)           | no       |
 | `session_waiting` | this stream's message was queued/merged behind an in-flight turn, or the turn is blocked on delegates/background processes; the stream stays open | no |
+| `resync`          | proxy-synthesized after a slow-consumer `Lagged` gap; followed by replayed history (§3)               | no       |
 | `final`           | the authoritative full text of the turn              | **yes**  |
 | `done`            | the run is complete; consumers stop                  | **yes**  |
 | `error`           | the turn failed (`max_turns_exhausted`, model errors)| **yes**  |
@@ -91,38 +92,108 @@ breaking on `done`.
   newest tokens + `final` + `done` are retained. Test:
   `late_subscriber_after_history_overflow_still_sees_terminal_events`.
 
+### Per-event sequence numbers
+
+Every published event is tagged with a monotonically increasing per-stream
+sequence number (`SeqEvent { seq, inner }`). The sequence is internal — it never
+appears on the SSE wire — but it lets a subscriber that fell behind resync
+precisely against the replay history (see §3). History therefore stores
+`SeqEvent`s; `subscribe` returns `(Vec<SeqEvent>, broadcast::Receiver<SeqEvent>)`,
+`history_after(stream_id, seq)` returns the buffered events with `seq` strictly
+greater than the argument, and `history_snapshot` returns the whole retained tail.
+
+### State eviction after `done` + grace (P2-1)
+
+When the terminal `done` is published, the stream's `done_at` is stamped. The
+per-stream state (and the `session_streams`/`active_session_streams` entries that
+still point at it) is retained for `STREAM_EVICTION_GRACE = 120s` so a late
+subscriber can still replay the terminals, then reclaimed. Reclamation is
+opportunistic — performed under the `streams` lock during `create_stream` and
+`publish` (one sweep per turn / per published event), with no background task. A
+session that has re-registered onto a newer stream keeps its newer mapping; only
+mappings still pointing at the evicted stream are dropped. Lock order is always
+`streams` → `session_streams` → `active_session_streams`. Tests:
+`finished_stream_state_is_evicted_after_grace_on_next_activity`,
+`reregistered_session_keeps_newer_mapping_when_old_stream_evicted`.
+
 ---
 
-## 3. Slow-consumer / Lagged behavior
+## 3. Slow-consumer / Lagged resync (P2-2)
 
 The broadcast channel capacity is 256 (`broadcast::channel(256)`). A subscriber
 that falls more than 256 events behind receives `RecvError::Lagged(n)`.
-`stream_response` currently `continue`s on `Lagged` (skips the gap silently) and
-breaks on `Closed`. **Known gap (P2-2, not fixed):** there is no resync/replay of
-the skipped range, so a very slow consumer can have a silent mid-stream gap. The
-intended remediation is to replay the missed range from history or emit a resync
-frame. The contract tests do not assert a resync because the behavior is not yet
-implemented; this is documented here so a future fix can add the assertion.
+`stream_response` (via the testable `replay_stream` core) handles this by
+**resyncing from the replay history** rather than silently skipping the gap:
+
+1. It tracks `last_seq`, the highest sequence number delivered so far.
+2. On `Lagged(skipped)` it emits a synthetic **`resync`** SSE frame
+   (`event: resync`, payload `{ stream_id, skipped, from_seq }`) so the client
+   knows a gap occurred.
+3. It then replays every buffered history event with `seq > last_seq`
+   (`history_after`), in order, advancing `last_seq` — exactly the events the
+   broadcast dropped, with no duplication of the already-delivered prefix.
+4. If the replayed range contains `done`, the stream terminates as usual.
+
+The only events that cannot be recovered are ones already evicted from the ring
+history (a consumer more than `HISTORY_CAPACITY` events behind); the newest
+`HISTORY_CAPACITY` events, including the terminals, are always replayable.
+
+`Closed` still ends the stream. Tests:
+`lagged_subscriber_resyncs_skipped_range_from_history` (the test the contract
+agent deliberately skipped), `non_lagged_stream_emits_no_resync_frame`.
+
+The `resync` frame is non-terminal; web clients should treat it as a hint to
+rely on their existing replay-dedupe (§7) for any frames that follow.
 
 ---
 
 ## 4. Auth (stream tokens)
 
-Two distinct credentials gate the two hops:
+The browser **never** receives a raw bearer access token. SSE is always routed
+through the web's own cookie-auth proxy (`/api/proxy/...`), which authenticates
+the browser via the httpOnly `__session` cookie and injects the user's bearer
+server-side (P2-27). Three credentials are in play across the hops:
 
-- **Browser → Go proxy:** an HMAC-signed **web stream token**, minted by
+- **Browser → Next.js proxy:** the httpOnly `__session` cookie. The web client
+  resolves the backend-relative stream path through `proxiedStreamURL`
+  (`apps/web/lib/sessions/stream.ts`), which prefixes it with `/api/proxy` and
+  **rejects absolute URLs** (`http(s)://…` / protocol-relative `//…`) so a
+  credential is never attached to a cross-origin request from client JS. The
+  fetch uses `credentials: "include"` with only an `Accept: text/event-stream`
+  header — no `Authorization` header is set client-side. There is no
+  `/api/auth/stream-token` endpoint: the previous design that handed the bearer
+  to client JS has been removed.
+- **Proxy → Go backend (`StreamSession`):** the user's JWT bearer (added by the
+  proxy from the session) **plus** an HMAC-signed **web stream token**, minted by
   `signedWebStreamURL` / `signWebStreamToken` (`employees_session_stream_token.go`).
   Payload is `sessionID|streamID|expiresAt`, signed with `compileDeps.SigningKey`
-  (HMAC-SHA256), base64url-encoded, passed as `?token=`. TTL is
-  `webStreamTokenLifetime = 1h`. `verifyWebStreamToken` checks the session/stream
-  binding, expiry, and a constant-time HMAC compare. A token for stream A cannot
-  be replayed against stream B or session B.
-- **Go proxy → Rust runtime:** the per-sandbox **runtime bearer secret**
+  (HMAC-SHA256), base64url-encoded. TTL is `webStreamTokenLifetime = 1h`.
+  The token is extracted by `extractWebStreamToken`:
+  1. **Preferred:** `X-Stream-Token: <token>` request header — the token stays
+     out of access logs and Sentry breadcrumbs.
+  2. **Fallback (backward compat):** `?token=<token>` query parameter — accepted
+     for clients that cannot set headers (e.g. `EventSource` without custom
+     headers); the `?token=` value is scrubbed from Sentry events by the
+     `beforeSend` hook.
+  `verifyWebStreamToken` checks the session/stream binding, expiry, and a
+  constant-time HMAC compare. A token for stream A cannot be replayed against
+  stream B or session B. `StreamSession` requires both the org context (from the
+  bearer) and a valid stream token.
+- **Go backend → Rust runtime:** the per-sandbox **runtime bearer secret**
   (decrypted from `EncryptedRuntimeSecret`), sent as `Authorization: Bearer …` by
   `openStream`. The browser never sees this.
 
-The proxy is the trust boundary: it verifies the web stream token, then opens the
-runtime stream with the bearer and byte-forwards the body.
+The Next.js proxy and the Go backend together form the trust boundary: the proxy
+authenticates the browser by cookie and adds the bearer; the backend verifies the
+web stream token, then opens the runtime stream with the runtime secret and
+byte-forwards the body.
+
+Tests:
+- Web (`stream.test.ts`, `proxiedStreamURL` suite): a backend-relative signed
+  path is prefixed with `/api/proxy`; an already-proxied path is unchanged;
+  absolute `http(s)://` and protocol-relative `//` URLs are rejected.
+- Go (`employees_session_messages_test.go`): `StreamSession` rejects a missing /
+  forged / cross-stream / expired web stream token.
 
 ---
 

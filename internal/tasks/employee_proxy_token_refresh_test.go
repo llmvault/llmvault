@@ -281,7 +281,7 @@ func newEmployeeProxyTokenRefreshFixture(t *testing.T, envStatus int) *employeeP
 		Status:        "active",
 		SystemPrompt:  "test employee",
 		Tools:         model.JSON{},
-		McpServers:    model.JSON{},
+		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
 		Integrations:  model.JSON{},
 		Resources:     model.JSON{},

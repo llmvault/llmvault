@@ -27,7 +27,7 @@ func scheduleTestFixture(t *testing.T, db *gorm.DB) (model.Employee, model.Sandb
 		Name:          "Aria",
 		Model:         DefaultEmployeeModel,
 		Tools:         model.JSON{},
-		McpServers:    model.JSON{},
+		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
 		Integrations:  model.JSON{},
 		Resources:     model.JSON{},

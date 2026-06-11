@@ -2,13 +2,41 @@ package employeeruntime
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/config"
+	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+// testSymmetricKey creates a SymmetricKey from a deterministic 32-byte key for use in tests.
+func testSymmetricKey(t *testing.T) *crypto.SymmetricKey {
+	t.Helper()
+	// 32 zero bytes, base64-encoded.
+	key, err := crypto.NewSymmetricKey(base64.StdEncoding.EncodeToString(make([]byte, 32)))
+	if err != nil {
+		t.Fatalf("create enc key: %v", err)
+	}
+	return key
+}
+
+// testEncryptJSON is a test helper that encrypts a JSON object using the given key.
+func testEncryptJSON(t *testing.T, key *crypto.SymmetricKey, obj map[string]string) []byte {
+	t.Helper()
+	data, err := json.Marshal(obj)
+	if err != nil {
+		t.Fatalf("marshal env vars: %v", err)
+	}
+	enc, err := key.EncryptString(string(data))
+	if err != nil {
+		t.Fatalf("encrypt env vars: %v", err)
+	}
+	return enc
+}
 
 func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 	orgID := uuid.New()
@@ -103,5 +131,65 @@ func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 
 	if env[EmployeeEnvTunnelPassword] != "runtime-secret" {
 		t.Fatalf("%s = %q, want %q (tunnel must fail closed)", EmployeeEnvTunnelPassword, env[EmployeeEnvTunnelPassword], "runtime-secret")
+	}
+}
+
+// TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv is the
+// regression test for P2-29: reserved HIVY_ runtime keys (proxy key,
+// runtime secret, drive bearer) must not be clobbered by org-supplied env
+// vars that share the same name, regardless of what the user sets.
+func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testing.T) {
+	encKey := testSymmetricKey(t)
+
+	orgID := uuid.New()
+	agent := &model.Employee{
+		ID:    uuid.New(),
+		OrgID: &orgID,
+		// User has smuggled reserved HIVY_ keys into their org env vars.
+		EncryptedEnvVars: testEncryptJSON(t, encKey, map[string]string{
+			EmployeeEnvRuntimeSecret:     "user-controlled-secret",
+			EmployeeEnvProxyAPIKey:       "user-controlled-proxy-key",
+			EmployeeEnvDriveUploadBearer: "user-controlled-bearer",
+			"MY_CUSTOM_VAR":             "custom-value",
+		}),
+	}
+
+	sb := &model.Sandbox{ID: uuid.New()}
+	runtimeSecret := "real-runtime-secret"
+	proxyToken := &ProxyTokenResult{
+		Token: "ptok_real-proxy-token",
+		JTI:   uuid.New().String(),
+	}
+
+	deps := CompileDeps{
+		EncKey: encKey,
+		Cfg: &config.Config{
+			Environment:       "test",
+			APIWebhookBaseURL: "https://api.example.test",
+		},
+	}
+
+	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sb, runtimeSecret, proxyToken)
+	if err != nil {
+		t.Fatalf("BuildRuntimeEnvWithProxyToken: %v", err)
+	}
+
+	// Control-plane values must always win over any user-supplied values.
+	if got := env[EmployeeEnvRuntimeSecret]; got != runtimeSecret {
+		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
+			EmployeeEnvRuntimeSecret, got, runtimeSecret)
+	}
+	if got := env[EmployeeEnvProxyAPIKey]; got != proxyToken.Token {
+		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
+			EmployeeEnvProxyAPIKey, got, proxyToken.Token)
+	}
+	if got := env[EmployeeEnvDriveUploadBearer]; got != runtimeSecret {
+		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
+			EmployeeEnvDriveUploadBearer, got, runtimeSecret)
+	}
+
+	// Non-reserved user env vars must still be present.
+	if got := env["MY_CUSTOM_VAR"]; got != "custom-value" {
+		t.Errorf("MY_CUSTOM_VAR = %q, want custom-value; non-reserved user env must be preserved", got)
 	}
 }

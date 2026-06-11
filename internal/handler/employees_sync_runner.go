@@ -3,10 +3,8 @@ package handler
 import (
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/usehivy/hivy/internal/employeeruntime"
@@ -75,7 +73,7 @@ func (h *EmployeeHandler) ensureEmployeeSandboxLocked(ctx context.Context, agent
 	if err != nil {
 		return nil, err
 	}
-	if err := employeeruntime.AttachLatestProxyTokenToSandbox(ctx, h.compileDeps, agent, created.ID); err != nil {
+	if err := employeeruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, agent, created.ID, secrets.ProxyTokenJTI); err != nil {
 		return nil, fmt.Errorf("tag employee proxy token sandbox: %w", err)
 	}
 	return created, nil
@@ -160,23 +158,11 @@ func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Empl
 		return nil, fmt.Errorf("load runtime schedules: %w", err)
 	}
 
-	currentDef, err := client.GetConfig(ctx)
-	needsRestart := err != nil || !agentDefinitionsMatch(currentDef, def)
-
-	var resp *employeeruntime.SyncResponse
-	if needsRestart {
-		resp, err = client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
-			Definition: def,
-			RuntimeEnv: runtimeEnv,
-			Schedules:  schedules,
-		})
-	} else {
-		resp, err = client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
-			Definition: def,
-			RuntimeEnv: runtimeEnv,
-			Schedules:  schedules,
-		})
-	}
+	resp, err := client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
+		Definition: def,
+		RuntimeEnv: runtimeEnv,
+		Schedules:  schedules,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -231,27 +217,6 @@ func (h *EmployeeHandler) mainEmployeeRuntimeSelector() employeesandbox.Selector
 		selector.SpecialistRuntimeImage = h.compileDeps.Cfg.SandboxesRuntimeSpecialistImage
 	}
 	return selector
-}
-
-func agentDefinitionsMatch(left, right *employeeruntime.AgentDefinition) bool {
-	leftJSON, err := json.Marshal(left)
-	if err != nil {
-		return false
-	}
-	rightJSON, err := json.Marshal(right)
-	if err != nil {
-		return false
-	}
-
-	var leftDoc any
-	var rightDoc any
-	if err := json.Unmarshal(leftJSON, &leftDoc); err != nil {
-		return false
-	}
-	if err := json.Unmarshal(rightJSON, &rightDoc); err != nil {
-		return false
-	}
-	return reflect.DeepEqual(leftDoc, rightDoc)
 }
 
 func toSyncResponseDTO(resp *employeeruntime.SyncResponse) syncEmployeeResponse {

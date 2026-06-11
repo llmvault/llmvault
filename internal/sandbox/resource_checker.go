@@ -9,29 +9,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// StartResourceChecker runs a background loop that periodically collects
-// resource usage from all running sandboxes via the configured provider.
-func (o *Orchestrator) StartResourceChecker(ctx context.Context) {
-	interval := o.cfg.SandboxResourceCheckInterval
-	if interval <= 0 {
-		return
-	}
-
-	logging.FromContext(ctx).InfoContext(ctx, "sandbox resource checker started", "interval", interval)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			o.RunResourceCheck(ctx)
-		}
-	}
-}
-
-// runResourceCheck queries all running sandboxes and collects their resource stats.
 // RunResourceCheck queries all running sandboxes and collects their resource stats.
 func (o *Orchestrator) RunResourceCheck(ctx context.Context) {
 	var sandboxes []model.Sandbox

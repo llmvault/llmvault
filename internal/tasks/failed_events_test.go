@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -139,6 +140,90 @@ func TestRetryFailedEvent_EnqueuesAndMarksRetried(t *testing.T) {
 	}
 	if reloaded.RetriedAt == nil {
 		t.Error("RetriedAt is nil")
+	}
+}
+
+// TestRetryFailedEvent_ConcurrentRetriesEnqueueOnce guards P2-42: two retries of
+// the same pending row racing each other must enqueue exactly one task. The CAS
+// claim before enqueue ensures only one caller wins; the others must observe
+// ErrFailedEventNotPending.
+func TestRetryFailedEvent_ConcurrentRetriesEnqueueOnce(t *testing.T) {
+	db := connectFailedEventsTestDB(t)
+	orgID := uuid.New()
+	triggerID := uuid.New()
+	payload, _ := json.Marshal(tasks.EmployeeTriggerDispatchPayload{
+		OrgID:     orgID,
+		TriggerID: &triggerID,
+	})
+	if err := tasks.PersistTerminalFailure(context.Background(), db, tasks.FailedEventInput{
+		OrgID:        orgID,
+		TriggerID:    triggerID,
+		EventType:    tasks.TypeEmployeeTriggerDispatch,
+		Payload:      payload,
+		Err:          errors.New("upstream down"),
+		AttemptCount: 1,
+	}); err != nil {
+		t.Fatalf("PersistTerminalFailure: %v", err)
+	}
+	var row model.FailedEvent
+	if err := db.Where("trigger_id = ?", triggerID).First(&row).Error; err != nil {
+		t.Fatalf("load row: %v", err)
+	}
+
+	enqueuer := &enqueue.MockClient{}
+
+	const n = 6
+	var (
+		wg       sync.WaitGroup
+		mu       sync.Mutex
+		ok       int
+		notPend  int
+		otherErr error
+	)
+	start := make(chan struct{})
+	for range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := tasks.RetryFailedEvent(context.Background(), db, enqueuer, row.ID)
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case err == nil:
+				ok++
+			case errors.Is(err, tasks.ErrFailedEventNotPending):
+				notPend++
+			default:
+				otherErr = err
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if otherErr != nil {
+		t.Fatalf("unexpected error from concurrent retry: %v", otherErr)
+	}
+	if ok != 1 {
+		t.Fatalf("expected exactly 1 successful retry, got %d", ok)
+	}
+	if notPend != n-1 {
+		t.Fatalf("expected %d ErrFailedEventNotPending, got %d", n-1, notPend)
+	}
+	if got := len(enqueuer.Tasks()); got != 1 {
+		t.Fatalf("enqueued %d tasks, want 1", got)
+	}
+
+	var reloaded model.FailedEvent
+	if err := db.Where("id = ?", row.ID).First(&reloaded).Error; err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if reloaded.Status != model.FailedEventStatusRetried {
+		t.Fatalf("status = %q, want retried", reloaded.Status)
+	}
+	if reloaded.RetriedAt == nil {
+		t.Fatal("retried_at not recorded on the winning retry")
 	}
 }
 

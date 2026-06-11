@@ -4,12 +4,19 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/storage"
 )
+
+// uploadProxyHTTPClient is a shared client with a bounded timeout for proxying
+// uploads to S3. http.DefaultClient has no timeout, so a stalled S3 endpoint
+// would hold the request goroutine (and the buffered file body) open
+// indefinitely.
+var uploadProxyHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // Upload handles POST /v1/uploads/upload — a server-side upload that accepts
 // the file directly and forwards it to S3 via the presigned URL. This works
@@ -102,7 +109,7 @@ func (h *UploadsHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	putReq.ContentLength = int64(len(body))
 
-	resp, err := http.DefaultClient.Do(putReq)
+	resp, err := uploadProxyHTTPClient.Do(putReq)
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "upload proxy failed", "user_id", user.ID, "asset_type", assetType, "key", out.Key, "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "upload failed"})

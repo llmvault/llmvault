@@ -29,12 +29,29 @@ LABEL org.opencontainers.image.source="https://github.com/usehivy/hivy"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${COMMIT}"
 
-RUN apk add --no-cache ca-certificates tzdata nginx
+# su-exec: lightweight privilege-drop tool (replaces gosu; no PAM dependency).
+# nginx: proxies :80 → Go API on :8080 and :8081 (MCP).
+RUN apk add --no-cache ca-certificates tzdata nginx su-exec \
+    # Create a dedicated non-root user for the Go binary.
+    # nginx workers already drop to the "nginx" system user (uid 100) via the
+    # "user nginx;" directive in /etc/nginx/nginx.conf; the master stays root
+    # only long enough to bind port 80.
+    && addgroup -S hivy \
+    && adduser  -S -G hivy hivy \
+    # Redirect nginx logs to the container stdout/stderr so the platform
+    # log pipeline (Railway, Docker, k8s) can ingest them without log rotation.
+    && ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
 
 COPY --from=build /hivy /hivy
 COPY --from=build /src/global /global
 COPY proxy.nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 80 8080
 
-CMD ["sh", "-c", "nginx && exec /hivy serve"]
+# The entrypoint script runs as root (required to start nginx which must bind
+# port 80); it then drops the Go binary to the "hivy" user via su-exec.
+# See docker/entrypoint.sh for the supervision and SIGTERM-drain logic.
+ENTRYPOINT ["/entrypoint.sh"]

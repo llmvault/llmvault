@@ -77,7 +77,9 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 			return nil, fmt.Errorf("getting provider status for sandbox %s: %w", sb.ID, err)
 		}
 		sb.Status = string(status)
-		o.db.Model(sb).Update("status", sb.Status)
+		if err := o.db.Model(sb).Update("status", sb.Status).Error; err != nil {
+			return nil, fmt.Errorf("reconciling provider status for sandbox %s: %w", sb.ID, err)
+		}
 		if sb.Status == string(StatusRunning) {
 			return sb, nil
 		}

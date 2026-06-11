@@ -11,9 +11,7 @@ import (
 // InvalidateToken marks a token as revoked across all tiers.
 func (m *Manager) InvalidateToken(ctx context.Context, jti string, ttl time.Duration) error {
 
-	m.invalidator.revokedMu.Lock()
-	m.invalidator.revokedSet[jti] = struct{}{}
-	m.invalidator.revokedMu.Unlock()
+	m.invalidator.markRevoked(jti, ttl)
 
 	if err := m.revokedTok.MarkRevoked(ctx, jti, ttl); err != nil {
 		return fmt.Errorf("redis mark revoked: %w", err)
@@ -37,9 +35,7 @@ func (m *Manager) IsTokenRevoked(ctx context.Context, jti string) (bool, error) 
 	}
 	if revoked {
 
-		m.invalidator.revokedMu.Lock()
-		m.invalidator.revokedSet[jti] = struct{}{}
-		m.invalidator.revokedMu.Unlock()
+		m.invalidator.markRevoked(jti, revokedEntryMaxTTL)
 		return true, nil
 	}
 
@@ -54,9 +50,7 @@ func (m *Manager) IsTokenRevoked(ctx context.Context, jti string) (bool, error) 
 	if count > 0 {
 
 		_ = m.revokedTok.MarkRevoked(ctx, jti, 24*time.Hour)
-		m.invalidator.revokedMu.Lock()
-		m.invalidator.revokedSet[jti] = struct{}{}
-		m.invalidator.revokedMu.Unlock()
+		m.invalidator.markRevoked(jti, revokedEntryMaxTTL)
 		return true, nil
 	}
 

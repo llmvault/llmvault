@@ -186,6 +186,31 @@ impl CronScheduler {
 
         let mut raw = scheduled_job_raw_metadata(&job);
 
+        // P2-43: a scheduled run is only *enqueued* here — the turn has not run
+        // yet. Carry the run-lifecycle context so the turn handler can mark the
+        // run completed/failed (and delete one-shot/wake jobs, advance repeat
+        // counts) *after* the turn actually executes, instead of the scheduler
+        // reporting success the moment it hands off. Delegates already complete
+        // via the handler's delegate path, so they are excluded here.
+        if job.source != CronJobSource::Delegate {
+            if let Some(obj) = raw.as_object_mut() {
+                obj.insert(
+                    "schedule_run_key".to_string(),
+                    serde_json::json!(run_key.clone()),
+                );
+                obj.insert(
+                    "schedule_scheduled_at".to_string(),
+                    serde_json::json!(scheduled_at),
+                );
+                obj.insert(
+                    "schedule_started_at".to_string(),
+                    serde_json::json!(started_at),
+                );
+                obj.insert("schedule_is_one_shot".to_string(), serde_json::json!(is_one_shot));
+                obj.insert("schedule_is_wake".to_string(), serde_json::json!(is_wake));
+            }
+        }
+
         // For delegates with a stream, inject http_stream_id so events flow to the delegate's SSE stream
         if job.source == CronJobSource::Delegate {
             if let Some(ref stream_id) = job.delegate_stream_id {
@@ -272,54 +297,12 @@ impl CronScheduler {
             return;
         }
 
-        let completed_at = Utc::now();
-        let completed_job = self
-            .repo
-            .get(&job.id)
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or(running_job);
-        // Delegate jobs are completed by the handler after recording the result.
-        // Skip SCHEDULE_RUN_COMPLETED and cleanup — the handler manages the lifecycle.
-        if job.source == CronJobSource::Delegate {
-            return;
-        }
-
-        emit_schedule_event(
-            self.emitter.clone(),
-            event_types::SCHEDULE_RUN_COMPLETED,
-            &completed_job,
-            &session_id,
-            "scheduler",
-            Some(ScheduleRunPayload {
-                run_key,
-                scheduled_at,
-                started_at: Some(started_at),
-                completed_at: Some(completed_at),
-                duration_ms: Some((completed_at - started_at).num_milliseconds()),
-                error: None,
-            }),
-        )
-        .await;
-
-        if is_one_shot || is_wake {
-            let _ = self.repo.set_state(&job.id, CronJobState::Completed).await;
-            let _ = self.repo.delete(&job.id).await;
-            info!(job_id = %job.id, "cron: completed, removed");
-            return;
-        }
-
-        if let Some(repeat_count) = job.repeat_count {
-            if let Err(e) = self.repo.increment_repeat(&job.id).await {
-                error!(job_id = %job.id, error = %e, "cron: failed to increment repeat");
-            }
-            if job.repeat_completed + 1 >= repeat_count {
-                let _ = self.repo.set_state(&job.id, CronJobState::Completed).await;
-                let _ = self.repo.delete(&job.id).await;
-                info!(job_id = %job.id, "cron: repeat count reached, completed and removed");
-            }
-        }
+        // P2-43: the run is now enqueued but NOT complete. The turn handler emits
+        // SCHEDULE_RUN_COMPLETED/FAILED, deletes one-shot/wake jobs, and advances
+        // repeat counts once the turn has actually executed (see
+        // `complete_scheduled_run` in the handler). Delegates are likewise
+        // completed by the handler's delegate path. Nothing further to do here.
+        let _ = running_job;
     }
 }
 

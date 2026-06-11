@@ -31,7 +31,6 @@ const (
 
 	// Periodic tasks (scheduled by the worker)
 	TypeTokenCleanup         = "periodic:token_cleanup"
-	TypeStreamCleanup        = "periodic:stream_cleanup"
 	TypeSandboxHealthCheck   = "periodic:sandbox_health_check"
 	TypeSandboxResourceCheck = "periodic:sandbox_resource_check"
 	TypeSandboxLifecycle     = "periodic:sandbox_lifecycle"
