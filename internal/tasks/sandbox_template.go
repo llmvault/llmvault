@@ -11,6 +11,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -93,7 +94,7 @@ func (h *SandboxTemplateBuildHandler) buildTemplate(ctx context.Context, tmpl *m
 	var bufferedLogs []string
 
 	done := make(chan struct{})
-	go func() {
+	goroutine.Go(ctx, func(context.Context) {
 		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 		for {
@@ -117,7 +118,7 @@ func (h *SandboxTemplateBuildHandler) buildTemplate(ctx context.Context, tmpl *m
 				logMu.Unlock()
 			}
 		}
-	}()
+	})
 
 	onLog := func(line string) {
 		select {

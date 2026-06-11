@@ -2,23 +2,21 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/hibiken/asynq"
 )
 
 type Config struct {
-	// Environment
 	Environment string `env:"HIVY_ENVIRONMENT" envDefault:"development"` // "development" or "production"
 
-	// Server
 	Port      int    `env:"HIVY_PORT,required"`
 	LogLevel  string `env:"HIVY_LOG_LEVEL,required"`
 	LogFormat string `env:"HIVY_LOG_FORMAT,required"`
 
-	// Postgres
 	DBHost     string `env:"HIVY_DB_HOST,required"`
 	DBPort     int    `env:"HIVY_DB_PORT" envDefault:"5432"`
 	DBUser     string `env:"HIVY_DB_USER,required"`
@@ -26,33 +24,27 @@ type Config struct {
 	DBName     string `env:"HIVY_DB_NAME,required"`
 	DBSSLMode  string `env:"HIVY_DB_SSLMODE" envDefault:"disable"`
 
-	// KMS (key wrapping for credential encryption)
 	KMSType   string `env:"HIVY_KMS_TYPE,required"` // "aead" or "awskms"
 	KMSKey    string `env:"HIVY_KMS_KEY"`           // base64-encoded 32-byte key (aead) or AWS KMS key ID/ARN (awskms)
 	AWSRegion string `env:"HIVY_AWS_REGION"`        // AWS region for awskms (default: us-east-1)
 
-	// Redis
 	RedisURL      string        `env:"HIVY_REDIS_URL"`  // Full URL (e.g. rediss://...), enables TLS automatically
 	RedisAddr     string        `env:"HIVY_REDIS_ADDR"` // Fallback: host:port (ignored when HIVY_REDIS_URL is set)
 	RedisPassword string        `env:"HIVY_REDIS_PASSWORD"`
 	RedisDB       int           `env:"HIVY_REDIS_DB"`
 	RedisCacheTTL time.Duration `env:"HIVY_REDIS_CACHE_TTL,required"`
 
-	// L1 Cache (in-memory)
 	MemCacheTTL     time.Duration `env:"HIVY_MEM_CACHE_TTL,required"`
 	MemCacheMaxSize int           `env:"HIVY_MEM_CACHE_MAX_SIZE,required"`
 
-	// JWT (for sandbox proxy tokens)
 	JWTSigningKey string `env:"HIVY_JWT_SIGNING_KEY,required"`
 
-	// Auth (RSA key for JWT signing)
 	AuthRSAPrivateKey   string        `env:"HIVY_AUTH_RSA_PRIVATE_KEY,required"` // base64-encoded PEM
 	AuthIssuer          string        `env:"HIVY_AUTH_ISSUER" envDefault:"hivy"`
 	AuthAudience        string        `env:"HIVY_AUTH_AUDIENCE" envDefault:"https://api.usehivy.com"`
 	AuthAccessTokenTTL  time.Duration `env:"HIVY_AUTH_ACCESS_TOKEN_TTL" envDefault:"15m"`
 	AuthRefreshTokenTTL time.Duration `env:"HIVY_AUTH_REFRESH_TOKEN_TTL" envDefault:"720h"` // 30 days
 
-	// Frontend (for building email links and OAuth redirects)
 	FrontendURL string `env:"HIVY_FRONTEND_URL,required"`
 
 	// Auth: auto-confirm email on registration (useful for self-hosted deployments)
@@ -63,7 +55,6 @@ type Config struct {
 	ResendAPIKey string `env:"HIVY_RESEND_API_KEY"`
 	ResendFrom   string `env:"HIVY_RESEND_FROM" envDefault:"Betty from Hivy <betty@notifications.usehivy.com>"`
 
-	// OAuth (social login)
 	OAuthGitHubClientID     string `env:"HIVY_OAUTH_GITHUB_CLIENT_ID"`
 	OAuthGitHubClientSecret string `env:"HIVY_OAUTH_GITHUB_CLIENT_SECRET"`
 	OAuthGoogleClientID     string `env:"HIVY_OAUTH_GOOGLE_CLIENT_ID"`
@@ -71,19 +62,20 @@ type Config struct {
 	OAuthXClientID          string `env:"HIVY_OAUTH_X_CLIENT_ID"`
 	OAuthXClientSecret      string `env:"HIVY_OAUTH_X_CLIENT_SECRET"`
 
-	// CORS
 	CORSOrigins []string `env:"HIVY_CORS_ORIGINS" envSeparator:","`
 
-	// Nango (OAuth integration proxy)
-	NangoEndpoint       string `env:"HIVY_NANGO_ENDPOINT"`        // e.g. http://localhost:3004
-	NangoSecretKey      string `env:"HIVY_NANGO_SECRET_KEY"`      // Nango secret key for API auth
-	NangoWebhooksSecret string `env:"HIVY_NANGO_WEBHOOKS_SECRET"` // Nango secret key for webhook signature verification
+	// Trusted reverse-proxy hops (CIDRs). Forwarding headers are honoured only when the peer falls
+	// inside one of these; loopback (nginx) is trusted by default.
+	TrustedProxyCIDRs []string `env:"HIVY_TRUSTED_PROXY_CIDRS" envSeparator:"," envDefault:"127.0.0.0/8,::1/128"`
+
+	NangoEndpoint       string `env:"HIVY_NANGO_ENDPOINT"`                 // e.g. http://localhost:3004
+	NangoSecretKey      string `env:"HIVY_NANGO_SECRET_KEY"`               // Nango secret key for API auth
+	NangoWebhooksSecret string `env:"HIVY_NANGO_WEBHOOKS_SECRET,required"` // Nango secret key for webhook signature verification
 
 	// GitHub API token used by the skill hydrator. Optional — raises the
 	// anonymous rate limit from 60 req/hr to 5000 req/hr per token.
 	GitHubToken string `env:"HIVY_GITHUB_TOKEN"`
 
-	// MCP Server
 	MCPPort    int    `env:"HIVY_MCP_PORT" envDefault:"8081"`
 	MCPBaseURL string `env:"HIVY_MCP_BASE_URL" envDefault:"http://localhost:8081"`
 
@@ -94,7 +86,6 @@ type Config struct {
 	SandboxDockerPublicHost           string `env:"HIVY_SANDBOX_DOCKER_PUBLIC_HOST"`
 	SandboxDockerContainerLabelPrefix string `env:"HIVY_SANDBOX_DOCKER_CONTAINER_LABEL_PREFIX" envDefault:"hivy"`
 
-	// Railway sandbox provider.
 	RailwayAPIToken               string `env:"HIVY_RAILWAY_API_TOKEN"`
 	RailwayProjectID              string `env:"HIVY_RAILWAY_PROJECT_ID"`
 	RailwayEnvironmentID          string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
@@ -103,12 +94,10 @@ type Config struct {
 	SandboxWarmPoolEmployeeSize   int    `env:"HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE" envDefault:"0"`
 	SandboxWarmPoolSpecialistSize int    `env:"HIVY_SANDBOX_WARM_POOL_SPECIALIST_SIZE" envDefault:"0"`
 
-	// Daytona sandbox provider.
 	DaytonaAPIURL string `env:"HIVY_DAYTONA_API_URL"`
 	DaytonaAPIKey string `env:"HIVY_DAYTONA_API_KEY"`
 	DaytonaTarget string `env:"HIVY_DAYTONA_TARGET"`
 
-	// Runtime sandbox control-plane endpoints.
 	SpecialistSandboxRuntimeVersion string `env:"HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION"`                        // usehivy/hivy release tag installed into user templates (e.g. v1.0.0)
 	SpecialistSandboxHost           string `env:"HIVY_SPECIALIST_SANDBOX_HOST"`                                   // public control-plane host reachable from runtime sandboxes
 	APIWebhookBaseURL               string `env:"HIVY_API_WEBHOOK_BASE_URL" envDefault:"https://api.usehivy.com"` // public API base URL for provider webhook callbacks
@@ -120,14 +109,12 @@ type Config struct {
 	EmployeeSandboxAutoUpgrade      bool   `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
 	EmployeeSandboxAutoUpgradeLimit int    `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
 
-	// Hindsight (agent memory)
 	HindsightAPIURL string `env:"HIVY_HINDSIGHT_API_URL"` // e.g. http://hindsight.railway.internal:8888 — empty = memory disabled
 
 	// Platform admin (comma-separated email allowlist)
 	PlatformAdminEmails string `env:"HIVY_PLATFORM_ADMIN_EMAILS"`
 	AdminSecret         string `env:"HIVY_ADMIN_SECRET"`
 
-	// Custom preview domains
 	PreviewCNAMETarget string `env:"HIVY_PREVIEW_CNAME_TARGET" envDefault:"preview-proxy.usehivy.com"`
 	AcmeDNSAPIURL      string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.usehivy.com)
 	CaddyAdminURL      string `env:"HIVY_CADDY_ADMIN_URL"`  // Caddy admin API proxy (e.g. https://caddy-admin.daytona.usehivy.com)
@@ -155,20 +142,22 @@ type Config struct {
 	PublicAssetsSignTTL   time.Duration `env:"HIVY_PUBLIC_ASSETS_SIGN_TTL" envDefault:"15m"`
 	PublicAssetsUseACL    bool          `env:"HIVY_PUBLIC_ASSETS_USE_ACL" envDefault:"false"`
 
-	// Sandbox defaults
 	SpecialistSandboxGracePeriodMins int           `env:"HIVY_SPECIALIST_SANDBOX_GRACE_PERIOD_MINS" envDefault:"5"`
 	SandboxResourceCheckInterval     time.Duration `env:"HIVY_SANDBOX_RESOURCE_CHECK_INTERVAL" envDefault:"30m"`
 
-	// Asynq worker
 	WorkerHealthPort     int           `env:"HIVY_WORKER_HEALTH_PORT" envDefault:"8090"`
 	AsynqConcurrency     int           `env:"HIVY_ASYNQ_CONCURRENCY" envDefault:"30"`
 	AsynqShutdownTimeout time.Duration `env:"HIVY_ASYNQ_SHUTDOWN_TIMEOUT" envDefault:"120s"`
 
-	// Sentry error tracking + distributed tracing (empty HIVY_SENTRY_DSN disables
-	// capture). When enabled, the SDK is wired into chi (HTTP transactions),
-	// asynq (per-task transactions), GORM (db.sql spans), go-redis (db.redis
-	// spans), outbound HTTP transports, and slog (Error+ records become
-	// Sentry events). See internal/observability/sentry.
+	// Asynqmon dashboard. It exposes every queued/archived task payload (customer
+	// messages, webhooks, emails), so it is disabled by default, requires
+	// basic-auth, and is never mounted on the public health port.
+	AsynqmonEnabled  bool   `env:"HIVY_ASYNQMON_ENABLED" envDefault:"false"`
+	AsynqmonPort     int    `env:"HIVY_ASYNQMON_PORT" envDefault:"8091"`
+	AsynqmonUser     string `env:"HIVY_ASYNQMON_USER"`
+	AsynqmonPassword string `env:"HIVY_ASYNQMON_PASSWORD"`
+
+	// Sentry error tracking + tracing (empty HIVY_SENTRY_DSN disables capture).
 	SentryDSN                string  `env:"HIVY_SENTRY_DSN"`
 	SentryEnabled            bool    `env:"HIVY_SENTRY_ENABLED" envDefault:"false"`
 	SentryRelease            string  `env:"HIVY_SENTRY_RELEASE"`
@@ -183,24 +172,20 @@ type Config struct {
 	QdrantAPIKey     string `env:"HIVY_QDRANT_API_KEY"`
 	QdrantCollection string `env:"HIVY_QDRANT_COLLECTION" envDefault:"rag_chunks_3072"`
 
-	// Embedder (OpenAI-compatible).
 	LLMAPIURL       string `env:"HIVY_LLM_API_URL"`
 	LLMAPIKey       string `env:"HIVY_LLM_API_KEY"`
 	LLMModel        string `env:"HIVY_LLM_MODEL"`
 	LLMEmbeddingDim uint32 `env:"HIVY_LLM_EMBEDDING_DIM" envDefault:"3072"`
 
-	// Reranker (Cohere-compatible via OpenRouter).
 	RerankerBaseURL string `env:"HIVY_RERANKER_BASE_URL"`
 	RerankerAPIKey  string `env:"HIVY_RERANKER_API_KEY"`
 	RerankerModel   string `env:"HIVY_RERANKER_MODEL"`
 
 	RagBatchSize int `env:"HIVY_RAG_BATCH_SIZE" envDefault:"100"`
 
-	// Paystack (billing provider). Empty PaystackSecretKey disables the
-	// provider — the billing registry simply won't include it and checkout
-	// for NGN plans will fail fast with ErrUnknownProvider. Plan codes
-	// (PLN_xxx) live on the plans table (provider_plan_id column) — run
-	// `make setup-paystack` to seed them from Paystack's API.
+	// Paystack (billing provider). Empty PaystackSecretKey disables it; NGN
+	// checkout then fails with ErrUnknownProvider. Plan codes live on the plans
+	// table — run `make setup-paystack` to seed them.
 	PaystackSecretKey string `env:"HIVY_PAYSTACK_SECRET_KEY"`
 }
 
@@ -218,7 +203,19 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("either HIVY_REDIS_URL or HIVY_REDIS_ADDR must be set")
 	}
 
+	// Fail closed: an empty Nango webhook secret lets attackers forge signatures (HMAC with an
+	// empty key). The `,required` tag misses an explicitly-empty value, so reject it here too.
+	if strings.TrimSpace(cfg.NangoWebhooksSecret) == "" {
+		return nil, fmt.Errorf("HIVY_NANGO_WEBHOOKS_SECRET must be set and non-empty")
+	}
+
 	cfg.CORSOrigins = includeFrontendCORSOrigin(cfg.CORSOrigins, cfg.FrontendURL)
+
+	if cfg.IsProduction() && cfg.DBSSLMode == "disable" {
+		// Config loads before logging is wired and can't import it (import cycle),
+		// so the global default logger is the only option here.
+		slog.Default().Warn("HIVY_DB_SSLMODE is 'disable' in production — database connections are unencrypted; set HIVY_DB_SSLMODE=require or HIVY_DB_SSLMODE=verify-full") //nolint:sloglint // startup warning before logging wired; import cycle prevents logging.FromContext
+	}
 
 	return cfg, nil
 }
@@ -244,30 +241,7 @@ func URLOrigin(raw string) string {
 	return parsed.Scheme + "://" + parsed.Host
 }
 
-// DatabaseDSN constructs a Postgres connection string from individual fields.
-// The password is URL-encoded to handle special characters safely.
-func (c *Config) DatabaseDSN() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		url.QueryEscape(c.DBUser),
-		url.QueryEscape(c.DBPassword),
-		c.DBHost,
-		c.DBPort,
-		c.DBName,
-		c.DBSSLMode,
-	)
-}
-
-// AsynqRedisOpt returns an asynq.RedisConnOpt from the Redis config fields.
-func (c *Config) AsynqRedisOpt() asynq.RedisConnOpt {
-	if c.RedisURL != "" {
-		opt, err := asynq.ParseRedisURI(c.RedisURL)
-		if err == nil {
-			return opt
-		}
-	}
-	return asynq.RedisClientOpt{
-		Addr:     c.RedisAddr,
-		Password: c.RedisPassword,
-		DB:       c.RedisDB,
-	}
+// IsProduction reports whether the process is running in the production environment.
+func (c *Config) IsProduction() bool {
+	return c.Environment == "production"
 }

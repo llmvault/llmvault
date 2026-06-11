@@ -51,10 +51,8 @@ func isDisallowedIP(ip net.IP) bool {
 		return true
 	}
 	if ip.To4() != nil {
-		// IPv4 checks
 		return ipInNets(ip, loopback4, linkLocal4, privateA, privateB, privateC, cgNAT, multicast4, reserved4, unspecified4)
 	}
-	// IPv6 checks
 	return ipInNets(ip, loopback6, linkLocal6, uniqueLocal6, multicast6, unspecified6)
 }
 
@@ -101,13 +99,18 @@ func ValidateBaseURL(raw string) error {
 		return nil
 	}
 
-	// Attempt DNS resolution and validate all returned IPs
+	// Resolve and validate every returned IP. A resolution error is fatal: an
+	// unresolvable (attacker-timed) host could re-resolve to a disallowed dial.
 	ips, err := net.LookupIP(host)
-	if err == nil {
-		for _, ip := range ips {
-			if isDisallowedIP(ip) {
-				return errors.New("invalid base_url: destination resolves to a disallowed address")
-			}
+	if err != nil {
+		return errors.New("invalid base_url: host resolution failed")
+	}
+	if len(ips) == 0 {
+		return errors.New("invalid base_url: host did not resolve to any address")
+	}
+	for _, ip := range ips {
+		if isDisallowedIP(ip) {
+			return errors.New("invalid base_url: destination resolves to a disallowed address")
 		}
 	}
 

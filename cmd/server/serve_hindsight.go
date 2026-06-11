@@ -20,7 +20,7 @@ func hindsightMemoryRefresh(enqueuer enqueue.TaskEnqueuer) hindsight.MemoryRefre
 		if enqueuer == nil || agent == nil || !agent.IsEmployee {
 			return
 		}
-		task, err := tasks.NewEmployeeMemoryRefreshTask(tasks.EmployeeMemoryRefreshPayload{
+		task, opts, err := tasks.NewEmployeeMemoryRefreshTask(tasks.EmployeeMemoryRefreshPayload{
 			EmployeeID: agent.ID,
 			Reason:     "memory_forget",
 		})
@@ -28,10 +28,11 @@ func hindsightMemoryRefresh(enqueuer enqueue.TaskEnqueuer) hindsight.MemoryRefre
 			logging.Capture(ctx, err)
 			return
 		}
-		_, err = enqueuer.EnqueueContext(ctx, task,
+		opts = append(opts,
 			asynq.Unique(2*time.Minute),
 			asynq.TaskID("employee-memory-refresh:"+agent.ID.String()),
 		)
+		_, err = enqueuer.EnqueueContext(ctx, task, opts...)
 		if err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
 			logging.Capture(ctx, fmt.Errorf("memory forget: enqueue employee memory refresh: %w", err))
 		}

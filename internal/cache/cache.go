@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/awnumar/memguard"
 	"github.com/google/uuid"
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/model"
 )
+
+// credentialFetchTimeout bounds the detached singleflight fetch so a hung L2/L3 lookup can't pin
+// the flight (and its waiters) indefinitely after the originating request ctx is gone.
+const credentialFetchTimeout = 15 * time.Second
 
 // DecryptedCredential is the fully resolved, plaintext credential returned
 // to callers of the cache manager.
@@ -21,6 +23,9 @@ type DecryptedCredential struct {
 	BaseURL    string
 	AuthScheme string
 	ProviderID string
+	// OrgID is the owning org of the resolved credential (uuid.Nil for global credentials).
+	// Callers use it to re-assert org isolation on singleflight-shared results.
+	OrgID uuid.UUID
 }
 
 // Manager orchestrates the 3-tier cache: L1 (memory) → L2 (Redis) → L3 (Postgres + KMS).
@@ -103,17 +108,31 @@ func (m *Manager) GetDecryptedCredential(ctx context.Context, credentialID strin
 				BaseURL:    cached.BaseURL,
 				AuthScheme: cached.AuthScheme,
 				ProviderID: cached.ProviderID,
+				OrgID:      cached.OrgID,
 			}, nil
 		}
 	}
 
-	v, err, _ := m.flight.Do(credentialID, func() (any, error) {
-		return m.resolveFromLowerTiers(ctx, credentialID, orgID)
+	// Key the flight by credential AND org: two orgs must never share a
+	// resolution, or a Nil-org and org-scoped credential with the same ID collide.
+	flightKey := credentialID + "|" + orgID.String()
+
+	// Detach the shared fetch from the leader's ctx, or the first caller
+	// disconnecting cancels it for every waiter. Give it a bounded deadline.
+	v, err, _ := m.flight.Do(flightKey, func() (any, error) {
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), credentialFetchTimeout)
+		defer cancel()
+		return m.resolveFromLowerTiers(fetchCtx, credentialID, orgID)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return v.(*DecryptedCredential), nil
+	cred := v.(*DecryptedCredential)
+	// Lower tiers filter by orgID, but the result is shared; re-assert it here.
+	if cred.OrgID != orgID {
+		return nil, fmt.Errorf("credential not found or revoked")
+	}
+	return cred, nil
 }
 
 // resolveFromLowerTiers checks L2 then L3, promoting results upward.
@@ -137,6 +156,7 @@ func (m *Manager) resolveFromLowerTiers(ctx context.Context, credentialID string
 				BaseURL:    redisCred.BaseURL,
 				AuthScheme: redisCred.AuthScheme,
 				ProviderID: redisCred.ProviderID,
+				OrgID:      orgID,
 			}
 
 			m.promoteToL1(credentialID, orgID, apiKey, redisCred.BaseURL, redisCred.AuthScheme, redisCred.ProviderID)
@@ -145,121 +165,6 @@ func (m *Manager) resolveFromLowerTiers(ctx context.Context, credentialID string
 	}
 
 	return m.resolveFromDB(ctx, credentialID, orgID)
-}
-
-// resolveFromDB fetches from Postgres, decrypts via KMS, and promotes to L2 + L1.
-func (m *Manager) resolveFromDB(ctx context.Context, credentialID string, orgID uuid.UUID) (*DecryptedCredential, error) {
-	var dbCred model.Credential
-	query := m.db.WithContext(ctx).Where("id = ? AND revoked_at IS NULL", credentialID)
-	if orgID == uuid.Nil {
-		query = query.Where("org_id IS NULL")
-	} else {
-		query = query.Where("org_id = ?", orgID)
-	}
-	err := query.First(&dbCred).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("credential not found or revoked")
-		}
-		return nil, fmt.Errorf("db lookup: %w", err)
-	}
-
-	dek, err := m.kms.Unwrap(ctx, dbCred.WrappedDEK)
-	if err != nil {
-		return nil, fmt.Errorf("kms unwrap: %w", err)
-	}
-
-	apiKey, err := crypto.DecryptCredential(dbCred.EncryptedKey, dek)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt: %w", err)
-	}
-
-	dekEnclave := memguard.NewEnclave(dek)
-	m.dekCache.Set(credentialID, dekEnclave)
-
-	for i := range dek {
-		dek[i] = 0
-	}
-
-	_ = m.redisCache.Set(ctx, credentialID, &RedisCredential{
-		EncryptedKey: dbCred.EncryptedKey,
-		WrappedDEK:   dbCred.WrappedDEK,
-		BaseURL:      dbCred.BaseURL,
-		AuthScheme:   dbCred.AuthScheme,
-		ProviderID:   dbCred.ProviderID,
-		OrgID:        orgID.String(),
-	})
-
-	m.promoteToL1(credentialID, orgID, apiKey, dbCred.BaseURL, dbCred.AuthScheme, dbCred.ProviderID)
-
-	return &DecryptedCredential{
-		APIKey:     apiKey,
-		BaseURL:    dbCred.BaseURL,
-		AuthScheme: dbCred.AuthScheme,
-		ProviderID: dbCred.ProviderID,
-	}, nil
-}
-
-// decryptWithDEKCache decrypts an API key using a DEK from the DEK cache
-// (or falls back to KMS unwrap if the DEK isn't cached).
-func (m *Manager) decryptWithDEKCache(ctx context.Context, credentialID string, encryptedKey, wrappedDEK []byte) ([]byte, error) {
-
-	if enclave, ok := m.dekCache.Get(credentialID); ok {
-		buf, err := enclave.Open()
-		if err == nil {
-			dek := make([]byte, buf.Size())
-			copy(dek, buf.Bytes())
-			buf.Destroy()
-
-			apiKey, err := crypto.DecryptCredential(encryptedKey, dek)
-			for i := range dek {
-				dek[i] = 0
-			}
-			if err == nil {
-				return apiKey, nil
-			}
-		}
-
-		m.dekCache.Invalidate(credentialID)
-	}
-
-	dek, err := m.kms.Unwrap(ctx, wrappedDEK)
-	if err != nil {
-		return nil, fmt.Errorf("kms unwrap: %w", err)
-	}
-
-	apiKey, err := crypto.DecryptCredential(encryptedKey, dek)
-	if err != nil {
-		for i := range dek {
-			dek[i] = 0
-		}
-		return nil, fmt.Errorf("decrypt: %w", err)
-	}
-
-	dekEnclave := memguard.NewEnclave(dek)
-	m.dekCache.Set(credentialID, dekEnclave)
-	for i := range dek {
-		dek[i] = 0
-	}
-
-	return apiKey, nil
-}
-
-// promoteToL1 seals a copy of the plaintext API key in memguard and stores it in L1.
-// NOTE: memguard.NewEnclave zeroes the source slice, so we copy first.
-func (m *Manager) promoteToL1(credentialID string, orgID uuid.UUID, apiKey []byte, baseURL, authScheme, providerID string) {
-	keyCopy := make([]byte, len(apiKey))
-	copy(keyCopy, apiKey)
-	enclave := memguard.NewEnclave(keyCopy)
-	m.memory.Set(credentialID, &CachedCredential{
-		Enclave:    enclave,
-		BaseURL:    baseURL,
-		AuthScheme: authScheme,
-		ProviderID: providerID,
-		OrgID:      orgID,
-		CachedAt:   time.Now(),
-		HardExpiry: time.Now().Add(m.hardExpiry),
-	})
 }
 
 // InvalidateCredential removes a credential from all cache tiers and

@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,16 @@ type Orchestrator struct {
 	warmPool          *WarmPool
 	reconcileWarmPool func(context.Context, string, string) error
 	pushRuntimeConfig func(context.Context, *model.Sandbox) error
+
+	// healthFailureCounts tracks consecutive bad provider health observations per sandbox so a
+	// single transient CRASHED reading does not persist a terminal error.
+	healthFailureMu     sync.Mutex
+	healthFailureCounts map[uuid.UUID]int
+
+	// lastActiveTouch debounces the last_active_at write done on every runtime-client
+	// fetch so the hot path does not issue a DB UPDATE per request.
+	lastActiveTouchMu sync.Mutex
+	lastActiveTouch   map[uuid.UUID]time.Time
 }
 
 func NewOrchestrator(db *gorm.DB, provider Provider, encKey *crypto.SymmetricKey, cfg *config.Config) *Orchestrator {
@@ -88,7 +99,7 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 			return nil, fmt.Errorf("refreshing runtime URL: %w", err)
 		}
 	}
-	o.touchLastActive(sb)
+	o.touchLastActive(ctx, sb)
 	return employeeruntime.NewClient(sb.RuntimeURL, apiKey), nil
 }
 
@@ -110,21 +121,4 @@ func (o *Orchestrator) CreateSpecialistSandboxWithEnv(ctx context.Context, agent
 
 func (o *Orchestrator) EmployeeDriveUploadURL(employeeID uuid.UUID) string {
 	return employeeDriveUploadURL(o.cfg, employeeID)
-}
-
-// StartHealthChecker runs a background goroutine that periodically syncs sandbox
-// status from the provider and auto-stops idle sandboxes.
-func (o *Orchestrator) StartHealthChecker(ctx context.Context) {
-	ticker := time.NewTicker(healthCheckInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			logging.FromContext(ctx).InfoContext(ctx, "sandbox health checker stopped")
-			return
-		case <-ticker.C:
-			o.RunHealthCheck(ctx)
-		}
-	}
 }

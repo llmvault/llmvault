@@ -71,10 +71,7 @@ func (o *Orchestrator) CreateEmployeeSandbox(ctx context.Context, agent *model.E
 			return nil, err
 		}
 		if err := o.cloneEmployeeSelectedRepositories(ctx, &sb, agent); err != nil {
-			o.markSandboxError(ctx, &sb, map[string]any{
-				"status":        "error",
-				"error_message": fmt.Sprintf("repository cloning failed: %v", err),
-			})
+			o.cleanupFailedSandbox(ctx, &sb, sb.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
 			return nil, fmt.Errorf("cloning employee repositories: %w", err)
 		}
 		logging.FromContext(ctx).InfoContext(ctx, "employee sandbox claimed from warm pool",
@@ -98,11 +95,7 @@ func (o *Orchestrator) CreateEmployeeSandbox(ctx context.Context, agent *model.E
 
 	sandboxURL, err := o.provider.GetEndpoint(ctx, info.ExternalID, EmployeeSandboxPort)
 	if err != nil {
-		o.markSandboxError(ctx, &sb, map[string]any{
-			"external_id":   info.ExternalID,
-			"status":        "error",
-			"error_message": "get endpoint failed",
-		})
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "get endpoint failed")
 		return nil, fmt.Errorf("getting employee runtime endpoint: %w", err)
 	}
 
@@ -115,6 +108,7 @@ func (o *Orchestrator) CreateEmployeeSandbox(ctx context.Context, agent *model.E
 		"status":                 "running",
 		"last_active_at":         now,
 	}).Error; err != nil {
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, fmt.Sprintf("updating sandbox row failed: %v", err))
 		return nil, fmt.Errorf("updating sandbox: %w", err)
 	}
 	sb.ExternalID = info.ExternalID
@@ -124,25 +118,16 @@ func (o *Orchestrator) CreateEmployeeSandbox(ctx context.Context, agent *model.E
 	sb.LastActiveAt = &now
 
 	if err := o.waitForEmployeeRuntimeLive(ctx, &sb); err != nil {
-		o.markSandboxError(ctx, &sb, map[string]any{
-			"status":        "error",
-			"error_message": "employee runtime not live",
-		})
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "employee runtime not live")
 		return nil, fmt.Errorf("waiting for employee runtime: %w", err)
 	}
 	if err := o.pushEmployeeRuntimeConfig(ctx, &sb, "create"); err != nil {
-		o.markSandboxError(ctx, &sb, map[string]any{
-			"status":        "error",
-			"error_message": "employee runtime config push failed",
-		})
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "employee runtime config push failed")
 		return nil, err
 	}
 
 	if err := o.cloneEmployeeSelectedRepositories(ctx, &sb, agent); err != nil {
-		o.markSandboxError(ctx, &sb, map[string]any{
-			"status":        "error",
-			"error_message": fmt.Sprintf("repository cloning failed: %v", err),
-		})
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
 		return nil, fmt.Errorf("cloning employee repositories: %w", err)
 	}
 
@@ -208,10 +193,7 @@ func (o *Orchestrator) CreateSpecialistRuntimeSandbox(ctx context.Context, agent
 			return nil, err
 		}
 		if err := o.cloneEmployeeSelectedRepositories(ctx, &sb, agent); err != nil {
-			o.markSandboxError(ctx, &sb, map[string]any{
-				"status":        "error",
-				"error_message": fmt.Sprintf("repository cloning failed: %v", err),
-			})
+			o.cleanupFailedSandbox(ctx, &sb, sb.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
 			return nil, fmt.Errorf("cloning specialist runtime repositories: %w", err)
 		}
 		logging.FromContext(ctx).InfoContext(ctx, "specialist runtime sandbox claimed from warm pool",
@@ -235,11 +217,7 @@ func (o *Orchestrator) CreateSpecialistRuntimeSandbox(ctx context.Context, agent
 
 	sandboxURL, err := o.provider.GetEndpoint(ctx, info.ExternalID, EmployeeSandboxPort)
 	if err != nil {
-		o.markSandboxError(ctx, &sb, map[string]any{
-			"external_id":   info.ExternalID,
-			"status":        "error",
-			"error_message": "get endpoint failed",
-		})
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "get endpoint failed")
 		return nil, fmt.Errorf("getting specialist runtime endpoint: %w", err)
 	}
 
@@ -252,6 +230,7 @@ func (o *Orchestrator) CreateSpecialistRuntimeSandbox(ctx context.Context, agent
 		"status":                 "running",
 		"last_active_at":         now,
 	}).Error; err != nil {
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, fmt.Sprintf("updating sandbox row failed: %v", err))
 		return nil, fmt.Errorf("updating specialist runtime sandbox: %w", err)
 	}
 	sb.ExternalID = info.ExternalID
@@ -261,17 +240,11 @@ func (o *Orchestrator) CreateSpecialistRuntimeSandbox(ctx context.Context, agent
 	sb.LastActiveAt = &now
 
 	if err := o.waitForEmployeeRuntimeLive(ctx, &sb); err != nil {
-		o.markSandboxError(ctx, &sb, map[string]any{
-			"status":        "error",
-			"error_message": "specialist runtime not live",
-		})
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "specialist runtime not live")
 		return nil, fmt.Errorf("waiting for specialist runtime: %w", err)
 	}
 	if err := o.cloneEmployeeSelectedRepositories(ctx, &sb, agent); err != nil {
-		o.markSandboxError(ctx, &sb, map[string]any{
-			"status":        "error",
-			"error_message": fmt.Sprintf("repository cloning failed: %v", err),
-		})
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
 		return nil, fmt.Errorf("cloning specialist runtime repositories: %w", err)
 	}
 	disableProviderLifecycle(ctx, o.provider, &sb, info.ExternalID)

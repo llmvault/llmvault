@@ -20,6 +20,31 @@ export type OrgUpdateRequest = components["schemas"]["updateOrgRequest"]
 
 const REQUIRED_CONNECTIONS_FOR_BUSINESS_STEP = 3
 
+// A stable empty array so that `channels` keeps a constant identity while the
+// Slack channels query is in flight. Returning a fresh `[]` on every render
+// (channelsQuery.data?.channels ?? []) makes the dependent memo and effect
+// recompute every cycle, which — combined with the effect committing a new Set
+// each render — produces an infinite passive-effect update loop.
+const EMPTY_CHANNELS: Channel[] = []
+
+/**
+ * Compute the set of channel ids to pre-select for the user. Pure so it can be
+ * unit-tested: only public (non-private) channels with an id are selectable,
+ * and we never overwrite an existing selection.
+ */
+export function computeInitialSelectedChannelIds(
+  channels: Channel[],
+  current: Set<string>
+): Set<string> {
+  if (current.size > 0) return current
+  const ids = channels
+    .filter((channel) => !channel.is_private)
+    .map((channel) => channel.id)
+    .filter((id): id is string => Boolean(id))
+  if (ids.length === 0) return current
+  return new Set(ids)
+}
+
 interface ConnectOptions {
   credentials?: Record<string, string>
   params?: Record<string, string>
@@ -91,7 +116,7 @@ export function useOnboarding() {
     {},
     { enabled: slackConnected }
   )
-  const channels = channelsQuery.data?.channels ?? []
+  const channels = channelsQuery.data?.channels ?? EMPTY_CHANNELS
 
   const selectableChannels = useMemo(
     () => channels.filter((channel) => !channel.is_private),
@@ -105,14 +130,10 @@ export function useOnboarding() {
 
   useEffect(() => {
     if (!slackConnected) return
-    setSelectedChannelIds((current) => {
-      if (current.size > 0) return current
-      return new Set(
-        selectableChannels
-          .map((channel) => channel.id)
-          .filter((id): id is string => Boolean(id))
-      )
-    })
+    if (selectableChannels.length === 0) return
+    setSelectedChannelIds((current) =>
+      computeInitialSelectedChannelIds(selectableChannels, current)
+    )
   }, [selectableChannels, slackConnected])
 
   useEffect(() => {

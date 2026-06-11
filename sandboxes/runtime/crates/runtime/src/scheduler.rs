@@ -54,29 +54,42 @@ impl CronScheduler {
                 }
             };
             for job in due {
-                if let Some(final_job) = self.fast_forward_if_stale(job) {
+                if let Some(final_job) = self.fast_forward_if_stale(job).await {
                     self.dispatch_job(final_job).await;
                 }
             }
         }
     }
 
-    fn fast_forward_if_stale(&self, job: CronJob) -> Option<CronJob> {
+    async fn fast_forward_if_stale(&self, job: CronJob) -> Option<CronJob> {
         let is_recurring = job.interval_seconds.map(|v| v > 0).unwrap_or(false);
         if !is_recurring {
             return Some(job);
         }
         let interval = job.interval_seconds?;
         let stale_threshold = (interval as f64 * STALE_GRACE_MULTIPLIER).max(120.0) as i64;
-        let lag = Utc::now()
-            .signed_duration_since(job.next_run_at)
-            .num_seconds();
+        let now = Utc::now();
+        let lag = now.signed_duration_since(job.next_run_at).num_seconds();
         if lag > stale_threshold * 2 {
+            // The job has been paused so long that running it now would be a
+            // spurious "catch-up" fire. Skip this occurrence, but advance
+            // next_run_at to the next future occurrence so the job keeps
+            // running on schedule instead of being re-fetched and re-skipped
+            // forever on every poll.
+            let next = next_future_occurrence(job.next_run_at, interval, now);
             info!(
                 job_id = %job.id,
                 lag_seconds = lag,
+                next_run_at = %next,
                 "cron: fast-forwarding stale recurring job"
             );
+            if let Err(e) = self.repo.update_next_run(&job.id, next).await {
+                error!(
+                    job_id = %job.id,
+                    error = %e,
+                    "cron: failed to advance next_run for stale job"
+                );
+            }
             None
         } else {
             Some(job)
@@ -173,6 +186,34 @@ impl CronScheduler {
 
         let mut raw = scheduled_job_raw_metadata(&job);
 
+        // A scheduled run is only *enqueued* here — the turn has not run yet.
+        // Carry the run-lifecycle context so the turn handler can mark the run
+        // completed/failed (and delete one-shot/wake jobs, advance repeat
+        // counts) *after* the turn actually executes, instead of the scheduler
+        // reporting success the moment it hands off. Delegates already complete
+        // via the handler's delegate path, so they are excluded here.
+        if job.source != CronJobSource::Delegate {
+            if let Some(obj) = raw.as_object_mut() {
+                obj.insert(
+                    "schedule_run_key".to_string(),
+                    serde_json::json!(run_key.clone()),
+                );
+                obj.insert(
+                    "schedule_scheduled_at".to_string(),
+                    serde_json::json!(scheduled_at),
+                );
+                obj.insert(
+                    "schedule_started_at".to_string(),
+                    serde_json::json!(started_at),
+                );
+                obj.insert(
+                    "schedule_is_one_shot".to_string(),
+                    serde_json::json!(is_one_shot),
+                );
+                obj.insert("schedule_is_wake".to_string(), serde_json::json!(is_wake));
+            }
+        }
+
         // For delegates with a stream, inject http_stream_id so events flow to the delegate's SSE stream
         if job.source == CronJobSource::Delegate {
             if let Some(ref stream_id) = job.delegate_stream_id {
@@ -259,54 +300,37 @@ impl CronScheduler {
             return;
         }
 
-        let completed_at = Utc::now();
-        let completed_job = self
-            .repo
-            .get(&job.id)
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or(running_job);
-        // Delegate jobs are completed by the handler after recording the result.
-        // Skip SCHEDULE_RUN_COMPLETED and cleanup — the handler manages the lifecycle.
-        if job.source == CronJobSource::Delegate {
-            return;
-        }
+        // The run is now enqueued but NOT complete. The turn handler emits
+        // SCHEDULE_RUN_COMPLETED/FAILED, deletes one-shot/wake jobs, and advances
+        // repeat counts once the turn has actually executed (see
+        // `complete_scheduled_run` in the handler). Delegates are likewise
+        // completed by the handler's delegate path. Nothing further to do here.
+        let _ = running_job;
+    }
+}
 
-        emit_schedule_event(
-            self.emitter.clone(),
-            event_types::SCHEDULE_RUN_COMPLETED,
-            &completed_job,
-            &session_id,
-            "scheduler",
-            Some(ScheduleRunPayload {
-                run_key,
-                scheduled_at,
-                started_at: Some(started_at),
-                completed_at: Some(completed_at),
-                duration_ms: Some((completed_at - started_at).num_milliseconds()),
-                error: None,
-            }),
-        )
-        .await;
-
-        if is_one_shot || is_wake {
-            let _ = self.repo.set_state(&job.id, CronJobState::Completed).await;
-            let _ = self.repo.delete(&job.id).await;
-            info!(job_id = %job.id, "cron: completed, removed");
-            return;
-        }
-
-        if let Some(repeat_count) = job.repeat_count {
-            if let Err(e) = self.repo.increment_repeat(&job.id).await {
-                error!(job_id = %job.id, error = %e, "cron: failed to increment repeat");
-            }
-            if job.repeat_completed + 1 >= repeat_count {
-                let _ = self.repo.set_state(&job.id, CronJobState::Completed).await;
-                let _ = self.repo.delete(&job.id).await;
-                info!(job_id = %job.id, "cron: repeat count reached, completed and removed");
-            }
-        }
+/// Compute the next occurrence strictly after `now` for an interval-based
+/// recurring job, preserving the original schedule's phase relative to
+/// `next_run_at`. Steps forward by whole intervals; falls back to `now +
+/// interval` if the interval is non-positive or arithmetic overflows.
+fn next_future_occurrence(
+    next_run_at: chrono::DateTime<Utc>,
+    interval_seconds: u64,
+    now: chrono::DateTime<Utc>,
+) -> chrono::DateTime<Utc> {
+    let interval = interval_seconds as i64;
+    if interval <= 0 {
+        return now + chrono::Duration::seconds(1);
+    }
+    if next_run_at > now {
+        return next_run_at;
+    }
+    let lag = now.signed_duration_since(next_run_at).num_seconds();
+    // Number of whole intervals elapsed; +1 lands strictly in the future.
+    let steps = lag / interval + 1;
+    match next_run_at.checked_add_signed(chrono::Duration::seconds(steps * interval)) {
+        Some(next) if next > now => next,
+        _ => now + chrono::Duration::seconds(interval),
     }
 }
 
@@ -337,11 +361,19 @@ fn scheduled_job_raw_metadata(job: &CronJob) -> serde_json::Value {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
-    use domain::cron::{CronJobSource, CronJobState};
-    use domain::CronJob;
+    use std::sync::atomic::{AtomicI64, Ordering};
+    use std::sync::Arc;
 
-    use super::scheduled_job_raw_metadata;
+    use async_trait::async_trait;
+    use chrono::{DateTime, Duration as ChronoDuration, Utc};
+    use domain::agent_registry::AgentDefinitionRegistry;
+    use domain::cron::{CronJobSource, CronJobState};
+    use domain::{AgentDefinition, CronJob};
+    use storage::repos::{CronJobRepo, Result as StorageResult, StorageError};
+    use tokio::sync::mpsc;
+
+    use super::{next_future_occurrence, scheduled_job_raw_metadata, CronScheduler};
+    use crate::handler::TurnEventSink;
 
     fn test_job(id: &str, source: CronJobSource) -> CronJob {
         CronJob {
@@ -396,5 +428,202 @@ mod tests {
         assert_eq!(raw["parent_session_id"], "parent-session");
         assert_eq!(raw["delegate_goal"], "do work");
         assert_eq!(raw["agent_name"], "software-engineering-specialist");
+    }
+
+    /// Minimal repo that records the last `update_next_run` it received and is a
+    /// no-op for everything else, so we can assert the stale branch advances the
+    /// schedule instead of dropping it.
+    struct RecordingCronRepo {
+        update_next_run_calls: AtomicI64,
+        last_next_run: std::sync::Mutex<Option<DateTime<Utc>>>,
+    }
+
+    impl RecordingCronRepo {
+        fn new() -> Self {
+            Self {
+                update_next_run_calls: AtomicI64::new(0),
+                last_next_run: std::sync::Mutex::new(None),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl CronJobRepo for RecordingCronRepo {
+        async fn create(&self, _job: &CronJob) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn get(&self, _id: &str) -> StorageResult<Option<CronJob>> {
+            Ok(None)
+        }
+        async fn list_all(&self) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn list_by_source(&self, _source: CronJobSource) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn list_due(&self) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn update_prompt(&self, _id: &str, _task_prompt: String) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_interval(&self, _id: &str, _interval_seconds: u64) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_next_run(
+            &self,
+            _id: &str,
+            next_run_at: DateTime<Utc>,
+        ) -> StorageResult<()> {
+            self.update_next_run_calls.fetch_add(1, Ordering::SeqCst);
+            *self.last_next_run.lock().unwrap() = Some(next_run_at);
+            Ok(())
+        }
+        async fn set_state(&self, _id: &str, _state: CronJobState) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn record_run(
+            &self,
+            _id: &str,
+            _run_at: DateTime<Utc>,
+            _status: &str,
+            _error: Option<&str>,
+        ) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn increment_repeat(&self, _id: &str) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn record_result(&self, _id: &str, _result: &str) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn complete_delegate_result(
+            &self,
+            _id: &str,
+            _completed_at: DateTime<Utc>,
+            _status: &str,
+            _error: Option<&str>,
+            _result: &str,
+        ) -> StorageResult<()> {
+            Err(StorageError::NotFound)
+        }
+        async fn delete(&self, _id: &str) -> StorageResult<()> {
+            Ok(())
+        }
+    }
+
+    struct NoopEventSink;
+
+    #[async_trait]
+    impl TurnEventSink for NoopEventSink {
+        async fn publish_agent_event(
+            &self,
+            _stream_id: &str,
+            _session_id: &domain::SessionId,
+            _event: &agent::AgentEvent,
+        ) {
+        }
+    }
+
+    fn test_registry() -> Arc<AgentDefinitionRegistry> {
+        let def: AgentDefinition = serde_json::from_value(serde_json::json!({
+            "agent": { "name": "test-agent" },
+            "model": {
+                "provider": "openai_compatible",
+                "base_url": "http://localhost",
+                "model_id": "test",
+                "api_key_env": "TEST_KEY"
+            }
+        }))
+        .expect("valid agent definition");
+        Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(def)))
+    }
+
+    fn scheduler_with_repo(repo: Arc<RecordingCronRepo>) -> CronScheduler {
+        let (tx, _rx) = mpsc::channel(8);
+        CronScheduler::new(repo, tx, None, test_registry(), Arc::new(NoopEventSink))
+    }
+
+    #[test]
+    fn next_future_occurrence_advances_strictly_into_future_preserving_phase() {
+        let interval = 3600u64; // 1 hour
+        let next_run_at = "2020-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        // Six and a half hours after the scheduled run.
+        let now = next_run_at + ChronoDuration::seconds(6 * 3600 + 1800);
+
+        let next = next_future_occurrence(next_run_at, interval, now);
+
+        assert!(next > now, "next occurrence must be strictly in the future");
+        // Phase is preserved: result is on an interval boundary from next_run_at.
+        let delta = next.signed_duration_since(next_run_at).num_seconds();
+        assert_eq!(delta % interval as i64, 0);
+        // The first boundary strictly after `now` is +7h.
+        assert_eq!(next, next_run_at + ChronoDuration::seconds(7 * 3600));
+    }
+
+    #[test]
+    fn next_future_occurrence_keeps_future_next_run_unchanged() {
+        let interval = 600u64;
+        let now = "2020-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let next_run_at = now + ChronoDuration::seconds(120);
+        assert_eq!(
+            next_future_occurrence(next_run_at, interval, now),
+            next_run_at
+        );
+    }
+
+    #[tokio::test]
+    async fn long_paused_recurring_job_advances_next_run_and_is_skipped() {
+        let repo = Arc::new(RecordingCronRepo::new());
+        let scheduler = scheduler_with_repo(repo.clone());
+
+        // A recurring job (10-minute interval) whose next_run_at is two days in
+        // the past — a long sandbox pause. lag far exceeds 2x the stale
+        // threshold, so the occurrence must be skipped but rescheduled.
+        let interval = 600u64;
+        let mut job = test_job("recurring-1", CronJobSource::Cron);
+        job.interval_seconds = Some(interval);
+        job.next_run_at = Utc::now() - ChronoDuration::days(2);
+
+        let result = scheduler.fast_forward_if_stale(job).await;
+
+        assert!(
+            result.is_none(),
+            "stale recurring occurrence should be skipped, not dispatched"
+        );
+        assert_eq!(
+            repo.update_next_run_calls.load(Ordering::SeqCst),
+            1,
+            "stale job must persist a new next_run_at"
+        );
+        let persisted = repo
+            .last_next_run
+            .lock()
+            .unwrap()
+            .expect("next_run_at must be written");
+        assert!(
+            persisted > Utc::now(),
+            "persisted next_run_at must be in the future so the job runs again"
+        );
+    }
+
+    #[tokio::test]
+    async fn fresh_recurring_job_is_dispatched_without_rescheduling() {
+        let repo = Arc::new(RecordingCronRepo::new());
+        let scheduler = scheduler_with_repo(repo.clone());
+
+        let mut job = test_job("recurring-2", CronJobSource::Cron);
+        job.interval_seconds = Some(600);
+        // Due only a few seconds ago — within the stale grace window.
+        job.next_run_at = Utc::now() - ChronoDuration::seconds(5);
+
+        let result = scheduler.fast_forward_if_stale(job).await;
+
+        assert!(result.is_some(), "fresh due job should be dispatched");
+        assert_eq!(
+            repo.update_next_run_calls.load(Ordering::SeqCst),
+            0,
+            "fresh jobs are advanced by dispatch_job, not fast_forward_if_stale"
+        );
     }
 }

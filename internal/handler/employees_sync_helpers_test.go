@@ -101,7 +101,7 @@ func (h *employeeHarness) seedEmployeeAgent(t *testing.T, m orgWithMember) model
 		Status:              "active",
 		AttachedSpecialists: pq.StringArray(catalog.AutoAttachSlugs()),
 		Tools:               model.JSON{},
-		McpServers:          model.JSON{},
+		McpServers:          model.RawJSON("[]"),
 		Skills:              model.JSON{},
 		Integrations:        model.JSON{},
 		Resources:           model.JSON{},

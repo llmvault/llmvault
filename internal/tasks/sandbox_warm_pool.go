@@ -42,7 +42,10 @@ func NewSandboxWarmPoolReconcileTask(payload SandboxWarmPoolReconcilePayload) (*
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(3),
 		asynq.Timeout(sandboxWarmPoolReconcileTimeout),
-		asynq.Unique(10 * time.Second),
+		// The unique window must cover the full task timeout, or a second reconcile
+		// enqueues while the first is still provisioning. (The in-Reconcile advisory
+		// lock is the hard serialisation; this just curbs duplicates.)
+		asynq.Unique(sandboxWarmPoolReconcileTimeout),
 	}
 	return asynq.NewTask(TypeSandboxWarmPoolReconcile, body), opts, nil
 }

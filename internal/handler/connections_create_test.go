@@ -190,7 +190,7 @@ func TestSkillHandler_DetachRejectsActiveIntegrationManagedSkill(t *testing.T) {
 		Model:         "test-model",
 		Status:        "active",
 		Tools:         model.JSON{},
-		McpServers:    model.JSON{},
+		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
 		RuntimeConfig: model.JSON{},
 		Permissions:   model.JSON{},

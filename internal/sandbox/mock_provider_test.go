@@ -16,6 +16,8 @@ type mockProvider struct {
 	nextID              int
 	executeCommandFn    func(ctx context.Context, externalID, command string) (string, error)
 	resourceUsageFn     func(ctx context.Context, externalID string) (*ResourceUsage, error)
+	getEndpointFn       func(ctx context.Context, externalID string, port int) (string, error)
+	getStatusFn         func(ctx context.Context, externalID string) (SandboxStatus, error)
 	setAutoStopCalls    []autoPolicyCall
 	setAutoArchiveCalls []autoPolicyCall
 	archivedIDs         []string
@@ -26,6 +28,8 @@ type mockProvider struct {
 	endpointPorts       []int               // captured port arg of every GetEndpoint call
 	warmEndpoint        string
 	warmCreateCalls     []WarmSlotCreateOpts
+	stopErr             error // if set, StopSandbox returns this without changing state
+	archiveErr          error // if set, ArchiveSandbox returns this without changing state
 }
 
 // autoPolicyCall records one invocation of SetAutoStop / SetAutoArchive.
@@ -104,6 +108,9 @@ func (m *mockProvider) StopSandbox(_ context.Context, externalID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.stopErr != nil {
+		return m.stopErr
+	}
 	sb, ok := m.sandboxes[externalID]
 	if !ok {
 		return fmt.Errorf("sandbox not found: %s", externalID)
@@ -136,7 +143,10 @@ func (m *mockProvider) DeleteSandbox(_ context.Context, externalID string) error
 	return nil
 }
 
-func (m *mockProvider) GetStatus(_ context.Context, externalID string) (SandboxStatus, error) {
+func (m *mockProvider) GetStatus(ctx context.Context, externalID string) (SandboxStatus, error) {
+	if m.getStatusFn != nil {
+		return m.getStatusFn(ctx, externalID)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -147,7 +157,10 @@ func (m *mockProvider) GetStatus(_ context.Context, externalID string) (SandboxS
 	return sb.status, nil
 }
 
-func (m *mockProvider) GetEndpoint(_ context.Context, externalID string, port int) (string, error) {
+func (m *mockProvider) GetEndpoint(ctx context.Context, externalID string, port int) (string, error) {
+	if m.getEndpointFn != nil {
+		return m.getEndpointFn(ctx, externalID, port)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -211,6 +224,9 @@ func (m *mockProvider) SetAutoArchive(_ context.Context, externalID string, inte
 func (m *mockProvider) ArchiveSandbox(_ context.Context, externalID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.archiveErr != nil {
+		return m.archiveErr
+	}
 	sb, ok := m.sandboxes[externalID]
 	if !ok {
 		return fmt.Errorf("sandbox not found: %s", externalID)

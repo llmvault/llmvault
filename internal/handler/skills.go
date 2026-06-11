@@ -33,10 +33,8 @@ type createSkillRequest struct {
 	IntegrationIDs []string `json:"integration_ids,omitempty"`
 	Hidden         bool     `json:"hidden,omitempty"`
 
-	// Inline source
 	Bundle *skills.Bundle `json:"bundle,omitempty"`
 
-	// Git source
 	RepoURL     *string `json:"repo_url,omitempty"`
 	RepoSubpath *string `json:"repo_subpath,omitempty"`
 	RepoRef     *string `json:"repo_ref,omitempty"`
@@ -190,9 +188,9 @@ func (h *SkillHandler) Create(w http.ResponseWriter, r *http.Request) {
 		skill = *updated
 	} else {
 		if h.enqueuer != nil {
-			task, err := tasks.NewSkillHydrateTask(skill.ID)
+			task, opts, err := tasks.NewSkillHydrateTask(skill.ID)
 			if err == nil {
-				_, _ = h.enqueuer.Enqueue(task)
+				_, _ = h.enqueuer.Enqueue(task, opts...)
 			}
 		}
 	}

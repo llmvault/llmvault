@@ -59,6 +59,13 @@ func newAPIKeyHarness(t *testing.T) *apiKeyTestHarness {
 
 func (h *apiKeyTestHarness) doRequest(t *testing.T, method, path string, body any, org *model.Org) *httptest.ResponseRecorder {
 	t.Helper()
+	return h.doRequestWithAPIKey(t, method, path, body, org, nil)
+}
+
+// doRequestWithAPIKey attaches API-key claims (when callerScopes is non-nil) to
+// exercise the scope-ceiling escalation guard.
+func (h *apiKeyTestHarness) doRequestWithAPIKey(t *testing.T, method, path string, body any, org *model.Org, callerScopes []string) *httptest.ResponseRecorder {
+	t.Helper()
 	var buf bytes.Buffer
 	if body != nil {
 		if err := json.NewEncoder(&buf).Encode(body); err != nil {
@@ -69,6 +76,13 @@ func (h *apiKeyTestHarness) doRequest(t *testing.T, method, path string, body an
 	req.Header.Set("Content-Type", "application/json")
 	if org != nil {
 		req = middleware.WithOrg(req, org)
+	}
+	if callerScopes != nil {
+		req = middleware.WithAPIKeyClaims(req, &middleware.APIKeyClaims{
+			KeyID:  "caller-key",
+			OrgID:  "caller-org",
+			Scopes: callerScopes,
+		})
 	}
 	rr := httptest.NewRecorder()
 	h.router.ServeHTTP(rr, req)

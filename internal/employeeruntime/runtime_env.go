@@ -67,6 +67,12 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	if token == nil || token.Token == "" || token.JTI == "" {
 		return nil, fmt.Errorf("runtime env proxy token is required")
 	}
+
+	// Merge user env first so the reserved HIVY_ keys written below always win.
+	if err := mergeAgentEnvVars(deps, env, agent); err != nil {
+		return nil, err
+	}
+
 	if sb != nil {
 		env[EmployeeEnvSandboxID] = sb.ID.String()
 	}
@@ -88,33 +94,46 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	env[EmployeeEnvAgentMultimodalModel] = DefaultEmployeeMultimodalModel
 	env[EmployeeEnvAgentMultimodalAPIKeyEnv] = ProxyAPIKeyEnv
 	env[EmployeeEnvRuntimeMode] = "employee"
+	// Provision a tunnel password so the tunnel proxy fails closed (it is an open
+	// proxy to every sandbox localhost port when unset).
+	env[EmployeeEnvTunnelPassword] = runtimeSecret
 	env[ProxyAPIKeyEnv] = token.Token
+	addControlPlaneRuntimeEnv(ctx, deps, env, agent, runtimeSecret)
 
-	if err := addAgentRuntimeEnv(ctx, deps, env, agent, runtimeSecret); err != nil {
-		return nil, err
-	}
 	return env, nil
 }
 
+// mergeAgentEnvVars decrypts and merges org-supplied env vars into env. It must
+// run before the reserved control-plane keys are written so a user HIVY_* key is
+// overwritten by the authoritative value.
+func mergeAgentEnvVars(deps CompileDeps, env map[string]string, agent *model.Employee) error {
+	if len(agent.EncryptedEnvVars) == 0 {
+		return nil
+	}
+	if deps.EncKey == nil {
+		return fmt.Errorf("runtime env decrypt: encryption key is required")
+	}
+	decrypted, err := deps.EncKey.DecryptString(agent.EncryptedEnvVars)
+	if err != nil {
+		return err
+	}
+	decrypted = strings.TrimSpace(decrypted)
+	if decrypted == "" {
+		return nil
+	}
+	rawEnv := map[string]string{}
+	if err := json.Unmarshal([]byte(decrypted), &rawEnv); err != nil {
+		return fmt.Errorf("decode env vars: %w", err)
+	}
+	for key, value := range rawEnv {
+		env[key] = value
+	}
+	return nil
+}
+
 func addAgentRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]string, agent *model.Employee, runtimeSecret string) error {
-	if len(agent.EncryptedEnvVars) > 0 {
-		if deps.EncKey == nil {
-			return fmt.Errorf("runtime env decrypt: encryption key is required")
-		}
-		decrypted, err := deps.EncKey.DecryptString(agent.EncryptedEnvVars)
-		if err != nil {
-			return err
-		}
-		decrypted = strings.TrimSpace(decrypted)
-		if decrypted != "" {
-			rawEnv := map[string]string{}
-			if err := json.Unmarshal([]byte(decrypted), &rawEnv); err != nil {
-				return fmt.Errorf("decode env vars: %w", err)
-			}
-			for key, value := range rawEnv {
-				env[key] = value
-			}
-		}
+	if err := mergeAgentEnvVars(deps, env, agent); err != nil {
+		return err
 	}
 	addControlPlaneRuntimeEnv(ctx, deps, env, agent, runtimeSecret)
 	return nil

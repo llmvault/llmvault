@@ -20,11 +20,11 @@ func fetchIssuesPage(
 	issues, next, err := client.listIssuesPage(ctx, fullName, state, cp.CurrPage)
 	if err != nil {
 		if errors.Is(err, errRateLimited) {
-			out <- interfaces.NewDocFailure(entityFailure(fullName,
-				"github: issues page exhausted retries", err))
+			interfaces.Send(ctx, out, interfaces.NewDocFailure(entityFailure(fullName,
+				"github: issues page exhausted retries", err)))
 		} else {
-			out <- interfaces.NewDocFailure(entityFailure(fullName,
-				"github: issues page fetch failed", err))
+			interfaces.Send(ctx, out, interfaces.NewDocFailure(entityFailure(fullName,
+				"github: issues page fetch failed", err)))
 		}
 		return true
 	}
@@ -49,7 +49,9 @@ func fetchIssuesPage(
 			cp.LastSeenUpdatedAt = &t
 		}
 		doc := issueToDocument(fullName, issue, access)
-		out <- interfaces.NewDocResult(&doc)
+		if !interfaces.Send(ctx, out, interfaces.NewDocResult(&doc)) {
+			return true
+		}
 	}
 	if earlyBreak || next == 0 {
 		return true

@@ -55,8 +55,23 @@ func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGa
 		} else {
 			query = query.Where("route_id = ? AND dedupe_key = ?", route.ID, inbound.DedupeKey)
 		}
-		err := query.First(&existing).Error
-		return existing, true, err
+		if err := query.First(&existing).Error; err != nil {
+			return existing, true, err
+		}
+		// A prior "failed" row means delivery never succeeded; the provider retries,
+		// so re-claim and re-run Send rather than dropping as a duplicate.
+		// Successful/in-flight rows stay deduped.
+		if existing.Status == "failed" {
+			if err := s.db.WithContext(ctx).Model(&model.EmployeeGatewayEvent{}).
+				Where("id = ? AND status = ?", existing.ID, "failed").
+				Updates(map[string]any{"status": "received", "error": ""}).Error; err != nil {
+				return existing, true, fmt.Errorf("reclaim failed gateway event: %w", err)
+			}
+			existing.Status = "received"
+			existing.Error = ""
+			return existing, false, nil
+		}
+		return existing, true, nil
 	}
 	return event, false, nil
 }
@@ -169,6 +184,48 @@ func (s *Service) loadLatestEventForSession(ctx context.Context, sessionID uuid.
 		return model.EmployeeGatewayEvent{}, false, nil
 	}
 	return model.EmployeeGatewayEvent{}, false, fmt.Errorf("load latest gateway event: %w", err)
+}
+
+// upsertDelivery records the delivery outcome, updating any prior "failed" row in
+// place rather than inserting a duplicate (violating the (route_id, dedupe_key)
+// unique index). This lets a transient failure be retried instead of dropped.
+func (s *Service) upsertDelivery(ctx context.Context, route model.EmployeeGatewayRoute, session model.EmployeeSession, response AgentResponse, dedupe string, existing *model.EmployeeGatewayDelivery, handles []MessageHandle, status string, errText string) (*model.EmployeeGatewayDelivery, error) {
+	if existing == nil {
+		return s.insertDelivery(ctx, route, session, response, dedupe, handles, status, errText)
+	}
+
+	channelID := response.ChannelID
+	threadID := response.ThreadID
+	if len(handles) > 0 {
+		channelID = handles[0].ChannelID
+		threadID = handles[0].ThreadID
+	}
+	updates := map[string]any{
+		"runtime_session_id": response.RuntimeSessionID,
+		"runtime_trace_id":   response.TraceID,
+		"runtime_turn_id":    response.TurnID,
+		"response_text":      response.Text,
+		"provider_handles":   handlesJSON(handles),
+		"status":             status,
+		"error":              errText,
+		"channel_id":         channelID,
+		"thread_id":          threadID,
+	}
+	if err := s.db.WithContext(ctx).Model(&model.EmployeeGatewayDelivery{}).
+		Where("id = ?", existing.ID).
+		Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("update gateway delivery: %w", err)
+	}
+	existing.RuntimeSessionID = response.RuntimeSessionID
+	existing.RuntimeTraceID = response.TraceID
+	existing.RuntimeTurnID = response.TurnID
+	existing.ResponseText = response.Text
+	existing.ProviderHandles = handlesJSON(handles)
+	existing.Status = status
+	existing.Error = errText
+	existing.ChannelID = channelID
+	existing.ThreadID = threadID
+	return existing, nil
 }
 
 func (s *Service) insertDelivery(ctx context.Context, route model.EmployeeGatewayRoute, session model.EmployeeSession, response AgentResponse, dedupe string, handles []MessageHandle, status string, errText string) (*model.EmployeeGatewayDelivery, error) {

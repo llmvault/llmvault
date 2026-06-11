@@ -3,6 +3,7 @@ package slack
 import (
 	"context"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 )
 
@@ -14,64 +15,74 @@ func (c *SlackConnector) SyncDocPermissions(
 ) (<-chan interfaces.DocExternalAccessOrFailure, error) {
 	c.ctx = ctx
 	out := make(chan interfaces.DocExternalAccessOrFailure, c.channelBuf)
-	go func() {
+	goroutine.Go(ctx, func(ctx context.Context) {
 		defer close(out)
 		if c.workspaceURL == "" {
 			if err := c.initWorkspace(ctx); err != nil {
-				out <- interfaces.NewAccessFailure(entityFailure(
+				interfaces.Send(ctx, out, interfaces.NewAccessFailure(entityFailure(
 					"workspace", "slack: auth.test", err,
-				))
+				)))
 				return
 			}
 		}
 		channels, err := c.fetchMemberChannels(ctx)
 		if err != nil {
-			out <- interfaces.NewAccessFailure(entityFailure(
+			interfaces.Send(ctx, out, interfaces.NewAccessFailure(entityFailure(
 				"channels", "slack: list channels", err,
-			))
+			)))
 			return
 		}
 		c.memberChannels = channels
 
 		for _, ch := range channels {
 			access := c.channelAccess(ch)
-			if err := c.streamChannelDocAccess(ctx, ch, access, out); err != nil {
-				out <- interfaces.NewAccessFailure(entityFailure(
+			err, cancelled := c.streamChannelDocAccess(ctx, ch, access, out)
+			if cancelled {
+				return
+			}
+			if err != nil {
+				if !interfaces.Send(ctx, out, interfaces.NewAccessFailure(entityFailure(
 					ch.ID, "slack: stream doc access "+ch.Name, err,
-				))
+				))) {
+					return
+				}
 			}
 		}
-	}()
+	})
 	return out, nil
 }
 
+// streamChannelDocAccess returns (err, cancelled). cancelled is true when
+// the consumer abandoned the stream and the caller must stop producing.
 func (c *SlackConnector) streamChannelDocAccess(
 	ctx context.Context,
 	channel SlackChannel,
 	access *interfaces.ExternalAccess,
 	out chan<- interfaces.DocExternalAccessOrFailure,
-) error {
+) (error, bool) {
 	latest := ""
 	for {
 		messages, hasMore, err := c.api.getChannelHistory(ctx, channel.ID, "", latest)
 		if err != nil {
-			return err
+			return err, false
 		}
 		for _, msg := range messages {
 			if shouldFilter(msg, c.includeBots) != "" {
 				continue
 			}
 			docID := docIDFromMessage(channel.ID, msg)
-			out <- interfaces.NewAccessResult(&interfaces.DocExternalAccess{
+			if !interfaces.Send(ctx, out, interfaces.NewAccessResult(&interfaces.DocExternalAccess{
 				DocID:          docID,
 				ExternalAccess: access,
-			})
+			})) {
+				return nil, true
+			}
 		}
 		if !hasMore || len(messages) == 0 {
 			break
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // SyncExternalGroups streams group definitions for Slack channels.
@@ -82,21 +93,21 @@ func (c *SlackConnector) SyncExternalGroups(
 ) (<-chan interfaces.ExternalGroupOrFailure, error) {
 	c.ctx = ctx
 	out := make(chan interfaces.ExternalGroupOrFailure, c.channelBuf)
-	go func() {
+	goroutine.Go(ctx, func(ctx context.Context) {
 		defer close(out)
 		if c.workspaceURL == "" {
 			if err := c.initWorkspace(ctx); err != nil {
-				out <- interfaces.NewGroupFailure(entityFailure(
+				interfaces.Send(ctx, out, interfaces.NewGroupFailure(entityFailure(
 					"workspace", "slack: auth.test", err,
-				))
+				)))
 				return
 			}
 		}
 		channels, err := c.fetchMemberChannels(ctx)
 		if err != nil {
-			out <- interfaces.NewGroupFailure(entityFailure(
+			interfaces.Send(ctx, out, interfaces.NewGroupFailure(entityFailure(
 				"channels", "slack: list channels", err,
-			))
+			)))
 			return
 		}
 		c.memberChannels = channels
@@ -105,9 +116,11 @@ func (c *SlackConnector) SyncExternalGroups(
 			if ch.IsPrivate {
 				memberIDs, err := c.api.conversationMembers(ctx, ch.ID)
 				if err != nil {
-					out <- interfaces.NewGroupFailure(entityFailure(
+					if !interfaces.Send(ctx, out, interfaces.NewGroupFailure(entityFailure(
 						ch.ID, "slack: members "+ch.Name, err,
-					))
+					))) {
+						return
+					}
 					continue
 				}
 				emails := make([]string, 0, len(memberIDs))
@@ -120,13 +133,15 @@ func (c *SlackConnector) SyncExternalGroups(
 						emails = append(emails, email)
 					}
 				}
-				out <- interfaces.NewGroupResult(&interfaces.ExternalGroup{
-					GroupID:     "slack_channel_" + ch.ID,
-					DisplayName: "#" + ch.Name,
+				if !interfaces.Send(ctx, out, interfaces.NewGroupResult(&interfaces.ExternalGroup{
+					GroupID:      "slack_channel_" + ch.ID,
+					DisplayName:  "#" + ch.Name,
 					MemberEmails: emails,
-				})
+				})) {
+					return
+				}
 			}
 		}
-	}()
+	})
 	return out, nil
 }

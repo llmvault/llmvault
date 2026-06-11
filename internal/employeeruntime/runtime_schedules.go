@@ -28,14 +28,26 @@ func BuildRuntimeSchedules(ctx context.Context, db *gorm.DB, agent *model.Employ
 		if row.RuntimeJobID == "" || strings.TrimSpace(row.TaskPrompt) == "" {
 			continue
 		}
-		if sb != nil && row.SandboxID != sb.ID {
-			_ = db.WithContext(ctx).Model(&model.EmployeeSchedule{}).
-				Where("id = ?", row.ID).
-				Update("sandbox_id", sb.ID).Error
-		}
 		out = append(out, runtimeScheduleFromModel(row))
 	}
 	return out, nil
+}
+
+// RepointEmployeeSchedules repoints active/paused schedules to the sandbox. Call
+// only after a successful main-runtime push, never for specialists. Kept off the
+// read path so a failed push never mutates rows; the FK is ON DELETE SET NULL.
+func RepointEmployeeSchedules(ctx context.Context, db *gorm.DB, agent *model.Employee, sb *model.Sandbox) error {
+	if db == nil || agent == nil || sb == nil {
+		return nil
+	}
+	query := db.WithContext(ctx).Model(&model.EmployeeSchedule{}).
+		Where("employee_id = ? AND cancelled_at IS NULL", agent.ID).
+		Where("status IN ?", []string{"active", "paused"}).
+		Where("sandbox_id IS DISTINCT FROM ?", sb.ID)
+	if agent.OrgID != nil {
+		query = query.Where("org_id = ?", *agent.OrgID)
+	}
+	return query.Update("sandbox_id", sb.ID).Error
 }
 
 func runtimeScheduleFromModel(row model.EmployeeSchedule) RuntimeSchedule {

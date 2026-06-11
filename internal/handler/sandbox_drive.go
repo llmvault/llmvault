@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"mime"
 	"net/http"
@@ -73,7 +74,7 @@ func (handler *SandboxDriveHandler) resolveSandboxAgent(writer http.ResponseWrit
 		writeJSON(writer, http.StatusInternalServerError, map[string]string{"error": "failed to verify credentials"})
 		return uuid.Nil, nil, false
 	}
-	if string(decryptedKey) != apiKey {
+	if subtle.ConstantTimeCompare(decryptedKey, []byte(apiKey)) != 1 {
 		writeJSON(writer, http.StatusUnauthorized, map[string]string{"error": "invalid API key"})
 		return uuid.Nil, nil, false
 	}

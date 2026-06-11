@@ -23,11 +23,11 @@ func fetchPRsPage(
 	prs, next, err := client.listPullRequestsPage(ctx, fullName, state, cp.CurrPage)
 	if err != nil {
 		if errors.Is(err, errRateLimited) {
-			out <- interfaces.NewDocFailure(entityFailure(fullName,
-				"github: pull requests page exhausted retries", err))
+			interfaces.Send(ctx, out, interfaces.NewDocFailure(entityFailure(fullName,
+				"github: pull requests page exhausted retries", err)))
 		} else {
-			out <- interfaces.NewDocFailure(entityFailure(fullName,
-				"github: pull requests page fetch failed", err))
+			interfaces.Send(ctx, out, interfaces.NewDocFailure(entityFailure(fullName,
+				"github: pull requests page fetch failed", err)))
 		}
 		return true
 	}
@@ -49,7 +49,9 @@ func fetchPRsPage(
 			cp.LastSeenUpdatedAt = &t
 		}
 		doc := prToDocument(fullName, pr, access)
-		out <- interfaces.NewDocResult(&doc)
+		if !interfaces.Send(ctx, out, interfaces.NewDocResult(&doc)) {
+			return true
+		}
 	}
 	if earlyBreak || next == 0 {
 		return true

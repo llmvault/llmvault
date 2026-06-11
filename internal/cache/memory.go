@@ -107,3 +107,8 @@ func (d *DEKCache) Set(credentialID string, enclave *memguard.Enclave) {
 func (d *DEKCache) Invalidate(credentialID string) {
 	d.lru.Remove(credentialID)
 }
+
+// Purge removes all entries, running the evict hook (which destroys sealed DEKs).
+func (d *DEKCache) Purge() {
+	d.lru.Purge()
+}
