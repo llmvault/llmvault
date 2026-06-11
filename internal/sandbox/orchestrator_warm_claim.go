@@ -57,9 +57,17 @@ func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, 
 		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime health: %v", err))
 		return fmt.Errorf("waiting for claimed runtime: %w", err)
 	}
-	if err := o.pushEmployeeRuntimeConfig(ctx, sb, "warm claim"); err != nil {
-		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime config push: %v", err))
-		return err
+	// Only the main employee runtime receives the employee config (system prompt,
+	// employee-mode proxy token, cron schedules) here. Specialist warm claims must
+	// not be configured as the employee: the specialist task launcher pushes the
+	// real specialist definition after this returns, and pushing the employee
+	// config would also repoint the employee's schedules onto this specialist
+	// sandbox (which is hard-deleted when the task ends).
+	if mode == model.SandboxWarmSlotModeEmployee {
+		if err := o.pushEmployeeRuntimeConfig(ctx, sb, "warm claim"); err != nil {
+			_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime config push: %v", err))
+			return err
+		}
 	}
 	if err := o.warmPool.MarkClaimed(ctx, claimed.ID); err != nil {
 		return fmt.Errorf("mark warm slot claimed: %w", err)

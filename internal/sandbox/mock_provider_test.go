@@ -16,6 +16,8 @@ type mockProvider struct {
 	nextID              int
 	executeCommandFn    func(ctx context.Context, externalID, command string) (string, error)
 	resourceUsageFn     func(ctx context.Context, externalID string) (*ResourceUsage, error)
+	getEndpointFn       func(ctx context.Context, externalID string, port int) (string, error)
+	getStatusFn         func(ctx context.Context, externalID string) (SandboxStatus, error)
 	setAutoStopCalls    []autoPolicyCall
 	setAutoArchiveCalls []autoPolicyCall
 	archivedIDs         []string
@@ -136,7 +138,10 @@ func (m *mockProvider) DeleteSandbox(_ context.Context, externalID string) error
 	return nil
 }
 
-func (m *mockProvider) GetStatus(_ context.Context, externalID string) (SandboxStatus, error) {
+func (m *mockProvider) GetStatus(ctx context.Context, externalID string) (SandboxStatus, error) {
+	if m.getStatusFn != nil {
+		return m.getStatusFn(ctx, externalID)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -147,7 +152,10 @@ func (m *mockProvider) GetStatus(_ context.Context, externalID string) (SandboxS
 	return sb.status, nil
 }
 
-func (m *mockProvider) GetEndpoint(_ context.Context, externalID string, port int) (string, error) {
+func (m *mockProvider) GetEndpoint(ctx context.Context, externalID string, port int) (string, error) {
+	if m.getEndpointFn != nil {
+		return m.getEndpointFn(ctx, externalID, port)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

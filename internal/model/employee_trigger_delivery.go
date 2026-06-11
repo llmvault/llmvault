@@ -18,13 +18,13 @@ type EmployeeTriggerDelivery struct {
 	EmployeeID uuid.UUID `gorm:"type:uuid;not null;index:idx_trigger_delivery_org_employee_created;index:idx_trigger_delivery_org_employee_session_created,priority:2"`
 	Employee   Employee  `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE"`
 
-	TriggerID uuid.UUID       `gorm:"type:uuid;not null;index"`
+	TriggerID uuid.UUID       `gorm:"type:uuid;not null;index;uniqueIndex:idx_employee_trigger_deliveries_trigger_delivery,priority:1"`
 	Trigger   EmployeeTrigger `gorm:"foreignKey:TriggerID;constraint:OnDelete:CASCADE"`
 
 	ConnectionID *uuid.UUID  `gorm:"type:uuid;index"`
 	Connection   *Connection `gorm:"foreignKey:ConnectionID;constraint:OnDelete:SET NULL"`
 
-	DeliveryID  string `gorm:"type:text;not null;index"`
+	DeliveryID  string `gorm:"type:text;not null;index;uniqueIndex:idx_employee_trigger_deliveries_trigger_delivery,priority:2"`
 	EventKey    string `gorm:"type:text;not null;default:'';index"`
 	ResourceKey string `gorm:"type:text;not null;default:'';index"`
 

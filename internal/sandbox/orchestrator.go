@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,12 @@ type Orchestrator struct {
 	warmPool          *WarmPool
 	reconcileWarmPool func(context.Context, string, string) error
 	pushRuntimeConfig func(context.Context, *model.Sandbox) error
+
+	// healthFailureCounts tracks consecutive bad provider health observations
+	// per sandbox so a single transient CRASHED reading does not persist a
+	// terminal error (P0-21).
+	healthFailureMu     sync.Mutex
+	healthFailureCounts map[uuid.UUID]int
 }
 
 func NewOrchestrator(db *gorm.DB, provider Provider, encKey *crypto.SymmetricKey, cfg *config.Config) *Orchestrator {

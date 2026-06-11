@@ -16,23 +16,26 @@ type WebhookForwardPayload struct {
 	Body            []byte `json:"body"`
 }
 
-// NewWebhookForwardTask creates a task that forwards a webhook to an org's endpoint.
-func NewWebhookForwardTask(webhookURL string, encryptedSecret []byte, body []byte) (*asynq.Task, error) {
+// NewWebhookForwardTask creates a task that forwards a webhook to an org's
+// endpoint. Options are returned separately (rather than baked into the task) so
+// they survive the enqueue client's Sentry trace-payload rewrite, which would
+// otherwise demote this critical-queue task to the default queue with default
+// retry/timeout (P0-11).
+func NewWebhookForwardTask(webhookURL string, encryptedSecret []byte, body []byte) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(WebhookForwardPayload{
 		WebhookURL:      webhookURL,
 		EncryptedSecret: encryptedSecret,
 		Body:            body,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal webhook forward payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal webhook forward payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeWebhookForward,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(5),
-		asynq.Timeout(30*time.Second),
-	), nil
+		asynq.Timeout(30 * time.Second),
+	}
+	return asynq.NewTask(TypeWebhookForward, payload), opts, nil
 }
 
 // EmailSendPayload is the payload for TypeEmailSend tasks.

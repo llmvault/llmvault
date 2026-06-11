@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useInfiniteQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import { fetchEventSource } from "@microsoft/fetch-event-source"
 import ScrollToBottom, {
   useObserveScrollPosition,
@@ -39,6 +39,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api/client"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
+import {
+  DEFAULT_RECONNECT_CONFIG,
+  StreamBuffer,
+  decideReconnect,
+} from "@/lib/sessions/stream"
 import { cn } from "@/lib/utils"
 
 type Paginated<T> = {
@@ -131,6 +136,7 @@ function segmentFromParam(value: string | null): SessionSegment {
 
 export default function SessionsPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const querySessionID = searchParams.get("session")
   const [search, setSearch] = useState("")
@@ -323,6 +329,18 @@ export default function SessionsPage() {
     [router, selectedSegment]
   )
 
+  const refetchPersistedSession = useCallback(
+    (sessionID: string) => {
+      queryClient.invalidateQueries({
+        queryKey: ["employee-session-events", employeeID, sessionID],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["employee-sessions", employeeID],
+      })
+    },
+    [employeeID, queryClient]
+  )
+
   const startSessionStream = useCallback(
     async (sessionID: string, sessionStreamURL?: string) => {
       if (!sessionStreamURL) return
@@ -335,14 +353,58 @@ export default function SessionsPage() {
         [sessionID]: { text: "", events: [], isStreaming: true },
       }))
 
-      let buffer = ""
+      const buffer = new StreamBuffer()
       let sequence = 0
+      let reachedTerminal = false
+      let attempt = 0
+      let isReplay = false
+      const startedAt = Date.now()
       const streamURL = await directStreamURL(sessionStreamURL)
-      const streamAuth = streamURL.startsWith("/api/proxy")
-        ? null
-        : await streamAuthToken()
 
-      try {
+      const commitToken = (tokenText: string) => {
+        if (!tokenText) return
+        const wasReplay = isReplay
+        const newText = wasReplay
+          ? buffer.replayToken(tokenText)
+          : buffer.liveToken(tokenText)
+        // While catching up on a replay, suppress re-rendering already-seen
+        // tokens; only append the genuinely-new suffix to the live event list.
+        if (wasReplay && newText === "") return
+        // Once a replayed token yields new text we have caught up to the live
+        // tail; subsequent tokens on this connection are appended verbatim.
+        if (wasReplay) isReplay = false
+        sequence += 1
+        const appended = wasReplay ? newText : tokenText
+        setStreams((current) => {
+          const existing = current[sessionID] ?? {
+            text: "",
+            events: [],
+            isStreaming: true,
+          }
+          return {
+            ...current,
+            [sessionID]: {
+              ...existing,
+              text: buffer.text,
+              events: appendLiveTokenEvent(
+                existing.events,
+                sessionID,
+                appended,
+                sequence
+              ),
+              isStreaming: true,
+            },
+          }
+        })
+      }
+
+      // Run a single SSE connection. Returns true if it ended on a terminal
+      // event (done/final-complete) or an unrecoverable error; false if the
+      // connection ended/closed while the turn was plausibly still running.
+      const runConnection = async (): Promise<void> => {
+        const streamAuth = streamURL.startsWith("/api/proxy")
+          ? null
+          : await streamAuthToken()
         await fetchEventSource(streamURL, {
           method: "GET",
           headers: streamHeaders(streamAuth),
@@ -367,36 +429,14 @@ export default function SessionsPage() {
             if (!frame) return
 
             if (event.event === "token" && typeof frame.text === "string") {
-              const tokenText = frame.text
-              sequence += 1
-              buffer += tokenText
-              setStreams((current) => {
-                const existing = current[sessionID] ?? {
-                  text: "",
-                  events: [],
-                  isStreaming: true,
-                }
-                return {
-                  ...current,
-                  [sessionID]: {
-                    ...existing,
-                    text: buffer,
-                    events: appendLiveTokenEvent(
-                      existing.events,
-                      sessionID,
-                      tokenText,
-                      sequence
-                    ),
-                    isStreaming: true,
-                  },
-                }
-              })
+              commitToken(frame.text)
               return
             }
             if (event.event === "final" && typeof frame.text === "string") {
               const finalText = frame.text
               sequence += 1
-              buffer = finalText
+              buffer.setFinal(finalText)
+              isReplay = false
               setStreams((current) => {
                 const existing = current[sessionID] ?? {
                   text: "",
@@ -407,7 +447,7 @@ export default function SessionsPage() {
                   ...current,
                   [sessionID]: {
                     ...existing,
-                    text: buffer,
+                    text: buffer.text,
                     events: reconcileLiveFinalEvent(
                       existing.events,
                       sessionID,
@@ -421,6 +461,7 @@ export default function SessionsPage() {
               return
             }
             if (event.event === "error") {
+              reachedTerminal = true
               const message =
                 typeof frame.message === "string"
                   ? frame.message
@@ -429,7 +470,7 @@ export default function SessionsPage() {
                 ...current,
                 [sessionID]: {
                   ...(current[sessionID] ?? { events: [] }),
-                  text: buffer,
+                  text: buffer.text,
                   events: completeTrailingLiveAssistant(
                     current[sessionID]?.events ?? []
                   ),
@@ -437,9 +478,11 @@ export default function SessionsPage() {
                   error: message,
                 },
               }))
+              controller.abort()
               return
             }
             if (event.event === "done") {
+              reachedTerminal = true
               controller.abort()
               return
             }
@@ -452,7 +495,7 @@ export default function SessionsPage() {
             )
             setStreams((current) => {
               const existing = current[sessionID] ?? {
-                text: buffer,
+                text: buffer.text,
                 events: [],
                 isStreaming: true,
               }
@@ -463,7 +506,7 @@ export default function SessionsPage() {
                 ...current,
                 [sessionID]: {
                   ...existing,
-                  text: existing.text || buffer,
+                  text: existing.text || buffer.text,
                   events: isHiddenSessionEvent(liveEvent)
                     ? completedEvents
                     : [...completedEvents, liveEvent],
@@ -472,28 +515,74 @@ export default function SessionsPage() {
               }
             })
           },
+          // Returning nothing/undefined here keeps fetch-event-source from
+          // auto-retrying; we drive reconnection ourselves below so the backoff
+          // and "is the turn still running" decision live in one tested place.
           onerror(error) {
             throw error
           },
         })
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "The response stream failed."
-          setStreams((current) => ({
-            ...current,
-            [sessionID]: {
-              ...(current[sessionID] ?? { events: [] }),
-              text: buffer,
-              events: completeTrailingLiveAssistant(
-                current[sessionID]?.events ?? []
-              ),
-              isStreaming: false,
-              error: message,
-            },
-          }))
+      }
+
+      try {
+        // Reconnect loop: a clean server close (e.g. an upstream proxy idle/
+        // total timeout) ends the body without a terminal event, so we resume
+        // against the same signed stream URL while the turn is plausibly still
+        // running. The broker replays buffered history, which StreamBuffer
+        // dedupes against what we already rendered.
+        for (;;) {
+          try {
+            await runConnection()
+          } catch (error) {
+            if (controller.signal.aborted) break
+            const decision = decideReconnect(
+              {
+                reachedTerminal,
+                attempt,
+                elapsedMs: Date.now() - startedAt,
+              },
+              DEFAULT_RECONNECT_CONFIG
+            )
+            if (!decision.reconnect) {
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "The response stream failed."
+              setStreams((current) => ({
+                ...current,
+                [sessionID]: {
+                  ...(current[sessionID] ?? { events: [] }),
+                  text: buffer.text,
+                  events: completeTrailingLiveAssistant(
+                    current[sessionID]?.events ?? []
+                  ),
+                  isStreaming: false,
+                  error: message,
+                },
+              }))
+              break
+            }
+            attempt += 1
+            isReplay = true
+            buffer.beginReplay()
+            await delay(decision.delayMs, controller.signal)
+            if (controller.signal.aborted) break
+            continue
+          }
+
+          // The connection ended cleanly. If we saw a terminal event, the turn
+          // is finished. Otherwise the body was cut mid-turn — resume.
+          if (controller.signal.aborted || reachedTerminal) break
+          const decision = decideReconnect(
+            { reachedTerminal, attempt, elapsedMs: Date.now() - startedAt },
+            DEFAULT_RECONNECT_CONFIG
+          )
+          if (!decision.reconnect) break
+          attempt += 1
+          isReplay = true
+          buffer.beginReplay()
+          await delay(decision.delayMs, controller.signal)
+          if (controller.signal.aborted) break
         }
       } finally {
         if (streamControllersRef.current[sessionID] === controller) {
@@ -503,16 +592,21 @@ export default function SessionsPage() {
           ...current,
           [sessionID]: {
             ...(current[sessionID] ?? { events: [] }),
-            text: current[sessionID]?.text ?? buffer,
+            text: current[sessionID]?.text ?? buffer.text,
             events: completeTrailingLiveAssistant(
               current[sessionID]?.events ?? []
             ),
             isStreaming: false,
           },
         }))
+        // On stream completion, refetch the persisted events so the turn's
+        // answer is loaded from the backend before the live state is cleared.
+        // This is what keeps a previous turn's answer visible when a follow-up
+        // message resets the live stream state.
+        refetchPersistedSession(sessionID)
       }
     },
-    []
+    [refetchPersistedSession]
   )
 
   const sendMessage = useCallback(
@@ -1686,6 +1780,24 @@ function streamHeaders(auth: StreamAuthTokenResponse | null) {
   headers.Authorization = `Bearer ${auth.access_token}`
   if (auth.org_id) headers["X-Org-ID"] = auth.org_id
   return headers
+}
+
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve()
+      return
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    signal?.addEventListener("abort", onAbort, { once: true })
+  })
 }
 
 function parseStreamFrame(data: string): Record<string, unknown> | null {

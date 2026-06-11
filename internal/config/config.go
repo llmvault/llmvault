@@ -74,6 +74,13 @@ type Config struct {
 	// CORS
 	CORSOrigins []string `env:"HIVY_CORS_ORIGINS" envSeparator:","`
 
+	// Trusted reverse-proxy hops (CIDRs). The real-client-IP extractor only
+	// honours X-Real-IP/X-Forwarded-For when the immediate peer (r.RemoteAddr)
+	// falls inside one of these ranges. The Go server sits behind nginx on
+	// loopback, so loopback is trusted by default. Set additional CIDRs when
+	// the server is reached directly from other trusted proxy hops.
+	TrustedProxyCIDRs []string `env:"HIVY_TRUSTED_PROXY_CIDRS" envSeparator:"," envDefault:"127.0.0.0/8,::1/128"`
+
 	// Nango (OAuth integration proxy)
 	NangoEndpoint       string `env:"HIVY_NANGO_ENDPOINT"`        // e.g. http://localhost:3004
 	NangoSecretKey      string `env:"HIVY_NANGO_SECRET_KEY"`      // Nango secret key for API auth

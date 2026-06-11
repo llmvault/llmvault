@@ -2,6 +2,7 @@ package specialisttasks
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/specialists"
@@ -165,6 +167,21 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 	if err != nil {
 		return nil, wrapToolError("sandbox_create_failed", "Could not create the specialist runtime sandbox.", err, true, "Retry later. If this repeats, report the sandbox provisioning error to the user.")
 	}
+	// Once the sandbox exists, every later failure must release the provider
+	// resource — otherwise a failed launch leaves a live billing sandbox and
+	// tells the LLM to retry, minting another. Cleared once the launch fully
+	// succeeds. Runs on context.WithoutCancel so it executes even when the
+	// originating request context is already cancelled.
+	launchOK := false
+	defer func() {
+		if launchOK {
+			return
+		}
+		cleanupCtx := context.WithoutCancel(ctx)
+		if err := s.orchestrator.DeleteSandboxResource(cleanupCtx, sb); err != nil {
+			logging.Capture(cleanupCtx, fmt.Errorf("specialist launch cleanup: delete sandbox resource %s: %w", sb.ID, err))
+		}
+	}()
 	if err := employeeruntime.AttachLatestSpecialistProxyTokenToSandbox(ctx, s.compileDeps, employee, sb.ID, def.Slug); err != nil {
 		return nil, wrapToolError("proxy_token_attach_failed", "The specialist runtime was created, but the control plane could not bind its proxy token to the sandbox.", err, true, "Retry later. If this repeats, report that specialist startup failed after sandbox creation.")
 	}
@@ -232,6 +249,7 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 		_ = s.db.WithContext(ctx).Model(&task).Updates(map[string]any{"status": "error", "updated_at": s.now().UTC()}).Error
 		return nil, wrapToolError("initial_message_failed", "The specialist runtime was created, but the task brief could not be delivered.", err, true, "Retry specialist_launch_task. If a task_id was returned previously, use specialist_task_status before launching another duplicate task.")
 	}
+	launchOK = true
 	return newLaunchResponse(task), nil
 }
 

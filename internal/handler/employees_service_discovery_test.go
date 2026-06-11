@@ -52,6 +52,20 @@ func TestEmployeeHandlerEnsureServiceDiscoveryScheduleForConnection(t *testing.T
 		t.Fatalf("schedule prompt missing Railway checklist: %s", schedule.TaskPrompt)
 	}
 
+	// Regression: the schedule must be bound to the employee sandbox via the
+	// *uuid.UUID SandboxID pointer field. A nil/zero value here means the
+	// upsert wrote a NULL sandbox association for a sandbox-backed schedule.
+	if schedule.SandboxID == nil {
+		t.Fatal("service discovery schedule should reference the employee sandbox")
+	}
+	var sandbox model.Sandbox
+	if err := h.db.Where("employee_id = ?", agent.ID).First(&sandbox).Error; err != nil {
+		t.Fatalf("load employee sandbox: %v", err)
+	}
+	if *schedule.SandboxID != sandbox.ID {
+		t.Fatalf("schedule sandbox id = %s, want %s", *schedule.SandboxID, sandbox.ID)
+	}
+
 	var pushed struct {
 		Schedules []struct {
 			ID     string `json:"id"`

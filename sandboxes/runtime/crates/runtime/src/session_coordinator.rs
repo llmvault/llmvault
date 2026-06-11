@@ -108,6 +108,103 @@ mod tests {
     }
 
     #[test]
+    fn submit_after_turn_finished_returns_run_now_and_leaves_reservation() {
+        // Models the delegate-completion path: the parent turn has already
+        // finished (no coordinator entry), so submit_or_queue takes a fresh
+        // reservation and returns RunNow. The handler MUST react to RunNow by
+        // re-dispatching the inbound (P0-27); otherwise the entry it just
+        // inserted is owned by no task and the session is reserved forever.
+        let coordinator = SessionCoordinator::new();
+        let session = SessionId::from("parent-session".to_string());
+
+        // First turn runs and finishes.
+        assert!(matches!(
+            coordinator.submit_or_queue(inbound("parent-session", "E1", "first")),
+            Submission::RunNow
+        ));
+        assert!(coordinator.finish_turn(&session).is_empty());
+
+        // Delegate result arrives after the parent turn already finished.
+        let decision =
+            coordinator.submit_or_queue(inbound("parent-session", "delegate-result", "result"));
+        assert!(
+            matches!(decision, Submission::RunNow),
+            "a delegate result for an idle session must signal RunNow so the handler re-dispatches it"
+        );
+
+        // The fresh reservation now exists but holds no queued payload (the
+        // payload was returned to the caller via RunNow). If the handler does
+        // not release it, it leaks forever.
+        assert!(
+            coordinator.drain_queued(&session).is_empty(),
+            "RunNow returns the payload to the caller; the reservation queue is empty"
+        );
+
+        // The handler releases the reservation before re-dispatching.
+        let _ = coordinator.finish_turn(&session);
+        assert!(matches!(
+            coordinator.submit_or_queue(inbound("parent-session", "redispatch", "result")),
+            Submission::RunNow
+        ));
+    }
+
+    #[tokio::test]
+    async fn panicking_turn_task_releases_coordinator_entry() {
+        // Models the spawned turn task in main.rs: handle_inbound reserves the
+        // session via submit_or_queue, then the turn body panics (P0-26: a
+        // multi-byte slice panic or any other remaining panic source). The panic
+        // guard around the spawned task MUST call finish_turn so future inbound
+        // messages for the session are not queued forever behind a turn that will
+        // never finish.
+        use futures::FutureExt;
+        use std::sync::Arc;
+
+        let coordinator = Arc::new(SessionCoordinator::new());
+        let session = SessionId::from("panic-session".to_string());
+
+        let task_coordinator = coordinator.clone();
+        let task_session = session.clone();
+        let panic_guard_coordinator = coordinator.clone();
+        let panic_guard_session = session.clone();
+
+        let join = tokio::spawn(async move {
+            let result = std::panic::AssertUnwindSafe(async move {
+                // Reserve the session entry, exactly like submit_or_queue's RunNow
+                // path before the turn runs.
+                assert!(matches!(
+                    task_coordinator.submit_or_queue(inbound(task_session.as_str(), "E1", "boom")),
+                    Submission::RunNow
+                ));
+                // The turn body panics before reaching finish_turn.
+                panic!("simulated turn panic");
+            })
+            .catch_unwind()
+            .await;
+
+            if result.is_err() {
+                // Panic guard: release the reservation so the session is not
+                // permanently blocked.
+                panic_guard_coordinator.finish_turn(&panic_guard_session);
+            }
+        });
+
+        // The task panicked internally but the guard caught it, so the join
+        // succeeds.
+        join.await.expect("panic guard must keep the task from aborting the join");
+
+        // Without the panic guard's finish_turn, the reservation would still be
+        // present and this submission would be Queued (leaked forever). With the
+        // guard it is released, so a new message runs normally.
+        assert!(
+            matches!(
+                coordinator.submit_or_queue(inbound(session.as_str(), "E2", "next")),
+                Submission::RunNow
+            ),
+            "a panicking turn must release the coordinator entry so the next message runs"
+        );
+    }
+
+    #[test]
     fn different_sessions_run_independently() {
         let coordinator = SessionCoordinator::new();
 

@@ -44,7 +44,11 @@ func PersistTerminalFailure(ctx context.Context, db *gorm.DB, in FailedEventInpu
 	return nil
 }
 
-type TaskBuilder func(payload []byte) (*asynq.Task, error)
+// TaskBuilder rebuilds a task (and its enqueue options) from a stored payload.
+// Options are returned separately so the failed-event retry path re-applies the
+// task's original Queue/MaxRetry/Timeout instead of silently falling back to
+// asynq defaults (see P0-11).
+type TaskBuilder func(payload []byte) (*asynq.Task, []asynq.Option, error)
 
 var (
 	taskBuildersMu sync.RWMutex
@@ -78,11 +82,11 @@ func RetryFailedEvent(ctx context.Context, db *gorm.DB, enqueuer enqueue.TaskEnq
 	if !ok {
 		return nil, fmt.Errorf("no task builder registered for event_type %q", row.EventType)
 	}
-	task, err := builder([]byte(row.Payload))
+	task, opts, err := builder([]byte(row.Payload))
 	if err != nil {
 		return nil, fmt.Errorf("build task for retry: %w", err)
 	}
-	info, err := enqueuer.EnqueueContext(ctx, task)
+	info, err := enqueuer.EnqueueContext(ctx, task, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("enqueue retry: %w", err)
 	}

@@ -64,6 +64,11 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	auditWriter := middleware.NewAuditWriter(ctx, database, 10000)
 
 	generationWriter := middleware.NewGenerationWriter(ctx, database, reg, 10000)
+	if enqueuer != nil {
+		// Durable fallback: spill billable generation rows to asynq rather than
+		// dropping them on a DB blip, full buffer, or shutdown deadline.
+		generationWriter.SetEnqueuer(enqueuer)
+	}
 
 	mcpHandler := handler.NewMCPHandler(database, signingKey, actionsCatalog, nangoClient, ctr)
 	var hindsightClient *hindsight.Client
@@ -233,7 +238,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
-	r.Use(chimw.RealIP)
+	r.Use(middleware.RealIP(cfg.TrustedProxyCIDRs))
 	r.Use(sentryobs.Middleware())
 	r.Use(sentryobs.Recoverer())
 	r.Use(sentryobs.Capture5xxResponses())

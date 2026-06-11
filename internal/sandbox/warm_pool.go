@@ -2,8 +2,10 @@ package sandbox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -97,13 +99,80 @@ func (p *WarmPool) MarkClaimed(ctx context.Context, slotID uuid.UUID) error {
 		Update("status", model.SandboxWarmSlotStatusClaimed).Error
 }
 
+// MarkError flips a slot to the terminal error state and deletes its provider
+// resource so the paid compute is released. Nothing else in the system ever
+// processes error slots, so failing to delete here leaks a live billing service
+// forever. The provider delete runs first; on a transient delete failure the
+// slot is parked in 'deleting' and the periodic reaper retries.
 func (p *WarmPool) MarkError(ctx context.Context, slotID uuid.UUID, message string) error {
+	var slot model.SandboxWarmSlot
+	if err := p.db.WithContext(ctx).First(&slot, "id = ?", slotID).Error; err != nil {
+		return err
+	}
+	if slot.ExternalID != "" {
+		if err := p.provider.DeleteSandbox(ctx, slot.ExternalID); err != nil && !errors.Is(err, ErrSandboxNotFound) {
+			logging.Capture(ctx, fmt.Errorf("mark warm slot %s error: delete provider resource %s: %w", slotID, slot.ExternalID, err))
+			// Leave a breadcrumb in 'deleting' so the reaper retries the delete
+			// rather than abandoning the slot in 'error' with a live resource.
+			_ = p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
+				Where("id = ?", slotID).
+				Updates(map[string]any{
+					"status":        model.SandboxWarmSlotStatusDeleting,
+					"error_message": message,
+				}).Error
+			return err
+		}
+	}
 	return p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
 		Where("id = ?", slotID).
 		Updates(map[string]any{
 			"status":        model.SandboxWarmSlotStatusError,
 			"error_message": message,
 		}).Error
+}
+
+// ReapStaleSlots releases provider resources for warm slots stranded in
+// 'claiming' (a claim that crashed mid-flight before MarkClaimed/MarkError) and
+// retries provider deletion for slots left in 'deleting'. Without this a claim
+// that dies between Claim and the orchestrator finishing leaves a live billing
+// service that no path ever deletes.
+func (p *WarmPool) ReapStaleSlots(ctx context.Context) error {
+	if p == nil {
+		return nil
+	}
+	const claimingTTL = 10 * time.Minute
+	cutoff := time.Now().Add(-claimingTTL)
+	logger := logging.FromContext(ctx)
+
+	var stale []model.SandboxWarmSlot
+	if err := p.db.WithContext(ctx).
+		Where("provider_id = ? AND ((status = ? AND updated_at < ?) OR status = ?)",
+			p.provider.ID(), model.SandboxWarmSlotStatusClaiming, cutoff, model.SandboxWarmSlotStatusDeleting).
+		Find(&stale).Error; err != nil {
+		return err
+	}
+	for i := range stale {
+		slot := stale[i]
+		if slot.ExternalID != "" {
+			if err := p.provider.DeleteSandbox(ctx, slot.ExternalID); err != nil && !errors.Is(err, ErrSandboxNotFound) {
+				logger.WarnContext(ctx, "reap stale warm slot: delete provider resource failed",
+					"slot_id", slot.ID, "external_id", slot.ExternalID, "error", err)
+				continue
+			}
+		}
+		if err := p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
+			Where("id = ?", slot.ID).
+			Updates(map[string]any{
+				"status":        model.SandboxWarmSlotStatusError,
+				"error_message": "reaped stale warm slot",
+			}).Error; err != nil {
+			logger.WarnContext(ctx, "reap stale warm slot: mark error failed", "slot_id", slot.ID, "error", err)
+			continue
+		}
+		logger.InfoContext(ctx, "reaped stale warm slot",
+			"slot_id", slot.ID, "external_id", slot.ExternalID, "from_status", slot.Status)
+	}
+	return nil
 }
 
 func (p *WarmPool) SlotMode(ctx context.Context, slotID uuid.UUID) (string, error) {
@@ -250,20 +319,10 @@ func (p *WarmPool) deleteStaleAvailableSlots(ctx context.Context, mode, image st
 			"provider", p.provider.ID(), "mode", mode, "slot_id", slot.ID,
 			"external_id", slot.ExternalID, "runtime_image", slot.RuntimeImage,
 			"expected_runtime_image", image)
-		if err := p.db.WithContext(ctx).Model(&model.SandboxWarmSlot{}).
-			Where("id = ? AND status IN ?", slot.ID, []string{
-				model.SandboxWarmSlotStatusWarm,
-				model.SandboxWarmSlotStatusWarming,
-			}).
-			Update("status", model.SandboxWarmSlotStatusDeleting).Error; err != nil {
-			return err
-		}
-		if err := p.provider.DeleteSandbox(ctx, slot.ExternalID); err != nil {
-			_ = p.MarkError(context.WithoutCancel(ctx), slot.ID, fmt.Sprintf("delete stale warm slot: %v", err))
-			return fmt.Errorf("delete stale warm slot %s: %w", slot.ExternalID, err)
-		}
+		// MarkError owns provider deletion (P0-19), so delegate to it rather than
+		// deleting here to avoid a double delete.
 		if err := p.MarkError(ctx, slot.ID, fmt.Sprintf("stale runtime image %s; expected %s", slot.RuntimeImage, image)); err != nil {
-			return err
+			return fmt.Errorf("delete stale warm slot %s: %w", slot.ExternalID, err)
 		}
 	}
 	return nil

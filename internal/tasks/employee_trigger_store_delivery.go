@@ -4,21 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 func init() {
-	RegisterTaskBuilder(TypeEmployeeTriggerStoreDelivery, func(payload []byte) (*asynq.Task, error) {
+	RegisterTaskBuilder(TypeEmployeeTriggerStoreDelivery, func(payload []byte) (*asynq.Task, []asynq.Option, error) {
 		var p EmployeeTriggerStoreDeliveryPayload
 		if err := json.Unmarshal(payload, &p); err != nil {
-			return nil, fmt.Errorf("unmarshal employee trigger store delivery payload: %w", err)
+			return nil, nil, fmt.Errorf("unmarshal employee trigger store delivery payload: %w", err)
 		}
 		return NewEmployeeTriggerStoreDeliveryTask(p)
 	})
@@ -41,18 +43,20 @@ type EmployeeTriggerStoreDeliveryPayload struct {
 	PayloadJSON           []byte     `json:"payload"`
 }
 
-func NewEmployeeTriggerStoreDeliveryTask(payload EmployeeTriggerStoreDeliveryPayload) (*asynq.Task, error) {
+// NewEmployeeTriggerStoreDeliveryTask returns the task plus its enqueue options.
+// Options are returned separately so they survive the enqueue client's Sentry
+// trace-payload rewrite (see P0-11).
+func NewEmployeeTriggerStoreDeliveryTask(payload EmployeeTriggerStoreDeliveryPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal employee trigger store delivery payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal employee trigger store delivery payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmployeeTriggerStoreDelivery,
-		encoded,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(3),
-		asynq.Timeout(30*time.Second),
-	), nil
+		asynq.Timeout(30 * time.Second),
+	}
+	return asynq.NewTask(TypeEmployeeTriggerStoreDelivery, encoded), opts, nil
 }
 
 type EmployeeTriggerStoreDeliveryHandler struct {
@@ -90,7 +94,22 @@ func (h *EmployeeTriggerStoreDeliveryHandler) Handle(ctx context.Context, task *
 		RuntimeTurnID:         payload.RuntimeTurnID,
 		Payload:               model.RawJSON(raw),
 	}
-	if err := h.db.WithContext(ctx).Create(&row).Error; err != nil {
+	// The dispatcher claims a row for (trigger_id, delivery_id) before posting,
+	// so this row usually already exists. Upsert the runtime correlation fields
+	// onto the claimed row; this also makes the store task itself idempotent
+	// under asynq retries (it no longer inserts duplicate rows — see P2-45).
+	db := h.db.WithContext(ctx)
+	if strings.TrimSpace(payload.DeliveryID) != "" {
+		db = db.Clauses(clause.OnConflict{
+			Columns:     []clause.Column{{Name: "trigger_id"}, {Name: "delivery_id"}},
+			TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("delivery_id <> ?", "")}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"runtime_session_id", "runtime_stream_id", "runtime_trace_id", "runtime_turn_id",
+				"runtime_conversation_id", "resource_key", "event_key",
+			}),
+		})
+	}
+	if err := db.Create(&row).Error; err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("store employee trigger delivery: %w", err), triggerDeliverySentryFields(payload))
 		return fmt.Errorf("store employee trigger delivery: %w", err)
 	}

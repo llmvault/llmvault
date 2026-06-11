@@ -106,7 +106,7 @@ func (h *IncomingWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 
 	deliveryID := connectionID.String() + ":" + uuid.New().String()
-	task, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
+	task, opts, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
 		Provider:     provider,
 		EventType:    eventType,
 		EventAction:  eventAction,
@@ -128,7 +128,7 @@ func (h *IncomingWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if _, err := h.enqueuer.Enqueue(task); err != nil {
+	if _, err := h.enqueuer.Enqueue(task, opts...); err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "incoming webhook: failed to enqueue dispatch task",
 			"provider", provider,
 			"error", err,

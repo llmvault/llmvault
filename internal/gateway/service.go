@@ -254,18 +254,26 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 		}
 	}
 	dedupe := outboundDedupeKey(response)
-	if existing, ok, err := s.loadDeliveryByDedupe(ctx, route.ID, dedupe); err != nil || ok {
-		return existing, err
+	existing, found, err := s.loadDeliveryByDedupe(ctx, route.ID, dedupe)
+	if err != nil {
+		return nil, err
 	}
+	if found && existing.Status != "failed" {
+		// A successful (or in-flight) delivery already occupies the dedupe key;
+		// returning it prevents a duplicate reply. Only "failed" rows are retried
+		// below so a transient send error does not permanently drop the reply.
+		return existing, nil
+	}
+
 	payload, err := adapter.RenderResponse(ctx, response)
 	if err != nil {
-		return s.insertDelivery(ctx, route, session, response, dedupe, nil, "failed", err.Error())
+		return s.upsertDelivery(ctx, route, session, response, dedupe, existing, nil, "failed", err.Error())
 	}
 	handles, err := adapter.SendResponse(ctx, payload)
 	if err != nil {
-		return s.insertDelivery(ctx, route, session, response, dedupe, handles, "failed", err.Error())
+		return s.upsertDelivery(ctx, route, session, response, dedupe, existing, handles, "failed", err.Error())
 	}
-	return s.insertDelivery(ctx, route, session, response, dedupe, handles, "sent", "")
+	return s.upsertDelivery(ctx, route, session, response, dedupe, existing, handles, "sent", "")
 }
 
 func (s *Service) loadRoute(ctx context.Context, id uuid.UUID) (model.EmployeeGatewayRoute, error) {

@@ -90,7 +90,7 @@ func enqueueTriggerDispatch(
 		}
 	}
 
-	task, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
+	task, opts, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
 		Provider:     providerName,
 		EventType:    metadata.EventType,
 		EventAction:  metadata.EventAction,
@@ -110,7 +110,7 @@ func enqueueTriggerDispatch(
 		})
 		return
 	}
-	if _, err := enqueuer.Enqueue(task); err != nil {
+	if _, err := enqueuer.Enqueue(task, opts...); err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "trigger dispatch: failed to enqueue task",
 			"delivery_id", deliveryID, "error", err,
 		)

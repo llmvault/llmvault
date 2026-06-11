@@ -49,7 +49,7 @@ func upsertEmployeeScheduleFromEvent(tx *gorm.DB, event model.EmployeeSessionEve
 	schedule := model.EmployeeSchedule{
 		OrgID:            event.OrgID,
 		EmployeeID:       event.EmployeeID,
-		SandboxID:        event.SandboxID,
+		SandboxID:        &event.SandboxID,
 		RuntimeJobID:     jobID,
 		Status:           status,
 		Channel:          stringValue(payload, "channel"),

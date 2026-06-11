@@ -20,6 +20,7 @@ use outbound::OutboundEmitter;
 use serde_json::Value;
 use storage::CronJobRepo;
 use storage::SessionRepo;
+use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use composition::compose_annotated_text;
@@ -271,6 +272,7 @@ pub async fn handle_inbound(
     coordinator: Arc<SessionCoordinator>,
     turn_event_sink: Arc<dyn TurnEventSink>,
     cron_repo: Arc<dyn CronJobRepo>,
+    inbound_sink: mpsc::Sender<InboundEvent>,
     inbound: InboundEvent,
 ) -> Result<()> {
     let submission = coordinator.submit_or_queue(inbound.clone());
@@ -303,6 +305,7 @@ pub async fn handle_inbound(
             turn_event_sink.clone(),
             cron_repo.clone(),
             coordinator.clone(),
+            inbound_sink.clone(),
         )
         .await?;
 
@@ -623,6 +626,7 @@ async fn process_single_turn(
     turn_event_sink: Arc<dyn TurnEventSink>,
     cron_repo: Arc<dyn CronJobRepo>,
     coordinator: Arc<SessionCoordinator>,
+    inbound_sink: mpsc::Sender<InboundEvent>,
 ) -> Result<()> {
     if inbound.text.trim().is_empty() && inbound.attachments.is_empty() {
         return Ok(());
@@ -816,8 +820,27 @@ async fn process_single_turn(
             };
 
             // Queue via coordinator so the parent's polling loop picks it up
-            // in drain_queued() before it exits.
-            coordinator.submit_or_queue(notification);
+            // in drain_queued() before it exits. If the parent's turn has
+            // already finished (no coordinator entry), submit_or_queue inserts
+            // a *fresh* reservation that no running task owns — leaving the
+            // parent session permanently reserved and the delegate result
+            // undelivered. In that case, dispatch the notification through the
+            // real inbound path so a handler runs it and calls finish_turn.
+            match coordinator.submit_or_queue(notification.clone()) {
+                Submission::Queued => {}
+                Submission::RunNow => {
+                    // Release the reservation we just took; handle_inbound's own
+                    // submit_or_queue will re-reserve and own the lifecycle.
+                    let _ = coordinator.finish_turn(&notification.session_id);
+                    if let Err(e) = inbound_sink.send(notification).await {
+                        warn!(
+                            error = %e,
+                            job_id = %job_id,
+                            "failed to re-dispatch delegate result to parent session"
+                        );
+                    }
+                }
+            }
 
             // NOW mark the job as completed (after notification is queued).
             if let Err(e) = cron_repo

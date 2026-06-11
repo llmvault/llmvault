@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -110,6 +111,24 @@ func TestRetryFailedEvent_EnqueuesAndMarksRetried(t *testing.T) {
 		t.Fatal("expected TaskInfo")
 	}
 	enqueuer.AssertEnqueued(t, tasks.TypeEmployeeTriggerDispatch)
+
+	// P0-11: the retry must re-apply the task's original critical-queue option
+	// (passed at enqueue time) instead of falling back to asynq defaults.
+	enqueuedTasks := enqueuer.Tasks()
+	if len(enqueuedTasks) != 1 {
+		t.Fatalf("enqueued %d tasks, want 1", len(enqueuedTasks))
+	}
+	var hasCriticalQueue bool
+	for _, opt := range enqueuedTasks[0].Options {
+		if opt.Type() == asynq.QueueOpt {
+			if name, ok := opt.Value().(string); ok && name == tasks.QueueCritical {
+				hasCriticalQueue = true
+			}
+		}
+	}
+	if !hasCriticalQueue {
+		t.Fatalf("retry did not forward the critical queue option: %#v", enqueuedTasks[0].Options)
+	}
 
 	var reloaded model.FailedEvent
 	if err := db.Where("id = ?", row.ID).First(&reloaded).Error; err != nil {

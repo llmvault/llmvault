@@ -98,7 +98,14 @@ func (h *EmployeeOutboundWebhookHandler) Handle(w http.ResponseWriter, r *http.R
 	if event.At.IsZero() {
 		event.At = h.now().UTC()
 	}
-	h.storeAndMaybeEnqueue(ctx, sb, &event)
+	if err := h.storeAndMaybeEnqueue(ctx, sb, &event); err != nil {
+		// A revenue- or reply-bearing record could not be durably persisted.
+		// Return 5xx so the runtime outbox redelivers; the generation insert is
+		// idempotent (deterministic ID), so the retry will not double-bill.
+		captureEmployeeWebhookIngest(ctx, "store_outbound_event", sb, &event, "", "", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to persist event"})
+		return
+	}
 	if err := h.db.WithContext(ctx).Model(sb).Update("last_active_at", h.now()).Error; err != nil {
 		captureEmployeeWebhookIngest(ctx, "update_last_active", sb, &event, "", "", err)
 	}
@@ -145,7 +152,12 @@ func (h *EmployeeOutboundWebhookHandler) verifySignature(ctx context.Context, sb
 	return hmac.Equal([]byte(expected), []byte(signature))
 }
 
-func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, sb *model.Sandbox, event *employeeOutboundEvent) {
+// storeAndMaybeEnqueue persists the event and triggers any follow-up work. It
+// returns a non-nil error only for failures that lose a revenue- or reply-bearing
+// record (the runtime model-usage generation row), so the caller can return 5xx
+// and have the runtime outbox redeliver. Best-effort side effects (memory retain,
+// gateway delivery, schedule sync) are captured to Sentry but never bubble up.
+func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, sb *model.Sandbox, event *employeeOutboundEvent) error {
 	payload := map[string]any{}
 	if len(event.Payload) > 0 {
 		if err := json.Unmarshal(event.Payload, &payload); err != nil {
@@ -168,7 +180,12 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	}
 	if event.EventType == "agent.run.model.usage" {
 		if err := h.recordRuntimeModelUsageGeneration(ctx, sb, event, payload); err != nil {
+			// This is the sole billing record for runtime LLM usage; losing it is
+			// unbilled revenue. Surface the failure so the webhook returns 5xx and
+			// the runtime outbox retries (the row's deterministic ID makes the
+			// retry idempotent).
 			captureEmployeeWebhookIngest(ctx, "record_runtime_generation", sb, event, sessionID, source, err)
+			return fmt.Errorf("record runtime model usage: %w", err)
 		}
 	}
 	if event.EventType == "skill.synced" {
@@ -180,21 +197,21 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload, specialistTask)
 		if err != nil {
 			captureEmployeeWebhookIngest(ctx, "ensure_employee_session", sb, event, sessionID, source, err)
-			return
+			return fmt.Errorf("ensure employee session: %w", err)
 		}
 		if createdSession {
 			precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
 			h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
 		}
-		return
+		return nil
 	}
 	if !shouldStoreEmployeeSessionEvent(event.EventType) {
-		return
+		return nil
 	}
 	session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload, specialistTask)
 	if err != nil {
 		captureEmployeeWebhookIngest(ctx, "ensure_employee_session", sb, event, sessionID, source, err)
-		return
+		return fmt.Errorf("ensure employee session: %w", err)
 	}
 	if createdSession {
 		precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.EmployeeID)
@@ -203,7 +220,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	stored, ok := employeeSessionEventFromOutbound(sb, event, payload, session.ID, sessionID)
 	if !ok {
 		captureEmployeeWebhookIngest(ctx, "drop_missing_sandbox_owner", sb, event, sessionID, source, fmt.Errorf("employee sandbox missing org_id or employee_id"))
-		return
+		return nil
 	}
 	if taskFound {
 		stored.Mode = "specialist"
@@ -213,8 +230,14 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		stored.Mode = "employee"
 	}
 	if h.writer != nil {
+		// Buffered path: durability is provided by the writer's retrying drain
+		// (see EmployeeEventWriter.flushBatch). The ack does not block on the
+		// async write, but a transient DB error no longer silently drops the row.
 		h.writer.Write(ctx, stored)
 	} else {
+		// Synchronous path (no writer configured): the ack must depend on the
+		// durable write, so propagate the failure to a 5xx and let the runtime
+		// outbox redeliver.
 		err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if err := tx.Create(&stored).Error; err != nil {
 				return err
@@ -226,7 +249,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		})
 		if err != nil {
 			captureEmployeeSessionEventFailure(ctx, "store_memory_event", stored, err)
-			return
+			return fmt.Errorf("store session event: %w", err)
 		}
 		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.EmployeeID)
 	}
@@ -253,6 +276,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	if event.EventType == "session.completed" {
 		h.markEmployeeSessionEnded(ctx, session.ID, event.At)
 	}
+	return nil
 }
 
 func shouldDeliverGatewayRuntimeFinal(session *model.EmployeeSession, payload map[string]any) bool {

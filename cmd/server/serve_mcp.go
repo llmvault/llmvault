@@ -30,7 +30,7 @@ func setupMCPServer(
 ) *http.Server {
 	mcpRouter := chi.NewRouter()
 	mcpRouter.Use(chimw.RequestID)
-	mcpRouter.Use(chimw.RealIP)
+	mcpRouter.Use(middleware.RealIP(cfg.TrustedProxyCIDRs))
 	mcpRouter.Use(sentryobs.Middleware())
 	mcpRouter.Use(sentryobs.Recoverer())
 	mcpRouter.Use(middleware.RequestLog(slog.Default()))

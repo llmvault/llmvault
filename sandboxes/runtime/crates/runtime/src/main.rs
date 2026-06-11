@@ -253,8 +253,14 @@ async fn main() -> Result<()> {
             let coordinator = coordinator.clone();
             let turn_event_sink: Arc<dyn handler::TurnEventSink> = http_stream_broker.clone();
             let cron_repo = cron_repo.clone();
+            let inbound_sink = inbound_sink.clone();
+            // Capture the session id before moving `inbound` into the task so a
+            // panicking turn can be cleaned up from the coordinator (P0-26).
+            let session_id = inbound.session_id.clone();
+            let panic_guard_coordinator = coordinator.clone();
             tokio::spawn(async move {
-                if let Err(e) = handler::handle_inbound(
+                use futures::FutureExt;
+                let result = std::panic::AssertUnwindSafe(handler::handle_inbound(
                     runner,
                     gateway,
                     cfg,
@@ -263,20 +269,50 @@ async fn main() -> Result<()> {
                     coordinator,
                     turn_event_sink,
                     cron_repo,
+                    inbound_sink,
                     inbound,
-                )
-                .await
-                {
-                    error!(error = %e, "handler::handle_inbound failed");
-                    sentry::with_scope(
-                        |scope| scope.set_extra("internal_error", e.to_string().into()),
-                        || {
-                            sentry::capture_message(
-                                "handler::handle_inbound failed",
-                                sentry::Level::Error,
-                            )
-                        },
-                    );
+                ))
+                .catch_unwind()
+                .await;
+                match result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => {
+                        error!(error = %e, "handler::handle_inbound failed");
+                        sentry::with_scope(
+                            |scope| scope.set_extra("internal_error", e.to_string().into()),
+                            || {
+                                sentry::capture_message(
+                                    "handler::handle_inbound failed",
+                                    sentry::Level::Error,
+                                )
+                            },
+                        );
+                    }
+                    Err(panic) => {
+                        // The turn task panicked. Release the coordinator entry so
+                        // future inbound messages for this session are not queued
+                        // forever behind a turn that will never call finish_turn.
+                        panic_guard_coordinator.finish_turn(&session_id);
+                        let panic_msg = panic
+                            .downcast_ref::<&str>()
+                            .map(|s| s.to_string())
+                            .or_else(|| panic.downcast_ref::<String>().cloned())
+                            .unwrap_or_else(|| "unknown panic".to_string());
+                        error!(
+                            session_id = %session_id.as_str(),
+                            panic = %panic_msg,
+                            "handler::handle_inbound panicked; released session coordinator entry"
+                        );
+                        sentry::with_scope(
+                            |scope| scope.set_extra("panic", panic_msg.into()),
+                            || {
+                                sentry::capture_message(
+                                    "handler::handle_inbound panicked",
+                                    sentry::Level::Error,
+                                )
+                            },
+                        );
+                    }
                 }
             });
         }

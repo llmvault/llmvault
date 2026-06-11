@@ -60,9 +60,15 @@ func (s Selector) MainRuntimeMap(ctx context.Context, orgID uuid.UUID, employeeI
 	return out, nil
 }
 
+// activeSandboxStatuses are the statuses the selector treats as an existing
+// main runtime. 'creating'/'starting'/'stopped' rows must be returned (and the
+// caller routes them through EnsureSandboxActive) so concurrent syncs reuse an
+// in-flight or idle sandbox instead of minting a duplicate billing sandbox.
+var activeSandboxStatuses = []string{"running", "creating", "starting", "stopped"}
+
 func (s Selector) baseQuery(ctx context.Context, orgID, employeeID uuid.UUID) *gorm.DB {
 	q := s.DB.WithContext(ctx).
-		Where("org_id = ? AND status = ?", orgID, "running")
+		Where("org_id = ? AND status IN ?", orgID, activeSandboxStatuses)
 	if employeeID != uuid.Nil {
 		q = q.Where("employee_id = ?", employeeID)
 	}

@@ -106,3 +106,20 @@ func (h *SandboxLifecycleHandler) Handle(ctx context.Context, _ *asynq.Task) err
 	h.orchestrator.RunSandboxLifecycle(ctx)
 	return nil
 }
+
+// SandboxReapHandler releases leaked paid compute that the inline post-create
+// cleanup could not (worker death mid-provision, transient provider error,
+// specialist tasks the LLM never terminated, warm slots stranded in
+// claiming/deleting).
+type SandboxReapHandler struct {
+	orchestrator *sandbox.Orchestrator
+}
+
+func NewSandboxReapHandler(orchestrator *sandbox.Orchestrator) *SandboxReapHandler {
+	return &SandboxReapHandler{orchestrator: orchestrator}
+}
+
+func (h *SandboxReapHandler) Handle(ctx context.Context, _ *asynq.Task) error {
+	h.orchestrator.RunSandboxReaper(ctx)
+	return nil
+}

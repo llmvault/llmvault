@@ -10,6 +10,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
@@ -23,10 +24,10 @@ import (
 const triggerConversationSource = "trigger"
 
 func init() {
-	RegisterTaskBuilder(TypeEmployeeTriggerDispatch, func(payload []byte) (*asynq.Task, error) {
+	RegisterTaskBuilder(TypeEmployeeTriggerDispatch, func(payload []byte) (*asynq.Task, []asynq.Option, error) {
 		var p EmployeeTriggerDispatchPayload
 		if err := json.Unmarshal(payload, &p); err != nil {
-			return nil, fmt.Errorf("unmarshal employee trigger dispatch payload: %w", err)
+			return nil, nil, fmt.Errorf("unmarshal employee trigger dispatch payload: %w", err)
 		}
 		return NewEmployeeTriggerDispatchTask(p)
 	})
@@ -204,6 +205,25 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		return err
 	}
 
+	// Claim this (trigger, delivery) before the irreversible PostHTTPMessage.
+	// asynq retries the whole batch on any failure, so without this claim a retry
+	// re-delivers triggers 1..N-1 that already succeeded — the agent would act
+	// twice (open duplicate PRs, send duplicate messages). A claimed row means a
+	// prior attempt already posted, so skip.
+	claimed, err := h.claimTriggerDelivery(ctx, payload, trigger, conv, compiled)
+	if err != nil {
+		captureTriggerDispatchBoundary(ctx, "claim_trigger_delivery", payload, trigger, compiled.ResourceKey, conv.ID.String(), err)
+		return err
+	}
+	if !claimed {
+		logging.FromContext(ctx).InfoContext(ctx, "employee trigger already delivered, skipping",
+			"trigger_id", trigger.ID,
+			"employee_id", trigger.EmployeeID,
+			"delivery_id", payload.DeliveryID,
+			"event_key", eventKey(payload.EventType, payload.EventAction))
+		return nil
+	}
+
 	resp, err := client.PostHTTPMessage(ctx, employeeruntime.HTTPMessageRequest{
 		Text:            compiled.Text,
 		ConversationID:  conv.RuntimeConversationID,
@@ -212,11 +232,71 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		Raw:             compiled.Raw,
 	})
 	if err != nil {
+		// The post never reached the runtime, so release the claim to allow the
+		// asynq retry to re-deliver this trigger. Earlier triggers in the batch
+		// keep their claims and are not re-delivered.
+		h.releaseTriggerDeliveryClaim(ctx, trigger.ID, payload.DeliveryID)
 		captureTriggerDispatchBoundary(ctx, "post_http_message", payload, trigger, compiled.ResourceKey, conv.ID.String(), err)
 		return fmt.Errorf("post employee trigger message: %w", err)
 	}
 	h.enqueueStoreDelivery(ctx, payload, trigger, conv, compiled, resp)
 	return nil
+}
+
+// claimTriggerDelivery inserts the delivery row for (trigger_id, delivery_id)
+// before the message is posted, using ON CONFLICT DO NOTHING against the unique
+// index. It returns true if this attempt won the claim (and should post), false
+// if a prior attempt already claimed it (already delivered, skip). Runtime
+// correlation fields are filled in afterwards by the store-delivery task.
+func (h *EmployeeTriggerDispatchHandler) claimTriggerDelivery(ctx context.Context, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage) (bool, error) {
+	if strings.TrimSpace(payload.DeliveryID) == "" {
+		// No stable delivery id to dedupe on; fall back to always-deliver.
+		return true, nil
+	}
+	raw := payload.PayloadJSON
+	if len(raw) == 0 {
+		raw = []byte("{}")
+	}
+	row := model.EmployeeTriggerDelivery{
+		OrgID:                 trigger.OrgID,
+		EmployeeID:            trigger.EmployeeID,
+		TriggerID:             trigger.ID,
+		ConnectionID:          trigger.ConnectionID,
+		DeliveryID:            payload.DeliveryID,
+		EventKey:              eventKey(payload.EventType, payload.EventAction),
+		ResourceKey:           compiled.ResourceKey,
+		ConversationID:        conv.ID,
+		RuntimeConversationID: conv.RuntimeConversationID,
+		Payload:               model.RawJSON(raw),
+	}
+	result := h.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:     []clause.Column{{Name: "trigger_id"}, {Name: "delivery_id"}},
+			TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("delivery_id <> ?", "")}},
+			DoNothing:   true,
+		}).
+		Create(&row)
+	if result.Error != nil {
+		return false, fmt.Errorf("claim trigger delivery: %w", result.Error)
+	}
+	return result.RowsAffected > 0, nil
+}
+
+// releaseTriggerDeliveryClaim removes a claim whose post failed so the asynq
+// retry can re-deliver. It only deletes rows that have not yet recorded a
+// runtime session id (i.e. were never confirmed delivered).
+func (h *EmployeeTriggerDispatchHandler) releaseTriggerDeliveryClaim(ctx context.Context, triggerID uuid.UUID, deliveryID string) {
+	if strings.TrimSpace(deliveryID) == "" {
+		return
+	}
+	if err := h.db.WithContext(ctx).
+		Where("trigger_id = ? AND delivery_id = ? AND runtime_session_id = ?", triggerID, deliveryID, "").
+		Delete(&model.EmployeeTriggerDelivery{}).Error; err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("release trigger delivery claim: %w", err), map[string]any{
+			"trigger_id":  triggerID.String(),
+			"delivery_id": deliveryID,
+		})
+	}
 }
 
 func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, resourceKey, conversationID string, err error) {

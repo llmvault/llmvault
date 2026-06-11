@@ -70,6 +70,16 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			Task:     asynq.NewTask(TypeSandboxLifecycle, nil),
 			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(10 * time.Minute)},
 		})
+
+		// Sandbox reaper: releases leaked paid compute that the inline
+		// post-create cleanup could not — sandboxes stuck in creating/error
+		// beyond a TTL, idle/terminated specialist sandboxes, and warm slots
+		// stranded in claiming/deleting.
+		configs = append(configs, &asynq.PeriodicTaskConfig{
+			Cronspec: "@every 5m",
+			Task:     asynq.NewTask(TypeSandboxReap, nil),
+			Opts:     []asynq.Option{asynq.Queue(QueuePeriodic), asynq.MaxRetry(1), asynq.Timeout(10 * time.Minute)},
+		})
 	}
 
 	if ragSched != nil {

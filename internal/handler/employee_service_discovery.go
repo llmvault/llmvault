@@ -128,7 +128,7 @@ func upsertServiceDiscoverySchedule(ctx context.Context, db *gorm.DB, orgID, emp
 	schedule := model.EmployeeSchedule{
 		OrgID:            orgID,
 		EmployeeID:       employeeID,
-		SandboxID:        sandboxID,
+		SandboxID:        &sandboxID,
 		RuntimeJobID:     runtimeJobID,
 		IsSystem:         true,
 		Provider:         provider,

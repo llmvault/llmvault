@@ -101,13 +101,19 @@ func ValidateBaseURL(raw string) error {
 		return nil
 	}
 
-	// Attempt DNS resolution and validate all returned IPs
+	// Resolve and validate every returned IP. A resolution error is fatal:
+	// allowing it through would let an unresolvable (or attacker-timed) host
+	// reach the dial path, where it could re-resolve to a disallowed address.
 	ips, err := net.LookupIP(host)
-	if err == nil {
-		for _, ip := range ips {
-			if isDisallowedIP(ip) {
-				return errors.New("invalid base_url: destination resolves to a disallowed address")
-			}
+	if err != nil {
+		return errors.New("invalid base_url: host resolution failed")
+	}
+	if len(ips) == 0 {
+		return errors.New("invalid base_url: host did not resolve to any address")
+	}
+	for _, ip := range ips {
+		if isDisallowedIP(ip) {
+			return errors.New("invalid base_url: destination resolves to a disallowed address")
 		}
 	}
 

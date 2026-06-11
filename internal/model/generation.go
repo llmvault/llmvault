@@ -52,6 +52,12 @@ type Generation struct {
 
 	CreditsDebited    int64  `gorm:"default:0;not null" json:"credits_debited"`
 	BillingCostSource string `gorm:"type:text;default:'';not null" json:"billing_cost_source,omitempty"`
+
+	// BillingAttempts counts how many times the billing batch has tried to debit
+	// this row. Rows that fail with insufficient_credits keep billed_at NULL and
+	// stay in the unbilled queue so a later top-up rebills them; this counter
+	// caps the retries so a permanently underfunded org can't hot-loop the batch.
+	BillingAttempts int `gorm:"default:0;not null" json:"billing_attempts"`
 }
 
 func (Generation) TableName() string { return "generations" }

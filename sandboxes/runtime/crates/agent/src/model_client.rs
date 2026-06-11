@@ -17,18 +17,58 @@ use crate::{AgentError, Result};
 
 pub type ModelEventStream = Pin<Box<dyn Stream<Item = Result<ModelStreamEvent>> + Send>>;
 
+/// Maximum time to establish a TCP/TLS connection to the provider.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+/// Maximum time to receive response headers after the request is sent.
+/// Bounds half-open connections that accept the request but never reply.
+const HEADER_TIMEOUT: Duration = Duration::from_secs(60);
+/// Maximum idle time between streamed body chunks before the connection is
+/// considered stalled. A token stream that goes silent this long is treated as
+/// a retryable transport failure rather than hanging the turn forever.
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Idle deadlines applied around the header and body phases of a streamed model
+/// request. A stalled provider connection (routine during provider incidents)
+/// would otherwise hang `send().await` or `bytes.next().await` forever and lock
+/// the turn until the process restarts.
+#[derive(Debug, Clone, Copy)]
+pub struct ModelTimeouts {
+    pub header: Duration,
+    pub stream_idle: Duration,
+}
+
+impl Default for ModelTimeouts {
+    fn default() -> Self {
+        Self {
+            header: HEADER_TIMEOUT,
+            stream_idle: STREAM_IDLE_TIMEOUT,
+        }
+    }
+}
+
+/// Build the shared HTTP client with connect timeout configured. There is no
+/// overall request timeout because the body is an open-ended SSE stream; idle
+/// deadlines are enforced explicitly around the header and body phases instead.
+fn build_http_client() -> Client {
+    Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        .build()
+        .unwrap_or_else(|_| Client::new())
+}
+
 #[derive(Debug, Clone)]
 pub struct ChatModelClient {
     http: Client,
     endpoints: Vec<ModelEndpoint>,
     retry_policy: ModelRetryPolicy,
+    timeouts: ModelTimeouts,
     json_repair: JsonRepair,
 }
 
 impl ChatModelClient {
     pub fn new(base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
         Self {
-            http: Client::new(),
+            http: build_http_client(),
             endpoints: vec![ModelEndpoint {
                 base_url: base_url.into().trim_end_matches('/').to_string(),
                 api_key: api_key.into(),
@@ -37,6 +77,7 @@ impl ChatModelClient {
                 cache_policy: CacheControlPolicy::Disabled,
             }],
             retry_policy: ModelRetryPolicy::default(),
+            timeouts: ModelTimeouts::default(),
             json_repair: JsonRepair::new(),
         }
     }
@@ -56,9 +97,10 @@ impl ChatModelClient {
         let cache_policy = primary.cache_policy;
         Ok(ModelClientConfig {
             client: Self {
-                http: Client::new(),
+                http: build_http_client(),
                 endpoints,
                 retry_policy: ModelRetryPolicy::default(),
+                timeouts: ModelTimeouts::default(),
                 json_repair: JsonRepair::new(),
             },
             model_id,
@@ -74,13 +116,24 @@ impl ChatModelClient {
         self
     }
 
+    pub fn with_timeouts(mut self, timeouts: ModelTimeouts) -> Self {
+        self.timeouts = timeouts;
+        self
+    }
+
     pub async fn stream(&self, request: ModelRequest) -> Result<ModelEventStream> {
         let mut last_failure = None;
 
         for (endpoint_index, endpoint) in self.endpoints.iter().enumerate() {
             for attempt in 1..=self.retry_policy.max_attempts {
                 match self.send_once(endpoint, &request).await {
-                    Ok(response) => return Ok(stream_response(response, &self.json_repair)),
+                    Ok(response) => {
+                        return Ok(stream_response(
+                            response,
+                            &self.json_repair,
+                            self.timeouts.stream_idle,
+                        ))
+                    }
                     Err(failure) => {
                         let should_retry = failure.class.is_retryable()
                             && attempt < self.retry_policy.max_attempts;
@@ -150,10 +203,15 @@ impl ChatModelClient {
         for (name, value) in &endpoint.extra_headers {
             builder = builder.header(name, value);
         }
-        let response = builder
-            .send()
-            .await
-            .map_err(ModelRequestFailure::from_transport_error)?;
+        let response = match tokio::time::timeout(self.timeouts.header, builder.send()).await {
+            Ok(result) => result.map_err(ModelRequestFailure::from_transport_error)?,
+            Err(_) => {
+                return Err(ModelRequestFailure::timeout(format!(
+                    "model response headers timed out after {}s",
+                    self.timeouts.header.as_secs()
+                )));
+            }
+        };
 
         if !response.status().is_success() {
             let status = response.status();
@@ -290,6 +348,14 @@ impl ModelRequestFailure {
         }
     }
 
+    fn timeout(message: String) -> Self {
+        Self {
+            class: ModelErrorClass::Timeout,
+            status: None,
+            message,
+        }
+    }
+
     fn from_http_error(status: u16, body: String) -> Self {
         let message = extract_model_error_message(&body);
         Self {
@@ -313,7 +379,11 @@ impl ModelRequestFailure {
     }
 }
 
-fn stream_response(response: Response, json_repair: &JsonRepair) -> ModelEventStream {
+fn stream_response(
+    response: Response,
+    json_repair: &JsonRepair,
+    idle_timeout: Duration,
+) -> ModelEventStream {
     let bytes = response.bytes_stream();
     let json_repair = json_repair.clone();
     Box::pin(stream! {
@@ -322,7 +392,21 @@ fn stream_response(response: Response, json_repair: &JsonRepair) -> ModelEventSt
         let mut last_finish_reason: Option<FinishReason> = None;
         let mut saw_event = false;
         futures::pin_mut!(bytes);
-        while let Some(chunk) = bytes.next().await {
+        loop {
+            let next = match tokio::time::timeout(idle_timeout, bytes.next()).await {
+                Ok(next) => next,
+                Err(_) => {
+                    let failure = ModelRequestFailure::timeout(format!(
+                        "model stream stalled: no data for {}s",
+                        idle_timeout.as_secs()
+                    ));
+                    yield Err(failure.into_agent_error());
+                    return;
+                }
+            };
+            let Some(chunk) = next else {
+                break;
+            };
             let chunk = match chunk {
                 Ok(chunk) => chunk,
                 Err(error) => {
@@ -642,7 +726,7 @@ mod tests {
     use std::collections::{HashMap, VecDeque};
     use std::net::SocketAddr;
     use std::sync::Arc;
-    use std::time::UNIX_EPOCH;
+    use std::time::{Duration, UNIX_EPOCH};
 
     use axum::extract::State;
     use axum::http::{header, StatusCode};
@@ -652,6 +736,7 @@ mod tests {
     use domain::ModelConfig;
     use futures::StreamExt;
     use serde_json::json;
+    use tokio::io::AsyncWriteExt;
     use tokio::net::TcpListener;
     use tokio::sync::Mutex;
 
@@ -659,7 +744,7 @@ mod tests {
 
     use super::{
         classify_http_error, parse_thinking_delta, parse_usage, ChatModelClient, ModelErrorClass,
-        ModelRetryPolicy,
+        ModelRetryPolicy, ModelTimeouts,
     };
 
     #[test]
@@ -933,6 +1018,97 @@ mod tests {
             .expect_err("truncated SSE must not complete cleanly");
 
         assert!(err.to_string().contains("ended without [DONE]"));
+    }
+
+    /// A server that accepts the TCP connection but never sends any response
+    /// headers — a half-open connection. `send().await` must not hang forever.
+    #[tokio::test]
+    async fn header_phase_times_out_on_silent_server() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            // Accept the connection and hold it open without ever replying.
+            let (_socket, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let client = ChatModelClient::new(format!("http://{addr}"), "test-key")
+            .with_retry_policy(ModelRetryPolicy::no_delay(1))
+            .with_timeouts(ModelTimeouts {
+                header: Duration::from_millis(150),
+                stream_idle: Duration::from_secs(5),
+            });
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(5),
+            client.stream(test_request("test-model")),
+        )
+        .await
+        .expect("client must not hang past the header timeout");
+
+        let err = match result {
+            Ok(_) => panic!("silent header phase must surface a failure"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("timeout"),
+            "expected a retryable timeout failure, got: {err}"
+        );
+    }
+
+    /// A server that sends response headers and a partial SSE event, then stalls
+    /// indefinitely without sending `[DONE]`. `bytes.next().await` must surface a
+    /// retryable timeout rather than blocking the turn forever.
+    #[tokio::test]
+    async fn stream_phase_times_out_on_stalled_body() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            // Consume the request (best-effort) then write headers + one chunk and stall.
+            let mut buf = [0u8; 1024];
+            let _ = tokio::io::AsyncReadExt::read(&mut socket, &mut buf).await;
+            let head = "HTTP/1.1 200 OK\r\n\
+                 content-type: text/event-stream\r\n\
+                 transfer-encoding: chunked\r\n\r\n";
+            socket.write_all(head.as_bytes()).await.unwrap();
+            // One chunked body piece: a partial SSE line that never terminates.
+            let chunk = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n";
+            let framed = format!("{:x}\r\n{}\r\n", chunk.len(), chunk);
+            socket.write_all(framed.as_bytes()).await.unwrap();
+            socket.flush().await.unwrap();
+            // Hold the connection open without sending more or closing it.
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let client = ChatModelClient::new(format!("http://{addr}"), "test-key")
+            .with_retry_policy(ModelRetryPolicy::no_delay(1))
+            .with_timeouts(ModelTimeouts {
+                header: Duration::from_secs(5),
+                stream_idle: Duration::from_millis(150),
+            });
+
+        let mut stream = client
+            .stream(test_request("test-model"))
+            .await
+            .expect("stream should start after headers");
+
+        let err = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match stream.next().await {
+                    Some(Err(err)) => return err,
+                    Some(Ok(_)) => continue,
+                    None => panic!("stalled stream should error, not end cleanly"),
+                }
+            }
+        })
+        .await
+        .expect("stalled stream must not hang past the idle timeout");
+
+        assert!(
+            err.to_string().contains("stalled") || err.to_string().contains("timeout"),
+            "expected an idle-timeout failure, got: {err}"
+        );
     }
 
     struct FakeModelServer {
