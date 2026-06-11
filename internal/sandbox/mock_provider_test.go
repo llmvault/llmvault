@@ -28,6 +28,8 @@ type mockProvider struct {
 	endpointPorts       []int               // captured port arg of every GetEndpoint call
 	warmEndpoint        string
 	warmCreateCalls     []WarmSlotCreateOpts
+	stopErr             error // if set, StopSandbox returns this without changing state
+	archiveErr          error // if set, ArchiveSandbox returns this without changing state
 }
 
 // autoPolicyCall records one invocation of SetAutoStop / SetAutoArchive.
@@ -106,6 +108,9 @@ func (m *mockProvider) StopSandbox(_ context.Context, externalID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.stopErr != nil {
+		return m.stopErr
+	}
 	sb, ok := m.sandboxes[externalID]
 	if !ok {
 		return fmt.Errorf("sandbox not found: %s", externalID)
@@ -219,6 +224,9 @@ func (m *mockProvider) SetAutoArchive(_ context.Context, externalID string, inte
 func (m *mockProvider) ArchiveSandbox(_ context.Context, externalID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.archiveErr != nil {
+		return m.archiveErr
+	}
 	sb, ok := m.sandboxes[externalID]
 	if !ok {
 		return fmt.Errorf("sandbox not found: %s", externalID)

@@ -205,7 +205,7 @@ func TestGenerateConversationTitle_ToolPathNoToolCallsFallsBackToContent(t *test
 func TestNewConversationNameTask(t *testing.T) {
 	id := uuid.New()
 
-	task, err := NewConversationNameTask(id)
+	task, opts, err := NewConversationNameTask(id)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -219,5 +219,12 @@ func TestNewConversationNameTask(t *testing.T) {
 	}
 	if payload.ConversationID != id {
 		t.Errorf("payload conversation id = %v, want %v", payload.ConversationID, id)
+	}
+
+	// Options must be returned separately (not baked into the task) so they
+	// survive the enqueue client's Sentry trace-payload rewrite (P0-11).
+	queue, ok := queueFromOptions(opts)
+	if !ok || queue != QueueBulk {
+		t.Errorf("expected bulk queue option, got %q (present=%v)", queue, ok)
 	}
 }

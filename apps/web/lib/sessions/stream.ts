@@ -76,6 +76,35 @@ export function decideReconnect(
 }
 
 /**
+ * Run an async setup step (e.g. `directStreamURL`, `streamAuthToken`) that
+ * must complete before the streaming body starts, catching any thrown error so
+ * callers can clear `isStreaming` instead of leaving the composer stuck.
+ *
+ * Returns `{ ok: true, value }` when both setup and body succeed, or
+ * `{ ok: false, error }` when *setup* throws.  Body errors are re-thrown so
+ * they propagate through the caller's own try/finally (where `isStreaming` is
+ * already cleared).
+ *
+ * This function is extracted here so it can be unit-tested without a React
+ * environment — the actual error path used to live as a bare `await` before
+ * the try/finally in `startSessionStream`, which meant any setup failure
+ * bypassed the finally block and left `isStreaming: true` forever (P1-11).
+ */
+export async function runWithStreamSetup<T, R>(
+  setup: () => Promise<T>,
+  body: (value: T) => Promise<R>
+): Promise<{ ok: true; value: R } | { ok: false; error: unknown }> {
+  let setupValue: T
+  try {
+    setupValue = await setup()
+  } catch (err) {
+    return { ok: false, error: err }
+  }
+  const value = await body(setupValue)
+  return { ok: true, value }
+}
+
+/**
  * Tracks how much streamed text has already been committed to the UI so that a
  * reconnect — which replays the broker's buffered history from the start — can
  * skip everything it has already rendered and append only the new suffix.

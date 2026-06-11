@@ -88,10 +88,29 @@ func (c *Counter) Decrement(ctx context.Context, key string) (DecrementResult, e
 	return DecrementResult(val), nil
 }
 
+// undoScript increments a counter by 1 only when the key still exists,
+// preserving its TTL. A bare INCR would recreate an expired (or never-seeded)
+// key as a TTL-less counter of 1, which then caps the token/credential at a
+// single request forever. EXISTS-then-INCR keeps INCR's TTL-preserving
+// behavior on a live key and no-ops on a missing one.
+//
+// Returns:
+//
+//	1 = incremented (key existed)
+//	0 = key did not exist (nothing to undo)
+var undoScript = redis.NewScript(`
+if redis.call("EXISTS", KEYS[1]) == 0 then
+    return 0
+end
+redis.call("INCR", KEYS[1])
+return 1
+`)
+
 // Undo increments the counter by 1 (used to roll back a token decrement when the
-// credential counter rejects the request).
+// credential counter rejects the request). It only increments when the key
+// still exists so an expired key is not resurrected as a TTL-less counter of 1.
 func (c *Counter) Undo(ctx context.Context, key string) error {
-	return c.rdb.Incr(ctx, key).Err()
+	return undoScript.Run(ctx, c.rdb, []string{key}).Err()
 }
 
 // Read returns the current counter value. Returns -1 if the key does not exist.
@@ -155,10 +174,25 @@ func (c *Counter) CheckAndRefillCredential(ctx context.Context, credentialID str
 		return false, fmt.Errorf("updating credential: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return false, nil // another instance did the refill
+		// Another instance won the CAS and refilled Postgres. Its Redis seed
+		// may have failed (or be in-flight), so reconcile Redis to the
+		// authoritative current value rather than leaving it exhausted. Seeding
+		// is idempotent: re-running it converges Redis to Postgres.
+		var current model.Credential
+		if err := c.db.Where("id = ?", credentialID).First(&current).Error; err != nil {
+			return false, fmt.Errorf("reloading credential: %w", err)
+		}
+		remaining := *cred.RefillAmount
+		if current.Remaining != nil {
+			remaining = *current.Remaining
+		}
+		if err := c.SeedCredential(ctx, credentialID, remaining); err != nil {
+			return false, fmt.Errorf("reseeding redis: %w", err)
+		}
+		return false, nil
 	}
 
-	// Reset Redis counter
+	// Reset Redis counter to the refilled amount.
 	if err := c.SeedCredential(ctx, credentialID, *cred.RefillAmount); err != nil {
 		return true, fmt.Errorf("reseeding redis: %w", err)
 	}
@@ -203,14 +237,30 @@ func (c *Counter) CheckAndRefillToken(ctx context.Context, jti string) (bool, er
 	if result.Error != nil {
 		return false, fmt.Errorf("updating token: %w", result.Error)
 	}
-	if result.RowsAffected == 0 {
-		return false, nil
-	}
 
 	ttlRemaining := time.Until(tok.ExpiresAt) + time.Minute
 	if ttlRemaining < 0 {
 		ttlRemaining = time.Minute
 	}
+
+	if result.RowsAffected == 0 {
+		// Another instance won the CAS and refilled Postgres; reconcile Redis to
+		// the authoritative current value (idempotent re-seed) so a failed seed
+		// by the winner does not leave the token capped at exhausted.
+		var current model.Token
+		if err := c.db.Where("jti = ?", jti).First(&current).Error; err != nil {
+			return false, fmt.Errorf("reloading token: %w", err)
+		}
+		remaining := *tok.RefillAmount
+		if current.Remaining != nil {
+			remaining = *current.Remaining
+		}
+		if err := c.SeedToken(ctx, jti, remaining, ttlRemaining); err != nil {
+			return false, fmt.Errorf("reseeding redis: %w", err)
+		}
+		return false, nil
+	}
+
 	if err := c.SeedToken(ctx, jti, *tok.RefillAmount, ttlRemaining); err != nil {
 		return true, fmt.Errorf("reseeding redis: %w", err)
 	}

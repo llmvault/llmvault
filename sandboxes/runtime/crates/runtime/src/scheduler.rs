@@ -580,7 +580,10 @@ mod tests {
         let interval = 600u64;
         let now = "2020-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
         let next_run_at = now + ChronoDuration::seconds(120);
-        assert_eq!(next_future_occurrence(next_run_at, interval, now), next_run_at);
+        assert_eq!(
+            next_future_occurrence(next_run_at, interval, now),
+            next_run_at
+        );
     }
 
     #[tokio::test]

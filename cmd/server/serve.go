@@ -248,7 +248,12 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	rsaPub := rsaKey.Public().(*rsa.PublicKey)
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler)
+	// Sandbox orchestration is expected whenever a provider is configured; if it
+	// is configured but the orchestrator is nil, the subsystem is silently
+	// missing and /readyz must report unavailable (P1-20).
+	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
+
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestratorMissing)
 
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
@@ -263,12 +268,15 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, driveHandler, sandboxEncKey, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Port),
-		Handler:      r,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 0,
-		IdleTimeout:  120 * time.Second,
-		ErrorLog:     sentryobs.NewStdlogBridge("api_server"),
+		Addr: fmt.Sprintf(":%d", cfg.Port),
+		Handler: r,
+		// ReadHeaderTimeout protects against Slowloris without killing long
+		// request bodies (drive uploads, sqlite backups from slow clients).
+		// Per-handler deadlines are set via request context instead.
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      0,
+		IdleTimeout:       120 * time.Second,
+		ErrorLog:          sentryobs.NewStdlogBridge("api_server"),
 	}
 
 	goroutine.Go(ctx, func(context.Context) {

@@ -52,8 +52,8 @@ func APIKeyAuth(db *gorm.DB, keyCache *cache.APIKeyCache, enqueuer enqueue.TaskE
 				r = WithOrg(r, &org)
 				r = WithAPIKeyClaims(r, claims)
 
-				if task, err := tasks.NewAPIKeyUpdateTask(cached.ID); err == nil {
-					_, _ = enqueuer.Enqueue(task)
+				if task, opts, err := tasks.NewAPIKeyUpdateTask(cached.ID); err == nil {
+					_, _ = enqueuer.Enqueue(task, opts...)
 				}
 
 				next.ServeHTTP(w, r)
@@ -94,8 +94,8 @@ func APIKeyAuth(db *gorm.DB, keyCache *cache.APIKeyCache, enqueuer enqueue.TaskE
 			r = WithOrg(r, &apiKey.Org)
 			r = WithAPIKeyClaims(r, claims)
 
-			if task, err := tasks.NewAPIKeyUpdateTask(apiKey.ID); err == nil {
-				_, _ = enqueuer.Enqueue(task)
+			if task, opts, err := tasks.NewAPIKeyUpdateTask(apiKey.ID); err == nil {
+				_, _ = enqueuer.Enqueue(task, opts...)
 			}
 
 			next.ServeHTTP(w, r)

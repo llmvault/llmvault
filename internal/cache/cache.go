@@ -14,6 +14,11 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+// credentialFetchTimeout bounds the detached singleflight fetch so a hung
+// L2/L3 lookup can't pin the flight (and its waiters) indefinitely after the
+// originating request ctx is gone.
+const credentialFetchTimeout = 15 * time.Second
+
 // DecryptedCredential is the fully resolved, plaintext credential returned
 // to callers of the cache manager.
 type DecryptedCredential struct {
@@ -21,6 +26,10 @@ type DecryptedCredential struct {
 	BaseURL    string
 	AuthScheme string
 	ProviderID string
+	// OrgID is the owning org of the resolved credential (uuid.Nil for
+	// global credentials). Callers use it to re-assert org isolation on
+	// singleflight-shared results.
+	OrgID uuid.UUID
 }
 
 // Manager orchestrates the 3-tier cache: L1 (memory) → L2 (Redis) → L3 (Postgres + KMS).
@@ -103,17 +112,35 @@ func (m *Manager) GetDecryptedCredential(ctx context.Context, credentialID strin
 				BaseURL:    cached.BaseURL,
 				AuthScheme: cached.AuthScheme,
 				ProviderID: cached.ProviderID,
+				OrgID:      cached.OrgID,
 			}, nil
 		}
 	}
 
-	v, err, _ := m.flight.Do(credentialID, func() (any, error) {
-		return m.resolveFromLowerTiers(ctx, credentialID, orgID)
+	// Key the flight by credential AND org: two orgs must never share a
+	// resolution (a uuid.Nil-org credential and an org-scoped one with the
+	// same ID would otherwise collide and return the wrong, unvalidated row).
+	flightKey := credentialID + "|" + orgID.String()
+
+	// Detach the shared fetch from the leader's request ctx: otherwise the
+	// first caller disconnecting cancels the fetch for every waiter, 5xx-ing
+	// unrelated proxy requests. Give it its own bounded deadline.
+	v, err, _ := m.flight.Do(flightKey, func() (any, error) {
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), credentialFetchTimeout)
+		defer cancel()
+		return m.resolveFromLowerTiers(fetchCtx, credentialID, orgID)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return v.(*DecryptedCredential), nil
+	cred := v.(*DecryptedCredential)
+	// resolveFromDB/L2 already filter by orgID, but the result is shared
+	// across all waiters on this key; re-assert the invariant defensively so
+	// a future key change can never leak a credential across orgs.
+	if cred.OrgID != orgID {
+		return nil, fmt.Errorf("credential not found or revoked")
+	}
+	return cred, nil
 }
 
 // resolveFromLowerTiers checks L2 then L3, promoting results upward.
@@ -137,6 +164,7 @@ func (m *Manager) resolveFromLowerTiers(ctx context.Context, credentialID string
 				BaseURL:    redisCred.BaseURL,
 				AuthScheme: redisCred.AuthScheme,
 				ProviderID: redisCred.ProviderID,
+				OrgID:      orgID,
 			}
 
 			m.promoteToL1(credentialID, orgID, apiKey, redisCred.BaseURL, redisCred.AuthScheme, redisCred.ProviderID)
@@ -197,6 +225,7 @@ func (m *Manager) resolveFromDB(ctx context.Context, credentialID string, orgID 
 		BaseURL:    dbCred.BaseURL,
 		AuthScheme: dbCred.AuthScheme,
 		ProviderID: dbCred.ProviderID,
+		OrgID:      orgID,
 	}, nil
 }
 

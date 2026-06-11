@@ -74,7 +74,7 @@ func TestRealHindsightEmployeeMemoryCheckpointFlow(t *testing.T) {
 		t.Fatalf("configure bank: %v", err)
 	}
 	handler := NewEmployeeMemoryRetainHandler(db, client, nil)
-	task, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{
+	task, _, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{
 		EmployeeID:  agentID,
 		SandboxID:   sandboxID,
 		SessionID:   sessionID,
@@ -157,7 +157,7 @@ func TestRealHindsightEmployeeMemoryProductionWorkload(t *testing.T) {
 	}
 	handler := NewEmployeeMemoryRetainHandler(db, client, nil)
 	for _, sessionID := range distinctProductionSessionIDs(t, db, agentID, sandboxID) {
-		task, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{
+		task, _, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{
 			EmployeeID:  agentID,
 			SandboxID:   sandboxID,
 			SessionID:   sessionID,

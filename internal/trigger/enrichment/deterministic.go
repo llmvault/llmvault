@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/mcpserver"
@@ -102,8 +103,10 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 	var waitGroup sync.WaitGroup
 
 	for index, enrichAction := range triggerDef.Enrichment {
+		idx := index
+		action := enrichAction
 		waitGroup.Add(1)
-		go func(idx int, action catalog.EnrichmentAction) {
+		goroutine.Go(ctx, func(ctx context.Context) {
 			defer waitGroup.Done()
 
 			result := enrichmentResult{As: action.As, Action: action.Action}
@@ -134,7 +137,7 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 			result.Data = data
 			result.Err = err
 			results[idx] = result
-		}(index, enrichAction)
+		})
 	}
 
 	waitGroup.Wait()

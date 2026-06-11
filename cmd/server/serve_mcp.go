@@ -58,12 +58,12 @@ func setupMCPServer(
 	})
 
 	mcpSrv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.MCPPort),
-		Handler:      mcpRouter,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 0,
-		IdleTimeout:  120 * time.Second,
-		ErrorLog:     sentryobs.NewStdlogBridge("mcp_server"),
+		Addr:              fmt.Sprintf(":%d", cfg.MCPPort),
+		Handler:           mcpRouter,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      0,
+		IdleTimeout:       120 * time.Second,
+		ErrorLog:          sentryobs.NewStdlogBridge("mcp_server"),
 	}
 
 	mcpHandler.ServerCache.StartCleanup(ctx, 5*time.Minute)

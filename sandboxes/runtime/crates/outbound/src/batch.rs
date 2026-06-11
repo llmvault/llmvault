@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 use tracing::warn;
 
 use crate::webhook::{compute_signature, filter_matches};
-use crate::{OutboundError, Result};
+use crate::{DatabaseEventQueue, OutboundError, Result};
 
 const HTTP_TIMEOUT_SECONDS: u64 = 30;
 const MAX_BATCH_EVENTS: usize = 1000;
@@ -25,6 +25,10 @@ pub struct StreamBatcher {
     sinks: Vec<BatchWebhookSink>,
     state: Mutex<BatchState>,
     http: HttpClient,
+    /// Durable fallback for batches that fail every sink delivery. Failed spans
+    /// are requeued here so the SQLite outbox persists them (and Go re-derives
+    /// the span) instead of being silently dropped from persistence.
+    requeue: Option<Arc<DatabaseEventQueue>>,
 }
 
 #[derive(Clone)]
@@ -96,7 +100,19 @@ impl StreamBatcher {
             sinks,
             state: Mutex::new(BatchState::default()),
             http,
+            requeue: None,
         })))
+    }
+
+    /// Attach a durable queue that failed batches are requeued into instead of
+    /// being dropped. Returns a new `StreamBatcher` sharing the same sinks.
+    pub fn with_requeue(self: Arc<Self>, requeue: Arc<DatabaseEventQueue>) -> Arc<Self> {
+        Arc::new(Self {
+            sinks: self.sinks.clone(),
+            state: Mutex::new(BatchState::default()),
+            http: self.http.clone(),
+            requeue: Some(requeue),
+        })
     }
 
     pub async fn emit(&self, event: OutboundEvent) -> Result<bool> {
@@ -170,7 +186,7 @@ impl StreamBatcher {
     async fn flush_locked(&self, state: &mut BatchState) -> Result<()> {
         state.finish_all();
         let events = state.drain_pending();
-        send_batch_events(self.http.clone(), self.sinks.clone(), events).await
+        send_batch_events(&self.http, &self.sinks, self.requeue.as_ref(), events).await
     }
 
     fn spawn_send(&self, events: Vec<OutboundEvent>) {
@@ -179,60 +195,136 @@ impl StreamBatcher {
         }
         let http = self.http.clone();
         let sinks = self.sinks.clone();
+        let requeue = self.requeue.clone();
         tokio::spawn(async move {
-            if let Err(error) = send_batch_events(http, sinks, events).await {
+            if let Err(error) = send_batch_events(&http, &sinks, requeue.as_ref(), events).await {
                 warn!(%error, "stream batch background flush failed");
             }
         });
     }
 }
 
+/// Deliver a drained batch to every sink, serialized one sink at a time.
+///
+/// A failure on one sink never aborts delivery to the remaining sinks. Events
+/// that no sink accepted-and-delivered successfully are requeued into the
+/// durable database queue (when configured) so they are persisted rather than
+/// dropped; otherwise the aggregate error is returned to the caller.
 async fn send_batch_events(
-    http: HttpClient,
-    sinks: Vec<BatchWebhookSink>,
+    http: &HttpClient,
+    sinks: &[BatchWebhookSink],
+    requeue: Option<&Arc<DatabaseEventQueue>>,
     events: Vec<OutboundEvent>,
 ) -> Result<()> {
     if events.is_empty() {
         return Ok(());
     }
-    for sink in &sinks {
-        let accepted = events
+    // Track, per event index, whether at least one accepting sink delivered it.
+    // An event with no accepting sink is considered handled (nothing to requeue).
+    let mut delivered = vec![true; events.len()];
+    for (index, event) in events.iter().enumerate() {
+        if sinks.iter().any(|sink| sink.accepts(&event.event_type)) {
+            delivered[index] = false;
+        }
+    }
+
+    let mut errors: Vec<String> = Vec::new();
+    for sink in sinks {
+        let accepted_indices = events
             .iter()
-            .filter(|event| sink.accepts(&event.event_type))
+            .enumerate()
+            .filter(|(_, event)| sink.accepts(&event.event_type))
+            .map(|(index, _)| index)
             .collect::<Vec<_>>();
-        if accepted.is_empty() {
+        if accepted_indices.is_empty() {
             continue;
         }
-        let mut ndjson = Vec::new();
-        for event in accepted {
-            serde_json::to_writer(&mut ndjson, event)
-                .map_err(|e| OutboundError::Delivery(format!("serialize batch event: {e}")))?;
-            ndjson.push(b'\n');
+        match send_to_sink(http, sink, &accepted_indices, &events).await {
+            Ok(()) => {
+                for index in accepted_indices {
+                    delivered[index] = true;
+                }
+            }
+            Err(error) => {
+                warn!(channel = %sink.name, %error, "stream batch sink delivery failed");
+                errors.push(error.to_string());
+            }
         }
-        let body = gzip_bytes(&ndjson)?;
-        let signature = compute_signature(&sink.secret, &body);
-        let mut request = http
-            .post(&sink.url)
-            .header("X-Hivy-Signature", format!("sha256={signature}"))
-            .header(reqwest::header::CONTENT_TYPE, "application/x-ndjson")
-            .header(reqwest::header::CONTENT_ENCODING, "gzip");
-        for (header_name, header_value) in &sink.extra_headers {
-            request = request.header(header_name.as_str(), header_value.as_str());
+    }
+
+    // Requeue any event that every accepting sink failed to deliver, so it is
+    // persisted durably rather than dropped.
+    let undelivered = events
+        .into_iter()
+        .zip(delivered)
+        .filter_map(|(event, ok)| (!ok).then_some(event))
+        .collect::<Vec<_>>();
+
+    if let Some(requeue) = requeue {
+        if !undelivered.is_empty() {
+            let count = undelivered.len();
+            for event in &undelivered {
+                if let Err(error) = requeue.enqueue(event).await {
+                    warn!(%error, "requeue of failed stream batch event into database queue failed");
+                }
+            }
+            warn!(
+                requeued = count,
+                "requeued failed stream batch events into the durable database queue"
+            );
         }
-        let response = request
-            .body(body)
-            .send()
-            .await
-            .map_err(|e| OutboundError::Delivery(format!("send batch {}: {e}", sink.url)))?;
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            warn!(channel = %sink.name, %status, body = %body, "webhook batch non-2xx");
-            return Err(OutboundError::Delivery(format!(
-                "{} returned {status}",
-                sink.url
-            )));
-        }
+        // Failures were absorbed (requeued, or delivered by another sink).
+        return Ok(());
+    }
+
+    // No durable fallback: surface the failure so the caller is aware a sink is
+    // down, even when another sink delivered the same events.
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(OutboundError::Delivery(format!(
+            "stream batch delivery failed for {} sink(s): {}",
+            errors.len(),
+            errors.join("; ")
+        )))
+    }
+}
+
+async fn send_to_sink(
+    http: &HttpClient,
+    sink: &BatchWebhookSink,
+    indices: &[usize],
+    events: &[OutboundEvent],
+) -> Result<()> {
+    let mut ndjson = Vec::new();
+    for &index in indices {
+        serde_json::to_writer(&mut ndjson, &events[index])
+            .map_err(|e| OutboundError::Delivery(format!("serialize batch event: {e}")))?;
+        ndjson.push(b'\n');
+    }
+    let body = gzip_bytes(&ndjson)?;
+    let signature = compute_signature(&sink.secret, &body);
+    let mut request = http
+        .post(&sink.url)
+        .header("X-Hivy-Signature", format!("sha256={signature}"))
+        .header(reqwest::header::CONTENT_TYPE, "application/x-ndjson")
+        .header(reqwest::header::CONTENT_ENCODING, "gzip");
+    for (header_name, header_value) in &sink.extra_headers {
+        request = request.header(header_name.as_str(), header_value.as_str());
+    }
+    let response = request
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| OutboundError::Delivery(format!("send batch {}: {e}", sink.url)))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(channel = %sink.name, %status, body = %body, "webhook batch non-2xx");
+        return Err(OutboundError::Delivery(format!(
+            "{} returned {status}",
+            sink.url
+        )));
     }
     Ok(())
 }
@@ -540,5 +632,191 @@ mod tests {
         assert_eq!(state.pending[2].event_type, "agent.stream.token");
         assert_eq!(state.pending[2].payload["sequence_start"], 8);
         assert_eq!(state.pending[2].payload["sequence_end"], 8);
+    }
+
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc as StdArc;
+
+    use storage::init_sqlite_store;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::sync::Mutex as TokioMutex;
+
+    static BATCH_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    /// Spawn a one-shot HTTP server that always replies with `status`, recording
+    /// each received request body. Returns the bound URL and a shared store of
+    /// the bodies it observed.
+    async fn spawn_recording_server(status_line: &'static str) -> (String, StdArc<TokioMutex<Vec<Vec<u8>>>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        let bodies: StdArc<TokioMutex<Vec<Vec<u8>>>> = StdArc::new(TokioMutex::new(Vec::new()));
+        let bodies_clone = bodies.clone();
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                let bodies = bodies_clone.clone();
+                tokio::spawn(async move {
+                    let mut buf = vec![0u8; 64 * 1024];
+                    if let Ok(n) = socket.read(&mut buf).await {
+                        bodies.lock().await.push(buf[..n].to_vec());
+                    }
+                    let response =
+                        format!("HTTP/1.1 {status_line}\r\nContent-Length: 0\r\n\r\n");
+                    let _ = socket.write_all(response.as_bytes()).await;
+                    let _ = socket.flush().await;
+                });
+            }
+        });
+        (format!("http://{addr}"), bodies)
+    }
+
+    fn test_sink(name: &str, url: &str) -> BatchWebhookSink {
+        BatchWebhookSink {
+            name: name.to_string(),
+            url: url.to_string(),
+            secret: "secret".to_string(),
+            extra_headers: HashMap::new(),
+            event_filter: None,
+        }
+    }
+
+    fn token_event(sequence: u64, text: &str) -> OutboundEvent {
+        OutboundEvent::new(
+            "agent.stream.token",
+            json!({
+                "session_id": "http-1",
+                "source": "http",
+                "sequence": sequence,
+                "agent_event": {"text": text},
+            }),
+        )
+    }
+
+    async fn setup_queue() -> (storage::SqliteStore, StdArc<DatabaseEventQueue>) {
+        let db_path = std::env::temp_dir().join(format!(
+            "outbound-batch-{}-{}.db",
+            std::process::id(),
+            BATCH_DB_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        let store = init_sqlite_store(&db_path, None).await.expect("init store");
+        let queue = DatabaseEventQueue::new(store.writer());
+        (store, queue)
+    }
+
+    async fn event_log_count(store: &storage::SqliteStore) -> i64 {
+        sqlx::query_scalar("SELECT COUNT(*) FROM events_log")
+            .fetch_one(store.read_pool().as_ref())
+            .await
+            .expect("count events_log")
+    }
+
+    #[tokio::test]
+    async fn continues_to_remaining_sinks_when_one_sink_fails() {
+        let (failing_url, _) = spawn_recording_server("500 Internal Server Error").await;
+        let (ok_url, ok_bodies) = spawn_recording_server("200 OK").await;
+        let http = HttpClient::new();
+        let sinks = vec![
+            test_sink("failing", &batch_url(&failing_url)),
+            test_sink("ok", &batch_url(&ok_url)),
+        ];
+        let events = vec![token_event(1, "hello")];
+
+        // No requeue configured: an aggregate error is returned because a sink
+        // failed, but the healthy sink must still have received the batch.
+        let result = send_batch_events(&http, &sinks, None, events).await;
+        assert!(result.is_err(), "a failed sink should surface an error");
+
+        let bodies = ok_bodies.lock().await;
+        assert_eq!(
+            bodies.len(),
+            1,
+            "the healthy sink must still receive the batch after the first sink failed"
+        );
+    }
+
+    #[tokio::test]
+    async fn requeues_failed_batch_into_database_queue() {
+        let (failing_url, _) = spawn_recording_server("503 Service Unavailable").await;
+        let (store, queue) = setup_queue().await;
+        let http = HttpClient::new();
+        let sinks = vec![test_sink("failing", &batch_url(&failing_url))];
+        let events = vec![token_event(1, "alpha"), token_event(2, "beta")];
+
+        // With a requeue configured, the failed events must be persisted into the
+        // durable database queue instead of being dropped.
+        let result = send_batch_events(&http, &sinks, Some(&queue), events).await;
+        assert!(
+            result.is_ok(),
+            "requeue should absorb the failure instead of erroring"
+        );
+
+        queue.flush().await.expect("flush queue");
+        assert_eq!(
+            event_log_count(&store).await,
+            2,
+            "both failed events must be requeued into the durable outbox"
+        );
+    }
+
+    #[tokio::test]
+    async fn delivered_events_are_not_requeued() {
+        let (ok_url, _) = spawn_recording_server("200 OK").await;
+        let (store, queue) = setup_queue().await;
+        let http = HttpClient::new();
+        let sinks = vec![test_sink("ok", &batch_url(&ok_url))];
+        let events = vec![token_event(1, "delivered")];
+
+        send_batch_events(&http, &sinks, Some(&queue), events)
+            .await
+            .expect("delivery succeeds");
+
+        queue.flush().await.expect("flush queue");
+        assert_eq!(
+            event_log_count(&store).await,
+            0,
+            "successfully delivered events must not be requeued"
+        );
+    }
+
+    #[tokio::test]
+    async fn partial_sink_success_only_requeues_events_no_sink_delivered() {
+        // Two sinks with disjoint filters; the sink that accepts thinking events
+        // fails, the sink that accepts tokens succeeds. Only the thinking event
+        // (which no sink delivered) should be requeued.
+        let (failing_url, _) = spawn_recording_server("500 Internal Server Error").await;
+        let (ok_url, _) = spawn_recording_server("200 OK").await;
+        let (store, queue) = setup_queue().await;
+        let http = HttpClient::new();
+        let sinks = vec![
+            BatchWebhookSink {
+                event_filter: Some(vec!["agent.stream.thinking".to_string()]),
+                ..test_sink("thinking-failing", &batch_url(&failing_url))
+            },
+            BatchWebhookSink {
+                event_filter: Some(vec!["agent.stream.token".to_string()]),
+                ..test_sink("token-ok", &batch_url(&ok_url))
+            },
+        ];
+        let events = vec![
+            OutboundEvent::new(
+                "agent.stream.thinking",
+                json!({"session_id": "http-1", "agent_event": {"text": "t"}}),
+            ),
+            token_event(1, "tok"),
+        ];
+
+        send_batch_events(&http, &sinks, Some(&queue), events)
+            .await
+            .expect("requeue absorbs the failure");
+
+        queue.flush().await.expect("flush queue");
+        assert_eq!(
+            event_log_count(&store).await,
+            1,
+            "only the undelivered thinking event should be requeued"
+        );
     }
 }

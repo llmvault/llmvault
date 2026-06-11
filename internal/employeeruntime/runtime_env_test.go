@@ -74,3 +74,34 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildRuntimeEnvProvisionsTunnelPassword is the regression for P1-1: the
+// runtime tunnel proxy is an unauthenticated open proxy when HIVY_TUNNEL_PASSWORD
+// is unset, so the control plane must always provision it.
+func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
+	orgID := uuid.New()
+	agent := &model.Employee{
+		ID:     uuid.New(),
+		OrgID:  &orgID,
+		Name:   "Hivy",
+		Status: "active",
+	}
+	sandbox := &model.Sandbox{ID: uuid.New()}
+	deps := CompileDeps{
+		Cfg: &config.Config{
+			APIWebhookBaseURL: "https://api.example.test",
+			ProxyHost:         "https://proxy.example.test",
+			Environment:       "production",
+		},
+	}
+	token := &ProxyTokenResult{Token: "ptok_test", JTI: "jti_test"}
+
+	env, err := BuildRuntimeEnvWithProxyToken(context.Background(), deps, agent, sandbox, "runtime-secret", token)
+	if err != nil {
+		t.Fatalf("build env: %v", err)
+	}
+
+	if env[EmployeeEnvTunnelPassword] != "runtime-secret" {
+		t.Fatalf("%s = %q, want %q (tunnel must fail closed)", EmployeeEnvTunnelPassword, env[EmployeeEnvTunnelPassword], "runtime-secret")
+	}
+}

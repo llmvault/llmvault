@@ -149,13 +149,13 @@ func (gw *GenerationWriter) spill(ctx context.Context, gen model.Generation, rea
 			"id", gen.ID, "reason", reason)
 		return
 	}
-	task, err := tasks.NewGenerationWriteTask(gen)
+	task, opts, err := tasks.NewGenerationWriteTask(gen)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "generation spill marshal failed, dropping",
 			"id", gen.ID, "reason", reason, "error", err)
 		return
 	}
-	if _, err := gw.enqueuer.EnqueueContext(context.WithoutCancel(ctx), task); err != nil {
+	if _, err := gw.enqueuer.EnqueueContext(context.WithoutCancel(ctx), task, opts...); err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "generation spill enqueue failed, dropping",
 			"id", gen.ID, "reason", reason, "error", err)
 	}

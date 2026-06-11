@@ -24,32 +24,35 @@ type EmployeeMemoryRetainPayload struct {
 	SourceEvent       string    `json:"source_event,omitempty"`
 }
 
-func NewEmployeeMemoryRetainTask(payload EmployeeMemoryRetainPayload) (*asynq.Task, error) {
+// NewEmployeeMemoryRetainTask creates a task that retains employee memory.
+// Options are returned separately so they survive the enqueue client's Sentry
+// trace-payload rewrite (P0-11).
+func NewEmployeeMemoryRetainTask(payload EmployeeMemoryRetainPayload) (*asynq.Task, []asynq.Option, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal employee memory retain payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal employee memory retain payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmployeeMemoryRetain,
-		body,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(3),
-		asynq.Timeout(4*time.Minute),
-	), nil
+		asynq.Timeout(4 * time.Minute),
+	}
+	return asynq.NewTask(TypeEmployeeMemoryRetain, body), opts, nil
 }
 
 func EnqueueEmployeeMemoryRetain(ctx context.Context, enqueuer enqueue.TaskEnqueuer, payload EmployeeMemoryRetainPayload) (bool, error) {
 	if enqueuer == nil {
 		return false, fmt.Errorf("memory retain enqueuer missing")
 	}
-	task, err := NewEmployeeMemoryRetainTask(payload)
+	task, opts, err := NewEmployeeMemoryRetainTask(payload)
 	if err != nil {
 		return false, err
 	}
-	_, err = enqueuer.EnqueueContext(ctx, task,
+	opts = append(opts,
 		asynq.ProcessIn(EmployeeMemoryRetainDelay),
 		asynq.TaskID(EmployeeMemoryRetainTaskID(payload)),
 	)
+	_, err = enqueuer.EnqueueContext(ctx, task, opts...)
 	if errors.Is(err, asynq.ErrDuplicateTask) {
 		return true, nil
 	}
@@ -69,16 +72,18 @@ type EmployeeMemoryRefreshPayload struct {
 	Reason     string    `json:"reason,omitempty"`
 }
 
-func NewEmployeeMemoryRefreshTask(payload EmployeeMemoryRefreshPayload) (*asynq.Task, error) {
+// NewEmployeeMemoryRefreshTask creates a task that refreshes employee memory.
+// Options are returned separately so they survive the enqueue client's Sentry
+// trace-payload rewrite (P0-11).
+func NewEmployeeMemoryRefreshTask(payload EmployeeMemoryRefreshPayload) (*asynq.Task, []asynq.Option, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal employee memory refresh payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal employee memory refresh payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmployeeMemoryRefresh,
-		body,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(3),
-		asynq.Timeout(2*time.Minute),
-	), nil
+		asynq.Timeout(2 * time.Minute),
+	}
+	return asynq.NewTask(TypeEmployeeMemoryRefresh, body), opts, nil
 }

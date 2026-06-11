@@ -299,7 +299,12 @@ func (h *APIKeyHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 
 	h.keyCache.Invalidate(apiKey.KeyHash)
 
-	_ = h.cacheManager.InvalidateAPIKey(r.Context(), apiKey.KeyHash)
+	if err := h.cacheManager.InvalidateAPIKey(r.Context(), apiKey.KeyHash); err != nil {
+		// The revocation is durable in Postgres and the local cache is already
+		// evicted; a failed cross-instance publish only delays peer eviction
+		// until their cache TTL / reconnect purge. Surface it rather than drop.
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to publish api key invalidation", "error", err, "org_id", org.ID, "key_id", keyID)
+	}
 
 	logging.FromContext(r.Context()).InfoContext(r.Context(), "api key revoked", "org_id", org.ID, "key_id", keyID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})

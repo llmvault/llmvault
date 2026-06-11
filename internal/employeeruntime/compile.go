@@ -160,6 +160,13 @@ func MintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee
 	return mintProxyToken(ctx, deps, agent, sandboxID, model.TokenRuntimeModeEmployee, "")
 }
 
+// MintSpecialistProxyToken mints a specialist-mode proxy token bound to the
+// given sandbox and specialist slug. Used to refresh a specialist runtime's
+// credentials before its 24h token expires (P1-18).
+func MintSpecialistProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, specialistSlug string) (*ProxyTokenResult, error) {
+	return mintProxyToken(ctx, deps, agent, sandboxID, model.TokenRuntimeModeSpecialist, specialistSlug)
+}
+
 func mintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, runtimeMode string, specialistSlug string) (*ProxyTokenResult, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("employee runtime proxy token: agent must have org_id")

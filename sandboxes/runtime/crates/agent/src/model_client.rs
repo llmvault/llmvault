@@ -388,6 +388,12 @@ fn stream_response(
     let json_repair = json_repair.clone();
     Box::pin(stream! {
         let mut buffer = String::new();
+        // Raw bytes that did not form a complete UTF-8 character on the previous
+        // chunk. A multi-byte character (emoji/CJK/accented) can be split across
+        // network chunk boundaries, so we must carry the incomplete suffix forward
+        // instead of decoding each chunk independently (which would emit U+FFFD and
+        // permanently corrupt the persisted history).
+        let mut utf8_carry: Vec<u8> = Vec::new();
         let mut tool_accumulator = ToolCallAccumulator::default();
         let mut last_finish_reason: Option<FinishReason> = None;
         let mut saw_event = false;
@@ -415,7 +421,7 @@ fn stream_response(
                     return;
                 }
             };
-            buffer.push_str(&String::from_utf8_lossy(&chunk));
+            buffer.push_str(&decode_utf8_carry(&mut utf8_carry, &chunk));
             while let Some(event) = take_sse_event(&mut buffer) {
                 let data = event.trim_start_matches("data:").trim();
                 if data.is_empty() || data.starts_with(':') {
@@ -603,6 +609,40 @@ fn extract_model_error_message(body: &str) -> String {
         .unwrap_or_else(|| body.to_string())
 }
 
+/// Decode a network chunk as UTF-8, carrying any trailing bytes that form an
+/// incomplete multi-byte character forward to the next chunk. `carry` holds the
+/// leftover bytes from the previous chunk; on return it holds the new leftover.
+///
+/// This avoids `String::from_utf8_lossy` per chunk, which would replace a
+/// character split across a chunk boundary with U+FFFD and corrupt the stream.
+fn decode_utf8_carry(carry: &mut Vec<u8>, chunk: &[u8]) -> String {
+    let mut bytes = std::mem::take(carry);
+    bytes.extend_from_slice(chunk);
+    match std::str::from_utf8(&bytes) {
+        Ok(text) => text.to_string(),
+        Err(error) => {
+            let valid_up_to = error.valid_up_to();
+            // Bytes after `valid_up_to` are either an incomplete trailing
+            // multi-byte sequence (carry them) or genuinely invalid input.
+            let remaining = &bytes[valid_up_to..];
+            let decoded = if error.error_len().is_none() && remaining.len() < 4 {
+                // Incomplete trailing sequence: decode the valid prefix and carry
+                // the rest to combine with the next chunk. `valid_up_to` is on a
+                // char boundary by definition, so this slice is always valid UTF-8.
+                *carry = remaining.to_vec();
+                std::str::from_utf8(&bytes[..valid_up_to])
+                    .unwrap_or_default()
+                    .to_string()
+            } else {
+                // Genuinely invalid bytes; fall back to lossy for this chunk so we
+                // never carry undecodable garbage forward indefinitely.
+                String::from_utf8_lossy(&bytes).to_string()
+            };
+            decoded
+        }
+    }
+}
+
 fn take_sse_event(buffer: &mut String) -> Option<String> {
     let idx = buffer.find("\n\n")?;
     let event = buffer[..idx].to_string();
@@ -743,9 +783,60 @@ mod tests {
     use crate::primitives::{AgentMessage, CacheControlPolicy, ModelRequest, ModelStreamEvent};
 
     use super::{
-        classify_http_error, parse_thinking_delta, parse_usage, ChatModelClient, ModelErrorClass,
-        ModelRetryPolicy, ModelTimeouts,
+        classify_http_error, decode_utf8_carry, parse_thinking_delta, parse_usage, ChatModelClient,
+        ModelErrorClass, ModelRetryPolicy, ModelTimeouts,
     };
+
+    #[test]
+    fn decode_utf8_carry_handles_multibyte_split_across_chunks() {
+        // "é" is 0xC3 0xA9; "界" is 0xE7 0x95 0x8C; "🚀" is 0xF0 0x9F 0x9A 0x80.
+        let full = "café世界🚀";
+        let bytes = full.as_bytes();
+        let mut carry = Vec::new();
+        let mut decoded = String::new();
+        // Feed one byte at a time — the worst case for boundary splits.
+        for byte in bytes {
+            decoded.push_str(&decode_utf8_carry(&mut carry, &[*byte]));
+        }
+        assert!(carry.is_empty(), "no bytes should be left dangling");
+        assert_eq!(decoded, full);
+        assert!(
+            !decoded.contains('\u{FFFD}'),
+            "split multi-byte chars must not be replaced with U+FFFD"
+        );
+    }
+
+    #[test]
+    fn decode_utf8_carry_splits_emoji_exactly_at_boundary() {
+        let emoji = "🚀"; // 4 bytes
+        let bytes = emoji.as_bytes();
+        let mut carry = Vec::new();
+        // First chunk: first 2 bytes (incomplete) — must produce nothing yet.
+        let first = decode_utf8_carry(&mut carry, &bytes[..2]);
+        assert_eq!(first, "");
+        assert_eq!(carry.len(), 2);
+        // Second chunk: remaining 2 bytes complete the character.
+        let second = decode_utf8_carry(&mut carry, &bytes[2..]);
+        assert_eq!(second, emoji);
+        assert!(carry.is_empty());
+    }
+
+    #[test]
+    fn decode_utf8_carry_passes_through_clean_ascii() {
+        let mut carry = Vec::new();
+        assert_eq!(decode_utf8_carry(&mut carry, b"hello"), "hello");
+        assert!(carry.is_empty());
+    }
+
+    #[test]
+    fn decode_utf8_carry_recovers_genuinely_invalid_bytes() {
+        let mut carry = Vec::new();
+        // 0xFF is never valid UTF-8 and is not an incomplete prefix.
+        let decoded = decode_utf8_carry(&mut carry, &[0xFF, b'a']);
+        assert!(decoded.contains('\u{FFFD}'));
+        assert!(decoded.contains('a'));
+        assert!(carry.is_empty());
+    }
 
     #[test]
     fn parses_common_thinking_delta_fields() {

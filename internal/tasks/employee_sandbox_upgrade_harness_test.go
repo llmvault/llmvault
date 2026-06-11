@@ -37,16 +37,27 @@ type employeeUpgradeFixture struct {
 }
 
 type employeeUpgradeRuntime struct {
-	mu     sync.Mutex
-	calls  int
-	config employeeruntime.ConfigUpdateRequest
+	mu       sync.Mutex
+	calls    int
+	config   employeeruntime.ConfigUpdateRequest
+	onConfig func() // optional hook invoked on each /config call (Phase 5 sync)
 }
 
 func (r *employeeUpgradeRuntime) record(config employeeruntime.ConfigUpdateRequest) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	hook := r.onConfig
 	r.calls++
 	r.config = config
+	r.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
+}
+
+func (r *employeeUpgradeRuntime) setOnConfig(fn func()) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onConfig = fn
 }
 
 func (r *employeeUpgradeRuntime) snapshot() (int, employeeruntime.ConfigUpdateRequest) {

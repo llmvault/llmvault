@@ -65,7 +65,7 @@ func TestEmployeeMemoryRetainHandler_CallsHindsight(t *testing.T) {
 
 	enq := &enqueue.MockClient{}
 	handler := NewEmployeeMemoryRetainHandler(db, hindsight.NewClient(srv.URL), enq)
-	task, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{EmployeeID: agentID, SandboxID: sandboxID, SessionID: "S1"})
+	task, _, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{EmployeeID: agentID, SandboxID: sandboxID, SessionID: "S1"})
 	if err != nil {
 		t.Fatalf("task: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestEmployeeMemoryRetainHandler_RequeuesActiveSession(t *testing.T) {
 
 	enq := &enqueue.MockClient{}
 	handler := NewEmployeeMemoryRetainHandler(db, hindsight.NewClient("http://127.0.0.1:1"), enq)
-	task, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{EmployeeID: agentID, SandboxID: sandboxID, EmployeeSessionID: sessionID, SessionID: "S1"})
+	task, _, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{EmployeeID: agentID, SandboxID: sandboxID, EmployeeSessionID: sessionID, SessionID: "S1"})
 	if err != nil {
 		t.Fatalf("task: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestEmployeeMemoryRefreshHandler_TracksSuccessAndFailure(t *testing.T) {
 		SigningKey: []byte("test-signing-key-32-bytes-long!!"),
 		Cfg:        &config.Config{ProxyHost: "proxy.hivy.test"},
 	})
-	task, err := NewEmployeeMemoryRefreshTask(EmployeeMemoryRefreshPayload{EmployeeID: agentID, SandboxID: sandboxID, Reason: "test"})
+	task, _, err := NewEmployeeMemoryRefreshTask(EmployeeMemoryRefreshPayload{EmployeeID: agentID, SandboxID: sandboxID, Reason: "test"})
 	if err != nil {
 		t.Fatalf("task: %v", err)
 	}

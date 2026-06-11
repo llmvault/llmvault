@@ -177,7 +177,7 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		task, err := tasks.NewGatewaySlackTask(gatewaySlackPayload(envelope, result, wctx.connection, providerKey))
+		task, taskOpts, err := tasks.NewGatewaySlackTask(gatewaySlackPayload(envelope, result, wctx.connection, providerKey))
 		if err != nil {
 			slackFields["stage"] = "build_task"
 			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: build task: %w", err), slackFields)
@@ -185,7 +185,7 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err := h.enqueuer.EnqueueContext(r.Context(), task); err != nil {
+		if _, err := h.enqueuer.EnqueueContext(r.Context(), task, taskOpts...); err != nil {
 			slackFields["stage"] = "enqueue_task"
 			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: enqueue task: %w", err), slackFields)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enqueue task"})
@@ -252,7 +252,7 @@ func (h *NangoWebhookHandler) enqueueGatewaySlackStatus(ctx context.Context, acc
 		"thread_ts":     accepted.Inbound.ThreadID,
 		"event_id":      accepted.Event.ID.String(),
 	}
-	task, err := tasks.NewGatewaySlackStatusTask(tasks.GatewaySlackStatusPayload{
+	task, taskOpts, err := tasks.NewGatewaySlackStatusTask(tasks.GatewaySlackStatusPayload{
 		ConnectionID: accepted.Envelope.ConnectionID.String(),
 		OrgID:        accepted.Envelope.OrgID.String(),
 		EmployeeID:   accepted.Envelope.EmployeeID.String(),
@@ -267,7 +267,7 @@ func (h *NangoWebhookHandler) enqueueGatewaySlackStatus(ctx context.Context, acc
 		logging.CaptureWithFields(ctx, fmt.Errorf("slack webhook: build status task: %w", err), fields)
 		return
 	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task); err != nil {
+	if _, err := h.enqueuer.EnqueueContext(ctx, task, taskOpts...); err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("slack webhook: enqueue status task: %w", err), fields)
 	}
 }

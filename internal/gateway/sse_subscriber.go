@@ -9,9 +9,28 @@ import (
 	"strings"
 )
 
+// Sentinel event types emitted by the subscriber after the underlying HTTP
+// body closes, so consumers can tell a clean end-of-stream apart from a
+// transport failure (a dropped connection, idle-read timeout, or scanner
+// error). These are never produced by the runtime — they are synthesized
+// locally and must not be forwarded to users.
+const (
+	// EventStreamEOF is emitted when the response body reached EOF cleanly
+	// (the server closed the stream). Any missing terminal event here is a
+	// genuine truncation, not a retryable transport blip.
+	EventStreamEOF = "__stream_eof"
+	// EventStreamError is emitted when the stream ended due to a read/scanner
+	// error. The turn may still be running on the broker (which supports
+	// replay), so the consumer should retry the subscription before falling
+	// back to partial text.
+	EventStreamError = "__stream_error"
+)
+
 type SSEEvent struct {
 	Type string
 	Data json.RawMessage
+	// Err carries the underlying transport error for EventStreamError.
+	Err error
 }
 
 type SSESubscriber struct {
@@ -73,6 +92,22 @@ func (s *SSESubscriber) Subscribe(ctx context.Context, streamURL, apiKey string)
 				eventType = ""
 				dataLines = nil
 			}
+		}
+
+		// Distinguish a clean EOF from a transport failure so the consumer
+		// can retry instead of treating a dropped connection as a final
+		// (truncated) response. ctx cancellation is the caller's own doing —
+		// no sentinel needed.
+		if ctx.Err() != nil {
+			return
+		}
+		sentinel := SSEEvent{Type: EventStreamEOF}
+		if err := scanner.Err(); err != nil {
+			sentinel = SSEEvent{Type: EventStreamError, Err: err}
+		}
+		select {
+		case ch <- sentinel:
+		case <-ctx.Done():
 		}
 	}()
 
