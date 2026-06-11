@@ -162,7 +162,7 @@ func TestConnectionHandler_Get_RevokedNotFound(t *testing.T) {
 	}
 }
 
-func TestConnectionHandler_Get_WithNangoProviderConfig(t *testing.T) {
+func TestConnectionHandler_Get_StripsStoredCredentialsFromMeta(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -184,6 +184,10 @@ func TestConnectionHandler_Get_WithNangoProviderConfig(t *testing.T) {
 	connID := uuid.New()
 	db.Create(&model.Connection{
 		ID: connID, OrgID: org.ID, UserID: user.ID, IntegrationID: integ.ID, NangoConnectionID: "pc-conn",
+		Meta: model.JSON{
+			"connection_config": map[string]any{"baseUrl": "https://glitch.example.com"},
+			"credentials":       map[string]any{"apiKey": "should-not-be-returned"},
+		},
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/connections/"+connID.String(), nil)
@@ -198,12 +202,12 @@ func TestConnectionHandler_Get_WithNangoProviderConfig(t *testing.T) {
 
 	var resp map[string]any
 	_ = json.NewDecoder(rr.Body).Decode(&resp)
-	pc, ok := resp["provider_config"].(map[string]any)
-	if !ok || pc == nil {
-		t.Fatal("expected provider_config to be present")
+	meta, ok := resp["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected meta, got %v", resp["meta"])
 	}
-	if pc["provider"] != "github" {
-		t.Fatalf("expected provider_config.provider=github, got %v", pc["provider"])
+	if _, ok := meta["credentials"]; ok {
+		t.Fatalf("expected credentials to be stripped, got %v", meta["credentials"])
 	}
 }
 

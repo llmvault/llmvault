@@ -81,17 +81,7 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		meta = model.JSON{}
 	}
 	delete(meta, "resources")
-	if connectionProviderConfigShouldBeStored(integ.Provider) {
-		nangoResp, err := h.nango.GetConnection(r.Context(), req.NangoConnectionID, nangoProviderConfigKey(integ.UniqueKey))
-		if err != nil {
-			logging.FromContext(r.Context()).WarnContext(r.Context(), "nango: get connection failed while enriching metadata",
-				"error", err, "provider", integ.Provider, "nango_connection_id", req.NangoConnectionID)
-		} else {
-			for key, value := range buildConnectionProviderConfig(nangoResp) {
-				meta[key] = value
-			}
-		}
-	}
+	delete(meta, "credentials")
 
 	conn := model.Connection{
 		ID:                uuid.New(),
@@ -139,15 +129,6 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	h.ensureServiceDiscoveryScheduleForConnection(r.Context(), org.ID, conn)
 
 	writeJSON(w, http.StatusCreated, h.toConnectionResponse(conn))
-}
-
-func connectionProviderConfigShouldBeStored(provider string) bool {
-	switch provider {
-	case "bugsink", "glitchtip":
-		return true
-	default:
-		return false
-	}
 }
 
 func (h *ConnectionHandler) ensureServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) {

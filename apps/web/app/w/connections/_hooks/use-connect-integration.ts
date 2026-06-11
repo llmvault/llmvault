@@ -51,9 +51,16 @@ export function useConnectIntegration() {
         ? await nango.auth(providerConfigKey, authOptions)
         : await nango.auth(providerConfigKey)
 
+      const meta = options?.params && Object.keys(options.params).length > 0
+        ? { connection_config: options.params }
+        : undefined
+
       const connection = await api.POST("/v1/integrations/{id}/connections", {
         params: { path: { id: integrationId } },
-        body: { nango_connection_id: authResult.connectionId } as never,
+        body: {
+          nango_connection_id: authResult.connectionId,
+          ...(meta ? { meta } : {}),
+        } as never,
       })
 
       if (connection.error) throw new Error("Failed to save connection")

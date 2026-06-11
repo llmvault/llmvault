@@ -138,7 +138,8 @@ func (h *RawProviderProxyHandler) Handle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := h.nango.RawProxyRequestWithHeaders(ctx, r.Method, providerConfigKey, conn.NangoConnectionID, path, r.URL.RawQuery, proxyRequestBodyFromBytes(r.Method, body), rawProviderProxyHeaders(r))
+	forwardPath := h.nangoProxyPath(path)
+	resp, err := h.nango.RawProxyRequestWithHeaders(ctx, r.Method, providerConfigKey, conn.NangoConnectionID, forwardPath, r.URL.RawQuery, proxyRequestBodyFromBytes(r.Method, body), rawProviderProxyHeaders(r))
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, h.provider+"-proxy: nango proxy failed",
 			"employee_id", agentID,
@@ -189,6 +190,17 @@ func (h *RawProviderProxyHandler) parseRequest(w http.ResponseWriter, r *http.Re
 func slackProxyAPIPathAllowed(path string) bool {
 	method := strings.Trim(strings.TrimLeft(path, "/"), "/")
 	return method != "" && !strings.Contains(method, "/") && strings.Contains(method, ".")
+}
+
+func (h *RawProviderProxyHandler) nangoProxyPath(path string) string {
+	if h.provider != "glitchtip" {
+		return path
+	}
+	withoutAPIBase := strings.TrimPrefix(path, "/api/0")
+	if withoutAPIBase == "" || withoutAPIBase == "/" {
+		return "/"
+	}
+	return "/" + strings.TrimLeft(withoutAPIBase, "/")
 }
 
 func rawProviderProxyMethodAllowed(method string) bool {

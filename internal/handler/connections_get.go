@@ -6,7 +6,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -35,19 +34,5 @@ func (h *ConnectionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get connection"})
 		return
 	}
-	resp := h.toConnectionResponse(conn)
-
-	nk := nangoProviderConfigKey(conn.Integration.UniqueKey)
-	nangoResp, err := h.nango.GetConnection(r.Context(), conn.NangoConnectionID, nk)
-	if err != nil {
-		logging.FromContext(r.Context()).WarnContext(r.Context(), "nango: get connection failed, returning without provider_config",
-			"error", err, "connection_id", connID, "nango_connection_id", conn.NangoConnectionID)
-	} else if nangoResp != nil {
-		pc := buildConnectionProviderConfig(nangoResp)
-		if len(pc) > 0 {
-			resp.ProviderConfig = pc
-		}
-	}
-
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, h.toConnectionResponse(conn))
 }

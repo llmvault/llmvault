@@ -344,7 +344,13 @@ func TestConnectionHandler_CreateGlitchTipStoresConnectionConfig(t *testing.T) {
 	org := createTestOrg(t, db)
 	integ := createTestIntegration(t, db, "glitchtip")
 
-	body, _ := json.Marshal(map[string]any{"nango_connection_id": "glitchtip-conn-meta"})
+	body, _ := json.Marshal(map[string]any{
+		"nango_connection_id": "glitchtip-conn-meta",
+		"meta": map[string]any{
+			"connection_config": map[string]any{"baseUrl": "https://app.glitchtip.com/"},
+			"credentials":       map[string]any{"apiKey": "should-not-be-stored"},
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/"+integ.ID.String()+"/connections", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = middleware.WithUser(req, &user)
@@ -369,10 +375,13 @@ func TestConnectionHandler_CreateGlitchTipStoresConnectionConfig(t *testing.T) {
 	if got := connectionConfig["baseUrl"]; got != "https://app.glitchtip.com/" {
 		t.Fatalf("baseUrl = %v, want GlitchTip base URL", got)
 	}
-
 	var conn model.Connection
 	if err := db.Where("id = ?", resp["id"]).First(&conn).Error; err != nil {
 		t.Fatalf("connection not found in DB: %v", err)
+	}
+	credentials, _ := conn.Meta["credentials"].(map[string]any)
+	if _, ok := credentials["apiKey"]; ok {
+		t.Fatal("created connection meta must not contain credentials.apiKey")
 	}
 	if got := employeeruntime.GlitchTipDashboardBaseURLFromConnection(conn); got != "https://app.glitchtip.com" {
 		t.Fatalf("dashboard base url = %q", got)

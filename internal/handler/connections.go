@@ -76,7 +76,7 @@ func (h *ConnectionHandler) toConnectionResponse(conn model.Connection) connecti
 		Provider:              provider,
 		DisplayName:           conn.Integration.DisplayName,
 		NangoConnectionID:     conn.NangoConnectionID,
-		Meta:                  conn.Meta,
+		Meta:                  safeConnectionMeta(conn.Meta),
 		ActionsCount:          len(h.catalog.ListActions(provider)),
 		WebhookConfigured:     derefBool(conn.WebhookConfigured, true),
 		ConfigurableResources: configurableRes,

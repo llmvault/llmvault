@@ -47,27 +47,18 @@ func providerRequiresWebhookConfig(provider string) bool {
 	return pt.WebhookConfig.WebhookURLRequired
 }
 
-func buildConnectionProviderConfig(nangoResp map[string]any) model.JSON {
-	connection := nangoResp
-	if data, ok := nangoResp["data"].(map[string]any); ok {
-		if nested, ok := data["connection"].(map[string]any); ok {
-			connection = nested
+func safeConnectionMeta(meta model.JSON) model.JSON {
+	if meta == nil {
+		return nil
+	}
+	safe := model.JSON{}
+	for key, value := range meta {
+		if key == "credentials" {
+			continue
 		}
+		safe[key] = value
 	}
-
-	config := model.JSON{}
-	for _, key := range []string{"connection_config", "metadata", "credentials", "provider"} {
-		if v, exists := connection[key]; exists && v != nil {
-			config[key] = v
-		}
-	}
-	if cc, ok := config["connection_config"].(map[string]any); ok {
-		delete(cc, "jwtToken")
-	}
-	if creds, ok := config["credentials"].(map[string]any); ok {
-		delete(creds, "jwtToken")
-	}
-	return config
+	return safe
 }
 
 func isDuplicateKeyError(err error) bool {
