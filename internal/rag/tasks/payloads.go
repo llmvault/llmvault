@@ -29,7 +29,8 @@ func NewIngestTask(p IngestPayload, opts ...asynq.Option) (*asynq.Task, error) {
 	}
 	full := append([]asynq.Option{
 		asynq.Queue(QueueRagWork),
-		asynq.MaxRetry(0),
+		asynq.MaxRetry(3),
+		asynq.Timeout(2 * time.Hour),
 	}, opts...)
 	return asynq.NewTask(TypeRagIngest, body, full...), nil
 }
