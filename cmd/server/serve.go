@@ -28,7 +28,6 @@ import (
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/specialisttasks"
 	"github.com/usehivy/hivy/internal/spider"
-	"github.com/usehivy/hivy/internal/storage"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
@@ -207,29 +206,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		).WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
 	}
 
-	var uploadsHandler *handler.UploadsHandler
-	if cfg.PublicAssetsBucket != "" {
-		presigner, err := storage.NewS3Presigner(storage.PublicAssetsConfig{
-			Bucket:       cfg.PublicAssetsBucket,
-			Region:       cfg.PublicAssetsRegion,
-			Endpoint:     cfg.PublicAssetsEndpoint,
-			AccessKey:    cfg.PublicAssetsAccessKey,
-			SecretKey:    cfg.PublicAssetsSecretKey,
-			SignTTL:      cfg.PublicAssetsSignTTL,
-			UsePublicACL: cfg.PublicAssetsUseACL,
-		})
-		if err != nil {
-			slog.Error("public assets presigner init failed; /v1/uploads/sign disabled", "error", err)
-		} else {
-			uploadsHandler = handler.NewUploadsHandler(database, presigner)
-			uploadsHandler.WithAssetPreviewBaseURL(cfg.APIWebhookBaseURL)
-			uploadsHandler.WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
-			if sandboxEncKey != nil {
-				uploadsHandler.WithStreamer(presigner, sandboxEncKey)
-			}
-			slog.Info("public assets uploads ready", "bucket", cfg.PublicAssetsBucket)
-		}
-	}
+	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
 
 	billingHandler := handler.NewBillingHandler(database, deps.BillingRegistry, deps.Credits)
 	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)

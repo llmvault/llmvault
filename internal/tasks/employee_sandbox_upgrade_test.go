@@ -147,7 +147,7 @@ func TestEmployeeSandboxUpgradeWorker_RestoreFailureRollsBackToOld(t *testing.T)
 	}
 }
 
-func TestEmployeeSandboxRetireHandler_DeletesStoppedOldSandboxAfterDelayTask(t *testing.T) {
+func TestEmployeeSandboxRetireHandler_ReleasesResourceAndArchivesOldSandboxAfterDelayTask(t *testing.T) {
 	f := newEmployeeUpgradeFixture(t)
 	if err := f.handler.Handle(context.Background(), employeeUpgradeTask(t, f.upgrade.ID, f.agent.ID)); err != nil {
 		t.Fatalf("handle upgrade: %v", err)
@@ -157,10 +157,22 @@ func TestEmployeeSandboxRetireHandler_DeletesStoppedOldSandboxAfterDelayTask(t *
 	if err := retireHandler.Handle(context.Background(), asynq.NewTask(task.TypeName, task.Payload)); err != nil {
 		t.Fatalf("handle retire: %v", err)
 	}
-	var oldCount int64
-	f.db.Model(&model.Sandbox{}).Where("id = ?", f.old.ID).Count(&oldCount)
-	if oldCount != 0 {
-		t.Fatalf("old sandbox not deleted: count=%d", oldCount)
+
+	// Retire releases the provider resource (stops billing) via
+	// DeleteSandboxResource, which records a provider delete for the old sandbox.
+	if len(f.provider.deleted) == 0 || f.provider.deleted[len(f.provider.deleted)-1] != f.old.ExternalID {
+		t.Fatalf("retire did not release old provider resource: deleted=%v want last=%s", f.provider.deleted, f.old.ExternalID)
+	}
+
+	// The control-plane row MUST survive (it owns the org's pre-upgrade
+	// conversation history that FKs ON DELETE CASCADE) and be marked archived so
+	// the runtime selector stops routing live traffic to it.
+	var old model.Sandbox
+	if err := f.db.First(&old, "id = ?", f.old.ID).Error; err != nil {
+		t.Fatalf("old sandbox row must survive retire (history blast-radius): %v", err)
+	}
+	if old.Status != string(sandbox.StatusArchived) {
+		t.Fatalf("old sandbox status = %s, want archived", old.Status)
 	}
 }
 

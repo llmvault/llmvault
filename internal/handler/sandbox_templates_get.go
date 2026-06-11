@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -104,7 +106,8 @@ func (h *SandboxTemplateHandler) Update(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if commandsChanged && h.builder != nil && tmpl.BuildCommands != "" {
-		go h.builder.BuildTemplate(r.Context(), &tmpl)
+		tmplCopy := tmpl
+		goroutine.Go(r.Context(), func(ctx context.Context) { h.builder.BuildTemplate(ctx, &tmplCopy) })
 	}
 
 	writeJSON(w, http.StatusOK, toSandboxTemplateResponse(tmpl))

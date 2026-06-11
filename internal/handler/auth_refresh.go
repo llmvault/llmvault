@@ -60,7 +60,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	if res.RowsAffected == 0 {
 		// We did not win the rotation. Either the token was already rotated
 		// (recently, by a concurrent refresh) or it is genuinely revoked.
-		h.serveRefreshGrace(w, tokenHash)
+		h.serveRefreshGrace(r.Context(), w, tokenHash)
 		return
 	}
 
@@ -149,11 +149,11 @@ const (
 // the token was rotated within the grace window and the replacement pair is
 // recorded, it returns that same pair so concurrent refreshes converge on one
 // session instead of force-logging the user out. Otherwise it rejects.
-func (h *AuthHandler) serveRefreshGrace(w http.ResponseWriter, tokenHash string) {
+func (h *AuthHandler) serveRefreshGrace(ctx context.Context, w http.ResponseWriter, tokenHash string) {
 	deadline := time.Now().Add(refreshGraceWaitTotal)
 	for {
 		var storedToken model.RefreshToken
-		if err := h.db.Where("token_hash = ?", tokenHash).First(&storedToken).Error; err != nil {
+		if err := h.db.WithContext(ctx).Where("token_hash = ?", tokenHash).First(&storedToken).Error; err != nil {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "refresh token revoked or not found"})
 			return
 		}
@@ -163,7 +163,7 @@ func (h *AuthHandler) serveRefreshGrace(w http.ResponseWriter, tokenHash string)
 			storedToken.ReplacedByRefreshToken != "" {
 			if time.Since(*storedToken.ReplacedAt) <= refreshGraceWindow {
 				writeJSON(w, http.StatusOK, h.buildAuthResponse(
-					context.Background(),
+					ctx,
 					h.refreshGraceUser(storedToken.UserID),
 					storedToken.ReplacedByAccessToken,
 					storedToken.ReplacedByRefreshToken,

@@ -100,7 +100,7 @@ func TestClientStreamHTTPContextCancelStopsBody(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	client := NewClient(srv.URL, "runtime-secret")
-	resp, err := client.StreamHTTP(ctx, "gateway/http/streams/cancel")
+	resp, err := client.StreamHTTP(ctx, "gateway/http/streams/cancel") //nolint:bodyclose // closed via defer below; bodyclose can't trace it past the goroutine that reads resp.Body
 	if err != nil {
 		t.Fatalf("StreamHTTP: %v", err)
 	}
