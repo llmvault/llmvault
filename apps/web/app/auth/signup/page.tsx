@@ -1,43 +1,28 @@
 "use client"
 
-import Link from "next/link"
-import { Suspense } from "react"
+import { Suspense, useState, type FormEvent } from "react"
+import { Button, Input, InputOTP, Label, Spinner, Typography } from "@heroui/react"
+import NextLink from "next/link"
 import { useSearchParams } from "next/navigation"
-import { motion } from "motion/react"
-import { Controller, useForm } from "react-hook-form"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-  InputOTPSeparator,
-} from "@/components/ui/input-otp"
-import { Label } from "@/components/ui/label"
-import {
+  safeAuthRedirect,
   usePasswordSignup,
   type PasswordAuthInput,
-  type ConfirmEmailInput,
-  safeAuthRedirect,
 } from "@/hooks/use-password-auth"
 import {
   AuthCard,
-  AuthGhostLogo,
   AuthDivider,
   AuthFooter,
+  AuthNavHome,
   OAuthButtons,
-  stepVariants,
-  stepTransition,
+  PlaceholderLogo,
 } from "../_components/shared"
-
-type ConfirmationFormValues = Required<Pick<ConfirmEmailInput, "code">>
 
 function SignupPageContent() {
   const searchParams = useSearchParams()
   const nextPath = safeAuthRedirect(searchParams.get("next"))
-  const nextQuery = nextPath === "/w" ? "" : `?next=${encodeURIComponent(nextPath)}`
+  const nextQuery =
+    nextPath === "/w" ? "" : `?next=${encodeURIComponent(nextPath)}`
   const {
     signup,
     confirmEmail,
@@ -48,194 +33,180 @@ function SignupPageContent() {
     isConfirming,
     isResending,
   } = usePasswordSignup(nextPath)
-  const signupForm = useForm<PasswordAuthInput>({
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  })
-  const confirmationForm = useForm<ConfirmationFormValues>({
-    defaultValues: {
-      code: "",
-    },
-  })
+  const [otpValue, setOtpValue] = useState("")
 
-  const onSignupSubmit = signupForm.handleSubmit((values) => signup(values))
-  const onConfirmSubmit = confirmationForm.handleSubmit(({ code }) => {
+  const onSignupSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    signup({
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    } satisfies PasswordAuthInput)
+  }
+
+  const onConfirmSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     if (!emailToConfirm) return
-    confirmEmail({ email: emailToConfirm, code })
-  })
+    confirmEmail({ email: emailToConfirm, code: otpValue })
+  }
 
   return (
     <>
-      <div className="fixed top-5 right-0 left-0 z-50 mx-auto flex max-w-5xl items-center px-4 md:px-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          render={<Link href="/" className="flex items-center font-display" />}
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={14} />
-          Home
-        </Button>
-      </div>
+      <AuthNavHome />
 
       <AuthCard>
-        <div className="flex flex-col gap-8">
-          {/* Header */}
-          <div className="flex flex-col items-center gap-4">
-            <AuthGhostLogo />
-            <div className="text-center">
-              <h1 className="font-heading text-2xl font-normal tracking-[-0.02em] text-foreground">
-                Create your account
-              </h1>
-              <p className="mt-1.5 text-sm text-muted-foreground">
-                Start free with 1,000 credits — no card required.
-              </p>
-            </div>
+        <div className="flex flex-col items-center gap-4">
+          <PlaceholderLogo />
+          <div className="text-center">
+            <Typography.Heading level={2} className="text-center">
+              Create your account
+            </Typography.Heading>
+            <Typography.Paragraph size="sm" color="muted" className="mt-1.5 text-center">
+              Start free with 1,000 credits — no card required.
+            </Typography.Paragraph>
           </div>
+        </div>
 
-          <motion.div
-            key={emailToConfirm ? "confirm-email" : "password-signup"}
-            variants={stepVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={stepTransition}
-            className="flex flex-col gap-6"
-          >
-            {emailToConfirm ? (
-              <form
-                onSubmit={onConfirmSubmit}
-                className="flex flex-col items-center gap-6"
+        <div className="flex flex-col gap-6">
+          {emailToConfirm ? (
+            <form onSubmit={onConfirmSubmit} className="flex flex-col items-center gap-6">
+              <div className="text-center">
+                <Typography.Paragraph size="sm" color="muted">
+                  Enter the 6-digit code sent to{" "}
+                  <span>{emailToConfirm}</span>
+                </Typography.Paragraph>
+              </div>
+
+              <InputOTP
+                maxLength={6}
+                value={otpValue}
+                onChange={(value) => {
+                  setOtpValue(value)
+                  if (value.length === 6 && emailToConfirm) {
+                    confirmEmail({ email: emailToConfirm, code: value })
+                  }
+                }}
+                isDisabled={isConfirming}
               >
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Enter the 6-digit code sent to{" "}
-                    <span className="font-medium text-foreground">
-                      {emailToConfirm}
-                    </span>
-                  </p>
-                </div>
+                <InputOTP.Group>
+                  <InputOTP.Slot index={0} />
+                  <InputOTP.Slot index={1} />
+                  <InputOTP.Slot index={2} />
+                </InputOTP.Group>
+                <InputOTP.Separator />
+                <InputOTP.Group>
+                  <InputOTP.Slot index={3} />
+                  <InputOTP.Slot index={4} />
+                  <InputOTP.Slot index={5} />
+                </InputOTP.Group>
+              </InputOTP>
 
-                <Controller
-                  name="code"
-                  control={confirmationForm.control}
-                  rules={{ required: true, minLength: 6 }}
-                  render={({ field }) => (
-                    <InputOTP
-                      maxLength={6}
-                      value={field.value}
-                      onChange={(value) => {
-                        field.onChange(value)
-                        if (value.length === 6 && emailToConfirm) {
-                          confirmEmail({ email: emailToConfirm, code: value })
-                        }
-                      }}
-                      disabled={isConfirming}
-                    >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                      </InputOTPGroup>
-                      <InputOTPSeparator />
-                      <InputOTPGroup>
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
-                      </InputOTPGroup>
-                    </InputOTP>
+              <Button
+                type="submit"
+                size="lg"
+                fullWidth
+                isPending={isConfirming}
+                isDisabled={isConfirming || otpValue.length !== 6}
+              >
+                {({ isPending }) => (
+                  <>
+                    {isPending ? <Spinner color="current" size="sm" /> : null}
+                    {isPending ? "Confirming..." : "Confirm email"}
+                  </>
+                )}
+              </Button>
+
+              <div className="flex items-center gap-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onPress={resendConfirmation}
+                  isPending={isResending}
+                  isDisabled={isResending}
+                >
+                  {({ isPending }) => (
+                    <>
+                      {isPending ? <Spinner color="current" size="sm" /> : null}
+                      {isPending ? "Sending..." : "Resend code"}
+                    </>
                   )}
-                />
-
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => {
+                    setOtpValue("")
+                    changeEmail()
+                  }}
+                  isDisabled={isConfirming}
+                >
+                  Use a different email
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <OAuthButtons nextPath={nextPath} />
+              <AuthDivider />
+              <form
+                onSubmit={onSignupSubmit}
+                className="flex flex-col gap-3"
+              >
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="email">Work email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder="you@company.com"
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    placeholder="Create a password"
+                    disabled={isPending}
+                  />
+                </div>
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full"
-                  loading={isConfirming}
+                  fullWidth
+                  isPending={isPending}
+                  isDisabled={isPending}
                 >
-                  Confirm email
+                  {({ isPending }) => (
+                    <>
+                      {isPending ? <Spinner color="current" size="sm" /> : null}
+                      {isPending ? "Creating account..." : "Create account"}
+                    </>
+                  )}
                 </Button>
-
-                <div className="flex items-center gap-4 text-sm">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={resendConfirmation}
-                    loading={isResending}
-                    className="h-auto px-0 py-0"
-                  >
-                    Resend code
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      confirmationForm.reset()
-                      changeEmail()
-                    }}
-                    className="h-auto px-0 py-0"
-                  >
-                    Use a different email
-                  </Button>
-                </div>
               </form>
-            ) : (
-              <>
-                <OAuthButtons nextPath={nextPath} />
-                <AuthDivider />
-                <form onSubmit={onSignupSubmit} className="flex flex-col gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Work email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      className="h-12 rounded-lg"
-                      placeholder="you@company.com"
-                      {...signupForm.register("email", { required: true })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      className="h-12 rounded-lg"
-                      placeholder="Create a password"
-                      {...signupForm.register("password", { required: true })}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full"
-                    loading={isPending}
-                  >
-                    Create account
-                  </Button>
-                </form>
-                <p className="text-center text-sm text-muted-foreground">
+              <div className="text-center">
+                <Typography.Paragraph size="sm" color="muted">
                   Already have an account?{" "}
-                  <Link
-                    href={`/auth/login${nextQuery}`}
-                    className="font-medium text-foreground underline-offset-4 transition-colors hover:underline"
-                  >
+                  <NextLink href={`/auth/login${nextQuery}`} className="link">
                     Sign in
-                  </Link>
-                </p>
-              </>
-            )}
-          </motion.div>
-
-          {/* Footer */}
-          <AuthFooter />
+                  </NextLink>
+                </Typography.Paragraph>
+              </div>
+            </>
+          )}
         </div>
+
+        {/* Footer */}
+        <AuthFooter />
       </AuthCard>
     </>
   )
@@ -243,7 +214,7 @@ function SignupPageContent() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<AuthCard><AuthGhostLogo /></AuthCard>}>
+    <Suspense fallback={<AuthCard><PlaceholderLogo /></AuthCard>}>
       <SignupPageContent />
     </Suspense>
   )
