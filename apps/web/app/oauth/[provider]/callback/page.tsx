@@ -14,7 +14,7 @@ function OAuthCallbackContents() {
   const token = searchParams.get("token")
   const error = searchParams.get("error")
   const nextPath = safeAuthRedirect(searchParams.get("next"))
-  const signinHref = `/auth/signin?error=exchange_failed${nextPath === "/w" ? "" : `&next=${encodeURIComponent(nextPath)}`}`
+  const signinHref = `/auth/login?error=exchange_failed${nextPath === "/w" ? "" : `&next=${encodeURIComponent(nextPath)}`}`
 
   const exchange = $api.useMutation("post", "/oauth/exchange", {
     onSuccess: () => {
@@ -28,7 +28,7 @@ function OAuthCallbackContents() {
   useEffect(() => {
     if (error) {
       const nextQuery = nextPath === "/w" ? "" : `&next=${encodeURIComponent(nextPath)}`
-      router.replace(`/auth/signin?error=${encodeURIComponent(error)}${nextQuery}`)
+      router.replace(`/auth/login?error=${encodeURIComponent(error)}${nextQuery}`)
       return
     }
 

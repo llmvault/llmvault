@@ -1,9 +1,14 @@
 import type { Metadata } from "next"
 import { Bricolage_Grotesque } from "next/font/google"
-import "./globals.css"
+import "./hero.css"
 import { QueryProvider } from "@/components/query-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
+import { ThemeProviders } from "@/components/theme-providers"
+
+// Applies the saved theme preset before first paint to avoid a flash.
+// next-themes injects its own equivalent script for the light/dark mode.
+const PRESET_NO_FLASH = `(function(){try{var p=localStorage.getItem('hivy-theme-preset');if(p&&p!=='default')document.documentElement.dataset.themePreset=p;}catch(e){}})();`
 
 const bricolage = Bricolage_Grotesque({})
 export const metadata: Metadata = {
@@ -30,14 +35,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="bg-background font-sans antialiased">
-      <body
-        className={bricolage.className}
-      >
-        <QueryProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-          <Toaster position="top-center" />
-        </QueryProvider>
+    <html
+      lang="en"
+      className="bg-background font-sans antialiased"
+      suppressHydrationWarning
+    >
+      <body className={bricolage.className}>
+        <script dangerouslySetInnerHTML={{ __html: PRESET_NO_FLASH }} />
+        <ThemeProviders>
+          <QueryProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Toaster position="top-center" />
+          </QueryProvider>
+        </ThemeProviders>
       </body>
     </html>
   )

@@ -58,7 +58,7 @@ function AcceptInviteContents() {
     if (!token) return "/invites/accept"
     return `/invites/accept?token=${encodeURIComponent(token)}&auto=1`
   }, [token])
-  const signinHref = `/auth/signin?next=${encodeURIComponent(returnPath)}`
+  const signinHref = `/auth/login?next=${encodeURIComponent(returnPath)}`
   const signupHref = `/auth/signup?next=${encodeURIComponent(returnPath)}`
 
   const queryClient = useQueryClient()
@@ -104,7 +104,7 @@ function AcceptInviteContents() {
       { body: {} },
       {
         onSettled: () => {
-          router.replace(`/auth/signin?next=${encodeURIComponent(returnPath)}`)
+          router.replace(`/auth/login?next=${encodeURIComponent(returnPath)}`)
         },
       },
     )
@@ -157,7 +157,7 @@ function AcceptInviteContents() {
           This invitation link is missing its token.
         </p>
         <div className="mt-6">
-          <Link href="/auth/signin" className={buttonVariants({ className: "w-full" })}>
+          <Link href="/auth/login" className={buttonVariants({ className: "w-full" })}>
             Go to sign in
           </Link>
         </div>
@@ -184,7 +184,7 @@ function AcceptInviteContents() {
           This invitation is no longer valid. It may have expired, been revoked, or already been used.
         </p>
         <div className="mt-6">
-          <Link href="/auth/signin" className={buttonVariants({ className: "w-full" })}>
+          <Link href="/auth/login" className={buttonVariants({ className: "w-full" })}>
             Back to sign in
           </Link>
         </div>
