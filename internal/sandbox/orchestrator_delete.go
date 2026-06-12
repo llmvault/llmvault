@@ -18,6 +18,13 @@ func (o *Orchestrator) StopSandbox(ctx context.Context, sb *model.Sandbox) error
 		if errors.Is(err, ErrSandboxNotFound) {
 			return o.purgeMissingSandbox(sb)
 		}
+		if errors.Is(err, ErrUnsupported) {
+			// No pause primitive (Railway): do NOT persist 'stopped' (still running
+			// and billing). Surface the sentinel so callers skip or fall back to delete.
+			logging.FromContext(ctx).InfoContext(ctx, "stop sandbox unsupported by provider; leaving running",
+				"sandbox_id", sb.ID, "provider", o.providerID())
+			return err
+		}
 		return fmt.Errorf("stopping sandbox %s: %w", sb.ID, err)
 	}
 	now := time.Now()
@@ -84,6 +91,13 @@ func (o *Orchestrator) ArchiveSandbox(ctx context.Context, sb *model.Sandbox) er
 			if errors.Is(err, ErrSandboxNotFound) {
 				return nil
 			}
+			if errors.Is(err, ErrUnsupported) {
+				// Provider can't stop (Railway): delete the live resource instead of
+				// persisting an 'archived' lie that keeps billing.
+				logging.FromContext(ctx).InfoContext(ctx, "archive sandbox unsupported by provider; deleting resource",
+					"sandbox_id", sb.ID, "provider", o.providerID())
+				return o.DeleteSandboxResource(ctx, sb)
+			}
 			return fmt.Errorf("stopping sandbox before archive: %w", err)
 		}
 	}
@@ -91,6 +105,11 @@ func (o *Orchestrator) ArchiveSandbox(ctx context.Context, sb *model.Sandbox) er
 	if err := o.provider.ArchiveSandbox(ctx, sb.ExternalID); err != nil {
 		if errors.Is(err, ErrSandboxNotFound) {
 			return o.purgeMissingSandbox(sb)
+		}
+		if errors.Is(err, ErrUnsupported) {
+			logging.FromContext(ctx).InfoContext(ctx, "archive sandbox unsupported by provider; deleting resource",
+				"sandbox_id", sb.ID, "provider", o.providerID())
+			return o.DeleteSandboxResource(ctx, sb)
 		}
 		return fmt.Errorf("archiving sandbox %s: %w", sb.ID, err)
 	}
@@ -119,7 +138,9 @@ func (o *Orchestrator) UnarchiveSandbox(ctx context.Context, sb *model.Sandbox) 
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return nil, err
 	}
-	o.db.Model(sb).Update("status", string(StatusStarting))
+	if err := o.db.Model(sb).Update("status", string(StatusStarting)).Error; err != nil {
+		return nil, fmt.Errorf("marking sandbox %s starting before unarchive: %w", sb.ID, err)
+	}
 	sb.Status = string(StatusStarting)
 
 	return o.WakeSandbox(ctx, sb)

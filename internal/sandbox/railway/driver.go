@@ -114,7 +114,12 @@ func (d *Driver) CreateSandbox(context.Context, sandbox.CreateSandboxOpts) (*san
 
 func (d *Driver) StartSandbox(context.Context, string) error { return nil }
 
-func (d *Driver) StopSandbox(context.Context, string) error { return nil }
+// StopSandbox is unsupported on Railway (no scale-to-zero/pause): returning
+// ErrUnsupported lets the orchestrator skip the transition rather than persist a
+// 'stopped' lie while the service keeps billing.
+func (d *Driver) StopSandbox(context.Context, string) error {
+	return fmt.Errorf("railway stop sandbox: %w", sandbox.ErrUnsupported)
+}
 
 func (d *Driver) RestartSandbox(ctx context.Context, externalID string) error {
 	return d.client.RestartLatestDeployment(ctx, railwayapi.DeploymentListInput{
@@ -125,7 +130,10 @@ func (d *Driver) RestartSandbox(ctx context.Context, externalID string) error {
 	})
 }
 
-func (d *Driver) ArchiveSandbox(context.Context, string) error { return nil }
+// ArchiveSandbox is unsupported on Railway (no cold-storage primitive), like Stop.
+func (d *Driver) ArchiveSandbox(context.Context, string) error {
+	return fmt.Errorf("railway archive sandbox: %w", sandbox.ErrUnsupported)
+}
 
 func (d *Driver) DeleteSandbox(ctx context.Context, externalID string) error {
 	if err := d.client.DeleteService(ctx, d.environmentID, externalID); err != nil {

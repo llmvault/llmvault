@@ -2,6 +2,7 @@ package specialisttasks
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/specialists"
@@ -30,77 +32,6 @@ func NewService(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps emp
 		catalog:      catalog,
 		now:          time.Now,
 	}
-}
-
-type LaunchRequest struct {
-	Token             *model.Token
-	SpecialistSlug    string
-	Brief             string
-	Metadata          map[string]any
-	EmployeeSessionID string
-}
-
-type LaunchResponse struct {
-	TaskID            string `json:"task_id"`
-	SpecialistSlug    string `json:"specialist_slug"`
-	EmployeeSessionID string `json:"employee_session_id"`
-	SandboxID         string `json:"sandbox_id"`
-	Status            string `json:"status"`
-	Message           string `json:"message"`
-	SystemReminder    string `json:"system_reminder"`
-	NextAction        string `json:"next_action"`
-}
-
-type AvailableSpecialistsResponse struct {
-	Specialists []AvailableSpecialist `json:"specialists"`
-	Count       int                   `json:"count"`
-	NextAction  string                `json:"next_action"`
-}
-
-type AvailableSpecialist struct {
-	Slug        string `json:"slug"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	Version     int    `json:"version"`
-}
-
-type TaskStatusResponse struct {
-	TaskID          string     `json:"task_id"`
-	SpecialistSlug  string     `json:"specialist_slug"`
-	Status          string     `json:"status"`
-	CreatedAt       time.Time  `json:"created_at"`
-	EndedAt         *time.Time `json:"ended_at,omitempty"`
-	LastActivityAt  *time.Time `json:"last_activity_at,omitempty"`
-	ActivitySummary string     `json:"activity_summary,omitempty"`
-	LatestMessage   string     `json:"latest_message,omitempty"`
-	LatestError     string     `json:"latest_error,omitempty"`
-	NextAction      string     `json:"next_action"`
-}
-
-type TaskTimelineResponse struct {
-	TaskID         string                    `json:"task_id"`
-	SpecialistSlug string                    `json:"specialist_slug"`
-	Status         string                    `json:"status"`
-	Limit          int                       `json:"limit"`
-	Offset         int                       `json:"offset"`
-	NextOffset     *int                      `json:"next_offset,omitempty"`
-	Events         []SpecialistTimelineEvent `json:"events"`
-	NextAction     string                    `json:"next_action"`
-}
-
-type SpecialistTimelineEvent struct {
-	EventAt   time.Time `json:"event_at"`
-	EventType string    `json:"event_type"`
-	Source    string    `json:"source,omitempty"`
-	Summary   string    `json:"summary,omitempty"`
-}
-
-type MessageResponse struct {
-	TaskID     string `json:"task_id"`
-	Status     string `json:"status"`
-	Message    string `json:"message"`
-	NextAction string `json:"next_action"`
 }
 
 func (s *Service) ListAvailable(ctx context.Context, token *model.Token) (*AvailableSpecialistsResponse, *ToolError) {
@@ -165,7 +96,20 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 	if err != nil {
 		return nil, wrapToolError("sandbox_create_failed", "Could not create the specialist runtime sandbox.", err, true, "Retry later. If this repeats, report the sandbox provisioning error to the user.")
 	}
-	if err := employeeruntime.AttachLatestSpecialistProxyTokenToSandbox(ctx, s.compileDeps, employee, sb.ID, def.Slug); err != nil {
+	// Once the sandbox exists, every later failure must release the provider
+	// resource, or a failed launch leaves a live billing sandbox and the LLM mints
+	// another. Runs on WithoutCancel so a cancelled ctx still executes it.
+	launchOK := false
+	defer func() {
+		if launchOK {
+			return
+		}
+		cleanupCtx := context.WithoutCancel(ctx)
+		if err := s.orchestrator.DeleteSandboxResource(cleanupCtx, sb); err != nil {
+			logging.Capture(cleanupCtx, fmt.Errorf("specialist launch cleanup: delete sandbox resource %s: %w", sb.ID, err))
+		}
+	}()
+	if err := employeeruntime.AttachSpecialistProxyTokenToSandbox(ctx, s.compileDeps, employee, sb.ID, secrets.ProxyTokenJTI, def.Slug); err != nil {
 		return nil, wrapToolError("proxy_token_attach_failed", "The specialist runtime was created, but the control plane could not bind its proxy token to the sandbox.", err, true, "Retry later. If this repeats, report that specialist startup failed after sandbox creation.")
 	}
 	parentSessionID := s.parentSessionIDForRuntimeConversation(ctx, employee, req.EmployeeSessionID)
@@ -232,11 +176,12 @@ func (s *Service) Launch(ctx context.Context, req LaunchRequest) (*LaunchRespons
 		_ = s.db.WithContext(ctx).Model(&task).Updates(map[string]any{"status": "error", "updated_at": s.now().UTC()}).Error
 		return nil, wrapToolError("initial_message_failed", "The specialist runtime was created, but the task brief could not be delivered.", err, true, "Retry specialist_launch_task. If a task_id was returned previously, use specialist_task_status before launching another duplicate task.")
 	}
+	launchOK = true
 	return newLaunchResponse(task), nil
 }
 
 func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uuid.UUID, message string) (*MessageResponse, *ToolError) {
-	task, _, toolErr := s.loadOwnedTask(ctx, token, taskID)
+	task, employee, toolErr := s.loadOwnedTask(ctx, token, taskID)
 	if toolErr != nil {
 		return nil, toolErr
 	}
@@ -248,6 +193,9 @@ func (s *Service) SendMessage(ctx context.Context, token *model.Token, taskID uu
 	if err := s.db.WithContext(ctx).Where("id = ?", task.SandboxID).First(&sb).Error; err != nil {
 		return nil, wrapToolError("sandbox_not_found", "The specialist task sandbox could not be loaded.", err, false, "Call specialist_task_status to check whether the task still exists. If it does, report that its sandbox record is missing.")
 	}
+	// Refresh the specialist proxy token if it is near expiry so a long-running
+	// task does not silently lose LLM/MCP access after its 24h TTL.
+	s.refreshSpecialistProxyTokenIfNeeded(ctx, employee, task, &sb)
 	client, err := s.orchestrator.GetRuntimeClient(ctx, &sb)
 	if err != nil {
 		return nil, wrapToolError("runtime_client_failed", "Could not connect to the specialist runtime API.", err, true, "Retry later. If this repeats, report that the specialist runtime is unavailable.")

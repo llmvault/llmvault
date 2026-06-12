@@ -25,6 +25,10 @@ const (
 	StatusArchived  SandboxStatus = "archived"
 	StatusArchiving SandboxStatus = "archiving"
 	StatusError     SandboxStatus = "error"
+	// StatusUpgrading marks the replacement sandbox mid-upgrade. It is deliberately
+	// NOT in activeSandboxStatuses, so traffic stays on the old sandbox until the
+	// new one is restored, synced, and flipped to running.
+	StatusUpgrading SandboxStatus = "upgrading"
 )
 
 // CreateSandboxOpts configures a new sandbox.
@@ -110,7 +114,6 @@ type Provider interface {
 	Validate(ctx context.Context) error
 	RuntimeLayout() RuntimeLayout
 
-	// Lifecycle
 	CreateSandbox(ctx context.Context, opts CreateSandboxOpts) (*SandboxInfo, error)
 	StartSandbox(ctx context.Context, externalID string) error
 	StopSandbox(ctx context.Context, externalID string) error
@@ -123,7 +126,6 @@ type Provider interface {
 	// Networking — returns the URL to reach a port inside the sandbox.
 	GetEndpoint(ctx context.Context, externalID string, port int) (string, error)
 
-	// Templates
 	BuildTemplate(ctx context.Context, opts TemplateBuildRequest) (externalID string, err error)
 	BuildTemplateWithLogs(ctx context.Context, opts TemplateBuildRequest, onLog func(string)) (externalID string, err error)
 	GetTemplateStatus(ctx context.Context, externalID string) (*TemplateBuildStatus, error)
@@ -146,6 +148,11 @@ type Provider interface {
 type WarmPoolCapable interface {
 	UsesWarmPool() bool
 }
+
+// ErrUnsupported means a lifecycle operation has no provider-side implementation
+// (e.g. Railway has no scale-to-zero). Callers must skip the control-plane state
+// change rather than persist a state the provider never reached.
+var ErrUnsupported = errors.New("operation not supported by sandbox provider")
 
 // RuntimeCommandContext bundles what a provider needs for runtime-based command execution.
 type RuntimeCommandContext struct {

@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"crypto/rsa"
-	"errors"
 	"fmt"
 	"time"
 
@@ -29,7 +28,6 @@ import (
 	"github.com/usehivy/hivy/internal/specialists"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/storage"
-	"github.com/usehivy/hivy/internal/streaming"
 
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
@@ -52,9 +50,6 @@ type Deps struct {
 	SandboxEncKey   *crypto.SymmetricKey
 	Orchestrator    *sandbox.Orchestrator
 	Specialists     *specialists.Catalog
-	EventBus        *streaming.EventBus
-	Flusher         *streaming.Flusher
-	Cleanup         *streaming.Cleanup
 	HindsightClient *hindsight.Client
 	SpiderClient    *spider.Client              // nil if spider not configured
 	ToolUsageWriter *middleware.ToolUsageWriter // nil if spider not configured
@@ -198,43 +193,10 @@ func New(ctx context.Context) (*Deps, error) {
 		logging.FromContext(ctx).InfoContext(ctx, "spider client ready")
 	}
 
-	var sandboxEncKey *crypto.SymmetricKey
-	var orchestrator *sandbox.Orchestrator
-	if cfg.SandboxProviderID == "" {
-		logging.FromContext(ctx).WarnContext(ctx, "sandbox orchestration disabled; no sandbox provider configured",
-			"required_env", "HIVY_SANDBOX_PROVIDER_ID,HIVY_SANDBOX_ENCRYPTION_KEY")
-	} else if cfg.SandboxEncryptionKey == "" {
-		logging.FromContext(ctx).WarnContext(ctx, "sandbox orchestration disabled; sandbox provider configured without encryption key",
-			"provider", cfg.SandboxProviderID,
-			"missing_env", "HIVY_SANDBOX_ENCRYPTION_KEY")
-	} else {
-		sandboxEncKey, err = crypto.NewSymmetricKey(cfg.SandboxEncryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("invalid HIVY_SANDBOX_ENCRYPTION_KEY: %w", err)
-		}
-
-		sandboxProvider, err := newSandboxProvider(cfg)
-		if err != nil {
-			if errors.Is(err, errSandboxProviderNotConfigured) {
-				logging.FromContext(ctx).WarnContext(ctx, "sandbox orchestration disabled; selected sandbox provider is incomplete",
-					"provider", cfg.SandboxProviderID,
-					"reason", err.Error())
-			} else {
-				return nil, fmt.Errorf("creating sandbox provider: %w", err)
-			}
-		} else if err := sandboxProvider.Validate(ctx); err != nil {
-			logging.FromContext(ctx).WarnContext(ctx, "sandbox orchestration disabled; selected sandbox provider is unavailable",
-				"provider", sandboxProvider.ID(),
-				"reason", err.Error())
-		} else {
-			orchestrator = sandbox.NewOrchestrator(database, sandboxProvider, sandboxEncKey, cfg)
-			logging.FromContext(ctx).InfoContext(ctx, "sandbox orchestrator ready", "provider", sandboxProvider.ID())
-		}
+	sandboxEncKey, orchestrator, err := buildSandboxOrchestrator(ctx, cfg, database)
+	if err != nil {
+		return nil, err
 	}
-
-	eventBus := streaming.NewEventBus(redisClient)
-	flusher := streaming.NewFlusher(eventBus, database)
-	cleanup := streaming.NewCleanup(eventBus)
 
 	var hClient *hindsight.Client
 	if cfg.HindsightAPIURL != "" {
@@ -276,9 +238,6 @@ func New(ctx context.Context) (*Deps, error) {
 		SandboxEncKey:   sandboxEncKey,
 		Orchestrator:    orchestrator,
 		Specialists:     specialistCatalog,
-		EventBus:        eventBus,
-		Flusher:         flusher,
-		Cleanup:         cleanup,
 		HindsightClient: hClient,
 		SpiderClient:    spiderClient,
 		ToolUsageWriter: toolUsageWriter,

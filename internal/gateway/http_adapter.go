@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/netguard"
 )
 
 const HTTPProvider = "http"
@@ -34,7 +35,9 @@ type httpInboundPayload struct {
 
 func NewHTTPAdapter(client *http.Client) *HTTPAdapter {
 	if client == nil {
-		client = &http.Client{Timeout: 15 * time.Second}
+		// The callback URL is client-controlled, so use the rebinding-safe guarded
+		// transport: the dial re-checks and pins the resolved IP (closes the TOCTOU window).
+		client = &http.Client{Timeout: 15 * time.Second, Transport: netguard.NewTransport()}
 	}
 	return &HTTPAdapter{client: client}
 }
@@ -88,6 +91,11 @@ func (a *HTTPAdapter) SendResponse(ctx context.Context, payload ProviderResponse
 	callbackURL = strings.TrimSpace(callbackURL)
 	if callbackURL == "" {
 		return nil, fmt.Errorf("send http gateway response: route config must include response_url, or allow_request_callback_url must be true and inbound payload must include callback_url")
+	}
+	// Reject internal/metadata callbacks: a client-controlled URL is a blind SSRF
+	// that also exfiltrates the agent's response.
+	if err := netguard.ValidateURL(callbackURL); err != nil {
+		return nil, fmt.Errorf("send http gateway response: callback_url not allowed: %w", err)
 	}
 	body, err := json.Marshal(map[string]any{
 		"markdown":  payload.Text,

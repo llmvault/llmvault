@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
@@ -23,10 +21,10 @@ import (
 const triggerConversationSource = "trigger"
 
 func init() {
-	RegisterTaskBuilder(TypeEmployeeTriggerDispatch, func(payload []byte) (*asynq.Task, error) {
+	RegisterTaskBuilder(TypeEmployeeTriggerDispatch, func(payload []byte) (*asynq.Task, []asynq.Option, error) {
 		var p EmployeeTriggerDispatchPayload
 		if err := json.Unmarshal(payload, &p); err != nil {
-			return nil, fmt.Errorf("unmarshal employee trigger dispatch payload: %w", err)
+			return nil, nil, fmt.Errorf("unmarshal employee trigger dispatch payload: %w", err)
 		}
 		return NewEmployeeTriggerDispatchTask(p)
 	})
@@ -145,118 +143,4 @@ func (h *EmployeeTriggerDispatchHandler) matchTriggers(ctx context.Context, payl
 		return nil, fmt.Errorf("find employee triggers: %w", err)
 	}
 	return triggers, nil
-}
-
-func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, webhookPayload map[string]any) error {
-	agent := trigger.Employee
-	if agent.ID == uuid.Nil {
-		if err := h.db.WithContext(ctx).Where("id = ? AND status <> ?", trigger.EmployeeID, "archived").First(&agent).Error; err != nil {
-			return fmt.Errorf("load employee: %w", err)
-		}
-	}
-	if agent.OrgID == nil {
-		return fmt.Errorf("employee missing org")
-	}
-
-	sb, err := h.loadEmployeeSandbox(ctx, agent.ID, *agent.OrgID)
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "load_employee_sandbox", payload, trigger, "", "", err)
-		return err
-	}
-	if strings.EqualFold(sb.Status, string(sandbox.StatusStopped)) {
-		if err := h.orchestrator.StartEmployeeSandbox(ctx, sb); err != nil {
-			captureTriggerDispatchBoundary(ctx, "start_employee_sandbox", payload, trigger, "", "", err)
-			return err
-		}
-	} else if h.orchestrator.NeedsURLRefresh(sb) {
-		if err := h.orchestrator.RefreshEmployeeSandboxURL(ctx, sb); err != nil {
-			captureTriggerDispatchBoundary(ctx, "refresh_employee_sandbox_url", payload, trigger, "", "", err)
-			return err
-		}
-	}
-
-	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "decrypt_employee_runtime_key", payload, trigger, "", "", err)
-		return fmt.Errorf("decrypt employee runtime key: %w", err)
-	}
-	client := employeeruntime.NewClient(sb.RuntimeURL, apiKey)
-	if err := client.Healthz(ctx); err != nil {
-		captureTriggerDispatchBoundary(ctx, "employee_runtime_healthz", payload, trigger, "", "", err)
-		return fmt.Errorf("employee runtime healthz: %w", err)
-	}
-	if err := client.Readyz(ctx); err != nil {
-		if err := h.syncRuntime(ctx, &agent, sb, client); err != nil {
-			captureTriggerDispatchBoundary(ctx, "employee_runtime_readyz_sync", payload, trigger, "", "", err)
-			return err
-		}
-	}
-
-	recentTasks, err := h.loadRecentSoftwareEngineeringTasks(ctx, agent)
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "load_recent_software_engineering_tasks", payload, trigger, "", "", err)
-		return err
-	}
-	compiled := h.compileMessage(payload, trigger, webhookPayload, recentTasks)
-	conv, err := h.findOrCreateTriggerConversation(ctx, &agent, sb, trigger.ID, compiled.ResourceKey, compiled.ConversationID)
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_conversation", payload, trigger, compiled.ResourceKey, "", err)
-		return err
-	}
-
-	resp, err := client.PostHTTPMessage(ctx, employeeruntime.HTTPMessageRequest{
-		Text:            compiled.Text,
-		ConversationID:  conv.RuntimeConversationID,
-		User:            "hivy-trigger",
-		UserDisplayName: "Hivy Trigger",
-		Raw:             compiled.Raw,
-	})
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "post_http_message", payload, trigger, compiled.ResourceKey, conv.ID.String(), err)
-		return fmt.Errorf("post employee trigger message: %w", err)
-	}
-	h.enqueueStoreDelivery(ctx, payload, trigger, conv, compiled, resp)
-	return nil
-}
-
-func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, resourceKey, conversationID string, err error) {
-	if err == nil {
-		return
-	}
-	logging.CaptureWithFields(ctx, fmt.Errorf("employee trigger dispatch %s: %w", stage, err), map[string]any{
-		"stage":           stage,
-		"org_id":          payload.OrgID.String(),
-		"employee_id":     trigger.EmployeeID.String(),
-		"trigger_id":      trigger.ID.String(),
-		"delivery_id":     payload.DeliveryID,
-		"event_key":       eventKey(payload.EventType, payload.EventAction),
-		"resource_key":    resourceKey,
-		"conversation_id": conversationID,
-	})
-}
-
-func (h *EmployeeTriggerDispatchHandler) loadEmployeeSandbox(ctx context.Context, agentID, orgID uuid.UUID) (*model.Sandbox, error) {
-	sb, err := employeeRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, orgID, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("load employee sandbox: %w", err)
-	}
-	return sb, nil
-}
-
-func (h *EmployeeTriggerDispatchHandler) syncRuntime(ctx context.Context, agent *model.Employee, sb *model.Sandbox, client *employeeruntime.Client) error {
-	runtimeSecret, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
-	if err != nil {
-		return fmt.Errorf("decrypt runtime secret: %w", err)
-	}
-	configUpdate, _, err := employeeruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, runtimeSecret)
-	if err != nil {
-		return fmt.Errorf("build employee runtime config: %w", err)
-	}
-	if _, err := client.PutRuntimeConfig(ctx, configUpdate); err != nil {
-		return fmt.Errorf("employee runtime put config: %w", err)
-	}
-	if err := client.Readyz(ctx); err != nil {
-		return fmt.Errorf("employee runtime readyz: %w", err)
-	}
-	return nil
 }

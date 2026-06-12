@@ -1,7 +1,6 @@
 package employeeruntime
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -19,6 +17,10 @@ type Client struct {
 	baseURL string
 	apiKey  string
 	http    *http.Client
+	// stream is a dedicated client for long-lived SSE bodies: no overall Timeout
+	// (Go's covers the whole body read and would cut long turns mid-answer); only
+	// dial/header bounded, liveness from the request context.
+	stream *http.Client
 }
 
 const defaultHTTPTimeout = 2 * time.Minute
@@ -94,7 +96,27 @@ func NewClientWithTimeout(baseURL, apiKey string, timeout time.Duration) *Client
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
 		http:    &http.Client{Timeout: timeout},
+		stream:  newStreamingHTTPClient(),
 	}
+}
+
+// newStreamingHTTPClient builds the SSE client for live runtime streams (Timeout
+// 0; only dial/TLS/header bounded), per the `stream` field contract above.
+func newStreamingHTTPClient() *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		// Never compress an SSE body; we also send Accept-Encoding: identity.
+		DisableCompression: true,
+		ForceAttemptHTTP2:  true,
+	}
+	return &http.Client{Transport: transport, Timeout: 0}
 }
 
 func (c *Client) Healthz(ctx context.Context) error {
@@ -135,7 +157,8 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 		body.RuntimeEnv = map[string]string{}
 	}
 	if os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD") == "true" {
-		payload, err := json.Marshal(body)
+		// Redact secrets before logging so a debug flag can't exfiltrate credentials.
+		payload, err := json.Marshal(redactConfigUpdateRequest(body))
 		if err != nil {
 			slog.WarnContext(ctx, "runtime config debug payload marshal failed", "error", err)
 		} else {
@@ -143,7 +166,7 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 		}
 	}
 	if path := strings.TrimSpace(os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD_FILE")); path != "" {
-		payload, err := json.MarshalIndent(body, "", "  ")
+		payload, err := json.MarshalIndent(redactConfigUpdateRequest(body), "", "  ")
 		if err != nil {
 			slog.WarnContext(ctx, "runtime config debug payload file marshal failed", "error", err)
 		} else if err := os.WriteFile(path, payload, 0o600); err != nil {
@@ -185,84 +208,4 @@ func (c *Client) PostHTTPMessage(ctx context.Context, body HTTPMessageRequest) (
 		return nil, fmt.Errorf("decode http message response: %w", err)
 	}
 	return &out, nil
-}
-
-func (c *Client) doVoid(ctx context.Context, method, path string, body any) error {
-	resp, err := c.do(ctx, method, path, body)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		raw, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("%s %s: %s: %s", method, path, resp.Status, raw)
-	}
-	return nil
-}
-
-func (c *Client) do(ctx context.Context, method, path string, body any) (*http.Response, error) {
-	return c.doRuntimeRequest(ctx, method, path, body, true)
-}
-
-func (c *Client) doRuntimeRequest(ctx context.Context, method, path string, body any, auth bool) (*http.Response, error) {
-	var data []byte
-	if body != nil {
-		var err error
-		data, err = json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-	}
-	req, err := c.newRequest(ctx, method, c.baseURL+path, data, auth)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.http.Do(req)
-	if err == nil {
-		return resp, nil
-	}
-	fallbackBase, ok := localDockerHostBaseURL(c.baseURL)
-	if !ok {
-		return nil, err
-	}
-	fallbackReq, fallbackReqErr := c.newRequest(ctx, method, fallbackBase+path, data, auth)
-	if fallbackReqErr != nil {
-		return nil, err
-	}
-	fallbackResp, fallbackErr := c.http.Do(fallbackReq)
-	if fallbackErr != nil {
-		return nil, err
-	}
-	return fallbackResp, nil
-}
-
-func (c *Client) newRequest(ctx context.Context, method, rawURL string, data []byte, auth bool) (*http.Request, error) {
-	var reader io.Reader
-	if data != nil {
-		reader = bytes.NewReader(data)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, rawURL, reader)
-	if err != nil {
-		return nil, err
-	}
-	if auth {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	}
-	if data != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	return req, nil
-}
-
-func localDockerHostBaseURL(raw string) (string, bool) {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Hostname() != "host.docker.internal" {
-		return "", false
-	}
-	if port := parsed.Port(); port != "" {
-		parsed.Host = net.JoinHostPort("localhost", port)
-	} else {
-		parsed.Host = "localhost"
-	}
-	return strings.TrimRight(parsed.String(), "/"), true
 }

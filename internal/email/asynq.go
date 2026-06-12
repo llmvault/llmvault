@@ -22,11 +22,11 @@ func NewAsynqSender(enqueuer enqueue.TaskEnqueuer) *AsynqSender {
 
 // Send enqueues an ad-hoc email for async delivery.
 func (s *AsynqSender) Send(_ context.Context, msg Message) error {
-	task, err := tasks.NewEmailSendTask(msg.To, msg.Subject, msg.Body)
+	task, opts, err := tasks.NewEmailSendTask(msg.To, msg.Subject, msg.Body)
 	if err != nil {
 		return err
 	}
-	if _, err := s.enqueuer.Enqueue(task); err != nil {
+	if _, err := s.enqueuer.Enqueue(task, opts...); err != nil {
 		return err
 	}
 	return nil
@@ -34,11 +34,11 @@ func (s *AsynqSender) Send(_ context.Context, msg Message) error {
 
 // SendTemplate enqueues a template-backed email for async delivery.
 func (s *AsynqSender) SendTemplate(_ context.Context, msg TemplateMessage) error {
-	task, err := tasks.NewEmailSendTemplateTask(msg.To, string(msg.Slug), msg.Variables)
+	task, opts, err := tasks.NewEmailSendTemplateTask(msg.To, string(msg.Slug), msg.Variables)
 	if err != nil {
 		return err
 	}
-	if _, err := s.enqueuer.Enqueue(task); err != nil {
+	if _, err := s.enqueuer.Enqueue(task, opts...); err != nil {
 		return err
 	}
 	return nil

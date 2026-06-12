@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gorm.io/gorm"
@@ -16,12 +17,28 @@ import (
 
 const employeeEventBatchSize = 100
 
+// employeeEventFlushRetries bounds drain re-attempts before giving up. A transient
+// Postgres blip must not silently drop session events (notably agent.message.sent).
+const employeeEventFlushRetries = 5
+
+const (
+	employeeEventFlushBackoff    = 250 * time.Millisecond
+	employeeEventFlushBackoffMax = 5 * time.Second
+	// employeeEventShutdownFlushTimeout bounds the final flush so a wedged DB
+	// cannot hang process shutdown indefinitely.
+	employeeEventShutdownFlushTimeout = 25 * time.Second
+)
+
+type afterWriteFn func(context.Context, []model.EmployeeSessionEvent)
+
 type EmployeeEventWriter struct {
 	db            *gorm.DB
 	entries       chan model.EmployeeSessionEvent
 	wg            sync.WaitGroup
 	flushInterval time.Duration
-	afterWrite    func(context.Context, []model.EmployeeSessionEvent)
+	// afterWrite is set (via SetAfterWrite) after the drain goroutine starts, so
+	// atomic.Pointer synchronises the publish to drain without a data race.
+	afterWrite atomic.Pointer[afterWriteFn]
 }
 
 func NewEmployeeEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, flushInterval ...time.Duration) *EmployeeEventWriter {
@@ -40,9 +57,22 @@ func NewEmployeeEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, fl
 }
 
 func (w *EmployeeEventWriter) SetAfterWrite(fn func(context.Context, []model.EmployeeSessionEvent)) {
-	if w != nil {
-		w.afterWrite = fn
+	if w == nil {
+		return
 	}
+	if fn == nil {
+		w.afterWrite.Store(nil)
+		return
+	}
+	cb := afterWriteFn(fn)
+	w.afterWrite.Store(&cb)
+}
+
+func (w *EmployeeEventWriter) loadAfterWrite() afterWriteFn {
+	if cb := w.afterWrite.Load(); cb != nil {
+		return *cb
+	}
+	return nil
 }
 
 func (w *EmployeeEventWriter) drain(ctx context.Context) {
@@ -63,12 +93,68 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 	timer := time.NewTimer(w.flushInterval)
 	defer timer.Stop()
 
-	flush := func() {
+	// flush persists the current batch with bounded retries. On shutdown the
+	// caller passes a non-cancelled flushCtx so the final flush is not aborted by
+	// the cancelled root signal context.
+	flush := func(flushCtx context.Context) {
 		if len(batch) == 0 {
 			return
 		}
+		if w.flushBatch(flushCtx, batch) {
+			if cb := w.loadAfterWrite(); cb != nil {
+				cb(flushCtx, append([]model.EmployeeSessionEvent(nil), batch...))
+			}
+		}
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case entry, ok := <-w.entries:
+			if !ok {
+				// Shutdown: root ctx cancelled, so persist the buffer on a detached ctx.
+				flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), employeeEventShutdownFlushTimeout)
+				flush(flushCtx)
+				cancel()
+				return
+			}
+			batch = append(batch, entry)
+			if len(batch) >= employeeEventBatchSize {
+				flush(ctx)
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(w.flushInterval)
+			}
+		case <-timer.C:
+			flush(ctx)
+			timer.Reset(w.flushInterval)
+		}
+	}
+}
+
+// flushBatch inserts batch, retrying transient failures with capped backoff.
+// It reports whether the batch was durably persisted. Schedule-sync failures are
+// non-fatal (logged) and do not fail the batch.
+func (w *EmployeeEventWriter) flushBatch(ctx context.Context, batch []model.EmployeeSessionEvent) bool {
+	backoff := employeeEventFlushBackoff
+	var lastErr error
+	for attempt := 0; attempt < employeeEventFlushRetries; attempt++ {
+		if attempt > 0 {
+			if !sleepCtx(ctx, backoff) {
+				// Context cancelled mid-retry: stop retrying and report failure.
+				break
+			}
+			backoff *= 2
+			if backoff > employeeEventFlushBackoffMax {
+				backoff = employeeEventFlushBackoffMax
+			}
+		}
 		err := w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.CreateInBatches(batch, employeeEventBatchSize).Error; err != nil {
+			if err := tx.Clauses(employeeSessionEventOnConflict()).CreateInBatches(batch, employeeEventBatchSize).Error; err != nil {
 				return err
 			}
 			for _, entry := range batch {
@@ -83,37 +169,30 @@ func (w *EmployeeEventWriter) drain(ctx context.Context) {
 			}
 			return nil
 		})
-		if err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("employee event batch write failed: %w", err), employeeEventBatchSentryFields("batch_write", batch))
-			logging.FromContext(ctx).ErrorContext(ctx, "employee event batch write failed", "error", err, "count", len(batch))
-		} else if w.afterWrite != nil {
-			w.afterWrite(ctx, append([]model.EmployeeSessionEvent(nil), batch...))
+		if err == nil {
+			return true
 		}
-		batch = batch[:0]
+		// A unique-violation means a prior attempt already persisted these rows.
+		if isDuplicateKeyError(err) {
+			return true
+		}
+		lastErr = err
+		logging.FromContext(ctx).WarnContext(ctx, "employee event batch write retrying",
+			"error", err, "attempt", attempt+1, "count", len(batch))
 	}
+	logging.CaptureWithFields(ctx, fmt.Errorf("employee event batch write failed: %w", lastErr), employeeEventBatchSentryFields("batch_write", batch))
+	logging.FromContext(ctx).ErrorContext(ctx, "employee event batch write failed after retries", "error", lastErr, "count", len(batch))
+	return false
+}
 
-	for {
-		select {
-		case entry, ok := <-w.entries:
-			if !ok {
-				flush()
-				return
-			}
-			batch = append(batch, entry)
-			if len(batch) >= employeeEventBatchSize {
-				flush()
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(w.flushInterval)
-			}
-		case <-timer.C:
-			flush()
-			timer.Reset(w.flushInterval)
-		}
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }
 
@@ -125,7 +204,7 @@ func (w *EmployeeEventWriter) Write(ctx context.Context, entry model.EmployeeSes
 	case w.entries <- entry:
 	default:
 		err := w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&entry).Error; err != nil {
+			if err := tx.Clauses(employeeSessionEventOnConflict()).Create(&entry).Error; err != nil {
 				return err
 			}
 			if err := syncEmployeeScheduleEvent(tx, entry); err != nil {
@@ -141,8 +220,8 @@ func (w *EmployeeEventWriter) Write(ctx context.Context, entry model.EmployeeSes
 		if err != nil {
 			captureEmployeeSessionEventFailure(ctx, "direct_write", entry, err)
 			logging.FromContext(ctx).ErrorContext(ctx, "employee event direct write failed", "error", err, "event_type", entry.EventType)
-		} else if w.afterWrite != nil {
-			w.afterWrite(ctx, []model.EmployeeSessionEvent{entry})
+		} else if cb := w.loadAfterWrite(); cb != nil {
+			cb(ctx, []model.EmployeeSessionEvent{entry})
 		}
 	}
 }

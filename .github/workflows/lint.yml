@@ -14,6 +14,11 @@ on:
       - "scripts/file-length-allowlist.txt"
       - "scripts/check-go-comment-density.sh"
       - "scripts/check-log-budget.sh"
+      - "scripts/check-bare-goroutines.sh"
+      - "scripts/goroutine-allowlist.txt"
+      - "scripts/check-migrations.sh"
+      - "scripts/check-untracked-sources.sh"
+      - "internal/migrations/sql/*.sql"
       - ".github/workflows/lint.yml"
   pull_request:
     branches: [main]
@@ -26,6 +31,11 @@ on:
       - "scripts/file-length-allowlist.txt"
       - "scripts/check-go-comment-density.sh"
       - "scripts/check-log-budget.sh"
+      - "scripts/check-bare-goroutines.sh"
+      - "scripts/goroutine-allowlist.txt"
+      - "scripts/check-migrations.sh"
+      - "scripts/check-untracked-sources.sh"
+      - "internal/migrations/sql/*.sql"
       - ".github/workflows/lint.yml"
 
 permissions:
@@ -99,6 +109,40 @@ jobs:
           cache: true
       - name: go vet
         run: go vet ./internal/... ./cmd/server/...
+
+  # Forbids bare 'go' statements outside the explicit allowlist.
+  # Past production bugs traced to unrecovered panics in bare goroutines.
+  bare-goroutines:
+    name: bare goroutine gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check bare goroutines
+        run: ./scripts/check-bare-goroutines.sh
+
+  # Verifies migration files are contiguously numbered with no gaps or duplicates.
+  # The test-database version check is skipped in CI (no live DB in this job).
+  migrations-sanity:
+    name: migrations sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check migrations
+        run: ./scripts/check-migrations.sh
+
+  # Fails when build-required source files are untracked by git. Go compiles
+  # every .go file in a directory regardless of git status, so a local working
+  # tree can build while the committed HEAD does not stand alone (a fresh clone
+  # would fail to compile). Requires full history so git's index is populated.
+  untracked-sources:
+    name: untracked source gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check untracked sources
+        run: ./scripts/check-untracked-sources.sh
 
   # Secret scanning. Catches committed API keys, private keys, and connection
   # strings before they hit main. Runs on the full diff range of the PR.

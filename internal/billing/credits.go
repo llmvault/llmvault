@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -90,14 +92,24 @@ func GrantWithTx(tx *gorm.DB, orgID uuid.UUID, amount int64, reason, refType, re
 	} else if alreadyRecorded {
 		return ErrAlreadyRecorded
 	}
-	return tx.Create(&model.CreditLedgerEntry{
+	// The check above only narrows the race; the partial unique index is the real
+	// arbiter. ON CONFLICT DO NOTHING lets the loser no-op without poisoning the
+	// surrounding tx (a bare 23505 would abort the caller's renewal tx).
+	res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.CreditLedgerEntry{
 		OrgID:     orgID,
 		Amount:    amount,
 		Reason:    reason,
 		RefType:   refType,
 		RefID:     refID,
 		ExpiresAt: expiresAt,
-	}).Error
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrAlreadyRecorded
+	}
+	return nil
 }
 
 // Spend deducts credits. amount must be positive.
@@ -144,43 +156,36 @@ func SpendWithTx(tx *gorm.DB, orgID uuid.UUID, amount int64, reason, refType, re
 		return ErrAlreadyRecorded
 	}
 
-	return tx.Create(&model.CreditLedgerEntry{
+	// ON CONFLICT DO NOTHING arbitrates concurrent spends with the same
+	// reference via the partial unique index without aborting the transaction.
+	res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.CreditLedgerEntry{
 		OrgID:   orgID,
 		Amount:  -amount,
 		Reason:  reason,
 		RefType: refType,
 		RefID:   refID,
-	}).Error
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrAlreadyRecorded
+	}
+	return nil
 }
 
 func IsUniqueViolation(err error) bool { return isUniqueViolation(err) }
 
 // isUniqueViolation reports whether err is a Postgres unique_violation
-// (SQLSTATE 23505). Used to detect idempotency-key collisions without
-// requiring callers to import pgconn.
+// (SQLSTATE 23505). pgx wraps these as *pgconn.PgError, so we match the
+// structured Code, not the message text (which breaks on localised messages).
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
 	}
-	// The pgx driver wraps errors with a *pgconn.PgError whose Code is 23505
-	// for unique violations. Match on the error message so we don't add a
-	// direct dependency on pgconn here.
-	msg := err.Error()
-	return containsAny(msg, "SQLSTATE 23505", "duplicate key value violates unique constraint")
-}
-
-func containsAny(haystack string, needles ...string) bool {
-	for _, n := range needles {
-		if len(haystack) >= len(n) {
-			// Manual substring scan — cheap, avoids importing strings just for this.
-			for i := 0; i+len(n) <= len(haystack); i++ {
-				if haystack[i:i+len(n)] == n {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	var pgErr *pgconn.PgError
+	// 23505 is the SQLSTATE for unique_violation.
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func sumBalance(db *gorm.DB, orgID uuid.UUID) (int64, error) {
@@ -226,17 +231,17 @@ func (s *CreditsService) SweepAllExpiredGrants(ctx context.Context) error {
 		return fmt.Errorf("find candidate orgs: %w", err)
 	}
 
-	var firstErr error
+	var errs []error
 	for _, orgID := range orgIDs {
 		if err := s.SweepOrgExpiredGrants(ctx, orgID, now); err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
-			// Continue: a single org's failure (e.g. transient lock contention)
-			// shouldn't block the cycle for the rest.
+			// Continue: a single org's failure must not block the cycle. Accumulate
+			// errors so the caller (and asynq retry) sees every one, not just the first.
+			logging.FromContext(ctx).ErrorContext(ctx, "expired-grant sweep failed for org",
+				"org_id", orgID, "error", err)
+			errs = append(errs, fmt.Errorf("org %s: %w", orgID, err))
 		}
 	}
-	return firstErr
+	return errors.Join(errs...)
 }
 
 // SweepOrgExpiredGrants runs FIFO attribution over the org's full ledger and,

@@ -80,3 +80,16 @@ sandboxes/employee/target/
 sandboxes/employee/logs/
 sandboxes/employee/workspace/
 sandboxes/employee/openrouter-proxy/conversations/
+
+# Developer scratch / console dump files at repo root.
+# These are never production artifacts; committing them leaks session UUIDs,
+# conversation content, and other sensitive data.
+logs.txt
+jira.txt
+caching.txt
+refactor.txt
+spider.txt
+fixes-todo.txt
+
+# Scratch/triage files inside nested packages.
+sandboxes/runtime/db-todos.txt

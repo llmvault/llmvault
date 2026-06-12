@@ -28,7 +28,6 @@ import (
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/specialisttasks"
 	"github.com/usehivy/hivy/internal/spider"
-	"github.com/usehivy/hivy/internal/storage"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
@@ -64,6 +63,11 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	auditWriter := middleware.NewAuditWriter(ctx, database, 10000)
 
 	generationWriter := middleware.NewGenerationWriter(ctx, database, reg, 10000)
+	if enqueuer != nil {
+		// Durable fallback: spill billable generation rows to asynq rather than
+		// dropping them on a DB blip, full buffer, or shutdown deadline.
+		generationWriter.SetEnqueuer(enqueuer)
+	}
 
 	mcpHandler := handler.NewMCPHandler(database, signingKey, actionsCatalog, nangoClient, ctr)
 	var hindsightClient *hindsight.Client
@@ -202,29 +206,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		).WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
 	}
 
-	var uploadsHandler *handler.UploadsHandler
-	if cfg.PublicAssetsBucket != "" {
-		presigner, err := storage.NewS3Presigner(storage.PublicAssetsConfig{
-			Bucket:       cfg.PublicAssetsBucket,
-			Region:       cfg.PublicAssetsRegion,
-			Endpoint:     cfg.PublicAssetsEndpoint,
-			AccessKey:    cfg.PublicAssetsAccessKey,
-			SecretKey:    cfg.PublicAssetsSecretKey,
-			SignTTL:      cfg.PublicAssetsSignTTL,
-			UsePublicACL: cfg.PublicAssetsUseACL,
-		})
-		if err != nil {
-			slog.Error("public assets presigner init failed; /v1/uploads/sign disabled", "error", err)
-		} else {
-			uploadsHandler = handler.NewUploadsHandler(database, presigner)
-			uploadsHandler.WithAssetPreviewBaseURL(cfg.APIWebhookBaseURL)
-			uploadsHandler.WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
-			if sandboxEncKey != nil {
-				uploadsHandler.WithStreamer(presigner, sandboxEncKey)
-			}
-			slog.Info("public assets uploads ready", "bucket", cfg.PublicAssetsBucket)
-		}
-	}
+	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
 
 	billingHandler := handler.NewBillingHandler(database, deps.BillingRegistry, deps.Credits)
 	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)
@@ -233,17 +215,22 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
-	r.Use(chimw.RealIP)
+	r.Use(middleware.RealIP(cfg.TrustedProxyCIDRs))
 	r.Use(sentryobs.Middleware())
 	r.Use(sentryobs.Recoverer())
 	r.Use(sentryobs.Capture5xxResponses())
 	r.Use(middleware.SecurityHeaders())
-	r.Use(middleware.CORS(cfg.CORSOrigins))
+	r.Use(middleware.CORS(cfg.CORSOrigins, cfg.IsProduction()))
 	r.Use(middleware.RequestLog(logger))
 
 	rsaPub := rsaKey.Public().(*rsa.PublicKey)
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler)
+	// Sandbox orchestration is expected whenever a provider is configured; if it
+	// is configured but the orchestrator is nil, the subsystem is silently
+	// missing and /readyz must report unavailable.
+	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
+
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestratorMissing)
 
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
@@ -258,12 +245,14 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, driveHandler, sandboxEncKey, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Port),
-		Handler:      r,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 0,
-		IdleTimeout:  120 * time.Second,
-		ErrorLog:     sentryobs.NewStdlogBridge("api_server"),
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: r,
+		// ReadHeaderTimeout guards against Slowloris without killing long request
+		// bodies (drive uploads, sqlite backups); per-handler deadlines use the ctx.
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      0,
+		IdleTimeout:       120 * time.Second,
+		ErrorLog:          sentryobs.NewStdlogBridge("api_server"),
 	}
 
 	goroutine.Go(ctx, func(context.Context) {

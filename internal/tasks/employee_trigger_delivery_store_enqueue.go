@@ -17,7 +17,7 @@ func (h *EmployeeTriggerDispatchHandler) enqueueStoreDelivery(ctx context.Contex
 	if resp == nil {
 		resp = &employeeruntime.HTTPMessageResponse{}
 	}
-	task, err := NewEmployeeTriggerStoreDeliveryTask(EmployeeTriggerStoreDeliveryPayload{
+	task, opts, err := NewEmployeeTriggerStoreDeliveryTask(EmployeeTriggerStoreDeliveryPayload{
 		OrgID:                 trigger.OrgID,
 		EmployeeID:            trigger.EmployeeID,
 		TriggerID:             trigger.ID,
@@ -37,7 +37,7 @@ func (h *EmployeeTriggerDispatchHandler) enqueueStoreDelivery(ctx context.Contex
 		logging.CaptureWithFields(ctx, fmt.Errorf("build employee trigger delivery store task: %w", err), triggerStoreEnqueueFields(payload, trigger, conv, compiled, resp))
 		return
 	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task); err != nil {
+	if _, err := h.enqueuer.EnqueueContext(ctx, task, opts...); err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("enqueue employee trigger delivery store task: %w", err), triggerStoreEnqueueFields(payload, trigger, conv, compiled, resp))
 	}
 }

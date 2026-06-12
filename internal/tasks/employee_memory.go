@@ -222,15 +222,16 @@ func (h *EmployeeMemoryRetainHandler) enqueueRetainCheck(ctx context.Context, pa
 	}
 	payload.Reason = "session_still_active"
 	taskID := EmployeeMemoryRetainTaskID(payload)
-	task, err := NewEmployeeMemoryRetainTask(payload)
+	task, opts, err := NewEmployeeMemoryRetainTask(payload)
 	if err != nil {
 		logging.Capture(ctx, err)
 		return
 	}
-	_, err = h.enqueuer.EnqueueContext(ctx, task,
+	opts = append(opts,
 		asynq.ProcessIn(employeeMemoryCheckDelay),
 		asynq.TaskID(taskID),
 	)
+	_, err = h.enqueuer.EnqueueContext(ctx, task, opts...)
 	duplicate := errors.Is(err, asynq.ErrDuplicateTask)
 	if err != nil && !duplicate {
 		fields := employeeMemoryRetainFields(payload)

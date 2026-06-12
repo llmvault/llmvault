@@ -81,7 +81,7 @@ func createHivyEmployeeTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, att
 		Harness:             employeeHarness,
 		Status:              "draft",
 		Tools:               model.JSON{},
-		McpServers:          model.JSON{},
+		McpServers:          model.RawJSON("[]"),
 		Skills:              model.JSON{},
 		Integrations:        model.JSON{},
 		Resources:           model.JSON{},

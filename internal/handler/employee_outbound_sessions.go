@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,10 +11,22 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+// employeeSessionEventOnConflict deduplicates inserts against the partial unique
+// index on (sandbox_id, event_id), so an outbox redelivery is skipped. TargetWhere
+// mirrors the index predicate so Postgres matches the partial index.
+func employeeSessionEventOnConflict() clause.OnConflict {
+	return clause.OnConflict{
+		Columns:     []clause.Column{{Name: "sandbox_id"}, {Name: "event_id"}},
+		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("event_id <> ?", "")}},
+		DoNothing:   true,
+	}
+}
 
 func (h *EmployeeOutboundWebhookHandler) ensureEmployeeSession(ctx context.Context, sb *model.Sandbox, sessionID, source string, payload map[string]any, specialistTask *model.SpecialistTask) (*model.EmployeeSession, bool, error) {
 	if sb.OrgID == nil || sb.EmployeeID == nil {
@@ -100,7 +114,7 @@ func employeeSessionEventFromOutbound(sb *model.Sandbox, event *employeeOutbound
 	if sb.OrgID == nil || sb.EmployeeID == nil {
 		return model.EmployeeSessionEvent{}, false
 	}
-	return model.EmployeeSessionEvent{
+	stored := model.EmployeeSessionEvent{
 		OrgID:             *sb.OrgID,
 		EmployeeID:        *sb.EmployeeID,
 		SandboxID:         sb.ID,
@@ -113,11 +127,30 @@ func employeeSessionEventFromOutbound(sb *model.Sandbox, event *employeeOutbound
 		SequenceNumber:    int64Value(payload, "sequence"),
 		Payload:           model.RawJSON(event.Payload),
 		EventAt:           event.At.UTC(),
-	}, true
+	}
+	if stored.EventID == "" {
+		// The runtime stamps no stable event id and `sequence` collides across turns,
+		// so the dedupe key is a content hash: stable across redeliveries yet distinct
+		// per event. Paired with the (sandbox_id, event_id) index this makes redelivery
+		// idempotent.
+		stored.EventID = deriveSessionEventID(sb.ID, event, sessionID)
+	}
+	return stored, true
 }
 
 func employeeSessionEventID(payload map[string]any) string {
 	return firstNonEmpty(stringValue(payload, "event_id"), stringValue(payload, "id"))
+}
+
+func deriveSessionEventID(sandboxID uuid.UUID, event *employeeOutboundEvent, sessionID string) string {
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s|%s|%s|%d|%s",
+		sandboxID.String(),
+		sessionID,
+		event.EventType,
+		event.At.UTC().UnixNano(),
+		event.Payload,
+	))
+	return "evt_rt_" + hex.EncodeToString(sum[:16])
 }
 
 func shouldStoreEmployeeSessionEvent(eventType string) bool {

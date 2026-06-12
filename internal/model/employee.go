@@ -20,14 +20,13 @@ type Employee struct {
 	SandboxTemplateID *uuid.UUID       `gorm:"type:uuid"`
 	SandboxTemplate   *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
 
-	// Runtime definition fields
 	SystemPrompt              string         `gorm:"-"`
 	IdentityPrompt            string         `gorm:"-"`
 	PromptOperatingPrinciples string         `gorm:"-"`
 	Instructions              *string        `gorm:"type:text"`
 	Model                     string         `gorm:"not null"`
 	Tools                     JSON           `gorm:"type:jsonb;not null;default:'{}'"`
-	McpServers                JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	McpServers                RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
 	Skills                    JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	Integrations              JSON           `gorm:"-"`
 	RuntimeConfig             JSON           `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
@@ -36,7 +35,6 @@ type Employee struct {
 	SharedMemory              bool           `gorm:"not null;default:false"`
 	AttachedSpecialists       pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 
-	// Sandbox setup
 	SandboxTools     pq.StringArray `gorm:"type:text[];default:'{}'"` // enabled sandbox tools (e.g. "chrome")
 	SetupCommands    pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run on specialist sandbox creation
 	EncryptedEnvVars []byte         `gorm:"type:bytea"`               // AES-256-GCM encrypted JSON map of env vars
@@ -103,7 +101,6 @@ type BuiltInToolDefinition struct {
 // ValidBuiltInTools is the canonical list of all built-in tools available in Runtime.
 // Used for: the frontend tool picker, permission key validation, and forge tool mocking.
 var ValidBuiltInTools = []BuiltInToolDefinition{
-	// ── Filesystem ──
 	{ID: "Read", Name: "Read file", Description: "Read file contents with optional line range and hash-based caching.", Category: "filesystem"},
 	{ID: "write", Name: "Write file", Description: "Create or overwrite a file with new content.", Category: "filesystem"},
 	{ID: "edit", Name: "Edit file", Description: "Apply targeted edits to a file using search-and-replace.", Category: "filesystem"},
@@ -114,10 +111,8 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "AstGrep", Name: "AstGrep", Description: "Structural code search using ast-grep patterns (syntax-aware match/rewrite).", Category: "filesystem"},
 	{ID: "LS", Name: "List directory", Description: "List files and directories at a given path.", Category: "filesystem"},
 
-	// ── Shell ──
 	{ID: "bash", Name: "Bash", Description: "Execute shell commands and return output.", Category: "shell"},
 
-	// ── Web ──
 	{ID: "web_fetch", Name: "Fetch URL", Description: "Fetch content from a URL and convert to markdown, text, or HTML.", Category: "web"},
 	{ID: "web_search", Name: "Web search", Description: "Search the web and return results with titles, descriptions, and URLs.", Category: "web"},
 	{ID: "web_crawl", Name: "Crawl website", Description: "Crawl a website following links from a starting URL.", Category: "web"},
@@ -125,27 +120,21 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "web_screenshot", Name: "Screenshot", Description: "Take a screenshot of a webpage as base64-encoded PNG.", Category: "web"},
 	{ID: "web_transform", Name: "Transform HTML", Description: "Convert HTML to markdown or plain text without HTTP requests.", Category: "web"},
 
-	// ── Employee orchestration ──
 	{ID: "specialist", Name: "Specialist", Description: "Launch a specialist to handle a focused task autonomously.", Category: "orchestration"},
 	{ID: "batch", Name: "Batch", Description: "Execute multiple independent tool calls concurrently.", Category: "orchestration"},
 
-	// ── Task management ──
 	{ID: "todowrite", Name: "Write tasks", Description: "Create and manage a structured task list for the current session.", Category: "tasks"},
 	{ID: "todoread", Name: "Read tasks", Description: "Read the current task list with statuses and priorities.", Category: "tasks"},
 
-	// ── Journal ──
 	{ID: "journal_write", Name: "Write journal", Description: "Write an entry to the persistent conversation journal.", Category: "journal"},
 	{ID: "journal_read", Name: "Read journal", Description: "Read all journal entries including checkpoint summaries.", Category: "journal"},
 
-	// ── Scheduling ──
 	{ID: "ping_me_back_in", Name: "Ping me back", Description: "Schedule a delayed self-reminder. After the specified seconds, the agent receives a notification with a custom message. Returns a ping ID for cancellation.", Category: "scheduling"},
 	{ID: "cancel_ping_me_back", Name: "Cancel ping", Description: "Cancel a pending ping by its ID (returned by ping_me_back_in).", Category: "scheduling"},
 
-	// ── Code intelligence ──
 	{ID: "lsp", Name: "LSP", Description: "Language Server Protocol operations for code navigation and diagnostics.", Category: "code_intelligence"},
 	{ID: "skill", Name: "Skill", Description: "Execute a skill within the conversation.", Category: "code_intelligence"},
 
-	// ── Memory ──
 	{ID: "memory_recall", Name: "Recall memory", Description: "Search long-term memory for relevant context from past conversations.", Category: "memory", Locked: true},
 	{ID: "memory_retain", Name: "Retain memory", Description: "Store important information to long-term memory.", Category: "memory", Locked: true},
 	{ID: "memory_reflect", Name: "Reflect on memory", Description: "Get a synthesized answer by analyzing full memory.", Category: "memory", Locked: true},

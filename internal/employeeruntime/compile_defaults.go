@@ -45,16 +45,15 @@ func defaultTools() []map[string]any {
 	}
 }
 
-func jsonArray(raw model.JSON) []any {
+// jsonArray decodes a JSONB array column into a []any. mcp_servers stores an
+// array, so we unmarshal RawJSON directly rather than round-trip through
+// map[string]any (which would produce {} and fail to decode as an array).
+func jsonArray(raw model.RawJSON) []any {
 	if len(raw) == 0 {
 		return []any{}
 	}
-	bytes, err := json.Marshal(raw)
-	if err != nil {
-		return []any{}
-	}
 	var arr []any
-	if err := json.Unmarshal(bytes, &arr); err != nil {
+	if err := json.Unmarshal([]byte(raw), &arr); err != nil {
 		return []any{}
 	}
 	return arr

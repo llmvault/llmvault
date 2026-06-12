@@ -18,18 +18,15 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/skills"
 	"github.com/usehivy/hivy/internal/storage"
-	"github.com/usehivy/hivy/internal/streaming"
 )
 
 // WorkerDeps holds the dependencies needed by task handlers.
 type WorkerDeps struct {
 	DB                *gorm.DB
-	Cleanup           *streaming.Cleanup
 	Orchestrator      *sandbox.Orchestrator   // nil if sandbox not configured
 	EncKey            *crypto.SymmetricKey    // nil if not configured
 	EmailSend         EmailSenderFunc         // nil if email not configured
 	EmailSendTemplate EmailTemplateSenderFunc // nil if template email not configured
-	EventBus          *streaming.EventBus     // nil if streaming not configured
 	SkillFetcher      *skills.GitFetcher      // nil disables git skill hydration
 	NangoClient       *nango.Client           // nil disables deterministic enrichment
 	CacheManager      *cache.Manager          // nil disables tasks that need credential decryption
@@ -49,15 +46,12 @@ type WorkerDeps struct {
 func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	mux := asynq.NewServeMux()
 
-	// On-demand write handlers
 	mux.HandleFunc(TypeAPIKeyUpdate, NewAPIKeyHandler(deps.DB).Handle)
 	mux.HandleFunc(TypeAuditWrite, NewAuditHandler(deps.DB).Handle)
 	mux.HandleFunc(TypeGenerationWrite, NewGenerationHandler(deps.DB).Handle)
 
-	// Webhook forwarding
 	mux.HandleFunc(TypeWebhookForward, NewWebhookForwardHandler(deps.EncKey).Handle)
 
-	// Email sending
 	if deps.EmailSend != nil {
 		mux.HandleFunc(TypeEmailSend, NewEmailSendHandler(deps.EmailSend).Handle)
 	}
@@ -65,14 +59,13 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeEmailSendTemplate, NewEmailSendTemplateHandler(deps.EmailSendTemplate).Handle)
 	}
 
-	// Periodic task handlers
 	mux.HandleFunc(TypeTokenCleanup, NewTokenCleanupHandler(deps.DB).Handle)
-	mux.HandleFunc(TypeStreamCleanup, NewStreamCleanupHandler(deps.Cleanup).Handle)
 
 	if deps.Orchestrator != nil {
 		mux.HandleFunc(TypeSandboxHealthCheck, NewSandboxHealthCheckHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxResourceCheck, NewSandboxResourceCheckHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxLifecycle, NewSandboxLifecycleHandler(deps.Orchestrator).Handle)
+		mux.HandleFunc(TypeSandboxReap, NewSandboxReapHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeEmployeeSandboxRetire, NewEmployeeSandboxRetireHandler(deps.DB, deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxWarmPoolReconcile, NewSandboxWarmPoolReconcileHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxWarmSlotCheck, NewSandboxWarmSlotCheckHandler(deps.Orchestrator, deps.Enqueuer).Handle)
@@ -81,14 +74,12 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	// Employee cleanup works with or without sandbox orchestration.
 	mux.HandleFunc(TypeEmployeeCleanup, NewEmployeeCleanupHandler(deps.DB, deps.Orchestrator).Handle)
 
-	// Sandbox template build
 	if deps.Orchestrator != nil {
 		handler := NewSandboxTemplateBuildHandler(deps.DB, deps.Orchestrator)
 		mux.HandleFunc(TypeSandboxTemplateBuild, handler.Handle)
 		mux.HandleFunc(TypeSandboxTemplateRetryBuild, handler.HandleRetry)
 	}
 
-	// Skill hydration from git repos
 	if deps.SkillFetcher != nil {
 		mux.HandleFunc(TypeSkillHydrate, NewSkillHydrateHandler(deps.DB, deps.SkillFetcher).Handle)
 	}

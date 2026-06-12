@@ -30,6 +30,7 @@ type genFixture struct {
 	CreditsDebited    int64
 	BillingCostSource string
 	Cost              float64
+	BillingAttempts   int
 }
 
 type genOpts struct {
@@ -96,6 +97,7 @@ func loadGen(t *testing.T, db *gorm.DB, id string) genFixture {
 		CreditsDebited:    g.CreditsDebited,
 		BillingCostSource: g.BillingCostSource,
 		Cost:              g.Cost,
+		BillingAttempts:   g.BillingAttempts,
 	}
 }
 

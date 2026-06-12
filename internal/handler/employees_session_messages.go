@@ -171,7 +171,7 @@ func (h *EmployeeHandler) StreamSession(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid stream id"})
 		return
 	}
-	if !h.verifyWebStreamToken(sessionID, streamID, r.URL.Query().Get("token")) {
+	if !h.verifyWebStreamToken(sessionID, streamID, extractWebStreamToken(r)) {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "invalid stream token"})
 		return
 	}

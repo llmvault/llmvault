@@ -24,7 +24,7 @@ func TestCompile_IgnoresArchivedAttachedSkills(t *testing.T) {
 		Category:      &category,
 		Model:         DefaultEmployeeModel,
 		Tools:         model.JSON{},
-		McpServers:    model.JSON{},
+		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
 		Integrations:  model.JSON{},
 		Resources:     model.JSON{},
