@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/mcpserver"
@@ -56,16 +57,13 @@ type enrichmentResult struct {
 // markdown message. Returns empty string if the trigger has no enrichment
 // actions or if the connection cannot be resolved.
 func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input DeterministicEnrichInput, _ *slog.Logger) (string, error) {
-	// Build event key.
 	eventKey := input.EventType
 	if input.EventAction != "" {
 		eventKey = input.EventType + "." + input.EventAction
 	}
 
-	// Look up trigger definition from catalog.
 	triggerDef, ok := enricher.catalog.GetTrigger(input.Provider, eventKey)
 	if !ok {
-		// Try variant fallback (e.g. github-app → github).
 		providerTriggers, variantOK := enricher.catalog.GetProviderTriggersForVariant(input.Provider)
 		if variantOK {
 			if def, defOK := providerTriggers.Triggers[eventKey]; defOK {
@@ -78,7 +76,6 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 		return "", nil
 	}
 
-	// Load Connection + Integration for Nango credentials.
 	var conn model.Connection
 	if err := enricher.db.Preload("Integration").
 		Where("id = ? AND revoked_at IS NULL", input.ConnectionID).
@@ -91,27 +88,25 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 	nangoConnID := conn.NangoConnectionID
 	providerName := conn.Integration.Provider
 
-	// Load provider schemas for GraphQL selection set building.
 	var providerSchemas map[string]catalog.SchemaDefinition
 	if providerDef, providerOK := enricher.catalog.GetProvider(providerName); providerOK {
 		providerSchemas = providerDef.Schemas
 	}
 
-	// Run all enrichment actions in parallel.
 	results := make([]enrichmentResult, len(triggerDef.Enrichment))
 	var waitGroup sync.WaitGroup
 
 	for index, enrichAction := range triggerDef.Enrichment {
+		idx := index
+		action := enrichAction
 		waitGroup.Add(1)
-		go func(idx int, action catalog.EnrichmentAction) {
+		goroutine.Go(ctx, func(ctx context.Context) {
 			defer waitGroup.Done()
 
 			result := enrichmentResult{As: action.As, Action: action.Action}
 
-			// Substitute $refs.xxx in params.
 			params := substituteRefsInParams(action.Params, input.Refs)
 
-			// Look up action definition.
 			actionDef, actionOK := enricher.catalog.GetAction(providerName, action.Action)
 			if !actionOK {
 				result.Err = fmt.Errorf("action %q not found in catalog for provider %q", action.Action, providerName)
@@ -119,7 +114,6 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 				return
 			}
 
-			// Execute the action directly via Nango proxy.
 			data, err := mcpserver.ExecuteAction(
 				ctx,
 				enricher.nangoClient,
@@ -134,7 +128,7 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 			result.Data = data
 			result.Err = err
 			results[idx] = result
-		}(index, enrichAction)
+		})
 	}
 
 	waitGroup.Wait()
@@ -146,7 +140,6 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 		}
 	}
 
-	// Compose the markdown message.
 	return composeEnrichedMessage(input, results), nil
 }
 
@@ -155,21 +148,18 @@ func (enricher *DeterministicEnricher) Enrich(ctx context.Context, input Determi
 func composeEnrichedMessage(input DeterministicEnrichInput, results []enrichmentResult) string {
 	var builder strings.Builder
 
-	// Header with event summary.
 	eventKey := input.EventType
 	if input.EventAction != "" {
 		eventKey = input.EventType + "." + input.EventAction
 	}
 	builder.WriteString(fmt.Sprintf("## %s\n\n", eventKey))
 
-	// Refs table.
 	builder.WriteString("| Field | Value |\n|---|---|\n")
 	for key, value := range input.Refs {
 		builder.WriteString(fmt.Sprintf("| %s | %s |\n", key, value))
 	}
 	builder.WriteString("\n---\n\n")
 
-	// One section per enrichment result.
 	for _, result := range results {
 		builder.WriteString(fmt.Sprintf("### %s\n\n", result.As))
 

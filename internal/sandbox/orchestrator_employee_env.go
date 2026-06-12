@@ -30,8 +30,11 @@ func employeeSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.
 		employeeruntime.EmployeeEnvDBPath:                   "/app/data/hivy-sandboxes-runtime.db",
 		employeeruntime.EmployeeEnvRuntimeBindAddr:          fmt.Sprintf("0.0.0.0:%d", EmployeeSandboxPort),
 		employeeruntime.EmployeeEnvRuntimeMode:              "employee",
-		employeeruntime.EmployeeEnvSandboxID:                sb.ID.String(),
-		employeeruntime.EmployeeEnvOrgID:                    orgID.String(),
+		// Provision a tunnel password so the tunnel proxy fails closed (an open proxy
+		// to every sandbox localhost port when unset).
+		employeeruntime.EmployeeEnvTunnelPassword: runtimeSecret,
+		employeeruntime.EmployeeEnvSandboxID:      sb.ID.String(),
+		employeeruntime.EmployeeEnvOrgID:          orgID.String(),
 	}
 	opts := employeeruntime.ControlPlaneRuntimeEnvOptions{
 		GitUsername:               employeeGitUsername(agent, gitIdentity),

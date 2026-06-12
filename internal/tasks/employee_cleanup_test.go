@@ -55,7 +55,7 @@ func createAgent(t *testing.T, db *gorm.DB) model.Employee {
 
 func makeTask(t *testing.T, agentID uuid.UUID) *asynq.Task {
 	t.Helper()
-	task, err := tasks.NewEmployeeCleanupTask(agentID)
+	task, _, err := tasks.NewEmployeeCleanupTask(agentID)
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestEmployeeCleanup_NilOrchestratorHandledGracefully(t *testing.T) {
 
 func TestEmployeeCleanup_PayloadRoundTrip(t *testing.T) {
 	agentID := uuid.New()
-	task, err := tasks.NewEmployeeCleanupTask(agentID)
+	task, _, err := tasks.NewEmployeeCleanupTask(agentID)
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}

@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-handler-sharded lint check-file-length vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates build-sandbox-runtime-specialist-templates employee-env-doctor employee-debug-pack employee-eval test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek
+.PHONY: build test test-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates build-sandbox-runtime-specialist-templates employee-env-doctor employee-debug-pack employee-eval test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-specialist-image sandbox-runtime-specialist-image-amd64 sandbox-runtime-specialist-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -321,16 +321,37 @@ lint:
 check-file-length:
 	./scripts/check-go-file-length.sh
 
+# Enforce the 600-line ceiling on hand-written TypeScript/TSX files. Honours
+# scripts/ts-file-length-allowlist.txt for grandfathered exceptions.
+check-ts-file-length:
+	./scripts/check-ts-file-length.sh
+
 # Enforce log-emit-site budget (see scripts/check-log-budget.sh).
 check-log-budget:
 	./scripts/check-log-budget.sh
+
+# Forbid bare 'go' statements outside the allowlist (see scripts/goroutine-allowlist.txt).
+# Violations require routing through goroutine.Go or adding a justified entry to the allowlist.
+check-bare-goroutines:
+	./scripts/check-bare-goroutines.sh
+
+# Verify migration file contiguous numbering and (when TEST_DATABASE_URL is set)
+# that the test database version matches the highest migration file.
+check-migrations:
+	./scripts/check-migrations.sh
+
+# Fail when build-required source files are untracked by git. Go compiles every
+# .go file in a directory regardless of git status, so a local tree can build
+# while the committed HEAD does not stand alone.
+check-untracked-sources:
+	./scripts/check-untracked-sources.sh
 
 # Run go vet
 vet:
 	go vet ./...
 
-# Run all checks: vet, lint, file-length, log-budget, test, build
-check: vet lint check-file-length check-log-budget test build
+# Run all checks: vet, lint, file-length, log-budget, goroutine gate, migrations, untracked sources, test, build
+check: vet lint check-file-length check-ts-file-length check-log-budget check-bare-goroutines check-migrations check-untracked-sources test build
 
 ci-wait-services:
 	./scripts/ci-wait-services.sh
@@ -392,8 +413,11 @@ ci-quality:
 	git diff --check
 	go vet ./internal/... ./cmd/server/...
 	./scripts/check-go-file-length.sh
+	./scripts/check-ts-file-length.sh
 	./scripts/check-go-comment-density.sh
 	./scripts/check-log-budget.sh
+	./scripts/check-bare-goroutines.sh
+	./scripts/check-migrations.sh
 
 # Start local Nango first and print the generated Hivy API secret.
 dev-nango:
@@ -495,7 +519,7 @@ docker-build:
 		--build-arg COMMIT=$(COMMIT) \
 		-t $(IMAGE):$(VERSION) \
 		-t $(IMAGE):latest \
-		-f docker/Dockerfile .
+		-f Dockerfile .
 
 # Run Docker image locally (connects to host docker-compose infra)
 docker-run:

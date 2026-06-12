@@ -9,9 +9,14 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const Provider = "slack"
+
+// slackHTTPClient is a shared, bounded-timeout client for Slack Web API calls;
+// http.DefaultClient has no timeout and would hang a goroutine if Slack stalls.
+var slackHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // Mirrors the bot scopes in apps/web/app/onboarding/slack-manifest.ts —
 // keep the two lists in sync.
@@ -98,9 +103,8 @@ func ValidateTokenFormat(s Secrets) error {
 }
 
 // VerifyAndIntrospect validates both tokens against Slack and returns the
-// persistable identity. Slack returns granted scopes in X-OAuth-Scopes on
-// every Web API response; we read it directly because slack-go doesn't
-// surface response headers.
+// persistable identity, reading granted scopes from the X-OAuth-Scopes header
+// directly (slack-go doesn't surface response headers).
 func VerifyAndIntrospect(ctx context.Context, s Secrets) (Identity, error) {
 	if err := ValidateTokenFormat(s); err != nil {
 		return Identity{}, err
@@ -191,7 +195,7 @@ func slackPost(ctx context.Context, url, token string) ([]byte, http.Header, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := slackHTTPClient.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}

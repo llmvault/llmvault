@@ -167,12 +167,12 @@ func (h *SkillHandler) Hydrate(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "hydration worker not configured"})
 		return
 	}
-	task, err := tasks.NewSkillHydrateTask(skill.ID)
+	task, taskOpts, err := tasks.NewSkillHydrateTask(skill.ID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to build hydrate task"})
 		return
 	}
-	if _, err := h.enqueuer.Enqueue(task); err != nil {
+	if _, err := h.enqueuer.Enqueue(task, taskOpts...); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enqueue hydrate task"})
 		return
 	}

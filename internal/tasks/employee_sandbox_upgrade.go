@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -80,7 +81,10 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	var newSandbox *model.Sandbox
 	fail := func(phase string, cause error) error {
 		msg := cause.Error()
-		recordEmployeeSandboxUpgradeFailure(ctx, upgrade, phase, msg)
+		// Rollback must run on WithoutCancel: a cancelled task ctx (asynq deadline, worker drain)
+		// would no-op the provider delete and DB writes, stranding both sandboxes.
+		rollbackCtx := context.WithoutCancel(ctx)
+		recordEmployeeSandboxUpgradeFailure(rollbackCtx, upgrade, phase, msg)
 		log.ErrorContext(ctx, "employee sandbox upgrade failed",
 			"upgrade_id", upgrade.ID,
 			"employee_id", upgrade.EmployeeID,
@@ -88,19 +92,19 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 			"error", msg,
 		)
 		if newSandbox != nil && newSandbox.ID != uuid.Nil {
-			if err := h.orchestrator.DeleteSandbox(ctx, newSandbox); err != nil {
+			if err := h.orchestrator.DeleteSandbox(rollbackCtx, newSandbox); err != nil {
 				msg += "; failed to delete new sandbox during rollback: " + err.Error()
 			}
 		}
 		if oldSandbox != nil && oldSandbox.ID != uuid.Nil {
 			if oldPaused {
-				if err := h.orchestrator.StartEmployeeSandbox(ctx, oldSandbox); err != nil {
+				if err := h.orchestrator.StartEmployeeSandbox(rollbackCtx, oldSandbox); err != nil {
 					msg += "; failed to restart old sandbox during rollback: " + err.Error()
-				} else if err := h.syncEmployeeRuntime(ctx, agent, oldSandbox); err != nil {
+				} else if err := h.syncEmployeeRuntime(rollbackCtx, agent, oldSandbox); err != nil {
 					msg += "; failed to sync old sandbox during rollback: " + err.Error()
 				}
 			} else {
-				_ = h.db.WithContext(ctx).Model(oldSandbox).Updates(map[string]any{
+				_ = h.db.WithContext(rollbackCtx).Model(oldSandbox).Updates(map[string]any{
 					"status":        string(sandbox.StatusRunning),
 					"error_message": nil,
 				}).Error
@@ -108,11 +112,10 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 				oldSandbox.ErrorMessage = nil
 			}
 		}
-		h.markFailed(ctx, upgrade, phase, msg)
+		h.markFailed(rollbackCtx, upgrade, phase, msg)
 		return cause
 	}
 
-	// Phase 1: Snapshot the old runtime while it is still available.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseBackup); err != nil {
 		return err
 	}
@@ -125,7 +128,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	}
 	recordEmployeeSandboxUpgradeBackup(ctx, upgrade, backupMeta)
 
-	// Phase 2: Create new sandbox.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseCreatingNew); err != nil {
 		return err
 	}
@@ -137,13 +139,19 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	if err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseCreatingNew, err)
 	}
+	// CreateEmployeeSandbox marks it 'running', and the selector orders by
+	// created_at DESC, so it would be picked for live traffic before restore/sync.
+	// Park it 'upgrading' (non-selectable) so turns stay on the old sandbox.
+	if err := h.db.WithContext(ctx).Model(newSandbox).Update("status", string(sandbox.StatusUpgrading)).Error; err != nil {
+		return fail(model.EmployeeSandboxUpgradePhaseCreatingNew, fmt.Errorf("park new sandbox as upgrading: %w", err))
+	}
+	newSandbox.Status = string(sandbox.StatusUpgrading)
 	if err := h.db.WithContext(ctx).Model(upgrade).Update("new_sandbox_id", newSandbox.ID).Error; err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseCreatingNew, err)
 	}
 	upgrade.NewSandboxID = &newSandbox.ID
 	recordEmployeeSandboxUpgradeNewSandbox(ctx, upgrade, newSandbox)
 
-	// Phase 3: Restore the verified SQLite snapshot into the new runtime.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseRestore); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseRestore, err)
 	}
@@ -151,32 +159,54 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 		return fail(model.EmployeeSandboxUpgradePhaseRestore, err)
 	}
 
-	// Phase 4: Restart new sandbox so the runtime opens the restored DB cleanly.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseRestartNew); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseRestartNew, err)
 	}
 	if err := h.orchestrator.RestartEmployeeSandbox(ctx, newSandbox); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseRestartNew, err)
 	}
+	// RestartEmployeeSandbox flips the row back to 'running'; re-park it as
+	// 'upgrading' so it stays non-selectable until the sync below succeeds.
+	if err := h.db.WithContext(ctx).Model(newSandbox).Update("status", string(sandbox.StatusUpgrading)).Error; err != nil {
+		return fail(model.EmployeeSandboxUpgradePhaseRestartNew, fmt.Errorf("re-park new sandbox as upgrading: %w", err))
+	}
+	newSandbox.Status = string(sandbox.StatusUpgrading)
 
-	// Phase 5: Sync current control-plane config to the restored runtime.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseSync); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseSync, err)
 	}
 	if err := h.syncEmployeeRuntime(ctx, agent, newSandbox); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseSync, err)
 	}
+	// Restored, restarted and synced — only now flip to 'running' so the selector
+	// routes live traffic, after the old session DB transferred so no turn is lost.
+	activatedAt := time.Now()
+	if err := h.db.WithContext(ctx).Model(newSandbox).Updates(map[string]any{
+		"status":         string(sandbox.StatusRunning),
+		"last_active_at": activatedAt,
+	}).Error; err != nil {
+		return fail(model.EmployeeSandboxUpgradePhaseSync, fmt.Errorf("activate new sandbox: %w", err))
+	}
+	newSandbox.Status = string(sandbox.StatusRunning)
+	newSandbox.LastActiveAt = &activatedAt
 
 	// Phase 6: Pause old sandbox only after the new one is restored and ready.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhasePausingOld); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhasePausingOld, err)
 	}
 	if err := h.orchestrator.StopSandbox(ctx, oldSandbox); err != nil {
-		return fail(model.EmployeeSandboxUpgradePhasePausingOld, err)
+		// Pause-less providers (Railway): fine here, since the new sandbox serves
+		// traffic and Phase 7 retires the old one. Don't roll back over an unsupported
+		// pause; oldPaused stays false so a later rollback won't restart it.
+		if !errors.Is(err, sandbox.ErrUnsupported) {
+			return fail(model.EmployeeSandboxUpgradePhasePausingOld, err)
+		}
+		log.InfoContext(ctx, "employee sandbox upgrade: provider cannot pause old sandbox; relying on retirement to delete it",
+			"upgrade_id", upgrade.ID, "old_sandbox_id", oldSandbox.ID)
+	} else {
+		oldPaused = true
 	}
-	oldPaused = true
 
-	// Phase 7: Schedule old sandbox retirement.
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseCleanupOld); err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseCleanupOld, err)
 	}
@@ -184,7 +214,6 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 		logging.Capture(ctx, fmt.Errorf("employee sandbox upgrade %s: schedule old sandbox retirement failed: %w", upgrade.ID, err))
 	}
 
-	// Phase 8: Mark succeeded.
 	now := time.Now().UTC()
 	if err := h.db.WithContext(ctx).Model(upgrade).Updates(map[string]any{
 		"status":       model.EmployeeSandboxUpgradeStatusSucceeded,

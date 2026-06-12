@@ -11,9 +11,7 @@ import {
   Plug01Icon,
   CommandIcon,
   Settings02Icon,
-  TimeScheduleIcon,
   DriveIcon,
-  GridViewIcon,
   Chart01Icon,
   CreditCardIcon,
   CustomerService01Icon,
@@ -52,11 +50,6 @@ const navSections = [
     items: [
       { label: "Dashboard", href: "/w", icon: LayoutDashboard },
       { label: "Sessions", href: "/w/sessions", icon: Chat01Icon },
-      {
-        label: "Scheduled tasks",
-        href: "/w/scheduled-tasks",
-        icon: TimeScheduleIcon,
-      },
     ],
   },
   {
@@ -64,7 +57,6 @@ const navSections = [
     items: [
       { label: "Drive", href: "/w/drive", icon: DriveIcon },
       { label: "Skills", href: "/w/skills", icon: CommandIcon },
-      { label: "Apps", href: "/w/apps", icon: GridViewIcon },
     ],
   },
   {

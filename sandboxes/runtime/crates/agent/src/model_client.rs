@@ -17,18 +17,58 @@ use crate::{AgentError, Result};
 
 pub type ModelEventStream = Pin<Box<dyn Stream<Item = Result<ModelStreamEvent>> + Send>>;
 
+/// Maximum time to establish a TCP/TLS connection to the provider.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+/// Maximum time to receive response headers after the request is sent.
+/// Bounds half-open connections that accept the request but never reply.
+const HEADER_TIMEOUT: Duration = Duration::from_secs(60);
+/// Maximum idle time between streamed body chunks before the connection is
+/// considered stalled. A token stream that goes silent this long is treated as
+/// a retryable transport failure rather than hanging the turn forever.
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Idle deadlines applied around the header and body phases of a streamed model
+/// request. A stalled provider connection (routine during provider incidents)
+/// would otherwise hang `send().await` or `bytes.next().await` forever and lock
+/// the turn until the process restarts.
+#[derive(Debug, Clone, Copy)]
+pub struct ModelTimeouts {
+    pub header: Duration,
+    pub stream_idle: Duration,
+}
+
+impl Default for ModelTimeouts {
+    fn default() -> Self {
+        Self {
+            header: HEADER_TIMEOUT,
+            stream_idle: STREAM_IDLE_TIMEOUT,
+        }
+    }
+}
+
+/// Build the shared HTTP client with connect timeout configured. There is no
+/// overall request timeout because the body is an open-ended SSE stream; idle
+/// deadlines are enforced explicitly around the header and body phases instead.
+fn build_http_client() -> Client {
+    Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        .build()
+        .unwrap_or_else(|_| Client::new())
+}
+
 #[derive(Debug, Clone)]
 pub struct ChatModelClient {
     http: Client,
     endpoints: Vec<ModelEndpoint>,
     retry_policy: ModelRetryPolicy,
+    timeouts: ModelTimeouts,
     json_repair: JsonRepair,
 }
 
 impl ChatModelClient {
     pub fn new(base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
         Self {
-            http: Client::new(),
+            http: build_http_client(),
             endpoints: vec![ModelEndpoint {
                 base_url: base_url.into().trim_end_matches('/').to_string(),
                 api_key: api_key.into(),
@@ -37,6 +77,7 @@ impl ChatModelClient {
                 cache_policy: CacheControlPolicy::Disabled,
             }],
             retry_policy: ModelRetryPolicy::default(),
+            timeouts: ModelTimeouts::default(),
             json_repair: JsonRepair::new(),
         }
     }
@@ -56,9 +97,10 @@ impl ChatModelClient {
         let cache_policy = primary.cache_policy;
         Ok(ModelClientConfig {
             client: Self {
-                http: Client::new(),
+                http: build_http_client(),
                 endpoints,
                 retry_policy: ModelRetryPolicy::default(),
+                timeouts: ModelTimeouts::default(),
                 json_repair: JsonRepair::new(),
             },
             model_id,
@@ -74,13 +116,24 @@ impl ChatModelClient {
         self
     }
 
+    pub fn with_timeouts(mut self, timeouts: ModelTimeouts) -> Self {
+        self.timeouts = timeouts;
+        self
+    }
+
     pub async fn stream(&self, request: ModelRequest) -> Result<ModelEventStream> {
         let mut last_failure = None;
 
         for (endpoint_index, endpoint) in self.endpoints.iter().enumerate() {
             for attempt in 1..=self.retry_policy.max_attempts {
                 match self.send_once(endpoint, &request).await {
-                    Ok(response) => return Ok(stream_response(response, &self.json_repair)),
+                    Ok(response) => {
+                        return Ok(stream_response(
+                            response,
+                            &self.json_repair,
+                            self.timeouts.stream_idle,
+                        ))
+                    }
                     Err(failure) => {
                         let should_retry = failure.class.is_retryable()
                             && attempt < self.retry_policy.max_attempts;
@@ -150,10 +203,15 @@ impl ChatModelClient {
         for (name, value) in &endpoint.extra_headers {
             builder = builder.header(name, value);
         }
-        let response = builder
-            .send()
-            .await
-            .map_err(ModelRequestFailure::from_transport_error)?;
+        let response = match tokio::time::timeout(self.timeouts.header, builder.send()).await {
+            Ok(result) => result.map_err(ModelRequestFailure::from_transport_error)?,
+            Err(_) => {
+                return Err(ModelRequestFailure::timeout(format!(
+                    "model response headers timed out after {}s",
+                    self.timeouts.header.as_secs()
+                )));
+            }
+        };
 
         if !response.status().is_success() {
             let status = response.status();
@@ -290,6 +348,14 @@ impl ModelRequestFailure {
         }
     }
 
+    fn timeout(message: String) -> Self {
+        Self {
+            class: ModelErrorClass::Timeout,
+            status: None,
+            message,
+        }
+    }
+
     fn from_http_error(status: u16, body: String) -> Self {
         let message = extract_model_error_message(&body);
         Self {
@@ -313,16 +379,40 @@ impl ModelRequestFailure {
     }
 }
 
-fn stream_response(response: Response, json_repair: &JsonRepair) -> ModelEventStream {
+fn stream_response(
+    response: Response,
+    json_repair: &JsonRepair,
+    idle_timeout: Duration,
+) -> ModelEventStream {
     let bytes = response.bytes_stream();
     let json_repair = json_repair.clone();
     Box::pin(stream! {
         let mut buffer = String::new();
+        // Raw bytes that did not form a complete UTF-8 character on the previous
+        // chunk. A multi-byte character (emoji/CJK/accented) can be split across
+        // network chunk boundaries, so we must carry the incomplete suffix forward
+        // instead of decoding each chunk independently (which would emit U+FFFD and
+        // permanently corrupt the persisted history).
+        let mut utf8_carry: Vec<u8> = Vec::new();
         let mut tool_accumulator = ToolCallAccumulator::default();
         let mut last_finish_reason: Option<FinishReason> = None;
         let mut saw_event = false;
         futures::pin_mut!(bytes);
-        while let Some(chunk) = bytes.next().await {
+        loop {
+            let next = match tokio::time::timeout(idle_timeout, bytes.next()).await {
+                Ok(next) => next,
+                Err(_) => {
+                    let failure = ModelRequestFailure::timeout(format!(
+                        "model stream stalled: no data for {}s",
+                        idle_timeout.as_secs()
+                    ));
+                    yield Err(failure.into_agent_error());
+                    return;
+                }
+            };
+            let Some(chunk) = next else {
+                break;
+            };
             let chunk = match chunk {
                 Ok(chunk) => chunk,
                 Err(error) => {
@@ -331,12 +421,14 @@ fn stream_response(response: Response, json_repair: &JsonRepair) -> ModelEventSt
                     return;
                 }
             };
-            buffer.push_str(&String::from_utf8_lossy(&chunk));
-            while let Some(event) = take_sse_event(&mut buffer) {
-                let data = event.trim_start_matches("data:").trim();
-                if data.is_empty() || data.starts_with(':') {
+            buffer.push_str(&decode_utf8_carry(&mut utf8_carry, &chunk));
+            while let Some(block) = take_sse_event(&mut buffer) {
+                let Some(data) = parse_sse_data(&block) else {
+                    // Comment-only event, or an event carrying no `data` field
+                    // (e.g. a bare `event:`/`id:` frame). Nothing to dispatch.
                     continue;
-                }
+                };
+                let data = data.as_str();
                 saw_event = true;
                 if data == "[DONE]" {
                     let calls = tool_accumulator.finish(&json_repair);
@@ -519,11 +611,92 @@ fn extract_model_error_message(body: &str) -> String {
         .unwrap_or_else(|| body.to_string())
 }
 
+/// Decode a network chunk as UTF-8, carrying any trailing bytes that form an
+/// incomplete multi-byte character forward to the next chunk. `carry` holds the
+/// leftover bytes from the previous chunk; on return it holds the new leftover.
+///
+/// This avoids `String::from_utf8_lossy` per chunk, which would replace a
+/// character split across a chunk boundary with U+FFFD and corrupt the stream.
+fn decode_utf8_carry(carry: &mut Vec<u8>, chunk: &[u8]) -> String {
+    let mut bytes = std::mem::take(carry);
+    bytes.extend_from_slice(chunk);
+    match std::str::from_utf8(&bytes) {
+        Ok(text) => text.to_string(),
+        Err(error) => {
+            let valid_up_to = error.valid_up_to();
+            // Bytes after `valid_up_to` are either an incomplete trailing
+            // multi-byte sequence (carry them) or genuinely invalid input.
+            let remaining = &bytes[valid_up_to..];
+            let decoded = if error.error_len().is_none() && remaining.len() < 4 {
+                // Incomplete trailing sequence: decode the valid prefix and carry
+                // the rest to combine with the next chunk. `valid_up_to` is on a
+                // char boundary by definition, so this slice is always valid UTF-8.
+                *carry = remaining.to_vec();
+                std::str::from_utf8(&bytes[..valid_up_to])
+                    .unwrap_or_default()
+                    .to_string()
+            } else {
+                // Genuinely invalid bytes; fall back to lossy for this chunk so we
+                // never carry undecodable garbage forward indefinitely.
+                String::from_utf8_lossy(&bytes).to_string()
+            };
+            decoded
+        }
+    }
+}
+
+/// Extract the next complete SSE event block from the buffer. Per the SSE wire
+/// format an event is terminated by a blank line, which may use any line ending:
+/// `\n\n`, `\r\n\r\n` (CRLF — emitted by some providers and proxies), or `\r\r`.
+/// Returns the raw block (without the terminating blank line) and removes it plus
+/// the separator from the buffer.
 fn take_sse_event(buffer: &mut String) -> Option<String> {
-    let idx = buffer.find("\n\n")?;
-    let event = buffer[..idx].to_string();
-    buffer.replace_range(..idx + 2, "");
+    let (start, len) = find_event_boundary(buffer)?;
+    let event = buffer[..start].to_string();
+    buffer.replace_range(..start + len, "");
     Some(event)
+}
+
+/// Find the earliest blank-line separator in `buffer`. Returns `(start, len)`
+/// where `start` is the byte offset of the separator and `len` its byte length.
+fn find_event_boundary(buffer: &str) -> Option<(usize, usize)> {
+    let candidates = ["\r\n\r\n", "\n\n", "\r\r"];
+    candidates
+        .iter()
+        .filter_map(|sep| buffer.find(sep).map(|idx| (idx, sep.len())))
+        .min_by_key(|(idx, _)| *idx)
+}
+
+/// Parse an SSE event block per the field grammar and return the concatenated
+/// `data` field value (multiple `data:` lines are joined with `\n`). Lines
+/// beginning with `:` are comments and ignored; other field names (`event`,
+/// `id`, `retry`, …) are ignored because the model protocol only carries JSON in
+/// `data`. Lines may be separated by `\n`, `\r\n`, or `\r`. Returns `None` when
+/// the block contains no `data` field at all (comment-only / metadata-only
+/// frames), so callers skip it rather than treating it as empty data.
+fn parse_sse_data(block: &str) -> Option<String> {
+    let mut data = String::new();
+    let mut saw_data = false;
+    for line in block.split(['\n', '\r']) {
+        if line.is_empty() || line.starts_with(':') {
+            // Empty (an artifact of CR/LF splitting) or a comment line.
+            continue;
+        }
+        let (field, value) = match line.split_once(':') {
+            Some((field, value)) => (field, value.strip_prefix(' ').unwrap_or(value)),
+            // A line with no colon is a field with an empty value (spec); none of
+            // the fields we care about are valueless, so ignore it.
+            None => continue,
+        };
+        if field == "data" {
+            if saw_data {
+                data.push('\n');
+            }
+            data.push_str(value);
+            saw_data = true;
+        }
+    }
+    saw_data.then_some(data)
 }
 
 fn parse_thinking_delta(delta: &Value) -> Option<String> {
@@ -642,7 +815,7 @@ mod tests {
     use std::collections::{HashMap, VecDeque};
     use std::net::SocketAddr;
     use std::sync::Arc;
-    use std::time::UNIX_EPOCH;
+    use std::time::{Duration, UNIX_EPOCH};
 
     use axum::extract::State;
     use axum::http::{header, StatusCode};
@@ -652,15 +825,136 @@ mod tests {
     use domain::ModelConfig;
     use futures::StreamExt;
     use serde_json::json;
+    use tokio::io::AsyncWriteExt;
     use tokio::net::TcpListener;
     use tokio::sync::Mutex;
 
     use crate::primitives::{AgentMessage, CacheControlPolicy, ModelRequest, ModelStreamEvent};
 
     use super::{
-        classify_http_error, parse_thinking_delta, parse_usage, ChatModelClient, ModelErrorClass,
-        ModelRetryPolicy,
+        classify_http_error, decode_utf8_carry, parse_sse_data, parse_thinking_delta, parse_usage,
+        take_sse_event, ChatModelClient, ModelErrorClass, ModelRetryPolicy, ModelTimeouts,
     };
+
+    #[test]
+    fn take_sse_event_handles_lf_crlf_and_cr_boundaries() {
+        // LF-LF
+        let mut buf = "data: a\n\ndata: b\n\n".to_string();
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));
+        assert!(take_sse_event(&mut buf).is_none());
+
+        // CRLF-CRLF (providers/proxies that use Windows line endings)
+        let mut buf = "data: a\r\n\r\ndata: b\r\n\r\n".to_string();
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));
+
+        // CR-CR (legacy Mac line endings, allowed by the SSE grammar)
+        let mut buf = "data: a\r\rdata: b\r\r".to_string();
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
+        assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));
+    }
+
+    #[test]
+    fn parse_sse_data_concatenates_multiple_data_fields() {
+        // Per spec, multiple data: lines are joined with a newline.
+        let block = "data: line one\ndata: line two";
+        assert_eq!(parse_sse_data(block).as_deref(), Some("line one\nline two"));
+    }
+
+    #[test]
+    fn parse_sse_data_ignores_comments_and_other_fields() {
+        let block =
+            ": this is a keep-alive comment\nevent: message\nid: 42\nretry: 1000\ndata: {\"x\":1}";
+        assert_eq!(parse_sse_data(block).as_deref(), Some("{\"x\":1}"));
+    }
+
+    #[test]
+    fn parse_sse_data_handles_crlf_within_event_and_no_space_after_colon() {
+        let block = "event: message\r\ndata:{\"x\":1}";
+        assert_eq!(parse_sse_data(block).as_deref(), Some("{\"x\":1}"));
+    }
+
+    #[test]
+    fn parse_sse_data_returns_none_for_comment_or_metadata_only_blocks() {
+        assert_eq!(parse_sse_data(": keep-alive"), None);
+        assert_eq!(parse_sse_data("event: ping\nid: 7"), None);
+        assert_eq!(parse_sse_data(""), None);
+    }
+
+    #[tokio::test]
+    async fn stream_parses_crlf_multi_field_sse() {
+        // A provider that emits CRLF line endings, a comment frame, multi-field
+        // events (event:/id:/data:), and a final [DONE]. The old LF-LF +
+        // bare-`data:` parser failed these entirely.
+        let body = ": warmup comment\r\n\r\n\
+             event: message\r\nid: 1\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"Hello \"}}]}\r\n\r\n\
+             event: message\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"world\"},\"finish_reason\":\"stop\"}]}\r\n\r\n\
+             data: [DONE]\r\n\r\n";
+        let server = FakeModelServer::spawn(vec![FakeResponse::raw(body)]).await;
+        let client = ChatModelClient::new(server.base_url(), "test-key");
+
+        let events = collect_events(client.stream(test_request("m")).await.unwrap()).await;
+        let text: String = events
+            .into_iter()
+            .filter_map(|event| match event {
+                ModelStreamEvent::TextDelta(text) => Some(text),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(text, "Hello world");
+    }
+
+    #[test]
+    fn decode_utf8_carry_handles_multibyte_split_across_chunks() {
+        // "é" is 0xC3 0xA9; "界" is 0xE7 0x95 0x8C; "🚀" is 0xF0 0x9F 0x9A 0x80.
+        let full = "café世界🚀";
+        let bytes = full.as_bytes();
+        let mut carry = Vec::new();
+        let mut decoded = String::new();
+        // Feed one byte at a time — the worst case for boundary splits.
+        for byte in bytes {
+            decoded.push_str(&decode_utf8_carry(&mut carry, &[*byte]));
+        }
+        assert!(carry.is_empty(), "no bytes should be left dangling");
+        assert_eq!(decoded, full);
+        assert!(
+            !decoded.contains('\u{FFFD}'),
+            "split multi-byte chars must not be replaced with U+FFFD"
+        );
+    }
+
+    #[test]
+    fn decode_utf8_carry_splits_emoji_exactly_at_boundary() {
+        let emoji = "🚀"; // 4 bytes
+        let bytes = emoji.as_bytes();
+        let mut carry = Vec::new();
+        // First chunk: first 2 bytes (incomplete) — must produce nothing yet.
+        let first = decode_utf8_carry(&mut carry, &bytes[..2]);
+        assert_eq!(first, "");
+        assert_eq!(carry.len(), 2);
+        // Second chunk: remaining 2 bytes complete the character.
+        let second = decode_utf8_carry(&mut carry, &bytes[2..]);
+        assert_eq!(second, emoji);
+        assert!(carry.is_empty());
+    }
+
+    #[test]
+    fn decode_utf8_carry_passes_through_clean_ascii() {
+        let mut carry = Vec::new();
+        assert_eq!(decode_utf8_carry(&mut carry, b"hello"), "hello");
+        assert!(carry.is_empty());
+    }
+
+    #[test]
+    fn decode_utf8_carry_recovers_genuinely_invalid_bytes() {
+        let mut carry = Vec::new();
+        // 0xFF is never valid UTF-8 and is not an incomplete prefix.
+        let decoded = decode_utf8_carry(&mut carry, &[0xFF, b'a']);
+        assert!(decoded.contains('\u{FFFD}'));
+        assert!(decoded.contains('a'));
+        assert!(carry.is_empty());
+    }
 
     #[test]
     fn parses_common_thinking_delta_fields() {
@@ -935,6 +1229,97 @@ mod tests {
         assert!(err.to_string().contains("ended without [DONE]"));
     }
 
+    /// A server that accepts the TCP connection but never sends any response
+    /// headers — a half-open connection. `send().await` must not hang forever.
+    #[tokio::test]
+    async fn header_phase_times_out_on_silent_server() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            // Accept the connection and hold it open without ever replying.
+            let (_socket, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let client = ChatModelClient::new(format!("http://{addr}"), "test-key")
+            .with_retry_policy(ModelRetryPolicy::no_delay(1))
+            .with_timeouts(ModelTimeouts {
+                header: Duration::from_millis(150),
+                stream_idle: Duration::from_secs(5),
+            });
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(5),
+            client.stream(test_request("test-model")),
+        )
+        .await
+        .expect("client must not hang past the header timeout");
+
+        let err = match result {
+            Ok(_) => panic!("silent header phase must surface a failure"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("timeout"),
+            "expected a retryable timeout failure, got: {err}"
+        );
+    }
+
+    /// A server that sends response headers and a partial SSE event, then stalls
+    /// indefinitely without sending `[DONE]`. `bytes.next().await` must surface a
+    /// retryable timeout rather than blocking the turn forever.
+    #[tokio::test]
+    async fn stream_phase_times_out_on_stalled_body() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            // Consume the request (best-effort) then write headers + one chunk and stall.
+            let mut buf = [0u8; 1024];
+            let _ = tokio::io::AsyncReadExt::read(&mut socket, &mut buf).await;
+            let head = "HTTP/1.1 200 OK\r\n\
+                 content-type: text/event-stream\r\n\
+                 transfer-encoding: chunked\r\n\r\n";
+            socket.write_all(head.as_bytes()).await.unwrap();
+            // One chunked body piece: a partial SSE line that never terminates.
+            let chunk = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n";
+            let framed = format!("{:x}\r\n{}\r\n", chunk.len(), chunk);
+            socket.write_all(framed.as_bytes()).await.unwrap();
+            socket.flush().await.unwrap();
+            // Hold the connection open without sending more or closing it.
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let client = ChatModelClient::new(format!("http://{addr}"), "test-key")
+            .with_retry_policy(ModelRetryPolicy::no_delay(1))
+            .with_timeouts(ModelTimeouts {
+                header: Duration::from_secs(5),
+                stream_idle: Duration::from_millis(150),
+            });
+
+        let mut stream = client
+            .stream(test_request("test-model"))
+            .await
+            .expect("stream should start after headers");
+
+        let err = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match stream.next().await {
+                    Some(Err(err)) => return err,
+                    Some(Ok(_)) => continue,
+                    None => panic!("stalled stream should error, not end cleanly"),
+                }
+            }
+        })
+        .await
+        .expect("stalled stream must not hang past the idle timeout");
+
+        assert!(
+            err.to_string().contains("stalled") || err.to_string().contains("timeout"),
+            "expected an idle-timeout failure, got: {err}"
+        );
+    }
+
     struct FakeModelServer {
         addr: SocketAddr,
         state: Arc<FakeState>,
@@ -1003,6 +1388,13 @@ mod tests {
                     "data: {{\"choices\":[{{\"delta\":{{\"content\":{}}}}}]}}\n\ndata: [DONE]\n\n",
                     serde_json::to_string(text).unwrap()
                 ),
+            }
+        }
+
+        fn raw(body: &str) -> Self {
+            Self {
+                status: StatusCode::OK,
+                body: body.to_string(),
             }
         }
 

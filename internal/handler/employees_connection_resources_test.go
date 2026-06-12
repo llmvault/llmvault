@@ -38,7 +38,7 @@ func TestEmployeeHandler_UpdateConnectionResourcesStoresOnEmployeeAndQueuesGitHu
 		Model:         employeeruntime.DefaultEmployeeModel,
 		Status:        "active",
 		Tools:         model.JSON{},
-		McpServers:    model.JSON{},
+		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
 		RuntimeConfig: model.JSON{},
 		Permissions:   model.JSON{},

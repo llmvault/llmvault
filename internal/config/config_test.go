@@ -27,12 +27,22 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("HIVY_CORS_ORIGINS", "http://localhost:3000")
 	t.Setenv("HIVY_AUTH_RSA_PRIVATE_KEY", "dGVzdC1wZW0=")
 	t.Setenv("HIVY_FRONTEND_URL", "http://localhost:3000")
+	t.Setenv("HIVY_NANGO_WEBHOOKS_SECRET", "test-nango-webhook-secret")
 }
 
-// TestLoad_NoRedisConfig tests error handling when neither HIVY_REDIS_URL nor HIVY_REDIS_ADDR is set.
-// This is the only valuable test in this file as it tests actual error handling behavior.
-// All other tests were removed as they test library configuration parsing behavior.
-// See USELESS_TESTS_RECOMMENDATIONS.md for details.
+// The Nango webhook signing secret must be required so the server fails to boot
+// rather than running with an empty secret, which would let attackers forge
+// webhook signatures (HMAC computed with an empty key). See verifyNangoSignature.
+func TestLoad_RequiresNangoWebhooksSecret(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_NANGO_WEBHOOKS_SECRET", "")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error when HIVY_NANGO_WEBHOOKS_SECRET is unset")
+	}
+}
+
+// Load must error when neither HIVY_REDIS_URL nor HIVY_REDIS_ADDR is set.
 func TestLoad_NoRedisConfig(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("HIVY_REDIS_ADDR", "")
@@ -72,6 +82,72 @@ func TestLoad_DoesNotDuplicateFrontendCORSOrigin(t *testing.T) {
 	}
 	if len(cfg.CORSOrigins) != 1 || cfg.CORSOrigins[0] != "https://usehivy.com" {
 		t.Fatalf("CORS origins = %#v", cfg.CORSOrigins)
+	}
+}
+
+func TestAsynqRedisOpt_FailsOnMalformedRedisURL(t *testing.T) {
+	cfg := &Config{
+		RedisURL: "not-a-valid-redis-url",
+	}
+	_, err := cfg.AsynqRedisOpt()
+	if err == nil {
+		t.Fatal("expected error for malformed HIVY_REDIS_URL, got nil")
+	}
+}
+
+func TestAsynqRedisOpt_ReturnsClientOptWhenURLEmpty(t *testing.T) {
+	cfg := &Config{
+		RedisAddr:     "localhost:6379",
+		RedisPassword: "pw",
+		RedisDB:       1,
+	}
+	opt, err := cfg.AsynqRedisOpt()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if opt == nil {
+		t.Fatal("expected non-nil RedisConnOpt")
+	}
+}
+
+func TestAsynqRedisOpt_ParsesValidRedisURL(t *testing.T) {
+	cfg := &Config{
+		RedisURL: "redis://localhost:6379/0",
+	}
+	opt, err := cfg.AsynqRedisOpt()
+	if err != nil {
+		t.Fatalf("unexpected error for valid URL: %v", err)
+	}
+	if opt == nil {
+		t.Fatal("expected non-nil RedisConnOpt")
+	}
+}
+
+func TestLoad_WarnOnDisableSSLModeInProduction(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_ENVIRONMENT", "production")
+	t.Setenv("HIVY_DB_SSLMODE", "disable")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.DBSSLMode != "disable" {
+		t.Fatalf("DBSSLMode = %q, want disable", cfg.DBSSLMode)
+	}
+}
+
+func TestLoad_NoWarnOnRequireSSLModeInProduction(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("HIVY_ENVIRONMENT", "production")
+	t.Setenv("HIVY_DB_SSLMODE", "require")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.DBSSLMode != "require" {
+		t.Fatalf("DBSSLMode = %q, want require", cfg.DBSSLMode)
 	}
 }
 

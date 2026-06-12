@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
@@ -95,6 +94,15 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Privilege-escalation guard: an API key must never mint a key with broader scopes than its
+	// own. JWT callers are already org-admin-gated on the route and may mint any valid scope.
+	if apiClaims, ok := middleware.APIKeyClaimsFromContext(r.Context()); ok {
+		if !scopesWithinCeiling(req.Scopes, apiClaims.Scopes) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "api key cannot mint a key with broader scopes than its own"})
+			return
+		}
+	}
+
 	plaintext, hash, prefix, err := model.GenerateAPIKey()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to generate api key"})
@@ -146,129 +154,21 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, resp)
 }
 
-// List handles GET /v1/api-keys.
-// @Summary List API keys
-// @Description Returns API keys for the current organization with cursor pagination.
-// @Tags api-keys
-// @Produce json
-// @Param limit query int false "Max items per page (1-100, default 50)"
-// @Param cursor query string false "Pagination cursor from previous response"
-// @Success 200 {object} paginatedResponse[apiKeyResponse]
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/api-keys [get]
-func (h *APIKeyHandler) List(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
-		return
+// scopesWithinCeiling reports whether every requested scope is permitted given
+// the caller's own scopes. A caller holding "all" may mint any scope; otherwise
+// each requested scope must be one the caller already holds.
+func scopesWithinCeiling(requested, callerScopes []string) bool {
+	held := make(map[string]bool, len(callerScopes))
+	for _, s := range callerScopes {
+		held[s] = true
 	}
-
-	limit, cursor, err := parsePagination(r)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
+	if held["all"] {
+		return true
 	}
-
-	q := h.db.Where("org_id = ?", org.ID)
-	q = applyPagination(q, cursor, limit)
-
-	var keys []model.APIKey
-	if err := q.Find(&keys).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list api keys"})
-		return
-	}
-
-	hasMore := len(keys) > limit
-	if hasMore {
-		keys = keys[:limit]
-	}
-
-	items := make([]apiKeyResponse, len(keys))
-	for i, k := range keys {
-		items[i] = apiKeyResponse{
-			ID:        k.ID.String(),
-			Name:      k.Name,
-			KeyPrefix: k.KeyPrefix,
-			Scopes:    k.Scopes,
-			CreatedAt: k.CreatedAt.Format(time.RFC3339),
-		}
-		if k.ExpiresAt != nil {
-			s := k.ExpiresAt.Format(time.RFC3339)
-			items[i].ExpiresAt = &s
-		}
-		if k.LastUsedAt != nil {
-			s := k.LastUsedAt.Format(time.RFC3339)
-			items[i].LastUsedAt = &s
-		}
-		if k.RevokedAt != nil {
-			s := k.RevokedAt.Format(time.RFC3339)
-			items[i].RevokedAt = &s
+	for _, s := range requested {
+		if !held[s] {
+			return false
 		}
 	}
-
-	resp := paginatedResponse[apiKeyResponse]{
-		Data:    items,
-		HasMore: hasMore,
-	}
-	if hasMore {
-		last := keys[len(keys)-1]
-		c := encodeCursor(last.CreatedAt, last.ID)
-		resp.NextCursor = &c
-	}
-
-	writeJSON(w, http.StatusOK, resp)
-}
-
-// Revoke handles DELETE /v1/api-keys/{id}.
-// @Summary Revoke an API key
-// @Description Soft-deletes an API key by setting its revoked_at timestamp.
-// @Tags api-keys
-// @Produce json
-// @Param id path string true "API Key ID"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Failure 500 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/api-keys/{id} [delete]
-func (h *APIKeyHandler) Revoke(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
-		return
-	}
-
-	keyID := chi.URLParam(r, "id")
-	if keyID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "api key id required"})
-		return
-	}
-
-	var apiKey model.APIKey
-	if err := h.db.Where("id = ? AND org_id = ? AND revoked_at IS NULL", keyID, org.ID).First(&apiKey).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "api key not found or already revoked"})
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to find api key"})
-		return
-	}
-
-	now := time.Now()
-	if err := h.db.Model(&apiKey).Update("revoked_at", &now).Error; err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to revoke api key", "error", err, "org_id", org.ID, "key_id", keyID)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to revoke api key"})
-		return
-	}
-
-	h.keyCache.Invalidate(apiKey.KeyHash)
-
-	_ = h.cacheManager.InvalidateAPIKey(r.Context(), apiKey.KeyHash)
-
-	logging.FromContext(r.Context()).InfoContext(r.Context(), "api key revoked", "org_id", org.ID, "key_id", keyID)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+	return true
 }

@@ -130,6 +130,10 @@ func (s *Service) chargeAndAdvance(ctx context.Context, sub *model.Subscription,
 		AuthorizationCode: sub.AuthorizationCode,
 		AmountMinor:       target.PriceMinor,
 		Currency:          target.Currency,
+		// Deterministic reference so a retry after a post-charge crash re-presents
+		// it and Paystack dedupes the charge. Keyed by subscription + period boundary
+		// so each distinct renewal still gets a fresh reference.
+		Reference: renewalChargeReference(sub.ID, sub.CurrentPeriodEnd),
 		Metadata: map[string]string{
 			"org_id":          sub.OrgID.String(),
 			"subscription_id": sub.ID.String(),
@@ -240,6 +244,18 @@ func (s *Service) lookupOrgOwnerEmail(ctx context.Context, orgID uuid.UUID) (str
 		return "", err
 	}
 	return user.Email, nil
+}
+
+// renewalChargeReference builds the deterministic Paystack idempotency reference,
+// keyed by subscription + the period boundary (CurrentPeriodEnd before the
+// charge): a retry re-presents the same reference (Paystack dedupes) while a
+// later cycle's renewal gets a distinct one.
+func renewalChargeReference(subID uuid.UUID, periodEnd time.Time) string {
+	boundary := int64(0)
+	if !periodEnd.IsZero() {
+		boundary = periodEnd.UTC().Unix()
+	}
+	return fmt.Sprintf("renew-%s-%d", subID, boundary)
 }
 
 func truncateErr(s string) string {

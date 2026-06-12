@@ -16,23 +16,25 @@ type WebhookForwardPayload struct {
 	Body            []byte `json:"body"`
 }
 
-// NewWebhookForwardTask creates a task that forwards a webhook to an org's endpoint.
-func NewWebhookForwardTask(webhookURL string, encryptedSecret []byte, body []byte) (*asynq.Task, error) {
+// NewWebhookForwardTask forwards a webhook to an org's endpoint. Options are
+// returned separately (not baked into the task) because the enqueue client's
+// Sentry trace-payload rewrite drops baked options, demoting this critical-queue
+// task to the default queue.
+func NewWebhookForwardTask(webhookURL string, encryptedSecret []byte, body []byte) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(WebhookForwardPayload{
 		WebhookURL:      webhookURL,
 		EncryptedSecret: encryptedSecret,
 		Body:            body,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal webhook forward payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal webhook forward payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeWebhookForward,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(5),
-		asynq.Timeout(30*time.Second),
-	), nil
+		asynq.Timeout(30 * time.Second),
+	}
+	return asynq.NewTask(TypeWebhookForward, payload), opts, nil
 }
 
 // EmailSendPayload is the payload for TypeEmailSend tasks.
@@ -43,8 +45,8 @@ type EmailSendPayload struct {
 	IdempotencyKey string `json:"idempotency_key,omitempty"`
 }
 
-// NewEmailSendTask creates a task that sends an email.
-func NewEmailSendTask(to, subject, body string) (*asynq.Task, error) {
+// NewEmailSendTask creates a task that sends an email. Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
+func NewEmailSendTask(to, subject, body string) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(EmailSendPayload{
 		To:             to,
 		Subject:        subject,
@@ -52,15 +54,14 @@ func NewEmailSendTask(to, subject, body string) (*asynq.Task, error) {
 		IdempotencyKey: fmt.Sprintf("email/%s", uuid.NewString()),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal email send payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal email send payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmailSend,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(5),
-		asynq.Timeout(30*time.Second),
-	), nil
+		asynq.Timeout(30 * time.Second),
+	}
+	return asynq.NewTask(TypeEmailSend, payload), opts, nil
 }
 
 // EmailSendTemplatePayload is the payload for TypeEmailSendTemplate tasks.
@@ -74,8 +75,8 @@ type EmailSendTemplatePayload struct {
 }
 
 // NewEmailSendTemplateTask creates a task that sends an email via a published
-// transactional template resolved by slug.
-func NewEmailSendTemplateTask(to, slug string, variables map[string]string) (*asynq.Task, error) {
+// transactional template resolved by slug. Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
+func NewEmailSendTemplateTask(to, slug string, variables map[string]string) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(EmailSendTemplatePayload{
 		To:             to,
 		Slug:           slug,
@@ -83,15 +84,14 @@ func NewEmailSendTemplateTask(to, slug string, variables map[string]string) (*as
 		IdempotencyKey: fmt.Sprintf("email-template/%s/%s", slug, uuid.NewString()),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal email template payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal email template payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeEmailSendTemplate,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
 		asynq.MaxRetry(5),
-		asynq.Timeout(30*time.Second),
-	), nil
+		asynq.Timeout(30 * time.Second),
+	}
+	return asynq.NewTask(TypeEmailSendTemplate, payload), opts, nil
 }
 
 // APIKeyUpdatePayload is the payload for TypeAPIKeyUpdate tasks.
@@ -100,16 +100,16 @@ type APIKeyUpdatePayload struct {
 }
 
 // NewAPIKeyUpdateTask creates a task that updates an API key's last_used_at.
-func NewAPIKeyUpdateTask(keyID uuid.UUID) (*asynq.Task, error) {
+// Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
+func NewAPIKeyUpdateTask(keyID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	payload, err := json.Marshal(APIKeyUpdatePayload{KeyID: keyID})
 	if err != nil {
-		return nil, fmt.Errorf("marshal apikey update payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal apikey update payload: %w", err)
 	}
-	return asynq.NewTask(
-		TypeAPIKeyUpdate,
-		payload,
+	opts := []asynq.Option{
 		asynq.Queue(QueueBulk),
 		asynq.MaxRetry(3),
-		asynq.Timeout(10*time.Second),
-	), nil
+		asynq.Timeout(10 * time.Second),
+	}
+	return asynq.NewTask(TypeAPIKeyUpdate, payload), opts, nil
 }

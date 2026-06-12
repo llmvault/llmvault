@@ -2,10 +2,9 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/usehivy/hivy/internal/employeeruntime"
@@ -20,8 +19,39 @@ func (h *EmployeeHandler) ensureEmployeeSandbox(ctx context.Context, agent *mode
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent must have org_id")
 	}
+	// Concurrent syncs (org PATCH, env-var writes, webhooks) all reach here during
+	// onboarding; without serialisation each runs check-then-create and provisions
+	// its own billing sandbox. A per-employee advisory lock lets only one provision;
+	// the others block, then reuse the winner's row.
+	var sb *model.Sandbox
+	txErr := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", employeeSandboxLockKey(agent.ID)).Error; err != nil {
+			return fmt.Errorf("acquire employee sandbox lock: %w", err)
+		}
+		ensured, err := h.ensureEmployeeSandboxLocked(ctx, agent)
+		if err != nil {
+			return err
+		}
+		sb = ensured
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+	return sb, nil
+}
+
+func (h *EmployeeHandler) ensureEmployeeSandboxLocked(ctx context.Context, agent *model.Employee) (*model.Sandbox, error) {
 	sb, err := h.mainEmployeeRuntimeSelector().MainRuntime(ctx, *agent.OrgID, agent.ID)
 	if err == nil {
+		// The selector also returns creating/starting/stopped rows; route them
+		// through EnsureSandboxActive so an in-flight/idle sandbox is reused (and
+		// woken), not abandoned alongside a new one.
+		active, ensureErr := h.orchestrator.EnsureSandboxActive(ctx, sb)
+		if ensureErr != nil {
+			return nil, fmt.Errorf("ensure existing employee sandbox active: %w", ensureErr)
+		}
+		sb = active
 		if h.orchestrator.NeedsURLRefresh(sb) {
 			if err := h.orchestrator.RefreshEmployeeSandboxURL(ctx, sb); err != nil {
 				return nil, err
@@ -40,10 +70,16 @@ func (h *EmployeeHandler) ensureEmployeeSandbox(ctx context.Context, agent *mode
 	if err != nil {
 		return nil, err
 	}
-	if err := employeeruntime.AttachLatestProxyTokenToSandbox(ctx, h.compileDeps, agent, created.ID); err != nil {
+	if err := employeeruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, agent, created.ID, secrets.ProxyTokenJTI); err != nil {
 		return nil, fmt.Errorf("tag employee proxy token sandbox: %w", err)
 	}
 	return created, nil
+}
+
+// employeeSandboxLockKey hashes an employee UUID to a bigint for pg_advisory_xact_lock.
+// Collisions only serialise unrelated employees, which is harmless.
+func employeeSandboxLockKey(employeeID uuid.UUID) int64 {
+	return int64(binary.BigEndian.Uint64(employeeID[:8])) // #nosec G115 -- hash truncation; sign bit is part of the hash distribution
 }
 
 func (h *EmployeeHandler) SyncOrgHivyEmployee(ctx context.Context, orgID uuid.UUID) error {
@@ -118,23 +154,11 @@ func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Empl
 		return nil, fmt.Errorf("load runtime schedules: %w", err)
 	}
 
-	currentDef, err := client.GetConfig(ctx)
-	needsRestart := err != nil || !agentDefinitionsMatch(currentDef, def)
-
-	var resp *employeeruntime.SyncResponse
-	if needsRestart {
-		resp, err = client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
-			Definition: def,
-			RuntimeEnv: runtimeEnv,
-			Schedules:  schedules,
-		})
-	} else {
-		resp, err = client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
-			Definition: def,
-			RuntimeEnv: runtimeEnv,
-			Schedules:  schedules,
-		})
-	}
+	resp, err := client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
+		Definition: def,
+		RuntimeEnv: runtimeEnv,
+		Schedules:  schedules,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -189,27 +213,6 @@ func (h *EmployeeHandler) mainEmployeeRuntimeSelector() employeesandbox.Selector
 		selector.SpecialistRuntimeImage = h.compileDeps.Cfg.SandboxesRuntimeSpecialistImage
 	}
 	return selector
-}
-
-func agentDefinitionsMatch(left, right *employeeruntime.AgentDefinition) bool {
-	leftJSON, err := json.Marshal(left)
-	if err != nil {
-		return false
-	}
-	rightJSON, err := json.Marshal(right)
-	if err != nil {
-		return false
-	}
-
-	var leftDoc any
-	var rightDoc any
-	if err := json.Unmarshal(leftJSON, &leftDoc); err != nil {
-		return false
-	}
-	if err := json.Unmarshal(rightJSON, &rightDoc); err != nil {
-		return false
-	}
-	return reflect.DeepEqual(leftDoc, rightDoc)
 }
 
 func toSyncResponseDTO(resp *employeeruntime.SyncResponse) syncEmployeeResponse {

@@ -136,18 +136,30 @@ func firstNameFrom(user model.User) string {
 }
 
 func (h *AuthHandler) issueTokensAndRespond(ctx context.Context, w http.ResponseWriter, status int, user model.User, orgID, role string) {
+	resp, ok := h.mintAuthResponse(ctx, w, user, orgID, role)
+	if !ok {
+		return
+	}
+	writeJSON(w, status, resp)
+}
+
+// mintAuthResponse issues and persists a fresh token pair and assembles the
+// authResponse, returning ok=false on failure. Unlike issueTokensAndRespond it
+// does not write the success response, so callers (e.g. the refresh grace window)
+// can persist the tokens before delivering them.
+func (h *AuthHandler) mintAuthResponse(ctx context.Context, w http.ResponseWriter, user model.User, orgID, role string) (authResponse, bool) {
 	accessToken, err := auth.IssueAccessToken(h.privateKey, h.issuer, h.audience, user.ID.String(), orgID, role, h.accessTTL)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "failed to issue access token", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
+		return authResponse{}, false
 	}
 
 	refreshToken, err := auth.IssueRefreshToken(h.signingKey, user.ID.String(), h.refreshTTL)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "failed to issue refresh token", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
+		return authResponse{}, false
 	}
 
 	storedRefresh := model.RefreshToken{
@@ -158,9 +170,14 @@ func (h *AuthHandler) issueTokensAndRespond(ctx context.Context, w http.Response
 	if err := h.db.Create(&storedRefresh).Error; err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "failed to store refresh token", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
+		return authResponse{}, false
 	}
 
+	return h.buildAuthResponse(ctx, user, accessToken, refreshToken), true
+}
+
+// buildAuthResponse assembles the authResponse for an already-minted token pair.
+func (h *AuthHandler) buildAuthResponse(ctx context.Context, user model.User, accessToken, refreshToken string) authResponse {
 	var memberships []model.OrgMembership
 	h.db.Preload("Org").Where("user_id = ?", user.ID).Find(&memberships)
 
@@ -177,7 +194,7 @@ func (h *AuthHandler) issueTokensAndRespond(ctx context.Context, w http.Response
 		})
 	}
 
-	writeJSON(w, status, authResponse{
+	return authResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresIn:    int(h.accessTTL.Seconds()),
@@ -188,7 +205,7 @@ func (h *AuthHandler) issueTokensAndRespond(ctx context.Context, w http.Response
 			EmailConfirmed: user.EmailConfirmedAt != nil,
 		},
 		Orgs: orgs,
-	})
+	}
 }
 
 func hashToken(token string) string {

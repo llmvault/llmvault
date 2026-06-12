@@ -2,8 +2,10 @@ package sentry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"sync/atomic"
 	"time"
@@ -12,6 +14,63 @@ import (
 
 	"github.com/usehivy/hivy/internal/config"
 )
+
+// sensitiveQueryParams lists URL query parameter names whose values must be scrubbed from Sentry
+// events to prevent tokens from appearing in breadcrumbs or request data.
+var sensitiveQueryParams = []string{"token", "key"}
+
+// scrubQueryString replaces sensitive token values in a query string with "[Filtered]".
+func scrubQueryString(qs string) string {
+	if qs == "" {
+		return qs
+	}
+	q, err := url.ParseQuery(qs)
+	if err != nil {
+		return qs
+	}
+	changed := false
+	for _, param := range sensitiveQueryParams {
+		if q.Has(param) {
+			q.Set(param, "[Filtered]")
+			changed = true
+		}
+	}
+	if !changed {
+		return qs
+	}
+	return q.Encode()
+}
+
+// scrubSensitiveQueryParams replaces sensitive token values in a URL with [Filtered].
+func scrubSensitiveQueryParams(rawURL string) string {
+	if rawURL == "" {
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil || u.RawQuery == "" {
+		return rawURL
+	}
+	scrubbed := scrubQueryString(u.RawQuery)
+	if scrubbed == u.RawQuery {
+		return rawURL
+	}
+	u.RawQuery = scrubbed
+	return u.String()
+}
+
+// beforeSend scrubs sensitive query params from request URLs before transmission.
+func beforeSend(event *sentrygo.Event, _ *sentrygo.EventHint) *sentrygo.Event {
+	if event == nil {
+		return event
+	}
+	if event.Request != nil {
+		// URL is a full URL string.
+		event.Request.URL = scrubSensitiveQueryParams(event.Request.URL)
+		// QueryString is a bare query string (no leading "?").
+		event.Request.QueryString = scrubQueryString(event.Request.QueryString)
+	}
+	return event
+}
 
 type ClientOptions struct {
 	ServiceName string
@@ -23,7 +82,13 @@ type ClientOptions struct {
 var initialized atomic.Bool
 
 func Init(cfg *config.Config, opts ClientOptions) error {
-	if cfg == nil || !cfg.SentryEnabled || cfg.SentryDSN == "" {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.SentryDSN != "" && !cfg.SentryEnabled {
+		slog.Warn("HIVY_SENTRY_DSN is set but HIVY_SENTRY_ENABLED is false — Sentry will not capture events; set HIVY_SENTRY_ENABLED=true to enable")
+	}
+	if !cfg.SentryEnabled || cfg.SentryDSN == "" {
 		return nil
 	}
 
@@ -70,15 +135,17 @@ func Init(cfg *config.Config, opts ClientOptions) error {
 }
 
 func sentryClientOptions(cfg *config.Config, environment, release, hostname string) sentrygo.ClientOptions {
+	enableTracing := cfg.SentryTracesSampleRate > 0
 	return sentrygo.ClientOptions{
 		Dsn:                  cfg.SentryDSN,
 		Environment:          environment,
 		Release:              release,
-		EnableTracing:        false,
-		TracesSampleRate:     0,
+		EnableTracing:        enableTracing,
+		TracesSampleRate:     cfg.SentryTracesSampleRate,
 		AttachStacktrace:     true,
 		ServerName:           hostname,
 		DisableClientReports: true,
+		BeforeSend:           beforeSend,
 	}
 }
 
@@ -101,14 +168,14 @@ func Close() {
 }
 
 func CaptureException(ctx context.Context, err error) {
-	if !Enabled() || err == nil {
+	if !Enabled() || err == nil || errors.Is(err, context.Canceled) {
 		return
 	}
 	hubFromContext(ctx).CaptureException(err)
 }
 
 func CaptureExceptionWithFields(ctx context.Context, err error, fields map[string]any) {
-	if !Enabled() || err == nil {
+	if !Enabled() || err == nil || errors.Is(err, context.Canceled) {
 		return
 	}
 	hub := hubFromContext(ctx)

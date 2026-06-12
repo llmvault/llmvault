@@ -105,7 +105,11 @@ func run(cmd string) error {
 func dispatch(ctx context.Context, cmd string, deps *bootstrap.Deps) error {
 	switch cmd {
 	case "serve":
-		enqueuer := enqueue.NewClient(deps.Config.AsynqRedisOpt())
+		redisOpt, err := deps.Config.AsynqRedisOpt()
+		if err != nil {
+			return fmt.Errorf("serve: %w", err)
+		}
+		enqueuer := enqueue.NewClient(redisOpt)
 		defer enqueuer.Close()
 		return runServe(ctx, deps, enqueuer)
 
@@ -113,8 +117,11 @@ func dispatch(ctx context.Context, cmd string, deps *bootstrap.Deps) error {
 		return runWork(ctx, deps)
 
 	case "both":
-
-		enqueuer := enqueue.NewClient(deps.Config.AsynqRedisOpt())
+		redisOpt, err := deps.Config.AsynqRedisOpt()
+		if err != nil {
+			return fmt.Errorf("both: %w", err)
+		}
+		enqueuer := enqueue.NewClient(redisOpt)
 		defer enqueuer.Close()
 
 		errCh := make(chan error, 2)

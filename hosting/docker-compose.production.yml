@@ -80,7 +80,39 @@ services:
       retries: 5
       start_period: 10s
 
+  # ── Migrate (one-shot schema migration — runs /hivy migrate up then exits) ─
+  #
+  # Required env vars (subset of api's env; set in .env):
+  #   HIVY_DB_HOST, HIVY_DB_PORT, HIVY_DB_USER, HIVY_DB_PASSWORD,
+  #   HIVY_DB_NAME, HIVY_DB_SSLMODE
+  # Alternatively set HIVY_DATABASE_URL to a full postgres DSN.
+  migrate:
+    image: ghcr.io/usehivy/hivy:latest
+    command: ["/hivy", "migrate", "up"]
+    restart: "no"
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      HIVY_DB_HOST: postgres
+      HIVY_DB_PORT: "5432"
+      HIVY_DB_USER: ${HIVY_DB_USER:-hivy}
+      HIVY_DB_PASSWORD: ${HIVY_DB_PASSWORD}
+      HIVY_DB_NAME: ${HIVY_DB_NAME:-hivy}
+      HIVY_DB_SSLMODE: disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hivy
+
   # ── API (Go backend + internal Nginx for MCP routing) ────────────────────
+  #
+  # Required env vars (set in .env):
+  #   HIVY_DB_PASSWORD, REDIS_PASSWORD, APP_DOMAIN, MCP_DOMAIN,
+  #   NANGO_DOMAIN, CONNECT_DOMAIN,
+  #   HIVY_KMS_KEY, HIVY_AUTH_RSA_PRIVATE_KEY, HIVY_JWT_SIGNING_KEY,
+  #   HIVY_NANGO_SECRET_KEY, HIVY_NANGO_WEBHOOKS_SECRET
   api:
     image: ghcr.io/usehivy/hivy:latest
     restart: unless-stopped
@@ -109,10 +141,53 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - hivy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Worker (asynq task processor — billing, emails, gateway deliveries) ───
+  #
+  # Runs /hivy work; uses the same image and env as the api service.
+  # Required env vars: same as api (set in .env).
+  # The asynqmon dashboard is exposed on HIVY_WORKER_HEALTH_PORT (default
+  # 8090) — gate it behind a firewall or auth in production (see P1-8).
+  worker:
+    image: ghcr.io/usehivy/hivy:latest
+    command: ["/hivy", "work"]
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      HIVY_ENVIRONMENT: production
+      HIVY_DB_HOST: postgres
+      HIVY_DB_PORT: "5432"
+      HIVY_DB_USER: ${HIVY_DB_USER:-hivy}
+      HIVY_DB_PASSWORD: ${HIVY_DB_PASSWORD}
+      HIVY_DB_NAME: ${HIVY_DB_NAME:-hivy}
+      HIVY_DB_SSLMODE: disable
+      HIVY_REDIS_ADDR: redis:6379
+      HIVY_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      HIVY_FRONTEND_URL: https://${APP_DOMAIN}
+      HIVY_NANGO_ENDPOINT: https://${NANGO_DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - hivy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8090/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5

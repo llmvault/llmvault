@@ -20,6 +20,7 @@ use outbound::OutboundEmitter;
 use serde_json::Value;
 use storage::CronJobRepo;
 use storage::SessionRepo;
+use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use composition::compose_annotated_text;
@@ -271,20 +272,28 @@ pub async fn handle_inbound(
     coordinator: Arc<SessionCoordinator>,
     turn_event_sink: Arc<dyn TurnEventSink>,
     cron_repo: Arc<dyn CronJobRepo>,
+    inbound_sink: mpsc::Sender<InboundEvent>,
     inbound: InboundEvent,
 ) -> Result<()> {
     let submission = coordinator.submit_or_queue(inbound.clone());
     if matches!(submission, Submission::Queued) {
         let event_source = inbound_event_source(&inbound);
         emit_user_message_received(&emitter, &inbound, event_source, true).await;
+        // This follow-up was queued behind an in-flight turn and will be merged
+        // into it. The merged turn streams its tokens to the ACTIVE turn's
+        // stream, not to this message's stream, so emitting a bare `done` here
+        // leaves the client (which opened a fresh stream for the follow-up and
+        // aborted the old one) showing nothing. Instead emit a `session_waiting`
+        // event so the stream stays open, and bridge the merged turn's terminal
+        // output back to it (see merge_queued_inbound + process_single_turn).
         if let Some(stream_id) = session_stream_id(&inbound) {
             turn_event_sink
-                .publish_done(&stream_id, &inbound.session_id)
+                .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
                 .await;
         }
         if let Some(stream_id) = session_response_stream_id(&inbound) {
             turn_event_sink
-                .publish_done(&stream_id, &inbound.session_id)
+                .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
                 .await;
         }
         return Ok(());
@@ -303,10 +312,12 @@ pub async fn handle_inbound(
             turn_event_sink.clone(),
             cron_repo.clone(),
             coordinator.clone(),
+            inbound_sink.clone(),
         )
         .await?;
 
         let mut published_waiting = false;
+        let mut delegate_wait_deadline: Option<std::time::Instant> = None;
         loop {
             let follow_ups = coordinator.drain_queued(&current_inbound.session_id);
             if !follow_ups.is_empty() {
@@ -315,6 +326,21 @@ pub async fn handle_inbound(
             }
 
             if session_has_active_delegates(cron_repo.as_ref(), &current_inbound.session_id).await {
+                // Bound how long the parent turn waits on its delegates. A
+                // delegate whose complete_delegate_result write never lands (or
+                // a sub-agent that never reports back) would otherwise leave the
+                // job Active forever and spin this loop indefinitely.
+                let deadline = *delegate_wait_deadline
+                    .get_or_insert_with(|| std::time::Instant::now() + MAX_DELEGATE_WAIT);
+                if std::time::Instant::now() >= deadline {
+                    warn!(
+                        session = %current_inbound.session_id,
+                        "delegate wait exceeded maximum; force-failing stuck delegates"
+                    );
+                    force_fail_active_delegates(cron_repo.as_ref(), &current_inbound.session_id)
+                        .await;
+                    continue;
+                }
                 if !published_waiting {
                     if let Some(stream_id) = http_stream_id.as_deref() {
                         turn_event_sink
@@ -330,6 +356,7 @@ pub async fn handle_inbound(
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 continue;
             }
+            delegate_wait_deadline = None;
 
             if runner.active_background_processes(&current_inbound.session_id) > 0 {
                 if !published_waiting {
@@ -381,6 +408,11 @@ pub async fn handle_inbound(
     Ok(())
 }
 
+/// Maximum time the parent turn will wait for its delegates to report back
+/// before force-failing them. Without this bound a delegate whose result write
+/// never lands keeps the job Active and spins the parent loop forever.
+const MAX_DELEGATE_WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+
 async fn session_has_active_delegates(repo: &dyn CronJobRepo, session_id: &SessionId) -> bool {
     let Ok(jobs) = repo
         .list_by_source(domain::cron::CronJobSource::Delegate)
@@ -394,14 +426,65 @@ async fn session_has_active_delegates(repo: &dyn CronJobRepo, session_id: &Sessi
     })
 }
 
+/// Force every still-Active delegate job for this session into a terminal state
+/// so the parent turn's busy-poll loop can exit. Used only after the parent has
+/// waited past MAX_DELEGATE_WAIT.
+async fn force_fail_active_delegates(repo: &dyn CronJobRepo, session_id: &SessionId) {
+    let jobs = match repo
+        .list_by_source(domain::cron::CronJobSource::Delegate)
+        .await
+    {
+        Ok(jobs) => jobs,
+        Err(e) => {
+            warn!(error = %e, session = %session_id, "failed to list delegates while force-failing");
+            return;
+        }
+    };
+    for job in jobs {
+        if job.created_by_session == session_id.as_str()
+            && matches!(job.state, domain::cron::CronJobState::Active)
+        {
+            if let Err(e) = repo
+                .complete_delegate_result(
+                    &job.id,
+                    Utc::now(),
+                    "failed",
+                    Some("delegate did not report back within the maximum wait"),
+                    "",
+                )
+                .await
+            {
+                warn!(error = %e, job_id = %job.id, "failed to force-fail delegate via result write");
+                if let Err(e) = repo
+                    .set_state(&job.id, domain::cron::CronJobState::Completed)
+                    .await
+                {
+                    warn!(error = %e, job_id = %job.id, "failed to force-fail delegate via set_state");
+                }
+            }
+        }
+    }
+}
+
 fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> InboundEvent {
     let mut merged = current.clone();
     let mut text =
         String::from("[Additional request(s) received while working on the previous task]\n");
     let mut attachments = Vec::new();
     let mut raw_events = Vec::new();
+    // Collect the stream ids of every queued follow-up so the merged turn's
+    // terminal output can be bridged back to the streams those clients are
+    // watching. Carry any already-bridged ids forward across repeated merges
+    // so nothing is dropped over multiple follow-ups.
+    let mut bridged_stream_ids: Vec<String> = bridged_stream_ids_from_raw(&current.raw);
 
     for (index, event) in queued.into_iter().enumerate() {
+        if let Some(id) = session_stream_id(&event) {
+            bridged_stream_ids.push(id);
+        }
+        if let Some(id) = session_response_stream_id(&event) {
+            bridged_stream_ids.push(id);
+        }
         let number = index + 1;
         let source = inbound_event_source(&event);
         let display_name = event
@@ -446,12 +529,60 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
     merged.user_display_name = Some("Queued inbound messages".to_string());
     merged.text = text;
     merged.attachments = attachments;
-    merged.raw = serde_json::json!({
+    let mut raw = serde_json::json!({
         "source": "queued_batch",
         "events": raw_events,
     });
+    // Preserve the running turn's primary stream ids (replacing merged.raw would
+    // otherwise drop them, so the merged turn would stop streaming entirely) and
+    // record the follow-ups' streams so terminal output can be bridged to them.
+    if let Some(map) = raw.as_object_mut() {
+        if let Some(id) = session_stream_id(current) {
+            map.insert("http_stream_id".to_string(), Value::String(id));
+        }
+        if let Some(id) = session_response_stream_id(current) {
+            map.insert("http_response_stream_id".to_string(), Value::String(id));
+        }
+        if !bridged_stream_ids.is_empty() {
+            map.insert(
+                "bridged_stream_ids".to_string(),
+                Value::Array(bridged_stream_ids.into_iter().map(Value::String).collect()),
+            );
+        }
+    }
+    merged.raw = raw;
     merged.inbound_handle.ts = merged.envelope_id.clone();
     merged
+}
+
+fn bridged_stream_ids_from_raw(raw: &Value) -> Vec<String> {
+    raw.get("bridged_stream_ids")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(ToString::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn bridged_stream_ids(inbound: &InboundEvent) -> Vec<String> {
+    bridged_stream_ids_from_raw(&inbound.raw)
+}
+
+/// Publish the merged turn's final answer plus a terminal `done` to every queued
+/// follow-up's stream so those clients render the response instead of hanging
+/// on a stream that was only told `session_waiting`.
+async fn bridge_terminal_to_streams(
+    sink: &dyn TurnEventSink,
+    stream_ids: &[String],
+    session_id: &SessionId,
+    final_text: &str,
+) {
+    for stream_id in stream_ids {
+        sink.publish_final(stream_id, session_id, final_text).await;
+        sink.publish_done(stream_id, session_id).await;
+    }
 }
 
 #[cfg(test)]
@@ -527,6 +658,106 @@ mod queue_tests {
             "Bug"
         );
         assert_eq!(merged.inbound_handle.ts, "E1-queued");
+    }
+
+    #[test]
+    fn merged_turn_preserves_primary_stream_and_bridges_followup_streams() {
+        // Regression: a queued follow-up opens its own SSE stream and the client
+        // aborts the previous one. The merged turn must keep streaming to the
+        // running turn's primary stream AND record the follow-ups' stream ids so
+        // their terminal output can be bridged, instead of those clients hanging
+        // on a stream that only ever received a bare `done`.
+        let current = inbound(
+            "C123-T1",
+            "E1",
+            "working",
+            serde_json::json!({
+                "source": "http",
+                "http_stream_id": "stream-primary",
+                "http_response_stream_id": "stream-primary-resp"
+            }),
+        );
+        let queued = vec![
+            inbound(
+                "C123-T1",
+                "E2",
+                "follow-up",
+                serde_json::json!({
+                    "source": "http",
+                    "http_stream_id": "stream-followup-1",
+                    "http_response_stream_id": "stream-followup-1-resp"
+                }),
+            ),
+            inbound(
+                "C123-T1",
+                "E3",
+                "another follow-up",
+                serde_json::json!({
+                    "source": "http",
+                    "http_stream_id": "stream-followup-2"
+                }),
+            ),
+        ];
+
+        let merged = merge_queued_inbound(&current, queued);
+
+        // Primary stream ids survive the merge (without this the merged turn
+        // would stop streaming entirely).
+        assert_eq!(
+            session_stream_id(&merged).as_deref(),
+            Some("stream-primary")
+        );
+        assert_eq!(
+            session_response_stream_id(&merged).as_deref(),
+            Some("stream-primary-resp")
+        );
+
+        // Every follow-up's stream id is captured for bridging.
+        let bridged = super::bridged_stream_ids(&merged);
+        assert!(bridged.contains(&"stream-followup-1".to_string()));
+        assert!(bridged.contains(&"stream-followup-1-resp".to_string()));
+        assert!(bridged.contains(&"stream-followup-2".to_string()));
+    }
+
+    #[test]
+    fn repeated_merges_accumulate_bridged_streams() {
+        // Multiple rounds of follow-ups must not drop earlier bridged stream ids.
+        let current = inbound(
+            "C123-T1",
+            "E1",
+            "working",
+            serde_json::json!({
+                "source": "http",
+                "http_stream_id": "stream-primary"
+            }),
+        );
+        let first = merge_queued_inbound(
+            &current,
+            vec![inbound(
+                "C123-T1",
+                "E2",
+                "follow-up 1",
+                serde_json::json!({"source": "http", "http_stream_id": "stream-a"}),
+            )],
+        );
+        let second = merge_queued_inbound(
+            &first,
+            vec![inbound(
+                "C123-T1",
+                "E3",
+                "follow-up 2",
+                serde_json::json!({"source": "http", "http_stream_id": "stream-b"}),
+            )],
+        );
+
+        let bridged = super::bridged_stream_ids(&second);
+        assert!(bridged.contains(&"stream-a".to_string()));
+        assert!(bridged.contains(&"stream-b".to_string()));
+        // The primary stream is still preserved after repeated merges.
+        assert_eq!(
+            session_stream_id(&second).as_deref(),
+            Some("stream-primary")
+        );
     }
 
     #[test]
@@ -623,6 +854,7 @@ async fn process_single_turn(
     turn_event_sink: Arc<dyn TurnEventSink>,
     cron_repo: Arc<dyn CronJobRepo>,
     coordinator: Arc<SessionCoordinator>,
+    inbound_sink: mpsc::Sender<InboundEvent>,
 ) -> Result<()> {
     if inbound.text.trim().is_empty() && inbound.attachments.is_empty() {
         return Ok(());
@@ -702,10 +934,24 @@ async fn process_single_turn(
             .publish_final(stream_id, &session_id, &final_text)
             .await;
     } else {
-        if let Err(e) = gateway.reply(&session_id, Reply::Text(final_text)).await {
+        if let Err(e) = gateway
+            .reply(&session_id, Reply::Text(final_text.clone()))
+            .await
+        {
             warn!(error = %e, "reply failed");
         }
     }
+    // Bridge the merged turn's answer to every queued follow-up's stream.
+    // Those clients opened fresh streams that were told `session_waiting`; emit
+    // the real answer plus a terminal `done` so they render the response instead
+    // of hanging.
+    bridge_terminal_to_streams(
+        turn_event_sink.as_ref(),
+        &bridged_stream_ids(inbound),
+        &session_id,
+        &final_text,
+    )
+    .await;
 
     if let Some(error_message) = outcome.error.as_ref() {
         emitter
@@ -816,26 +1062,227 @@ async fn process_single_turn(
             };
 
             // Queue via coordinator so the parent's polling loop picks it up
-            // in drain_queued() before it exits.
-            coordinator.submit_or_queue(notification);
+            // in drain_queued() before it exits. If the parent's turn has
+            // already finished (no coordinator entry), submit_or_queue inserts
+            // a *fresh* reservation that no running task owns — leaving the
+            // parent session permanently reserved and the delegate result
+            // undelivered. In that case, dispatch the notification through the
+            // real inbound path so a handler runs it and calls finish_turn.
+            match coordinator.submit_or_queue(notification.clone()) {
+                Submission::Queued => {}
+                Submission::RunNow => {
+                    // Release the reservation we just took; handle_inbound's own
+                    // submit_or_queue will re-reserve and own the lifecycle.
+                    let _ = coordinator.finish_turn(&notification.session_id);
+                    if let Err(e) = inbound_sink.send(notification).await {
+                        warn!(
+                            error = %e,
+                            job_id = %job_id,
+                            "failed to re-dispatch delegate result to parent session"
+                        );
+                    }
+                }
+            }
 
             // NOW mark the job as completed (after notification is queued).
-            if let Err(e) = cron_repo
-                .complete_delegate_result(
-                    job_id,
-                    Utc::now(),
-                    delegate_status,
-                    delegate_error,
-                    &result_text,
-                )
-                .await
-            {
-                warn!(error = %e, job_id = %job_id, "failed to record delegate result");
+            // This MUST eventually move the job out of the `Active` state: the
+            // parent turn busy-polls session_has_active_delegates(), so a job
+            // stuck Active leaves the parent spinning forever. Retry the result
+            // write, and if it keeps failing force the job to a terminal state
+            // so the parent's poll loop can exit.
+            complete_delegate_result_or_force_fail(
+                cron_repo.as_ref(),
+                job_id,
+                delegate_status,
+                delegate_error,
+                &result_text,
+            )
+            .await;
+        }
+    } else if let Some(run) = ScheduledRunContext::from_inbound(inbound) {
+        // A scheduled (cron/wake) run only reaches a terminal status now that
+        // the turn has actually executed — not when the scheduler enqueued it.
+        // Emit SCHEDULE_RUN_COMPLETED/FAILED, record the run, delete
+        // one-shot/wake jobs, and advance repeat counts here.
+        complete_scheduled_run(
+            cron_repo.as_ref(),
+            emitter.clone(),
+            &run,
+            &session_id,
+            outcome.error.as_deref(),
+        )
+        .await;
+    }
+
+    Ok(())
+}
+
+/// Run-lifecycle context the scheduler embeds in a scheduled job's inbound `raw`
+/// so the turn handler can complete the run after the turn executes.
+struct ScheduledRunContext {
+    job_id: String,
+    run_key: String,
+    scheduled_at: chrono::DateTime<Utc>,
+    started_at: chrono::DateTime<Utc>,
+    is_one_shot: bool,
+    is_wake: bool,
+}
+
+impl ScheduledRunContext {
+    fn from_inbound(inbound: &InboundEvent) -> Option<Self> {
+        let raw = inbound.raw.as_object()?;
+        // Only scheduler-dispatched runs carry these keys; ordinary inbound
+        // messages (and delegates, handled above) do not.
+        let run_key = raw.get("schedule_run_key")?.as_str()?.to_string();
+        let job_id = raw.get("job_id")?.as_str()?.to_string();
+        let scheduled_at = raw
+            .get("schedule_scheduled_at")
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse().ok())?;
+        let started_at = raw
+            .get("schedule_started_at")
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse().ok())?;
+        Some(Self {
+            job_id,
+            run_key,
+            scheduled_at,
+            started_at,
+            is_one_shot: raw
+                .get("schedule_is_one_shot")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            is_wake: raw
+                .get("schedule_is_wake")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        })
+    }
+}
+
+/// Complete a scheduled run after its turn executed: record the run status, emit
+/// the terminal schedule event, and apply lifecycle changes (delete one-shot/wake
+/// jobs, advance repeat counts). Keyed to the real turn outcome rather than the
+/// scheduler's enqueue time.
+async fn complete_scheduled_run(
+    cron_repo: &dyn CronJobRepo,
+    emitter: Arc<OutboundEmitter>,
+    run: &ScheduledRunContext,
+    session_id: &SessionId,
+    error: Option<&str>,
+) {
+    use agent::rig_tool_registry::{emit_schedule_event, ScheduleRunPayload};
+
+    let completed_at = Utc::now();
+    let status = if error.is_some() {
+        "error"
+    } else {
+        "completed"
+    };
+    if let Err(e) = cron_repo
+        .record_run(&run.job_id, completed_at, status, error)
+        .await
+    {
+        warn!(job_id = %run.job_id, error = %e, "cron: failed to record run completion");
+    }
+
+    // Re-fetch the latest job row for the event payload; fall back to skipping the
+    // event if the job is already gone (e.g. cancelled mid-turn).
+    let job = cron_repo.get(&run.job_id).await.ok().flatten();
+    if let Some(job) = job.as_ref() {
+        let event_type = if error.is_some() {
+            event_types::SCHEDULE_RUN_FAILED
+        } else {
+            event_types::SCHEDULE_RUN_COMPLETED
+        };
+        emit_schedule_event(
+            Some(emitter),
+            event_type,
+            job,
+            session_id,
+            "scheduler",
+            Some(ScheduleRunPayload {
+                run_key: run.run_key.clone(),
+                scheduled_at: run.scheduled_at,
+                started_at: Some(run.started_at),
+                completed_at: Some(completed_at),
+                duration_ms: Some((completed_at - run.started_at).num_milliseconds()),
+                error: error.map(ToString::to_string),
+            }),
+        )
+        .await;
+    }
+
+    // One-shot and wake jobs are single-use: remove them now that the turn ran.
+    if run.is_one_shot || run.is_wake {
+        let _ = cron_repo
+            .set_state(&run.job_id, domain::cron::CronJobState::Completed)
+            .await;
+        let _ = cron_repo.delete(&run.job_id).await;
+        info!(job_id = %run.job_id, "cron: completed, removed");
+        return;
+    }
+
+    // Recurring jobs with a bounded repeat count advance toward completion.
+    if let Some(repeat_count) = job.as_ref().and_then(|j| j.repeat_count) {
+        let repeat_completed = job.as_ref().map(|j| j.repeat_completed).unwrap_or(0);
+        if let Err(e) = cron_repo.increment_repeat(&run.job_id).await {
+            warn!(job_id = %run.job_id, error = %e, "cron: failed to increment repeat");
+        }
+        if repeat_completed + 1 >= repeat_count {
+            let _ = cron_repo
+                .set_state(&run.job_id, domain::cron::CronJobState::Completed)
+                .await;
+            let _ = cron_repo.delete(&run.job_id).await;
+            info!(job_id = %run.job_id, "cron: repeat count reached, completed and removed");
+        }
+    }
+}
+
+/// Number of attempts to persist a delegate's result before force-failing the
+/// job to a terminal state so the parent turn is never blocked forever.
+const COMPLETE_DELEGATE_RESULT_ATTEMPTS: usize = 3;
+
+async fn complete_delegate_result_or_force_fail(
+    cron_repo: &dyn CronJobRepo,
+    job_id: &str,
+    status: &str,
+    error: Option<&str>,
+    result_text: &str,
+) {
+    for attempt in 1..=COMPLETE_DELEGATE_RESULT_ATTEMPTS {
+        match cron_repo
+            .complete_delegate_result(job_id, Utc::now(), status, error, result_text)
+            .await
+        {
+            Ok(()) => return,
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    job_id = %job_id,
+                    attempt,
+                    "failed to record delegate result"
+                );
+                if attempt < COMPLETE_DELEGATE_RESULT_ATTEMPTS {
+                    tokio::time::sleep(std::time::Duration::from_millis(200 * attempt as u64))
+                        .await;
+                }
             }
         }
     }
 
-    Ok(())
+    // Last resort: force the job out of the Active state so the parent's
+    // busy-poll loop terminates even though we could not persist the result.
+    if let Err(e) = cron_repo
+        .set_state(job_id, domain::cron::CronJobState::Completed)
+        .await
+    {
+        warn!(
+            error = %e,
+            job_id = %job_id,
+            "failed to force-complete delegate job after result write failures; parent turn may block"
+        );
+    }
 }
 
 async fn emit_user_message_received(
@@ -1386,6 +1833,20 @@ mod stream_tests {
 
     #[async_trait]
     impl TurnEventSink for RecordingSink {
+        async fn publish_final(&self, stream_id: &str, _session_id: &SessionId, _text: &str) {
+            self.events
+                .lock()
+                .expect("events lock")
+                .push((stream_id.to_string(), "final".to_string()));
+        }
+
+        async fn publish_done(&self, stream_id: &str, _session_id: &SessionId) {
+            self.events
+                .lock()
+                .expect("events lock")
+                .push((stream_id.to_string(), "done".to_string()));
+        }
+
         async fn publish_agent_event(
             &self,
             stream_id: &str,
@@ -1491,5 +1952,343 @@ mod stream_tests {
                 .collect::<Vec<_>>(),
             vec![("response-stream".to_string(), "token".to_string())]
         );
+    }
+
+    #[tokio::test]
+    async fn bridge_terminal_publishes_final_and_done_to_each_followup_stream() {
+        // Regression: the merged turn must deliver the real answer plus a
+        // terminal `done` to every queued follow-up's stream (which were only
+        // told `session_waiting`), not leave them hanging.
+        let sink = RecordingSink::default();
+        let session_id = SessionId::from("C123-T1");
+        let bridged = vec!["stream-a".to_string(), "stream-b".to_string()];
+
+        super::bridge_terminal_to_streams(&sink, &bridged, &session_id, "the answer").await;
+
+        let events = sink.events.lock().expect("events lock").clone();
+        assert_eq!(
+            events,
+            vec![
+                ("stream-a".to_string(), "final".to_string()),
+                ("stream-a".to_string(), "done".to_string()),
+                ("stream-b".to_string(), "final".to_string()),
+                ("stream-b".to_string(), "done".to_string()),
+            ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod scheduled_run_tests {
+    use super::{complete_scheduled_run, InboundEvent, ScheduledRunContext};
+    use async_trait::async_trait;
+    use chrono::{DateTime, Utc};
+    use domain::cron::{CronJob, CronJobSource, CronJobState};
+    use domain::reply::MessageHandle;
+    use domain::SessionId;
+    use outbound::{OutboundChannel, OutboundEmitter, OutboundError, OutboundRegistry};
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    use storage::{CronJobRepo, OutboxRepo, OutboxRow, Result as StorageResult};
+    use tokio::sync::RwLock;
+
+    #[derive(Default)]
+    struct RecordingOutbox {
+        rows: Mutex<Vec<(String, Value)>>,
+    }
+
+    #[async_trait]
+    impl OutboxRepo for RecordingOutbox {
+        async fn enqueue(
+            &self,
+            _channel: &str,
+            event_type: &str,
+            payload: Value,
+        ) -> StorageResult<i64> {
+            let mut rows = self.rows.lock().unwrap();
+            rows.push((event_type.to_string(), payload));
+            Ok(rows.len() as i64)
+        }
+        async fn claim_due(&self, _limit: u32) -> StorageResult<Vec<OutboxRow>> {
+            Ok(Vec::new())
+        }
+        async fn mark_delivered(&self, _id: i64) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn schedule_retry(
+            &self,
+            _id: i64,
+            _attempts: i32,
+            _next: DateTime<Utc>,
+        ) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn mark_failed(&self, _id: i64) -> StorageResult<()> {
+            Ok(())
+        }
+    }
+
+    struct ScheduleChannel;
+
+    #[async_trait]
+    impl OutboundChannel for ScheduleChannel {
+        fn name(&self) -> &str {
+            "schedule"
+        }
+        fn kind(&self) -> &'static str {
+            "test"
+        }
+        fn accepts(&self, event_type: &str) -> bool {
+            event_type.starts_with("schedule.")
+        }
+        async fn deliver(&self, _event: &domain::OutboundEvent) -> outbound::Result<()> {
+            Err(OutboundError::Delivery("unused".into()))
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeCronRepo {
+        jobs: Mutex<HashMap<String, CronJob>>,
+        run_records: Mutex<Vec<(String, String)>>,
+        increment_calls: Mutex<u32>,
+    }
+
+    impl FakeCronRepo {
+        fn with_job(job: CronJob) -> Arc<Self> {
+            let repo = Self::default();
+            repo.jobs.lock().unwrap().insert(job.id.clone(), job);
+            Arc::new(repo)
+        }
+        fn job_exists(&self, id: &str) -> bool {
+            self.jobs.lock().unwrap().contains_key(id)
+        }
+    }
+
+    #[async_trait]
+    impl CronJobRepo for FakeCronRepo {
+        async fn create(&self, _job: &CronJob) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn get(&self, id: &str) -> StorageResult<Option<CronJob>> {
+            Ok(self.jobs.lock().unwrap().get(id).cloned())
+        }
+        async fn list_all(&self) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn list_by_source(&self, _s: CronJobSource) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn list_due(&self) -> StorageResult<Vec<CronJob>> {
+            Ok(Vec::new())
+        }
+        async fn update_prompt(&self, _id: &str, _p: String) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_interval(&self, _id: &str, _i: u64) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_next_run(&self, _id: &str, _n: DateTime<Utc>) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn set_state(&self, id: &str, state: CronJobState) -> StorageResult<()> {
+            if let Some(job) = self.jobs.lock().unwrap().get_mut(id) {
+                job.state = state;
+            }
+            Ok(())
+        }
+        async fn record_run(
+            &self,
+            id: &str,
+            _at: DateTime<Utc>,
+            status: &str,
+            _error: Option<&str>,
+        ) -> StorageResult<()> {
+            self.run_records
+                .lock()
+                .unwrap()
+                .push((id.to_string(), status.to_string()));
+            Ok(())
+        }
+        async fn increment_repeat(&self, id: &str) -> StorageResult<()> {
+            *self.increment_calls.lock().unwrap() += 1;
+            if let Some(job) = self.jobs.lock().unwrap().get_mut(id) {
+                job.repeat_completed += 1;
+            }
+            Ok(())
+        }
+        async fn record_result(&self, _id: &str, _r: &str) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn complete_delegate_result(
+            &self,
+            _id: &str,
+            _at: DateTime<Utc>,
+            _status: &str,
+            _error: Option<&str>,
+            _result: &str,
+        ) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn delete(&self, id: &str) -> StorageResult<()> {
+            self.jobs.lock().unwrap().remove(id);
+            Ok(())
+        }
+    }
+
+    fn emitter(outbox: Arc<RecordingOutbox>) -> Arc<OutboundEmitter> {
+        let registry = OutboundRegistry::new().with_channel(Arc::new(ScheduleChannel));
+        Arc::new(OutboundEmitter::new(
+            outbox,
+            Arc::new(RwLock::new(registry)),
+        ))
+    }
+
+    fn test_job(id: &str, interval: Option<u64>) -> CronJob {
+        CronJob {
+            id: id.to_string(),
+            description: "test".to_string(),
+            channel: "C123".to_string(),
+            task_prompt: "do work".to_string(),
+            cron_expression: None,
+            interval_seconds: interval,
+            repeat_count: None,
+            repeat_completed: 0,
+            state: CronJobState::Active,
+            source: CronJobSource::Cron,
+            next_run_at: Utc::now(),
+            last_run_at: None,
+            last_status: None,
+            last_error: None,
+            delegated_session_id: None,
+            session_continuation_id: None,
+            agent_name: None,
+            last_result: None,
+            delegate_stream_id: None,
+            created_at: Utc::now(),
+            created_by_session: "scheduler".to_string(),
+        }
+    }
+
+    fn scheduled_inbound(job_id: &str, is_one_shot: bool, is_wake: bool) -> InboundEvent {
+        let now = Utc::now();
+        InboundEvent {
+            envelope_id: "cron-1".to_string(),
+            session_id: SessionId::from("C123-cron-1"),
+            user: "cron".to_string(),
+            user_display_name: Some("Scheduler".to_string()),
+            text: "do work".to_string(),
+            attachments: Vec::new(),
+            dynamic_context: Vec::new(),
+            raw: json!({
+                "source": "cron",
+                "job_kind": "cron",
+                "job_id": job_id,
+                "schedule_run_key": format!("{job_id}:run"),
+                "schedule_scheduled_at": now,
+                "schedule_started_at": now,
+                "schedule_is_one_shot": is_one_shot,
+                "schedule_is_wake": is_wake,
+            }),
+            inbound_handle: MessageHandle {
+                channel: "C123".to_string(),
+                ts: String::new(),
+            },
+            is_direct_message: false,
+            is_directly_addressed: true,
+            link_previews: Vec::new(),
+            agent_definition: None,
+        }
+    }
+
+    #[test]
+    fn scheduled_run_context_parses_only_scheduler_dispatched_inbounds() {
+        // A normal user message carries no schedule keys.
+        let ordinary = scheduled_inbound("job-1", false, false);
+        assert!(ScheduledRunContext::from_inbound(&ordinary).is_some());
+
+        let mut not_scheduled = ordinary.clone();
+        not_scheduled.raw = json!({"source": "http"});
+        assert!(ScheduledRunContext::from_inbound(&not_scheduled).is_none());
+    }
+
+    #[tokio::test]
+    async fn completing_a_one_shot_run_emits_completed_and_deletes_job() {
+        let outbox = Arc::new(RecordingOutbox::default());
+        let repo = FakeCronRepo::with_job(test_job("oneshot-1", Some(0)));
+        let inbound = scheduled_inbound("oneshot-1", true, false);
+        let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
+
+        complete_scheduled_run(
+            repo.as_ref(),
+            emitter(outbox.clone()),
+            &run,
+            &SessionId::from("C123-cron-1"),
+            None,
+        )
+        .await;
+
+        // The run was recorded as completed and a SCHEDULE_RUN_COMPLETED emitted.
+        assert_eq!(
+            *repo.run_records.lock().unwrap(),
+            vec![("oneshot-1".to_string(), "completed".to_string())]
+        );
+        let rows = outbox.rows.lock().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "schedule.run_completed");
+        // One-shot jobs are deleted after the turn runs.
+        assert!(!repo.job_exists("oneshot-1"));
+    }
+
+    #[tokio::test]
+    async fn completing_a_failed_run_emits_run_failed() {
+        let outbox = Arc::new(RecordingOutbox::default());
+        let repo = FakeCronRepo::with_job(test_job("recurring-1", Some(600)));
+        let inbound = scheduled_inbound("recurring-1", false, false);
+        let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
+
+        complete_scheduled_run(
+            repo.as_ref(),
+            emitter(outbox.clone()),
+            &run,
+            &SessionId::from("C123-cron-1"),
+            Some("model exploded"),
+        )
+        .await;
+
+        assert_eq!(
+            *repo.run_records.lock().unwrap(),
+            vec![("recurring-1".to_string(), "error".to_string())]
+        );
+        let rows = outbox.rows.lock().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "schedule.run_failed");
+        assert_eq!(rows[0].1["error"], "model exploded");
+        // A recurring job survives a failed run (it will fire again).
+        assert!(repo.job_exists("recurring-1"));
+    }
+
+    #[tokio::test]
+    async fn recurring_run_with_repeat_count_advances_and_completes_on_last() {
+        let outbox = Arc::new(RecordingOutbox::default());
+        let mut job = test_job("repeat-1", Some(600));
+        job.repeat_count = Some(2);
+        job.repeat_completed = 1; // this is the final allowed run
+        let repo = FakeCronRepo::with_job(job);
+        let inbound = scheduled_inbound("repeat-1", false, false);
+        let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
+
+        complete_scheduled_run(
+            repo.as_ref(),
+            emitter(outbox.clone()),
+            &run,
+            &SessionId::from("C123-cron-1"),
+            None,
+        )
+        .await;
+
+        assert_eq!(*repo.increment_calls.lock().unwrap(), 1);
+        // repeat_completed (1) + 1 >= repeat_count (2): job removed.
+        assert!(!repo.job_exists("repeat-1"));
     }
 }

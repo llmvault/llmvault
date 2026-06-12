@@ -187,8 +187,8 @@ func (h *AuthHandler) sendEmailConfirmationCode(ctx context.Context, user model.
 	return nil
 }
 
-func (h *AuthHandler) resendConfirmationInBackground(user model.User) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (h *AuthHandler) resendConfirmationInBackground(parent context.Context, user model.User) {
+	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
 
 	if err := h.sendEmailConfirmationCode(ctx, user); err != nil {

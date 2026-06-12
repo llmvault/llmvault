@@ -260,11 +260,16 @@ func TestBatch_InsufficientBalanceMarksRowsAndContinues(t *testing.T) {
 	runBatch(t, db)
 
 	pg := loadGen(t, db, poorID)
-	if pg.BillingError == "" {
-		t.Error("poor org row should have billing_error set")
+	if pg.BillingError != "insufficient_credits" {
+		t.Errorf("poor org row should have insufficient_credits billing_error, got %q", pg.BillingError)
 	}
-	if pg.BilledAt == nil {
-		t.Error("poor org row should still be marked billed to exit the queue")
+	// insufficient rows are NOT written off — they stay in the unbilled queue (billed_at NULL) so
+	// a later top-up rebills them, with the attempt counter bumped to bound the retries.
+	if pg.BilledAt != nil {
+		t.Error("poor org row should remain unbilled (billed_at NULL) so a top-up can rebill it")
+	}
+	if pg.BillingAttempts != 1 {
+		t.Errorf("poor org row billing_attempts = %d, want 1 after first insufficient attempt", pg.BillingAttempts)
 	}
 
 	rg := loadGen(t, db, richID)

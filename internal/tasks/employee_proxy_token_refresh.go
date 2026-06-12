@@ -22,6 +22,10 @@ const (
 	employeeProxyTokenRefreshLead    = 4 * time.Hour
 	employeeProxyTokenRefreshTimeout = 2 * time.Minute
 	employeeProxyTokenRefreshDedupe  = time.Hour
+	// employeeProxyTokenRevokeGrace protects tokens minted by a concurrent sync
+	// from an in-flight refresh: revoking only tokens older than this window lets a
+	// just-minted token survive until the runtime receives its config push.
+	employeeProxyTokenRevokeGrace = 10 * time.Minute
 )
 
 type EmployeeProxyTokenRefreshPayload struct {
@@ -224,14 +228,17 @@ func (h *EmployeeProxyTokenRefreshHandler) revokeOlderTokens(ctx context.Context
 		return nil
 	}
 	now := time.Now().UTC()
+	// Only revoke tokens older than the grace window (see employeeProxyTokenRevokeGrace):
+	// a concurrent sync may have just minted one the runtime now relies on.
+	revokeBefore := now.Add(-employeeProxyTokenRevokeGrace)
 	if err := h.db.WithContext(ctx).Model(&model.Token{}).
-		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND jti != ? AND revoked_at IS NULL",
+		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND jti != ? AND revoked_at IS NULL AND created_at < ?",
 			*agent.OrgID,
 			model.TokenMetaEmployeeID, agent.ID.String(),
 			model.TokenMetaType, model.TokenTypeEmployeeProxy,
 			model.TokenMetaHarness, model.TokenHarnessEmployeeSandbox,
 			model.TokenMetaRuntimeMode, model.TokenRuntimeModeEmployee,
-			keepJTI).
+			keepJTI, revokeBefore).
 		Update("revoked_at", now).Error; err != nil {
 		return fmt.Errorf("revoke older employee proxy tokens: %w", err)
 	}

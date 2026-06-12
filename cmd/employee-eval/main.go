@@ -58,7 +58,11 @@ func run() error {
 		return err
 	}
 	defer deps.Close(ctx)
-	enqueuer := enqueue.NewClient(deps.Config.AsynqRedisOpt())
+	redisOpt, err := deps.Config.AsynqRedisOpt()
+	if err != nil {
+		return fmt.Errorf("employee-eval: %w", err)
+	}
+	enqueuer := enqueue.NewClient(redisOpt)
 	defer enqueuer.Close()
 	if deps.Orchestrator != nil {
 		deps.Orchestrator.SetWarmPoolReconciler(func(ctx context.Context, providerID, mode string) error {
