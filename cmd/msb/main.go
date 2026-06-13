@@ -35,10 +35,6 @@ func main() {
 		fmt.Printf("msb %s (%s)\n", version, commit)
 		return
 	}
-	if cmd != "control" {
-		slog.Error("unsupported msb command", "command", cmd)
-		os.Exit(1)
-	}
 
 	cfg := config.Load()
 	if cfg.SentryDSN != "" {
@@ -49,7 +45,16 @@ func main() {
 		defer sentry.Flush(2 * time.Second)
 	}
 
-	if err := runControl(ctx, cfg); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, http.ErrServerClosed) {
+	var err error
+	switch cmd {
+	case "control":
+		err = runControl(ctx, cfg)
+	case "migrate":
+		err = runMigrate(ctx, cfg, os.Args[2:])
+	default:
+		err = fmt.Errorf("unsupported msb command %q (use: control, migrate, version)", cmd)
+	}
+	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("service stopped with error", "error", err)
 		os.Exit(1)
 	}

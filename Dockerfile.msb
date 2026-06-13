@@ -17,10 +17,6 @@ RUN CGO_ENABLED=1 go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
     -o /msb ./cmd/msb
 
-RUN CGO_ENABLED=1 go build \
-    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
-    -o /hivy ./cmd/server
-
 # ---- Runtime stage ----
 FROM alpine:3.21
 
@@ -37,7 +33,6 @@ RUN apk add --no-cache ca-certificates tzdata \
     && adduser -S -G hivy hivy
 
 COPY --from=build /msb /msb
-COPY --from=build /hivy /hivy
 
 USER hivy
 EXPOSE 8080
