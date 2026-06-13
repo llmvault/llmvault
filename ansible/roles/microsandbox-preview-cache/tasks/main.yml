@@ -1,0 +1,119 @@
+---
+- name: Check local ansible .env exists
+  ansible.builtin.stat:
+    path: "{{ microsandbox_preview_cache_env_file }}"
+  delegate_to: localhost
+  become: false
+  register: microsandbox_preview_cache_env_file_stat
+
+- name: Require ansible .env
+  ansible.builtin.assert:
+    that:
+      - microsandbox_preview_cache_env_file_stat.stat.exists
+      - microsandbox_preview_cache_env_file_stat.stat.isreg
+    fail_msg: "Create ansible/.env from ansible/.env.example before deploying the preview cache."
+
+- name: Read ansible .env
+  ansible.builtin.set_fact:
+    microsandbox_preview_cache_env_lines: "{{ lookup('ansible.builtin.file', microsandbox_preview_cache_env_file).splitlines() }}"
+  no_log: true
+
+- name: Parse ansible .env
+  ansible.builtin.set_fact:
+    microsandbox_preview_cache_env: "{{ microsandbox_preview_cache_env | default({}) | combine({(item.split('=', 1)[0] | trim): (item.split('=', 1)[1] | trim | regex_replace('^\"(.*)\"$', '\\1') | regex_replace(\"^'(.*)'$\", '\\1'))}) }}"
+  loop: "{{ microsandbox_preview_cache_env_lines }}"
+  when: item is match('^\\s*[A-Za-z_][A-Za-z0-9_]*=')
+  no_log: true
+
+- name: Require preview cache env values
+  ansible.builtin.assert:
+    that:
+      - microsandbox_preview_cache_env[item] is defined
+      - microsandbox_preview_cache_env[item] | string | trim | length > 0
+    fail_msg: "Required value {{ item }} is missing from ansible/.env."
+  loop: "{{ microsandbox_preview_cache_required_env }}"
+  no_log: true
+
+- name: Install Redis and Python runtime packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-redis
+      - redis-server
+    state: present
+    update_cache: true
+
+- name: Ensure Redis is enabled and started
+  ansible.builtin.systemd:
+    name: redis-server
+    enabled: true
+    state: started
+
+- name: Create Hivy install directory
+  ansible.builtin.file:
+    path: "{{ microsandbox_preview_cache_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create Hivy config directory
+  ansible.builtin.file:
+    path: /etc/hivy
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install preview cache Python service
+  ansible.builtin.template:
+    src: microsandbox-preview-cache.py.j2
+    dest: "{{ microsandbox_preview_cache_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart microsandbox preview cache
+
+- name: Render preview cache env file
+  ansible.builtin.template:
+    src: microsandbox-preview-cache.env.j2
+    dest: "{{ microsandbox_preview_cache_env_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart microsandbox preview cache
+
+- name: Install preview cache systemd unit
+  ansible.builtin.template:
+    src: microsandbox-preview-cache.service.j2
+    dest: "/etc/systemd/system/{{ microsandbox_preview_cache_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart microsandbox preview cache
+
+- name: Enable and start preview cache
+  ansible.builtin.systemd:
+    name: "{{ microsandbox_preview_cache_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Apply preview cache service changes before health check
+  ansible.builtin.meta: flush_handlers
+
+- name: Check preview cache local health
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ microsandbox_preview_cache_port }}/health"
+    method: GET
+    return_content: true
+    status_code: 200
+    timeout: 10
+  register: microsandbox_preview_cache_health
+
+- name: Print preview cache provisioning result
+  ansible.builtin.debug:
+    msg:
+      - "Microsandbox preview cache is running on 127.0.0.1:{{ microsandbox_preview_cache_port }}."
+      - "Health: {{ microsandbox_preview_cache_health.json.status | default(microsandbox_preview_cache_health.content | trim) }}"

@@ -11,12 +11,12 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func buildAgentRetainItem(agent *model.Agent, payload AgentMemoryRetainPayload, events []model.AgentSessionEvent) (hindsight.RetainItem, bool) {
+func buildAgentRetainItem(agent *model.Agent, payload AgentMemoryRetainPayload, events []model.SessionEvent) (hindsight.RetainItem, bool) {
 	item, ok, _ := buildAgentRetainItemWithReason(agent, payload, events)
 	return item, ok
 }
 
-func buildAgentRetainItemWithReason(agent *model.Agent, payload AgentMemoryRetainPayload, events []model.AgentSessionEvent) (hindsight.RetainItem, bool, string) {
+func buildAgentRetainItemWithReason(agent *model.Agent, payload AgentMemoryRetainPayload, events []model.SessionEvent) (hindsight.RetainItem, bool, string) {
 	if agent == nil || agent.OrgID == nil || len(events) == 0 {
 		return hindsight.RetainItem{}, false, "missing_context_or_events"
 	}
@@ -50,13 +50,13 @@ func agentMemoryRetentionContext(source string) string {
 }
 
 func agentMemoryDocumentID(payload AgentMemoryRetainPayload) string {
-	if payload.AgentSessionID != uuid.Nil {
-		return "agent-session:" + payload.AgentSessionID.String()
+	if payload.SessionUUID != uuid.Nil {
+		return "session:" + payload.SessionUUID.String()
 	}
-	return "agent-session:" + payload.SandboxID.String() + ":" + payload.SessionID
+	return "session:" + payload.SandboxID.String() + ":" + payload.SessionID
 }
 
-func agentMemoryRetentionDigest(agentName string, events []model.AgentSessionEvent) string {
+func agentMemoryRetentionDigest(agentName string, events []model.SessionEvent) string {
 	var lines []string
 	for _, event := range events {
 		payload := agentMemoryPayload(event)
@@ -114,11 +114,11 @@ func agentMemorySlackMention(userID string) string {
 	return ""
 }
 
-func agentMemoryRetainMetadata(agent *model.Agent, payload AgentMemoryRetainPayload, events []model.AgentSessionEvent) map[string]string {
+func agentMemoryRetainMetadata(agent *model.Agent, payload AgentMemoryRetainPayload, events []model.SessionEvent) map[string]string {
 	meta := map[string]string{
 		"agent_id":         agent.ID.String(),
 		"sandbox_id":       payload.SandboxID.String(),
-		"agent_session_id": payload.AgentSessionID.String(),
+		"session_uuid":    payload.SessionUUID.String(),
 		"session_id":       payload.SessionID,
 		"event_count":      fmt.Sprintf("%d", len(events)),
 		"source_event":     payload.SourceEvent,
@@ -131,7 +131,7 @@ func agentMemoryRetainMetadata(agent *model.Agent, payload AgentMemoryRetainPayl
 	return meta
 }
 
-func firstAgentPayloadString(events []model.AgentSessionEvent, key string) string {
+func firstAgentPayloadString(events []model.SessionEvent, key string) string {
 	for _, event := range events {
 		if value := firstPayloadString(agentMemoryPayload(event), key); value != "" {
 			return value
@@ -149,7 +149,7 @@ func firstPayloadString(payload map[string]any, keys ...string) string {
 	return ""
 }
 
-func agentSessionEventIDs(events []model.AgentSessionEvent) []uuid.UUID {
+func agentSessionEventIDs(events []model.SessionEvent) []uuid.UUID {
 	ids := make([]uuid.UUID, 0, len(events))
 	for _, event := range events {
 		ids = append(ids, event.ID)

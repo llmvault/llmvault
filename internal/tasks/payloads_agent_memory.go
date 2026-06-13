@@ -16,12 +16,12 @@ import (
 const AgentMemoryRetainDelay = 10 * time.Minute
 
 type AgentMemoryRetainPayload struct {
-	AgentID        uuid.UUID `json:"agent_id"`
-	SandboxID      uuid.UUID `json:"sandbox_id"`
-	AgentSessionID uuid.UUID `json:"agent_session_id,omitempty"`
-	SessionID      string    `json:"session_id"`
-	Reason         string    `json:"reason,omitempty"`
-	SourceEvent    string    `json:"source_event,omitempty"`
+	AgentID     uuid.UUID `json:"agent_id"`
+	SandboxID   uuid.UUID `json:"sandbox_id"`
+	SessionUUID uuid.UUID `json:"session_uuid,omitempty"`
+	SessionID   string    `json:"session_id"`
+	Reason      string    `json:"reason,omitempty"`
+	SourceEvent string    `json:"source_event,omitempty"`
 }
 
 // NewAgentMemoryRetainTask creates a task that retains agent memory.
@@ -59,8 +59,8 @@ func EnqueueAgentMemoryRetain(ctx context.Context, enqueuer enqueue.TaskEnqueuer
 }
 
 func AgentMemoryRetainTaskID(payload AgentMemoryRetainPayload) string {
-	if payload.AgentSessionID != uuid.Nil {
-		return "agent-memory-retain:" + payload.AgentSessionID.String()
+	if payload.SessionUUID != uuid.Nil {
+		return "agent-memory-retain:" + payload.SessionUUID.String()
 	}
 	return "agent-memory-retain:" + payload.SandboxID.String() + ":" + payload.SessionID
 }

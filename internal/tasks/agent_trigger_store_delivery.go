@@ -34,8 +34,7 @@ type AgentTriggerStoreDeliveryPayload struct {
 	DeliveryID            string     `json:"delivery_id"`
 	EventKey              string     `json:"event_key"`
 	ResourceKey           string     `json:"resource_key"`
-	ConversationID        uuid.UUID  `json:"conversation_id"`
-	RuntimeConversationID string     `json:"runtime_conversation_id"`
+	SessionID             uuid.UUID  `json:"session_id"`
 	RuntimeSessionID      string     `json:"runtime_session_id"`
 	RuntimeStreamID       string     `json:"runtime_stream_id"`
 	RuntimeTraceID        string     `json:"runtime_trace_id"`
@@ -85,8 +84,7 @@ func (h *AgentTriggerStoreDeliveryHandler) Handle(ctx context.Context, task *asy
 		DeliveryID:            payload.DeliveryID,
 		EventKey:              payload.EventKey,
 		ResourceKey:           payload.ResourceKey,
-		ConversationID:        payload.ConversationID,
-		RuntimeConversationID: payload.RuntimeConversationID,
+		SessionID:             payload.SessionID,
 		RuntimeSessionID:      payload.RuntimeSessionID,
 		RuntimeStreamID:       payload.RuntimeStreamID,
 		RuntimeTraceID:        payload.RuntimeTraceID,
@@ -102,7 +100,7 @@ func (h *AgentTriggerStoreDeliveryHandler) Handle(ctx context.Context, task *asy
 			TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("delivery_id <> ?", "")}},
 			DoUpdates: clause.AssignmentColumns([]string{
 				"runtime_session_id", "runtime_stream_id", "runtime_trace_id", "runtime_turn_id",
-				"runtime_conversation_id", "resource_key", "event_key",
+				"resource_key", "event_key",
 			}),
 		})
 	}
@@ -121,8 +119,7 @@ func triggerDeliverySentryFields(payload AgentTriggerStoreDeliveryPayload) map[s
 		"delivery_id":             payload.DeliveryID,
 		"event_key":               payload.EventKey,
 		"resource_key":            payload.ResourceKey,
-		"conversation_id":         payload.ConversationID.String(),
-		"runtime_conversation_id": payload.RuntimeConversationID,
+		"session_id":              payload.SessionID.String(),
 		"runtime_session_id":      payload.RuntimeSessionID,
 	}
 }

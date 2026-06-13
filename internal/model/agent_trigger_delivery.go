@@ -28,13 +28,12 @@ type AgentTriggerDelivery struct {
 	EventKey    string `gorm:"type:text;not null;default:'';index"`
 	ResourceKey string `gorm:"type:text;not null;default:'';index"`
 
-	ConversationID        uuid.UUID    `gorm:"type:uuid;not null;index"`
-	Conversation          AgentSession `gorm:"foreignKey:ConversationID;constraint:OnDelete:CASCADE"`
-	RuntimeConversationID string       `gorm:"type:text;not null;default:'';index"`
-	RuntimeSessionID      string       `gorm:"type:text;not null;default:'';index;index:idx_trigger_delivery_org_agent_session_created,priority:3"`
-	RuntimeStreamID       string       `gorm:"type:text;not null;default:''"`
-	RuntimeTraceID        string       `gorm:"type:text;not null;default:''"`
-	RuntimeTurnID         string       `gorm:"type:text;not null;default:''"`
+	SessionID        uuid.UUID `gorm:"type:uuid;not null;index"`
+	Session          Session   `gorm:"foreignKey:SessionID;constraint:OnDelete:CASCADE"`
+	RuntimeSessionID string    `gorm:"type:text;not null;default:'';index;index:idx_trigger_delivery_org_agent_session_created,priority:3"`
+	RuntimeStreamID  string    `gorm:"type:text;not null;default:''"`
+	RuntimeTraceID   string    `gorm:"type:text;not null;default:''"`
+	RuntimeTurnID    string    `gorm:"type:text;not null;default:''"`
 
 	Payload RawJSON `gorm:"type:jsonb;not null;default:'{}'"`
 

@@ -8,7 +8,6 @@ CREATE TABLE sessions (
     agent_id uuid NOT NULL,
     sandbox_id uuid,
     created_by uuid,
-    runtime_conversation_id text,
     model text,
     access_mode text DEFAULT 'full'::text NOT NULL,
     reasoning_effort text DEFAULT 'high'::text NOT NULL,

@@ -13,23 +13,17 @@ import (
 
 type Session struct {
 	ID             string    `json:"id"`
-	Channel        string    `json:"channel"`
-	ThreadTS       string    `json:"thread_ts"`
-	AgentSessionID string    `json:"agent_session_id"`
 	Status         string    `json:"status"`
 	CreatedAt      time.Time `json:"created_at"`
 	LastActivityAt time.Time `json:"last_activity_at"`
 }
 
 type ListSessionsParams struct {
-	Cursor         string
-	Status         string
-	Limit          int
-	SessionID      string
-	Channel        string
-	ThreadTS       string
-	AgentSessionID string
-	Search         string
+	Cursor    string
+	Status    string
+	Limit     int
+	SessionID string
+	Search    string
 }
 
 type ListSessionsResponse struct {
@@ -71,15 +65,6 @@ func sessionQuery(params ListSessionsParams) url.Values {
 	}
 	if params.SessionID != "" {
 		values.Set("session_id", params.SessionID)
-	}
-	if params.Channel != "" {
-		values.Set("channel", params.Channel)
-	}
-	if params.ThreadTS != "" {
-		values.Set("thread_ts", params.ThreadTS)
-	}
-	if params.AgentSessionID != "" {
-		values.Set("agent_session_id", params.AgentSessionID)
 	}
 	if params.Search != "" {
 		values.Set("q", params.Search)

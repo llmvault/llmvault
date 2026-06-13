@@ -32,6 +32,8 @@ func setupV1Routes(
 	subscriptionHandler *handler.SubscriptionHandler,
 	dashboardHandler *handler.DashboardHandler,
 	slackChannelHandler *handler.SlackChannelHandler,
+	channelHandler *handler.ChannelHandler,
+	sessionHandler *handler.SessionHandler,
 	credHandler *handler.CredentialHandler,
 	tokenHandler *handler.TokenHandler,
 	sandboxTemplateHandler *handler.SandboxTemplateHandler,
@@ -43,7 +45,6 @@ func setupV1Routes(
 	uploadsHandler *handler.UploadsHandler,
 	systemTaskHandler *handler.SystemTaskHandler,
 	agentHandler *handler.AgentHandler,
-	gatewayExternalHandler *handler.GatewayExternalHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
 ) {
@@ -103,6 +104,35 @@ func setupV1Routes(
 			if slackChannelHandler != nil {
 				r.Get("/slack/channels", slackChannelHandler.ListChannels)
 				r.Post("/slack/channels/join", slackChannelHandler.JoinChannels)
+			}
+			if channelHandler != nil {
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireAPIKeyScopeOrJWT("channels"))
+					r.Get("/channels", channelHandler.List)
+					r.Post("/channels", channelHandler.Create)
+					r.Get("/channels/{id}", channelHandler.Get)
+					r.Patch("/channels/{id}", channelHandler.Update)
+					r.Delete("/channels/{id}", channelHandler.Archive)
+					r.Post("/channels/{id}/join", channelHandler.Join)
+					r.Put("/channels/{id}/members/{userID}", channelHandler.PutMember)
+					r.Delete("/channels/{id}/members/{userID}", channelHandler.DeleteMember)
+					if sessionHandler != nil {
+						r.Get("/channels/{id}/sessions", sessionHandler.ListChannelSessions)
+					}
+				})
+			}
+			if sessionHandler != nil {
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireAPIKeyScopeOrJWT("sessions"))
+					r.Get("/sessions", sessionHandler.List)
+					r.Post("/sessions", sessionHandler.Create)
+					r.Get("/sessions/{id}", sessionHandler.Get)
+					r.Patch("/sessions/{id}", sessionHandler.Update)
+					r.Post("/sessions/{id}/messages", sessionHandler.SendMessage)
+					r.Get("/sessions/{id}/events", sessionHandler.ListEvents)
+					r.Put("/sessions/{id}/participants/{userID}", sessionHandler.PutParticipant)
+					r.Delete("/sessions/{id}/participants/{userID}", sessionHandler.DeleteParticipant)
+				})
 			}
 
 			r.Group(func(r chi.Router) {
@@ -165,10 +195,6 @@ func setupV1Routes(
 					r.Get("/agents", agentHandler.List)
 					r.Get("/agents/models", agentHandler.ListModels)
 					r.Get("/agents/{id}", agentHandler.Get)
-					r.Get("/agents/{id}/sessions", agentHandler.ListSessions)
-					r.Get("/agents/{id}/sessions/{sessionID}/events", agentHandler.ListSessionEvents)
-					r.Post("/agents/{id}/sessions/messages", agentHandler.SendSessionMessage)
-					r.Get("/agents/{id}/sessions/{sessionID}/streams/{streamID}", agentHandler.StreamSession)
 					r.Route("/agents/{id}/skills", func(r chi.Router) {
 						r.Post("/", skillHandler.AttachToAgent)
 						r.Get("/", skillHandler.ListAgentSkills)
@@ -187,14 +213,6 @@ func setupV1Routes(
 						r.Post("/agents/{id}/sandbox/reboot", agentHandler.RebootSandbox)
 						r.Post("/agents/{id}/sandbox/upgrade", agentHandler.StartSandboxUpgrade)
 						r.Get("/agents/{id}/sandbox/upgrades/{upgradeID}", agentHandler.GetSandboxUpgrade)
-						if gatewayExternalHandler != nil {
-							r.Post("/agents/{id}/gateway-routes", gatewayExternalHandler.CreateRoute)
-							r.Get("/agents/{id}/gateway-routes", gatewayExternalHandler.ListRoutes)
-							r.Get("/agents/{id}/gateway-routes/{routeID}", gatewayExternalHandler.GetRoute)
-							r.Patch("/agents/{id}/gateway-routes/{routeID}", gatewayExternalHandler.UpdateRoute)
-							r.Delete("/agents/{id}/gateway-routes/{routeID}", gatewayExternalHandler.DeleteRoute)
-							r.Post("/agents/{id}/gateway-routes/{routeID}/rotate-secret", gatewayExternalHandler.RotateSecret)
-						}
 					})
 				}
 				if systemTaskHandler != nil {

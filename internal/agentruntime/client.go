@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -66,7 +67,7 @@ type RuntimeSchedule struct {
 
 type HTTPMessageRequest struct {
 	Text            string         `json:"text"`
-	ConversationID  string         `json:"conversation_id,omitempty"`
+	SessionID       string         `json:"-"`
 	User            string         `json:"user,omitempty"`
 	UserDisplayName string         `json:"user_display_name,omitempty"`
 	Attachments     []any          `json:"attachments,omitempty"`
@@ -194,18 +195,22 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 }
 
 func (c *Client) PostHTTPMessage(ctx context.Context, body HTTPMessageRequest) (*HTTPMessageResponse, error) {
-	resp, err := c.do(ctx, http.MethodPost, "/gateway/http/messages", body)
+	sessionID := strings.TrimSpace(body.SessionID)
+	if sessionID == "" {
+		return nil, fmt.Errorf("post session message: session_id is required")
+	}
+	resp, err := c.do(ctx, http.MethodPost, "/sessions/"+url.PathEscape(sessionID)+"/messages", body)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		raw, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("post http message: %s: %s", resp.Status, raw)
+		return nil, fmt.Errorf("post session message: %s: %s", resp.Status, raw)
 	}
 	var out HTTPMessageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("decode http message response: %w", err)
+		return nil, fmt.Errorf("decode session message response: %w", err)
 	}
 	return &out, nil
 }

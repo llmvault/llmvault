@@ -1,7 +1,6 @@
 package tasks
 
 import (
-	"encoding/json"
 	"regexp"
 	"sort"
 	"strings"
@@ -11,7 +10,7 @@ import (
 
 var memorySecretPattern = regexp.MustCompile(`(?i)(ptok_|xox[baprs]-|sk-[a-z0-9]|api[_-]?key|secret|token|password)\s*[:=]\s*\S+`)
 
-func agentSessionEventsContainSecret(events []model.AgentSessionEvent) bool {
+func agentSessionEventsContainSecret(events []model.SessionEvent) bool {
 	for _, event := range events {
 		payload := agentMemoryPayload(event)
 		for _, key := range []string{"text", "message", "result_summary"} {
@@ -31,7 +30,7 @@ func shouldIncludeAgentMemoryMessage(text string) bool {
 	return true
 }
 
-func meaningfulAgentMemoryTranscript(transcript string, events []model.AgentSessionEvent) bool {
+func meaningfulAgentMemoryTranscript(transcript string, events []model.SessionEvent) bool {
 	transcript = strings.TrimSpace(transcript)
 	if transcript == "" || memorySecretPattern.MatchString(transcript) {
 		return false
@@ -59,7 +58,7 @@ func agentMemoryTags(agent *model.Agent, source string) []string {
 	return tags
 }
 
-func dominantAgentMemorySource(events []model.AgentSessionEvent) string {
+func dominantAgentMemorySource(events []model.SessionEvent) string {
 	counts := map[string]int{}
 	for _, event := range events {
 		source := strings.TrimSpace(event.Source)
@@ -88,15 +87,11 @@ func dominantAgentMemorySource(events []model.AgentSessionEvent) string {
 	return pairs[0].source
 }
 
-func agentMemoryPayload(event model.AgentSessionEvent) map[string]any {
-	var payload map[string]any
-	if len(event.Payload) > 0 {
-		_ = json.Unmarshal(event.Payload, &payload)
-	}
-	if payload == nil {
+func agentMemoryPayload(event model.SessionEvent) map[string]any {
+	if event.Payload == nil {
 		return map[string]any{}
 	}
-	return payload
+	return map[string]any(event.Payload)
 }
 
 func sanitizeMemoryTagValue(value string) string {

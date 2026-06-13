@@ -29,11 +29,11 @@ const (
 	agentEventShutdownFlushTimeout = 25 * time.Second
 )
 
-type afterWriteFn func(context.Context, []model.AgentSessionEvent)
+type afterWriteFn func(context.Context, []model.SessionEvent)
 
 type AgentEventWriter struct {
 	db            *gorm.DB
-	entries       chan model.AgentSessionEvent
+	entries       chan model.SessionEvent
 	wg            sync.WaitGroup
 	flushInterval time.Duration
 	// afterWrite is set (via SetAfterWrite) after the drain goroutine starts, so
@@ -48,7 +48,7 @@ func NewAgentEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, flush
 	}
 	w := &AgentEventWriter{
 		db:            db,
-		entries:       make(chan model.AgentSessionEvent, bufferSize),
+		entries:       make(chan model.SessionEvent, bufferSize),
 		flushInterval: interval,
 	}
 	w.wg.Add(1)
@@ -56,7 +56,7 @@ func NewAgentEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, flush
 	return w
 }
 
-func (w *AgentEventWriter) SetAfterWrite(fn func(context.Context, []model.AgentSessionEvent)) {
+func (w *AgentEventWriter) SetAfterWrite(fn func(context.Context, []model.SessionEvent)) {
 	if w == nil {
 		return
 	}
@@ -89,7 +89,7 @@ func (w *AgentEventWriter) drain(ctx context.Context) {
 		w.wg.Done()
 	}()
 
-	batch := make([]model.AgentSessionEvent, 0, agentEventBatchSize)
+	batch := make([]model.SessionEvent, 0, agentEventBatchSize)
 	timer := time.NewTimer(w.flushInterval)
 	defer timer.Stop()
 
@@ -102,7 +102,7 @@ func (w *AgentEventWriter) drain(ctx context.Context) {
 		}
 		if w.flushBatch(flushCtx, batch) {
 			if cb := w.loadAfterWrite(); cb != nil {
-				cb(flushCtx, append([]model.AgentSessionEvent(nil), batch...))
+				cb(flushCtx, append([]model.SessionEvent(nil), batch...))
 			}
 		}
 		batch = batch[:0]
@@ -139,7 +139,7 @@ func (w *AgentEventWriter) drain(ctx context.Context) {
 // flushBatch inserts batch, retrying transient failures with capped backoff.
 // It reports whether the batch was durably persisted. Schedule-sync failures are
 // non-fatal (logged) and do not fail the batch.
-func (w *AgentEventWriter) flushBatch(ctx context.Context, batch []model.AgentSessionEvent) bool {
+func (w *AgentEventWriter) flushBatch(ctx context.Context, batch []model.SessionEvent) bool {
 	backoff := agentEventFlushBackoff
 	var lastErr error
 	for attempt := 0; attempt < agentEventFlushRetries; attempt++ {
@@ -196,7 +196,7 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-func (w *AgentEventWriter) Write(ctx context.Context, entry model.AgentSessionEvent) {
+func (w *AgentEventWriter) Write(ctx context.Context, entry model.SessionEvent) {
 	if w == nil {
 		return
 	}
@@ -221,7 +221,7 @@ func (w *AgentEventWriter) Write(ctx context.Context, entry model.AgentSessionEv
 			captureAgentSessionEventFailure(ctx, "direct_write", entry, err)
 			logging.FromContext(ctx).ErrorContext(ctx, "agent event direct write failed", "error", err, "event_type", entry.EventType)
 		} else if cb := w.loadAfterWrite(); cb != nil {
-			cb(ctx, []model.AgentSessionEvent{entry})
+			cb(ctx, []model.SessionEvent{entry})
 		}
 	}
 }
@@ -245,7 +245,7 @@ func (w *AgentEventWriter) Shutdown(ctx context.Context) {
 	}
 }
 
-func agentEventBatchSentryFields(stage string, batch []model.AgentSessionEvent) map[string]any {
+func agentEventBatchSentryFields(stage string, batch []model.SessionEvent) map[string]any {
 	fields := map[string]any{
 		"stage": stage,
 		"count": len(batch),

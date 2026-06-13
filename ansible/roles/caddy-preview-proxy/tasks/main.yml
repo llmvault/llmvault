@@ -1,0 +1,200 @@
+---
+- name: Assert Caddy proxy OS is Ubuntu amd64
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == "Ubuntu"
+      - ansible_facts.architecture == "x86_64"
+    fail_msg: "The preview proxy role currently targets Ubuntu on linux/amd64."
+
+- name: Install Caddy repository prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - debian-archive-keyring
+      - debian-keyring
+      - gnupg
+      - golang-go
+      - ufw
+    state: present
+    update_cache: true
+
+- name: Check local ansible .env exists for Caddy DNS credentials
+  ansible.builtin.stat:
+    path: "{{ caddy_preview_proxy_env_file }}"
+  delegate_to: localhost
+  become: false
+  register: caddy_preview_proxy_env_file_stat
+
+- name: Require ansible .env for Caddy DNS credentials
+  ansible.builtin.assert:
+    that:
+      - caddy_preview_proxy_env_file_stat.stat.exists
+      - caddy_preview_proxy_env_file_stat.stat.isreg
+    fail_msg: "Create ansible/.env from ansible/.env.example and set VERCEL_AUTH_API_TOKEN before deploying HTTPS preview proxy."
+
+- name: Read ansible .env for Caddy DNS credentials
+  ansible.builtin.set_fact:
+    caddy_preview_proxy_env_lines: "{{ lookup('ansible.builtin.file', caddy_preview_proxy_env_file).splitlines() }}"
+  no_log: true
+
+- name: Parse ansible .env for Caddy DNS credentials
+  ansible.builtin.set_fact:
+    caddy_preview_proxy_env: "{{ caddy_preview_proxy_env | default({}) | combine({(item.split('=', 1)[0] | trim): (item.split('=', 1)[1] | trim | regex_replace('^\"(.*)\"$', '\\1') | regex_replace(\"^'(.*)'$\", '\\1'))}) }}"
+  loop: "{{ caddy_preview_proxy_env_lines }}"
+  when: item is match('^\\s*[A-Za-z_][A-Za-z0-9_]*=')
+  no_log: true
+
+- name: Require Caddy DNS provider env values
+  ansible.builtin.assert:
+    that:
+      - caddy_preview_proxy_env[item] is defined
+      - caddy_preview_proxy_env[item] | string | trim | length > 0
+    fail_msg: "Required value {{ item }} is missing from ansible/.env."
+  loop: "{{ caddy_preview_proxy_required_env }}"
+  no_log: true
+
+- name: Install Caddy apt key
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  args:
+    executable: /bin/bash
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Install Caddy apt source
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
+    dest: /etc/apt/sources.list.d/caddy-stable.list
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    state: present
+    update_cache: true
+
+- name: Install xcaddy
+  ansible.builtin.command: go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+  environment:
+    GOBIN: /usr/local/bin
+  args:
+    creates: /usr/local/bin/xcaddy
+
+- name: Check installed Caddy modules
+  ansible.builtin.command: "{{ caddy_preview_proxy_custom_binary }} list-modules"
+  register: caddy_preview_proxy_modules
+  changed_when: false
+  failed_when: false
+
+- name: Build Caddy with Vercel DNS module
+  ansible.builtin.command: "/usr/local/bin/xcaddy build {{ caddy_preview_proxy_version }} --with {{ caddy_preview_proxy_module }} --output {{ caddy_preview_proxy_custom_binary }}"
+  when: caddy_preview_proxy_modules.rc != 0 or 'dns.providers.vercel' not in caddy_preview_proxy_modules.stdout
+  notify: Reload caddy
+
+- name: Ensure Caddy custom binary is executable
+  ansible.builtin.file:
+    path: "{{ caddy_preview_proxy_custom_binary }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install Caddy systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/caddy.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure Caddy environment file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/caddy.service.d/10-hivy-env.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart={{ caddy_preview_proxy_custom_binary }} run --config {{ caddy_preview_proxy_config_path }}
+      ExecReload=
+      ExecReload={{ caddy_preview_proxy_custom_binary }} reload --config {{ caddy_preview_proxy_config_path }} --force
+      EnvironmentFile=/etc/hivy/microsandbox-preview-cache.env
+  no_log: true
+
+- name: Render bootstrap Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ caddy_preview_proxy_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload caddy
+
+- name: Validate Caddyfile
+  ansible.builtin.command: "{{ caddy_preview_proxy_custom_binary }} validate --config {{ caddy_preview_proxy_config_path }}"
+  environment:
+    VERCEL_AUTH_API_TOKEN: "{{ caddy_preview_proxy_env.VERCEL_AUTH_API_TOKEN }}"
+  changed_when: false
+
+- name: Apply Caddy config before validation requests
+  ansible.builtin.systemd:
+    name: "{{ caddy_preview_proxy_service_name }}"
+    state: restarted
+    daemon_reload: true
+
+- name: Allow SSH through UFW
+  ansible.builtin.command: "ufw allow {{ ansible_port | default(22) }}/tcp"
+  register: caddy_ufw_ssh
+  changed_when: "'Rule added' in caddy_ufw_ssh.stdout"
+
+- name: Allow HTTP through UFW
+  ansible.builtin.command: ufw allow 80/tcp
+  register: caddy_ufw_http
+  changed_when: "'Rule added' in caddy_ufw_http.stdout"
+
+- name: Allow HTTPS through UFW
+  ansible.builtin.command: ufw allow 443/tcp
+  register: caddy_ufw_https
+  changed_when: "'Rule added' in caddy_ufw_https.stdout"
+
+- name: Deny inbound traffic by default
+  ansible.builtin.command: ufw default deny incoming
+  register: caddy_ufw_incoming
+  changed_when: "'Default incoming policy changed' in caddy_ufw_incoming.stdout"
+
+- name: Allow outbound traffic by default
+  ansible.builtin.command: ufw default allow outgoing
+  register: caddy_ufw_outgoing
+  changed_when: "'Default outgoing policy changed' in caddy_ufw_outgoing.stdout"
+
+- name: Enable UFW
+  ansible.builtin.command: ufw --force enable
+  register: caddy_ufw_enable
+  changed_when: "'Firewall is active and enabled' in caddy_ufw_enable.stdout"
+
+- name: Enable and start Caddy
+  ansible.builtin.systemd:
+    name: "{{ caddy_preview_proxy_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Check Caddy local health
+  ansible.builtin.uri:
+    url: "https://{{ caddy_preview_proxy_domain }}/health"
+    method: GET
+    return_content: true
+    status_code: 200
+    timeout: 10
+  delegate_to: localhost
+  become: false
+  register: caddy_local_health
+
+- name: Print Caddy provisioning result
+  ansible.builtin.debug:
+    msg:
+      - "Caddy is installed and running on {{ inventory_hostname }}."
+      - "Local health: {{ caddy_local_health.content | trim }}"

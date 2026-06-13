@@ -1,0 +1,6 @@
+---
+- name: Reload caddy
+  ansible.builtin.systemd:
+    name: "{{ caddy_preview_proxy_service_name }}"
+    state: restarted
+    daemon_reload: true

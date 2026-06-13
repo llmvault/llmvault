@@ -19,7 +19,6 @@ type Request struct {
 	OrgID                 uuid.UUID
 	AgentID               uuid.UUID
 	CurrentSessionID      uuid.UUID
-	RuntimeConversationID string
 	Text                  string
 	UserID                string
 	UserDisplayName       string

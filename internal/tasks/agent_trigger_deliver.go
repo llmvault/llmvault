@@ -61,18 +61,18 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 	}
 
 	compiled := h.compileMessage(payload, trigger, webhookPayload)
-	conv, err := h.findOrCreateTriggerConversation(ctx, &agent, sb, trigger.ID, compiled.ResourceKey, compiled.ConversationID)
+	session, err := h.findOrCreateTriggerSession(ctx, &agent, sb, trigger.ID, compiled.ResourceKey)
 	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_conversation", payload, trigger, compiled.ResourceKey, "", err)
+		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_session", payload, trigger, compiled.ResourceKey, "", err)
 		return err
 	}
 
 	// Claim before the irreversible PostHTTPMessage: asynq retries the whole batch,
 	// so without a claim a retry re-delivers already-succeeded triggers and the
 	// agent acts twice. A claimed row means a prior attempt posted, so skip.
-	claimed, err := h.claimTriggerDelivery(ctx, payload, trigger, conv, compiled)
+	claimed, err := h.claimTriggerDelivery(ctx, payload, trigger, session, compiled)
 	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "claim_trigger_delivery", payload, trigger, compiled.ResourceKey, conv.ID.String(), err)
+		captureTriggerDispatchBoundary(ctx, "claim_trigger_delivery", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
 		return err
 	}
 	if !claimed {
@@ -86,7 +86,7 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 
 	resp, err := client.PostHTTPMessage(ctx, agentruntime.HTTPMessageRequest{
 		Text:            compiled.Text,
-		ConversationID:  conv.RuntimeConversationID,
+		SessionID:       session.ID.String(),
 		User:            "hivy-trigger",
 		UserDisplayName: "Hivy Trigger",
 		Raw:             compiled.Raw,
@@ -95,17 +95,17 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 		// The post never reached the runtime, so release the claim for the asynq
 		// retry; earlier triggers keep their claims and are not re-delivered.
 		h.releaseTriggerDeliveryClaim(ctx, trigger.ID, payload.DeliveryID)
-		captureTriggerDispatchBoundary(ctx, "post_http_message", payload, trigger, compiled.ResourceKey, conv.ID.String(), err)
+		captureTriggerDispatchBoundary(ctx, "post_session_message", payload, trigger, compiled.ResourceKey, session.ID.String(), err)
 		return fmt.Errorf("post agent trigger message: %w", err)
 	}
-	h.enqueueStoreDelivery(ctx, payload, trigger, conv, compiled, resp)
+	h.enqueueStoreDelivery(ctx, payload, trigger, session, compiled, resp)
 	return nil
 }
 
 // claimTriggerDelivery inserts the (trigger_id, delivery_id) row before posting
 // via ON CONFLICT DO NOTHING, returning true if this attempt won the claim and
 // false if a prior attempt already delivered it.
-func (h *AgentTriggerDispatchHandler) claimTriggerDelivery(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, conv *model.AgentSession, compiled compiledTriggerMessage) (bool, error) {
+func (h *AgentTriggerDispatchHandler) claimTriggerDelivery(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, session *model.Session, compiled compiledTriggerMessage) (bool, error) {
 	if strings.TrimSpace(payload.DeliveryID) == "" {
 		// No stable delivery id to dedupe on; fall back to always-deliver.
 		return true, nil
@@ -122,8 +122,7 @@ func (h *AgentTriggerDispatchHandler) claimTriggerDelivery(ctx context.Context, 
 		DeliveryID:            payload.DeliveryID,
 		EventKey:              eventKey(payload.EventType, payload.EventAction),
 		ResourceKey:           compiled.ResourceKey,
-		ConversationID:        conv.ID,
-		RuntimeConversationID: conv.RuntimeConversationID,
+		SessionID:             session.ID,
 		Payload:               model.RawJSON(raw),
 	}
 	result := h.db.WithContext(ctx).
@@ -156,7 +155,7 @@ func (h *AgentTriggerDispatchHandler) releaseTriggerDeliveryClaim(ctx context.Co
 	}
 }
 
-func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, resourceKey, conversationID string, err error) {
+func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, resourceKey, sessionID string, err error) {
 	if err == nil {
 		return
 	}
@@ -168,7 +167,7 @@ func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload A
 		"delivery_id":     payload.DeliveryID,
 		"event_key":       eventKey(payload.EventType, payload.EventAction),
 		"resource_key":    resourceKey,
-		"conversation_id": conversationID,
+		"session_id":     sessionID,
 	})
 }
 

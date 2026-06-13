@@ -21,9 +21,9 @@ import (
 // couple KB almost always contain the signal (subject, headline, etc.).
 const messageContentMaxBytes = 2048
 
-// ConversationNameHandler generates a short title for a conversation by
-// calling the cheapest model available on the conversation's credential
-// provider. It's idempotent: if the conversation already has a name, the
+// ConversationNameHandler generates a short title for a session by
+// calling the cheapest model available on the session agent's credential
+// provider. It's idempotent: if the session already has a name, the
 // handler returns nil without making any external calls.
 type ConversationNameHandler struct {
 	db           *gorm.DB
@@ -42,7 +42,7 @@ func NewConversationNameHandler(db *gorm.DB, cacheManager *cache.Manager) *Conve
 // Handle runs one naming job. On retryable failures (provider timeouts,
 // network) it returns an error so Asynq retries per MaxRetry. On permanent
 // failures (missing credential, no supported model) it returns nil so the
-// job is dropped — the conversation simply stays unnamed, and the frontend
+// job is dropped — the session simply stays unnamed, and the frontend
 // falls back to deriving a title from the first message.
 func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.Task) error {
 	var payload ConversationNamePayload
@@ -50,26 +50,33 @@ func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.
 		return fmt.Errorf("unmarshal payload: %w", err)
 	}
 
-	var conv model.AgentSession
+	var session model.Session
 	if err := handler.db.WithContext(ctx).
 		Where("id = ?", payload.ConversationID).
-		First(&conv).Error; err != nil {
+		First(&session).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil
 		}
-		return fmt.Errorf("load conversation: %w", err)
+		return fmt.Errorf("load session: %w", err)
 	}
 
-	if conv.Name != "" {
+	if session.Name != "" {
 		return nil
 	}
-	if conv.CredentialID == nil {
+	var agent model.Agent
+	if err := handler.db.WithContext(ctx).Where("id = ? AND org_id = ?", session.AgentID, session.OrgID).First(&agent).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+		return fmt.Errorf("load session agent: %w", err)
+	}
+	if agent.CredentialID == nil {
 		return nil
 	}
 
 	var credential model.Credential
 	if err := handler.db.WithContext(ctx).
-		Where("id = ? AND org_id = ?", *conv.CredentialID, conv.OrgID).
+		Where("id = ? AND org_id = ?", *agent.CredentialID, session.OrgID).
 		First(&credential).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil
@@ -82,7 +89,7 @@ func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.
 		return nil
 	}
 
-	firstMessage, err := loadFirstMessageContent(ctx, handler.db, conv.ID)
+	firstMessage, err := loadFirstMessageContent(ctx, handler.db, session.ID)
 	if err != nil {
 		return fmt.Errorf("load first message: %w", err)
 	}
@@ -92,7 +99,7 @@ func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.
 	}
 
 	decrypted, err := handler.cacheManager.GetDecryptedCredential(
-		ctx, credential.ID.String(), conv.OrgID)
+		ctx, credential.ID.String(), session.OrgID)
 	if err != nil {
 		return fmt.Errorf("decrypt credential: %w", err)
 	}
@@ -108,15 +115,15 @@ func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.
 	}
 
 	result := handler.db.WithContext(ctx).
-		Model(&model.AgentSession{}).
-		Where("id = ? AND (name IS NULL OR name = '')", conv.ID).
+		Model(&model.Session{}).
+		Where("id = ? AND (name IS NULL OR name = '')", session.ID).
 		Update("name", title)
 	if result.Error != nil {
 		return fmt.Errorf("update name: %w", result.Error)
 	}
 
 	logging.FromContext(ctx).InfoContext(ctx, "conversation named",
-		"conversation_id", conv.ID,
+		"session_id", session.ID,
 		"model", modelID,
 		"rows_updated", result.RowsAffected,
 	)
@@ -158,9 +165,9 @@ func pickCheapestModel(providerID string) (string, bool, bool) {
 
 // loadFirstMessageContent returns the first user message content for a session, truncated.
 func loadFirstMessageContent(ctx context.Context, db *gorm.DB, conversationID any) (string, error) {
-	var event model.AgentSessionEvent
+	var event model.SessionEvent
 	err := db.WithContext(ctx).
-		Where("agent_session_id = ? AND event_type IN ?", conversationID, []string{"message_received", "user.message.received"}).
+		Where("session_id = ? AND event_type IN ?", conversationID, []string{"message_received", "user.message.received", "user.message"}).
 		Order("sequence_number ASC, event_at ASC").
 		Limit(1).
 		First(&event).Error
@@ -175,12 +182,11 @@ func loadFirstMessageContent(ctx context.Context, db *gorm.DB, conversationID an
 		Content string `json:"content"`
 		Text    string `json:"text"`
 	}
-	if err := json.Unmarshal(event.Payload, &data); err != nil {
-		return "", fmt.Errorf("decode event data: %w", err)
-	}
-	content := data.Content
+	data.Content, _ = event.Payload["content"].(string)
+	data.Text, _ = event.Payload["text"].(string)
+	content := strings.TrimSpace(data.Content)
 	if content == "" {
-		content = data.Text
+		content = strings.TrimSpace(data.Text)
 	}
 	if len(content) > messageContentMaxBytes {
 		content = content[:messageContentMaxBytes]

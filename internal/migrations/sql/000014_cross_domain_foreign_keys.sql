@@ -25,19 +25,6 @@ ALTER TABLE ONLY agent_assets
 ALTER TABLE ONLY agent_assets
     ADD CONSTRAINT fk_agent_assets_sandbox FOREIGN KEY (sandbox_id) REFERENCES sandboxes(id) ON DELETE CASCADE;
 
-ALTER TABLE ONLY agent_session_events
-    ADD CONSTRAINT fk_agent_session_events_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_session_events
-    ADD CONSTRAINT fk_agent_session_events_org FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_session_events
-    ADD CONSTRAINT fk_agent_session_events_sandbox FOREIGN KEY (sandbox_id) REFERENCES sandboxes(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_session_events
-    ADD CONSTRAINT fk_agent_session_events_session FOREIGN KEY (agent_session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE;
-
-
 ALTER TABLE ONLY agent_sandbox_upgrades
     ADD CONSTRAINT fk_agent_sandbox_upgrades_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
 
@@ -71,21 +58,6 @@ ALTER TABLE ONLY agent_schedules
 ALTER TABLE ONLY agent_schedules
     ADD CONSTRAINT fk_agent_schedules_sandbox FOREIGN KEY (sandbox_id) REFERENCES sandboxes(id) ON DELETE SET NULL;
 
-ALTER TABLE ONLY agent_sessions
-    ADD CONSTRAINT fk_agent_sessions_credential FOREIGN KEY (credential_id) REFERENCES credentials(id) ON DELETE SET NULL;
-
-ALTER TABLE ONLY agent_sessions
-    ADD CONSTRAINT fk_agent_sessions_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_sessions
-    ADD CONSTRAINT fk_agent_sessions_org FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_sessions
-    ADD CONSTRAINT fk_agent_sessions_sandbox FOREIGN KEY (sandbox_id) REFERENCES sandboxes(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_sessions
-    ADD CONSTRAINT fk_agent_sessions_token FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE SET NULL;
-
 ALTER TABLE ONLY agent_skills
     ADD CONSTRAINT fk_agent_skills_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
 
@@ -96,7 +68,7 @@ ALTER TABLE ONLY agent_trigger_deliveries
     ADD CONSTRAINT fk_agent_trigger_deliveries_connection FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE SET NULL;
 
 ALTER TABLE ONLY agent_trigger_deliveries
-    ADD CONSTRAINT fk_agent_trigger_deliveries_conversation FOREIGN KEY (conversation_id) REFERENCES agent_sessions(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_agent_trigger_deliveries_session FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY agent_trigger_deliveries
     ADD CONSTRAINT fk_agent_trigger_deliveries_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;

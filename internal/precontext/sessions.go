@@ -2,7 +2,6 @@ package precontext
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -28,16 +27,16 @@ func (s *Service) fetchSessionsSection(ctx context.Context, req Request) (string
 	for _, session := range sessions {
 		ids = append(ids, session.ID)
 	}
-	var events []model.AgentSessionEvent
+	var events []model.SessionEvent
 	if err := s.cfg.DB.WithContext(ctx).
-		Where("agent_session_id IN ? AND event_type IN ?", ids, []string{"user.message.received", "agent.message.sent"}).
+		Where("session_id IN ? AND event_type IN ?", ids, []string{"user.message.received", "agent.message.sent"}).
 		Order("event_at ASC, created_at ASC").
 		Find(&events).Error; err != nil {
 		return "", fmt.Errorf("load recent session events: %w", err)
 	}
-	eventsBySession := map[uuid.UUID][]model.AgentSessionEvent{}
+	eventsBySession := map[uuid.UUID][]model.SessionEvent{}
 	for _, event := range events {
-		eventsBySession[event.AgentSessionID] = append(eventsBySession[event.AgentSessionID], event)
+		eventsBySession[event.SessionID] = append(eventsBySession[event.SessionID], event)
 	}
 	var lines []string
 	for _, session := range sessions {
@@ -49,13 +48,13 @@ func (s *Service) fetchSessionsSection(ctx context.Context, req Request) (string
 	return section("## Recent sessions", strings.Join(lines, "\n"), SessionsBudgetBytes), nil
 }
 
-func (s *Service) loadRecentSessions(ctx context.Context, req Request) ([]model.AgentSession, error) {
+func (s *Service) loadRecentSessions(ctx context.Context, req Request) ([]model.Session, error) {
 	query := s.cfg.DB.WithContext(ctx).
 		Where("org_id = ? AND agent_id = ? AND status <> ?", req.OrgID, req.AgentID, "error")
 	if req.CurrentSessionID != uuid.Nil {
 		query = query.Where("id <> ?", req.CurrentSessionID)
 	}
-	var sessions []model.AgentSession
+	var sessions []model.Session
 	if err := query.Order("updated_at DESC, created_at DESC").Limit(10).Find(&sessions).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -65,7 +64,7 @@ func (s *Service) loadRecentSessions(ctx context.Context, req Request) ([]model.
 	return sessions, nil
 }
 
-func formatSessionSummary(session model.AgentSession, events []model.AgentSessionEvent) string {
+func formatSessionSummary(session model.Session, events []model.SessionEvent) string {
 	user, modelReply := latestUserAndModel(events)
 	if user == "" && modelReply == "" {
 		return ""
@@ -75,7 +74,7 @@ func formatSessionSummary(session model.AgentSession, events []model.AgentSessio
 		name = cleanText(session.SourceResourceKey)
 	}
 	if name == "" {
-		name = session.RuntimeConversationID
+		name = session.ID.String()
 	}
 	line := "- " + trimToBytes(name, 96)
 	if timestamp := sessionTimestamp(session); timestamp != "" {
@@ -90,7 +89,7 @@ func formatSessionSummary(session model.AgentSession, events []model.AgentSessio
 	return trimToBytes(line, 430)
 }
 
-func sessionTimestamp(session model.AgentSession) string {
+func sessionTimestamp(session model.Session) string {
 	when := session.UpdatedAt
 	if when.IsZero() {
 		when = session.CreatedAt
@@ -101,12 +100,11 @@ func sessionTimestamp(session model.AgentSession) string {
 	return when.UTC().Format(time.RFC3339)
 }
 
-func latestUserAndModel(events []model.AgentSessionEvent) (string, string) {
+func latestUserAndModel(events []model.SessionEvent) (string, string) {
 	user := ""
 	modelReply := ""
 	for _, event := range events {
-		payload := map[string]any{}
-		_ = json.Unmarshal([]byte(event.Payload), &payload)
+		payload := map[string]any(event.Payload)
 		text := firstString(payload["text"], payload["message"], payload["content"], payload["markdown"])
 		if text == "" {
 			continue

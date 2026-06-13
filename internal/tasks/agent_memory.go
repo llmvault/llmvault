@@ -81,12 +81,12 @@ func (h *AgentMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Task)
 		logAgentMemoryRetainSkip(ctx, fields, "session_not_found")
 		return nil
 	}
-	if payload.AgentSessionID == uuid.Nil {
-		payload.AgentSessionID = session.ID
-		fields["agent_session_id"] = session.ID.String()
+	if payload.SessionUUID == uuid.Nil {
+		payload.SessionUUID = session.ID
+		fields["session_uuid"] = session.ID.String()
 	}
 	if strings.TrimSpace(payload.SessionID) == "" {
-		payload.SessionID = session.RuntimeConversationID
+		payload.SessionID = session.ID.String()
 		fields["runtime_session_id"] = payload.SessionID
 	}
 	latest, err := h.latestSessionActivity(ctx, session.ID)
@@ -141,7 +141,7 @@ func (h *AgentMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Task)
 
 	now := time.Now().UTC()
 	update := h.db.WithContext(ctx).
-		Model(&model.AgentSessionEvent{}).
+		Model(&model.SessionEvent{}).
 		Where("id IN ?", agentSessionEventIDs(events)).
 		Update("retained_at", now)
 	if update.Error != nil {
@@ -155,28 +155,34 @@ func (h *AgentMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Task)
 	return nil
 }
 
-func (h *AgentMemoryRetainHandler) loadPendingEvents(ctx context.Context, payload AgentMemoryRetainPayload) ([]model.AgentSessionEvent, error) {
-	if payload.AgentSessionID != uuid.Nil {
-		return h.loadSessionEvents(ctx, payload.AgentSessionID)
+func (h *AgentMemoryRetainHandler) loadPendingEvents(ctx context.Context, payload AgentMemoryRetainPayload) ([]model.SessionEvent, error) {
+	if payload.SessionUUID != uuid.Nil {
+		return h.loadSessionEvents(ctx, payload.SessionUUID)
 	}
-	var events []model.AgentSessionEvent
+	var events []model.SessionEvent
 	if err := h.db.WithContext(ctx).
 		Where("agent_id = ? AND sandbox_id = ? AND runtime_session_id = ? AND retained_at IS NULL",
 			payload.AgentID, payload.SandboxID, payload.SessionID).
 		Order("event_at ASC, created_at ASC").
 		Find(&events).Error; err != nil {
-		return nil, fmt.Errorf("load agent session events: %w", err)
+		return nil, fmt.Errorf("load session events: %w", err)
 	}
 	return events, nil
 }
 
-func (h *AgentMemoryRetainHandler) loadSession(ctx context.Context, payload AgentMemoryRetainPayload) (*model.AgentSession, error) {
-	var session model.AgentSession
+func (h *AgentMemoryRetainHandler) loadSession(ctx context.Context, payload AgentMemoryRetainPayload) (*model.Session, error) {
+	var session model.Session
 	query := h.db.WithContext(ctx).Where("agent_id = ? AND sandbox_id = ?", payload.AgentID, payload.SandboxID)
-	if payload.AgentSessionID != uuid.Nil {
-		query = query.Where("id = ?", payload.AgentSessionID)
+	if payload.SessionUUID != uuid.Nil {
+		query = query.Where("id = ?", payload.SessionUUID)
 	} else if strings.TrimSpace(payload.SessionID) != "" {
-		query = query.Where("runtime_conversation_id = ?", strings.TrimSpace(payload.SessionID))
+		if id, err := uuid.Parse(strings.TrimSpace(payload.SessionID)); err == nil {
+			query = query.Where("id = ?", id)
+		} else {
+			query = query.
+				Joins("JOIN session_events ON session_events.session_id = sessions.id").
+				Where("session_events.runtime_session_id = ?", strings.TrimSpace(payload.SessionID))
+		}
 	} else {
 		return nil, nil
 	}
@@ -184,7 +190,7 @@ func (h *AgentMemoryRetainHandler) loadSession(ctx context.Context, payload Agen
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("load agent session for memory retain: %w", err)
+		return nil, fmt.Errorf("load session for memory retain: %w", err)
 	}
 	return &session, nil
 }
@@ -192,11 +198,11 @@ func (h *AgentMemoryRetainHandler) loadSession(ctx context.Context, payload Agen
 func (h *AgentMemoryRetainHandler) latestSessionActivity(ctx context.Context, agentSessionID uuid.UUID) (time.Time, error) {
 	var latest sql.NullTime
 	if err := h.db.WithContext(ctx).
-		Model(&model.AgentSessionEvent{}).
-		Where("agent_session_id = ?", agentSessionID).
+		Model(&model.SessionEvent{}).
+		Where("session_id = ?", agentSessionID).
 		Select("MAX(event_at)").
 		Scan(&latest).Error; err != nil {
-		return time.Time{}, fmt.Errorf("load latest agent session activity: %w", err)
+		return time.Time{}, fmt.Errorf("load latest session activity: %w", err)
 	}
 	if !latest.Valid {
 		return time.Time{}, nil
@@ -204,13 +210,13 @@ func (h *AgentMemoryRetainHandler) latestSessionActivity(ctx context.Context, ag
 	return latest.Time.UTC(), nil
 }
 
-func (h *AgentMemoryRetainHandler) loadSessionEvents(ctx context.Context, agentSessionID uuid.UUID) ([]model.AgentSessionEvent, error) {
-	var events []model.AgentSessionEvent
+func (h *AgentMemoryRetainHandler) loadSessionEvents(ctx context.Context, sessionID uuid.UUID) ([]model.SessionEvent, error) {
+	var events []model.SessionEvent
 	if err := h.db.WithContext(ctx).
-		Where("agent_session_id = ?", agentSessionID).
+		Where("session_id = ?", sessionID).
 		Order("event_at ASC, created_at ASC").
 		Find(&events).Error; err != nil {
-		return nil, fmt.Errorf("load agent session events: %w", err)
+		return nil, fmt.Errorf("load session events: %w", err)
 	}
 	return events, nil
 }

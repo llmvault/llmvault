@@ -18,14 +18,14 @@ func (h *UsageHandler) querySessions(orgID uuid.UUID) ([]sessionSummary, error) 
 		EndedAt    *time.Time
 	}
 	if err := h.db.Raw(`
-		SELECT es.id, es.name, es.status, es.source,
-			COALESCE(COUNT(ese.id), 0) AS event_count,
-			es.created_at, es.ended_at
-		FROM agent_sessions es
-		LEFT JOIN agent_session_events ese ON ese.agent_session_id = es.id
-		WHERE es.org_id = ?
-		GROUP BY es.id
-		ORDER BY es.created_at DESC
+		SELECT s.id, s.name, s.status, s.source,
+			COALESCE(COUNT(se.id), 0) AS event_count,
+			s.created_at, s.ended_at
+		FROM sessions s
+		LEFT JOIN session_events se ON se.session_id = s.id
+		WHERE s.org_id = ?
+		GROUP BY s.id
+		ORDER BY s.created_at DESC
 		LIMIT 50`, orgID).Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("sessions: %w", err)
 	}

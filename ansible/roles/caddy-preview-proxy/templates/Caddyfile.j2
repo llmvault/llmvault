@@ -1,0 +1,34 @@
+{
+	email {{ caddy_preview_proxy_acme_email }}
+}
+
+{{ caddy_preview_proxy_domain }}, *.{{ caddy_preview_proxy_domain }} {
+	tls {
+		dns vercel {env.VERCEL_AUTH_API_TOKEN}
+	}
+
+	handle /health {
+		respond "{{ caddy_preview_proxy_health_body | trim }}" 200
+	}
+
+	handle_path /_microsandbox/preview-cache/* {
+		reverse_proxy 127.0.0.1:8091
+	}
+
+	handle {
+		forward_auth http://127.0.0.1:8091 {
+			uri /v1/lookup
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Uri {uri}
+			copy_headers X-Microsandbox-Upstream X-Microsandbox-Rewrite-URI
+		}
+
+		rewrite * {http.request.header.X-Microsandbox-Rewrite-URI}
+
+		reverse_proxy {http.request.header.X-Microsandbox-Upstream} {
+			header_up Authorization "Bearer {$HIVY_MICROSANDBOX_RUNNER_API_TOKEN}"
+			header_up X-Hivy-Preview-Host {host}
+			flush_interval -1
+		}
+	}
+}

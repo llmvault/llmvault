@@ -1,0 +1,13 @@
+---
+caddy_preview_proxy_domain: preview.usehivy.com
+caddy_preview_proxy_acme_email: ops@usehivy.com
+caddy_preview_proxy_service_name: caddy
+caddy_preview_proxy_config_path: /etc/caddy/Caddyfile
+caddy_preview_proxy_health_body: "ok\n"
+caddy_preview_proxy_env_file: "{{ playbook_dir }}/../.env"
+caddy_preview_proxy_custom_binary: /usr/local/bin/caddy
+caddy_preview_proxy_system_binary: /usr/bin/caddy
+caddy_preview_proxy_version: v2.9.1
+caddy_preview_proxy_module: github.com/caddy-dns/vercel
+caddy_preview_proxy_required_env:
+  - VERCEL_AUTH_API_TOKEN
