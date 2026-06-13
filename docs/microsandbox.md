@@ -24,7 +24,7 @@ Command:
 /usr/local/bin/microsandbox control
 ```
 
-Required environment file: `/etc/hivy/microsandbox-control.env`
+Required environment file: `/etc/hivy/msb.env`
 
 ```sh
 HIVY_MICROSANDBOX_ADDR=:8080
@@ -46,7 +46,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-EnvironmentFile=/etc/hivy/microsandbox-control.env
+EnvironmentFile=/etc/hivy/msb.env
 ExecStart=/usr/local/bin/microsandbox control
 Restart=always
 RestartSec=3
@@ -70,7 +70,7 @@ Install Microsandbox on the bare-metal runner, install the Hivy `microsandbox` b
 Required environment file: `/etc/hivy/microsandbox-runner.env`
 
 ```sh
-HIVY_MICROSANDBOX_CONTROL_URL=https://microsandbox-control.usehivy.com
+HIVY_MICROSANDBOX_CONTROL_URL=https://msb.usehivy.com
 HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET=...
 HIVY_MICROSANDBOX_RUNNER_API_TOKEN=...
 HIVY_MICROSANDBOX_RUNNER_NAME=runner-1
@@ -109,7 +109,7 @@ Set the Hivy API/worker to use the control plane through the existing sandbox pr
 
 ```sh
 HIVY_SANDBOX_PROVIDER_ID=microsandbox
-HIVY_MICROSANDBOX_CONTROL_URL=https://microsandbox-control.usehivy.com
+HIVY_MICROSANDBOX_CONTROL_URL=https://msb.usehivy.com
 HIVY_MICROSANDBOX_CONTROL_API_TOKEN=...
 HIVY_MICROSANDBOX_DEFAULT_PREVIEW_PORTS=3000,3001,5173,7080,8000,8080
 HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime:latest

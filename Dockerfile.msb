@@ -15,7 +15,7 @@ ARG COMMIT=unknown
 
 RUN CGO_ENABLED=1 go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
-    -o /microsandbox-control ./cmd/microsandbox-control
+    -o /msb ./cmd/msb
 
 RUN CGO_ENABLED=1 go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
@@ -30,17 +30,17 @@ ARG COMMIT=unknown
 LABEL org.opencontainers.image.source="https://github.com/usehivy/hivy"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${COMMIT}"
-LABEL org.opencontainers.image.description="Hivy Microsandbox control plane"
+LABEL org.opencontainers.image.description="Hivy msb control plane"
 
 RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S hivy \
     && adduser -S -G hivy hivy
 
-COPY --from=build /microsandbox-control /microsandbox-control
+COPY --from=build /msb /msb
 COPY --from=build /hivy /hivy
 
 USER hivy
 EXPOSE 8080
 
-ENTRYPOINT ["/microsandbox-control"]
+ENTRYPOINT ["/msb"]
 CMD ["control"]
