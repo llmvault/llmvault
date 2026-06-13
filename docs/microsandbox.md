@@ -63,7 +63,7 @@ Run SQL migrations before starting the control plane:
 msb migrate up
 ```
 
-The fleet service uses `HIVY_MICROSANDBOX_DATABASE_DSN` and has its own embedded migrations under `internal/microsandbox/migrations`. Do not run the main Hivy API migrations for this service.
+The fleet service requires a Postgres `HIVY_MICROSANDBOX_DATABASE_DSN` and has its own embedded migrations under `internal/microsandbox/migrations`. Do not run the main Hivy API migrations for this service.
 
 ## Runner
 

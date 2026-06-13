@@ -833,7 +833,7 @@ def salesforce_account(idx, org):
     industry = random.choice(["Tech", "Finance", "Healthcare", "Retail", "Education"])
     body = (f"Account: {account_name}, industry {industry}.\n"
             f"Annual revenue: ${random.randint(1, 500)}M.\n"
-            f"Employees: {random.randint(50, 10000)}.\n"
+            f"Headcount: {random.randint(50, 10000)}.\n"
             f"Notes: {body_from_topic(pick_topic(), 2)}")
     return {
         "doc_id": f"sfdc-acct-{num}",

@@ -67,11 +67,11 @@ func setDriveEndpoint(envVars map[string]string, sandboxID uuid.UUID, cfg *confi
 	envVars["HIVY_DRIVE_ENDPOINT"] = fmt.Sprintf("%s/internal/sandbox-drive/%s", cfg.RuntimeControlPlaneBaseURL(), sandboxID)
 }
 
-// setAssetsUploadURL exposes the conversation-asset endpoint base. The
-// runtime appends the per-session conversation_id and the agent's chosen
+// setAssetsUploadURL exposes the session-asset endpoint base. The
+// runtime appends the per-session id and the agent's chosen
 // "<folder>/<filename>" tail so the final PUT URL is:
 //
-//	$HIVY_ASSETS_UPLOAD_URL/{conversationID}/assets/{folder}/{filename}
+//	$HIVY_ASSETS_UPLOAD_URL/{sessionID}/assets/{folder}/{filename}
 //
 // Auth uses the same runtime secret already exported as HIVY_RUNTIME_SECRET.
 func setAssetsUploadURL(envVars map[string]string, cfg *config.Config) {

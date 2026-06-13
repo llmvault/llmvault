@@ -48,7 +48,7 @@ func Load() Config {
 	return Config{
 		Environment:               get("HIVY_MICROSANDBOX_ENVIRONMENT", "development"),
 		Addr:                      get("HIVY_MICROSANDBOX_ADDR", ":8080"),
-		DatabaseDSN:               get("HIVY_MICROSANDBOX_DATABASE_DSN", "file:microsandbox.db?cache=shared&_fk=1"),
+		DatabaseDSN:               os.Getenv("HIVY_MICROSANDBOX_DATABASE_DSN"),
 		SentryDSN:                 os.Getenv("HIVY_MICROSANDBOX_SENTRY_DSN"),
 		APIToken:                  os.Getenv("HIVY_MICROSANDBOX_API_TOKEN"),
 		RunnerJoinSecret:          os.Getenv("HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET"),

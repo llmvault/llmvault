@@ -70,14 +70,10 @@ railway_with_retry() {
   done
 }
 
-specialist_sandbox_runtime_version="$(jq -r '.runtimeConfig.HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION' "${manifest}")"
 sandboxes_runtime_base_image="$(jq -r '.runtimeConfig.HIVY_SANDBOXES_RUNTIME_BASE_IMAGE' "${manifest}")"
-sandboxes_runtime_specialist_image="$(jq -r '.runtimeConfig.HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE' "${manifest}")"
 
 for value in \
-  "${specialist_sandbox_runtime_version}" \
-  "${sandboxes_runtime_base_image}" \
-  "${sandboxes_runtime_specialist_image}"
+  "${sandboxes_runtime_base_image}"
 do
   if [[ -z "${value}" || "${value}" == "null" ]]; then
     echo "release manifest is missing a runtimeConfig value" >&2
@@ -94,9 +90,7 @@ fi
 for service in "${service_list[@]}"; do
   echo "Updating Railway runtime config on ${service}..."
   railway_with_retry variable set \
-    "HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION=${specialist_sandbox_runtime_version}" \
     "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=${sandboxes_runtime_base_image}" \
-    "HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE=${sandboxes_runtime_specialist_image}" \
     --environment "${environment}" \
     --service "${service}"
 
@@ -107,9 +101,7 @@ for service in "${service_list[@]}"; do
       --json
   )"
   for key_and_expected in \
-    "HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION=${specialist_sandbox_runtime_version}" \
-    "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=${sandboxes_runtime_base_image}" \
-    "HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE=${sandboxes_runtime_specialist_image}"
+    "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=${sandboxes_runtime_base_image}"
   do
     key="${key_and_expected%%=*}"
     expected="${key_and_expected#*=}"

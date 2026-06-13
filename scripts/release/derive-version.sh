@@ -42,7 +42,7 @@ RELEASE_COMMIT=${commit}
 RELEASE_SHORT_COMMIT=${short_commit}
 API_IMAGE=ghcr.io/usehivy/hivy:${tag}
 SANDBOXES_RUNTIME_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime:${tag}
-SANDBOXES_RUNTIME_SPECIALIST_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:${tag}
+SANDBOXES_RUNTIME_DEVELOPERS_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${tag}
 SANDBOXES_RUNTIME_SNAPSHOT_SMALL=hivy-sandboxes-runtime-${dashed}-small-v1
-SANDBOXES_RUNTIME_SPECIALIST_SNAPSHOT_SMALL=hivy-sandboxes-runtime-specialist-${dashed}-small-v1
+SANDBOXES_RUNTIME_DEVELOPERS_SNAPSHOT_SMALL=hivy-sandboxes-runtime-developers-${dashed}-small-v1
 EOF

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/db"
@@ -12,9 +11,6 @@ import (
 )
 
 func runMigrate(ctx context.Context, cfg config.Config, args []string) error {
-	if !strings.HasPrefix(cfg.DatabaseDSN, "postgres://") && !strings.Contains(cfg.DatabaseDSN, "host=") {
-		return fmt.Errorf("msb migrations require a Postgres HIVY_MICROSANDBOX_DATABASE_DSN")
-	}
 	subcmd := "up"
 	if len(args) > 0 {
 		subcmd = args[0]

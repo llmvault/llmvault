@@ -15,4 +15,4 @@ internal/handler/connections_revoke_test.go
 
 # Existing long files predating CI enforcement; split in focused refactors.
 internal/evals/setup.go
-internal/employeeruntime/compile.go
+internal/agentruntime/compile.go
