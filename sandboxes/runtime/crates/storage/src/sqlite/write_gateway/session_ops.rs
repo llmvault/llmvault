@@ -34,13 +34,9 @@ pub(super) async fn config_upsert(
 
 pub(super) async fn session_create(conn: &mut SqliteConnection, session: Session) -> Result<()> {
     let result = sqlx::query(
-        "INSERT INTO sessions (id, channel, thread_ts, agent_session_id, status, created_at, \
-         last_activity_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sessions (id, status, created_at, last_activity_at) VALUES (?, ?, ?, ?)",
     )
     .bind(session.id.as_str())
-    .bind(session.channel)
-    .bind(session.thread_ts)
-    .bind(session.agent_session_id)
     .bind(status_to_str(session.status))
     .bind(session.created_at.to_rfc3339())
     .bind(session.last_activity_at.to_rfc3339())

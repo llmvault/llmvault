@@ -11,7 +11,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -46,10 +46,10 @@ func NewEmployeeGitHubResourcesCloneTask(payload EmployeeGitHubResourcesClonePay
 type EmployeeGitHubResourcesCloneHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator
-	compileDeps  employeeruntime.CompileDeps
+	compileDeps  agentruntime.CompileDeps
 }
 
-func NewEmployeeGitHubResourcesCloneHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps employeeruntime.CompileDeps) *EmployeeGitHubResourcesCloneHandler {
+func NewEmployeeGitHubResourcesCloneHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps) *EmployeeGitHubResourcesCloneHandler {
 	return &EmployeeGitHubResourcesCloneHandler{db: db, orchestrator: orchestrator, compileDeps: compileDeps}
 }
 
@@ -112,7 +112,7 @@ func (h *EmployeeGitHubResourcesCloneHandler) run(ctx context.Context, payload E
 	if err := h.orchestrator.SyncEmployeeSelectedRepositories(ctx, sb, &employee); err != nil {
 		return err
 	}
-	if err := employeeruntime.PushEmployeeRuntimeConfig(ctx, h.compileDeps, &employee, sb); err != nil {
+	if err := agentruntime.PushEmployeeRuntimeConfig(ctx, h.compileDeps, &employee, sb); err != nil {
 		return fmt.Errorf("push employee runtime config: %w", err)
 	}
 	return nil

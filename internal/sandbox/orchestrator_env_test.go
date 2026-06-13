@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -18,20 +18,20 @@ func TestEmployeeSandboxEnvVarsUseAPIWebhookBaseURL(t *testing.T) {
 	}
 	agent := &model.Employee{ID: uuid.New()}
 	sb := &model.Sandbox{ID: uuid.New()}
-	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &employeeruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
+	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
 
-	if got := env[employeeruntime.EmployeeEnvCloudControlPlaneURL]; got != "http://host.docker.internal:8080" {
+	if got := env[agentruntime.EmployeeEnvCloudControlPlaneURL]; got != "http://host.docker.internal:8080" {
 		t.Fatalf("control plane url = %q", got)
 	}
-	if got := env[employeeruntime.EmployeeEnvAgentBaseURL]; got != "http://host.docker.internal:8080/v1" {
+	if got := env[agentruntime.EmployeeEnvAgentBaseURL]; got != "http://host.docker.internal:8080/v1" {
 		t.Fatalf("agent base url = %q", got)
 	}
 	for _, key := range []string{
-		employeeruntime.EmployeeEnvGitCredentialsURL,
-		employeeruntime.EmployeeEnvDriveUploadURL,
-		employeeruntime.EmployeeEnvBugsinkURL,
-		employeeruntime.EmployeeEnvLinearURL,
-		employeeruntime.EmployeeEnvNotionAPIURL,
+		agentruntime.EmployeeEnvGitCredentialsURL,
+		agentruntime.EmployeeEnvDriveUploadURL,
+		agentruntime.EmployeeEnvBugsinkURL,
+		agentruntime.EmployeeEnvLinearURL,
+		agentruntime.EmployeeEnvNotionAPIURL,
 	} {
 		if got := env[key]; !strings.HasPrefix(got, "http://host.docker.internal:8080/") {
 			t.Fatalf("%s = %q", key, got)
@@ -50,15 +50,15 @@ func TestEmployeeSandboxEnvVarsUseAgentSandboxSentryDSN(t *testing.T) {
 	agent := &model.Employee{ID: uuid.New()}
 	sb := &model.Sandbox{ID: uuid.New()}
 
-	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &employeeruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
+	env := employeeSandboxEnvVars(cfg, "runtime-secret", sb, uuid.New(), agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"}, nil, "", "")
 
-	if got := env[employeeruntime.EmployeeEnvSentryDSN]; got != cfg.AgentSandboxSentryDSN {
+	if got := env[agentruntime.EmployeeEnvSentryDSN]; got != cfg.AgentSandboxSentryDSN {
 		t.Fatalf("sentry dsn = %q, want agent sandbox dsn", got)
 	}
-	if got := env[employeeruntime.EmployeeEnvSentryEnvironment]; got != "production" {
+	if got := env[agentruntime.EmployeeEnvSentryEnvironment]; got != "production" {
 		t.Fatalf("sentry environment = %q", got)
 	}
-	if got := env[employeeruntime.EmployeeEnvSentryEnableLogs]; got != "true" {
+	if got := env[agentruntime.EmployeeEnvSentryEnableLogs]; got != "true" {
 		t.Fatalf("sentry enable logs = %q", got)
 	}
 }

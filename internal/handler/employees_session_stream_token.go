@@ -6,11 +6,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/model"
 )
 
 const webStreamTokenLifetime = time.Hour
@@ -80,4 +84,46 @@ func (h *EmployeeHandler) verifyWebStreamToken(sessionID uuid.UUID, streamID, to
 	mac := hmac.New(sha256.New, h.compileDeps.SigningKey)
 	_, _ = mac.Write([]byte(payload))
 	return hmac.Equal(sig, mac.Sum(nil))
+}
+
+func (h *EmployeeHandler) directWebStreamURLs(sandbox model.Sandbox, delivery *agentruntime.HTTPMessageResponse) (string, string) {
+	if h.compileDeps.EncKey == nil || delivery == nil || strings.TrimSpace(sandbox.RuntimeURL) == "" {
+		return "", ""
+	}
+	runtimeSecret, err := h.compileDeps.EncKey.DecryptString(sandbox.EncryptedRuntimeSecret)
+	if err != nil {
+		return "", ""
+	}
+	streamToken := agentruntime.StreamTokenFromRuntimeSecret(runtimeSecret)
+	streamURL := directSandboxStreamURL(
+		sandbox.RuntimeURL,
+		delivery.StreamURL,
+		"/gateway/http/streams/"+delivery.StreamID,
+		streamToken,
+	)
+	responseStreamURL := directSandboxStreamURL(
+		sandbox.RuntimeURL,
+		delivery.ResponseStreamURL,
+		"/gateway/http/response-streams/"+delivery.ResponseStreamID,
+		streamToken,
+	)
+	return streamURL, responseStreamURL
+}
+
+func directSandboxStreamURL(runtimeURL, pathOrURL, fallbackPath, streamToken string) string {
+	if strings.TrimSpace(streamToken) == "" {
+		return ""
+	}
+	target := absoluteRuntimeURL(runtimeURL, firstNonEmptyString(pathOrURL, fallbackPath))
+	if strings.TrimSpace(target) == "" {
+		return ""
+	}
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return ""
+	}
+	query := parsed.Query()
+	query.Set("stream_token", streamToken)
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }

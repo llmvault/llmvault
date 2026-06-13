@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/email"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/gateway"
 	"github.com/usehivy/hivy/internal/goroutine"
@@ -26,7 +26,6 @@ import (
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/proxy"
-	"github.com/usehivy/hivy/internal/specialisttasks"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -80,7 +79,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if deps.SpiderClient != nil {
 		mcpHandler.SetWebTools(spider.NewWebToolsFunc(deps.SpiderClient))
 	}
-	runtimeCompileDeps := employeeruntime.CompileDeps{
+	runtimeCompileDeps := agentruntime.CompileDeps{
 		DB:          database,
 		Picker:      credentials.NewPickerWithRegistry(database, reg),
 		KMS:         deps.KMS,
@@ -89,14 +88,11 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		Cfg:         cfg,
 		Nango:       nangoClient,
 		Hindsight:   hindsightClient,
-		Specialists: deps.Specialists,
 	}
 	if orchestrator != nil {
 		orchestrator.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
-			return employeeruntime.PushEmployeeRuntimeConfigForSandbox(ctx, runtimeCompileDeps, sb)
+			return agentruntime.PushEmployeeRuntimeConfigForSandbox(ctx, runtimeCompileDeps, sb)
 		})
-		specialistService := specialisttasks.NewService(database, orchestrator, runtimeCompileDeps, deps.Specialists)
-		mcpHandler.SetSpecialistTools(specialisttasks.NewToolsFunc(specialistService))
 	}
 	credHandler := handler.NewCredentialHandler(database, deps.KMS, cacheManager, ctr)
 	databaseIntegrationHandler := handler.NewDatabaseIntegrationHandler(database, deps.KMS)
@@ -152,7 +148,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		gatewayRuntime := gateway.NewOrchestratedRuntimeMessenger(database, orchestrator)
 		slackResponseSender := gateway.NewSlackNangoResponseSender(nangoClient)
 		gatewayService = gateway.NewService(database, gatewayRuntime, sandboxEncKey, gateway.NewFakeSlackAdapter(), gateway.NewHTTPAdapter(nil), gateway.NewSlackAdapter(gateway.WithSlackResponseSender(slackResponseSender)), gateway.NewExternalAdapter())
-		gatewayService.SetRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
+		gatewayService.SetRuntimeImages(cfg.SandboxesRuntimeBaseImage)
 		gatewayService.SetPreContextBuilder(precontext.NewService(precontext.Config{
 			DB:         database,
 			Cache:      preContextCache,
@@ -184,7 +180,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	var employeeHandler *handler.EmployeeHandler
 	if orchestrator != nil {
-		employeeHandler = handler.NewEmployeeHandler(database, orchestrator, runtimeCompileDeps, reg, deps.Specialists)
+		employeeHandler = handler.NewEmployeeHandler(database, orchestrator, runtimeCompileDeps, reg)
 		employeeHandler.SetMemoryProvisioner(hindsightBanks)
 		if deps.S3Client != nil {
 			employeeHandler.SetEnqueuer(enqueuer)
@@ -203,7 +199,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			deps.S3Client,
 			sandboxEncKey,
 			cfg.EmployeeSQLiteBackupMaxBytes,
-		).WithRuntimeImages(cfg.SandboxesRuntimeBaseImage, cfg.SandboxesRuntimeSpecialistImage)
+		).WithRuntimeImages(cfg.SandboxesRuntimeBaseImage)
 	}
 
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)

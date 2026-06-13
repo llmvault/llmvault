@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -142,17 +142,16 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 	kms := newTestKMS(t)
 
 	cfg := &config.Config{
-		SandboxesRuntimeBaseImage:       "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
-		SandboxesRuntimeSpecialistImage: "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:test",
-		SpecialistSandboxHost:           "cp.hivy.test",
-		ProxyHost:                       "proxy.hivy.test",
-		MCPBaseURL:                      "https://mcp.hivy.test",
+		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
+		APIWebhookBaseURL:         "https://cp.hivy.test",
+		ProxyHost:                 "proxy.hivy.test",
+		MCPBaseURL:                "https://mcp.hivy.test",
 	}
 	orch := sandbox.NewOrchestrator(db, provider, encKey, cfg)
 	nangoSrv := httptest.NewServer(newNangoConnMock(&nangoConnMockConfig{}))
 	t.Cleanup(nangoSrv.Close)
 
-	compileDeps := employeeruntime.CompileDeps{
+	compileDeps := agentruntime.CompileDeps{
 		DB:         db,
 		Picker:     credentials.NewPickerWithRegistry(db, registry.Global()),
 		KMS:        kms,
@@ -174,8 +173,6 @@ func newEmployeeHarness(t *testing.T) *employeeHarness {
 		r.Get("/{id}/sessions/{sessionID}/events", h.ListSessionEvents)
 		r.Post("/{id}/sessions/messages", h.SendSessionMessage)
 		r.Get("/{id}/sessions/{sessionID}/streams/{streamID}", h.StreamSession)
-		r.Get("/{id}/specialists", h.ListSpecialists)
-		r.Patch("/{id}/specialists/{slug}", h.UpdateSpecialist)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireOrgAdmin(db))
 			r.Patch("/{id}/model", h.UpdateModel)

@@ -15,7 +15,6 @@ type UploadsHandler struct {
 	streamer               storage.Streamer
 	encKey                 *crypto.SymmetricKey
 	employeeRuntimeImage   string
-	specialistRuntimeImage string
 	assetPreviewBaseURL    string
 }
 
@@ -39,9 +38,8 @@ func (h *UploadsHandler) WithStreamer(s storage.Streamer, encKey *crypto.Symmetr
 	return h
 }
 
-func (h *UploadsHandler) WithRuntimeImages(employeeImage, specialistImage string) *UploadsHandler {
+func (h *UploadsHandler) WithRuntimeImages(employeeImage string) *UploadsHandler {
 	h.employeeRuntimeImage = employeeImage
-	h.specialistRuntimeImage = specialistImage
 	return h
 }
 

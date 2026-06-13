@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -28,38 +27,13 @@ func employeeSessionEventOnConflict() clause.OnConflict {
 	}
 }
 
-func (h *EmployeeOutboundWebhookHandler) ensureEmployeeSession(ctx context.Context, sb *model.Sandbox, sessionID, source string, payload map[string]any, specialistTask *model.SpecialistTask) (*model.EmployeeSession, bool, error) {
+func (h *EmployeeOutboundWebhookHandler) ensureEmployeeSession(ctx context.Context, sb *model.Sandbox, sessionID, source string, payload map[string]any) (*model.EmployeeSession, bool, error) {
 	if sb.OrgID == nil || sb.EmployeeID == nil {
 		return nil, false, fmt.Errorf("employee sandbox missing org_id or employee_id")
 	}
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return nil, false, fmt.Errorf("runtime session_id is required for employee session events")
-	}
-	if specialistTask != nil && specialistTask.ConversationID != nil {
-		var session model.EmployeeSession
-		if err := h.db.WithContext(ctx).
-			Where("id = ? AND org_id = ? AND employee_id = ?", *specialistTask.ConversationID, *sb.OrgID, *sb.EmployeeID).
-			First(&session).Error; err != nil {
-			return nil, false, fmt.Errorf("load specialist employee session: %w", err)
-		}
-		return &session, false, nil
-	}
-	if specialistTask != nil {
-		var session model.EmployeeSession
-		err := h.db.WithContext(ctx).
-			Where("org_id = ? AND employee_id = ? AND runtime_conversation_id = ?", specialistTask.OrgID, specialistTask.EmployeeID, specialistTask.EmployeeSessionID).
-			Order("created_at DESC").
-			First(&session).Error
-		if err == nil {
-			if updateErr := h.db.WithContext(ctx).Model(specialistTask).Update("conversation_id", session.ID).Error; updateErr != nil {
-				return nil, false, fmt.Errorf("backfill specialist employee session: %w", updateErr)
-			}
-			return &session, false, nil
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("load specialist employee session: %w", err)
-		}
 	}
 	if source == "" {
 		source = employeeEventSource(payload)

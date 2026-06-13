@@ -7,18 +7,20 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::agent_registry::AgentDefinitionRegistry;
-use domain::cron::{CronJob, CronJobSource, CronJobState};
-use domain::{event_types, DelegateConfig, OutboundEvent, SessionId, ToolSpec};
-use gateway::ChannelGateway;
+use domain::cron::{CronJob, CronJobState};
+use domain::{
+    event_types, OutboundEvent, SessionId, SubagentTask, SubagentTaskConfig, SubagentTaskState,
+    ToolSpec,
+};
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
 use serde_json::{json, Value};
 
-/// Type alias for a function that creates an SSE stream for a delegate session.
+/// Type alias for a function that creates an SSE stream for a subagent task session.
 /// Returns (stream_id, stream_url).
-pub type DelegateStreamCreator =
+pub type SubagentStreamCreator =
     Arc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = (String, String)> + Send>> + Send + Sync>;
-use storage::{CronJobRepo, EventRepo};
+use storage::{CronJobRepo, EventRepo, SubagentTaskRepo};
 use tools::{JsonTool, ProcessRegistry, ToolDefinition};
 
 pub type ToolFuture = Pin<Box<dyn Future<Output = Result<Value>> + Send>>;
@@ -52,15 +54,15 @@ impl JsonTool for DynamicTool {
 }
 
 pub struct ToolContext {
-    pub gateway: Option<Arc<dyn ChannelGateway>>,
     pub cron_repo: Option<Arc<dyn CronJobRepo>>,
+    pub subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     pub event_repo: Option<Arc<dyn EventRepo>>,
     pub process_registry: Option<Arc<ProcessRegistry>>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
     pub workspace_root: PathBuf,
     pub outbound_emitter: Option<Arc<OutboundEmitter>>,
     pub agent_registry: Arc<AgentDefinitionRegistry>,
-    pub delegate_stream_creator: Option<DelegateStreamCreator>,
+    pub subagent_stream_creator: Option<SubagentStreamCreator>,
 }
 
 pub fn build_agent_tools(
@@ -114,22 +116,22 @@ pub fn build_agent_tools(
                     ctx.outbound_emitter.clone(),
                 ));
             }
-            ToolSpec::Delegate(config) => {
-                if let Some(repo) = &ctx.cron_repo {
+            ToolSpec::SubagentTask(config) => {
+                if let Some(repo) = &ctx.subagent_task_repo {
                     if !session_is_cron {
-                        tools.push(delegate_tool(
+                        tools.push(subagent_task_tool(
                             repo.clone(),
                             session_id.clone(),
                             ctx.agent_registry.clone(),
                             config.clone(),
-                            ctx.delegate_stream_creator.clone(),
+                            ctx.subagent_stream_creator.clone(),
                         ));
                     }
                 }
             }
-            ToolSpec::CheckDelegatedStatus => {
-                if let Some(repo) = &ctx.cron_repo {
-                    tools.push(check_delegated_status_tool(repo.clone()));
+            ToolSpec::CheckSubagentTaskStatus => {
+                if let Some(repo) = &ctx.subagent_task_repo {
+                    tools.push(check_subagent_task_status_tool(repo.clone()));
                 }
             }
             _ => {}
@@ -210,10 +212,10 @@ fn summarize_tool_arguments(arguments: &Value) -> Value {
 }
 
 fn event_source_from_session(session_id: &SessionId) -> &'static str {
-    if session_id.as_str().starts_with("http-") {
-        "http"
+    if session_id.as_str().starts_with("subagent-") {
+        "subagent"
     } else {
-        "unknown"
+        "session"
     }
 }
 
@@ -344,18 +346,13 @@ fn wake_tool(repo: Arc<dyn CronJobRepo>, session_id: SessionId) -> Arc<dyn JsonT
                     repeat_count: Some(1),
                     repeat_completed: 0,
                     state: domain::cron::CronJobState::Active,
-                    source: domain::cron::CronJobSource::Cron,
                     next_run_at: now + chrono::Duration::seconds(seconds as i64),
                     last_run_at: None,
                     last_status: None,
                     last_error: None,
-                    delegated_session_id: None,
                     session_continuation_id: Some(session_id.as_str().to_string()),
                     created_at: now,
                     created_by_session: session_id.as_str().to_string(),
-                    agent_name: None,
-                    last_result: None,
-                    delegate_stream_id: None,
                 };
                 repo.create(&job).await?;
                 Ok(json!({"job_id": id, "next_run_at": job.next_run_at.to_rfc3339()}))
@@ -591,12 +588,12 @@ fn build_agent_list_description(
     )
 }
 
-fn delegate_tool(
-    repo: Arc<dyn CronJobRepo>,
+fn subagent_task_tool(
+    repo: Arc<dyn SubagentTaskRepo>,
     session_id: SessionId,
     agent_registry: Arc<AgentDefinitionRegistry>,
-    config: DelegateConfig,
-    stream_creator: Option<DelegateStreamCreator>,
+    config: SubagentTaskConfig,
+    stream_creator: Option<SubagentStreamCreator>,
 ) -> Arc<dyn JsonTool> {
     let agent_desc = build_agent_list_description(&agent_registry, &config.agents);
     let agent_names: Vec<String> = if config.agents.is_empty() {
@@ -609,14 +606,15 @@ fn delegate_tool(
 
     Arc::new(DynamicTool::new(
         ToolDefinition {
-            name: "delegate".into(),
-            description: "Delegate a task to a sub-agent in an isolated background session.".into(),
+            name: "subagent_task".into(),
+            description: "Run a task with a configured subagent in an isolated background session."
+                .into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
                     "goal": {
                         "type": "string",
-                        "description": "The task to delegate."
+                        "description": "The task for the subagent."
                     },
                     "agent": {
                         "type": "string",
@@ -661,60 +659,58 @@ fn delegate_tool(
                 }
 
                 let now = Utc::now();
-                let id = format!("delegate-{}", now.timestamp_millis());
-                let child_session = format!("{}-delegate-{}", session_id.as_str(), id);
+                let id = format!("subagent-task-{}", now.timestamp_millis());
+                let child_session_id = SessionId::from(format!("subagent-{}", id));
 
-                // Create an SSE stream for the delegate session
-                let delegate_stream_id = if let Some(ref creator) = stream_creator {
-                    let (stream_id, _stream_url) = creator(&child_session).await;
-                    Some(stream_id)
+                // Create an SSE stream for the subagent task session.
+                let (stream_id, stream_url) = if let Some(ref creator) = stream_creator {
+                    creator(child_session_id.as_str()).await
                 } else {
-                    None
+                    (String::new(), String::new())
                 };
 
-                let job = domain::cron::CronJob {
+                let task = SubagentTask {
                     id: id.clone(),
-                    description: goal.chars().take(80).collect(),
-                    channel: derive_channel(&session_id),
-                    task_prompt: goal,
-                    cron_expression: None,
-                    interval_seconds: None,
-                    repeat_count: Some(1),
-                    repeat_completed: 0,
-                    state: domain::cron::CronJobState::Active,
-                    source: domain::cron::CronJobSource::Delegate,
-                    next_run_at: now,
-                    last_run_at: None,
-                    last_status: Some("queued".into()),
-                    last_error: None,
-                    delegated_session_id: Some(child_session.clone()),
-                    session_continuation_id: None,
+                    parent_session_id: session_id.clone(),
+                    child_session_id: child_session_id.clone(),
+                    agent_name: agent_name.clone(),
+                    goal,
+                    stream_id: if stream_id.is_empty() {
+                        None
+                    } else {
+                        Some(stream_id.clone())
+                    },
+                    state: SubagentTaskState::Queued,
+                    result: None,
+                    error: None,
                     created_at: now,
-                    created_by_session: session_id.as_str().to_string(),
-                    agent_name: Some(agent_name),
-                    last_result: None,
-                    delegate_stream_id,
+                    started_at: None,
+                    completed_at: None,
+                    updated_at: now,
                 };
-                repo.create(&job).await?;
+                repo.create(&task).await?;
                 Ok(json!({
                     "job_id": id,
                     "state": "queued",
+                    "session_id": child_session_id.as_str(),
+                    "stream_id": task.stream_id,
+                    "stream_url": if stream_url.is_empty() { Value::Null } else { Value::String(stream_url) },
                     "message": format!(
-                        "The subagent is now working. You will be automatically notified once the subagent is done working. If you need to check on its progress, please call the check_delegate_status tool with job id {}.",
+                        "The subagent is now working. You will be automatically notified once the subagent is done working. If you need to check on its progress, call check_subagent_task_status with job id {}.",
                         id
                     ),
-                    "system_reminder": "Delegated sub-agents run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
+                    "system_reminder": "Subagent tasks run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
                 }))
             })
         },
     ))
 }
 
-fn check_delegated_status_tool(repo: Arc<dyn CronJobRepo>) -> Arc<dyn JsonTool> {
+fn check_subagent_task_status_tool(repo: Arc<dyn SubagentTaskRepo>) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
-            name: "check_delegated_status".into(),
-            description: "Check the status of a background delegated task.".into(),
+            name: "check_subagent_task_status".into(),
+            description: "Check the status of a background subagent task.".into(),
             parameters: json!({"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}),
         },
         move |args| {
@@ -724,31 +720,43 @@ fn check_delegated_status_tool(repo: Arc<dyn CronJobRepo>) -> Arc<dyn JsonTool> 
                     .get("job_id")
                     .and_then(Value::as_str)
                     .ok_or_else(|| anyhow!("job_id required"))?;
-                let job = repo
+                let task = repo
                     .get(id)
                     .await?
                     .ok_or_else(|| anyhow!("job not found"))?;
                 let mut result = json!({
-                    "job_id": job.id,
-                    "state": format!("{:?}", job.state),
-                    "last_status": job.last_status,
-                    "last_error": job.last_error,
-                    "result": job.last_result,
-                    "session_id": job.delegated_session_id,
-                    "system_reminder": "Delegated sub-agents run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
+                    "job_id": task.id,
+                    "state": subagent_task_state_string(task.state),
+                    "error": task.error,
+                    "result": task.result,
+                    "session_id": task.child_session_id.as_str(),
+                    "stream_id": task.stream_id,
+                    "system_reminder": "Subagent tasks run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
                 });
-                if matches!(job.state, domain::cron::CronJobState::Active) {
+                if matches!(
+                    task.state,
+                    SubagentTaskState::Queued | SubagentTaskState::Running
+                ) {
                     result["_hint"] = serde_json::json!(format!(
                         "This task is still running. Use the wake tool \
                          (seconds=10, task_prompt='Check status of job {}') \
                          to check again later instead of polling immediately.",
-                        job.id
+                        task.id
                     ));
                 }
                 Ok(result)
             })
         },
     ))
+}
+
+fn subagent_task_state_string(state: SubagentTaskState) -> &'static str {
+    match state {
+        SubagentTaskState::Queued => "queued",
+        SubagentTaskState::Running => "running",
+        SubagentTaskState::Completed => "completed",
+        SubagentTaskState::Failed => "failed",
+    }
 }
 
 async fn execute_cron(
@@ -796,18 +804,13 @@ async fn execute_cron(
                     .map(|v| v as u32),
                 repeat_completed: 0,
                 state: domain::cron::CronJobState::Active,
-                source: domain::cron::CronJobSource::Cron,
                 next_run_at: now + chrono::Duration::seconds(interval_seconds as i64),
                 last_run_at: None,
                 last_status: None,
                 last_error: None,
-                delegated_session_id: None,
                 session_continuation_id: None,
                 created_at: now,
                 created_by_session: session_id.as_str().to_string(),
-                agent_name: None,
-                last_result: None,
-                delegate_stream_id: None,
             };
             repo.create(&job).await?;
             emit_schedule_event(
@@ -826,8 +829,11 @@ async fn execute_cron(
 
         "list" => {
             let jobs = repo
-                .list_by_source(domain::cron::CronJobSource::Cron)
-                .await?;
+                .list_all()
+                .await?
+                .into_iter()
+                .filter(is_persistent_schedule_job)
+                .collect::<Vec<_>>();
             Ok(json!({"jobs": jobs, "total": jobs.len()}))
         }
         "cancel" => {
@@ -965,16 +971,12 @@ pub fn schedule_run_key(job_id: &str, scheduled_at: DateTime<Utc>) -> String {
 }
 
 fn is_persistent_schedule_job(job: &CronJob) -> bool {
-    match job.source {
-        CronJobSource::Cron => job.session_continuation_id.is_none(),
-        CronJobSource::Delegate => true,
-    }
+    job.session_continuation_id.is_none()
 }
 
 fn schedule_payload(job: &CronJob, session_id: &SessionId, origin: &str) -> Value {
-    let mut payload = json!({
+    json!({
         "job_id": job.id,
-        "source": cron_source_string(job.source),
         "state": cron_state_string(job.state),
         "channel": job.channel,
         "description": job.description,
@@ -991,18 +993,7 @@ fn schedule_payload(job: &CronJob, session_id: &SessionId, origin: &str) -> Valu
         "created_at": job.created_at.to_rfc3339(),
         "session_id": session_id.as_str(),
         "origin": origin,
-    });
-    if let Some(ref agent_name) = job.agent_name {
-        payload["agent_name"] = Value::String(agent_name.clone());
-    }
-    payload
-}
-
-fn cron_source_string(source: CronJobSource) -> &'static str {
-    match source {
-        CronJobSource::Cron => "cron",
-        CronJobSource::Delegate => "delegate",
-    }
+    })
 }
 
 fn cron_state_string(state: CronJobState) -> &'static str {

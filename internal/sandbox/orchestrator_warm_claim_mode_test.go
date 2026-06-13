@@ -28,11 +28,9 @@ func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	provider.warmEndpoint = health.URL
 
 	cfg := &config.Config{
-		SandboxWarmPoolEmployeeSize:     1,
-		SandboxWarmPoolSpecialistSize:   1,
-		RailwayRuntimePort:              7080,
-		SandboxesRuntimeBaseImage:       "runtime:test",
-		SandboxesRuntimeSpecialistImage: "runtime-specialist:test",
+		SandboxWarmPoolEmployeeSize: 1,
+		RailwayRuntimePort:          7080,
+		SandboxesRuntimeBaseImage:   "runtime:test",
 	}
 	pool := NewWarmPool(db, provider, testEncKey(t), cfg)
 	if _, err := pool.Reconcile(context.Background(), mode, nil); err != nil {
@@ -89,14 +87,8 @@ func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	return pushed
 }
 
-// The warm-claim config push is mode-aware: employee claims get the employee
-// config; specialist claims must NOT (the launcher pushes the specialist
-// definition, and the employee config would repoint schedules onto it).
-func TestClaimWarmRuntime_PushesEmployeeConfigOnlyForEmployeeMode(t *testing.T) {
+func TestClaimWarmRuntime_PushesEmployeeConfig(t *testing.T) {
 	if pushed := claimWarmRuntimeForMode(t, model.SandboxWarmSlotModeEmployee); !pushed {
 		t.Fatal("employee warm claim must push the employee runtime config")
-	}
-	if pushed := claimWarmRuntimeForMode(t, model.SandboxWarmSlotModeSpecialist); pushed {
-		t.Fatal("specialist warm claim must NOT push the employee runtime config")
 	}
 }

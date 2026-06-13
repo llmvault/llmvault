@@ -6,31 +6,31 @@ import "fmt"
 // Fields match the exact API response documented at
 // https://api.slack.com/methods/conversations.list
 type SlackChannel struct {
-	ID                string   `json:"id"`
-	Name              string   `json:"name"`
-	IsChannel         bool     `json:"is_channel"`
-	IsGroup           bool     `json:"is_group"`
-	IsIM              bool     `json:"is_im"`
-	Created           int64    `json:"created"`
-	Creator           string   `json:"creator"`
-	IsArchived        bool     `json:"is_archived"`
-	IsGeneral         bool     `json:"is_general"`
-	Unlinked          int      `json:"unlinked"`
-	NameNormalized    string   `json:"name_normalized"`
-	IsShared          bool     `json:"is_shared"`
-	IsExtShared       bool     `json:"is_ext_shared"`
-	IsOrgShared       bool     `json:"is_org_shared"`
-	IsMember          bool     `json:"is_member"`
-	IsPrivate         bool     `json:"is_private"`
-	IsMpim            bool     `json:"is_mpim"`
-	Updated           int64    `json:"updated"`
-	Topic             ChannelTopic `json:"topic"`
-	Purpose           ChannelTopic `json:"purpose"`
-	PreviousNames     []string `json:"previous_names,omitempty"`
-	NumMembers        int      `json:"num_members"`
-	Team              string   `json:"team,omitempty"`
-	ContextTeamID     string   `json:"context_team_id,omitempty"`
-	SharedTeamIDs     []string `json:"shared_team_ids,omitempty"`
+	ID             string       `json:"id"`
+	Name           string       `json:"name"`
+	IsChannel      bool         `json:"is_channel"`
+	IsGroup        bool         `json:"is_group"`
+	IsIM           bool         `json:"is_im"`
+	Created        int64        `json:"created"`
+	Creator        string       `json:"creator"`
+	IsArchived     bool         `json:"is_archived"`
+	IsGeneral      bool         `json:"is_general"`
+	Unlinked       int          `json:"unlinked"`
+	NameNormalized string       `json:"name_normalized"`
+	IsShared       bool         `json:"is_shared"`
+	IsExtShared    bool         `json:"is_ext_shared"`
+	IsOrgShared    bool         `json:"is_org_shared"`
+	IsMember       bool         `json:"is_member"`
+	IsPrivate      bool         `json:"is_private"`
+	IsMpim         bool         `json:"is_mpim"`
+	Updated        int64        `json:"updated"`
+	Topic          ChannelTopic `json:"topic"`
+	Purpose        ChannelTopic `json:"purpose"`
+	PreviousNames  []string     `json:"previous_names,omitempty"`
+	NumMembers     int          `json:"num_members"`
+	Team           string       `json:"team,omitempty"`
+	ContextTeamID  string       `json:"context_team_id,omitempty"`
+	SharedTeamIDs  []string     `json:"shared_team_ids,omitempty"`
 }
 
 type ChannelTopic struct {
@@ -49,18 +49,18 @@ type conversationsListResponse struct {
 // SlackMessage mirrors a single Slack message from conversations.history
 // or conversations.replies. Verified against official API docs.
 type SlackMessage struct {
-	Type         string      `json:"type"`
-	User         string      `json:"user,omitempty"`
-	Text         string      `json:"text"`
-	TS           string      `json:"ts"`
-	ThreadTS     string      `json:"thread_ts,omitempty"`
-	BotID        string      `json:"bot_id,omitempty"`
-	AppID        string      `json:"app_id,omitempty"`
-	BotProfile   *BotProfile `json:"bot_profile,omitempty"`
-	Subtype      string      `json:"subtype,omitempty"`
+	Type         string       `json:"type"`
+	User         string       `json:"user,omitempty"`
+	Text         string       `json:"text"`
+	TS           string       `json:"ts"`
+	ThreadTS     string       `json:"thread_ts,omitempty"`
+	BotID        string       `json:"bot_id,omitempty"`
+	AppID        string       `json:"app_id,omitempty"`
+	BotProfile   *BotProfile  `json:"bot_profile,omitempty"`
+	Subtype      string       `json:"subtype,omitempty"`
 	Attachments  []Attachment `json:"attachments,omitempty"`
-	ParentUserID string      `json:"parent_user_id,omitempty"`
-	ReplyCount   int         `json:"reply_count,omitempty"`
+	ParentUserID string       `json:"parent_user_id,omitempty"`
+	ReplyCount   int          `json:"reply_count,omitempty"`
 }
 
 type BotProfile struct {
@@ -139,19 +139,19 @@ type responseMetadata struct {
 }
 
 var disallowedMsgSubtypes = map[string]struct{}{
-	"channel_join":               {},
-	"channel_leave":              {},
-	"channel_archive":            {},
-	"channel_unarchive":          {},
-	"pinned_item":                {},
-	"unpinned_item":              {},
-	"ekm_access_denied":          {},
+	"channel_join":                {},
+	"channel_leave":               {},
+	"channel_archive":             {},
+	"channel_unarchive":           {},
+	"pinned_item":                 {},
+	"unpinned_item":               {},
+	"ekm_access_denied":           {},
 	"channel_posting_permissions": {},
-	"group_join":                 {},
-	"group_leave":                {},
-	"group_archive":              {},
-	"group_unarchive":            {},
-	"channel_name":               {},
+	"group_join":                  {},
+	"group_leave":                 {},
+	"group_archive":               {},
+	"group_unarchive":             {},
+	"channel_name":                {},
 }
 
 const maxSlackPageSize = 200

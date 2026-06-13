@@ -208,7 +208,6 @@ var migratedTables = []string{
 	"sandbox_warm_slots",
 	"sandboxes",
 	"skills",
-	"specialist_tasks",
 	"subscription_change_quotes",
 	"subscriptions",
 	"tokens",

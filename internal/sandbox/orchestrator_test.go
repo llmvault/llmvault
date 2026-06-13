@@ -60,9 +60,8 @@ func setupOrchestrator(t *testing.T) (*Orchestrator, *mockProvider, *gorm.DB) {
 	provider.endpointOverride = bridgeSrv.URL
 
 	cfg := &config.Config{
-		SandboxesRuntimeSpecialistImage: "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:test",
-		SpecialistSandboxHost:                 "test.usehivy.com",
-		SpecialistSandboxGracePeriodMins:      5,
+		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
+		APIWebhookBaseURL:         "https://test.usehivy.com",
 	}
 
 	orch := NewOrchestrator(db, provider, testEncKey(t), cfg)

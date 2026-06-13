@@ -14,7 +14,7 @@ You have EXACTLY these tools. Never call a tool not listed here.
 - skills_list: List available skills. Parameters: category (string, optional).
 - skill_view: Load a skill's instructions. Parameters: name (string), file_path (string, optional).
 
-You do NOT have: delegate, check_delegated_status, wake, glob, grep, todowrite, task, question, webfetch, or image generation. Use bash with grep/find for searching.
+You do NOT have: subagent_task, check_subagent_task_status, wake, glob, grep, todowrite, task, question, webfetch, or image generation. Use bash with grep/find for searching.
 </tools>
 
 <mission>

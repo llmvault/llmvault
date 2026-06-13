@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::cron::{CronJob, CronJobSource, CronJobState};
-use domain::{AgentDefinition, EventKind, Session, SessionEvent, SessionId, SessionStatus};
+use domain::cron::{CronJob, CronJobState};
+use domain::{
+    AgentDefinition, EventKind, Session, SessionEvent, SessionId, SessionStatus, SubagentTask,
+    SubagentTaskState,
+};
 use std::sync::Arc;
 
 #[derive(Debug, thiserror::Error)]
@@ -49,9 +52,6 @@ pub struct SessionListFilter {
     pub cursor: Option<SessionListCursor>,
     pub status: Option<SessionStatus>,
     pub session_id: Option<String>,
-    pub channel: Option<String>,
-    pub thread_ts: Option<String>,
-    pub agent_session_id: Option<String>,
     pub search: Option<String>,
 }
 
@@ -143,7 +143,6 @@ pub trait CronJobRepo: Send + Sync + 'static {
     async fn create(&self, job: &CronJob) -> Result<()>;
     async fn get(&self, id: &str) -> Result<Option<CronJob>>;
     async fn list_all(&self) -> Result<Vec<CronJob>>;
-    async fn list_by_source(&self, source: CronJobSource) -> Result<Vec<CronJob>>;
     async fn list_due(&self) -> Result<Vec<CronJob>>;
     async fn update_prompt(&self, id: &str, task_prompt: String) -> Result<()>;
     async fn update_interval(&self, id: &str, interval_seconds: u64) -> Result<()>;
@@ -157,14 +156,31 @@ pub trait CronJobRepo: Send + Sync + 'static {
         error: Option<&str>,
     ) -> Result<()>;
     async fn increment_repeat(&self, id: &str) -> Result<()>;
-    async fn record_result(&self, id: &str, result: &str) -> Result<()>;
-    async fn complete_delegate_result(
+    async fn delete(&self, id: &str) -> Result<()>;
+}
+
+#[async_trait]
+pub trait SubagentTaskRepo: Send + Sync + 'static {
+    async fn create(&self, task: &SubagentTask) -> Result<()>;
+    async fn get(&self, id: &str) -> Result<Option<SubagentTask>>;
+    async fn list_queued(&self, limit: u32) -> Result<Vec<SubagentTask>>;
+    async fn list_active_by_parent(
+        &self,
+        parent_session_id: &SessionId,
+    ) -> Result<Vec<SubagentTask>>;
+    async fn mark_running(&self, id: &str, started_at: DateTime<Utc>) -> Result<bool>;
+    async fn complete(
         &self,
         id: &str,
+        state: SubagentTaskState,
         completed_at: DateTime<Utc>,
-        status: &str,
-        error: Option<&str>,
         result: &str,
+        error: Option<&str>,
     ) -> Result<()>;
-    async fn delete(&self, id: &str) -> Result<()>;
+    async fn fail_active_for_parent(
+        &self,
+        parent_session_id: &SessionId,
+        completed_at: DateTime<Utc>,
+        error: &str,
+    ) -> Result<()>;
 }

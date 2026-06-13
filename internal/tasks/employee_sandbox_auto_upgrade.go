@@ -14,7 +14,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -29,7 +29,7 @@ type EmployeeSandboxAutoUpgradePayload struct {
 
 type EmployeeSandboxAutoUpgradeHandler struct {
 	db          *gorm.DB
-	compileDeps employeeruntime.CompileDeps
+	compileDeps agentruntime.CompileDeps
 	enqueuer    enqueue.TaskEnqueuer
 }
 
@@ -75,7 +75,7 @@ func EnqueueEmployeeSandboxAutoUpgrade(ctx context.Context, enqueuer enqueue.Tas
 	return nil
 }
 
-func NewEmployeeSandboxAutoUpgradeHandler(db *gorm.DB, compileDeps employeeruntime.CompileDeps, enqueuer enqueue.TaskEnqueuer) *EmployeeSandboxAutoUpgradeHandler {
+func NewEmployeeSandboxAutoUpgradeHandler(db *gorm.DB, compileDeps agentruntime.CompileDeps, enqueuer enqueue.TaskEnqueuer) *EmployeeSandboxAutoUpgradeHandler {
 	return &EmployeeSandboxAutoUpgradeHandler{db: db, compileDeps: compileDeps, enqueuer: enqueuer}
 }
 
@@ -121,10 +121,6 @@ func (h *EmployeeSandboxAutoUpgradeHandler) loadOutdatedEmployeeSandboxes(ctx co
 	if limit <= 0 {
 		limit = 1000
 	}
-	specialistRepo := imageRepository(h.compileDeps.Cfg.SandboxesRuntimeSpecialistImage)
-	if specialistRepo == "" {
-		specialistRepo = defaultSpecialistRepository(runtimeImage)
-	}
 	args := []any{}
 	query := `
 WITH latest AS (
@@ -140,12 +136,6 @@ WITH latest AS (
 		AND s.employee_id IS NOT NULL
 		AND e.status <> 'archived'
 `
-	if specialistRepo != "" {
-		query += `
-		AND (s.snapshot_id IS NULL OR (s.snapshot_id <> ? AND s.snapshot_id NOT LIKE ? AND s.snapshot_id NOT LIKE ?))
-`
-		args = append(args, specialistRepo, specialistRepo+":%", specialistRepo+"@%")
-	}
 	query += `
 	ORDER BY s.employee_id, s.created_at DESC
 )
@@ -228,30 +218,6 @@ func (h *EmployeeSandboxAutoUpgradeHandler) markFailed(ctx context.Context, upgr
 		"error_message": truncated,
 		"completed_at":  now,
 	}).Error
-}
-
-func imageRepository(image string) string {
-	image = strings.TrimSpace(image)
-	if image == "" {
-		return ""
-	}
-	if at := strings.Index(image, "@"); at >= 0 {
-		image = image[:at]
-	}
-	lastSlash := strings.LastIndex(image, "/")
-	lastColon := strings.LastIndex(image, ":")
-	if lastColon > lastSlash {
-		image = image[:lastColon]
-	}
-	return strings.TrimSpace(image)
-}
-
-func defaultSpecialistRepository(employeeImage string) string {
-	repo := imageRepository(employeeImage)
-	if repo == "" || strings.HasSuffix(repo, "-specialist") {
-		return ""
-	}
-	return repo + "-specialist"
 }
 
 func shortHash(value string) string {

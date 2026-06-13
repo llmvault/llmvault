@@ -11,7 +11,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -20,10 +20,10 @@ type ExpiredProxyTokenRefreshScheduler struct {
 	db          *gorm.DB
 	enqueuer    enqueue.TaskEnqueuer
 	inspector   enqueue.TaskInspector
-	compileDeps employeeruntime.CompileDeps
+	compileDeps agentruntime.CompileDeps
 }
 
-func NewExpiredProxyTokenRefreshScheduler(db *gorm.DB, enqueuer enqueue.TaskEnqueuer, inspector enqueue.TaskInspector, compileDeps employeeruntime.CompileDeps) *ExpiredProxyTokenRefreshScheduler {
+func NewExpiredProxyTokenRefreshScheduler(db *gorm.DB, enqueuer enqueue.TaskEnqueuer, inspector enqueue.TaskInspector, compileDeps agentruntime.CompileDeps) *ExpiredProxyTokenRefreshScheduler {
 	return &ExpiredProxyTokenRefreshScheduler{
 		db:          db,
 		enqueuer:    enqueuer,
@@ -37,7 +37,7 @@ func (s *ExpiredProxyTokenRefreshScheduler) HandleExpiredProxyToken(ctx context.
 	return err
 }
 
-func EnsureEmployeeProxyTokenRefreshScheduledForToken(ctx context.Context, db *gorm.DB, enqueuer enqueue.TaskEnqueuer, inspector enqueue.TaskInspector, compileDeps employeeruntime.CompileDeps, tok model.Token) (bool, error) {
+func EnsureEmployeeProxyTokenRefreshScheduledForToken(ctx context.Context, db *gorm.DB, enqueuer enqueue.TaskEnqueuer, inspector enqueue.TaskInspector, compileDeps agentruntime.CompileDeps, tok model.Token) (bool, error) {
 	if db == nil || enqueuer == nil {
 		return false, nil
 	}
@@ -46,8 +46,7 @@ func EnsureEmployeeProxyTokenRefreshScheduledForToken(ctx context.Context, db *g
 		return false, nil
 	}
 	if tokenMetaString(tok.Meta, model.TokenMetaType) != model.TokenTypeEmployeeProxy ||
-		tokenMetaString(tok.Meta, model.TokenMetaHarness) != model.TokenHarnessEmployeeSandbox ||
-		tokenMetaString(tok.Meta, model.TokenMetaRuntimeMode) != model.TokenRuntimeModeEmployee {
+		tokenMetaString(tok.Meta, model.TokenMetaHarness) != model.TokenHarnessEmployeeSandbox {
 		return false, nil
 	}
 	employeeID, err := uuid.Parse(tokenMetaString(tok.Meta, model.TokenMetaEmployeeID))

@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -46,7 +46,7 @@ impl DbSyncConfig {
         }
 
         let control_plane_url = env.get("HIVY_CONTROL_PLANE_URL").cloned()?;
-        let employee_id = env.get("HIVY_EMPLOYEE_ID").cloned()?;
+        let agent_id = env.get("HIVY_AGENT_ID").cloned()?;
         let runtime_secret = env.get("HIVY_RUNTIME_SECRET").cloned()?;
         let write_threshold =
             parse_u64_env(env, "HIVY_DB_SYNC_WRITE_THRESHOLD", DEFAULT_WRITE_THRESHOLD).max(1);
@@ -57,9 +57,9 @@ impl DbSyncConfig {
         )
         .max(1);
         let base_url = format!(
-            "{}/internal/employees/{}/sqlite-backup",
+            "{}/internal/agents/{}/sqlite-backup",
             control_plane_url.trim_end_matches('/'),
-            employee_id
+            agent_id
         );
 
         Some(Self {
@@ -84,6 +84,24 @@ pub struct DbSyncNotifier {
     sync_running: AtomicBool,
     write_threshold: u64,
     trigger_tx: mpsc::Sender<TriggerReason>,
+}
+
+#[derive(Default)]
+pub struct DbSyncNotifierHandle {
+    inner: RwLock<Option<Arc<DbSyncNotifier>>>,
+}
+
+impl DbSyncNotifierHandle {
+    pub fn set(&self, notifier: Arc<DbSyncNotifier>) {
+        match self.inner.write() {
+            Ok(mut inner) => {
+                *inner = Some(notifier);
+            }
+            Err(error) => {
+                warn!(%error, "sqlite backup notifier lock poisoned while setting notifier");
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -112,6 +130,21 @@ impl WriteNotifier for DbSyncNotifier {
         let pending = self.pending_writes.fetch_add(1, Ordering::Relaxed) + 1;
         if pending >= self.write_threshold {
             let _ = self.trigger_tx.try_send(TriggerReason::Threshold);
+        }
+    }
+}
+
+impl WriteNotifier for DbSyncNotifierHandle {
+    fn record_write(&self) {
+        let notifier = match self.inner.read() {
+            Ok(inner) => inner.clone(),
+            Err(error) => {
+                warn!(%error, "sqlite backup notifier lock poisoned while recording write");
+                None
+            }
+        };
+        if let Some(notifier) = notifier {
+            notifier.record_write();
         }
     }
 }
@@ -501,7 +534,7 @@ mod tests {
         let confirm = state.confirm_body.lock().await.clone();
         assert_eq!(
             confirm["key"],
-            "employee-sqlite-backups/org/agent/latest.db.gz"
+            "agent-sqlite-backups/org/agent/latest.db.gz"
         );
         assert_eq!(confirm["reason"], "threshold");
         assert_eq!(confirm["writes"], 1000);
@@ -538,7 +571,7 @@ mod tests {
         Ok(Json(json!({
             "status": "ok",
             "method": "PUT",
-            "key": "employee-sqlite-backups/org/agent/latest.db.gz",
+            "key": "agent-sqlite-backups/org/agent/latest.db.gz",
             "upload_url": format!("{base_url}/upload")
         })))
     }

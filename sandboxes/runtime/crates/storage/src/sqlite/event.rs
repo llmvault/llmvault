@@ -30,7 +30,7 @@ fn kind_from_str(value: &str) -> Result<EventKind> {
         "tool_call" => Ok(EventKind::ToolCall),
         "tool_result" => Ok(EventKind::ToolResult),
         "run_event" => Ok(EventKind::RunEvent),
-        "specialist_event" => Ok(EventKind::SpecialistEvent),
+        "subagent_event" => Ok(EventKind::SubagentEvent),
         "error" => Ok(EventKind::Error),
         other => Err(StorageError::Other(anyhow::anyhow!(
             "unknown event kind: {other}"

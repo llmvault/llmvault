@@ -3,16 +3,12 @@ use std::time::Duration;
 
 use agent::rig_tool_registry::{emit_schedule_event, schedule_run_key, ScheduleRunPayload};
 use chrono::Utc;
-use domain::agent_registry::AgentDefinitionRegistry;
-use domain::cron::{CronJobSource, CronJobState};
 use domain::event_types;
-use domain::{CronJob, InboundEvent, MessageHandle, SessionId};
+use domain::{CronJob, InboundEvent, SessionId};
 use outbound::OutboundEmitter;
 use storage::CronJobRepo;
 use tokio::sync::mpsc;
 use tracing::{error, info};
-
-use crate::handler::TurnEventSink;
 
 const POLL_INTERVAL_SECONDS: u64 = 5;
 const STALE_GRACE_MULTIPLIER: f64 = 0.5;
@@ -21,8 +17,6 @@ pub struct CronScheduler {
     repo: Arc<dyn CronJobRepo>,
     inbound_sink: mpsc::Sender<InboundEvent>,
     emitter: Option<Arc<OutboundEmitter>>,
-    agent_registry: Arc<AgentDefinitionRegistry>,
-    event_sink: Arc<dyn TurnEventSink>,
 }
 
 impl CronScheduler {
@@ -30,15 +24,11 @@ impl CronScheduler {
         repo: Arc<dyn CronJobRepo>,
         inbound_sink: mpsc::Sender<InboundEvent>,
         emitter: Option<Arc<OutboundEmitter>>,
-        agent_registry: Arc<AgentDefinitionRegistry>,
-        event_sink: Arc<dyn TurnEventSink>,
     ) -> Self {
         Self {
             repo,
             inbound_sink,
             emitter,
-            agent_registry,
-            event_sink,
         }
     }
 
@@ -115,7 +105,6 @@ impl CronScheduler {
         let session_id = SessionId::from(
             job.session_continuation_id
                 .clone()
-                .or_else(|| job.delegated_session_id.clone())
                 .unwrap_or_else(|| format!("{}-cron-{}", job.channel, job.id)),
         );
         let envelope_id = format!("cron-{}", Utc::now().timestamp_millis());
@@ -156,83 +145,31 @@ impl CronScheduler {
         )
         .await;
 
-        let agent_definition = job
-            .agent_name
-            .as_deref()
-            .and_then(|name| self.agent_registry.resolve(name));
-
-        if let Some(ref name) = job.agent_name {
-            if agent_definition.is_none() {
-                error!(
-                    job_id = %job.id,
-                    agent_name = %name,
-                    "cron: sub-agent not found in registry"
-                );
-                let _ = self
-                    .repo
-                    .record_run(
-                        &job.id,
-                        Utc::now(),
-                        "failed",
-                        Some(&format!("sub-agent '{}' not found", name)),
-                    )
-                    .await;
-                if job.source == CronJobSource::Delegate {
-                    let _ = self.repo.set_state(&job.id, CronJobState::Completed).await;
-                }
-                return;
-            }
-        }
-
         let mut raw = scheduled_job_raw_metadata(&job);
 
         // A scheduled run is only *enqueued* here — the turn has not run yet.
         // Carry the run-lifecycle context so the turn handler can mark the run
         // completed/failed (and delete one-shot/wake jobs, advance repeat
         // counts) *after* the turn actually executes, instead of the scheduler
-        // reporting success the moment it hands off. Delegates already complete
-        // via the handler's delegate path, so they are excluded here.
-        if job.source != CronJobSource::Delegate {
-            if let Some(obj) = raw.as_object_mut() {
-                obj.insert(
-                    "schedule_run_key".to_string(),
-                    serde_json::json!(run_key.clone()),
-                );
-                obj.insert(
-                    "schedule_scheduled_at".to_string(),
-                    serde_json::json!(scheduled_at),
-                );
-                obj.insert(
-                    "schedule_started_at".to_string(),
-                    serde_json::json!(started_at),
-                );
-                obj.insert(
-                    "schedule_is_one_shot".to_string(),
-                    serde_json::json!(is_one_shot),
-                );
-                obj.insert("schedule_is_wake".to_string(), serde_json::json!(is_wake));
-            }
-        }
-
-        // For delegates with a stream, inject http_stream_id so events flow to the delegate's SSE stream
-        if job.source == CronJobSource::Delegate {
-            if let Some(ref stream_id) = job.delegate_stream_id {
-                raw.as_object_mut()
-                    .unwrap()
-                    .insert("http_stream_id".to_string(), serde_json::json!(stream_id));
-
-                // Emit subagent_started on the parent's stream
-                let stream_url = format!("/gateway/http/streams/{}", stream_id);
-                let agent_name = job.agent_name.as_deref().unwrap_or("sub-agent");
-                self.event_sink
-                    .publish_subagent_started(
-                        &job.created_by_session,
-                        &job.id,
-                        agent_name,
-                        &stream_url,
-                    )
-                    .await;
-            }
+        // reporting success the moment it hands off.
+        if let Some(obj) = raw.as_object_mut() {
+            obj.insert(
+                "schedule_run_key".to_string(),
+                serde_json::json!(run_key.clone()),
+            );
+            obj.insert(
+                "schedule_scheduled_at".to_string(),
+                serde_json::json!(scheduled_at),
+            );
+            obj.insert(
+                "schedule_started_at".to_string(),
+                serde_json::json!(started_at),
+            );
+            obj.insert(
+                "schedule_is_one_shot".to_string(),
+                serde_json::json!(is_one_shot),
+            );
+            obj.insert("schedule_is_wake".to_string(), serde_json::json!(is_wake));
         }
 
         let inbound = InboundEvent {
@@ -244,14 +181,10 @@ impl CronScheduler {
             attachments: Vec::new(),
             dynamic_context: Vec::new(),
             raw,
-            inbound_handle: MessageHandle {
-                channel: job.channel.clone(),
-                ts: String::new(),
-            },
             is_direct_message: false,
             is_directly_addressed: true,
             link_previews: Vec::new(),
-            agent_definition,
+            agent_definition: None,
         };
 
         info!(
@@ -303,8 +236,7 @@ impl CronScheduler {
         // The run is now enqueued but NOT complete. The turn handler emits
         // SCHEDULE_RUN_COMPLETED/FAILED, deletes one-shot/wake jobs, and advances
         // repeat counts once the turn has actually executed (see
-        // `complete_scheduled_run` in the handler). Delegates are likewise
-        // completed by the handler's delegate path. Nothing further to do here.
+        // `complete_scheduled_run` in the handler).
         let _ = running_job;
     }
 }
@@ -335,16 +267,6 @@ fn next_future_occurrence(
 }
 
 fn scheduled_job_raw_metadata(job: &CronJob) -> serde_json::Value {
-    if job.source == CronJobSource::Delegate {
-        return serde_json::json!({
-            "source": "cron",
-            "job_kind": "delegate",
-            "job_id": job.id,
-            "agent_name": job.agent_name,
-            "parent_session_id": job.created_by_session,
-            "delegate_goal": job.task_prompt,
-        });
-    }
     if job.session_continuation_id.is_some() {
         return serde_json::json!({
             "source": "wake",
@@ -366,16 +288,14 @@ mod tests {
 
     use async_trait::async_trait;
     use chrono::{DateTime, Duration as ChronoDuration, Utc};
-    use domain::agent_registry::AgentDefinitionRegistry;
-    use domain::cron::{CronJobSource, CronJobState};
-    use domain::{AgentDefinition, CronJob};
-    use storage::repos::{CronJobRepo, Result as StorageResult, StorageError};
+    use domain::cron::CronJobState;
+    use domain::CronJob;
+    use storage::repos::{CronJobRepo, Result as StorageResult};
     use tokio::sync::mpsc;
 
     use super::{next_future_occurrence, scheduled_job_raw_metadata, CronScheduler};
-    use crate::handler::TurnEventSink;
 
-    fn test_job(id: &str, source: CronJobSource) -> CronJob {
+    fn test_job(id: &str) -> CronJob {
         CronJob {
             id: id.to_string(),
             description: "test".to_string(),
@@ -386,24 +306,19 @@ mod tests {
             repeat_count: None,
             repeat_completed: 0,
             state: CronJobState::Active,
-            source,
             next_run_at: Utc::now(),
             last_run_at: None,
             last_status: None,
             last_error: None,
-            delegated_session_id: None,
             session_continuation_id: None,
-            agent_name: None,
-            last_result: None,
-            delegate_stream_id: None,
             created_at: Utc::now(),
             created_by_session: "parent-session".to_string(),
         }
     }
 
     #[test]
-    fn wake_metadata_is_not_delegate_metadata() {
-        let mut job = test_job("wake-1", CronJobSource::Cron);
+    fn wake_metadata_is_not_subagent_task_metadata() {
+        let mut job = test_job("wake-1");
         job.session_continuation_id = Some("parent-session".to_string());
 
         let raw = scheduled_job_raw_metadata(&job);
@@ -412,22 +327,8 @@ mod tests {
         assert_eq!(raw["job_kind"], "wake");
         assert_eq!(raw["job_id"], "wake-1");
         assert!(raw.get("parent_session_id").is_none());
-        assert!(raw.get("delegate_goal").is_none());
+        assert!(raw.get("subagent_task_goal").is_none());
         assert!(raw.get("agent_name").is_none());
-    }
-
-    #[test]
-    fn delegate_metadata_is_explicitly_marked_delegate() {
-        let mut job = test_job("delegate-1", CronJobSource::Delegate);
-        job.agent_name = Some("software-engineering-specialist".to_string());
-
-        let raw = scheduled_job_raw_metadata(&job);
-
-        assert_eq!(raw["source"], "cron");
-        assert_eq!(raw["job_kind"], "delegate");
-        assert_eq!(raw["parent_session_id"], "parent-session");
-        assert_eq!(raw["delegate_goal"], "do work");
-        assert_eq!(raw["agent_name"], "software-engineering-specialist");
     }
 
     /// Minimal repo that records the last `update_next_run` it received and is a
@@ -456,9 +357,6 @@ mod tests {
             Ok(None)
         }
         async fn list_all(&self) -> StorageResult<Vec<CronJob>> {
-            Ok(Vec::new())
-        }
-        async fn list_by_source(&self, _source: CronJobSource) -> StorageResult<Vec<CronJob>> {
             Ok(Vec::new())
         }
         async fn list_due(&self) -> StorageResult<Vec<CronJob>> {
@@ -494,54 +392,14 @@ mod tests {
         async fn increment_repeat(&self, _id: &str) -> StorageResult<()> {
             Ok(())
         }
-        async fn record_result(&self, _id: &str, _result: &str) -> StorageResult<()> {
-            Ok(())
-        }
-        async fn complete_delegate_result(
-            &self,
-            _id: &str,
-            _completed_at: DateTime<Utc>,
-            _status: &str,
-            _error: Option<&str>,
-            _result: &str,
-        ) -> StorageResult<()> {
-            Err(StorageError::NotFound)
-        }
         async fn delete(&self, _id: &str) -> StorageResult<()> {
             Ok(())
         }
     }
 
-    struct NoopEventSink;
-
-    #[async_trait]
-    impl TurnEventSink for NoopEventSink {
-        async fn publish_agent_event(
-            &self,
-            _stream_id: &str,
-            _session_id: &domain::SessionId,
-            _event: &agent::AgentEvent,
-        ) {
-        }
-    }
-
-    fn test_registry() -> Arc<AgentDefinitionRegistry> {
-        let def: AgentDefinition = serde_json::from_value(serde_json::json!({
-            "agent": { "name": "test-agent" },
-            "model": {
-                "provider": "openai_compatible",
-                "base_url": "http://localhost",
-                "model_id": "test",
-                "api_key_env": "TEST_KEY"
-            }
-        }))
-        .expect("valid agent definition");
-        Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(def)))
-    }
-
     fn scheduler_with_repo(repo: Arc<RecordingCronRepo>) -> CronScheduler {
         let (tx, _rx) = mpsc::channel(8);
-        CronScheduler::new(repo, tx, None, test_registry(), Arc::new(NoopEventSink))
+        CronScheduler::new(repo, tx, None)
     }
 
     #[test]
@@ -581,7 +439,7 @@ mod tests {
         // the past — a long sandbox pause. lag far exceeds 2x the stale
         // threshold, so the occurrence must be skipped but rescheduled.
         let interval = 600u64;
-        let mut job = test_job("recurring-1", CronJobSource::Cron);
+        let mut job = test_job("recurring-1");
         job.interval_seconds = Some(interval);
         job.next_run_at = Utc::now() - ChronoDuration::days(2);
 
@@ -612,7 +470,7 @@ mod tests {
         let repo = Arc::new(RecordingCronRepo::new());
         let scheduler = scheduler_with_repo(repo.clone());
 
-        let mut job = test_job("recurring-2", CronJobSource::Cron);
+        let mut job = test_job("recurring-2");
         job.interval_seconds = Some(600);
         // Due only a few seconds ago — within the stale grace window.
         job.next_run_at = Utc::now() - ChronoDuration::seconds(5);

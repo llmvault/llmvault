@@ -1,13 +1,13 @@
-mod channel_gateway;
 mod db_sync;
 mod handler;
 mod scheduler;
 mod sentry_support;
 mod session_coordinator;
+mod subagent_worker;
 
-use channel_gateway::RuntimeGateway;
 use scheduler::CronScheduler;
 use session_coordinator::SessionCoordinator;
+use subagent_worker::SubagentWorker;
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -18,14 +18,13 @@ use agent::{AgentRunner, RigAgentRunner};
 use anyhow::{Context, Result};
 use api::{ApiState, OutboundConfigReloader};
 use async_trait::async_trait;
-use db_sync::{spawn_db_sync, DbSyncConfig};
+use db_sync::{spawn_db_sync, DbSyncConfig, DbSyncNotifierHandle};
 use domain::{
     AgentDefinition, AgentMeta, BashConfig, ConfigStore, DynamicContextPromptSegment, InboundEvent,
     ListPromptSegment, MemoryPromptSegment, ModelConfig, OutboundChannelSpec, ReadFileConfig,
     ReasoningEffort, StaticPromptSegment, SystemPromptConfig, SystemPromptSegment, ToolSpec,
     WriteFileConfig,
 };
-use gateway::ChannelGateway;
 use mcp::McpRegistry;
 use outbound::{
     build_registry_with_env, DatabaseEventQueue, OutboundDispatcher, OutboundEmitter,
@@ -35,7 +34,7 @@ use outbound::{
 use skills::SkillWriter;
 use storage::{
     init_sqlite_store, SqliteConfigRepo, SqliteCronJobRepo, SqliteEventRepo,
-    SqliteInboundDedupeRepo, SqliteOutboxRepo, SqliteSessionRepo,
+    SqliteInboundDedupeRepo, SqliteOutboxRepo, SqliteSessionRepo, SqliteSubagentTaskRepo,
 };
 use tokio::sync::{mpsc, RwLock};
 use tools::LocalBashOperations;
@@ -72,6 +71,10 @@ async fn main() -> Result<()> {
         "HIVY_RUNTIME_SECRET",
         "shared runtime bearer token",
     )?;
+    let stream_token = runtime_env
+        .get("HIVY_STREAM_TOKEN")
+        .cloned()
+        .filter(|value| !value.trim().is_empty());
     let bind_addr_text = runtime_env
         .get("HIVY_RUNTIME_BIND_ADDR")
         .cloned()
@@ -79,10 +82,6 @@ async fn main() -> Result<()> {
     let bind_addr: SocketAddr = bind_addr_text
         .parse()
         .context("HIVY_RUNTIME_BIND_ADDR must be a socket address")?;
-    let tunnel_password = runtime_env
-        .get("HIVY_TUNNEL_PASSWORD")
-        .cloned()
-        .filter(|s| !s.is_empty());
     let database_path = runtime_env
         .get("HIVY_DB_PATH")
         .cloned()
@@ -98,7 +97,9 @@ async fn main() -> Result<()> {
     info!(workspace = %workspace_root.display(), "workspace ready");
     info!(database = %database_path, "initializing storage");
     let database_path = PathBuf::from(&database_path);
-    let sqlite_store = init_sqlite_store(database_path.clone(), None).await?;
+    let db_sync_notifier_handle = Arc::new(DbSyncNotifierHandle::default());
+    let write_notifier: storage::SharedWriteNotifier = db_sync_notifier_handle.clone();
+    let sqlite_store = init_sqlite_store(database_path.clone(), Some(write_notifier)).await?;
     let config_repo: Arc<dyn storage::ConfigRepo> = Arc::new(SqliteConfigRepo::new(&sqlite_store));
     let session_repo: Arc<dyn storage::SessionRepo> =
         Arc::new(SqliteSessionRepo::new(&sqlite_store));
@@ -107,6 +108,8 @@ async fn main() -> Result<()> {
     let _dedupe_repo: Arc<dyn storage::InboundDedupeRepo> =
         Arc::new(SqliteInboundDedupeRepo::new(&sqlite_store));
     let cron_repo: Arc<dyn storage::CronJobRepo> = Arc::new(SqliteCronJobRepo::new(&sqlite_store));
+    let subagent_task_repo: Arc<dyn storage::SubagentTaskRepo> =
+        Arc::new(SqliteSubagentTaskRepo::new(&sqlite_store));
 
     let initial_definition = match config_repo.load().await? {
         Some(persisted) => {
@@ -140,13 +143,13 @@ async fn main() -> Result<()> {
         agent = %initial_definition.agent.name,
         persisted_mcp_servers = initial_definition.mcp_servers.len(),
         persisted_outbound_channels = initial_definition.outbound_channels.len(),
-        "waiting for first control-plane config push before starting employee services"
+        "waiting for first control-plane config push before starting agent runtime services"
     );
 
-    let http_stream_broker = Arc::new(api::HttpStreamBroker::new());
+    let session_stream_broker = Arc::new(api::SessionStreamBroker::new());
     let (inbound_sink, mut inbound_events) = mpsc::channel::<InboundEvent>(256);
-    let channel_gateway: Arc<dyn ChannelGateway> =
-        Arc::new(RuntimeGateway::new(http_stream_broker.clone()));
+    let attachment_downloader: Arc<dyn handler::AttachmentDownloader> =
+        Arc::new(handler::HttpAttachmentDownloader::new());
 
     let api_state = ApiState::new(
         config.clone(),
@@ -155,21 +158,21 @@ async fn main() -> Result<()> {
         event_repo.clone(),
         cron_repo.clone(),
         runtime_secret,
+        stream_token,
         workspace_root.clone(),
         Arc::new(LocalBashOperations),
         skill_writer,
-        Some(api::HttpGatewayState {
+        Some(api::SessionMessageState {
             inbound_sink: inbound_sink.clone(),
-            broker: http_stream_broker.clone(),
+            broker: session_stream_broker.clone(),
         }),
         Some(mcp_registry.clone()),
         Some(outbound_reloader),
-        tunnel_password,
         sentry_enabled,
         sentry_dsn_set,
     );
     let (api_handle, api_cancel) = api::serve(bind_addr, api_state.clone()).await;
-    api_state.mark_gateway_ready();
+    api_state.mark_session_api_ready();
 
     api_state.wait_for_config_loaded().await;
     let active_definition = config.snapshot();
@@ -181,7 +184,9 @@ async fn main() -> Result<()> {
                 interval_seconds = config.interval.as_secs(),
                 "sqlite backup sync enabled"
             );
-            spawn_db_sync(config)
+            let notifier = spawn_db_sync(config);
+            db_sync_notifier_handle.set(notifier.clone());
+            notifier
         });
     if db_sync_notifier.is_none() {
         info!("sqlite backup sync disabled");
@@ -190,7 +195,7 @@ async fn main() -> Result<()> {
         agent = %active_definition.agent.name,
         mcp_servers = active_definition.mcp_servers.len(),
         outbound_channels = active_definition.outbound_channels.len(),
-        "first control-plane config loaded; starting employee services"
+        "first control-plane config loaded; starting agent runtime services"
     );
 
     let dispatcher = OutboundDispatcher::new(outbox_repo.clone(), registry.clone());
@@ -210,50 +215,55 @@ async fn main() -> Result<()> {
             .with_database_queue(database_event_queue.clone()),
     );
 
-    let broker_for_streams = http_stream_broker.clone();
-    let delegate_stream_creator: agent::rig_tool_registry::DelegateStreamCreator =
+    let broker_for_streams = session_stream_broker.clone();
+    let subagent_stream_creator: agent::rig_tool_registry::SubagentStreamCreator =
         Arc::new(move |session_id: &str| {
             let broker = broker_for_streams.clone();
             let session_id = session_id.to_string();
             Box::pin(async move {
                 let stream_id = broker.create_stream().await;
                 broker.register_session(&session_id, &stream_id).await;
-                let stream_url = format!("/gateway/http/streams/{}", stream_id);
+                let stream_url = format!("/sessions/{}/streams/{}", session_id, stream_id);
                 (stream_id, stream_url)
             })
         });
     let rig_runner = RigAgentRunner::new(config.clone(), workspace_root.clone())
         .with_outbound_emitter(emitter.clone())
-        .with_gateway(channel_gateway.clone())
         .with_cron_repo(cron_repo.clone())
+        .with_subagent_task_repo(subagent_task_repo.clone())
         .with_event_repo(event_repo.clone())
         .with_mcp_registry(mcp_registry.clone())
-        .with_delegate_stream_creator(delegate_stream_creator);
+        .with_subagent_stream_creator(subagent_stream_creator);
     let agent_runner: Arc<dyn AgentRunner> = Arc::new(rig_runner);
 
     let coordinator = Arc::new(SessionCoordinator::new());
 
-    let turn_event_sink_for_scheduler: Arc<dyn handler::TurnEventSink> = http_stream_broker.clone();
     let scheduler = CronScheduler::new(
         cron_repo.clone(),
         inbound_sink.clone(),
         Some(emitter.clone()),
-        config.agent_registry(),
-        turn_event_sink_for_scheduler,
     );
     let _scheduler_handle = tokio::spawn(scheduler.run());
+    let subagent_worker = SubagentWorker::new(
+        subagent_task_repo.clone(),
+        config.clone(),
+        inbound_sink.clone(),
+        session_stream_broker.clone(),
+    );
+    let _subagent_worker_handle = tokio::spawn(subagent_worker.run());
 
     let event_loop = async {
         info!("listening for inbound events");
         while let Some(inbound) = inbound_events.recv().await {
             let runner = agent_runner.clone();
-            let gateway = channel_gateway.clone();
+            let attachment_downloader = attachment_downloader.clone();
             let cfg = config.clone();
             let emitter = emitter.clone();
             let session_repo = session_repo.clone();
             let coordinator = coordinator.clone();
-            let turn_event_sink: Arc<dyn handler::TurnEventSink> = http_stream_broker.clone();
+            let turn_event_sink: Arc<dyn handler::TurnEventSink> = session_stream_broker.clone();
             let cron_repo = cron_repo.clone();
+            let subagent_task_repo = subagent_task_repo.clone();
             let inbound_sink = inbound_sink.clone();
             // Capture the session id before moving `inbound` into the task so a
             // panicking turn can be cleaned up from the coordinator.
@@ -263,13 +273,14 @@ async fn main() -> Result<()> {
                 use futures::FutureExt;
                 let result = std::panic::AssertUnwindSafe(handler::handle_inbound(
                     runner,
-                    gateway,
+                    attachment_downloader,
                     cfg,
                     emitter,
                     session_repo,
                     coordinator,
                     turn_event_sink,
                     cron_repo,
+                    subagent_task_repo,
                     inbound_sink,
                     inbound,
                 ))
@@ -391,10 +402,8 @@ fn bootstrap_agent_definition() -> AgentDefinition {
     AgentDefinition {
         agent: AgentMeta {
             name: "Aria".into(),
-            description: "Hivy AI employee".into(),
+            description: "Hivy AI agent".into(),
         },
-        mode: Default::default(),
-        specialist_profile: None,
         system_prompt: bootstrap_system_prompt(),
         model: placeholder_model(),
         multimodal_model: None,
@@ -426,7 +435,7 @@ fn bootstrap_system_prompt() -> SystemPromptConfig {
     SystemPromptConfig {
         cacheable_segments: vec![SystemPromptSegment::StaticText(StaticPromptSegment {
             title: String::new(),
-            content: "You are Aria, a friendly AI employee. Reply concisely. Use search_sessions for recent local conversation context, search_knowledge_base for indexed company knowledge, and memory_recall for durable remembered facts when past context would materially improve the answer. Never invent features. If you do not know something, say so.".into(),
+            content: "You are Aria, a friendly AI agent. Reply concisely. Use search_sessions for recent local conversation context, search_knowledge_base for indexed company knowledge, and memory_recall for durable remembered facts when past context would materially improve the answer. Never invent features. If you do not know something, say so.".into(),
         })],
         dynamic_segments: vec![
             SystemPromptSegment::DynamicContext(DynamicContextPromptSegment {
@@ -485,8 +494,8 @@ fn default_builtin_tool_specs() -> Vec<ToolSpec> {
             atomic: true,
         }),
         ToolSpec::Cron,
-        ToolSpec::Delegate(Default::default()),
-        ToolSpec::CheckDelegatedStatus,
+        ToolSpec::SubagentTask(Default::default()),
+        ToolSpec::CheckSubagentTaskStatus,
         ToolSpec::CheckBashStatus,
         ToolSpec::SearchSessions,
         ToolSpec::Wake,

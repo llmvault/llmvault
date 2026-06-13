@@ -139,12 +139,6 @@ func TestShouldDeliverGatewayRuntimeFinal_UsesSessionSourceAndSkipsDirectSlackGa
 	if shouldDeliverGatewayRuntimeFinal(&model.EmployeeSession{Source: "cron"}, map[string]any{"text": "wake result"}) {
 		t.Fatal("non-gateway session should not deliver through gateway adapter")
 	}
-	if shouldDeliverGatewayRuntimeFinal(gatewaySession, map[string]any{"mode": "specialist", "text": "specialist result"}) {
-		t.Fatal("specialist runtime result should be delivered to the employee runtime, not Slack")
-	}
-	if shouldDeliverGatewayRuntimeFinal(gatewaySession, map[string]any{"specialist_task_id": uuid.NewString(), "text": "specialist result"}) {
-		t.Fatal("specialist task result should not deliver through gateway adapter")
-	}
 }
 
 func TestPayloadLooksSensitive(t *testing.T) {

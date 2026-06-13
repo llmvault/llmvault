@@ -20,7 +20,7 @@ import (
 
 	toolbox "github.com/daytonaio/daytona/libs/toolbox-api-client-go"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 )
 
 type remoteEnvPayload struct {
@@ -29,9 +29,9 @@ type remoteEnvPayload struct {
 }
 
 type doctorOutput struct {
-	SandboxID string                                   `json:"sandbox_id"`
-	PID       string                                   `json:"pid"`
-	Entries   []employeeruntime.EmployeeEnvReportEntry `json:"entries"`
+	SandboxID string                                `json:"sandbox_id"`
+	PID       string                                `json:"pid"`
+	Entries   []agentruntime.EmployeeEnvReportEntry `json:"entries"`
 }
 
 func main() {
@@ -77,7 +77,7 @@ func main() {
 	output := doctorOutput{
 		SandboxID: *sandboxID,
 		PID:       payload.PID,
-		Entries:   employeeruntime.EmployeeEnvReportFromEnv(payload.Env, *includeUnexpected, *includeSensitive),
+		Entries:   agentruntime.EmployeeEnvReportFromEnv(payload.Env, *includeUnexpected, *includeSensitive),
 	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)

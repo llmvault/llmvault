@@ -1,5 +1,5 @@
 // Package hivy implements Hivy's routing brain — the LLM-powered triage and
-// enrichment layer that decides which specialist agent handles each inbound
+// enrichment layer that decides which target agent handles each inbound
 // event and what cross-connection context to gather before dispatch.
 //
 // The package is provider-agnostic: it defines a CompletionClient interface

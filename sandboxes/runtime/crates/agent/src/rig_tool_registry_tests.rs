@@ -17,8 +17,6 @@ fn test_agent_definition() -> domain::AgentDefinition {
             name: "Test".to_string(),
             description: "Test agent".to_string(),
         },
-        mode: Default::default(),
-        specialist_profile: None,
         system_prompt: Default::default(),
         model: domain::ModelConfig::OpenaiCompatible {
             base_url: "http://localhost".to_string(),
@@ -50,6 +48,11 @@ struct FakeOutbox {
 #[derive(Default)]
 struct FakeCronRepo {
     jobs: Mutex<HashMap<String, CronJob>>,
+}
+
+#[derive(Default)]
+struct FakeSubagentTaskRepo {
+    tasks: Mutex<HashMap<String, SubagentTask>>,
 }
 
 #[async_trait]
@@ -111,17 +114,6 @@ impl CronJobRepo for FakeCronRepo {
             .collect())
     }
 
-    async fn list_by_source(&self, source: CronJobSource) -> storage::Result<Vec<CronJob>> {
-        Ok(self
-            .jobs
-            .lock()
-            .expect("cron lock")
-            .values()
-            .filter(|job| job.source == source)
-            .cloned()
-            .collect())
-    }
-
     async fn list_due(&self) -> storage::Result<Vec<CronJob>> {
         Ok(Vec::new())
     }
@@ -176,35 +168,105 @@ impl CronJobRepo for FakeCronRepo {
         Ok(())
     }
 
-    async fn record_result(&self, id: &str, result: &str) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.last_status = Some("completed".to_string());
-            job.last_result = Some(result.to_string());
-        }
-        Ok(())
-    }
-
-    async fn complete_delegate_result(
-        &self,
-        id: &str,
-        completed_at: DateTime<Utc>,
-        status: &str,
-        error: Option<&str>,
-        result: &str,
-    ) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.state = CronJobState::Completed;
-            job.last_run_at = Some(completed_at);
-            job.last_status = Some(status.to_string());
-            job.last_error = error.map(ToString::to_string);
-            job.last_result = Some(result.to_string());
-            job.repeat_completed += 1;
-        }
-        Ok(())
-    }
-
     async fn delete(&self, id: &str) -> storage::Result<()> {
         self.jobs.lock().expect("cron lock").remove(id);
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl SubagentTaskRepo for FakeSubagentTaskRepo {
+    async fn create(&self, task: &SubagentTask) -> storage::Result<()> {
+        self.tasks
+            .lock()
+            .expect("subagent lock")
+            .insert(task.id.clone(), task.clone());
+        Ok(())
+    }
+
+    async fn get(&self, id: &str) -> storage::Result<Option<SubagentTask>> {
+        Ok(self.tasks.lock().expect("subagent lock").get(id).cloned())
+    }
+
+    async fn list_queued(&self, _limit: u32) -> storage::Result<Vec<SubagentTask>> {
+        Ok(self
+            .tasks
+            .lock()
+            .expect("subagent lock")
+            .values()
+            .filter(|task| task.state == SubagentTaskState::Queued)
+            .cloned()
+            .collect())
+    }
+
+    async fn list_active_by_parent(
+        &self,
+        parent_session_id: &SessionId,
+    ) -> storage::Result<Vec<SubagentTask>> {
+        Ok(self
+            .tasks
+            .lock()
+            .expect("subagent lock")
+            .values()
+            .filter(|task| {
+                task.parent_session_id == *parent_session_id
+                    && matches!(
+                        task.state,
+                        SubagentTaskState::Queued | SubagentTaskState::Running
+                    )
+            })
+            .cloned()
+            .collect())
+    }
+
+    async fn mark_running(&self, id: &str, started_at: DateTime<Utc>) -> storage::Result<bool> {
+        let mut tasks = self.tasks.lock().expect("subagent lock");
+        let Some(task) = tasks.get_mut(id) else {
+            return Ok(false);
+        };
+        if task.state != SubagentTaskState::Queued {
+            return Ok(false);
+        }
+        task.state = SubagentTaskState::Running;
+        task.started_at = Some(started_at);
+        Ok(true)
+    }
+
+    async fn complete(
+        &self,
+        id: &str,
+        state: SubagentTaskState,
+        completed_at: DateTime<Utc>,
+        result: &str,
+        error: Option<&str>,
+    ) -> storage::Result<()> {
+        if let Some(task) = self.tasks.lock().expect("subagent lock").get_mut(id) {
+            task.state = state;
+            task.completed_at = Some(completed_at);
+            task.result = Some(result.to_string());
+            task.error = error.map(ToString::to_string);
+        }
+        Ok(())
+    }
+
+    async fn fail_active_for_parent(
+        &self,
+        parent_session_id: &SessionId,
+        completed_at: DateTime<Utc>,
+        error: &str,
+    ) -> storage::Result<()> {
+        for task in self.tasks.lock().expect("subagent lock").values_mut() {
+            if task.parent_session_id == *parent_session_id
+                && matches!(
+                    task.state,
+                    SubagentTaskState::Queued | SubagentTaskState::Running
+                )
+            {
+                task.state = SubagentTaskState::Failed;
+                task.completed_at = Some(completed_at);
+                task.error = Some(error.to_string());
+            }
+        }
         Ok(())
     }
 }
@@ -257,8 +319,8 @@ fn test_emitter(outbox: Arc<FakeOutbox>) -> Arc<OutboundEmitter> {
 fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dyn JsonTool> {
     let emitter = test_emitter(outbox);
     let ctx = ToolContext {
-        gateway: None,
         cron_repo: None,
+        subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
         mcp_registry: None,
@@ -267,7 +329,7 @@ fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dy
         agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
             test_agent_definition(),
         ))),
-        delegate_stream_creator: None,
+        subagent_stream_creator: None,
     };
     build_agent_tools(
         &[ToolSpec::SkillManage],
@@ -277,6 +339,67 @@ fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dy
     .into_iter()
     .find(|tool| tool.definition().name == "skill_manage")
     .expect("skill_manage tool")
+}
+
+#[tokio::test]
+async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
+    let repo = Arc::new(FakeSubagentTaskRepo::default());
+    let mut parent = test_agent_definition();
+    let helper = test_agent_definition();
+    parent.sub_agents.insert("helper".to_string(), helper);
+    let registry = Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(parent)));
+    let stream_creator: SubagentStreamCreator = Arc::new(|session_id| {
+        let session_id = session_id.to_string();
+        Box::pin(async move {
+            (
+                "stream-1".to_string(),
+                format!("/sessions/{session_id}/streams/stream-1"),
+            )
+        })
+    });
+
+    let task_tool = subagent_task_tool(
+        repo.clone(),
+        SessionId::from("parent-session"),
+        registry,
+        SubagentTaskConfig {
+            agents: vec!["helper".to_string()],
+        },
+        Some(stream_creator),
+    );
+    let created = task_tool
+        .call(json!({"agent": "helper", "goal": "Return HELPER_OK"}))
+        .await
+        .expect("create subagent task");
+    let job_id = created["job_id"].as_str().expect("job id");
+    assert_eq!(created["state"], "queued");
+    assert_eq!(created["session_id"], format!("subagent-{job_id}").as_str());
+    assert_eq!(
+        created["stream_url"],
+        format!("/sessions/subagent-{job_id}/streams/stream-1").as_str()
+    );
+
+    let task = repo
+        .get(job_id)
+        .await
+        .expect("repo get")
+        .expect("stored task");
+    assert_eq!(task.parent_session_id.as_str(), "parent-session");
+    assert_eq!(task.child_session_id.as_str(), format!("subagent-{job_id}"));
+    assert_eq!(task.agent_name, "helper");
+    assert_eq!(task.goal, "Return HELPER_OK");
+    assert_eq!(task.stream_id.as_deref(), Some("stream-1"));
+    assert_eq!(task.state, SubagentTaskState::Queued);
+
+    let status_tool = check_subagent_task_status_tool(repo);
+    let status = status_tool
+        .call(json!({"job_id": job_id}))
+        .await
+        .expect("check subagent task status");
+    assert_eq!(status["job_id"], job_id);
+    assert_eq!(status["state"], "queued");
+    assert_eq!(status["session_id"], format!("subagent-{job_id}").as_str());
+    assert_eq!(status["stream_id"], "stream-1");
 }
 
 #[tokio::test]
@@ -308,7 +431,7 @@ async fn skill_manage_create_emits_complete_sync_snapshot() {
     assert_eq!(event_type, event_types::SKILL_SYNCED);
     assert_eq!(payload["action"], "write_file");
     assert_eq!(payload["name"], "debug-deploys");
-    assert_eq!(payload["source"], "unknown");
+    assert_eq!(payload["source"], "session");
     assert_eq!(payload["description"], "Debug deploy failures.");
     assert_eq!(payload["files"]["references/errors.md"], "# Errors");
     assert!(payload["content"]
@@ -427,7 +550,7 @@ async fn cron_create_update_pause_resume_cancel_emit_schedule_events() {
             event_types::SCHEDULE_CANCELLED,
         ]
     );
-    assert_eq!(rows[0].2["source"], "cron");
+    assert_eq!(rows[0].2["session_id"], "C123-456.789");
     assert_eq!(rows[0].2["origin"], "tool");
     assert_eq!(rows[0].2["task_prompt"], "Check deploy health");
 }
@@ -446,18 +569,13 @@ async fn wake_jobs_do_not_emit_schedule_events() {
         repeat_count: Some(1),
         repeat_completed: 0,
         state: CronJobState::Active,
-        source: CronJobSource::Cron,
         next_run_at: now,
         last_run_at: None,
         last_status: None,
         last_error: None,
-        delegated_session_id: None,
         session_continuation_id: Some("C123-456.789".to_string()),
         created_at: now,
         created_by_session: "C123-456.789".to_string(),
-        agent_name: None,
-        last_result: None,
-        delegate_stream_id: None,
     };
     emit_schedule_event(
         Some(test_emitter(outbox.clone())),

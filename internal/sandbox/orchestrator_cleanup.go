@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -66,8 +65,8 @@ func (o *Orchestrator) revokeSandboxProxyTokens(ctx context.Context, sandboxID u
 	}
 }
 
-// RunSandboxReaper releases leaked paid compute: stuck creating/error sandboxes,
-// idle specialists, and stranded warm slots.
+// RunSandboxReaper releases leaked paid compute: stuck creating/error sandboxes
+// and stranded warm slots.
 func (o *Orchestrator) RunSandboxReaper(ctx context.Context) {
 	o.ReapStuckSandboxes(ctx)
 	if o.warmPool != nil {
@@ -79,7 +78,7 @@ func (o *Orchestrator) RunSandboxReaper(ctx context.Context) {
 
 // ReapStuckSandboxes deletes provider resources for sandboxes left 'creating'/
 // 'error' beyond a TTL — the backstop for a worker death mid-create that the
-// inline cleanupFailedSandbox missed. Also reaps idle/terminated specialists.
+// inline cleanupFailedSandbox missed.
 func (o *Orchestrator) ReapStuckSandboxes(ctx context.Context) {
 	const (
 		creatingTTL = 30 * time.Minute
@@ -89,7 +88,6 @@ func (o *Orchestrator) ReapStuckSandboxes(ctx context.Context) {
 
 	o.reapSandboxesByStatus(ctx, string(StatusCreating), now.Add(-creatingTTL))
 	o.reapSandboxesByStatus(ctx, string(StatusError), now.Add(-errorTTL))
-	o.reapIdleSpecialistSandboxes(ctx, now)
 }
 
 func (o *Orchestrator) reapSandboxesByStatus(ctx context.Context, status string, cutoff time.Time) {
@@ -115,38 +113,5 @@ func (o *Orchestrator) reapSandboxesByStatus(ctx context.Context, status string,
 		}
 		logging.FromContext(ctx).InfoContext(ctx, "reaped stuck sandbox",
 			"sandbox_id", sb.ID, "external_id", sb.ExternalID, "from_status", status)
-	}
-}
-
-// reapIdleSpecialistSandboxes releases specialist sandboxes whose task is
-// idle/terminated/error beyond a TTL; task completion only marks the task idle, so
-// without this the sandbox bills forever.
-func (o *Orchestrator) reapIdleSpecialistSandboxes(ctx context.Context, now time.Time) {
-	const idleSpecialistTTL = 1 * time.Hour
-	cutoff := now.Add(-idleSpecialistTTL)
-
-	var sandboxes []model.Sandbox
-	if err := o.db.WithContext(ctx).
-		Where(`status = ? AND provider_id = ? AND id IN (
-			SELECT sandbox_id FROM specialist_tasks
-			WHERE status IN ('idle', 'terminated', 'error') AND updated_at < ?
-		)`, string(StatusRunning), o.providerID(), cutoff).
-		Find(&sandboxes).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return
-		}
-		logging.FromContext(ctx).ErrorContext(ctx, "reap idle specialist sandboxes: query failed", "error", err)
-		return
-	}
-	for i := range sandboxes {
-		sb := &sandboxes[i]
-		if err := o.DeleteSandboxResource(ctx, sb); err != nil {
-			logging.FromContext(ctx).WarnContext(ctx, "reap idle specialist sandboxes: delete resource failed",
-				"sandbox_id", sb.ID, "error", err)
-			continue
-		}
-		o.revokeSandboxProxyTokens(ctx, sb.ID)
-		logging.FromContext(ctx).InfoContext(ctx, "reaped idle specialist sandbox",
-			"sandbox_id", sb.ID, "external_id", sb.ExternalID)
 	}
 }

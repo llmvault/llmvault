@@ -59,7 +59,7 @@
     "type": "builtin.skill_view"
   },
   {
-    "type": "builtin.delegate",
+    "type": "builtin.subagent_task",
     "config": {
       "agents": [
         "design-system",
@@ -69,7 +69,7 @@
     }
   },
   {
-    "type": "builtin.check_delegated_status"
+    "type": "builtin.check_subagent_task_status"
   },
   {
     "type": "builtin.check_bash_status"

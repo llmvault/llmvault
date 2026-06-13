@@ -1,13 +1,12 @@
 # hivy-sandboxes-runtime
 
-Rust runtime for AI agents that act as real-world employees over an HTTP gateway. One sandbox = one workspace = one employee runtime. Built on a provider-agnostic Rig-based agent runtime. Configured live via a control-plane HTTP API.
+Rust runtime for AI agents running inside sandbox workspaces. One sandbox = one workspace = one agent runtime. Built on a provider-agnostic Rig-based agent runtime and configured live via a control-plane HTTP API.
 
 ## Layout
 
 ```
 crates/
   domain/           # shared types: AgentDefinition, SessionId, InboundEvent, ConfigStore
-  gateway/          # ChannelGateway trait
   agent/            # AgentRunner trait, Rig-based agent runtime
   storage/          # SQLite repos + migrations
   tools/            # bash, read_file, write_file, ...
@@ -17,14 +16,6 @@ crates/
   api/              # axum control-plane HTTP
   hivy-sandboxes-runtime/  # binary
 ```
-
-## Phase status
-
-- **Phase 0 — foundations:** trait contracts and shared types (current)
-- Phase 1 — five parallel tracks (HTTP gateway, agent, storage, api, webhooks)
-- Phase 2 — integration; HTTP gateway request → reply test
-- Phase 3 — tools, MCP, skills, rich HTTP events
-- Phase 4 — observability and hardening
 
 ## Sentry
 

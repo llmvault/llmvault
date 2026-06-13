@@ -11,20 +11,19 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Utc;
 use domain::{
-    event_types, ConfigStore, InboundEvent, MessageHandle, OutboundEvent, Reply, SessionId,
-    SessionStatus,
+    event_types, ConfigStore, InboundEvent, OutboundEvent, SessionId, SessionStatus,
+    SubagentTaskState,
 };
 use futures::StreamExt;
-use gateway::ChannelGateway;
 use outbound::OutboundEmitter;
 use serde_json::Value;
-use storage::CronJobRepo;
-use storage::SessionRepo;
+use storage::{CronJobRepo, SessionRepo, SubagentTaskRepo};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use composition::compose_annotated_text;
 use media::{collect_media_for_turn, DownloadResults};
+pub use media::{AttachmentDownloader, HttpAttachmentDownloader};
 use session::ensure_session_persisted;
 
 use crate::session_coordinator::{SessionCoordinator, Submission};
@@ -51,7 +50,7 @@ pub trait TurnEventSink: Send + Sync + 'static {
         event: &AgentEvent,
     );
 
-    /// Emit on the PARENT stream when a delegate starts.
+    /// Emit on the PARENT stream when a subagent task starts.
     async fn publish_subagent_started(
         &self,
         _parent_session_id: &str,
@@ -61,7 +60,7 @@ pub trait TurnEventSink: Send + Sync + 'static {
     ) {
     }
 
-    /// Emit on the PARENT stream when a delegate completes.
+    /// Emit on the PARENT stream when a subagent task completes.
     async fn publish_subagent_completed(
         &self,
         _parent_session_id: &str,
@@ -70,7 +69,7 @@ pub trait TurnEventSink: Send + Sync + 'static {
     ) {
     }
 
-    /// Emit on the PARENT stream when a delegate errors.
+    /// Emit on the PARENT stream when a subagent task errors.
     async fn publish_subagent_errored(
         &self,
         _parent_session_id: &str,
@@ -82,7 +81,7 @@ pub trait TurnEventSink: Send + Sync + 'static {
 }
 
 #[async_trait]
-impl TurnEventSink for api::HttpStreamBroker {
+impl TurnEventSink for api::SessionStreamBroker {
     async fn activate_session_stream(&self, session_id: &SessionId, stream_id: &str) {
         self.activate_session_stream(session_id.as_str(), stream_id)
             .await;
@@ -265,13 +264,14 @@ impl TurnEventSink for api::HttpStreamBroker {
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_inbound(
     runner: Arc<dyn AgentRunner>,
-    gateway: Arc<dyn ChannelGateway>,
+    attachment_downloader: Arc<dyn AttachmentDownloader>,
     config: ConfigStore,
     emitter: Arc<OutboundEmitter>,
     session_repo: Arc<dyn SessionRepo>,
     coordinator: Arc<SessionCoordinator>,
     turn_event_sink: Arc<dyn TurnEventSink>,
     cron_repo: Arc<dyn CronJobRepo>,
+    subagent_task_repo: Arc<dyn SubagentTaskRepo>,
     inbound_sink: mpsc::Sender<InboundEvent>,
     inbound: InboundEvent,
 ) -> Result<()> {
@@ -291,33 +291,29 @@ pub async fn handle_inbound(
                 .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
                 .await;
         }
-        if let Some(stream_id) = session_response_stream_id(&inbound) {
-            turn_event_sink
-                .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
-                .await;
-        }
         return Ok(());
     }
 
     let mut current_inbound = inbound;
-    let http_stream_id = session_stream_id(&current_inbound);
+    let session_stream_id = session_stream_id(&current_inbound);
     'turns: loop {
         process_single_turn(
             runner.clone(),
-            gateway.clone(),
+            attachment_downloader.clone(),
             config.clone(),
             emitter.clone(),
             session_repo.clone(),
             &current_inbound,
             turn_event_sink.clone(),
             cron_repo.clone(),
+            subagent_task_repo.clone(),
             coordinator.clone(),
             inbound_sink.clone(),
         )
         .await?;
 
         let mut published_waiting = false;
-        let mut delegate_wait_deadline: Option<std::time::Instant> = None;
+        let mut subagent_task_wait_deadline: Option<std::time::Instant> = None;
         loop {
             let follow_ups = coordinator.drain_queued(&current_inbound.session_id);
             if !follow_ups.is_empty() {
@@ -325,29 +321,37 @@ pub async fn handle_inbound(
                 continue 'turns;
             }
 
-            if session_has_active_delegates(cron_repo.as_ref(), &current_inbound.session_id).await {
-                // Bound how long the parent turn waits on its delegates. A
-                // delegate whose complete_delegate_result write never lands (or
+            if session_has_active_subagent_tasks(
+                subagent_task_repo.as_ref(),
+                &current_inbound.session_id,
+            )
+            .await
+            {
+                // Bound how long the parent turn waits on its subagent tasks. A
+                // subagent task whose complete_subagent_task_result write never lands (or
                 // a sub-agent that never reports back) would otherwise leave the
                 // job Active forever and spin this loop indefinitely.
-                let deadline = *delegate_wait_deadline
-                    .get_or_insert_with(|| std::time::Instant::now() + MAX_DELEGATE_WAIT);
+                let deadline = *subagent_task_wait_deadline
+                    .get_or_insert_with(|| std::time::Instant::now() + MAX_SUBAGENT_TASK_WAIT);
                 if std::time::Instant::now() >= deadline {
                     warn!(
                         session = %current_inbound.session_id,
-                        "delegate wait exceeded maximum; force-failing stuck delegates"
+                        "subagent task wait exceeded maximum; force-failing stuck tasks"
                     );
-                    force_fail_active_delegates(cron_repo.as_ref(), &current_inbound.session_id)
-                        .await;
+                    force_fail_active_subagent_tasks(
+                        subagent_task_repo.as_ref(),
+                        &current_inbound.session_id,
+                    )
+                    .await;
                     continue;
                 }
                 if !published_waiting {
-                    if let Some(stream_id) = http_stream_id.as_deref() {
+                    if let Some(stream_id) = session_stream_id.as_deref() {
                         turn_event_sink
                             .publish_waiting(
                                 stream_id,
                                 &current_inbound.session_id,
-                                "delegated_tasks",
+                                "subagent_tasks",
                             )
                             .await;
                     }
@@ -356,11 +360,11 @@ pub async fn handle_inbound(
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 continue;
             }
-            delegate_wait_deadline = None;
+            subagent_task_wait_deadline = None;
 
             if runner.active_background_processes(&current_inbound.session_id) > 0 {
                 if !published_waiting {
-                    if let Some(stream_id) = http_stream_id.as_deref() {
+                    if let Some(stream_id) = session_stream_id.as_deref() {
                         turn_event_sink
                             .publish_waiting(
                                 stream_id,
@@ -386,14 +390,9 @@ pub async fn handle_inbound(
 
             let follow_ups = coordinator.finish_turn(&current_inbound.session_id);
             if follow_ups.is_empty() {
-                if let Some(stream_id) = http_stream_id.as_deref() {
+                if let Some(stream_id) = session_stream_id.as_deref() {
                     turn_event_sink
                         .publish_done(stream_id, &current_inbound.session_id)
-                        .await;
-                }
-                if let Some(stream_id) = session_response_stream_id(&current_inbound) {
-                    turn_event_sink
-                        .publish_done(&stream_id, &current_inbound.session_id)
                         .await;
                 }
                 break 'turns;
@@ -408,61 +407,34 @@ pub async fn handle_inbound(
     Ok(())
 }
 
-/// Maximum time the parent turn will wait for its delegates to report back
-/// before force-failing them. Without this bound a delegate whose result write
+/// Maximum time the parent turn will wait for its subagent tasks to report back
+/// before force-failing them. Without this bound a task whose result write
 /// never lands keeps the job Active and spins the parent loop forever.
-const MAX_DELEGATE_WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+const MAX_SUBAGENT_TASK_WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 
-async fn session_has_active_delegates(repo: &dyn CronJobRepo, session_id: &SessionId) -> bool {
-    let Ok(jobs) = repo
-        .list_by_source(domain::cron::CronJobSource::Delegate)
-        .await
-    else {
+async fn session_has_active_subagent_tasks(
+    repo: &dyn SubagentTaskRepo,
+    session_id: &SessionId,
+) -> bool {
+    let Ok(tasks) = repo.list_active_by_parent(session_id).await else {
         return false;
     };
-    jobs.into_iter().any(|job| {
-        job.created_by_session == session_id.as_str()
-            && matches!(job.state, domain::cron::CronJobState::Active)
-    })
+    !tasks.is_empty()
 }
 
-/// Force every still-Active delegate job for this session into a terminal state
+/// Force every still-Active subagent task for this session into a terminal state
 /// so the parent turn's busy-poll loop can exit. Used only after the parent has
-/// waited past MAX_DELEGATE_WAIT.
-async fn force_fail_active_delegates(repo: &dyn CronJobRepo, session_id: &SessionId) {
-    let jobs = match repo
-        .list_by_source(domain::cron::CronJobSource::Delegate)
+/// waited past MAX_SUBAGENT_TASK_WAIT.
+async fn force_fail_active_subagent_tasks(repo: &dyn SubagentTaskRepo, session_id: &SessionId) {
+    if let Err(e) = repo
+        .fail_active_for_parent(
+            session_id,
+            Utc::now(),
+            "subagent task did not report back within the maximum wait",
+        )
         .await
     {
-        Ok(jobs) => jobs,
-        Err(e) => {
-            warn!(error = %e, session = %session_id, "failed to list delegates while force-failing");
-            return;
-        }
-    };
-    for job in jobs {
-        if job.created_by_session == session_id.as_str()
-            && matches!(job.state, domain::cron::CronJobState::Active)
-        {
-            if let Err(e) = repo
-                .complete_delegate_result(
-                    &job.id,
-                    Utc::now(),
-                    "failed",
-                    Some("delegate did not report back within the maximum wait"),
-                    "",
-                )
-                .await
-            {
-                warn!(error = %e, job_id = %job.id, "failed to force-fail delegate via result write");
-                if let Err(e) = repo
-                    .set_state(&job.id, domain::cron::CronJobState::Completed)
-                    .await
-                {
-                    warn!(error = %e, job_id = %job.id, "failed to force-fail delegate via set_state");
-                }
-            }
-        }
+        warn!(error = %e, session = %session_id, "failed to force-fail subagent tasks");
     }
 }
 
@@ -480,9 +452,6 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
 
     for (index, event) in queued.into_iter().enumerate() {
         if let Some(id) = session_stream_id(&event) {
-            bridged_stream_ids.push(id);
-        }
-        if let Some(id) = session_response_stream_id(&event) {
             bridged_stream_ids.push(id);
         }
         let number = index + 1;
@@ -538,10 +507,7 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
     // record the follow-ups' streams so terminal output can be bridged to them.
     if let Some(map) = raw.as_object_mut() {
         if let Some(id) = session_stream_id(current) {
-            map.insert("http_stream_id".to_string(), Value::String(id));
-        }
-        if let Some(id) = session_response_stream_id(current) {
-            map.insert("http_response_stream_id".to_string(), Value::String(id));
+            map.insert("session_stream_id".to_string(), Value::String(id));
         }
         if !bridged_stream_ids.is_empty() {
             map.insert(
@@ -551,7 +517,6 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
         }
     }
     merged.raw = raw;
-    merged.inbound_handle.ts = merged.envelope_id.clone();
     merged
 }
 
@@ -588,7 +553,7 @@ async fn bridge_terminal_to_streams(
 #[cfg(test)]
 mod queue_tests {
     use super::*;
-    use domain::{reply::MessageHandle, Attachment};
+    use domain::Attachment;
 
     fn inbound(session: &str, envelope: &str, text: &str, raw: serde_json::Value) -> InboundEvent {
         InboundEvent {
@@ -605,10 +570,6 @@ mod queue_tests {
             }],
             dynamic_context: Vec::new(),
             raw,
-            inbound_handle: MessageHandle {
-                channel: "C123".to_string(),
-                ts: envelope.to_string(),
-            },
             is_direct_message: false,
             is_directly_addressed: true,
             link_previews: Vec::new(),
@@ -657,7 +618,6 @@ mod queue_tests {
             merged.raw["events"][0]["raw"]["summary_refs"]["title"],
             "Bug"
         );
-        assert_eq!(merged.inbound_handle.ts, "E1-queued");
     }
 
     #[test]
@@ -672,9 +632,8 @@ mod queue_tests {
             "E1",
             "working",
             serde_json::json!({
-                "source": "http",
-                "http_stream_id": "stream-primary",
-                "http_response_stream_id": "stream-primary-resp"
+                "source": "session",
+                "session_stream_id": "stream-primary"
             }),
         );
         let queued = vec![
@@ -683,9 +642,8 @@ mod queue_tests {
                 "E2",
                 "follow-up",
                 serde_json::json!({
-                    "source": "http",
-                    "http_stream_id": "stream-followup-1",
-                    "http_response_stream_id": "stream-followup-1-resp"
+                    "source": "session",
+                    "session_stream_id": "stream-followup-1"
                 }),
             ),
             inbound(
@@ -693,8 +651,8 @@ mod queue_tests {
                 "E3",
                 "another follow-up",
                 serde_json::json!({
-                    "source": "http",
-                    "http_stream_id": "stream-followup-2"
+                    "source": "session",
+                    "session_stream_id": "stream-followup-2"
                 }),
             ),
         ];
@@ -707,15 +665,10 @@ mod queue_tests {
             session_stream_id(&merged).as_deref(),
             Some("stream-primary")
         );
-        assert_eq!(
-            session_response_stream_id(&merged).as_deref(),
-            Some("stream-primary-resp")
-        );
 
         // Every follow-up's stream id is captured for bridging.
         let bridged = super::bridged_stream_ids(&merged);
         assert!(bridged.contains(&"stream-followup-1".to_string()));
-        assert!(bridged.contains(&"stream-followup-1-resp".to_string()));
         assert!(bridged.contains(&"stream-followup-2".to_string()));
     }
 
@@ -727,8 +680,8 @@ mod queue_tests {
             "E1",
             "working",
             serde_json::json!({
-                "source": "http",
-                "http_stream_id": "stream-primary"
+                "source": "session",
+                "session_stream_id": "stream-primary"
             }),
         );
         let first = merge_queued_inbound(
@@ -737,7 +690,7 @@ mod queue_tests {
                 "C123-T1",
                 "E2",
                 "follow-up 1",
-                serde_json::json!({"source": "http", "http_stream_id": "stream-a"}),
+                serde_json::json!({"source": "session", "session_stream_id": "stream-a"}),
             )],
         );
         let second = merge_queued_inbound(
@@ -746,7 +699,7 @@ mod queue_tests {
                 "C123-T1",
                 "E3",
                 "follow-up 2",
-                serde_json::json!({"source": "http", "http_stream_id": "stream-b"}),
+                serde_json::json!({"source": "session", "session_stream_id": "stream-b"}),
             )],
         );
 
@@ -761,22 +714,19 @@ mod queue_tests {
     }
 
     #[test]
-    fn gateway_inbound_source_and_final_metadata_are_preserved() {
+    fn session_inbound_source_and_final_metadata_are_preserved() {
         let inbound = inbound(
-            "http-gateway-conversation",
+            "session-1",
             "E1",
             "hello",
             serde_json::json!({
-                "source": "gateway",
-                "http_stream_id": "stream-1",
+                "source": "session",
+                "session_stream_id": "stream-1",
                 "trace_id": "trace-1",
                 "turn_id": "turn-1",
                 "raw": {
-                    "provider": "fake-slack",
-                    "route_id": "route-1",
-                    "thread_key": "fake-slack:T123:C123:100.000",
-                    "channel_id": "C123",
-                    "thread_id": "100.000"
+                    "provider": "fake-provider",
+                    "route_id": "route-1"
                 }
             }),
         );
@@ -788,20 +738,19 @@ mod queue_tests {
 
         copy_inbound_metadata(&mut payload, &inbound);
 
-        assert_eq!(payload["source"], "gateway");
+        assert_eq!(payload["source"], "session");
         assert_eq!(payload["trace_id"], "trace-1");
         assert_eq!(payload["turn_id"], "turn-1");
-        assert_eq!(payload["provider"], "fake-slack");
-        assert_eq!(payload["channel_id"], "C123");
-        assert_eq!(payload["thread_id"], "100.000");
+        assert_eq!(payload["provider"], "fake-provider");
+        assert_eq!(payload["route_id"], "route-1");
     }
 
     #[test]
-    fn wake_inbound_is_not_treated_as_delegate_completion() {
+    fn wake_inbound_is_not_treated_as_subagent_task_completion() {
         let inbound = inbound(
             "C123-T1",
             "wake-1",
-            "Check specialist_task_status",
+            "Check subagent task status",
             serde_json::json!({
                 "source": "wake",
                 "job_kind": "wake",
@@ -811,48 +760,49 @@ mod queue_tests {
         );
 
         assert_eq!(inbound_event_source(&inbound), "wake");
-        assert!(!is_delegate_job_inbound(&inbound));
+        assert!(!is_subagent_task_inbound(&inbound));
     }
 
     #[test]
-    fn delegate_inbound_requires_explicit_delegate_kind() {
+    fn subagent_task_inbound_requires_explicit_subagent_task_kind() {
         let legacy_wake = inbound(
             "C123-T1",
             "wake-1",
-            "Check specialist_task_status",
+            "Check subagent task status",
             serde_json::json!({
                 "source": "cron",
                 "job_id": "wake-1",
                 "parent_session_id": "C123-T1"
             }),
         );
-        let delegate = inbound(
-            "delegate-session",
-            "delegate-1",
+        let subagent_task = inbound(
+            "subagent-task-session",
+            "subagent-task-1",
             "do work",
             serde_json::json!({
                 "source": "cron",
-                "job_kind": "delegate",
-                "job_id": "delegate-1",
+                "job_kind": "subagent_task",
+                "job_id": "subagent-task-1",
                 "parent_session_id": "C123-T1"
             }),
         );
 
-        assert!(!is_delegate_job_inbound(&legacy_wake));
-        assert!(is_delegate_job_inbound(&delegate));
+        assert!(!is_subagent_task_inbound(&legacy_wake));
+        assert!(is_subagent_task_inbound(&subagent_task));
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn process_single_turn(
     runner: Arc<dyn AgentRunner>,
-    gateway: Arc<dyn ChannelGateway>,
+    attachment_downloader: Arc<dyn AttachmentDownloader>,
     config: ConfigStore,
     emitter: Arc<OutboundEmitter>,
     session_repo: Arc<dyn SessionRepo>,
     inbound: &InboundEvent,
     turn_event_sink: Arc<dyn TurnEventSink>,
     cron_repo: Arc<dyn CronJobRepo>,
+    subagent_task_repo: Arc<dyn SubagentTaskRepo>,
     coordinator: Arc<SessionCoordinator>,
     inbound_sink: mpsc::Sender<InboundEvent>,
 ) -> Result<()> {
@@ -878,8 +828,12 @@ async fn process_single_turn(
     emit_user_message_received(&emitter, inbound, event_source, false).await;
 
     let multimodal_available = snapshot.multimodal_model.is_some();
-    let media =
-        collect_media_for_turn(gateway.as_ref(), &inbound.attachments, multimodal_available).await;
+    let media = collect_media_for_turn(
+        attachment_downloader.as_ref(),
+        &inbound.attachments,
+        multimodal_available,
+    )
+    .await;
     let annotated_text = compose_annotated_text(inbound, &media);
 
     let DownloadResults { images, .. } = media;
@@ -891,9 +845,8 @@ async fn process_single_turn(
         turn_input = turn_input.with_image(mime, bytes);
     }
 
-    let http_stream_id = session_stream_id(inbound);
-    let response_stream_id = session_response_stream_id(inbound);
-    if let Some(stream_id) = http_stream_id.as_deref() {
+    let session_stream_id = session_stream_id(inbound);
+    if let Some(stream_id) = session_stream_id.as_deref() {
         turn_event_sink
             .activate_session_stream(&session_id, stream_id)
             .await;
@@ -906,8 +859,7 @@ async fn process_single_turn(
         Ok(stream) => {
             consume_agent_stream(
                 stream,
-                http_stream_id.clone(),
-                response_stream_id.clone(),
+                session_stream_id.clone(),
                 &session_id,
                 &emitter,
                 event_source,
@@ -924,22 +876,10 @@ async fn process_single_turn(
 
     let final_text = format_final_message(&outcome);
     let reply_text_for_event = final_text.clone();
-    if let Some(stream_id) = response_stream_id.as_deref() {
+    if let Some(stream_id) = session_stream_id.as_deref() {
         turn_event_sink
             .publish_final(stream_id, &session_id, &final_text)
             .await;
-    }
-    if let Some(stream_id) = http_stream_id.as_deref() {
-        turn_event_sink
-            .publish_final(stream_id, &session_id, &final_text)
-            .await;
-    } else {
-        if let Err(e) = gateway
-            .reply(&session_id, Reply::Text(final_text.clone()))
-            .await
-        {
-            warn!(error = %e, "reply failed");
-        }
     }
     // Bridge the merged turn's answer to every queued follow-up's stream.
     // Those clients opened fresh streams that were told `session_waiting`; emit
@@ -980,7 +920,7 @@ async fn process_single_turn(
     }
     emitter.flush_database().await;
 
-    if let Some(stream_id) = http_stream_id.as_deref() {
+    if let Some(stream_id) = session_stream_id.as_deref() {
         turn_event_sink
             .clear_active_session_stream(&session_id, stream_id)
             .await;
@@ -988,26 +928,20 @@ async fn process_single_turn(
 
     info!(session = %session_id, len = outcome.text.len(), "turn complete");
 
-    // If this is a delegate session, notify the parent and record the result.
-    if is_delegate_job_inbound(inbound) {
+    // If this is a subagent task session, notify the parent and record the result.
+    if is_subagent_task_inbound(inbound) {
         if let (Some(parent_session_id), Some(job_id)) = (
             inbound.raw.get("parent_session_id").and_then(Value::as_str),
             inbound.raw.get("job_id").and_then(Value::as_str),
         ) {
-            let delegate_error = outcome.error.as_deref();
-            let result_text = if let Some(err) = delegate_error {
+            let subagent_error = outcome.error.as_deref();
+            let result_text = if let Some(err) = subagent_error {
                 format!("[Sub-agent error: {}]", err)
             } else {
                 outcome.text.clone()
             };
-            let delegate_status = if delegate_error.is_some() {
-                "failed"
-            } else {
-                "completed"
-            };
-
-            // Publish done on the delegate's own SSE stream
-            if let Some(stream_id) = http_stream_id.as_deref() {
+            // Publish done on the subagent task's own SSE stream.
+            if let Some(stream_id) = session_stream_id.as_deref() {
                 turn_event_sink.publish_done(stream_id, &session_id).await;
             }
 
@@ -1017,13 +951,13 @@ async fn process_single_turn(
                 .get("agent_name")
                 .and_then(Value::as_str)
                 .unwrap_or("sub-agent");
-            if delegate_error.is_some() {
+            if subagent_error.is_some() {
                 turn_event_sink
                     .publish_subagent_errored(
                         parent_session_id,
                         job_id,
                         agent_name,
-                        delegate_error.unwrap_or("unknown"),
+                        subagent_error.unwrap_or("unknown"),
                     )
                     .await;
             } else {
@@ -1034,9 +968,9 @@ async fn process_single_turn(
 
             // Send notification to parent BEFORE marking job as completed.
             // This prevents a race where the parent's polling loop sees the
-            // delegate as no longer active before the notification arrives.
+            // subagent task as no longer active before the notification arrives.
             let notification = InboundEvent {
-                envelope_id: format!("delegate-result-{}", Utc::now().timestamp_millis()),
+                envelope_id: format!("subagent-task-result-{}", Utc::now().timestamp_millis()),
                 session_id: SessionId::from(parent_session_id),
                 user: "system".to_string(),
                 user_display_name: Some("Sub-agent".to_string()),
@@ -1047,14 +981,10 @@ async fn process_single_turn(
                 attachments: Vec::new(),
                 dynamic_context: Vec::new(),
                 raw: serde_json::json!({
-                    "source": "delegate_result",
+                    "source": "subagent_task_result",
                     "job_id": job_id,
                     "agent_name": agent_name,
                 }),
-                inbound_handle: MessageHandle {
-                    channel: "delegate".to_string(),
-                    ts: String::new(),
-                },
                 is_direct_message: false,
                 is_directly_addressed: true,
                 link_previews: Vec::new(),
@@ -1065,7 +995,7 @@ async fn process_single_turn(
             // in drain_queued() before it exits. If the parent's turn has
             // already finished (no coordinator entry), submit_or_queue inserts
             // a *fresh* reservation that no running task owns — leaving the
-            // parent session permanently reserved and the delegate result
+            // parent session permanently reserved and the subagent task result
             // undelivered. In that case, dispatch the notification through the
             // real inbound path so a handler runs it and calls finish_turn.
             match coordinator.submit_or_queue(notification.clone()) {
@@ -1078,7 +1008,7 @@ async fn process_single_turn(
                         warn!(
                             error = %e,
                             job_id = %job_id,
-                            "failed to re-dispatch delegate result to parent session"
+                            "failed to re-dispatch subagent task result to parent session"
                         );
                     }
                 }
@@ -1086,15 +1016,14 @@ async fn process_single_turn(
 
             // NOW mark the job as completed (after notification is queued).
             // This MUST eventually move the job out of the `Active` state: the
-            // parent turn busy-polls session_has_active_delegates(), so a job
+            // parent turn busy-polls session_has_active_subagent_tasks(), so a job
             // stuck Active leaves the parent spinning forever. Retry the result
             // write, and if it keeps failing force the job to a terminal state
             // so the parent's poll loop can exit.
-            complete_delegate_result_or_force_fail(
-                cron_repo.as_ref(),
+            complete_subagent_task_result_or_force_fail(
+                subagent_task_repo.as_ref(),
                 job_id,
-                delegate_status,
-                delegate_error,
+                subagent_error,
                 &result_text,
             )
             .await;
@@ -1132,7 +1061,7 @@ impl ScheduledRunContext {
     fn from_inbound(inbound: &InboundEvent) -> Option<Self> {
         let raw = inbound.raw.as_object()?;
         // Only scheduler-dispatched runs carry these keys; ordinary inbound
-        // messages (and delegates, handled above) do not.
+        // messages (and subagent task results, handled above) do not.
         let run_key = raw.get("schedule_run_key")?.as_str()?.to_string();
         let job_id = raw.get("job_id")?.as_str()?.to_string();
         let scheduled_at = raw
@@ -1239,20 +1168,25 @@ async fn complete_scheduled_run(
     }
 }
 
-/// Number of attempts to persist a delegate's result before force-failing the
-/// job to a terminal state so the parent turn is never blocked forever.
-const COMPLETE_DELEGATE_RESULT_ATTEMPTS: usize = 3;
+/// Number of attempts to persist a subagent task's result before logging a hard
+/// failure. The parent wait loop reads the task state directly from subagent
+/// storage.
+const COMPLETE_SUBAGENT_TASK_RESULT_ATTEMPTS: usize = 3;
 
-async fn complete_delegate_result_or_force_fail(
-    cron_repo: &dyn CronJobRepo,
+async fn complete_subagent_task_result_or_force_fail(
+    subagent_task_repo: &dyn SubagentTaskRepo,
     job_id: &str,
-    status: &str,
     error: Option<&str>,
     result_text: &str,
 ) {
-    for attempt in 1..=COMPLETE_DELEGATE_RESULT_ATTEMPTS {
-        match cron_repo
-            .complete_delegate_result(job_id, Utc::now(), status, error, result_text)
+    let state = if error.is_some() {
+        SubagentTaskState::Failed
+    } else {
+        SubagentTaskState::Completed
+    };
+    for attempt in 1..=COMPLETE_SUBAGENT_TASK_RESULT_ATTEMPTS {
+        match subagent_task_repo
+            .complete(job_id, state, Utc::now(), result_text, error)
             .await
         {
             Ok(()) => return,
@@ -1261,27 +1195,14 @@ async fn complete_delegate_result_or_force_fail(
                     error = %e,
                     job_id = %job_id,
                     attempt,
-                    "failed to record delegate result"
+                    "failed to record subagent task result"
                 );
-                if attempt < COMPLETE_DELEGATE_RESULT_ATTEMPTS {
+                if attempt < COMPLETE_SUBAGENT_TASK_RESULT_ATTEMPTS {
                     tokio::time::sleep(std::time::Duration::from_millis(200 * attempt as u64))
                         .await;
                 }
             }
         }
-    }
-
-    // Last resort: force the job out of the Active state so the parent's
-    // busy-poll loop terminates even though we could not persist the result.
-    if let Err(e) = cron_repo
-        .set_state(job_id, domain::cron::CronJobState::Completed)
-        .await
-    {
-        warn!(
-            error = %e,
-            job_id = %job_id,
-            "failed to force-complete delegate job after result write failures; parent turn may block"
-        );
     }
 }
 
@@ -1291,7 +1212,6 @@ async fn emit_user_message_received(
     source: &'static str,
     queued: bool,
 ) {
-    let (channel, thread_ts) = derive_channel_and_thread(&inbound.session_id);
     emitter
         .emit(OutboundEvent::new(
             event_types::USER_MESSAGE_RECEIVED,
@@ -1299,8 +1219,6 @@ async fn emit_user_message_received(
                 "envelope_id": inbound.envelope_id,
                 "session_id": inbound.session_id.as_str(),
                 "source": source,
-                "channel": channel,
-                "thread_ts": thread_ts,
                 "user": inbound.user,
                 "user_display_name": inbound.user_display_name,
                 "text": inbound.text,
@@ -1327,24 +1245,22 @@ fn inbound_event_source(inbound: &InboundEvent) -> &'static str {
         .and_then(|value| value.as_str())
         .unwrap_or_default()
     {
-        "http" => "http",
+        "session" => "session",
         "trigger" => "trigger",
         "cron" => "cron",
         "wake" => "wake",
-        "gateway" => "gateway",
         "web" => "web",
-        "specialist_callback" => "specialist_callback",
-        _ if inbound.session_id.as_str().starts_with("http-") => "http",
-        _ => "http",
+        "subagent_task_result" => "subagent_task_result",
+        _ => "session",
     }
 }
 
-fn is_delegate_job_inbound(inbound: &InboundEvent) -> bool {
+fn is_subagent_task_inbound(inbound: &InboundEvent) -> bool {
     inbound
         .raw
         .get("job_kind")
         .and_then(Value::as_str)
-        .is_some_and(|kind| kind == "delegate")
+        .is_some_and(|kind| kind == "subagent_task")
         && inbound
             .raw
             .get("parent_session_id")
@@ -1358,27 +1274,19 @@ fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
         return;
     };
     for key in [
-        "http_stream_id",
-        "http_response_stream_id",
+        "session_stream_id",
         "trace_id",
         "turn_id",
-        "conversation_id",
         "provider",
         "route_id",
-        "employee_session_id",
-        "gateway_event_id",
         "dedupe_key",
-        "thread_key",
-        "channel_id",
-        "thread_id",
         "external_message_id",
-        "callback_url",
-        // Delegation metadata:
+        // Subagent task metadata:
         "job_kind",
         "job_id",
         "agent_name",
         "parent_session_id",
-        "delegate_goal",
+        "subagent_task_goal",
     ] {
         if let Some(value) = inbound.raw.get(key) {
             map.insert(key.to_string(), value.clone());
@@ -1394,14 +1302,6 @@ fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
     }
 }
 
-fn derive_channel_and_thread(session_id: &SessionId) -> (String, String) {
-    let raw = session_id.as_str();
-    match raw.split_once('-') {
-        Some((channel, thread_ts)) => (channel.to_string(), thread_ts.to_string()),
-        None => (raw.to_string(), String::new()),
-    }
-}
-
 pub(crate) struct StreamOutcome {
     pub text: String,
     pub final_message: Option<String>,
@@ -1411,7 +1311,6 @@ pub(crate) struct StreamOutcome {
 async fn consume_agent_stream(
     mut stream: futures::stream::BoxStream<'static, AgentEvent>,
     stream_id: Option<String>,
-    response_stream_id: Option<String>,
     session_id: &SessionId,
     emitter: &OutboundEmitter,
     source: &'static str,
@@ -1428,16 +1327,6 @@ async fn consume_agent_stream(
             event_sink
                 .publish_agent_event(stream_id, session_id, &client_event)
                 .await;
-        }
-        if let Some(stream_id) = response_stream_id.as_deref() {
-            if matches!(
-                &client_event,
-                AgentEvent::TokenChunk { .. } | AgentEvent::Error { .. }
-            ) {
-                event_sink
-                    .publish_agent_event(stream_id, session_id, &client_event)
-                    .await;
-            }
         }
         emit_agent_stream_event(emitter, session_id, source, sequence, &client_event).await;
         match event {
@@ -1551,19 +1440,12 @@ fn capture_agent_internal_error(
     event: &str,
     error: &str,
 ) {
-    let (channel, thread_ts) = derive_channel_and_thread(session_id);
     warn!(session_id = %session_id.as_str(), source, sequence, event, error = %error, "agent internal error captured");
     sentry::with_scope(
         |scope| {
             scope.set_tag("runtime.error_source", source);
             scope.set_tag("runtime.agent_event", event);
             scope.set_tag("runtime.session_id", session_id.as_str());
-            if !channel.is_empty() {
-                scope.set_tag("runtime.channel", channel.as_str());
-            }
-            if !thread_ts.is_empty() {
-                scope.set_tag("runtime.thread_ts", thread_ts.as_str());
-            }
             scope.set_extra("sequence", sequence.into());
             scope.set_extra("internal_error", error.into());
         },
@@ -1629,15 +1511,7 @@ async fn emit_agent_stream_event(
 fn session_stream_id(inbound: &InboundEvent) -> Option<String> {
     inbound
         .raw
-        .get("http_stream_id")
-        .and_then(serde_json::Value::as_str)
-        .map(ToString::to_string)
-}
-
-fn session_response_stream_id(inbound: &InboundEvent) -> Option<String> {
-    inbound
-        .raw
-        .get("http_response_stream_id")
+        .get("session_stream_id")
         .and_then(serde_json::Value::as_str)
         .map(ToString::to_string)
 }
@@ -1906,7 +1780,7 @@ mod stream_tests {
     }
 
     #[tokio::test]
-    async fn response_stream_receives_only_user_visible_events() {
+    async fn session_stream_receives_full_runtime_events() {
         let emitter = OutboundEmitter::new(
             Arc::new(NoopOutbox),
             Arc::new(RwLock::new(OutboundRegistry::new())),
@@ -1931,10 +1805,9 @@ mod stream_tests {
         let outcome = consume_agent_stream(
             stream,
             Some("full-stream".to_string()),
-            Some("response-stream".to_string()),
             &session_id,
             &emitter,
-            "gateway",
+            "session",
             &sink,
         )
         .await;
@@ -1944,14 +1817,6 @@ mod stream_tests {
         assert!(events.contains(&("full-stream".to_string(), "thinking".to_string())));
         assert!(events.contains(&("full-stream".to_string(), "tool_call".to_string())));
         assert!(events.contains(&("full-stream".to_string(), "token".to_string())));
-        assert_eq!(
-            events
-                .iter()
-                .filter(|(stream_id, _)| stream_id == "response-stream")
-                .cloned()
-                .collect::<Vec<_>>(),
-            vec![("response-stream".to_string(), "token".to_string())]
-        );
     }
 
     #[tokio::test]
@@ -1983,8 +1848,7 @@ mod scheduled_run_tests {
     use super::{complete_scheduled_run, InboundEvent, ScheduledRunContext};
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use domain::cron::{CronJob, CronJobSource, CronJobState};
-    use domain::reply::MessageHandle;
+    use domain::cron::{CronJob, CronJobState};
     use domain::SessionId;
     use outbound::{OutboundChannel, OutboundEmitter, OutboundError, OutboundRegistry};
     use serde_json::{json, Value};
@@ -2076,9 +1940,6 @@ mod scheduled_run_tests {
         async fn list_all(&self) -> StorageResult<Vec<CronJob>> {
             Ok(Vec::new())
         }
-        async fn list_by_source(&self, _s: CronJobSource) -> StorageResult<Vec<CronJob>> {
-            Ok(Vec::new())
-        }
         async fn list_due(&self) -> StorageResult<Vec<CronJob>> {
             Ok(Vec::new())
         }
@@ -2117,19 +1978,6 @@ mod scheduled_run_tests {
             }
             Ok(())
         }
-        async fn record_result(&self, _id: &str, _r: &str) -> StorageResult<()> {
-            Ok(())
-        }
-        async fn complete_delegate_result(
-            &self,
-            _id: &str,
-            _at: DateTime<Utc>,
-            _status: &str,
-            _error: Option<&str>,
-            _result: &str,
-        ) -> StorageResult<()> {
-            Ok(())
-        }
         async fn delete(&self, id: &str) -> StorageResult<()> {
             self.jobs.lock().unwrap().remove(id);
             Ok(())
@@ -2155,16 +2003,11 @@ mod scheduled_run_tests {
             repeat_count: None,
             repeat_completed: 0,
             state: CronJobState::Active,
-            source: CronJobSource::Cron,
             next_run_at: Utc::now(),
             last_run_at: None,
             last_status: None,
             last_error: None,
-            delegated_session_id: None,
             session_continuation_id: None,
-            agent_name: None,
-            last_result: None,
-            delegate_stream_id: None,
             created_at: Utc::now(),
             created_by_session: "scheduler".to_string(),
         }
@@ -2190,10 +2033,6 @@ mod scheduled_run_tests {
                 "schedule_is_one_shot": is_one_shot,
                 "schedule_is_wake": is_wake,
             }),
-            inbound_handle: MessageHandle {
-                channel: "C123".to_string(),
-                ts: String::new(),
-            },
             is_direct_message: false,
             is_directly_addressed: true,
             link_previews: Vec::new(),

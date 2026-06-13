@@ -19,7 +19,7 @@ use storage::{CronJobRepo, SessionListCursor, SessionListFilter};
 use tools::{BashExecOptions, BashOperations};
 use tracing::warn;
 
-use crate::http_gateway::{stream_response, HttpMessageRequest, HttpMessageResponse};
+use crate::session_stream::{stream_response, SessionMessageRequest, SessionMessageResponse};
 use crate::state::ApiState;
 
 #[derive(Serialize)]
@@ -251,8 +251,20 @@ pub async fn put_config(
         .runtime_secret
         .as_ref()
         .is_some_and(|v| !v.trim().is_empty());
+    let next_stream_token = request
+        .runtime_env
+        .get("HIVY_STREAM_TOKEN")
+        .map(|value| value.trim().to_string());
     if env_key_count > 0 {
         state.config_store.merge_runtime_env(request.runtime_env);
+    }
+    if let Some(stream_token) = next_stream_token {
+        let mut token = state.stream_token.write().await;
+        *token = if stream_token.is_empty() {
+            None
+        } else {
+            Some(stream_token)
+        };
     }
     if let Some(secret) = request.runtime_secret {
         let secret = secret.trim().to_string();
@@ -348,10 +360,7 @@ fn schedule_requires_recreate(existing: &CronJob, incoming: &CronJob) -> bool {
         || existing.channel != incoming.channel
         || existing.cron_expression != incoming.cron_expression
         || existing.repeat_count != incoming.repeat_count
-        || existing.source != incoming.source
-        || existing.delegated_session_id != incoming.delegated_session_id
         || existing.session_continuation_id != incoming.session_continuation_id
-        || existing.agent_name != incoming.agent_name
         || existing.created_by_session != incoming.created_by_session
 }
 
@@ -557,9 +566,6 @@ pub struct ListSessionsParams {
     pub status: Option<String>,
     pub limit: Option<u32>,
     pub session_id: Option<String>,
-    pub channel: Option<String>,
-    pub thread_ts: Option<String>,
-    pub agent_session_id: Option<String>,
     pub q: Option<String>,
 }
 
@@ -577,9 +583,6 @@ pub struct ListSessionsResponse {
         ("cursor" = Option<String>, Query, description = "RFC 3339 cursor from the previous page"),
         ("status" = Option<String>, Query, description = "Session status filter: active, completed, or errored"),
         ("session_id" = Option<String>, Query, description = "Exact session ID filter"),
-        ("channel" = Option<String>, Query, description = "Exact channel filter"),
-        ("thread_ts" = Option<String>, Query, description = "Exact thread timestamp filter"),
-        ("agent_session_id" = Option<String>, Query, description = "Exact agent session ID filter"),
         ("q" = Option<String>, Query, description = "Prefix search over session identifiers"),
         ("limit" = Option<u32>, Query, description = "Maximum sessions to return, clamped from 1 to 200")
     ),
@@ -615,9 +618,6 @@ pub async fn list_sessions(
                 cursor,
                 status,
                 session_id: clean_optional(params.session_id),
-                channel: clean_optional(params.channel),
-                thread_ts: clean_optional(params.thread_ts),
-                agent_session_id: clean_optional(params.agent_session_id),
                 search: clean_optional(params.q),
             },
             limit + 1,
@@ -721,75 +721,56 @@ pub async fn readyz(State(state): State<ApiState>) -> impl IntoResponse {
 
 #[cfg_attr(feature = "openapi", utoipa::path(
     post,
-    path = "/gateway/http/messages",
-    request_body = HttpMessageRequest,
+    path = "/sessions/{session_id}/messages",
+    params(("session_id" = String, Path, description = "Session identifier")),
+    request_body = SessionMessageRequest,
     responses(
-        (status = 200, description = "Message accepted and stream created", body = HttpMessageResponse),
+        (status = 200, description = "Message accepted and stream created", body = SessionMessageResponse),
         (status = 500, description = "Failed to inject message"),
-        (status = 503, description = "HTTP gateway is not enabled")
+        (status = 503, description = "session API is not enabled")
     ),
     security(("bearer" = []))
 ))]
-pub async fn post_http_message(
+pub async fn post_session_message(
     State(state): State<ApiState>,
-    Json(request): Json<HttpMessageRequest>,
-) -> Result<Json<HttpMessageResponse>, (StatusCode, String)> {
-    let Some(http_gateway) = state.http_gateway.as_ref() else {
+    Path(session_id): Path<String>,
+    Json(request): Json<SessionMessageRequest>,
+) -> Result<Json<SessionMessageResponse>, (StatusCode, String)> {
+    let Some(session_stream) = state.session_stream.as_ref() else {
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            "http gateway is not enabled".to_string(),
+            "session API is not enabled".to_string(),
         ));
     };
-    http_gateway
-        .inject_message(request)
+    session_stream
+        .inject_message(SessionId::from(session_id), request)
         .await
         .map(Json)
-        .map_err(|error| internal_error_response("http_gateway.inject_message", error))
+        .map_err(|error| internal_error_response("session_stream.inject_message", error))
 }
 
 #[cfg_attr(feature = "openapi", utoipa::path(
     get,
-    path = "/gateway/http/streams/{stream_id}",
-    params(("stream_id" = String, Path, description = "HTTP stream identifier")),
+    path = "/sessions/{session_id}/streams/{stream_id}",
+    params(
+        ("session_id" = String, Path, description = "Session identifier"),
+        ("stream_id" = String, Path, description = "Session stream identifier")
+    ),
     responses(
         (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
         (status = 404, description = "Stream not found"),
-        (status = 503, description = "HTTP gateway is not enabled")
+        (status = 503, description = "session API is not enabled")
     ),
     security(("bearer" = []))
 ))]
-pub async fn get_http_stream(
+pub async fn get_session_stream(
     State(state): State<ApiState>,
-    Path(stream_id): Path<String>,
+    Path((session_id, stream_id)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let Some(http_gateway) = state.http_gateway.as_ref() else {
+    let Some(session_stream) = state.session_stream.as_ref() else {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
-    stream_response(http_gateway.broker.clone(), stream_id)
-        .await
-        .map(sse_stream_response)
-        .ok_or(StatusCode::NOT_FOUND)
-}
-
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/gateway/http/response-streams/{stream_id}",
-    params(("stream_id" = String, Path, description = "HTTP response-only stream identifier")),
-    responses(
-        (status = 200, description = "Response-only server-sent event stream", content_type = "text/event-stream"),
-        (status = 404, description = "Stream not found"),
-        (status = 503, description = "HTTP gateway is not enabled")
-    ),
-    security(("bearer" = []))
-))]
-pub async fn get_http_response_stream(
-    State(state): State<ApiState>,
-    Path(stream_id): Path<String>,
-) -> Result<impl IntoResponse, StatusCode> {
-    let Some(http_gateway) = state.http_gateway.as_ref() else {
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    stream_response(http_gateway.broker.clone(), stream_id)
+    stream_response(session_stream.broker.clone(), session_id, stream_id)
         .await
         .map(sse_stream_response)
         .ok_or(StatusCode::NOT_FOUND)
@@ -806,6 +787,10 @@ fn sse_stream_response(response: impl IntoResponse) -> Response {
     headers.insert(
         HeaderName::from_static("x-accel-buffering"),
         HeaderValue::from_static("no"),
+    );
+    headers.insert(
+        HeaderName::from_static("access-control-allow-origin"),
+        HeaderValue::from_static("*"),
     );
     response
 }
@@ -850,7 +835,7 @@ fn parse_status(raw: &str) -> Result<SessionStatus, String> {
 mod tests {
     use super::*;
 
-    use domain::cron::{CronJobSource, CronJobState};
+    use domain::cron::CronJobState;
     use std::collections::HashMap;
 
     fn test_definition() -> AgentDefinition {
@@ -859,8 +844,6 @@ mod tests {
                 name: "test".to_string(),
                 description: String::new(),
             },
-            mode: Default::default(),
-            specialist_profile: None,
             system_prompt: domain::SystemPromptConfig {
                 cacheable_segments: vec![domain::SystemPromptSegment::StaticText(
                     domain::StaticPromptSegment {
@@ -1035,16 +1018,11 @@ mod tests {
                 repeat_count: None,
                 repeat_completed: 0,
                 state: CronJobState::Active,
-                source: CronJobSource::Cron,
                 next_run_at: Utc::now(),
                 last_run_at: None,
                 last_status: None,
                 last_error: None,
-                delegated_session_id: None,
                 session_continuation_id: None,
-                agent_name: None,
-                last_result: None,
-                delegate_stream_id: None,
                 created_at: Utc::now(),
                 created_by_session: "system:service-discovery".to_string(),
             }],

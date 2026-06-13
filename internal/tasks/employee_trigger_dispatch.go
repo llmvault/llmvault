@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
@@ -33,13 +33,13 @@ func init() {
 type EmployeeTriggerDispatchHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator
-	compileDeps  employeeruntime.CompileDeps
+	compileDeps  agentruntime.CompileDeps
 	enqueuer     enqueue.TaskEnqueuer
 	catalog      *catalog.Catalog
 	nangoClient  *nango.Client
 }
 
-func NewEmployeeTriggerDispatchHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps employeeruntime.CompileDeps, enqueuer ...enqueue.TaskEnqueuer) *EmployeeTriggerDispatchHandler {
+func NewEmployeeTriggerDispatchHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enqueuer ...enqueue.TaskEnqueuer) *EmployeeTriggerDispatchHandler {
 	var q enqueue.TaskEnqueuer
 	if len(enqueuer) > 0 {
 		q = enqueuer[0]

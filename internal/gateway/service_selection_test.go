@@ -8,13 +8,12 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestServiceReceiveWebhookUsesMainEmployeeRuntimeSandbox(t *testing.T) {
+func TestServiceReceiveWebhookUsesLatestAgentRuntimeSandbox(t *testing.T) {
 	db := connectGatewayTestDB(t)
 	route := seedGatewayRoute(t, db)
 
 	employeeImage := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.5"
 	oldEmployeeImage := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.4"
-	specialistImage := "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:v3.1.5"
 
 	var employeeSandbox model.Sandbox
 	if err := db.Where("org_id = ? AND employee_id = ?", route.OrgID, route.EmployeeID).First(&employeeSandbox).Error; err != nil {
@@ -23,22 +22,22 @@ func TestServiceReceiveWebhookUsesMainEmployeeRuntimeSandbox(t *testing.T) {
 	if err := db.Model(&employeeSandbox).Update("snapshot_id", oldEmployeeImage).Error; err != nil {
 		t.Fatalf("set employee sandbox image: %v", err)
 	}
-	specialistSandbox := model.Sandbox{
+	replacementSandbox := model.Sandbox{
 		OrgID:                  &route.OrgID,
 		EmployeeID:             &route.EmployeeID,
-		SnapshotID:             &specialistImage,
-		ExternalID:             "gateway-specialist-" + uuid.NewString(),
+		SnapshotID:             &employeeImage,
+		ExternalID:             "gateway-agent-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:2",
-		EncryptedRuntimeSecret: []byte("specialist-key"),
+		EncryptedRuntimeSecret: []byte("agent-key"),
 		Status:                 "running",
 	}
-	if err := db.Create(&specialistSandbox).Error; err != nil {
-		t.Fatalf("create specialist sandbox: %v", err)
+	if err := db.Create(&replacementSandbox).Error; err != nil {
+		t.Fatalf("create replacement sandbox: %v", err)
 	}
 	existingBadSession := model.EmployeeSession{
 		OrgID:                 route.OrgID,
 		EmployeeID:            route.EmployeeID,
-		SandboxID:             specialistSandbox.ID,
+		SandboxID:             employeeSandbox.ID,
 		RuntimeConversationID: "runtime-bad-existing",
 		Source:                Source,
 		SourceID:              &route.ID,
@@ -53,7 +52,7 @@ func TestServiceReceiveWebhookUsesMainEmployeeRuntimeSandbox(t *testing.T) {
 
 	runtime := &recordingRuntime{}
 	service := NewService(db, runtime, nil, NewFakeSlackAdapter())
-	service.SetRuntimeImages(employeeImage, specialistImage)
+	service.SetRuntimeImages(employeeImage)
 
 	result, err := service.ReceiveWebhook(t.Context(), WebhookEnvelope{
 		RouteID: route.ID,
@@ -62,14 +61,14 @@ func TestServiceReceiveWebhookUsesMainEmployeeRuntimeSandbox(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receive webhook: %v", err)
 	}
-	if result.Session.SandboxID != employeeSandbox.ID {
-		t.Fatalf("session sandbox = %s, want employee runtime sandbox %s", result.Session.SandboxID, employeeSandbox.ID)
+	if result.Session.SandboxID != replacementSandbox.ID {
+		t.Fatalf("session sandbox = %s, want agent runtime sandbox %s", result.Session.SandboxID, replacementSandbox.ID)
 	}
 	var stored model.EmployeeSession
 	if err := db.First(&stored, "id = ?", existingBadSession.ID).Error; err != nil {
 		t.Fatalf("load retargeted session: %v", err)
 	}
-	if stored.SandboxID != employeeSandbox.ID {
-		t.Fatalf("stored session sandbox = %s, want retargeted employee runtime sandbox %s", stored.SandboxID, employeeSandbox.ID)
+	if stored.SandboxID != replacementSandbox.ID {
+		t.Fatalf("stored session sandbox = %s, want retargeted agent runtime sandbox %s", stored.SandboxID, replacementSandbox.ID)
 	}
 }

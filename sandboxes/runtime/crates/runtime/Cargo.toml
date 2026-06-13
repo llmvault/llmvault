@@ -20,7 +20,6 @@ openapi = ["api/openapi", "dep:utoipa"]
 
 [dependencies]
 domain.workspace = true
-gateway.workspace = true
 agent.workspace = true
 storage.workspace = true
 tools.workspace = true
@@ -50,6 +49,7 @@ tempfile = "3"
 serde = { workspace = true, features = ["derive"] }
 sha2 = "0.10"
 hex = "0.4"
+thiserror.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

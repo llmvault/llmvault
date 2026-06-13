@@ -17,9 +17,8 @@ func TestNewSandboxProviderEmptyProviderDisablesSandbox(t *testing.T) {
 
 func TestNewSandboxProviderCreatesDaytonaWhenConfigured(t *testing.T) {
 	provider, err := newSandboxProvider(&config.Config{
-		SandboxProviderID:               sandbox.ProviderDaytona,
-		DaytonaAPIKey:                   "test-key",
-		SpecialistSandboxRuntimeVersion: "v1.0.0",
+		SandboxProviderID: sandbox.ProviderDaytona,
+		DaytonaAPIKey:     "test-key",
 	})
 	if err != nil {
 		t.Fatalf("newSandboxProvider: %v", err)
@@ -31,8 +30,7 @@ func TestNewSandboxProviderCreatesDaytonaWhenConfigured(t *testing.T) {
 
 func TestNewSandboxProviderDaytonaWithoutCredentialsDisablesSandbox(t *testing.T) {
 	_, err := newSandboxProvider(&config.Config{
-		SandboxProviderID:               sandbox.ProviderDaytona,
-		SpecialistSandboxRuntimeVersion: "v1.0.0",
+		SandboxProviderID: sandbox.ProviderDaytona,
 	})
 	if !errors.Is(err, errSandboxProviderNotConfigured) {
 		t.Fatalf("newSandboxProvider error = %v, want errSandboxProviderNotConfigured", err)
@@ -41,9 +39,8 @@ func TestNewSandboxProviderDaytonaWithoutCredentialsDisablesSandbox(t *testing.T
 
 func TestNewSandboxProviderRejectsUnknownProvider(t *testing.T) {
 	_, err := newSandboxProvider(&config.Config{
-		SandboxProviderID:               "unknown",
-		DaytonaAPIKey:                   "test-key",
-		SpecialistSandboxRuntimeVersion: "v1.0.0",
+		SandboxProviderID: "unknown",
+		DaytonaAPIKey:     "test-key",
 	})
 	if err == nil {
 		t.Fatal("expected unsupported provider error")

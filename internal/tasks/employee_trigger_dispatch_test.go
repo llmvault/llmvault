@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
@@ -57,7 +57,7 @@ func TestEmployeeTriggerCompileMessage_UsesCatalogRefsAndOmitsRawPayload(t *test
 	}
 
 	compiled := (&EmployeeTriggerDispatchHandler{catalog: catalog.Global()}).
-		compileMessage(payload, trigger, raw, triggerRecentSpecialistTasks{})
+		compileMessage(payload, trigger, raw)
 
 	if compiled.ResourceKey != "github/usehivy/hivy/issue/42" {
 		t.Fatalf("resource key = %q", compiled.ResourceKey)
@@ -104,7 +104,7 @@ func TestEmployeeTriggerCompileMessage_HTTPIncludesSubmittedBody(t *testing.T) {
 	}
 
 	compiled := (&EmployeeTriggerDispatchHandler{catalog: catalog.Global()}).
-		compileMessage(EmployeeTriggerDispatchPayload{DeliveryID: "http-1"}, trigger, raw, triggerRecentSpecialistTasks{})
+		compileMessage(EmployeeTriggerDispatchPayload{DeliveryID: "http-1"}, trigger, raw)
 
 	if compiled.ResourceKey != "http-1" {
 		t.Fatalf("resource key = %q", compiled.ResourceKey)
@@ -211,7 +211,7 @@ func TestEmployeeTriggerDispatchSyncRuntime_PushesFullRuntimeConfig(t *testing.T
 		Name:         "Aria",
 		IsEmployee:   true,
 		Status:       "active",
-		Model:        employeeruntime.DefaultEmployeeModel,
+		Model:        agentruntime.DefaultEmployeeModel,
 		CredentialID: &cred.ID,
 	}
 	if err := db.Create(&agent).Error; err != nil {
@@ -230,7 +230,7 @@ func TestEmployeeTriggerDispatchSyncRuntime_PushesFullRuntimeConfig(t *testing.T
 		Status:                 "running",
 	}
 
-	var received employeeruntime.ConfigUpdateRequest
+	var received agentruntime.ConfigUpdateRequest
 	runtime := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/readyz":
@@ -256,21 +256,21 @@ func TestEmployeeTriggerDispatchSyncRuntime_PushesFullRuntimeConfig(t *testing.T
 
 	handler := &EmployeeTriggerDispatchHandler{
 		db: db,
-		compileDeps: employeeruntime.CompileDeps{
+		compileDeps: agentruntime.CompileDeps{
 			DB:         db,
 			EncKey:     encKey,
 			SigningKey: []byte("test-signing-key-32-bytes-long!!"),
 			Cfg:        &config.Config{ProxyHost: "proxy.hivy.test"},
 		},
 	}
-	client := employeeruntime.NewClient(runtime.URL, "runtime-secret")
+	client := agentruntime.NewClient(runtime.URL, "runtime-secret")
 	if err := handler.syncRuntime(context.Background(), &agent, &sb, client); err != nil {
 		t.Fatalf("sync runtime: %v", err)
 	}
 	if received.Definition == nil {
 		t.Fatalf("runtime config missing definition")
 	}
-	proxyToken := received.RuntimeEnv[employeeruntime.ProxyAPIKeyEnv]
+	proxyToken := received.RuntimeEnv[agentruntime.ProxyAPIKeyEnv]
 	if !strings.HasPrefix(proxyToken, "ptok_") {
 		t.Fatalf("runtime config missing proxy token env: %q", proxyToken)
 	}

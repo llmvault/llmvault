@@ -19,7 +19,7 @@ import (
 
 // ReplyMCPHandler exposes per-connection write tools scoped to a conversation's
 // source channel. When the Hivy executor creates a conversation, it attaches
-// this MCP server as "hivy-reply" so the specialist agent can post messages
+// this MCP server as "hivy-reply" so the target agent can post messages
 // back to the channel (Slack thread, GitHub issue, etc.) using the source
 // connection's credentials.
 //

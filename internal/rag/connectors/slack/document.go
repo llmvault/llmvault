@@ -69,8 +69,8 @@ func (c *SlackConnector) threadToDoc(
 	sections := make([]interfaces.Section, 0, len(messages))
 	for _, msg := range messages {
 		sections = append(sections, interfaces.Section{
-			Text:  cleaner.IndexClean(c.ctx, msg.Text),
-			Link:  messagePermalink(c.workspaceURL, channel.ID, msg.TS),
+			Text: cleaner.IndexClean(c.ctx, msg.Text),
+			Link: messagePermalink(c.workspaceURL, channel.ID, msg.TS),
 		})
 	}
 
@@ -85,10 +85,10 @@ func (c *SlackConnector) threadToDoc(
 
 	access := c.channelAccess(channel)
 	doc := interfaces.Document{
-		DocID:        docID(channel.ID, ts),
-		SemanticID:   semanticID,
-		Sections:     sections,
-		DocUpdatedAt: docUpdatedAt,
+		DocID:         docID(channel.ID, ts),
+		SemanticID:    semanticID,
+		Sections:      sections,
+		DocUpdatedAt:  docUpdatedAt,
 		PrimaryOwners: owners,
 		Metadata: map[string]string{
 			"Channel":     channelName,

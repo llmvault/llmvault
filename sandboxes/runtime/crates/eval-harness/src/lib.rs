@@ -4,7 +4,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::cron::{CronJob, CronJobSource, CronJobState};
+use domain::cron::{CronJob, CronJobState};
 use domain::{
     AgentDefinition, AgentMeta, ConfigStore, EventKind, ModelConfig, Session, SessionEvent,
     SessionId, SessionStatus, StaticPromptSegment, SystemPromptConfig, SystemPromptSegment,
@@ -84,13 +84,15 @@ impl HttpEvalRunner {
     }
 
     pub async fn run_case(&self, case: &EvalCase) -> Result<EvalCaseResult> {
-        let response: HttpMessageResponse = self
+        let response: SessionMessageResponse = self
             .client
-            .post(format!("{}/gateway/http/messages", self.base_url))
+            .post(format!(
+                "{}/sessions/eval-{}/messages",
+                self.base_url, case.id
+            ))
             .bearer_auth(&self.bearer_token)
             .json(&json!({
                 "text": case.input,
-                "conversation_id": format!("eval-{}", case.id),
                 "user": "eval-harness",
                 "raw": {
                     "eval_case_id": case.id,
@@ -223,7 +225,7 @@ pub struct FakeToolCall {
     pub result: Value,
 }
 
-pub struct FakeGatewayServer {
+pub struct FakeRuntimeServer {
     pub base_url: String,
     pub bearer_token: String,
     shutdown: Option<oneshot::Sender<()>>,
@@ -231,10 +233,10 @@ pub struct FakeGatewayServer {
     provider_handle: tokio::task::JoinHandle<()>,
 }
 
-impl FakeGatewayServer {
+impl FakeRuntimeServer {
     pub async fn spawn(script: FakeProviderScript) -> Result<Self> {
         let bearer_token = "eval-token".to_string();
-        let broker = Arc::new(api::HttpStreamBroker::new());
+        let broker = Arc::new(api::SessionStreamBroker::new());
         let (inbound_sink, inbound_rx) = mpsc::channel(32);
         let state = api::ApiState::new(
             ConfigStore::new(fake_agent_definition()),
@@ -243,28 +245,28 @@ impl FakeGatewayServer {
             Arc::new(NoopEventRepo),
             Arc::new(NoopCronJobRepo),
             bearer_token.clone(),
+            None,
             std::env::temp_dir(),
             Arc::new(LocalBashOperations),
             Arc::new(SkillWriter::new(
                 std::env::temp_dir().join("eval-harness-skills"),
             )),
-            Some(api::HttpGatewayState {
+            Some(api::SessionMessageState {
                 inbound_sink,
                 broker: broker.clone(),
             }),
-            None,
             None,
             None,
             false,
             false,
         );
         state.mark_config_loaded();
-        state.mark_gateway_ready();
+        state.mark_session_api_ready();
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
-            .context("bind fake eval gateway")?;
-        let addr = listener.local_addr().context("read fake gateway addr")?;
+            .context("bind fake eval runtime")?;
+        let addr = listener.local_addr().context("read fake runtime addr")?;
         let router = api::build_router(state);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let server_handle = tokio::spawn(async move {
@@ -298,7 +300,7 @@ impl FakeGatewayServer {
     }
 }
 
-impl Drop for FakeGatewayServer {
+impl Drop for FakeRuntimeServer {
     fn drop(&mut self) {
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
@@ -309,13 +311,13 @@ impl Drop for FakeGatewayServer {
 
 async fn run_fake_provider(
     mut inbound_rx: mpsc::Receiver<domain::InboundEvent>,
-    broker: Arc<api::HttpStreamBroker>,
+    broker: Arc<api::SessionStreamBroker>,
     script: FakeProviderScript,
 ) {
     while let Some(inbound) = inbound_rx.recv().await {
         let Some(stream_id) = inbound
             .raw
-            .get("http_stream_id")
+            .get("session_stream_id")
             .and_then(serde_json::Value::as_str)
         else {
             continue;
@@ -419,8 +421,6 @@ fn fake_agent_definition() -> AgentDefinition {
             name: "Eval Fake".to_string(),
             description: "Deterministic eval fake".to_string(),
         },
-        mode: Default::default(),
-        specialist_profile: None,
         system_prompt: SystemPromptConfig {
             cacheable_segments: vec![SystemPromptSegment::StaticText(StaticPromptSegment {
                 title: String::new(),
@@ -451,7 +451,7 @@ fn fake_agent_definition() -> AgentDefinition {
 }
 
 #[derive(Debug, Deserialize)]
-struct HttpMessageResponse {
+struct SessionMessageResponse {
     session_id: String,
     trace_id: String,
     turn_id: String,
@@ -564,10 +564,6 @@ impl CronJobRepo for NoopCronJobRepo {
         Ok(Vec::new())
     }
 
-    async fn list_by_source(&self, _source: CronJobSource) -> storage::Result<Vec<CronJob>> {
-        Ok(Vec::new())
-    }
-
     async fn list_due(&self) -> storage::Result<Vec<CronJob>> {
         Ok(Vec::new())
     }
@@ -602,21 +598,6 @@ impl CronJobRepo for NoopCronJobRepo {
         Ok(())
     }
 
-    async fn record_result(&self, _id: &str, _result: &str) -> storage::Result<()> {
-        Ok(())
-    }
-
-    async fn complete_delegate_result(
-        &self,
-        _id: &str,
-        _completed_at: DateTime<Utc>,
-        _status: &str,
-        _error: Option<&str>,
-        _result: &str,
-    ) -> storage::Result<()> {
-        Ok(())
-    }
-
     async fn delete(&self, _id: &str) -> storage::Result<()> {
         Ok(())
     }
@@ -627,8 +608,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn deterministic_fake_gateway_eval_produces_summary_and_events() {
-        let server = FakeGatewayServer::spawn(FakeProviderScript {
+    async fn deterministic_fake_runtime_eval_produces_summary_and_events() {
+        let server = FakeRuntimeServer::spawn(FakeProviderScript {
             final_text_template: "answer for {input}".to_string(),
             tool_calls: vec![FakeToolCall {
                 id: "call-1".to_string(),
@@ -639,7 +620,7 @@ mod tests {
             ..FakeProviderScript::default()
         })
         .await
-        .expect("spawn fake gateway");
+        .expect("spawn fake runtime");
 
         let runner = server.runner();
         let summary = runner
@@ -657,7 +638,7 @@ mod tests {
         assert_eq!(summary.passed, 1);
         let result = &summary.cases[0];
         assert!(result.passed, "{:?}", result.failures);
-        assert!(result.trace_id.starts_with("trace-http-stream-"));
+        assert!(result.trace_id.starts_with("trace-session-stream-"));
         assert_eq!(result.summary.tool_call_count, 1);
         assert_eq!(result.summary.model_usage.total_tokens, 13);
         assert!(result.events.iter().all(|event| !event.trace_id.is_empty()

@@ -27,7 +27,7 @@ func (h *employeeHarness) getEmployee(t *testing.T, m orgWithMember, agentID str
 	return rr
 }
 
-func TestIntegration_EmployeesGet_HappyPath_LoadsSpecialistsAndSandbox(t *testing.T) {
+func TestIntegration_EmployeesGet_HappyPath_LoadsAgentAndSandbox(t *testing.T) {
 	h := newEmployeeHarness(t)
 	h.platformCredCleanup(t)
 	m := h.createOrg(t)
@@ -51,10 +51,6 @@ func TestIntegration_EmployeesGet_HappyPath_LoadsSpecialistsAndSandbox(t *testin
 	}
 	if _, ok := item["sandbox"].(map[string]any); !ok {
 		t.Fatalf("sandbox missing: %#v", item["sandbox"])
-	}
-	specialists := item["specialists"].([]any)
-	if len(specialists) != 2 {
-		t.Fatalf("specialists len = %d, want 2", len(specialists))
 	}
 }
 
@@ -134,14 +130,14 @@ func TestIntegration_EmployeesGet_ReportsSandboxUpgradeAvailability(t *testing.T
 	h.setSandboxSnapshot(t, sb.ID, nil)
 	rr = h.getEmployee(t, m, emp.ID.String())
 	if rr.Code != http.StatusOK {
-		t.Fatalf("legacy status = %d, want 200: %s", rr.Code, rr.Body.String())
+		t.Fatalf("missing snapshot status = %d, want 200: %s", rr.Code, rr.Body.String())
 	}
 	item = map[string]any{}
 	if err := json.Unmarshal(rr.Body.Bytes(), &item); err != nil {
-		t.Fatalf("decode legacy snapshot response: %v", err)
+		t.Fatalf("decode missing snapshot response: %v", err)
 	}
 	if item["upgrade_available"] != true {
-		t.Fatalf("legacy sandbox upgrade_available = %v, want true", item["upgrade_available"])
+		t.Fatalf("missing snapshot upgrade_available = %v, want true", item["upgrade_available"])
 	}
 }
 

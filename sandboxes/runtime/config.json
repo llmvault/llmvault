@@ -1,12 +1,12 @@
 {
-  "agent": {
-    "name": "HivyBuilder",
-    "description": "Rails 8.1 no-build app-builder lead coordinating design, backend, frontend, code review, and QA subagents."
-  },
-  "mode": "employee",
-  "specialist_profile": null,
-  "model_catalog": {
-    "main": {
+  "runtime_secret": null,
+  "runtime_env": {},
+  "definition": {
+    "agent": {
+      "name": "HivyBuilder",
+      "description": "Rails 8.1 no-build app-builder lead coordinating design, backend, frontend, code review, and QA subagents."
+    },
+    "model": {
       "provider": "openai_compatible",
       "base_url": "https://openrouter.ai/api/v1",
       "model_id": "xiaomi/mimo-v2.5-pro",
@@ -17,265 +17,105 @@
       "extra_headers": {},
       "fallback": null
     },
-    "design": {
-      "provider": "openai_compatible",
-      "base_url": "https://openrouter.ai/api/v1",
-      "model_id": "stepfun/step-3.7-flash",
-      "api_key_env": "HIVY_PROXY_API_KEY",
-      "temperature": 0.3,
-      "max_output_tokens": 49152,
-      "reasoning_effort": "medium",
-      "extra_headers": {},
-      "fallback": null
-    },
-    "frontend": {
-      "provider": "openai_compatible",
-      "base_url": "https://openrouter.ai/api/v1",
-      "model_id": "xiaomi/mimo-v2.5-pro",
-      "api_key_env": "HIVY_PROXY_API_KEY",
-      "temperature": 0.3,
-      "max_output_tokens": 49152,
-      "reasoning_effort": "medium",
-      "extra_headers": {},
-      "fallback": null
-    },
-    "qa": {
-      "provider": "openai_compatible",
-      "base_url": "https://openrouter.ai/api/v1",
-      "model_id": "deepseek/deepseek-v4-flash",
-      "api_key_env": "HIVY_PROXY_API_KEY",
-      "temperature": 0.3,
-      "max_output_tokens": 49152,
-      "reasoning_effort": "medium",
-      "extra_headers": {},
-      "fallback": null
-    },
-    "code-review": {
-      "provider": "openai_compatible",
-      "base_url": "https://openrouter.ai/api/v1",
-      "model_id": "stepfun/step-3.7-flash",
-      "api_key_env": "HIVY_PROXY_API_KEY",
-      "temperature": 0.3,
-      "max_output_tokens": 49152,
-      "reasoning_effort": "low",
-      "extra_headers": {},
-      "fallback": null
-    }
-  },
-  "system_prompt": {
-    "cacheable_segments": [
-      {
-        "type": "static_text",
-        "config": {
-          "title": "Identity",
-          "content_ref": "scripts/eval/prompt-main.txt"
-        }
-      }
-    ],
-    "dynamic_segments": [
-      {
-        "type": "dynamic_context",
-        "config": {
-          "title": "Runtime Context",
-          "preamble": "",
-          "item_template": "{content}"
-        }
-      },
-      {
-        "type": "skill_catalog",
-        "config": {
-          "title": "Available skills",
-          "preamble": "Use skill_view(name) when a listed skill matches the current task. Do not load unrelated skills.",
-          "item_template": "- {name}: {description}"
-        }
-      }
-    ]
-  },
-  "model_key": "main",
-  "multimodal_model": null,
-  "limits": {
-    "max_turns_per_session": 5000,
-    "input_token_budget": 180000,
-    "output_token_budget": 49152,
-    "tool_call_timeout_seconds": 120
-  },
-  "context": {
-    "max_history_events": null,
-    "compaction": {
-      "enabled": true,
-      "token_threshold": 90000,
-      "token_threshold_percentage": 0.7,
-      "overlap_event_count": 10,
-      "chars_per_token": 4,
-      "eviction_window": 0.2,
-      "retention_window": 0,
-      "message_threshold": 50
-    },
-    "memory": {
-      "entries": [],
-      "token_budget": 0
-    }
-  },
-  "tools_json_ref": "scripts/eval/config/main-tools.json",
-  "mcp_servers": [],
-  "skills": [
-    {
-      "name": "rails-specialist",
-      "description": "Rails 8.1 no-build specialist for app design and execution. Use this skill before any implementation work. It is the authoritative Rails guide in this eval.",
-      "trigger": { "type": "keyword", "patterns": ["rails", "model", "controller", "view", "erb", "migration", "test", "minitest", "turbo", "stimulus", "hotwire", "sqlite", "route", "validation", "scope", "partial", "layout", "helper", "form", "css", "no-build"] },
-      "instructions_ref": "scripts/eval/skills/rails-specialist/SKILL.md",
-      "files": {}, "category": "rails", "tags": ["rails", "no-build", "hotwire", "sqlite", "minitest", "models", "controllers", "views", "testing"],
-      "related_skills": ["rails-ai-models", "rails-ai-controllers", "rails-ai-views", "rails-ai-hotwire", "rails-ai-testing", "rails-no-build", "rails-ai-security", "rails-qa-evidence"],
-      "required_environment_variables": [], "required_credential_files": [],
-      "pinned": true
-    }
-  ],
-  "outbound_channels": [],
-  "sub_agents": {
-    "design-system": {
-      "agent": {
-        "name": "BrandSystemDesigner",
-        "description": "Creates no-build Rails design systems: tokens, color, typography, component language, README brand guide."
-      },
-      "mode": "specialist",
-      "specialist_profile": null,
-      "model_key": "design",
-      "multimodal_model": null,
-      "limits": {
-        "max_turns_per_session": 200,
-        "input_token_budget": 80000,
-        "output_token_budget": 49152,
-        "tool_call_timeout_seconds": 120
-      },
-      "context": {
-        "max_history_events": null,
-        "memory": { "entries": [], "token_budget": 0 }
-      },
-      "system_prompt": {
-        "cacheable_segments": [
-          { "type": "static_text", "config": { "title": "Identity", "content_ref": "scripts/eval/prompt-design-system.txt" } }
-        ],
-        "dynamic_segments": [
-          { "type": "dynamic_context", "config": { "title": "Runtime Context", "preamble": "", "item_template": "{content}" } },
-          { "type": "skill_catalog", "config": { "title": "Available skills", "preamble": "Use skill_view(name) when a listed skill matches the current task.", "item_template": "- {name}: {description}" } }
-        ]
-      },
-      "tools_json_ref": "scripts/eval/config/subagent-tools.json",
-      "mcp_servers": [],
-      "skills": [
+    "multimodal_model": null,
+    "system_prompt": {
+      "cacheable_segments": [
         {
-          "name": "design-system-rails",
-          "description": "No-build Rails design system: CSS tokens, typography, component language, color palettes, accessibility.",
-          "instructions_ref": "scripts/eval/skills/design-system-rails/SKILL.md",
-          "trigger": { "type": "keyword", "patterns": ["design", "brand", "token", "color", "typography", "css variable"] },
-          "files": {}, "category": "design", "tags": ["design", "css", "brand"],
-          "related_skills": [], "required_environment_variables": [], "required_credential_files": [], "pinned": true
+          "type": "static_text",
+          "config": {
+            "title": "Identity",
+            "content": "You are HivyBuilder, an autonomous coding agent inside a sandboxed workspace. Use tools when they materially improve the result, make focused edits, and verify work before responding."
+          }
         }
       ],
-      "outbound_channels": [],
-      "sub_agents": {}
-    },
-    "code-review": {
-      "agent": {
-        "name": "RailsCodeReviewer",
-        "description": "Audits Rails implementations for correctness, security, conventions, stack compliance, and test coverage."
-      },
-      "mode": "specialist",
-      "specialist_profile": null,
-      "model_key": "code-review",
-      "multimodal_model": null,
-      "limits": {
-        "max_turns_per_session": 300,
-        "input_token_budget": 120000,
-        "output_token_budget": 49152,
-        "tool_call_timeout_seconds": 120
-      },
-      "context": {
-        "max_history_events": null,
-        "memory": { "entries": [], "token_budget": 0 }
-      },
-      "system_prompt": {
-        "cacheable_segments": [
-          { "type": "static_text", "config": { "title": "Identity", "content_ref": "scripts/eval/prompt-code-review.txt" } }
-        ],
-        "dynamic_segments": [
-          { "type": "dynamic_context", "config": { "title": "Runtime Context", "preamble": "", "item_template": "{content}" } },
-          { "type": "skill_catalog", "config": { "title": "Available skills", "preamble": "Use skill_view(name) when a listed skill matches the current task.", "item_template": "- {name}: {description}" } }
-        ]
-      },
-      "tools_json_ref": "scripts/eval/config/subagent-tools.json",
-      "mcp_servers": [],
-      "skills": [
+      "dynamic_segments": [
         {
-          "name": "rails-audit-thoughtbot",
-          "description": "Rails code audit patterns: security checklist, code smells, anti-patterns, PORO patterns, testing guidelines.",
-          "instructions_ref": "scripts/eval/skills/rails-audit-thoughtbot/SKILL.md",
-          "trigger": { "type": "keyword", "patterns": ["audit", "review", "security", "code smell", "anti-pattern"] },
-          "files": {}, "category": "rails", "tags": ["rails", "audit", "security", "code-review"],
-          "related_skills": [], "required_environment_variables": [], "required_credential_files": [], "pinned": true
+          "type": "dynamic_context",
+          "config": {
+            "title": "Runtime Context",
+            "preamble": "",
+            "item_template": "{content}"
+          }
         },
         {
-          "name": "rails-ai-security",
-          "description": "Rails 8.1 security: strong params, Rails escaping, CSRF, SQL injection, safe queries.",
-          "instructions_ref": "scripts/eval/skills/rails-ai-security/SKILL.md",
-          "trigger": { "type": "keyword", "patterns": ["security", "strong params", "csrf", "escape", "injection"] },
-          "files": {}, "category": "rails", "tags": ["rails", "security"],
-          "related_skills": [], "required_environment_variables": [], "required_credential_files": [], "pinned": false
+          "type": "skill_catalog",
+          "config": {
+            "title": "Available skills",
+            "preamble": "Use skill_view(name) when a listed skill matches the current task. Do not load unrelated skills.",
+            "item_template": "- {name}: {description}"
+          }
         }
-      ],
-      "outbound_channels": [],
-      "sub_agents": {}
+      ]
     },
-    "qa-tester": {
-      "agent": {
-        "name": "RailsQATester",
-        "description": "Validates Rails apps through browser testing, screenshots, recordings, and evidence reports."
-      },
-      "mode": "specialist",
-      "specialist_profile": null,
-      "model_key": "qa",
-      "multimodal_model": null,
-      "limits": {
-        "max_turns_per_session": 300,
-        "input_token_budget": 120000,
-        "output_token_budget": 49152,
-        "tool_call_timeout_seconds": 120
-      },
-      "context": {
-        "max_history_events": null,
-        "memory": { "entries": [], "token_budget": 0 }
-      },
-      "system_prompt": {
-        "cacheable_segments": [
-          { "type": "static_text", "config": { "title": "Identity", "content_ref": "scripts/eval/prompt-qa.txt" } }
-        ],
-        "dynamic_segments": [
-          { "type": "dynamic_context", "config": { "title": "Runtime Context", "preamble": "", "item_template": "{content}" } },
-          { "type": "skill_catalog", "config": { "title": "Available skills", "preamble": "Use skill_view(name) when a listed skill matches the current task.", "item_template": "- {name}: {description}" } }
-        ]
-      },
-      "tools_json_ref": "scripts/eval/config/subagent-tools.json",
-      "mcp_servers": [],
-      "skills": [
-        {
-          "name": "agent-browser",
-          "description": "Browser automation CLI for AI agents. Use for navigating pages, filling forms, clicking buttons, taking screenshots, testing web apps, or automating any browser task.",
-          "instructions_ref": "scripts/eval/skills/agent-browser/SKILL.md",
-          "trigger": { "type": "keyword", "patterns": ["browser", "screenshot", "navigate", "click", "fill", "form", "test web", "qa"] },
-          "files": {}, "category": "testing", "tags": ["browser", "testing", "qa", "screenshots", "automation"],
-          "related_skills": [], "required_environment_variables": [], "required_credential_files": [], "pinned": true
+    "limits": {
+      "max_turns_per_session": 5000,
+      "input_token_budget": 180000,
+      "output_token_budget": 49152,
+      "tool_call_timeout_seconds": 120
+    },
+    "context": {
+      "max_history_events": null,
+      "memory": {
+        "entries": [],
+        "token_budget": 0
+      }
+    },
+    "tools": [],
+    "mcp_servers": [],
+    "skills": [],
+    "outbound_channels": [],
+    "sub_agents": {
+      "design-system": {
+        "agent": {
+          "name": "BrandSystemDesigner",
+          "description": "Creates no-build Rails design systems: tokens, color, typography, component language, and README brand guide."
         },
-        {
-          "name": "rails-qa-evidence",
-          "description": "QA evidence capture patterns for Rails apps: screenshots, recordings, accessibility checks, test reports.",
-          "instructions_ref": "scripts/eval/skills/rails-qa-evidence/SKILL.md",
-          "trigger": { "type": "keyword", "patterns": ["qa", "evidence", "screenshot", "recording", "accessibility"] },
-          "files": {}, "category": "testing", "tags": ["qa", "evidence", "testing"],
-          "related_skills": [], "required_environment_variables": [], "required_credential_files": [], "pinned": true
-        }
-      ],
-      "outbound_channels": [],
-      "sub_agents": {}
-    }
-  }
+        "model": {
+          "provider": "openai_compatible",
+          "base_url": "https://openrouter.ai/api/v1",
+          "model_id": "stepfun/step-3.7-flash",
+          "api_key_env": "HIVY_PROXY_API_KEY",
+          "temperature": 0.3,
+          "max_output_tokens": 49152,
+          "reasoning_effort": "medium",
+          "extra_headers": {},
+          "fallback": null
+        },
+        "multimodal_model": null,
+        "system_prompt": {
+          "cacheable_segments": [
+            {
+              "type": "static_text",
+              "config": {
+                "title": "Identity",
+                "content": "You create practical Rails design systems with clear tokens, accessible components, and implementation-ready guidance."
+              }
+            }
+          ],
+          "dynamic_segments": []
+        },
+        "limits": {
+          "max_turns_per_session": 200,
+          "input_token_budget": 80000,
+          "output_token_budget": 49152,
+          "tool_call_timeout_seconds": 120
+        },
+        "context": {
+          "max_history_events": null,
+          "memory": {
+            "entries": [],
+            "token_budget": 0
+          }
+        },
+        "tools": [],
+        "mcp_servers": [],
+        "skills": [],
+        "outbound_channels": [],
+        "sub_agents": {},
+        "safety": {}
+      }
+    },
+    "safety": {}
+  },
+  "schedules": []
 }

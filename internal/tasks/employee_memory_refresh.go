@@ -12,17 +12,17 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 type EmployeeMemoryRefreshHandler struct {
 	db          *gorm.DB
-	compileDeps employeeruntime.CompileDeps
+	compileDeps agentruntime.CompileDeps
 }
 
-func NewEmployeeMemoryRefreshHandler(db *gorm.DB, compileDeps employeeruntime.CompileDeps) *EmployeeMemoryRefreshHandler {
+func NewEmployeeMemoryRefreshHandler(db *gorm.DB, compileDeps agentruntime.CompileDeps) *EmployeeMemoryRefreshHandler {
 	return &EmployeeMemoryRefreshHandler{db: db, compileDeps: compileDeps}
 }
 
@@ -96,13 +96,13 @@ func (h *EmployeeMemoryRefreshHandler) refresh(ctx context.Context, payload Empl
 	if err != nil {
 		return fmt.Errorf("decrypt employee runtime secret: %w", err)
 	}
-	configUpdate, _, err := employeeruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, &agent, sb, apiKey)
+	configUpdate, _, err := agentruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, &agent, sb, apiKey)
 	if err != nil {
 		return fmt.Errorf("build employee runtime config for memory refresh: %w", err)
 	}
 	fields["memory_context_entries"] = runtimeMemoryContextEntryCount(configUpdate)
 	fields["runtime_env_count"] = len(configUpdate.RuntimeEnv)
-	client := employeeruntime.NewClient(sb.RuntimeURL, apiKey)
+	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
 	if err := client.Healthz(ctx); err != nil {
 		return fmt.Errorf("employee runtime healthz: %w", err)
 	}
@@ -191,14 +191,14 @@ func employeeMemoryRefreshFields(payload EmployeeMemoryRefreshPayload) map[strin
 	}
 }
 
-func runtimeMemoryContextEntryCount(req employeeruntime.ConfigUpdateRequest) int {
+func runtimeMemoryContextEntryCount(req agentruntime.ConfigUpdateRequest) int {
 	if req.Definition == nil || req.Definition.Context == nil {
 		return 0
 	}
 	switch value := req.Definition.Context["memory"].(type) {
-	case employeeruntime.MemoryContext:
+	case agentruntime.MemoryContext:
 		return len(value.Entries)
-	case *employeeruntime.MemoryContext:
+	case *agentruntime.MemoryContext:
 		if value == nil {
 			return 0
 		}

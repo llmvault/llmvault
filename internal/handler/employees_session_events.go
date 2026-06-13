@@ -21,8 +21,6 @@ type employeeSessionEventResponse struct {
 	EventType         string          `json:"event_type"`
 	Source            string          `json:"source"`
 	Mode              string          `json:"mode"`
-	SpecialistSlug    string          `json:"specialist_slug"`
-	SpecialistTaskID  *string         `json:"specialist_task_id,omitempty"`
 	SequenceNumber    int64           `json:"sequence_number"`
 	Payload           json.RawMessage `json:"payload"`
 	EventAt           string          `json:"event_at"`
@@ -110,11 +108,6 @@ func (h *EmployeeHandler) ListSessionEvents(w http.ResponseWriter, r *http.Reque
 }
 
 func employeeSessionEventToResponse(event model.EmployeeSessionEvent) employeeSessionEventResponse {
-	var specialistTaskID *string
-	if event.SpecialistTaskID != nil {
-		value := event.SpecialistTaskID.String()
-		specialistTaskID = &value
-	}
 	return employeeSessionEventResponse{
 		ID:                event.ID.String(),
 		EmployeeSessionID: event.EmployeeSessionID.String(),
@@ -123,8 +116,6 @@ func employeeSessionEventToResponse(event model.EmployeeSessionEvent) employeeSe
 		EventType:         event.EventType,
 		Source:            event.Source,
 		Mode:              event.Mode,
-		SpecialistSlug:    event.SpecialistSlug,
-		SpecialistTaskID:  specialistTaskID,
 		SequenceNumber:    event.SequenceNumber,
 		Payload:           json.RawMessage(event.Payload),
 		EventAt:           formatRuntimeTime(event.EventAt),

@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -83,7 +83,7 @@ func (o *Orchestrator) ProviderID() string {
 	return o.providerID()
 }
 
-func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) (*employeeruntime.Client, error) {
+func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) (*agentruntime.Client, error) {
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return nil, err
 	}
@@ -100,23 +100,7 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 		}
 	}
 	o.touchLastActive(ctx, sb)
-	return employeeruntime.NewClient(sb.RuntimeURL, apiKey), nil
-}
-
-func (o *Orchestrator) CreateSpecialistSandbox(ctx context.Context, agent *model.Employee) (*model.Sandbox, error) {
-	return o.CreateSpecialistSandboxWithEnv(ctx, agent, nil)
-}
-
-func (o *Orchestrator) CreateSpecialistSandboxWithEnv(ctx context.Context, agent *model.Employee, extraEnv map[string]string) (*model.Sandbox, error) {
-	if agent.OrgID == nil {
-		return nil, fmt.Errorf("cannot create specialist sandbox for agent without org_id")
-	}
-	var org model.Org
-	if err := o.db.Where("id = ?", *agent.OrgID).First(&org).Error; err != nil {
-		return nil, fmt.Errorf("loading org: %w", err)
-	}
-
-	return o.createSandbox(ctx, &org, agent, extraEnv)
+	return agentruntime.NewClient(sb.RuntimeURL, apiKey), nil
 }
 
 func (o *Orchestrator) EmployeeDriveUploadURL(employeeID uuid.UUID) string {

@@ -33,10 +33,9 @@ type Employee struct {
 	Permissions               JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	Resources                 JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	SharedMemory              bool           `gorm:"not null;default:false"`
-	AttachedSpecialists       pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 
 	SandboxTools     pq.StringArray `gorm:"type:text[];default:'{}'"` // enabled sandbox tools (e.g. "chrome")
-	SetupCommands    pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run on specialist sandbox creation
+	SetupCommands    pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run during sandbox creation
 	EncryptedEnvVars []byte         `gorm:"type:bytea"`               // AES-256-GCM encrypted JSON map of env vars
 
 	Status        string `gorm:"not null;default:'active'"` // draft, active, archived
@@ -57,7 +56,7 @@ type Employee struct {
 
 func (Employee) TableName() string { return "employees" }
 
-// SandboxToolDefinition describes a tool/service that can be enabled in a specialist sandbox.
+// SandboxToolDefinition describes a tool/service that can be enabled in a sandbox.
 type SandboxToolDefinition struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -120,7 +119,6 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "web_screenshot", Name: "Screenshot", Description: "Take a screenshot of a webpage as base64-encoded PNG.", Category: "web"},
 	{ID: "web_transform", Name: "Transform HTML", Description: "Convert HTML to markdown or plain text without HTTP requests.", Category: "web"},
 
-	{ID: "specialist", Name: "Specialist", Description: "Launch a specialist to handle a focused task autonomously.", Category: "orchestration"},
 	{ID: "batch", Name: "Batch", Description: "Execute multiple independent tool calls concurrently.", Category: "orchestration"},
 
 	{ID: "todowrite", Name: "Write tasks", Description: "Create and manage a structured task list for the current session.", Category: "tasks"},

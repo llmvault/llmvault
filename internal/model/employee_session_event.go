@@ -22,8 +22,6 @@ type EmployeeSessionEvent struct {
 	EventType        string     `gorm:"not null;index;size:128"`
 	Source           string     `gorm:"not null;default:'manual';size:128"`
 	Mode             string     `gorm:"not null;default:'employee';index;size:64"`
-	SpecialistSlug   string     `gorm:"not null;default:'';index;size:128"`
-	SpecialistTaskID *uuid.UUID `gorm:"type:uuid;index"`
 	SequenceNumber   int64      `gorm:"not null;default:0;index"`
 	Payload          RawJSON    `gorm:"type:jsonb;not null;default:'{}'"`
 	EventAt          time.Time  `gorm:"not null;index"`

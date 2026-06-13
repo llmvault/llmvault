@@ -34,11 +34,10 @@ func TestEnsureEmployeeProxyTokenRefreshScheduledForToken_EnqueuesExpiredEmploye
 		JTI:          uuid.NewString(),
 		ExpiresAt:    expiredAt,
 		Meta: model.JSON{
-			model.TokenMetaType:        model.TokenTypeEmployeeProxy,
-			model.TokenMetaEmployeeID:  f.agent.ID.String(),
-			model.TokenMetaSandboxID:   f.sandbox.ID.String(),
-			model.TokenMetaHarness:     model.TokenHarnessEmployeeSandbox,
-			model.TokenMetaRuntimeMode: model.TokenRuntimeModeEmployee,
+			model.TokenMetaType:      model.TokenTypeAgentProxy,
+			model.TokenMetaAgentID:   f.agent.ID.String(),
+			model.TokenMetaSandboxID: f.sandbox.ID.String(),
+			model.TokenMetaHarness:   model.TokenHarnessAgentSandbox,
 		},
 	}
 	if err := f.db.Create(&tok).Error; err != nil {
@@ -75,11 +74,10 @@ func TestEnsureEmployeeProxyTokenRefreshScheduledForToken_SkipsExistingTask(t *t
 		JTI:          uuid.NewString(),
 		ExpiresAt:    time.Now().UTC().Add(-time.Hour),
 		Meta: model.JSON{
-			model.TokenMetaType:        model.TokenTypeEmployeeProxy,
-			model.TokenMetaEmployeeID:  f.agent.ID.String(),
-			model.TokenMetaSandboxID:   f.sandbox.ID.String(),
-			model.TokenMetaHarness:     model.TokenHarnessEmployeeSandbox,
-			model.TokenMetaRuntimeMode: model.TokenRuntimeModeEmployee,
+			model.TokenMetaType:      model.TokenTypeAgentProxy,
+			model.TokenMetaAgentID:   f.agent.ID.String(),
+			model.TokenMetaSandboxID: f.sandbox.ID.String(),
+			model.TokenMetaHarness:   model.TokenHarnessAgentSandbox,
 		},
 	}
 	if err := f.db.Create(&tok).Error; err != nil {

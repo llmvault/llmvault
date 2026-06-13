@@ -34,11 +34,7 @@ dev:
 	cargo build && cargo watch -x run
 
 test:
-	cargo test --test cron_integration --test cron_tool_integration \
-	          --test delegate_wake_integration --test scheduler_integration \
-	          --test bash_operations_integration --test file_operations_integration \
-	          --test process_registry_integration --test skills_integration \
-	          --test handler_routing_integration
+	cargo test --workspace
 
 openapi:
 	cargo run -p hivy-sandboxes-runtime --features openapi --bin gen-openapi -- openapi.json

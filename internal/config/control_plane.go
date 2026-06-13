@@ -9,9 +9,6 @@ func (c *Config) RuntimeControlPlaneBaseURL() string {
 		if base := normalizeRuntimeBaseURL(c.APIWebhookBaseURL); base != "" {
 			return base
 		}
-		if base := normalizeRuntimeBaseURL(c.SpecialistSandboxHost); base != "" {
-			return base
-		}
 	}
 	return defaultRuntimeControlPlaneBaseURL
 }

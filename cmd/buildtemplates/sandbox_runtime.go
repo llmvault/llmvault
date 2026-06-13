@@ -19,15 +19,15 @@ type runtimeVariant struct {
 }
 
 var (
-	runtimeEmployeeVariant = runtimeVariant{
+	runtimeDefaultVariant = runtimeVariant{
 		imageRepo:      "ghcr.io/usehivy/hivy-sandboxes-runtime",
 		snapshotPrefix: "hivy-sandboxes-runtime",
 		displayName:    "usehivy/hivy-sandboxes-runtime",
 	}
-	runtimeSpecialistVariant = runtimeVariant{
-		imageRepo:      "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist",
-		snapshotPrefix: "hivy-sandboxes-runtime-specialist",
-		displayName:    "usehivy/hivy-sandboxes-runtime-specialist",
+	runtimeDevelopersVariant = runtimeVariant{
+		imageRepo:      "ghcr.io/usehivy/hivy-sandboxes-runtime-developers",
+		snapshotPrefix: "hivy-sandboxes-runtime-developers",
+		displayName:    "usehivy/hivy-sandboxes-runtime-developers",
 	}
 )
 

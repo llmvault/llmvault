@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/employeesandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -33,7 +33,6 @@ type EmployeeSQLiteBackupHandler struct {
 	encKey                 *crypto.SymmetricKey
 	maxBytes               int64
 	employeeRuntimeImage   string
-	specialistRuntimeImage string
 }
 
 func NewEmployeeSQLiteBackupHandler(db *gorm.DB, s3 employeeSQLiteBackupStreamer, encKey *crypto.SymmetricKey, maxBytes int64) *EmployeeSQLiteBackupHandler {
@@ -43,9 +42,8 @@ func NewEmployeeSQLiteBackupHandler(db *gorm.DB, s3 employeeSQLiteBackupStreamer
 	return &EmployeeSQLiteBackupHandler{db: db, storage: s3, encKey: encKey, maxBytes: maxBytes}
 }
 
-func (h *EmployeeSQLiteBackupHandler) WithRuntimeImages(employeeImage, specialistImage string) *EmployeeSQLiteBackupHandler {
+func (h *EmployeeSQLiteBackupHandler) WithRuntimeImages(employeeImage string) *EmployeeSQLiteBackupHandler {
 	h.employeeRuntimeImage = employeeImage
-	h.specialistRuntimeImage = specialistImage
 	return h
 }
 
@@ -187,10 +185,9 @@ func (h *EmployeeSQLiteBackupHandler) authenticateEmployeeRuntime(w http.Respons
 	return &agent, sandbox, true
 }
 
-func (h *EmployeeSQLiteBackupHandler) employeeRuntimeSelector() employeesandbox.Selector {
-	return employeesandbox.Selector{
-		DB:                     h.db,
-		EmployeeRuntimeImage:   h.employeeRuntimeImage,
-		SpecialistRuntimeImage: h.specialistRuntimeImage,
+func (h *EmployeeSQLiteBackupHandler) employeeRuntimeSelector() agentsandbox.Selector {
+	return agentsandbox.Selector{
+		DB:                   h.db,
+		EmployeeRuntimeImage: h.employeeRuntimeImage,
 	}
 }

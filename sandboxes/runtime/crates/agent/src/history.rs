@@ -106,7 +106,7 @@ pub async fn load_preloaded_context(
         .unwrap_or_default())
 }
 
-pub async fn seed_model_history_from_gateway(
+pub async fn seed_model_history_from_session_history(
     repo: Option<&dyn EventRepo>,
     session_id: &SessionId,
     history: &[HistoryEntry],
@@ -127,7 +127,7 @@ pub async fn seed_model_history_from_gateway(
     Ok(messages)
 }
 
-pub fn visible_messages_from_gateway(history: Vec<HistoryEntry>) -> Vec<AgentMessage> {
+pub fn visible_messages_from_session_history(history: Vec<HistoryEntry>) -> Vec<AgentMessage> {
     history
         .into_iter()
         .map(|entry| match entry.role {
@@ -355,10 +355,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn gateway_seed_only_contains_visible_roles() {
+    async fn session_history_seed_only_contains_visible_roles() {
         let repo = Arc::new(MemoryEventRepo::default());
         let session_id = SessionId::from("s2");
-        let seeded = seed_model_history_from_gateway(
+        let seeded = seed_model_history_from_session_history(
             Some(repo.as_ref()),
             &session_id,
             &[
@@ -426,8 +426,8 @@ mod tests {
     }
 
     #[test]
-    fn visible_gateway_history_keeps_user_id_with_name() {
-        let messages = visible_messages_from_gateway(vec![HistoryEntry {
+    fn visible_session_history_keeps_user_id_with_name() {
+        let messages = visible_messages_from_session_history(vec![HistoryEntry {
             role: HistoryRole::User,
             speaker_id: "U08P1G9EDNG".into(),
             speaker_display_name: Some("Nora".into()),

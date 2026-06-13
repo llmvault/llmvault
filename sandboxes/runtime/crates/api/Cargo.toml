@@ -25,6 +25,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
+nanoid = "0.4"
 tokio.workspace = true
 tracing.workspace = true
 sentry.workspace = true

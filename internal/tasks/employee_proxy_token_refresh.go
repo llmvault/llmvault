@@ -11,7 +11,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -102,14 +102,14 @@ func EmployeeProxyTokenRefreshTaskID(sandboxID uuid.UUID, scheduledAt time.Time)
 type EmployeeProxyTokenRefreshHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator
-	compileDeps  employeeruntime.CompileDeps
+	compileDeps  agentruntime.CompileDeps
 	enqueuer     enqueue.TaskEnqueuer
 }
 
 func NewEmployeeProxyTokenRefreshHandler(
 	db *gorm.DB,
 	orchestrator *sandbox.Orchestrator,
-	compileDeps employeeruntime.CompileDeps,
+	compileDeps agentruntime.CompileDeps,
 	enqueuer enqueue.TaskEnqueuer,
 ) *EmployeeProxyTokenRefreshHandler {
 	return &EmployeeProxyTokenRefreshHandler{
@@ -152,12 +152,12 @@ func (h *EmployeeProxyTokenRefreshHandler) run(ctx context.Context, payload Empl
 	if err != nil {
 		return fmt.Errorf("decrypt employee runtime secret: %w", err)
 	}
-	client := employeeruntime.NewClient(sb.RuntimeURL, apiKey)
+	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
 	if err := client.Healthz(ctx); err != nil {
 		return fmt.Errorf("employee runtime healthz: %w", err)
 	}
 
-	configUpdate, refreshed, err := employeeruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, apiKey)
+	configUpdate, refreshed, err := agentruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, apiKey)
 	if err != nil {
 		if refreshed != nil {
 			h.revokeToken(ctx, refreshed.JTI)
@@ -232,12 +232,11 @@ func (h *EmployeeProxyTokenRefreshHandler) revokeOlderTokens(ctx context.Context
 	// a concurrent sync may have just minted one the runtime now relies on.
 	revokeBefore := now.Add(-employeeProxyTokenRevokeGrace)
 	if err := h.db.WithContext(ctx).Model(&model.Token{}).
-		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND jti != ? AND revoked_at IS NULL AND created_at < ?",
+		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND jti != ? AND revoked_at IS NULL AND created_at < ?",
 			*agent.OrgID,
 			model.TokenMetaEmployeeID, agent.ID.String(),
 			model.TokenMetaType, model.TokenTypeEmployeeProxy,
 			model.TokenMetaHarness, model.TokenHarnessEmployeeSandbox,
-			model.TokenMetaRuntimeMode, model.TokenRuntimeModeEmployee,
 			keepJTI, revokeBefore).
 		Update("revoked_at", now).Error; err != nil {
 		return fmt.Errorf("revoke older employee proxy tokens: %w", err)
@@ -263,12 +262,11 @@ func nextEmployeeProxyTokenRefreshAt(ctx context.Context, db *gorm.DB, agent *mo
 	}
 	var tok model.Token
 	err := db.WithContext(ctx).
-		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND revoked_at IS NULL",
+		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND meta->>? = ? AND revoked_at IS NULL",
 			*agent.OrgID,
 			model.TokenMetaEmployeeID, agent.ID.String(),
 			model.TokenMetaType, model.TokenTypeEmployeeProxy,
-			model.TokenMetaHarness, model.TokenHarnessEmployeeSandbox,
-			model.TokenMetaRuntimeMode, model.TokenRuntimeModeEmployee).
+			model.TokenMetaHarness, model.TokenHarnessEmployeeSandbox).
 		Where("COALESCE(meta->>?, '') IN (?, '')", model.TokenMetaSandboxID, sandboxID.String()).
 		Order("created_at DESC").
 		First(&tok).Error

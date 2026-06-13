@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
@@ -29,7 +29,7 @@ func TestEmployeeHandler_ListModelsReturnsEmployeeOpenRouterAllowlist(t *testing
 		db.Where("id = ?", cred.ID).Delete(&model.Credential{})
 	})
 
-	h := handler.NewEmployeeHandler(db, nil, employeeruntime.CompileDeps{}, registry.Global())
+	h := handler.NewEmployeeHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
 	req := httptest.NewRequest(http.MethodGet, "/v1/employees/models", nil)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)

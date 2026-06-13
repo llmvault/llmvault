@@ -64,7 +64,7 @@ impl SessionCoordinator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use domain::{reply::MessageHandle, Attachment};
+    use domain::Attachment;
 
     fn inbound(session: &str, envelope: &str, text: &str) -> InboundEvent {
         InboundEvent {
@@ -81,10 +81,6 @@ mod tests {
             }],
             dynamic_context: Vec::new(),
             raw: serde_json::json!({"source": "test"}),
-            inbound_handle: MessageHandle {
-                channel: "C123".to_string(),
-                ts: envelope.to_string(),
-            },
             is_direct_message: false,
             is_directly_addressed: true,
             link_previews: Vec::new(),
@@ -115,7 +111,7 @@ mod tests {
 
     #[test]
     fn submit_after_turn_finished_returns_run_now_and_leaves_reservation() {
-        // Models the delegate-completion path: the parent turn has already
+        // Models the subagent-completion path: the parent turn has already
         // finished (no coordinator entry), so submit_or_queue takes a fresh
         // reservation and returns RunNow. The handler MUST react to RunNow by
         // re-dispatching the inbound; otherwise the entry it just inserted is
@@ -130,12 +126,12 @@ mod tests {
         ));
         assert!(coordinator.finish_turn(&session).is_empty());
 
-        // Delegate result arrives after the parent turn already finished.
+        // Subagent result arrives after the parent turn already finished.
         let decision =
-            coordinator.submit_or_queue(inbound("parent-session", "delegate-result", "result"));
+            coordinator.submit_or_queue(inbound("parent-session", "subagent-result", "result"));
         assert!(
             matches!(decision, Submission::RunNow),
-            "a delegate result for an idle session must signal RunNow so the handler re-dispatches it"
+            "a subagent result for an idle session must signal RunNow so the handler re-dispatches it"
         );
 
         // The fresh reservation now exists but holds no queued payload (the

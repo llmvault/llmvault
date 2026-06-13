@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -215,8 +215,8 @@ func employeeRuntimeEndpoint(t *testing.T) string {
 	return srv.URL
 }
 
-func employeeStartupSecrets() *employeeruntime.StartupSecrets {
-	return &employeeruntime.StartupSecrets{
+func employeeStartupSecrets() *agentruntime.StartupSecrets {
+	return &agentruntime.StartupSecrets{
 		ProxyToken: "ptok-test",
 	}
 }

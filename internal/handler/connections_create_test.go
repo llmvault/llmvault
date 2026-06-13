@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -383,7 +383,7 @@ func TestConnectionHandler_CreateGlitchTipStoresConnectionConfig(t *testing.T) {
 	if _, ok := credentials["apiKey"]; ok {
 		t.Fatal("created connection meta must not contain credentials.apiKey")
 	}
-	if got := employeeruntime.GlitchTipDashboardBaseURLFromConnection(conn); got != "https://app.glitchtip.com" {
+	if got := agentruntime.GlitchTipDashboardBaseURLFromConnection(conn); got != "https://app.glitchtip.com" {
 		t.Fatalf("dashboard base url = %q", got)
 	}
 }

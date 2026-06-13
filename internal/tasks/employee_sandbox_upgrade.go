@@ -11,7 +11,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -31,7 +31,7 @@ type EmployeeSandboxUpgradeHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator
 	store        employeeSandboxUpgradeBackupStore
-	compileDeps  employeeruntime.CompileDeps
+	compileDeps  agentruntime.CompileDeps
 	enqueuer     enqueue.TaskEnqueuer
 }
 
@@ -39,7 +39,7 @@ func NewEmployeeSandboxUpgradeHandler(
 	db *gorm.DB,
 	orchestrator *sandbox.Orchestrator,
 	store employeeSandboxUpgradeBackupStore,
-	compileDeps employeeruntime.CompileDeps,
+	compileDeps agentruntime.CompileDeps,
 	enqueuer enqueue.TaskEnqueuer,
 ) *EmployeeSandboxUpgradeHandler {
 	return &EmployeeSandboxUpgradeHandler{
@@ -131,7 +131,7 @@ func (h *EmployeeSandboxUpgradeHandler) run(ctx context.Context, payload Employe
 	if err := h.markPhase(ctx, upgrade, model.EmployeeSandboxUpgradePhaseCreatingNew); err != nil {
 		return err
 	}
-	secrets, err := employeeruntime.PrepareStartup(ctx, h.compileDeps, agent)
+	secrets, err := agentruntime.PrepareStartup(ctx, h.compileDeps, agent)
 	if err != nil {
 		return fail(model.EmployeeSandboxUpgradePhaseCreatingNew, err)
 	}

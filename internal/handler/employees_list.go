@@ -16,19 +16,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-type employeeSpecialistSummary struct {
-	ID                     string  `json:"id"`
-	Name                   string  `json:"name"`
-	AvatarURL              *string `json:"avatar_url,omitempty"`
-	Description            *string `json:"description,omitempty"`
-	Status                 string  `json:"status"`
-	TemplateSlug           *string `json:"template_slug,omitempty"`
-	TemplateSpecialistType *string `json:"template_specialist_type,omitempty"`
-	DefaultModel           string  `json:"default_model"`
-	ConfiguredModel        *string `json:"configured_model,omitempty"`
-	EffectiveModel         string  `json:"effective_model"`
-}
-
 type employeeSandboxSummary struct {
 	ID           string  `json:"id"`
 	Status       string  `json:"status"`
@@ -41,14 +28,12 @@ type employeeSandboxSummary struct {
 
 type employeeListItem struct {
 	employeeResponse
-	UpgradeAvailable bool                        `json:"upgrade_available"`
-	Specialists      []employeeSpecialistSummary `json:"specialists"`
-	Sandbox          *employeeSandboxSummary     `json:"sandbox,omitempty"`
+	UpgradeAvailable bool                    `json:"upgrade_available"`
+	Sandbox          *employeeSandboxSummary `json:"sandbox,omitempty"`
 }
 
 // @Summary List AI employees
-// @Description Returns all employees in the org with enabled specialists,
-// @Description skills (metadata only — no bundle content),
+// @Description Returns all employees in the org with skills (metadata only — no bundle content),
 // @Description triggers, and the latest sandbox row.
 // @Tags employees
 // @Produce json
@@ -110,15 +95,9 @@ func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 		base := toEmployeeResponse(a)
 		base.Triggers = triggers[a.ID]
 		base.AttachedSkills = h.markEmployeeSkillLocks(r.Context(), org.ID, &a, skills[a.ID])
-		subs := h.employeeAttachedSpecialistSummaries(a)
-		base.SpecialistIDs = make([]string, len(subs))
-		for j, s := range subs {
-			base.SpecialistIDs[j] = s.ID
-		}
 		items[i] = employeeListItem{
 			employeeResponse: base,
 			UpgradeAvailable: employeeSandboxUpgradeAvailable(sandboxes[a.ID], currentSnapshotID),
-			Specialists:      subs,
 			Sandbox:          sandboxes[a.ID],
 		}
 	}
@@ -134,8 +113,7 @@ func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 
 // Get handles GET /v1/employees/{id}.
 // @Summary Get an AI employee
-// @Description Returns one employee in the org with enabled specialists,
-// @Description skills (metadata only — no bundle content),
+// @Description Returns one employee in the org with skills (metadata only — no bundle content),
 // @Description triggers, and the latest sandbox row.
 // @Tags employees
 // @Produce json
@@ -177,18 +155,12 @@ func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	base := toEmployeeResponse(agent)
 	base.Triggers = h.loadEmployeeTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markEmployeeSkillLocks(r.Context(), org.ID, &agent, h.loadEmployeeSkills(agent.ID)[agent.ID])
-	specialists := h.employeeAttachedSpecialistSummaries(agent)
-	base.SpecialistIDs = make([]string, len(specialists))
-	for i, specialist := range specialists {
-		base.SpecialistIDs[i] = specialist.ID
-	}
 	sandbox := h.loadMainEmployeeRuntimeSandboxSummaries(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
 	currentSnapshotID := h.currentEmployeeSandboxSnapshotID()
 
 	writeJSON(w, http.StatusOK, employeeListItem{
 		employeeResponse: base,
 		UpgradeAvailable: employeeSandboxUpgradeAvailable(sandbox, currentSnapshotID),
-		Specialists:      specialists,
 		Sandbox:          sandbox,
 	})
 }
@@ -217,45 +189,12 @@ func (h *EmployeeHandler) employeeListItem(ctx context.Context, orgID uuid.UUID,
 	base := toEmployeeResponse(agent)
 	base.Triggers = h.loadEmployeeTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markEmployeeSkillLocks(ctx, orgID, &agent, h.loadEmployeeSkills(agent.ID)[agent.ID])
-	specialists := h.employeeAttachedSpecialistSummaries(agent)
-	base.SpecialistIDs = make([]string, len(specialists))
-	for i, specialist := range specialists {
-		base.SpecialistIDs[i] = specialist.ID
-	}
 	sandbox := h.loadMainEmployeeRuntimeSandboxSummaries(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]
 	return employeeListItem{
 		employeeResponse: base,
 		UpgradeAvailable: employeeSandboxUpgradeAvailable(sandbox, h.currentEmployeeSandboxSnapshotID()),
-		Specialists:      specialists,
 		Sandbox:          sandbox,
 	}
-}
-
-func (h *EmployeeHandler) employeeAttachedSpecialistSummaries(employee model.Employee) []employeeSpecialistSummary {
-	attached := attachedSpecialistSet(employee.AttachedSpecialists)
-	defs := h.specialists.List()
-	out := make([]employeeSpecialistSummary, 0, len(defs))
-	for _, def := range defs {
-		if !attached[def.Slug] {
-			continue
-		}
-		slug := def.Slug
-		specialistType := def.SpecialistType
-		desc := def.Description
-		configuredModel, effectiveModel := h.employeeSpecialistModels(employee, def.Slug, def.DefaultModel)
-		out = append(out, employeeSpecialistSummary{
-			ID:                     def.Slug,
-			Name:                   def.Name,
-			Description:            &desc,
-			Status:                 "active",
-			TemplateSlug:           &slug,
-			TemplateSpecialistType: &specialistType,
-			DefaultModel:           def.DefaultModel,
-			ConfiguredModel:        configuredModel,
-			EffectiveModel:         effectiveModel,
-		})
-	}
-	return out
 }
 
 func employeeSandboxUpgradeAvailable(summary *employeeSandboxSummary, currentSnapshotID string) bool {
@@ -269,10 +208,9 @@ func employeeSandboxUpgradeAvailable(summary *employeeSandboxSummary, currentSna
 }
 
 func (h *EmployeeHandler) loadMainEmployeeRuntimeSandboxSummaries(ctx context.Context, orgID uuid.UUID, agentIDs []uuid.UUID) map[uuid.UUID]*employeeSandboxSummary {
-	employeeImage, specialistImage := "", ""
+	employeeImage := ""
 	if h != nil && h.compileDeps.Cfg != nil {
 		employeeImage = h.compileDeps.Cfg.SandboxesRuntimeBaseImage
-		specialistImage = h.compileDeps.Cfg.SandboxesRuntimeSpecialistImage
 	}
 	return loadMainEmployeeRuntimeSandboxPerAgent(
 		ctx,
@@ -280,6 +218,5 @@ func (h *EmployeeHandler) loadMainEmployeeRuntimeSandboxSummaries(ctx context.Co
 		orgID,
 		agentIDs,
 		employeeImage,
-		specialistImage,
 	)
 }

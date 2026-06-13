@@ -11,10 +11,10 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/email"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/model"
@@ -88,7 +88,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		Hindsight:       deps.HindsightClient,
 		PreContextCache: preContextCache,
 		S3Client:        deps.S3Client,
-		EmployeeCompile: employeeruntime.CompileDeps{
+		EmployeeCompile: agentruntime.CompileDeps{
 			DB:          deps.DB,
 			Picker:      credentials.NewPickerWithRegistry(deps.DB, deps.Registry),
 			KMS:         deps.KMS,
@@ -96,14 +96,13 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 			SigningKey:  deps.SigningKey,
 			Cfg:         cfg,
 			Hindsight:   deps.HindsightClient,
-			Specialists: deps.Specialists,
 		},
 		Rag:          ragDeps,
 		RagScheduler: ragSched,
 	}
 	if deps.Orchestrator != nil && workerDeps.EmployeeCompile.EncKey != nil {
 		deps.Orchestrator.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
-			return employeeruntime.PushEmployeeRuntimeConfigForSandbox(ctx, workerDeps.EmployeeCompile, sb)
+			return agentruntime.PushEmployeeRuntimeConfigForSandbox(ctx, workerDeps.EmployeeCompile, sb)
 		})
 	}
 	if deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.EmployeeCompile.EncKey != nil && workerDeps.EmployeeCompile.KMS != nil && cfg.EmployeeSandboxAutoUpgrade {
