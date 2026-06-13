@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates employee-env-doctor employee-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek
+.PHONY: build test test-e2e test-agent-runtime-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates employee-env-doctor employee-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -12,6 +12,7 @@ SANDBOX_RUNTIME_LINUX_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LI
 SANDBOX_RUNTIME_LINUX_AMD64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_AMD64_TARGET)
 SANDBOX_RUNTIME_LINUX_ARM64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_ARM64_TARGET)
 SANDBOX_RUNTIME_IMAGE ?= hivy-sandboxes-runtime:runtime
+MICROSANDBOX_BINARY ?= bin/microsandbox
 GO_BIN ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /opt/homebrew/bin/go ]; then echo /opt/homebrew/bin/go; elif [ -x /usr/local/go/bin/go ]; then echo /usr/local/go/bin/go; else echo go; fi)
 DEV_COMPOSE_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight api worker proxy web
 DEV_INFRA_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight
@@ -179,6 +180,25 @@ generate: fetch-actions
 build:
 	go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \
 		-o bin/hivy ./cmd/server
+
+microsandbox-build:
+	go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \
+		-o $(MICROSANDBOX_BINARY) ./cmd/microsandbox
+
+microsandbox-test:
+	go test ./internal/microsandbox/... ./internal/sandbox/microsandbox ./internal/bootstrap
+
+microsandbox-release-linux-amd64:
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \
+		-o dist/microsandbox-linux-amd64 ./cmd/microsandbox
+
+microsandbox-release-linux-arm64:
+	GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \
+		-o dist/microsandbox-linux-arm64 ./cmd/microsandbox
+
+microsandbox-release-darwin-arm64:
+	GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \
+		-o dist/microsandbox-darwin-arm64 ./cmd/microsandbox
 
 # Run unit tests with race detection
 test:

@@ -9,9 +9,10 @@ import (
 var ErrSandboxNotFound = errors.New("sandbox not found upstream")
 
 const (
-	ProviderDaytona = "daytona"
-	ProviderDocker  = "docker"
-	ProviderRailway = "railway"
+	ProviderDaytona      = "daytona"
+	ProviderDocker       = "docker"
+	ProviderMicrosandbox = "microsandbox"
+	ProviderRailway      = "railway"
 )
 
 // SandboxStatus represents the state of a sandbox.
