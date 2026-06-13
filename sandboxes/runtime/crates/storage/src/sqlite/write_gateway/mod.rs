@@ -1,6 +1,7 @@
 mod cron_ops;
 mod event_ops;
 mod outbox_ops;
+mod question_ops;
 mod request;
 mod session_ops;
 mod subagent_ops;
@@ -11,7 +12,8 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use domain::cron::{CronJob, CronJobState};
 use domain::{
-    AgentDefinition, EventKind, Session, SessionId, SessionStatus, SubagentTask, SubagentTaskState,
+    AgentDefinition, EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionId,
+    SessionStatus, SubagentTask, SubagentTaskState,
 };
 use serde_json::Value;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -291,6 +293,33 @@ impl SqliteWriteGateway {
             parent_session_id,
             completed_at,
             error,
+            resp,
+        })
+        .await?;
+        recv(rx).await
+    }
+
+    pub async fn create_question_request(&self, request: QuestionRequest) -> Result<()> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::QuestionRequestCreate {
+            request: Box::new(request),
+            resp,
+        })
+        .await?;
+        recv(rx).await
+    }
+
+    pub async fn answer_question_request(
+        &self,
+        id: String,
+        answer: QuestionAnswerPayload,
+        answered_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::QuestionRequestAnswer {
+            id,
+            answer: Box::new(answer),
+            answered_at,
             resp,
         })
         .await?;

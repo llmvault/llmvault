@@ -34,7 +34,8 @@ use outbound::{
 use skills::SkillWriter;
 use storage::{
     init_sqlite_store, SqliteConfigRepo, SqliteCronJobRepo, SqliteEventRepo,
-    SqliteInboundDedupeRepo, SqliteOutboxRepo, SqliteSessionRepo, SqliteSubagentTaskRepo,
+    SqliteInboundDedupeRepo, SqliteOutboxRepo, SqliteQuestionRequestRepo, SqliteSessionRepo,
+    SqliteSubagentTaskRepo,
 };
 use tokio::sync::{mpsc, RwLock};
 use tools::LocalBashOperations;
@@ -110,6 +111,8 @@ async fn main() -> Result<()> {
     let cron_repo: Arc<dyn storage::CronJobRepo> = Arc::new(SqliteCronJobRepo::new(&sqlite_store));
     let subagent_task_repo: Arc<dyn storage::SubagentTaskRepo> =
         Arc::new(SqliteSubagentTaskRepo::new(&sqlite_store));
+    let question_request_repo: Arc<dyn storage::QuestionRequestRepo> =
+        Arc::new(SqliteQuestionRequestRepo::new(&sqlite_store));
 
     let initial_definition = match config_repo.load().await? {
         Some(persisted) => {
@@ -147,6 +150,11 @@ async fn main() -> Result<()> {
     );
 
     let session_stream_broker = Arc::new(api::SessionStreamBroker::new());
+    let plan_manager = Arc::new(api::PlanManager::new(session_stream_broker.clone()));
+    let question_manager = Arc::new(api::QuestionManager::new(
+        question_request_repo.clone(),
+        session_stream_broker.clone(),
+    ));
     let (inbound_sink, mut inbound_events) = mpsc::channel::<InboundEvent>(256);
     let attachment_downloader: Arc<dyn handler::AttachmentDownloader> =
         Arc::new(handler::HttpAttachmentDownloader::new());
@@ -166,6 +174,7 @@ async fn main() -> Result<()> {
             inbound_sink: inbound_sink.clone(),
             broker: session_stream_broker.clone(),
         }),
+        Some(question_manager.clone()),
         Some(mcp_registry.clone()),
         Some(outbound_reloader),
         sentry_enabled,
@@ -231,6 +240,8 @@ async fn main() -> Result<()> {
         .with_outbound_emitter(emitter.clone())
         .with_cron_repo(cron_repo.clone())
         .with_subagent_task_repo(subagent_task_repo.clone())
+        .with_plan_updater(plan_manager.clone())
+        .with_question_requester(question_manager.clone())
         .with_event_repo(event_repo.clone())
         .with_mcp_registry(mcp_registry.clone())
         .with_subagent_stream_creator(subagent_stream_creator);
@@ -498,6 +509,8 @@ fn default_builtin_tool_specs() -> Vec<ToolSpec> {
         ToolSpec::CheckSubagentTaskStatus,
         ToolSpec::CheckBashStatus,
         ToolSpec::SearchSessions,
+        ToolSpec::RequestUserInput,
+        ToolSpec::UpdatePlan,
         ToolSpec::Wake,
         ToolSpec::SkillsList,
         ToolSpec::SkillView,

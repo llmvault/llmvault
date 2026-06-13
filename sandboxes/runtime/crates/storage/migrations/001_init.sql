@@ -109,3 +109,16 @@ CREATE TABLE subagent_tasks (
 );
 CREATE INDEX idx_subagent_tasks_parent_state ON subagent_tasks(parent_session_id, state);
 CREATE INDEX idx_subagent_tasks_state_created ON subagent_tasks(state, created_at);
+
+CREATE TABLE question_requests (
+    id TEXT PRIMARY KEY NOT NULL,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    request_json TEXT NOT NULL,
+    answer_json TEXT,
+    state TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    answered_at TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_question_requests_session_state ON question_requests(session_id, state);
+CREATE INDEX idx_question_requests_state_created ON question_requests(state, created_at);

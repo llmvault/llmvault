@@ -122,6 +122,8 @@ pub fn build_builtin_tools(
             | ToolSpec::CheckBashStatus
             | ToolSpec::Wake
             | ToolSpec::SearchSessions
+            | ToolSpec::RequestUserInput
+            | ToolSpec::UpdatePlan
             | ToolSpec::SkillsList
             | ToolSpec::SkillView
             | ToolSpec::SkillManage => {}

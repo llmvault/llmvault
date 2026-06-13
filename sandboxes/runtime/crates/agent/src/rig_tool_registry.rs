@@ -9,19 +9,22 @@ use chrono::{DateTime, Utc};
 use domain::agent_registry::AgentDefinitionRegistry;
 use domain::cron::{CronJob, CronJobState};
 use domain::{
-    event_types, OutboundEvent, SessionId, SubagentTask, SubagentTaskConfig, SubagentTaskState,
-    ToolSpec,
+    event_types, validate_request_user_input_payload, validate_update_plan_payload, OutboundEvent,
+    RequestUserInputPayload, SessionId, SubagentTask, SubagentTaskConfig, SubagentTaskState,
+    ToolSpec, UpdatePlanPayload,
 };
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
 use serde_json::{json, Value};
+use storage::{CronJobRepo, EventRepo, SubagentTaskRepo};
+use tools::{JsonTool, ProcessRegistry, ToolDefinition};
+
+use crate::{PlanUpdater, QuestionRequester};
 
 /// Type alias for a function that creates an SSE stream for a subagent task session.
 /// Returns (stream_id, stream_url).
 pub type SubagentStreamCreator =
     Arc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = (String, String)> + Send>> + Send + Sync>;
-use storage::{CronJobRepo, EventRepo, SubagentTaskRepo};
-use tools::{JsonTool, ProcessRegistry, ToolDefinition};
 
 pub type ToolFuture = Pin<Box<dyn Future<Output = Result<Value>> + Send>>;
 
@@ -58,6 +61,8 @@ pub struct ToolContext {
     pub subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     pub event_repo: Option<Arc<dyn EventRepo>>,
     pub process_registry: Option<Arc<ProcessRegistry>>,
+    pub question_requester: Option<Arc<dyn QuestionRequester>>,
+    pub plan_updater: Option<Arc<dyn PlanUpdater>>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
     pub workspace_root: PathBuf,
     pub outbound_emitter: Option<Arc<OutboundEmitter>>,
@@ -132,6 +137,23 @@ pub fn build_agent_tools(
             ToolSpec::CheckSubagentTaskStatus => {
                 if let Some(repo) = &ctx.subagent_task_repo {
                     tools.push(check_subagent_task_status_tool(repo.clone()));
+                }
+            }
+            ToolSpec::RequestUserInput => {
+                if let Some(requester) = &ctx.question_requester {
+                    if !session_is_cron {
+                        tools.push(request_user_input_tool(
+                            requester.clone(),
+                            session_id.clone(),
+                        ));
+                    }
+                }
+            }
+            ToolSpec::UpdatePlan => {
+                if let Some(updater) = &ctx.plan_updater {
+                    if !session_is_cron {
+                        tools.push(update_plan_tool(updater.clone(), session_id.clone()));
+                    }
                 }
             }
             _ => {}
@@ -217,6 +239,121 @@ fn event_source_from_session(session_id: &SessionId) -> &'static str {
     } else {
         "session"
     }
+}
+
+fn request_user_input_tool(
+    requester: Arc<dyn QuestionRequester>,
+    session_id: SessionId,
+) -> Arc<dyn JsonTool> {
+    Arc::new(DynamicTool::new(
+        ToolDefinition {
+            name: "request_user_input".into(),
+            description:
+                "Ask the user one to three structured questions and wait until they answer.".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 3,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": { "type": "string" },
+                                "header": {
+                                    "type": "string",
+                                    "description": "Short UI header, 12 or fewer characters."
+                                },
+                                "question": { "type": "string" },
+                                "options": {
+                                    "type": "array",
+                                    "minItems": 2,
+                                    "maxItems": 3,
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "label": { "type": "string" },
+                                            "description": { "type": "string" }
+                                        },
+                                        "required": ["label", "description"]
+                                    }
+                                }
+                            },
+                            "required": ["id", "header", "question", "options"]
+                        }
+                    }
+                },
+                "required": ["questions"]
+            }),
+        },
+        move |args| {
+            let requester = requester.clone();
+            let session_id = session_id.clone();
+            Box::pin(async move {
+                let payload: RequestUserInputPayload = serde_json::from_value(args)
+                    .map_err(|error| anyhow!("invalid request_user_input arguments: {error}"))?;
+                validate_request_user_input_payload(&payload)
+                    .map_err(|error| anyhow!("invalid request_user_input arguments: {error}"))?;
+                let (question_request_id, answer) =
+                    requester.request_user_input(&session_id, payload).await?;
+                Ok(json!({
+                    "question_request_id": question_request_id,
+                    "answers": answer.answers,
+                }))
+            })
+        },
+    ))
+}
+
+fn update_plan_tool(updater: Arc<dyn PlanUpdater>, session_id: SessionId) -> Arc<dyn JsonTool> {
+    Arc::new(DynamicTool::new(
+        ToolDefinition {
+            name: "update_plan".into(),
+            description: "Replace the current visible task plan with a concise checklist of steps."
+                .into(),
+            parameters: json!({
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "explanation": {
+                        "type": ["string", "null"],
+                        "description": "Optional short reason or context for this plan update."
+                    },
+                    "plan": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "step": { "type": "string" },
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["pending", "in_progress", "completed"]
+                                }
+                            },
+                            "required": ["step", "status"]
+                        }
+                    }
+                },
+                "required": ["plan"]
+            }),
+        },
+        move |args| {
+            let updater = updater.clone();
+            let session_id = session_id.clone();
+            Box::pin(async move {
+                let payload: UpdatePlanPayload = serde_json::from_value(args)
+                    .map_err(|error| anyhow!("invalid update_plan arguments: {error}"))?;
+                validate_update_plan_payload(&payload)
+                    .map_err(|error| anyhow!("invalid update_plan arguments: {error}"))?;
+                let result = updater.update_plan(&session_id, payload).await?;
+                serde_json::to_value(result)
+                    .map_err(|error| anyhow!("serialize plan result: {error}"))
+            })
+        },
+    ))
 }
 
 fn search_sessions_tool(repo: Arc<dyn EventRepo>) -> Arc<dyn JsonTool> {

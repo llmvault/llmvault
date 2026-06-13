@@ -11,6 +11,7 @@ use storage::{ConfigRepo, CronJobRepo, EventRepo, SessionRepo};
 use tokio::sync::{Notify, RwLock};
 use tools::LocalBashOperations;
 
+use crate::question_manager::QuestionManager;
 use crate::session_stream::SessionMessageState;
 
 #[derive(Clone)]
@@ -29,6 +30,7 @@ pub struct ApiState {
     pub config_notify: Arc<Notify>,
     pub skill_writer: Arc<SkillWriter>,
     pub session_stream: Option<SessionMessageState>,
+    pub question_manager: Option<Arc<QuestionManager>>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
     pub outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
     pub observability: ObservabilityRecorder,
@@ -55,6 +57,7 @@ impl ApiState {
         bash: Arc<LocalBashOperations>,
         skill_writer: Arc<SkillWriter>,
         session_stream: Option<SessionMessageState>,
+        question_manager: Option<Arc<QuestionManager>>,
         mcp_registry: Option<Arc<McpRegistry>>,
         outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
         sentry_enabled: bool,
@@ -81,6 +84,7 @@ impl ApiState {
             config_notify: Arc::new(Notify::new()),
             skill_writer,
             session_stream,
+            question_manager,
             mcp_registry,
             outbound_reloader,
             observability,

@@ -1,0 +1,86 @@
+---
+- name: Assert runner OS is Ubuntu 26.04 amd64
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == "Ubuntu"
+      - ansible_distribution_version is version("26.04", "==")
+      - ansible_architecture == "x86_64"
+    fail_msg: "Microsandbox runners currently target Ubuntu 26.04 on linux/amd64 only."
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - bash
+      - ca-certificates
+      - curl
+      - jq
+      - lsof
+      - procps
+      - tar
+      - ufw
+      - unzip
+    state: present
+    update_cache: true
+
+- name: Verify KVM device exists
+  ansible.builtin.stat:
+    path: /dev/kvm
+  register: microsandbox_kvm_device
+
+- name: Require KVM for Microsandbox
+  ansible.builtin.assert:
+    that:
+      - microsandbox_kvm_device.stat.exists
+    fail_msg: "/dev/kvm is missing. Enable hardware virtualization for this runner before continuing."
+
+- name: Install Microsandbox with official installer when missing
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if command -v msb >/dev/null 2>&1; then
+      echo "present"
+    else
+      curl -fsSL https://get.microsandbox.dev | sh
+      echo "installed"
+    fi
+  args:
+    executable: /bin/bash
+  register: microsandbox_install_result
+  changed_when: "'installed' in microsandbox_install_result.stdout"
+
+- name: Verify Microsandbox CLI is available
+  ansible.builtin.command: msb --version
+  register: microsandbox_cli_version
+  changed_when: false
+
+- name: Create Hivy config directory
+  ansible.builtin.file:
+    path: /etc/hivy
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Allow SSH through UFW
+  ansible.builtin.command: "ufw allow {{ ansible_port | default(22) }}/tcp"
+  register: microsandbox_ufw_ssh
+  changed_when: "'Rule added' in microsandbox_ufw_ssh.stdout"
+
+- name: Allow Microsandbox runner API through UFW
+  ansible.builtin.command: "ufw allow {{ runner_api_port }}/tcp"
+  register: microsandbox_ufw_api
+  changed_when: "'Rule added' in microsandbox_ufw_api.stdout"
+
+- name: Deny inbound traffic by default
+  ansible.builtin.command: ufw default deny incoming
+  register: microsandbox_ufw_incoming
+  changed_when: "'Default incoming policy changed' in microsandbox_ufw_incoming.stdout"
+
+- name: Allow outbound traffic by default
+  ansible.builtin.command: ufw default allow outgoing
+  register: microsandbox_ufw_outgoing
+  changed_when: "'Default outgoing policy changed' in microsandbox_ufw_outgoing.stdout"
+
+- name: Enable UFW
+  ansible.builtin.command: ufw --force enable
+  register: microsandbox_ufw_enable
+  changed_when: "'Firewall is active and enabled' in microsandbox_ufw_enable.stdout"

@@ -3,7 +3,10 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use domain::cron::{CronJob, CronJobState};
-use domain::{EventKind, Session, SessionId, SessionStatus, SubagentTask, SubagentTaskState};
+use domain::{
+    EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionId, SessionStatus,
+    SubagentTask, SubagentTaskState,
+};
 use serde_json::Value;
 use sqlx::SqliteConnection;
 use tokio::sync::{mpsc, oneshot};
@@ -13,6 +16,7 @@ use crate::repos::{notify_write, Result, SharedWriteNotifier};
 use super::cron_ops;
 use super::event_ops;
 use super::outbox_ops;
+use super::question_ops;
 use super::session_ops;
 use super::subagent_ops;
 use super::EventsLogWrite;
@@ -124,6 +128,16 @@ pub(super) enum WriteRequest {
         completed_at: DateTime<Utc>,
         error: String,
         resp: Resp<()>,
+    },
+    QuestionRequestCreate {
+        request: Box<QuestionRequest>,
+        resp: Resp<()>,
+    },
+    QuestionRequestAnswer {
+        id: String,
+        answer: Box<QuestionAnswerPayload>,
+        answered_at: DateTime<Utc>,
+        resp: Resp<bool>,
     },
     OutboxEnqueue {
         channel_name: String,
@@ -326,6 +340,19 @@ impl WriteRequest {
                     &error,
                 )
                 .await,
+            ),
+            WriteRequest::QuestionRequestCreate { request, resp } => respond(
+                resp,
+                question_ops::question_request_create(conn, *request).await,
+            ),
+            WriteRequest::QuestionRequestAnswer {
+                id,
+                answer,
+                answered_at,
+                resp,
+            } => respond(
+                resp,
+                question_ops::question_request_answer(conn, &id, *answer, answered_at).await,
             ),
             WriteRequest::OutboxEnqueue {
                 channel_name,

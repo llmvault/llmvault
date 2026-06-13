@@ -9,7 +9,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use domain::cron::CronJob;
-use domain::{AgentDefinition, SessionId, SessionStatus};
+use domain::{AgentDefinition, QuestionAnswerPayload, SessionId, SessionStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
@@ -19,6 +19,7 @@ use storage::{CronJobRepo, SessionListCursor, SessionListFilter};
 use tools::{BashExecOptions, BashOperations};
 use tracing::warn;
 
+use crate::question_manager::{QuestionAnswerError, QuestionAnswerResponse};
 use crate::session_stream::{stream_response, SessionMessageRequest, SessionMessageResponse};
 use crate::state::ApiState;
 
@@ -747,6 +748,54 @@ pub async fn post_session_message(
         .await
         .map(Json)
         .map_err(|error| internal_error_response("session_stream.inject_message", error))
+}
+
+#[cfg_attr(feature = "openapi", utoipa::path(
+    post,
+    path = "/sessions/{session_id}/questions/{question_request_id}/answer",
+    params(
+        ("session_id" = String, Path, description = "Session identifier"),
+        ("question_request_id" = String, Path, description = "Question request identifier")
+    ),
+    request_body = QuestionAnswerPayload,
+    responses(
+        (status = 200, description = "Question answered", body = QuestionAnswerResponse),
+        (status = 400, description = "Invalid question answer"),
+        (status = 404, description = "Question request not found"),
+        (status = 409, description = "Question cannot be answered"),
+        (status = 503, description = "question API is not enabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn post_question_answer(
+    State(state): State<ApiState>,
+    Path((session_id, question_request_id)): Path<(String, String)>,
+    Json(answer): Json<QuestionAnswerPayload>,
+) -> Result<Json<QuestionAnswerResponse>, (StatusCode, String)> {
+    let Some(manager) = state.question_manager.as_ref() else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "question API is not enabled".to_string(),
+        ));
+    };
+    manager
+        .answer(&SessionId::from(session_id), &question_request_id, answer)
+        .await
+        .map(Json)
+        .map_err(question_answer_error_response)
+}
+
+fn question_answer_error_response(error: QuestionAnswerError) -> (StatusCode, String) {
+    match error {
+        QuestionAnswerError::NotFound => (StatusCode::NOT_FOUND, error.to_string()),
+        QuestionAnswerError::AlreadyAnswered | QuestionAnswerError::NotWaiting => {
+            (StatusCode::CONFLICT, error.to_string())
+        }
+        QuestionAnswerError::InvalidAnswer(_) => (StatusCode::BAD_REQUEST, error.to_string()),
+        QuestionAnswerError::Storage(error) => {
+            internal_error_response("question_manager.answer", error)
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", utoipa::path(

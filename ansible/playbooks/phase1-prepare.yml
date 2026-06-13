@@ -1,0 +1,7 @@
+---
+- name: Prepare Microsandbox runner hosts
+  hosts: runners
+  become: true
+  gather_facts: true
+  roles:
+    - runner-base

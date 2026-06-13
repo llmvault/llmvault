@@ -1,18 +1,27 @@
 mod auth;
 mod handlers;
 mod observability_handlers;
+mod plan_manager;
+mod question_manager;
 mod session_stream;
 mod state;
 
 use std::net::SocketAddr;
 
 use axum::{
+    http::{
+        header::{AUTHORIZATION, CONTENT_TYPE},
+        HeaderName, Method,
+    },
     routing::{get, post, put},
     Router,
 };
 use tokio::sync::oneshot;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, warn};
 
+pub use plan_manager::PlanManager;
+pub use question_manager::{QuestionAnswerError, QuestionAnswerResponse, QuestionManager};
 pub use session_stream::{SessionMessageState, SessionStreamBroker, SessionStreamEvent};
 pub use state::{ApiState, OutboundConfigReloader};
 
@@ -32,6 +41,7 @@ mod openapi {
             crate::handlers::healthz,
             crate::handlers::readyz,
             crate::handlers::post_session_message,
+            crate::handlers::post_question_answer,
             crate::handlers::get_session_stream,
             crate::observability_handlers::get_trace_events,
             crate::observability_handlers::get_trace_summary,
@@ -75,6 +85,18 @@ mod openapi {
             domain::CronJob,
             domain::SubagentTaskState,
             domain::SubagentTask,
+            domain::PlanItemStatus,
+            domain::PlanItem,
+            domain::UpdatePlanPayload,
+            domain::UpdatePlanResult,
+            domain::QuestionRequestState,
+            domain::QuestionOption,
+            domain::RequestUserInputQuestion,
+            domain::RequestUserInputPayload,
+            domain::QuestionAnswerValue,
+            domain::QuestionAnswerPayload,
+            domain::QuestionRequest,
+            domain::RequestUserInputResult,
             observability::ObservabilityEventType,
             observability::EventTimings,
             observability::ModelUsage,
@@ -93,6 +115,7 @@ mod openapi {
             crate::session_stream::SessionStreamEvent,
             crate::session_stream::SessionMessageRequest,
             crate::session_stream::SessionMessageResponse,
+            crate::question_manager::QuestionAnswerResponse,
         )),
         modifiers(&SecurityAddon),
         security(("bearer" = []))
@@ -137,6 +160,10 @@ pub fn build_router(state: ApiState) -> Router {
             post(handlers::post_session_message),
         )
         .route(
+            "/sessions/:session_id/questions/:question_request_id/answer",
+            post(handlers::post_question_answer),
+        )
+        .route(
             "/sessions/:session_id/streams/:stream_id",
             get(handlers::get_session_stream),
         )
@@ -154,6 +181,16 @@ pub fn build_router(state: ApiState) -> Router {
             state.clone(),
             auth::bearer_auth,
         ))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
+                .allow_headers([
+                    AUTHORIZATION,
+                    CONTENT_TYPE,
+                    HeaderName::from_static("x-hivy-stream-token"),
+                ]),
+        )
         .with_state(state)
 }
 
@@ -204,6 +241,7 @@ mod openapi_tests {
             "/sessions".to_string(),
             "/sessions/{session_id}".to_string(),
             "/sessions/{session_id}/messages".to_string(),
+            "/sessions/{session_id}/questions/{question_request_id}/answer".to_string(),
             "/sessions/{session_id}/streams/{stream_id}".to_string(),
         ]);
 

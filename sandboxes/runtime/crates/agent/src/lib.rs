@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use domain::{AgentDefinition, SessionId};
+use domain::{
+    AgentDefinition, QuestionAnswerPayload, RequestUserInputPayload, SessionId, UpdatePlanPayload,
+    UpdatePlanResult,
+};
 use futures::stream::BoxStream;
 use serde::{Deserialize, Serialize};
 
@@ -128,4 +131,22 @@ pub trait AgentRunner: Send + Sync + 'static {
     fn active_background_processes(&self, _session_id: &SessionId) -> usize {
         0
     }
+}
+
+#[async_trait]
+pub trait QuestionRequester: Send + Sync + 'static {
+    async fn request_user_input(
+        &self,
+        session_id: &SessionId,
+        request: RequestUserInputPayload,
+    ) -> anyhow::Result<(String, QuestionAnswerPayload)>;
+}
+
+#[async_trait]
+pub trait PlanUpdater: Send + Sync + 'static {
+    async fn update_plan(
+        &self,
+        session_id: &SessionId,
+        payload: UpdatePlanPayload,
+    ) -> anyhow::Result<UpdatePlanResult>;
 }

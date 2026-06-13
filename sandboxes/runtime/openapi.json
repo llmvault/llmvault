@@ -414,6 +414,73 @@
         ]
       }
     },
+    "/sessions/{session_id}/questions/{question_request_id}/answer": {
+      "post": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "operationId": "post_question_answer",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "question_request_id",
+            "in": "path",
+            "description": "Question request identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionAnswerPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Question answered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionAnswerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid question answer"
+          },
+          "404": {
+            "description": "Question request not found"
+          },
+          "409": {
+            "description": "Question cannot be answered"
+          },
+          "503": {
+            "description": "question API is not enabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/sessions/{session_id}/streams/{stream_id}": {
       "get": {
         "tags": [
@@ -1703,6 +1770,170 @@
           }
         }
       },
+      "PlanItem": {
+        "type": "object",
+        "required": [
+          "step",
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/PlanItemStatus"
+          },
+          "step": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlanItemStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "in_progress",
+          "completed"
+        ]
+      },
+      "QuestionAnswerPayload": {
+        "type": "object",
+        "required": [
+          "answers"
+        ],
+        "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/QuestionAnswerValue"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "user": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "QuestionAnswerResponse": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "question_request_id",
+          "state"
+        ],
+        "properties": {
+          "question_request_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "QuestionAnswerValue": {
+        "type": "object",
+        "required": [
+          "answers"
+        ],
+        "properties": {
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "other": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "QuestionOption": {
+        "type": "object",
+        "required": [
+          "label",
+          "description"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "QuestionRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "request",
+          "state",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "answer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/QuestionAnswerPayload"
+              }
+            ]
+          },
+          "answered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RequestUserInputPayload"
+          },
+          "session_id": {
+            "$ref": "#/components/schemas/SessionId"
+          },
+          "state": {
+            "$ref": "#/components/schemas/QuestionRequestState"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "QuestionRequestState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "answered"
+        ]
+      },
       "ReadFileConfig": {
         "type": "object",
         "required": [
@@ -1750,6 +1981,67 @@
           "max_total": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "RequestUserInputPayload": {
+        "type": "object",
+        "required": [
+          "questions"
+        ],
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestUserInputQuestion"
+            }
+          }
+        }
+      },
+      "RequestUserInputQuestion": {
+        "type": "object",
+        "required": [
+          "id",
+          "header",
+          "question",
+          "options"
+        ],
+        "properties": {
+          "header": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionOption"
+            }
+          },
+          "question": {
+            "type": "string"
+          }
+        }
+      },
+      "RequestUserInputResult": {
+        "type": "object",
+        "required": [
+          "question_request_id",
+          "answers"
+        ],
+        "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/QuestionAnswerValue"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "question_request_id": {
+            "type": "string"
           }
         }
       },
@@ -2465,6 +2757,34 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "builtin.request_user_input"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "builtin.update_plan"
+                ]
+              }
+            }
           }
         ]
       },
@@ -2543,6 +2863,51 @@
           "turn_count": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "UpdatePlanPayload": {
+        "type": "object",
+        "required": [
+          "plan"
+        ],
+        "properties": {
+          "explanation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plan": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanItem"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdatePlanResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "plan"
+        ],
+        "properties": {
+          "explanation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "plan": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanItem"
+            }
           }
         }
       },
