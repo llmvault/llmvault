@@ -1,5 +1,5 @@
 -- +goose Up
--- Cross-domain foreign keys
+-- Cross-domain foreign key constraints
 
 -- Cross-domain foreign key constraints
 

@@ -10,7 +10,7 @@ import (
 
 func (c *Client) StreamHTTP(ctx context.Context, path string) (*http.Response, error) {
 	if strings.TrimSpace(path) == "" {
-		return nil, fmt.Errorf("stream http gateway: path is required")
+		return nil, fmt.Errorf("runtime stream path is required")
 	}
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
@@ -50,7 +50,7 @@ func (c *Client) openStream(ctx context.Context, rawURL string) (*http.Response,
 	if resp.StatusCode >= 400 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		resp.Body.Close()
-		return nil, fmt.Errorf("stream http gateway: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
+		return nil, fmt.Errorf("runtime stream: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
 	}
 	return resp, nil
 }

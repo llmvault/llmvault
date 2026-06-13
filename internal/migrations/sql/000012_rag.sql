@@ -1,5 +1,5 @@
 -- +goose Up
--- RAG sources, sync state, permissions, and search settings
+-- RAG tables
 
 -- RAG source, indexing, identity, and search tables
 

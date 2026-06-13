@@ -247,7 +247,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	auditWriter.Shutdown(shutdownCtx)
 	generationWriter.Shutdown(shutdownCtx)
-	agentEventWriter.Shutdown(shutdownCtx)
 	if deps.ToolUsageWriter != nil {
 		deps.ToolUsageWriter.Shutdown(shutdownCtx)
 	}

@@ -1,7 +1,7 @@
 -- +goose Up
 -- Skill catalog
 
--- Skill catalog and subagent task tables
+-- Skill catalog tables
 
 CREATE TABLE skills (
     id uuid DEFAULT gen_random_uuid() NOT NULL,

@@ -154,12 +154,12 @@ func (w *AgentEventWriter) flushBatch(ctx context.Context, batch []model.Session
 			}
 		}
 		err := w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Clauses(agentSessionEventOnConflict()).CreateInBatches(batch, agentEventBatchSize).Error; err != nil {
+			if err := tx.Clauses(sessionEventOnConflict()).CreateInBatches(batch, agentEventBatchSize).Error; err != nil {
 				return err
 			}
 			for _, entry := range batch {
 				if err := syncAgentScheduleEvent(tx, entry); err != nil {
-					captureAgentSessionEventFailure(ctx, "batch_sync_schedule", entry, err)
+					captureSessionEventFailure(ctx, "batch_sync_schedule", entry, err)
 					logging.FromContext(ctx).WarnContext(ctx, "agent schedule sync failed",
 						"error", err,
 						"event_type", entry.EventType,
@@ -204,11 +204,11 @@ func (w *AgentEventWriter) Write(ctx context.Context, entry model.SessionEvent) 
 	case w.entries <- entry:
 	default:
 		err := w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Clauses(agentSessionEventOnConflict()).Create(&entry).Error; err != nil {
+			if err := tx.Clauses(sessionEventOnConflict()).Create(&entry).Error; err != nil {
 				return err
 			}
 			if err := syncAgentScheduleEvent(tx, entry); err != nil {
-				captureAgentSessionEventFailure(ctx, "direct_sync_schedule", entry, err)
+				captureSessionEventFailure(ctx, "direct_sync_schedule", entry, err)
 				logging.FromContext(ctx).WarnContext(ctx, "agent schedule sync failed",
 					"error", err,
 					"event_type", entry.EventType,
@@ -218,7 +218,7 @@ func (w *AgentEventWriter) Write(ctx context.Context, entry model.SessionEvent) 
 			return nil
 		})
 		if err != nil {
-			captureAgentSessionEventFailure(ctx, "direct_write", entry, err)
+			captureSessionEventFailure(ctx, "direct_write", entry, err)
 			logging.FromContext(ctx).ErrorContext(ctx, "agent event direct write failed", "error", err, "event_type", entry.EventType)
 		} else if cb := w.loadAfterWrite(); cb != nil {
 			cb(ctx, []model.SessionEvent{entry})

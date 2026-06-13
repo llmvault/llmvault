@@ -35,14 +35,14 @@ func captureAgentWebhookIngest(ctx context.Context, stage string, sb *model.Sand
 	logging.CaptureWithFields(ctx, fmt.Errorf("agent outbound webhook ingest %s: %w", stage, err), fields)
 }
 
-func captureAgentSessionEventFailure(ctx context.Context, stage string, entry model.SessionEvent, err error) {
+func captureSessionEventFailure(ctx context.Context, stage string, entry model.SessionEvent, err error) {
 	if err == nil {
 		return
 	}
-	logging.CaptureWithFields(ctx, fmt.Errorf("agent session event %s: %w", stage, err), agentSessionEventSentryFields(stage, entry))
+	logging.CaptureWithFields(ctx, fmt.Errorf("session event %s: %w", stage, err), sessionEventSentryFields(stage, entry))
 }
 
-func agentSessionEventSentryFields(stage string, entry model.SessionEvent) map[string]any {
+func sessionEventSentryFields(stage string, entry model.SessionEvent) map[string]any {
 	return map[string]any{
 		"stage":      stage,
 		"org_id":     entry.OrgID.String(),

@@ -124,7 +124,7 @@ Remove from Go runtime compilation and startup:
 - `specialists_prompt.go`
 - specialist catalog dependency from runtime compile deps
 - specialist runtime token modes and token metadata
-- specialist runtime image arguments in gateway/uploads/sandbox services
+- specialist runtime image arguments in upload/sandbox services
 
 Hivy should no longer receive a specialist catalog or specialist launch tool. Future assignment is W10 `handoff_to_agent()`, and runtime-local subagent work should be expressed as subagent/agent-task execution, not as specialist delegation.
 
@@ -265,7 +265,7 @@ The test should emit enough structured artifacts on failure to debug the runtime
 
 Minimum checks for this phase:
 
-- `go test ./internal/agentruntime ./internal/agentsandbox ./internal/sandbox ./internal/handler ./internal/gateway ./internal/tasks`
+- `go test ./internal/agentruntime ./internal/agentsandbox ./internal/sandbox ./internal/handler ./internal/tasks`
 - `cargo test --manifest-path sandboxes/runtime/Cargo.toml`
 - `make sandbox-runtime-openapi`
 - `make generate-sandbox-runtime-client`

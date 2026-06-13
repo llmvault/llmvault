@@ -55,7 +55,7 @@ Org
 
 Sandbox cardinality, by agent `sandbox_strategy`:
 
-- **`always_on` (Hivy):** one long-lived sandbox, auto-stop exempt (it is the 24/7 Slack/schedule/trigger responder — cold-starting on every ping is unacceptable latency). Sessions are in-process runtime conversations, de-multiplexed by `runtime_conversation_id` — correct for conversational agents that don't mutate workspace state.
+- **`always_on` (Hivy):** one long-lived sandbox, auto-stop exempt (it is the 24/7 Slack/schedule/trigger responder — cold-starting on every ping is unacceptable latency). The control plane owns canonical `session_id`s and posts turns to the runtime `/sessions/{session_id}/messages` API, so always-on agents can safely multiplex Slack, schedule, trigger, web, and custom-channel work without a separate runtime conversation identifier.
 - **`per_session` (default for workspace/coding agents):** concurrent sessions sharing one sandbox would share a working tree, git state, ports, and processes — a correctness bug, not just a load problem (the static design's per-session "Copy worktree path" assumes isolation). Each session gets its own sandbox **forked from the agent's workspace snapshot**: repos cloned and `setup_commands` run once at agent setup, snapshotted via the existing `sandbox_templates` build pipeline; sessions boot from the snapshot (warm-claimed where the provider supports it). This is the Devin/Codex/Claude-Code-cloud model. 10-min idle auto-stop keeps cost proportional to *active* use, not session count; a new reaper deletes per-session sandboxes N days after session end so the fleet doesn't grow unbounded. Agent memory survives sandbox churn because hindsight banks are per-agent and control-plane-side, not in the sandbox.
 - Specialist sandboxes, specialist runtime mode, warm-pool specialist mode, and the snapshot-repo-based selector filtering in `internal/employeesandbox/selector.go` are all deleted. The old specialist Dockerfile is not deleted outright: `sandboxes/runtime/Dockerfile.specialist` is renamed to `sandboxes/runtime/Dockerfile.developers` and becomes a user-selectable developer workspace template image for agents.
 
@@ -72,13 +72,13 @@ Sandbox cardinality, by agent `sandbox_strategy`:
 | 000007 | agents | `agents`, `agent_skills`, `agent_schedules`, `agent_schedule_runs`, `agent_triggers`, `agent_trigger_deliveries`, `agent_sandbox_upgrades`, `hindsight_banks`, `failed_events` |
 | 000008 | channels | `channels`, `channel_members` |
 | 000009 | sessions | `sessions`, `session_participants`, `session_events`, `session_message_queue` |
-| 000010 | gateway | `gateway_routes`, `gateway_events`, `gateway_deliveries` (drop `employee_` prefix; add `channel_id`) |
-| 000011 | skills | `skills` |
-| 000012 | artifacts | `artifacts`, `drive_assets`, `agent_assets` |
-| 000013 | rag | all 11 `rag_*` tables (unchanged) |
-| 000014 | cross-domain FKs | all foreign keys |
+| 000010 | skills | `skills` |
+| 000011 | artifacts | `artifacts`, `drive_assets`, `agent_assets` |
+| 000012 | rag | all 11 `rag_*` tables (unchanged) |
+| 000013 | cross-domain FKs | all foreign keys |
+| 000014 | channel source uniqueness | source-aware channel uniqueness |
 
-**Deleted from the old schema:** `specialist_tasks`; `employees.attached_specialists`; `employee_session_events.specialist_slug` / `specialist_task_id` / `mode`; `orgs.onboarded`; `conversation_assets` (was already dropped). Late-history patch migrations (000012–000034) are folded into the baseline definitions.
+**Deleted from the old schema:** old employee/specialist runtime tables and fields, old external route/delivery/event tables, old employee session/event tables, `orgs.onboarded`, and `conversation_assets`. Late-history patch migrations are folded into the baseline definitions.
 
 ### 2.3 Schema details for the new tables
 
@@ -168,7 +168,6 @@ CREATE TABLE sessions (
     agent_id uuid NOT NULL REFERENCES agents(id),  -- MUTABLE: handoff/reassignment (W10)
     sandbox_id uuid REFERENCES sandboxes(id),      -- per-session sandbox for per_session agents
     created_by uuid REFERENCES users(id),          -- NULL for slack/webhook-originated
-    runtime_conversation_id text,
     model text,                                    -- per-session model override
     access_mode text NOT NULL DEFAULT 'full',      -- full|edits|read  (composer)
     reasoning_effort text NOT NULL DEFAULT 'high', -- low|medium|high  (composer)
@@ -279,7 +278,7 @@ Blast radius (measured): 13 tables, 10 model files, 77 handler files, 4 main pac
 
 Rules:
 
-- **DB:** new baseline migrations use `agents`, `sessions`, `session_events`, `gateway_*` (the `employee_` prefix is dropped, and `employee_sessions` becomes plain `sessions` since sessions are now first-class, not agent-subordinate).
+- **DB:** new baseline migrations use `agents`, `channels`, `sessions`, and `session_events`; sessions are first-class objects reached from channels, not agent-subordinate records.
 - **Go:** `internal/model/employee*.go` → `agent*.go` (`Employee` → `Agent`, `EmployeeSession` → `Session`, …); packages `employeeruntime` → `agentruntime`, `employeeprompts` → `agentprompts`, `employeesandbox` → `agentsandbox` (then mostly deleted — see §5.2); handlers `employees_*.go` → `agents_*.go`.
 - **API:** `/v1/employees/*` → `/v1/agents/*`; scope `"employees"` → `"agents"`; OpenAPI schemas regenerate, so `schema.d.ts` renames flow into the frontend mechanically.
 - **Env/ops:** `HIVY_EMPLOYEE_SQLITE_BACKUP_MAX_BYTES` → `HIVY_AGENT_…`; `HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE` → `HIVY_SANDBOX_WARM_POOL_AGENT_SIZE`; `HIVY_SANDBOX_WARM_POOL_SPECIALIST_SIZE` deleted; `cmd/employee-env-doctor` → `cmd/agent-env-doctor`; `cmd/employee-debug-pack` → `cmd/agent-debug-pack`; ansible/docker references swept.
@@ -378,7 +377,7 @@ The static design requires: all participants see the same streaming turn live, p
 
 **Architecture: server-side turn consumption + Redis pub/sub fanout + per-session SSE.**
 
-1. **Turn ingestion moves server-side.** When a message is posted, the control plane (not the browser) opens the runtime stream (`client.StreamHTTP("/gateway/http/streams/{id}")`), translating runtime events into `session_events` rows (thinking/tool/edits/message) and publishing each to Redis channel `session:{id}`. One ingestion goroutine per active turn, owned by the instance that accepted the message; on crash, reconnect-and-resume using the runtime stream's replay (the existing StreamBuffer dedup logic moves server-side).
+1. **Turn ingestion moves server-side.** When a message is posted, the control plane calls `POST /sessions/{session_id}/messages`, then opens the returned `/sessions/{session_id}/streams/{stream_id}` URL. Runtime events are translated into `session_events` rows (thinking/tool/edits/message) and published to Redis channel `session:{id}`. One ingestion goroutine per active turn, owned by the instance that accepted the message; on crash, reconnect-and-resume using the runtime stream's replay.
 2. **Fanout:** every API instance runs a Redis-subscriber hub; `GET /v1/sessions/{id}/live` is a long-lived SSE response (works through the existing Next.js proxy and `fetch-event-source` client — no WebSocket infra needed) that subscribes the client to that session's topic and replays from a `Last-Event-ID` cursor against `session_events` for seamless reconnect.
 3. **Presence:** `POST /presence` heartbeats write Redis keys `presence:{session}:{user}` with 30 s TTL; the hub publishes presence diffs on the same topic. Powers the header avatar stack and "viewing now" popover.
 4. **Channel-level topic** (`channel:{id}`) carries lightweight events (session created/renamed/ended) for live sidebar updates.
@@ -386,21 +385,21 @@ The static design requires: all participants see the same streaming turn live, p
 
 Slack/webhook sessions flow through the same pipeline — a Slack-originated session is visible (and joinable) in `/w` with zero extra work.
 
-### W6 — Slack gateway rework
+### W6 — External Channel Ingestion
 
-Keep: Nango OAuth + webhook ingestion (`nango_webhooks.go`), `SlackAdapter` decode/render, thread dedup/continuation (`slack_continuation.go`), reply delivery (`slackgateway/thread_reply.go`), gateway event/delivery records.
+Keep: Nango OAuth + webhook ingestion, provider-specific decode/render adapters, thread dedup/continuation, and reply delivery. Delete the old route/event/delivery abstraction. Every inbound integration presents as a channel source and writes into the same `channels`/`sessions`/`session_events` flow used by web.
 
-**Routing precedence (decision #6):** custom bot handle > channel default agent > Hivy (+ handoff).
+**Routing precedence (decision #6):** custom bot binding > channel default agent > Hivy (+ handoff).
 
-Change `findOrCreateSessionByConnection` (`internal/gateway/service_connection.go`):
+External ingestion flow:
 
-1. If the inbound event arrived on a **custom-app connection** (see below), route directly to its bound agent — skip channel-default resolution.
-2. Otherwise resolve the Slack `channel_id` → org's `channels` row via `external_provider='slack'`, `external_workspace_key=<team_id>`, `external_resource_type='channel'`, and `external_resource_key=<channel_id>`. If none, **auto-create** a linked Hivy channel (name from Slack channel name, `default_agent_id` = Hivy, creator NULL) on first mention — zero-config like today. Discord, Microsoft Teams, and arbitrary app connectors use the same external-provider/resource columns.
-3. New session ⇒ `agent_id = channel.default_agent_id`, `channel_id` set; existing thread ⇒ the session keeps its current agent (which may have changed via handoff/reassignment — replies go to `sessions.agent_id`, not the channel default; changing a channel's default only affects *new* threads).
-4. Sandbox resolution follows the agent's `sandbox_strategy` (W9); `MainRuntime()` loses its specialist-exclusion filter.
-5. Delete the specialist runtime-image plumbing in `gateway/service.go` (`SetRuntimeImages` specialist half).
+1. Decode inbound provider payload into a canonical source tuple: `origin`, `external_provider`, `external_connection_id`, `external_workspace_key`, `external_resource_type`, `external_resource_key`, `thread_key`, sender metadata, and message body.
+2. Resolve or create the channel using the source tuple. Slack, Discord, Microsoft Teams, and arbitrary external wrappers all use the same source-aware channel columns, so `#engineering` can exist independently per source.
+3. Resolve or create the session using `(channel_id, thread_key)`. New session ⇒ `agent_id = channel.default_agent_id`; existing thread ⇒ preserve `sessions.agent_id` so handoff/reassignment sticks.
+4. Deliver user messages via the new session message path, persist runtime output in `session_events`, and use provider-specific reply delivery only as a rendering sink for the same session events.
+5. Wrapper callbacks are rebuilt here: an external chatbot/app integrates by registering a connection and presenting its inbound conversations as source-aware channels. No route table, route secrets, or delivery table are reintroduced.
 
-**Per-agent custom Slack bots (Gumloop model, in scope):** users who want `@salesassistant` create a Slack app in their own Slack org and provide its credentials. The schema mostly exists — `integrations.custom_app` is already validated for Slack client_id/secret in `integrations_create.go`. New work: a 1:1 binding *custom Slack connection ↔ agent* (adopt Gumloop's rule: binding a connection to a second agent removes it from the first), and gateway identification that resolves inbound events to the binding's agent. Mentions of that bot route to that agent regardless of channel; the session still lands in the linked Hivy channel for visibility.
+**Per-agent custom Slack bots (Gumloop model, in scope):** users who want `@salesassistant` create a Slack app in their own Slack org and provide its credentials. The schema mostly exists — `integrations.custom_app` is already validated for Slack client_id/secret in `integrations_create.go`. New work: a 1:1 binding *custom Slack connection ↔ agent* (adopt Gumloop's rule: binding a connection to a second agent removes it from the first), and source identification that resolves inbound events to the binding's agent. Mentions of that bot route to that agent regardless of channel; the session still lands in the linked Hivy channel for visibility.
 
 Out of scope for v1 (schema-ready, no work now): Notion-style user-group handles on the main bot, `/hivy` slash commands for channel-agent management.
 
@@ -436,7 +435,7 @@ The biggest *new* engineering item in the program (bigger than handoff). For `pe
 2. **Session start:** fork a sandbox from the snapshot (provider `CreateSandbox` with snapshot ref; warm-claim where supported), set `sandboxes.session_id`, push compiled runtime config, deliver the first message. Target: comparable to today's warm-pool session start.
 3. **Lifecycle:** existing 10-min idle auto-stop and 24-h archive apply per session-sandbox; resume on new message to a stopped session. New **reaper**: delete session sandboxes N days (default 7) after `sessions.ended_at`/archive. `always_on` agents keep the current exempt lifecycle.
 4. **Snapshot staleness:** repos drift from the snapshot. Policy: sessions always fork the *latest ready* snapshot and `git pull` on boot as a cheap freshness pass; manual + scheduled rebuilds (`POST /workspace/build`); auto-rebuild on agent config change.
-5. **Runtime conversations:** one conversation per session-sandbox (the multiplexing path remains only for `always_on`). The control plane's session→sandbox resolution branches on strategy in exactly two places (web send-message, gateway inbound).
+5. **Runtime sessions:** one canonical `session_id` per session-sandbox. The control plane's session→sandbox resolution branches on strategy in exactly two places: web send-message and external-channel ingestion.
 
 ### W10 — `handoff_to_agent()` and reassignment
 
@@ -444,7 +443,7 @@ A bounded, one-shot **transfer** — never a delegation. There is no return path
 
 1. **Tool:** `handoff_to_agent(agent_name, brief)` in the Hivy-MCP surface compiled into runtimes. Primary user is Hivy (its instructions: triage; hand off coding/specialized work since it has no code tools), but available to all agents — guardrails make it safe.
 2. **Guardrails:** max one handoff per user turn; an agent cannot hand off to the immediately previous agent without an intervening human message (kills A↔B loops); target must be an active agent in the org; if nothing fits, the agent answers best-effort and suggests what agent to create — no forced handoff.
-3. **Mechanics:** control plane validates → resolves target sandbox by strategy (forking a per-session sandbox at handoff time if needed, W9) → creates a new runtime conversation → **context transfer** = the structured `brief` (the proven specialist mechanism) + transcript replay compiled from `session_events` (we own the full event log) → updates `sessions.agent_id`, `sandbox_id`, `runtime_conversation_id` → emits a `session.system` handoff event, visible in `/w` and posted to the Slack thread ("Hivy handed this off to Software Engineer").
+3. **Mechanics:** control plane validates → resolves target sandbox by strategy (forking a per-session sandbox at handoff time if needed, W9) → preserves the same canonical `session_id` → **context transfer** = the structured `brief` + transcript replay compiled from `session_events` (we own the full event log) → updates `sessions.agent_id` and `sandbox_id` → emits a `session.system` handoff event, visible in `/w` and posted to the source channel ("Hivy handed this off to Software Engineer").
 4. **Continuity:** same `session_id`, same Slack thread key, same `/w` URL, same participants. Only the answering agent changes.
 5. **Human override:** `PATCH /v1/sessions/{id} {agent_id}` runs the same machinery (with an automatic control-plane-authored brief). The agent chip in the session header becomes interactive — this is also the correction path when a handoff was wrong.
 
@@ -502,7 +501,7 @@ No data migration, but dependencies force an order. Each stage = one or a few PR
 3. **Sessions v2 + per-session sandboxes** (W4, W9): new session API on channels/participants; workspace snapshot build + fork-per-session; old session endpoints deleted; `(console)/sessions` temporarily repointed or frozen. W9 lands here because everything downstream (realtime, handoff, live artifact views) assumes the session↔sandbox binding.
 4. **Realtime** (W5): ingestion-side streaming, Redis fanout, `/live`, presence. Riskiest workstream alongside W9 — build it before the new UI ships so the UI never wires to the legacy per-requester stream.
 5. **New /w goes real** (F2–F4 + W7 live views): conversation, composer, channel home, right panel, multi-user. Delete static data files. Zero-onboarding frontend (W8) flips on here — signup lands in a fully working `/w`.
-6. **Slack rework + handoff** (W6, W10) + persisted artifacts (W7b) + console consolidation (F5). Handoff lands with Slack because that's where triage matters; web users pick agents explicitly.
+6. **External ingestion + handoff** (W6, W10) + persisted artifacts (W7b) + console consolidation (F5). Handoff lands with Slack/external channels because that's where triage matters; web users pick agents explicitly.
 
 Testing: keep the `*.test` harness (renamed); new e2e suites for channel authz, session participation/queueing, realtime reconnect/replay, and the Slack channel-link auto-create path. The evals harness gets a replacement for the deleted delegation eval (multi-agent assignment eval).
 
@@ -533,7 +532,6 @@ Consolidated demolition list. Each item should be *gone* (not deprecated, not fl
 | Handlers | `internal/handler/employees_specialists*.go`, `employee_outbound_specialists.go` |
 | Sandbox | `internal/sandbox/orchestrator_create_specialist.go`; specialist warm-pool mode in `warm_pool*.go`; specialist-image exclusion filter in `internal/employeesandbox/selector.go` |
 | Runtime compile | `CompileSpecialist()` / `CompileSpecialistWithProxyToken()` in `internal/employeeruntime/compile.go`; the `specialist_launch_task` tool from compiled runtime configs |
-| Gateway | specialist half of `SetRuntimeImages()` in `internal/gateway/service.go` |
 | Images | `ghcr.io/usehivy/hivy-sandboxes-runtime-specialist` registry image as a runtime image; its specialist-runtime registration in `cmd/buildtemplates/sandbox_runtime.go`. `sandboxes/runtime/Dockerfile.specialist` is renamed to `sandboxes/runtime/Dockerfile.developers` and kept as a developer workspace template image, not deleted. |
 | API | `GET/POST/DELETE/PATCH /v1/employees/{id}/specialists/*` |
 | Env | `HIVY_SANDBOX_WARM_POOL_SPECIALIST_SIZE` |

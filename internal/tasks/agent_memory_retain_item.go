@@ -20,7 +20,7 @@ func buildAgentRetainItemWithReason(agent *model.Agent, payload AgentMemoryRetai
 	if agent == nil || agent.OrgID == nil || len(events) == 0 {
 		return hindsight.RetainItem{}, false, "missing_context_or_events"
 	}
-	if agentSessionEventsContainSecret(events) {
+	if sessionEventsContainSecret(events) {
 		return hindsight.RetainItem{}, false, "secret_detected"
 	}
 	digest := agentMemoryRetentionDigest(agent.Name, events)
@@ -116,12 +116,12 @@ func agentMemorySlackMention(userID string) string {
 
 func agentMemoryRetainMetadata(agent *model.Agent, payload AgentMemoryRetainPayload, events []model.SessionEvent) map[string]string {
 	meta := map[string]string{
-		"agent_id":         agent.ID.String(),
-		"sandbox_id":       payload.SandboxID.String(),
-		"session_uuid":    payload.SessionUUID.String(),
-		"session_id":       payload.SessionID,
-		"event_count":      fmt.Sprintf("%d", len(events)),
-		"source_event":     payload.SourceEvent,
+		"agent_id":     agent.ID.String(),
+		"sandbox_id":   payload.SandboxID.String(),
+		"session_uuid": payload.SessionUUID.String(),
+		"session_id":   payload.SessionID,
+		"event_count":  fmt.Sprintf("%d", len(events)),
+		"source_event": payload.SourceEvent,
 	}
 	for _, key := range []string{"source", "channel", "thread_ts", "user", "user_display_name", "tool"} {
 		if value := firstAgentPayloadString(events, key); value != "" {
@@ -149,7 +149,7 @@ func firstPayloadString(payload map[string]any, keys ...string) string {
 	return ""
 }
 
-func agentSessionEventIDs(events []model.SessionEvent) []uuid.UUID {
+func sessionEventIDs(events []model.SessionEvent) []uuid.UUID {
 	ids := make([]uuid.UUID, 0, len(events))
 	for _, event := range events {
 		ids = append(ids, event.ID)

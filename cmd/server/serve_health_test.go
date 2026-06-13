@@ -15,7 +15,7 @@ import (
 
 // When a sandbox provider is configured but the orchestrator failed to
 // initialize, /readyz must report 503 rather than letting the instance look
-// healthy while the entire agent/gateway subsystem is silently missing.
+// healthy while the entire agent runtime subsystem is silently missing.
 func TestReadyzReportsOrchestratorMissing(t *testing.T) {
 	dsn := testdb.DatabaseURL()
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})

@@ -1,5 +1,5 @@
 -- +goose Up
--- Session artifacts
+-- Session artifact tables
 
 CREATE TABLE artifacts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,

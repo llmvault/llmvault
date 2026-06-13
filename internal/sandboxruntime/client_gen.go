@@ -21,24 +21,6 @@ const (
 	BearerScopes bearerContextKey = "bearer.Scopes"
 )
 
-// Defines values for CronJobSource.
-const (
-	Cron         CronJobSource = "cron"
-	SubagentTask CronJobSource = "subagent_task"
-)
-
-// Valid indicates whether the value is a known member of the CronJobSource enum.
-func (e CronJobSource) Valid() bool {
-	switch e {
-	case Cron:
-		return true
-	case SubagentTask:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for CronJobState.
 const (
 	CronJobStateActive    CronJobState = "active"
@@ -549,6 +531,36 @@ func (e ToolSpec11Type) Valid() bool {
 	}
 }
 
+// Defines values for ToolSpec12Type.
+const (
+	BuiltinRequestUserInput ToolSpec12Type = "builtin.request_user_input"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec12Type enum.
+func (e ToolSpec12Type) Valid() bool {
+	switch e {
+	case BuiltinRequestUserInput:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSpec13Type.
+const (
+	BuiltinUpdatePlan ToolSpec13Type = "builtin.update_plan"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec13Type enum.
+func (e ToolSpec13Type) Valid() bool {
+	switch e {
+	case BuiltinUpdatePlan:
+		return true
+	default:
+		return false
+	}
+}
+
 // AgentDefinition defines model for AgentDefinition.
 type AgentDefinition struct {
 	Agent            AgentMeta                   `json:"agent"`
@@ -651,31 +663,23 @@ type ControlCommandsResponse struct {
 
 // CronJob defines model for CronJob.
 type CronJob struct {
-	AgentName             *string       `json:"agent_name,omitempty"`
-	Channel               string        `json:"channel"`
-	CreatedAt             time.Time     `json:"created_at"`
-	CreatedBySession      string        `json:"created_by_session"`
-	CronExpression        *string       `json:"cron_expression,omitempty"`
-	DelegateStreamId      *string       `json:"delegate_stream_id,omitempty"`
-	DelegatedSessionId    *string       `json:"delegated_session_id,omitempty"`
-	Description           string        `json:"description"`
-	Id                    string        `json:"id"`
-	IntervalSeconds       *int64        `json:"interval_seconds,omitempty"`
-	LastError             *string       `json:"last_error,omitempty"`
-	LastResult            *string       `json:"last_result,omitempty"`
-	LastRunAt             *time.Time    `json:"last_run_at,omitempty"`
-	LastStatus            *string       `json:"last_status,omitempty"`
-	NextRunAt             time.Time     `json:"next_run_at"`
-	RepeatCompleted       int32         `json:"repeat_completed"`
-	RepeatCount           *int32        `json:"repeat_count,omitempty"`
-	SessionContinuationId *string       `json:"session_continuation_id,omitempty"`
-	Source                CronJobSource `json:"source"`
-	State                 CronJobState  `json:"state"`
-	TaskPrompt            string        `json:"task_prompt"`
+	Channel               string       `json:"channel"`
+	CreatedAt             time.Time    `json:"created_at"`
+	CreatedBySession      string       `json:"created_by_session"`
+	CronExpression        *string      `json:"cron_expression,omitempty"`
+	Description           string       `json:"description"`
+	Id                    string       `json:"id"`
+	IntervalSeconds       *int64       `json:"interval_seconds,omitempty"`
+	LastError             *string      `json:"last_error,omitempty"`
+	LastRunAt             *time.Time   `json:"last_run_at,omitempty"`
+	LastStatus            *string      `json:"last_status,omitempty"`
+	NextRunAt             time.Time    `json:"next_run_at"`
+	RepeatCompleted       int32        `json:"repeat_completed"`
+	RepeatCount           *int32       `json:"repeat_count,omitempty"`
+	SessionContinuationId *string      `json:"session_continuation_id,omitempty"`
+	State                 CronJobState `json:"state"`
+	TaskPrompt            string       `json:"task_prompt"`
 }
-
-// CronJobSource defines model for CronJobSource.
-type CronJobSource string
 
 // CronJobState defines model for CronJobState.
 type CronJobState string
@@ -705,28 +709,6 @@ type HealthResponse struct {
 	SentryDsnSet  bool   `json:"sentry_dsn_set"`
 	SentryEnabled bool   `json:"sentry_enabled"`
 	Status        string `json:"status"`
-}
-
-// HttpMessageRequest defines model for HttpMessageRequest.
-type HttpMessageRequest struct {
-	Attachments     *[]Attachment           `json:"attachments,omitempty"`
-	ConversationId  *string                 `json:"conversation_id,omitempty"`
-	DynamicContext  *[]string               `json:"dynamic_context,omitempty"`
-	Raw             *map[string]interface{} `json:"raw,omitempty"`
-	Text            string                  `json:"text"`
-	User            *string                 `json:"user,omitempty"`
-	UserDisplayName *string                 `json:"user_display_name,omitempty"`
-}
-
-// HttpMessageResponse defines model for HttpMessageResponse.
-type HttpMessageResponse struct {
-	ResponseStreamId  string `json:"response_stream_id"`
-	ResponseStreamUrl string `json:"response_stream_url"`
-	SessionId         string `json:"session_id"`
-	StreamId          string `json:"stream_id"`
-	StreamUrl         string `json:"stream_url"`
-	TraceId           string `json:"trace_id"`
-	TurnId            string `json:"turn_id"`
 }
 
 // Limits defines model for Limits.
@@ -910,6 +892,26 @@ type OverthinkingConfig struct {
 	StallThreshold  *int64 `json:"stall_threshold,omitempty"`
 }
 
+// QuestionAnswerPayload defines model for QuestionAnswerPayload.
+type QuestionAnswerPayload struct {
+	Answers         map[string]QuestionAnswerValue `json:"answers"`
+	User            *string                        `json:"user,omitempty"`
+	UserDisplayName *string                        `json:"user_display_name,omitempty"`
+}
+
+// QuestionAnswerResponse defines model for QuestionAnswerResponse.
+type QuestionAnswerResponse struct {
+	QuestionRequestId string `json:"question_request_id"`
+	SessionId         string `json:"session_id"`
+	State             string `json:"state"`
+}
+
+// QuestionAnswerValue defines model for QuestionAnswerValue.
+type QuestionAnswerValue struct {
+	Answers []string `json:"answers"`
+	Other   *string  `json:"other,omitempty"`
+}
+
 // ReadFileConfig defines model for ReadFileConfig.
 type ReadFileConfig struct {
 	AllowedRoots     []string  `json:"allowed_roots"`
@@ -938,15 +940,12 @@ type SafetyConfig struct {
 
 // Session defines model for Session.
 type Session struct {
-	AgentSessionId string    `json:"agent_session_id"`
-	Channel        string    `json:"channel"`
-	CreatedAt      time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// Id `SessionId` is the canonical identifier for a session.
 	Id             SessionId     `json:"id"`
 	LastActivityAt time.Time     `json:"last_activity_at"`
 	Status         SessionStatus `json:"status"`
-	ThreadTs       string        `json:"thread_ts"`
 }
 
 // SessionDetailResponse defines model for SessionDetailResponse.
@@ -969,6 +968,25 @@ type SessionEvent struct {
 
 // SessionId `SessionId` is the canonical identifier for a session.
 type SessionId = string
+
+// SessionMessageRequest defines model for SessionMessageRequest.
+type SessionMessageRequest struct {
+	Attachments     *[]Attachment           `json:"attachments,omitempty"`
+	DynamicContext  *[]string               `json:"dynamic_context,omitempty"`
+	Raw             *map[string]interface{} `json:"raw,omitempty"`
+	Text            string                  `json:"text"`
+	User            *string                 `json:"user,omitempty"`
+	UserDisplayName *string                 `json:"user_display_name,omitempty"`
+}
+
+// SessionMessageResponse defines model for SessionMessageResponse.
+type SessionMessageResponse struct {
+	SessionId string `json:"session_id"`
+	StreamId  string `json:"stream_id"`
+	StreamUrl string `json:"stream_url"`
+	TraceId   string `json:"trace_id"`
+	TurnId    string `json:"turn_id"`
+}
 
 // SessionStatus defines model for SessionStatus.
 type SessionStatus string
@@ -1189,6 +1207,22 @@ type ToolSpec11 struct {
 // ToolSpec11Type defines model for ToolSpec.11.Type.
 type ToolSpec11Type string
 
+// ToolSpec12 defines model for .
+type ToolSpec12 struct {
+	Type ToolSpec12Type `json:"type"`
+}
+
+// ToolSpec12Type defines model for ToolSpec.12.Type.
+type ToolSpec12Type string
+
+// ToolSpec13 defines model for .
+type ToolSpec13 struct {
+	Type ToolSpec13Type `json:"type"`
+}
+
+// ToolSpec13Type defines model for ToolSpec.13.Type.
+type ToolSpec13Type string
+
 // ToolUsage defines model for ToolUsage.
 type ToolUsage struct {
 	CallId   string `json:"call_id"`
@@ -1232,15 +1266,6 @@ type ListSessionsParams struct {
 	// SessionId Exact session ID filter
 	SessionId *string `form:"session_id,omitempty" json:"session_id,omitempty"`
 
-	// Channel Exact channel filter
-	Channel *string `form:"channel,omitempty" json:"channel,omitempty"`
-
-	// ThreadTs Exact thread timestamp filter
-	ThreadTs *string `form:"thread_ts,omitempty" json:"thread_ts,omitempty"`
-
-	// AgentSessionId Exact agent session ID filter
-	AgentSessionId *string `form:"agent_session_id,omitempty" json:"agent_session_id,omitempty"`
-
 	// Q Prefix search over session identifiers
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
@@ -1254,8 +1279,11 @@ type PutConfigJSONRequestBody = ConfigUpdateRequest
 // PostControlCommandsJSONRequestBody defines body for PostControlCommands for application/json ContentType.
 type PostControlCommandsJSONRequestBody = ControlCommandsRequest
 
-// PostHttpMessageJSONRequestBody defines body for PostHttpMessage for application/json ContentType.
-type PostHttpMessageJSONRequestBody = HttpMessageRequest
+// PostSessionMessageJSONRequestBody defines body for PostSessionMessage for application/json ContentType.
+type PostSessionMessageJSONRequestBody = SessionMessageRequest
+
+// PostQuestionAnswerJSONRequestBody defines body for PostQuestionAnswer for application/json ContentType.
+type PostQuestionAnswerJSONRequestBody = QuestionAnswerPayload
 
 // AsMcpSpec0 returns the union data inside the McpSpec as a McpSpec0
 func (t McpSpec) AsMcpSpec0() (McpSpec0, error) {
@@ -2014,6 +2042,58 @@ func (t *ToolSpec) MergeToolSpec11(v ToolSpec11) error {
 	return err
 }
 
+// AsToolSpec12 returns the union data inside the ToolSpec as a ToolSpec12
+func (t ToolSpec) AsToolSpec12() (ToolSpec12, error) {
+	var body ToolSpec12
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec12 overwrites any union data inside the ToolSpec as the provided ToolSpec12
+func (t *ToolSpec) FromToolSpec12(v ToolSpec12) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec12 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec12
+func (t *ToolSpec) MergeToolSpec12(v ToolSpec12) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolSpec13 returns the union data inside the ToolSpec as a ToolSpec13
+func (t ToolSpec) AsToolSpec13() (ToolSpec13, error) {
+	var body ToolSpec13
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec13 overwrites any union data inside the ToolSpec as the provided ToolSpec13
+func (t *ToolSpec) FromToolSpec13(v ToolSpec13) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec13 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec13
+func (t *ToolSpec) MergeToolSpec13(v ToolSpec13) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ToolSpec) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
@@ -2110,17 +2190,6 @@ type ClientInterface interface {
 
 	PostControlCommands(ctx context.Context, body PostControlCommandsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostHttpMessageWithBody request with any body
-	PostHttpMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PostHttpMessage(ctx context.Context, body PostHttpMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetHttpResponseStream request
-	GetHttpResponseStream(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetHttpStream request
-	GetHttpStream(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// Healthz request
 	Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2138,6 +2207,19 @@ type ClientInterface interface {
 
 	// GetSessionDetail request
 	GetSessionDetail(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostSessionMessageWithBody request with any body
+	PostSessionMessageWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostSessionMessage(ctx context.Context, sessionId string, body PostSessionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostQuestionAnswerWithBody request with any body
+	PostQuestionAnswerWithBody(ctx context.Context, sessionId string, questionRequestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostQuestionAnswer(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSessionStream request
+	GetSessionStream(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2190,54 +2272,6 @@ func (c *Client) PostControlCommandsWithBody(ctx context.Context, contentType st
 
 func (c *Client) PostControlCommands(ctx context.Context, body PostControlCommandsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostControlCommandsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostHttpMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostHttpMessageRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostHttpMessage(ctx context.Context, body PostHttpMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostHttpMessageRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetHttpResponseStream(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetHttpResponseStreamRequest(c.Server, streamId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetHttpStream(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetHttpStreamRequest(c.Server, streamId)
 	if err != nil {
 		return nil, err
 	}
@@ -2310,6 +2344,66 @@ func (c *Client) ListSessions(ctx context.Context, params *ListSessionsParams, r
 
 func (c *Client) GetSessionDetail(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetSessionDetailRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSessionMessageWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSessionMessageRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSessionMessage(ctx context.Context, sessionId string, body PostSessionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSessionMessageRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostQuestionAnswerWithBody(ctx context.Context, sessionId string, questionRequestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostQuestionAnswerRequestWithBody(c.Server, sessionId, questionRequestId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostQuestionAnswer(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostQuestionAnswerRequest(c.Server, sessionId, questionRequestId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSessionStream(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSessionStreamRequest(c.Server, sessionId, streamId)
 	if err != nil {
 		return nil, err
 	}
@@ -2423,114 +2517,6 @@ func NewPostControlCommandsRequestWithBody(server string, contentType string, bo
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewPostHttpMessageRequest calls the generic PostHttpMessage builder with application/json body
-func NewPostHttpMessageRequest(server string, body PostHttpMessageJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPostHttpMessageRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPostHttpMessageRequestWithBody generates requests for PostHttpMessage with any type of body
-func NewPostHttpMessageRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gateway/http/messages")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetHttpResponseStreamRequest generates requests for GetHttpResponseStream
-func NewGetHttpResponseStreamRequest(server string, streamId string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "stream_id", streamId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gateway/http/response-streams/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetHttpStreamRequest generates requests for GetHttpStream
-func NewGetHttpStreamRequest(server string, streamId string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "stream_id", streamId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gateway/http/streams/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -2721,42 +2707,6 @@ func NewListSessionsRequest(server string, params *ListSessionsParams) (*http.Re
 
 		}
 
-		if params.Channel != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel", *params.Channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.ThreadTs != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "thread_ts", *params.ThreadTs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.AgentSessionId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "agent_session_id", *params.AgentSessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
 		if params.Q != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
@@ -2812,6 +2762,148 @@ func NewGetSessionDetailRequest(server string, sessionId string) (*http.Request,
 	}
 
 	operationPath := fmt.Sprintf("/sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostSessionMessageRequest calls the generic PostSessionMessage builder with application/json body
+func NewPostSessionMessageRequest(server string, sessionId string, body PostSessionMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostSessionMessageRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewPostSessionMessageRequestWithBody generates requests for PostSessionMessage with any type of body
+func NewPostSessionMessageRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "session_id", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/messages", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostQuestionAnswerRequest calls the generic PostQuestionAnswer builder with application/json body
+func NewPostQuestionAnswerRequest(server string, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostQuestionAnswerRequestWithBody(server, sessionId, questionRequestId, "application/json", bodyReader)
+}
+
+// NewPostQuestionAnswerRequestWithBody generates requests for PostQuestionAnswer with any type of body
+func NewPostQuestionAnswerRequestWithBody(server string, sessionId string, questionRequestId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "session_id", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "question_request_id", questionRequestId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/questions/%s/answer", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetSessionStreamRequest generates requests for GetSessionStream
+func NewGetSessionStreamRequest(server string, sessionId string, streamId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "session_id", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stream_id", streamId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/streams/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2885,17 +2977,6 @@ type ClientWithResponsesInterface interface {
 
 	PostControlCommandsWithResponse(ctx context.Context, body PostControlCommandsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostControlCommandsResp, error)
 
-	// PostHttpMessageWithBodyWithResponse request with any body
-	PostHttpMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostHttpMessageResp, error)
-
-	PostHttpMessageWithResponse(ctx context.Context, body PostHttpMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostHttpMessageResp, error)
-
-	// GetHttpResponseStreamWithResponse request
-	GetHttpResponseStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpResponseStreamResp, error)
-
-	// GetHttpStreamWithResponse request
-	GetHttpStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpStreamResp, error)
-
 	// HealthzWithResponse request
 	HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResp, error)
 
@@ -2913,6 +2994,19 @@ type ClientWithResponsesInterface interface {
 
 	// GetSessionDetailWithResponse request
 	GetSessionDetailWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetSessionDetailResp, error)
+
+	// PostSessionMessageWithBodyWithResponse request with any body
+	PostSessionMessageWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSessionMessageResp, error)
+
+	PostSessionMessageWithResponse(ctx context.Context, sessionId string, body PostSessionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSessionMessageResp, error)
+
+	// PostQuestionAnswerWithBodyWithResponse request with any body
+	PostQuestionAnswerWithBodyWithResponse(ctx context.Context, sessionId string, questionRequestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostQuestionAnswerResp, error)
+
+	PostQuestionAnswerWithResponse(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*PostQuestionAnswerResp, error)
+
+	// GetSessionStreamWithResponse request
+	GetSessionStreamWithResponse(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*GetSessionStreamResp, error)
 }
 
 type GetConfigResp struct {
@@ -2999,94 +3093,6 @@ func (r PostControlCommandsResp) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostControlCommandsResp) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type PostHttpMessageResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *HttpMessageResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PostHttpMessageResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PostHttpMessageResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PostHttpMessageResp) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetHttpResponseStreamResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-}
-
-// Status returns HTTPResponse.Status
-func (r GetHttpResponseStreamResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetHttpResponseStreamResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetHttpResponseStreamResp) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetHttpStreamResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-}
-
-// Status returns HTTPResponse.Status
-func (r GetHttpStreamResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetHttpStreamResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetHttpStreamResp) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3272,6 +3278,95 @@ func (r GetSessionDetailResp) ContentType() string {
 	return ""
 }
 
+type PostSessionMessageResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SessionMessageResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostSessionMessageResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostSessionMessageResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostSessionMessageResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostQuestionAnswerResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *QuestionAnswerResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostQuestionAnswerResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostQuestionAnswerResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostQuestionAnswerResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetSessionStreamResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSessionStreamResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSessionStreamResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSessionStreamResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // GetConfigWithResponse request returning *GetConfigResp
 func (c *ClientWithResponses) GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetConfigResp, error) {
 	rsp, err := c.GetConfig(ctx, reqEditors...)
@@ -3313,41 +3408,6 @@ func (c *ClientWithResponses) PostControlCommandsWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParsePostControlCommandsResp(rsp)
-}
-
-// PostHttpMessageWithBodyWithResponse request with arbitrary body returning *PostHttpMessageResp
-func (c *ClientWithResponses) PostHttpMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostHttpMessageResp, error) {
-	rsp, err := c.PostHttpMessageWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostHttpMessageResp(rsp)
-}
-
-func (c *ClientWithResponses) PostHttpMessageWithResponse(ctx context.Context, body PostHttpMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostHttpMessageResp, error) {
-	rsp, err := c.PostHttpMessage(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostHttpMessageResp(rsp)
-}
-
-// GetHttpResponseStreamWithResponse request returning *GetHttpResponseStreamResp
-func (c *ClientWithResponses) GetHttpResponseStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpResponseStreamResp, error) {
-	rsp, err := c.GetHttpResponseStream(ctx, streamId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetHttpResponseStreamResp(rsp)
-}
-
-// GetHttpStreamWithResponse request returning *GetHttpStreamResp
-func (c *ClientWithResponses) GetHttpStreamWithResponse(ctx context.Context, streamId string, reqEditors ...RequestEditorFn) (*GetHttpStreamResp, error) {
-	rsp, err := c.GetHttpStream(ctx, streamId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetHttpStreamResp(rsp)
 }
 
 // HealthzWithResponse request returning *HealthzResp
@@ -3402,6 +3462,49 @@ func (c *ClientWithResponses) GetSessionDetailWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetSessionDetailResp(rsp)
+}
+
+// PostSessionMessageWithBodyWithResponse request with arbitrary body returning *PostSessionMessageResp
+func (c *ClientWithResponses) PostSessionMessageWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSessionMessageResp, error) {
+	rsp, err := c.PostSessionMessageWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSessionMessageResp(rsp)
+}
+
+func (c *ClientWithResponses) PostSessionMessageWithResponse(ctx context.Context, sessionId string, body PostSessionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSessionMessageResp, error) {
+	rsp, err := c.PostSessionMessage(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSessionMessageResp(rsp)
+}
+
+// PostQuestionAnswerWithBodyWithResponse request with arbitrary body returning *PostQuestionAnswerResp
+func (c *ClientWithResponses) PostQuestionAnswerWithBodyWithResponse(ctx context.Context, sessionId string, questionRequestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostQuestionAnswerResp, error) {
+	rsp, err := c.PostQuestionAnswerWithBody(ctx, sessionId, questionRequestId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostQuestionAnswerResp(rsp)
+}
+
+func (c *ClientWithResponses) PostQuestionAnswerWithResponse(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*PostQuestionAnswerResp, error) {
+	rsp, err := c.PostQuestionAnswer(ctx, sessionId, questionRequestId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostQuestionAnswerResp(rsp)
+}
+
+// GetSessionStreamWithResponse request returning *GetSessionStreamResp
+func (c *ClientWithResponses) GetSessionStreamWithResponse(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*GetSessionStreamResp, error) {
+	rsp, err := c.GetSessionStream(ctx, sessionId, streamId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSessionStreamResp(rsp)
 }
 
 // ParseGetConfigResp parses an HTTP response from a GetConfigWithResponse call
@@ -3477,64 +3580,6 @@ func ParsePostControlCommandsResp(rsp *http.Response) (*PostControlCommandsResp,
 		}
 		response.JSON200 = &dest
 
-	}
-
-	return response, nil
-}
-
-// ParsePostHttpMessageResp parses an HTTP response from a PostHttpMessageWithResponse call
-func ParsePostHttpMessageResp(rsp *http.Response) (*PostHttpMessageResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PostHttpMessageResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest HttpMessageResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetHttpResponseStreamResp parses an HTTP response from a GetHttpResponseStreamWithResponse call
-func ParseGetHttpResponseStreamResp(rsp *http.Response) (*GetHttpResponseStreamResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetHttpResponseStreamResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	return response, nil
-}
-
-// ParseGetHttpStreamResp parses an HTTP response from a GetHttpStreamWithResponse call
-func ParseGetHttpStreamResp(rsp *http.Response) (*GetHttpStreamResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetHttpStreamResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -3681,6 +3726,74 @@ func ParseGetSessionDetailResp(rsp *http.Response) (*GetSessionDetailResp, error
 		}
 		response.JSON200 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParsePostSessionMessageResp parses an HTTP response from a PostSessionMessageWithResponse call
+func ParsePostSessionMessageResp(rsp *http.Response) (*PostSessionMessageResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostSessionMessageResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SessionMessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostQuestionAnswerResp parses an HTTP response from a PostQuestionAnswerWithResponse call
+func ParsePostQuestionAnswerResp(rsp *http.Response) (*PostQuestionAnswerResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostQuestionAnswerResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest QuestionAnswerResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSessionStreamResp parses an HTTP response from a GetSessionStreamWithResponse call
+func ParseGetSessionStreamResp(rsp *http.Response) (*GetSessionStreamResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSessionStreamResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil

@@ -197,7 +197,7 @@ var migratedTables = []string{
 	"drive_assets",
 	"email_verifications",
 	"agent_assets",
-		"agent_sandbox_upgrades",
+	"agent_sandbox_upgrades",
 	"agent_schedule_runs",
 	"agent_schedules",
 	"agent_skills",
@@ -250,4 +250,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 15
+const latestMigrationVersion = 14

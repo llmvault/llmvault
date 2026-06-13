@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/auth"
+	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -44,6 +46,19 @@ func newOrgUpdateHarness(t *testing.T) *orgUpdateHarness {
 	})
 
 	return &orgUpdateHarness{db: db, orgHandler: orgHandler, router: r, enqueuer: enq}
+}
+
+func newTestEncKey(t *testing.T) *crypto.SymmetricKey {
+	t.Helper()
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i + 42)
+	}
+	encKey, err := crypto.NewSymmetricKey(base64.StdEncoding.EncodeToString(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return encKey
 }
 
 func (h *orgUpdateHarness) createOrg(t *testing.T, role string) (model.Org, model.User) {
