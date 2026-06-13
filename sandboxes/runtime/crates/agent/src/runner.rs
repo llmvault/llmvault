@@ -10,20 +10,19 @@ use domain::{
     SafetyConfig, SessionId, SystemPromptSegment,
 };
 use futures::{stream::BoxStream, StreamExt};
-use gateway::ChannelGateway;
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
 use safety::error_tracker::ToolErrorTracker;
 use safety::thinking_guard::ThinkingStreamFilter;
 use safety::{overthinking_feedback, xml_repair_reminder, SafetyHarness, TurnSafety};
-use storage::CronJobRepo;
+use storage::{CronJobRepo, SubagentTaskRepo};
 use tools::{JsonTool, ToolBuildContext};
 use tracing::warn;
 
 use crate::compaction;
 use crate::history::{
     append_model_message, load_model_history, load_preloaded_context, persist_preloaded_context,
-    seed_model_history_from_gateway,
+    seed_model_history_from_session_history,
 };
 use crate::model_client::{ChatModelClient, ModelClientConfig};
 use crate::primitives::{
@@ -47,11 +46,11 @@ pub struct RigAgentRunner {
     config: ConfigStore,
     tool_context: ToolBuildContext,
     outbound_emitter: Option<Arc<OutboundEmitter>>,
-    gateway: Option<Arc<dyn ChannelGateway>>,
     cron_repo: Option<Arc<dyn CronJobRepo>>,
+    subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     event_repo: Option<Arc<dyn storage::EventRepo>>,
     mcp_registry: Option<Arc<McpRegistry>>,
-    delegate_stream_creator: Option<crate::rig_tool_registry::DelegateStreamCreator>,
+    subagent_stream_creator: Option<crate::rig_tool_registry::SubagentStreamCreator>,
     safety: SafetyHarness,
 }
 
@@ -61,11 +60,11 @@ impl RigAgentRunner {
             config,
             tool_context: ToolBuildContext::new(workspace_root),
             outbound_emitter: None,
-            gateway: None,
             cron_repo: None,
+            subagent_task_repo: None,
             event_repo: None,
             mcp_registry: None,
-            delegate_stream_creator: None,
+            subagent_stream_creator: None,
             safety: SafetyHarness::new(SafetyConfig::default()),
         }
     }
@@ -75,13 +74,13 @@ impl RigAgentRunner {
         self
     }
 
-    pub fn with_gateway(mut self, gateway: Arc<dyn ChannelGateway>) -> Self {
-        self.gateway = Some(gateway);
+    pub fn with_cron_repo(mut self, cron_repo: Arc<dyn CronJobRepo>) -> Self {
+        self.cron_repo = Some(cron_repo);
         self
     }
 
-    pub fn with_cron_repo(mut self, cron_repo: Arc<dyn CronJobRepo>) -> Self {
-        self.cron_repo = Some(cron_repo);
+    pub fn with_subagent_task_repo(mut self, repo: Arc<dyn SubagentTaskRepo>) -> Self {
+        self.subagent_task_repo = Some(repo);
         self
     }
 
@@ -95,11 +94,11 @@ impl RigAgentRunner {
         self
     }
 
-    pub fn with_delegate_stream_creator(
+    pub fn with_subagent_stream_creator(
         mut self,
-        creator: crate::rig_tool_registry::DelegateStreamCreator,
+        creator: crate::rig_tool_registry::SubagentStreamCreator,
     ) -> Self {
-        self.delegate_stream_creator = Some(creator);
+        self.subagent_stream_creator = Some(creator);
         self
     }
 
@@ -151,8 +150,8 @@ impl AgentRunner for RigAgentRunner {
         }
         let mut tool_context = self.tool_context.clone();
         tool_context.runtime_env = runtime_env;
-        let gateway = self.gateway.clone();
         let cron_repo = self.cron_repo.clone();
+        let subagent_task_repo = self.subagent_task_repo.clone();
         let event_repo_for_tools = self.event_repo.clone();
         let process_registry = self.tool_context.process_registry.clone();
         let mcp_registry = self.mcp_registry.clone();
@@ -162,15 +161,15 @@ impl AgentRunner for RigAgentRunner {
             session_id,
             &tool_context,
             &ToolContext {
-                gateway: gateway.clone(),
                 cron_repo: cron_repo.clone(),
+                subagent_task_repo: subagent_task_repo.clone(),
                 event_repo: event_repo_for_tools.clone(),
                 process_registry: Some(process_registry.clone()),
                 mcp_registry: mcp_registry.clone(),
                 workspace_root: tool_context.workspace_root.clone(),
                 outbound_emitter: self.outbound_emitter.clone(),
                 agent_registry: self.config.agent_registry(),
-                delegate_stream_creator: self.delegate_stream_creator.clone(),
+                subagent_stream_creator: self.subagent_stream_creator.clone(),
             },
             mcp_registry.clone(),
         );
@@ -800,7 +799,8 @@ async fn build_initial_messages(
     let mut history = load_model_history(event_repo, session_id, 1000).await?;
     if history.is_empty() && !input.prior_history.is_empty() {
         history =
-            seed_model_history_from_gateway(event_repo, session_id, &input.prior_history).await?;
+            seed_model_history_from_session_history(event_repo, session_id, &input.prior_history)
+                .await?;
     }
     messages.extend(history);
     let mut user = AgentMessage::user(input.text);
@@ -1075,8 +1075,6 @@ mod tests {
                 name: "Ari".to_string(),
                 description: "Engineering teammate".to_string(),
             },
-            mode: Default::default(),
-            specialist_profile: None,
             system_prompt: test_system_prompt(),
             model: ModelConfig::OpenaiCompatible {
                 base_url: "http://localhost".to_string(),

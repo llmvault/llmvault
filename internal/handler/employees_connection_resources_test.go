@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -35,7 +35,7 @@ func TestEmployeeHandler_UpdateConnectionResourcesStoresOnEmployeeAndQueuesGitHu
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
 		IsEmployee:    true,
-		Model:         employeeruntime.DefaultEmployeeModel,
+		Model:         agentruntime.DefaultEmployeeModel,
 		Status:        "active",
 		Tools:         model.JSON{},
 		McpServers:    model.RawJSON("[]"),
@@ -60,7 +60,7 @@ func TestEmployeeHandler_UpdateConnectionResourcesStoresOnEmployeeAndQueuesGitHu
 	}
 
 	enq := &enqueue.MockClient{}
-	h := handler.NewEmployeeHandler(db, nil, employeeruntime.CompileDeps{}, registry.Global())
+	h := handler.NewEmployeeHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
 	h.SetEnqueuer(enq)
 	r := chi.NewRouter()
 	r.Put("/v1/employees/{id}/connections/{connectionID}/resources", h.UpdateConnectionResources)

@@ -50,17 +50,11 @@ fn parse_timestamp(raw: &str) -> Result<DateTime<Utc>> {
 
 fn row_to_session(row: &sqlx::sqlite::SqliteRow) -> Result<Session> {
     let id: String = row.try_get("id")?;
-    let channel: String = row.try_get("channel")?;
-    let thread_ts: String = row.try_get("thread_ts")?;
-    let agent_session_id: String = row.try_get("agent_session_id")?;
     let status_raw: String = row.try_get("status")?;
     let created_at_raw: String = row.try_get("created_at")?;
     let last_activity_at_raw: String = row.try_get("last_activity_at")?;
     Ok(Session {
         id: SessionId::from(id),
-        channel,
-        thread_ts,
-        agent_session_id,
         status: status_from_str(&status_raw)?,
         created_at: parse_timestamp(&created_at_raw)?,
         last_activity_at: parse_timestamp(&last_activity_at_raw)?,
@@ -127,20 +121,8 @@ impl SessionRepo for SqliteSessionRepo {
         if filter.session_id.is_some() {
             query.push_str(" AND id = ?");
         }
-        if filter.channel.is_some() {
-            query.push_str(" AND channel = ?");
-        }
-        if filter.thread_ts.is_some() {
-            query.push_str(" AND thread_ts = ?");
-        }
-        if filter.agent_session_id.is_some() {
-            query.push_str(" AND agent_session_id = ?");
-        }
         if search_prefix.is_some() {
-            query.push_str(
-                " AND (id LIKE ? ESCAPE '\\' OR agent_session_id LIKE ? ESCAPE '\\' \
-                 OR channel LIKE ? ESCAPE '\\' OR thread_ts LIKE ? ESCAPE '\\')",
-            );
+            query.push_str(" AND id LIKE ? ESCAPE '\\'");
         }
         query.push_str(" ORDER BY last_activity_at DESC, id DESC LIMIT ?");
 
@@ -160,22 +142,9 @@ impl SessionRepo for SqliteSessionRepo {
         if let Some(value) = filter.session_id.as_ref() {
             prepared = prepared.bind(value);
         }
-        if let Some(value) = filter.channel.as_ref() {
-            prepared = prepared.bind(value);
-        }
-        if let Some(value) = filter.thread_ts.as_ref() {
-            prepared = prepared.bind(value);
-        }
-        if let Some(value) = filter.agent_session_id.as_ref() {
-            prepared = prepared.bind(value);
-        }
         if let Some(prefix) = search_prefix.as_ref() {
             let pattern = format!("{prefix}%");
-            prepared = prepared
-                .bind(pattern.clone())
-                .bind(pattern.clone())
-                .bind(pattern.clone())
-                .bind(pattern);
+            prepared = prepared.bind(pattern);
         }
         prepared = prepared.bind(limit as i64);
 

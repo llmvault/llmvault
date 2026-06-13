@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{reply::MessageHandle, session::SessionId, AgentDefinition, ConfigStore};
+use crate::{session::SessionId, AgentDefinition, ConfigStore};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
@@ -13,7 +13,6 @@ pub struct InboundEvent {
     pub attachments: Vec<Attachment>,
     pub dynamic_context: Vec<String>,
     pub raw: serde_json::Value,
-    pub inbound_handle: MessageHandle,
     pub is_direct_message: bool,
     pub is_directly_addressed: bool,
     pub link_previews: Vec<LinkPreview>,

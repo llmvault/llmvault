@@ -7,19 +7,18 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeesandbox"
+	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func loadMainEmployeeRuntimeSandboxPerAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agentIDs []uuid.UUID, employeeImage, specialistImage string) map[uuid.UUID]*employeeSandboxSummary {
+func loadMainEmployeeRuntimeSandboxPerAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agentIDs []uuid.UUID, employeeImage string) map[uuid.UUID]*employeeSandboxSummary {
 	out := make(map[uuid.UUID]*employeeSandboxSummary, len(agentIDs))
 	if len(agentIDs) == 0 {
 		return out
 	}
-	sandboxes, err := employeesandbox.Selector{
-		DB:                     db,
-		EmployeeRuntimeImage:   employeeImage,
-		SpecialistRuntimeImage: specialistImage,
+	sandboxes, err := agentsandbox.Selector{
+		DB:                   db,
+		EmployeeRuntimeImage: employeeImage,
 	}.MainRuntimeMap(ctx, orgID, agentIDs)
 	if err != nil {
 		return out

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -26,15 +26,15 @@ const (
 func baseEnvVars(cfg *config.Config, runtimeSecret string, sandboxID uuid.UUID, webhookURL string) map[string]string {
 	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
 	envVars := map[string]string{
-		employeeruntime.EmployeeEnvRuntimeSecret:     runtimeSecret,
-		employeeruntime.EmployeeEnvDriveUploadBearer: runtimeSecret,
-		employeeruntime.EmployeeEnvRuntimeBindAddr:   fmt.Sprintf("0.0.0.0:%d", RuntimePort),
-		"HIVY_WEB_URL":                       controlPlaneBaseURL + "/spider",
-		employeeruntime.EmployeeEnvSandboxID: sandboxID.String(),
-		employeeruntime.EmployeeEnvHome:      "/work",
-		"OPENCODE_CONFIG_DIR":                "/work/.opencode",
-		"NO_BROWSER":                         "1",
-		"HIVY_STORAGE_PATH":                  "/work/runtime.db",
+		agentruntime.EmployeeEnvRuntimeSecret:     runtimeSecret,
+		agentruntime.EmployeeEnvDriveUploadBearer: runtimeSecret,
+		agentruntime.EmployeeEnvRuntimeBindAddr:   fmt.Sprintf("0.0.0.0:%d", RuntimePort),
+		"HIVY_WEB_URL":                            controlPlaneBaseURL + "/spider",
+		agentruntime.EmployeeEnvSandboxID:         sandboxID.String(),
+		agentruntime.EmployeeEnvHome:              "/work",
+		"OPENCODE_CONFIG_DIR":                     "/work/.opencode",
+		"NO_BROWSER":                              "1",
+		"HIVY_STORAGE_PATH":                       "/work/runtime.db",
 	}
 	if webhookURL != "" {
 		envVars["HIVY_WEBHOOK_URL"] = webhookURL
@@ -48,19 +48,19 @@ func baseEnvVars(cfg *config.Config, runtimeSecret string, sandboxID uuid.UUID, 
 }
 
 func setSandboxSentryEnvVars(envVars map[string]string, cfg *config.Config, dsn string) {
-	employeeruntime.ApplySandboxSentryEnv(envVars, cfg, dsn)
+	agentruntime.ApplySandboxSentryEnv(envVars, cfg, dsn)
 }
 
 func setOrgEnvVars(envVars map[string]string, orgID uuid.UUID) {
-	envVars[employeeruntime.EmployeeEnvOrgID] = orgID.String()
+	envVars[agentruntime.EmployeeEnvOrgID] = orgID.String()
 }
 
 func setAgentEnvVars(envVars map[string]string, agent *model.Employee, cfg *config.Config) {
 	if agent == nil {
 		return
 	}
-	envVars[employeeruntime.EmployeeEnvEmployeeID] = agent.ID.String()
-	employeeruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, envVars[employeeruntime.EmployeeEnvRuntimeSecret], employeeruntime.ControlPlaneRuntimeEnvOptions{})
+	envVars[agentruntime.EmployeeEnvEmployeeID] = agent.ID.String()
+	agentruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, envVars[agentruntime.EmployeeEnvRuntimeSecret], agentruntime.ControlPlaneRuntimeEnvOptions{})
 }
 
 func setDriveEndpoint(envVars map[string]string, sandboxID uuid.UUID, cfg *config.Config) {
@@ -81,15 +81,15 @@ func setAssetsUploadURL(envVars map[string]string, cfg *config.Config) {
 }
 
 func employeeDriveUploadURL(cfg *config.Config, employeeID uuid.UUID) string {
-	return employeeruntime.EmployeeDriveUploadURL(cfg.RuntimeControlPlaneBaseURL(), employeeID)
+	return agentruntime.EmployeeDriveUploadURL(cfg.RuntimeControlPlaneBaseURL(), employeeID)
 }
 
 func setEmployeeDriveUploadURL(envVars map[string]string, cfg *config.Config, employeeID uuid.UUID) {
-	envVars[employeeruntime.EmployeeEnvDriveUploadURL] = employeeDriveUploadURL(cfg, employeeID)
+	envVars[agentruntime.EmployeeEnvDriveUploadURL] = employeeDriveUploadURL(cfg, employeeID)
 }
 
 func setDriveUploadBearer(envVars map[string]string, bearer string) {
-	envVars[employeeruntime.EmployeeEnvDriveUploadBearer] = bearer
+	envVars[agentruntime.EmployeeEnvDriveUploadBearer] = bearer
 }
 
 type repoResource struct {

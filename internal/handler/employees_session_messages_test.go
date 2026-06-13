@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -57,14 +58,15 @@ func TestEmployeeHandler_SendSessionMessageCreatesWebSessionAndRuntimeTurn(t *te
 		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
 	}
 	var out struct {
-		EmployeeSessionID     string `json:"employee_session_id"`
-		RuntimeSessionID      string `json:"runtime_session_id"`
-		RuntimeStreamID       string `json:"runtime_stream_id"`
-		RuntimeResponseID     string `json:"runtime_response_stream_id"`
-		ResponseStreamURL     string `json:"response_stream_url"`
-		Created               bool   `json:"created"`
-		Source                string `json:"source"`
-		RuntimeConversationID string `json:"runtime_conversation_id"`
+		EmployeeSessionID       string `json:"employee_session_id"`
+		RuntimeSessionID        string `json:"runtime_session_id"`
+		RuntimeStreamID         string `json:"runtime_stream_id"`
+		RuntimeResponseID       string `json:"runtime_response_stream_id"`
+		ResponseStreamURL       string `json:"response_stream_url"`
+		DirectResponseStreamURL string `json:"direct_response_stream_url"`
+		Created                 bool   `json:"created"`
+		Source                  string `json:"source"`
+		RuntimeConversationID   string `json:"runtime_conversation_id"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -77,6 +79,16 @@ func TestEmployeeHandler_SendSessionMessageCreatesWebSessionAndRuntimeTurn(t *te
 	}
 	if !strings.Contains(out.ResponseStreamURL, "/v1/employees/"+agent.ID.String()+"/sessions/"+out.EmployeeSessionID+"/streams/"+out.RuntimeResponseID) {
 		t.Fatalf("response stream url = %q", out.ResponseStreamURL)
+	}
+	if !strings.Contains(out.DirectResponseStreamURL, "/gateway/http/response-streams/"+out.RuntimeResponseID) {
+		t.Fatalf("direct response stream url = %q", out.DirectResponseStreamURL)
+	}
+	directURL, err := url.Parse(out.DirectResponseStreamURL)
+	if err != nil {
+		t.Fatalf("parse direct response stream url: %v", err)
+	}
+	if directURL.Query().Get("stream_token") == "" {
+		t.Fatalf("direct response stream url missing stream_token: %q", out.DirectResponseStreamURL)
 	}
 
 	var session model.EmployeeSession
@@ -113,13 +125,12 @@ func TestEmployeeHandler_SendSessionMessageCreatesWebSessionAndRuntimeTurn(t *te
 	}
 }
 
-func TestEmployeeHandler_SendSessionMessageUsesMainRuntimeWhenSpecialistSandboxIsNewer(t *testing.T) {
+func TestEmployeeHandler_SendSessionMessageUsesLatestAgentRuntime(t *testing.T) {
 	h := newEmployeeHarness(t)
 	m := h.createOrgWithRole(t, "member")
 	agent := h.seedEmployeeAgent(t, m)
-	mainSandbox := h.seedSandbox(t, m, agent.ID)
-	specialistSandbox := h.seedSandbox(t, m, agent.ID)
-	h.setSandboxSnapshot(t, specialistSandbox.ID, &h.cfg.SandboxesRuntimeSpecialistImage)
+	_ = h.seedSandbox(t, m, agent.ID)
+	latestSandbox := h.seedSandbox(t, m, agent.ID)
 
 	rr := h.sendSessionMessage(t, m, agent.ID, map[string]any{"text": "Start from the web"})
 	if rr.Code != http.StatusAccepted {
@@ -136,8 +147,8 @@ func TestEmployeeHandler_SendSessionMessageUsesMainRuntimeWhenSpecialistSandboxI
 	if err := h.db.First(&session, "id = ?", out.EmployeeSessionID).Error; err != nil {
 		t.Fatalf("load session: %v", err)
 	}
-	if session.SandboxID != mainSandbox.ID {
-		t.Fatalf("session sandbox = %s, want main runtime %s", session.SandboxID, mainSandbox.ID)
+	if session.SandboxID != latestSandbox.ID {
+		t.Fatalf("session sandbox = %s, want latest runtime %s", session.SandboxID, latestSandbox.ID)
 	}
 }
 

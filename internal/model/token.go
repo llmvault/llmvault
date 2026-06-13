@@ -27,15 +27,17 @@ type Token struct {
 func (Token) TableName() string { return "tokens" }
 
 const (
-	TokenMetaType           = "type"
-	TokenMetaEmployeeID     = "employee_id"
-	TokenMetaSandboxID      = "sandbox_id"
-	TokenMetaHarness        = "harness"
-	TokenMetaRuntimeMode    = "runtime_mode"
-	TokenMetaSpecialistSlug = "specialist_slug"
+	TokenMetaType      = "type"
+	TokenMetaAgentID   = "agent_id"
+	TokenMetaSandboxID = "sandbox_id"
+	TokenMetaHarness   = "harness"
 
-	TokenTypeEmployeeProxy      = "employee_proxy"
-	TokenHarnessEmployeeSandbox = "employee-sandbox"
-	TokenRuntimeModeEmployee    = "employee"
-	TokenRuntimeModeSpecialist  = "specialist"
+	TokenTypeAgentProxy      = "agent_proxy"
+	TokenHarnessAgentSandbox = "agent-sandbox"
+
+	// Legacy aliases retained for non-runtime code that has not moved to the v2
+	// domain model yet. Agent runtime code should use the agent-named constants.
+	TokenMetaEmployeeID         = TokenMetaAgentID
+	TokenTypeEmployeeProxy      = TokenTypeAgentProxy
+	TokenHarnessEmployeeSandbox = TokenHarnessAgentSandbox
 )

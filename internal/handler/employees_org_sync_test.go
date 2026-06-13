@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -71,7 +71,7 @@ func assertPushedProxyTokenMatchesMCPURL(t *testing.T, configBody, envBody []byt
 	if err := json.Unmarshal(envBody, &env); err != nil {
 		t.Fatalf("decode runtime env: %v", err)
 	}
-	rawToken := strings.TrimPrefix(env[employeeruntime.ProxyAPIKeyEnv], "ptok_")
+	rawToken := strings.TrimPrefix(env[agentruntime.ProxyAPIKeyEnv], "ptok_")
 	parts := strings.Split(rawToken, ".")
 	if len(parts) != 3 {
 		t.Fatalf("proxy token should be JWT-shaped")

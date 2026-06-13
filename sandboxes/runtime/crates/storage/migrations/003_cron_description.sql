@@ -1,1 +1,0 @@
-ALTER TABLE cron_jobs ADD COLUMN description TEXT NOT NULL DEFAULT '';

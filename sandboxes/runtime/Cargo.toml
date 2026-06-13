@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "crates/domain",
     "crates/observability",
-    "crates/gateway",
     "crates/agent",
     "crates/storage",
     "crates/tools",
@@ -63,7 +62,6 @@ rmcp = { version = "1", features = ["transport-child-process", "transport-stream
 # internal crates
 domain = { path = "crates/domain" }
 observability = { path = "crates/observability" }
-gateway = { path = "crates/gateway" }
 agent = { path = "crates/agent" }
 storage = { path = "crates/storage" }
 tools = { path = "crates/tools" }

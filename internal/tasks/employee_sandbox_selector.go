@@ -1,16 +1,15 @@
 package tasks
 
 import (
-	"github.com/usehivy/hivy/internal/employeeruntime"
-	"github.com/usehivy/hivy/internal/employeesandbox"
+	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/agentsandbox"
 	"gorm.io/gorm"
 )
 
-func employeeRuntimeSelector(db *gorm.DB, deps employeeruntime.CompileDeps) employeesandbox.Selector {
-	selector := employeesandbox.Selector{DB: db}
+func employeeRuntimeSelector(db *gorm.DB, deps agentruntime.CompileDeps) agentsandbox.Selector {
+	selector := agentsandbox.Selector{DB: db}
 	if deps.Cfg != nil {
 		selector.EmployeeRuntimeImage = deps.Cfg.SandboxesRuntimeBaseImage
-		selector.SpecialistRuntimeImage = deps.Cfg.SandboxesRuntimeSpecialistImage
 	}
 	return selector
 }

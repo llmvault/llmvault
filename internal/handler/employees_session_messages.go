@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/middleware"
 )
 
@@ -23,18 +23,20 @@ type sendEmployeeSessionMessageRequest struct {
 }
 
 type sendEmployeeSessionMessageResponse struct {
-	EmployeeSessionID     string `json:"employee_session_id"`
-	RuntimeSessionID      string `json:"runtime_session_id"`
-	RuntimeStreamID       string `json:"runtime_stream_id"`
-	RuntimeResponseID     string `json:"runtime_response_stream_id"`
-	RuntimeTraceID        string `json:"runtime_trace_id"`
-	RuntimeTurnID         string `json:"runtime_turn_id"`
-	StreamURL             string `json:"stream_url"`
-	ResponseStreamURL     string `json:"response_stream_url"`
-	Created               bool   `json:"created"`
-	Source                string `json:"source"`
-	SourceResourceKey     string `json:"source_resource_key"`
-	RuntimeConversationID string `json:"runtime_conversation_id"`
+	EmployeeSessionID       string `json:"employee_session_id"`
+	RuntimeSessionID        string `json:"runtime_session_id"`
+	RuntimeStreamID         string `json:"runtime_stream_id"`
+	RuntimeResponseID       string `json:"runtime_response_stream_id"`
+	RuntimeTraceID          string `json:"runtime_trace_id"`
+	RuntimeTurnID           string `json:"runtime_turn_id"`
+	StreamURL               string `json:"stream_url"`
+	ResponseStreamURL       string `json:"response_stream_url"`
+	DirectStreamURL         string `json:"direct_stream_url,omitempty"`
+	DirectResponseStreamURL string `json:"direct_response_stream_url,omitempty"`
+	Created                 bool   `json:"created"`
+	Source                  string `json:"source"`
+	SourceResourceKey       string `json:"source_resource_key"`
+	RuntimeConversationID   string `json:"runtime_conversation_id"`
 }
 
 // SendSessionMessage handles POST /v1/employees/{id}/sessions/messages.
@@ -84,12 +86,12 @@ func (h *EmployeeHandler) SendSessionMessage(w http.ResponseWriter, r *http.Requ
 		writeEmployeeSessionMessageError(w, err)
 		return
 	}
-	client, err := h.runtimeClientForSession(ctx, session)
+	client, sandbox, err := h.runtimeClientAndSandboxForSession(ctx, session)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to connect to employee runtime"})
 		return
 	}
-	delivery, err := client.PostHTTPMessage(ctx, employeeruntime.HTTPMessageRequest{
+	delivery, err := client.PostHTTPMessage(ctx, agentruntime.HTTPMessageRequest{
 		Text:            text,
 		ConversationID:  conversationID,
 		User:            firstNonEmptyString(middleware.UserID(ctx), "web"),
@@ -115,20 +117,23 @@ func (h *EmployeeHandler) SendSessionMessage(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create stream URL"})
 		return
 	}
+	directStreamURL, directResponseStreamURL := h.directWebStreamURLs(sandbox, delivery)
 
 	writeJSON(w, http.StatusAccepted, sendEmployeeSessionMessageResponse{
-		EmployeeSessionID:     session.ID.String(),
-		RuntimeSessionID:      delivery.SessionID,
-		RuntimeStreamID:       delivery.StreamID,
-		RuntimeResponseID:     delivery.ResponseStreamID,
-		RuntimeTraceID:        delivery.TraceID,
-		RuntimeTurnID:         delivery.TurnID,
-		StreamURL:             streamURL,
-		ResponseStreamURL:     responseStreamURL,
-		Created:               created,
-		Source:                session.Source,
-		SourceResourceKey:     session.SourceResourceKey,
-		RuntimeConversationID: session.RuntimeConversationID,
+		EmployeeSessionID:       session.ID.String(),
+		RuntimeSessionID:        delivery.SessionID,
+		RuntimeStreamID:         delivery.StreamID,
+		RuntimeResponseID:       delivery.ResponseStreamID,
+		RuntimeTraceID:          delivery.TraceID,
+		RuntimeTurnID:           delivery.TurnID,
+		StreamURL:               streamURL,
+		ResponseStreamURL:       responseStreamURL,
+		DirectStreamURL:         directStreamURL,
+		DirectResponseStreamURL: directResponseStreamURL,
+		Created:                 created,
+		Source:                  session.Source,
+		SourceResourceKey:       session.SourceResourceKey,
+		RuntimeConversationID:   session.RuntimeConversationID,
 	})
 }
 

@@ -27,10 +27,6 @@ type WebToolsFunc func(server *mcp.Server, token *model.Token)
 // KnowledgeToolsFunc registers org-scoped knowledge-base search tools.
 type KnowledgeToolsFunc func(server *mcp.Server, token *model.Token)
 
-// SpecialistToolsFunc registers runtime specialist task tools for employee
-// proxy tokens. Kept as a callback to avoid package cycles.
-type SpecialistToolsFunc func(server *mcp.Server, token *model.Token)
-
 // BuildServer creates an MCP server with tools registered from token scopes.
 // Each scope's connection+actions are turned into MCP tools via the catalog.
 // If addMemoryTools is non-nil, it is called to register memory tools on the
@@ -48,7 +44,6 @@ func BuildServer(
 	addMemoryTools MemoryToolsFunc,
 	addWebTools WebToolsFunc,
 	addKnowledgeTools KnowledgeToolsFunc,
-	addSpecialistTools SpecialistToolsFunc,
 ) (*mcp.Server, error) {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "hivy",
@@ -169,7 +164,7 @@ func BuildServer(
 	}
 
 	if addMemoryTools != nil {
-		agentID, _ := token.Meta[model.TokenMetaEmployeeID].(string)
+		agentID, _ := token.Meta[model.TokenMetaAgentID].(string)
 		if agentID != "" {
 			addMemoryTools(server, agentID, db)
 		}
@@ -183,20 +178,7 @@ func BuildServer(
 		addKnowledgeTools(server, token)
 	}
 
-	if addSpecialistTools != nil && isEmployeeRuntimeToken(token) {
-		addSpecialistTools(server, token)
-	}
-
 	return server, nil
-}
-
-func isEmployeeRuntimeToken(token *model.Token) bool {
-	if token == nil || token.Meta == nil {
-		return false
-	}
-	tokenType, _ := token.Meta[model.TokenMetaType].(string)
-	runtimeMode, _ := token.Meta[model.TokenMetaRuntimeMode].(string)
-	return tokenType == model.TokenTypeEmployeeProxy && runtimeMode == model.TokenRuntimeModeEmployee
 }
 
 // buildInputSchema converts the JSON Schema from the catalog into a format

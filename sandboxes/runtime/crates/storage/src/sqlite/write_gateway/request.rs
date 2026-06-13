@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use domain::cron::{CronJob, CronJobState};
-use domain::{EventKind, Session, SessionId, SessionStatus};
+use domain::{EventKind, Session, SessionId, SessionStatus, SubagentTask, SubagentTaskState};
 use serde_json::Value;
 use sqlx::SqliteConnection;
 use tokio::sync::{mpsc, oneshot};
@@ -14,6 +14,7 @@ use super::cron_ops;
 use super::event_ops;
 use super::outbox_ops;
 use super::session_ops;
+use super::subagent_ops;
 use super::EventsLogWrite;
 
 pub(super) const WRITE_QUEUE_CAPACITY: usize = 50_000;
@@ -97,21 +98,31 @@ pub(super) enum WriteRequest {
         id: String,
         resp: Resp<()>,
     },
-    CronRecordResult {
-        id: String,
-        result: String,
-        resp: Resp<()>,
-    },
-    CronCompleteDelegateResult {
-        id: String,
-        completed_at: DateTime<Utc>,
-        status: String,
-        error: Option<String>,
-        result: String,
-        resp: Resp<()>,
-    },
     CronDelete {
         id: String,
+        resp: Resp<()>,
+    },
+    SubagentTaskCreate {
+        task: Box<SubagentTask>,
+        resp: Resp<()>,
+    },
+    SubagentTaskMarkRunning {
+        id: String,
+        started_at: DateTime<Utc>,
+        resp: Resp<bool>,
+    },
+    SubagentTaskComplete {
+        id: String,
+        state: SubagentTaskState,
+        completed_at: DateTime<Utc>,
+        result: String,
+        error: Option<String>,
+        resp: Resp<()>,
+    },
+    SubagentTaskFailActiveForParent {
+        parent_session_id: SessionId,
+        completed_at: DateTime<Utc>,
+        error: String,
         resp: Resp<()>,
     },
     OutboxEnqueue {
@@ -268,31 +279,54 @@ impl WriteRequest {
             WriteRequest::CronIncrementRepeat { id, resp } => {
                 respond(resp, cron_ops::cron_increment_repeat(conn, &id).await)
             }
-            WriteRequest::CronRecordResult { id, result, resp } => {
-                respond(resp, cron_ops::cron_record_result(conn, &id, &result).await)
-            }
-            WriteRequest::CronCompleteDelegateResult {
-                id,
-                completed_at,
-                status,
-                error,
-                result,
-                resp,
-            } => respond(
-                resp,
-                cron_ops::cron_complete_delegate_result(
-                    conn,
-                    &id,
-                    completed_at,
-                    &status,
-                    error.as_deref(),
-                    &result,
-                )
-                .await,
-            ),
             WriteRequest::CronDelete { id, resp } => {
                 respond(resp, cron_ops::cron_delete(conn, &id).await)
             }
+            WriteRequest::SubagentTaskCreate { task, resp } => {
+                respond(resp, subagent_ops::subagent_task_create(conn, *task).await)
+            }
+            WriteRequest::SubagentTaskMarkRunning {
+                id,
+                started_at,
+                resp,
+            } => respond(
+                resp,
+                subagent_ops::subagent_task_mark_running(conn, &id, started_at).await,
+            ),
+            WriteRequest::SubagentTaskComplete {
+                id,
+                state,
+                completed_at,
+                result,
+                error,
+                resp,
+            } => respond(
+                resp,
+                subagent_ops::subagent_task_complete(
+                    conn,
+                    &id,
+                    state,
+                    completed_at,
+                    &result,
+                    error.as_deref(),
+                )
+                .await,
+            ),
+            WriteRequest::SubagentTaskFailActiveForParent {
+                parent_session_id,
+                completed_at,
+                error,
+                resp,
+            } => respond(
+                resp,
+                subagent_ops::subagent_task_fail_active_for_parent(
+                    conn,
+                    &parent_session_id,
+                    completed_at,
+                    &error,
+                )
+                .await,
+            ),
             WriteRequest::OutboxEnqueue {
                 channel_name,
                 event_type,

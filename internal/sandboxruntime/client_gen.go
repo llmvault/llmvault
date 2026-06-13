@@ -23,8 +23,8 @@ const (
 
 // Defines values for CronJobSource.
 const (
-	Cron     CronJobSource = "cron"
-	Delegate CronJobSource = "delegate"
+	Cron         CronJobSource = "cron"
+	SubagentTask CronJobSource = "subagent_task"
 )
 
 // Valid indicates whether the value is a known member of the CronJobSource enum.
@@ -32,7 +32,7 @@ func (e CronJobSource) Valid() bool {
 	switch e {
 	case Cron:
 		return true
-	case Delegate:
+	case SubagentTask:
 		return true
 	default:
 		return false
@@ -65,7 +65,7 @@ const (
 	EventKindAssistantMessage EventKind = "assistant_message"
 	EventKindError            EventKind = "error"
 	EventKindRunEvent         EventKind = "run_event"
-	EventKindSpecialistEvent  EventKind = "specialist_event"
+	EventKindSubagentEvent    EventKind = "subagent_event"
 	EventKindToolCall         EventKind = "tool_call"
 	EventKindToolResult       EventKind = "tool_result"
 	EventKindUserMessage      EventKind = "user_message"
@@ -80,7 +80,7 @@ func (e EventKind) Valid() bool {
 		return true
 	case EventKindRunEvent:
 		return true
-	case EventKindSpecialistEvent:
+	case EventKindSubagentEvent:
 		return true
 	case EventKindToolCall:
 		return true
@@ -237,24 +237,6 @@ func (e ReasoningEffort) Valid() bool {
 	case Low:
 		return true
 	case Medium:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RuntimeMode.
-const (
-	Employee   RuntimeMode = "employee"
-	Specialist RuntimeMode = "specialist"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeMode enum.
-func (e RuntimeMode) Valid() bool {
-	switch e {
-	case Employee:
-		return true
-	case Specialist:
 		return true
 	default:
 		return false
@@ -449,13 +431,13 @@ func (e ToolSpec3Type) Valid() bool {
 
 // Defines values for ToolSpec4Type.
 const (
-	BuiltinDelegate ToolSpec4Type = "builtin.delegate"
+	BuiltinSubagentTask ToolSpec4Type = "builtin.subagent_task"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec4Type enum.
 func (e ToolSpec4Type) Valid() bool {
 	switch e {
-	case BuiltinDelegate:
+	case BuiltinSubagentTask:
 		return true
 	default:
 		return false
@@ -464,13 +446,13 @@ func (e ToolSpec4Type) Valid() bool {
 
 // Defines values for ToolSpec5Type.
 const (
-	BuiltinCheckDelegatedStatus ToolSpec5Type = "builtin.check_delegated_status"
+	BuiltinCheckSubagentTaskStatus ToolSpec5Type = "builtin.check_subagent_task_status"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec5Type enum.
 func (e ToolSpec5Type) Valid() bool {
 	switch e {
-	case BuiltinCheckDelegatedStatus:
+	case BuiltinCheckSubagentTaskStatus:
 		return true
 	default:
 		return false
@@ -569,20 +551,18 @@ func (e ToolSpec11Type) Valid() bool {
 
 // AgentDefinition defines model for AgentDefinition.
 type AgentDefinition struct {
-	Agent             AgentMeta                   `json:"agent"`
-	Context           *ContextConfig              `json:"context,omitempty"`
-	Limits            *Limits                     `json:"limits,omitempty"`
-	McpServers        *[]McpSpec                  `json:"mcp_servers,omitempty"`
-	Mode              *RuntimeMode                `json:"mode,omitempty"`
-	Model             ModelConfig                 `json:"model"`
-	MultimodalModel   *ModelConfig                `json:"multimodal_model,omitempty"`
-	OutboundChannels  *[]OutboundChannelSpec      `json:"outbound_channels,omitempty"`
-	Safety            *SafetyConfig               `json:"safety,omitempty"`
-	Skills            *[]SkillSpec                `json:"skills,omitempty"`
-	SpecialistProfile *SpecialistProfile          `json:"specialist_profile,omitempty"`
-	SubAgents         *map[string]AgentDefinition `json:"sub_agents,omitempty"`
-	SystemPrompt      *SystemPromptConfig         `json:"system_prompt,omitempty"`
-	Tools             *[]ToolSpec                 `json:"tools,omitempty"`
+	Agent            AgentMeta                   `json:"agent"`
+	Context          *ContextConfig              `json:"context,omitempty"`
+	Limits           *Limits                     `json:"limits,omitempty"`
+	McpServers       *[]McpSpec                  `json:"mcp_servers,omitempty"`
+	Model            ModelConfig                 `json:"model"`
+	MultimodalModel  *ModelConfig                `json:"multimodal_model,omitempty"`
+	OutboundChannels *[]OutboundChannelSpec      `json:"outbound_channels,omitempty"`
+	Safety           *SafetyConfig               `json:"safety,omitempty"`
+	Skills           *[]SkillSpec                `json:"skills,omitempty"`
+	SubAgents        *map[string]AgentDefinition `json:"sub_agents,omitempty"`
+	SystemPrompt     *SystemPromptConfig         `json:"system_prompt,omitempty"`
+	Tools            *[]ToolSpec                 `json:"tools,omitempty"`
 }
 
 // AgentMeta defines model for AgentMeta.
@@ -699,12 +679,6 @@ type CronJobSource string
 
 // CronJobState defines model for CronJobState.
 type CronJobState string
-
-// DelegateConfig defines model for DelegateConfig.
-type DelegateConfig struct {
-	// Agents Allowlist of sub-agent names. Empty = all sub-agents available.
-	Agents *[]string `json:"agents,omitempty"`
-}
 
 // DynamicContextPromptSegment defines model for DynamicContextPromptSegment.
 type DynamicContextPromptSegment struct {
@@ -953,9 +927,6 @@ type RepeatDetectionConfig struct {
 	MaxTotal       *int  `json:"max_total,omitempty"`
 }
 
-// RuntimeMode defines model for RuntimeMode.
-type RuntimeMode string
-
 // SafetyConfig defines model for SafetyConfig.
 type SafetyConfig struct {
 	JsonRepair      *bool                  `json:"json_repair,omitempty"`
@@ -1039,16 +1010,16 @@ type SkillTrigger1 struct {
 // SkillTrigger1Type defines model for SkillTrigger.1.Type.
 type SkillTrigger1Type string
 
-// SpecialistProfile defines model for SpecialistProfile.
-type SpecialistProfile struct {
-	Description *string `json:"description,omitempty"`
-	Name        string  `json:"name"`
-}
-
 // StaticPromptSegment defines model for StaticPromptSegment.
 type StaticPromptSegment struct {
 	Content *string `json:"content,omitempty"`
 	Title   *string `json:"title,omitempty"`
+}
+
+// SubagentTaskConfig defines model for SubagentTaskConfig.
+type SubagentTaskConfig struct {
+	// Agents Allowlist of sub-agent names. Empty = all sub-agents available.
+	Agents *[]string `json:"agents,omitempty"`
 }
 
 // SystemPromptConfig defines model for SystemPromptConfig.
@@ -1155,8 +1126,8 @@ type ToolSpec3Type string
 
 // ToolSpec4 defines model for .
 type ToolSpec4 struct {
-	Config DelegateConfig `json:"config"`
-	Type   ToolSpec4Type  `json:"type"`
+	Config SubagentTaskConfig `json:"config"`
+	Type   ToolSpec4Type      `json:"type"`
 }
 
 // ToolSpec4Type defines model for ToolSpec.4.Type.

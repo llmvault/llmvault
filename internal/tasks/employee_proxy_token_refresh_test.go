@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 func TestEmployeeProxyTokenRefreshHandler_InjectsNewTokenRevokesOldAndSchedulesNext(t *testing.T) {
 	f := newEmployeeProxyTokenRefreshFixture(t, 0)
-	oldToken, err := employeeruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
+	oldToken, err := agentruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
 	if err != nil {
 		t.Fatalf("mint old proxy token: %v", err)
 	}
@@ -38,9 +38,9 @@ func TestEmployeeProxyTokenRefreshHandler_InjectsNewTokenRevokesOldAndSchedulesN
 
 	f.runtime.mu.Lock()
 	envCalls := f.runtime.envCalls
-	injected := f.runtime.lastEnv[employeeruntime.ProxyAPIKeyEnv]
-	runtimeSecret := f.runtime.lastEnv[employeeruntime.EmployeeEnvRuntimeSecret]
-	employeeID := f.runtime.lastEnv[employeeruntime.EmployeeEnvEmployeeID]
+	injected := f.runtime.lastEnv[agentruntime.ProxyAPIKeyEnv]
+	runtimeSecret := f.runtime.lastEnv[agentruntime.EmployeeEnvRuntimeSecret]
+	employeeID := f.runtime.lastEnv[agentruntime.EmployeeEnvEmployeeID]
 	f.runtime.mu.Unlock()
 	if envCalls != 1 {
 		t.Fatalf("runtime env calls = %d, want 1", envCalls)
@@ -64,8 +64,10 @@ func TestEmployeeProxyTokenRefreshHandler_InjectsNewTokenRevokesOldAndSchedulesN
 	}
 	var activeCount int64
 	if err := f.db.Model(&model.Token{}).
-		Where("org_id = ? AND meta->>'employee_id' = ? AND meta->>'harness' = ? AND revoked_at IS NULL",
-			f.org.ID, f.agent.ID.String(), "employee-sandbox").
+		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND revoked_at IS NULL",
+			f.org.ID,
+			model.TokenMetaAgentID, f.agent.ID.String(),
+			model.TokenMetaHarness, model.TokenHarnessAgentSandbox).
 		Count(&activeCount).Error; err != nil {
 		t.Fatalf("count active tokens: %v", err)
 	}
@@ -89,7 +91,7 @@ func TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken(t
 	f := newEmployeeProxyTokenRefreshFixture(t, 0)
 
 	// The token currently in use, minted long ago at launch.
-	oldToken, err := employeeruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
+	oldToken, err := agentruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
 	if err != nil {
 		t.Fatalf("mint old proxy token: %v", err)
 	}
@@ -99,7 +101,7 @@ func TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken(t
 	}
 
 	// A concurrent sync mints a fresh token just before the refresh runs.
-	concurrentToken, err := employeeruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
+	concurrentToken, err := agentruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
 	if err != nil {
 		t.Fatalf("mint concurrent proxy token: %v", err)
 	}
@@ -135,7 +137,7 @@ func TestEmployeeProxyTokenRefreshHandler_DoesNotRevokeConcurrentlyMintedToken(t
 
 func TestEmployeeProxyTokenRefreshHandler_RevokesMintedTokenWhenRuntimeRejectsEnv(t *testing.T) {
 	f := newEmployeeProxyTokenRefreshFixture(t, http.StatusInternalServerError)
-	if _, err := employeeruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID); err != nil {
+	if _, err := agentruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID); err != nil {
 		t.Fatalf("mint old proxy token: %v", err)
 	}
 	task, _, err := NewEmployeeProxyTokenRefreshTask(EmployeeProxyTokenRefreshPayload{
@@ -151,8 +153,10 @@ func TestEmployeeProxyTokenRefreshHandler_RevokesMintedTokenWhenRuntimeRejectsEn
 
 	var revokedCount int64
 	if err := f.db.Model(&model.Token{}).
-		Where("org_id = ? AND meta->>'employee_id' = ? AND meta->>'harness' = ? AND revoked_at IS NOT NULL",
-			f.org.ID, f.agent.ID.String(), "employee-sandbox").
+		Where("org_id = ? AND meta->>? = ? AND meta->>? = ? AND revoked_at IS NOT NULL",
+			f.org.ID,
+			model.TokenMetaAgentID, f.agent.ID.String(),
+			model.TokenMetaHarness, model.TokenHarnessAgentSandbox).
 		Count(&revokedCount).Error; err != nil {
 		t.Fatalf("count revoked tokens: %v", err)
 	}
@@ -166,7 +170,7 @@ func TestEmployeeProxyTokenRefreshHandler_RevokesMintedTokenWhenRuntimeRejectsEn
 
 func TestNextEmployeeProxyTokenRefreshAt_UsesActiveStartupTokenExpiry(t *testing.T) {
 	f := newEmployeeProxyTokenRefreshFixture(t, 0)
-	startupToken, err := employeeruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
+	startupToken, err := agentruntime.MintProxyToken(context.Background(), f.compileDeps, &f.agent, f.sandbox.ID)
 	if err != nil {
 		t.Fatalf("mint startup proxy token: %v", err)
 	}

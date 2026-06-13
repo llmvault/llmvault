@@ -4,18 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *EmployeeTriggerDispatchHandler) enqueueStoreDelivery(ctx context.Context, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage, resp *employeeruntime.HTTPMessageResponse) {
+func (h *EmployeeTriggerDispatchHandler) enqueueStoreDelivery(ctx context.Context, payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage, resp *agentruntime.HTTPMessageResponse) {
 	if h.enqueuer == nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("employee trigger delivery store enqueue skipped: enqueuer is nil"), triggerStoreEnqueueFields(payload, trigger, conv, compiled, resp))
 		return
 	}
 	if resp == nil {
-		resp = &employeeruntime.HTTPMessageResponse{}
+		resp = &agentruntime.HTTPMessageResponse{}
 	}
 	task, opts, err := NewEmployeeTriggerStoreDeliveryTask(EmployeeTriggerStoreDeliveryPayload{
 		OrgID:                 trigger.OrgID,
@@ -42,7 +42,7 @@ func (h *EmployeeTriggerDispatchHandler) enqueueStoreDelivery(ctx context.Contex
 	}
 }
 
-func triggerStoreEnqueueFields(payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage, resp *employeeruntime.HTTPMessageResponse) map[string]any {
+func triggerStoreEnqueueFields(payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, conv *model.EmployeeSession, compiled compiledTriggerMessage, resp *agentruntime.HTTPMessageResponse) map[string]any {
 	fields := map[string]any{
 		"org_id":                  trigger.OrgID.String(),
 		"employee_id":             trigger.EmployeeID.String(),

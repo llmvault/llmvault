@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeesandbox"
+	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -70,7 +70,7 @@ func (h *UploadsHandler) authEmployee(w http.ResponseWriter, r *http.Request) (*
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to verify credentials"})
 		return nil, nil, false
 	}
-	if subtle.ConstantTimeCompare([]byte(bearer), []byte(wantKey)) != 1 && !h.bearerMatchesEmployeeSpecialistSandbox(r, agent.ID, bearer) {
+	if subtle.ConstantTimeCompare([]byte(bearer), []byte(wantKey)) != 1 {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid runtime secret"})
 		return nil, nil, false
 	}
@@ -78,37 +78,11 @@ func (h *UploadsHandler) authEmployee(w http.ResponseWriter, r *http.Request) (*
 	return &agent, sandbox, true
 }
 
-func (h *UploadsHandler) employeeRuntimeSelector() employeesandbox.Selector {
-	return employeesandbox.Selector{
-		DB:                     h.db,
-		EmployeeRuntimeImage:   h.employeeRuntimeImage,
-		SpecialistRuntimeImage: h.specialistRuntimeImage,
+func (h *UploadsHandler) employeeRuntimeSelector() agentsandbox.Selector {
+	return agentsandbox.Selector{
+		DB:                   h.db,
+		EmployeeRuntimeImage: h.employeeRuntimeImage,
 	}
-}
-
-func (h *UploadsHandler) bearerMatchesEmployeeSpecialistSandbox(r *http.Request, employeeID uuid.UUID, bearer string) bool {
-	if bearer == "" || h.encKey == nil {
-		return false
-	}
-	var sandboxes []model.Sandbox
-	if err := h.db.
-		Joins("JOIN specialist_tasks ON specialist_tasks.sandbox_id = sandboxes.id").
-		Where("specialist_tasks.employee_id = ? AND sandboxes.status NOT IN (?, ?)", employeeID, "archived", "error").
-		Find(&sandboxes).Error; err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load employee specialist sandboxes for drive auth", "employee_id", employeeID, "error", err)
-		return false
-	}
-	for _, sandbox := range sandboxes {
-		wantKey, err := h.encKey.DecryptString(sandbox.EncryptedRuntimeSecret)
-		if err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "decrypt specialist runtime secret", "employee_id", employeeID, "sandbox_id", sandbox.ID, "error", err)
-			continue
-		}
-		if subtle.ConstantTimeCompare([]byte(bearer), []byte(wantKey)) == 1 {
-			return true
-		}
-	}
-	return false
 }
 
 func buildEmployeeAssetKey(agentID uuid.UUID, folder, filename string) string {

@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
@@ -47,7 +47,7 @@ func (s *triggerRuntimeServer) handle(t *testing.T) http.HandlerFunc {
 			return
 		case "/gateway/http/messages":
 			body, _ := io.ReadAll(r.Body)
-			var req employeeruntime.HTTPMessageRequest
+			var req agentruntime.HTTPMessageRequest
 			if err := json.Unmarshal(body, &req); err != nil {
 				t.Errorf("decode http message: %v", err)
 			}
@@ -64,7 +64,7 @@ func (s *triggerRuntimeServer) handle(t *testing.T) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(employeeruntime.HTTPMessageResponse{
+			_ = json.NewEncoder(w).Encode(agentruntime.HTTPMessageResponse{
 				SessionID: "rt-" + uuid.NewString(),
 				StreamID:  "stream-" + uuid.NewString(),
 				TraceID:   "trace-" + uuid.NewString(),
@@ -176,7 +176,7 @@ func TestEmployeeTriggerDispatch_RetryDeliversOnlyFromFailedTrigger(t *testing.T
 		orchestrator: orch,
 		enqueuer:     &enqueue.MockClient{},
 		catalog:      catalog.Global(),
-		compileDeps: employeeruntime.CompileDeps{
+		compileDeps: agentruntime.CompileDeps{
 			DB:         db,
 			EncKey:     encKey,
 			SigningKey: []byte("test-signing-key-32-bytes-long!!"),

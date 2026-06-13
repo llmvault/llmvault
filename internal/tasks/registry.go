@@ -4,11 +4,11 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/billing/subscription"
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/nango"
@@ -35,7 +35,7 @@ type WorkerDeps struct {
 	Enqueuer          enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
 	Hindsight         *hindsight.Client       // nil if Hindsight not configured
 	PreContextCache   precontext.Cache        // nil disables employee pre-context cache invalidation
-	EmployeeCompile   employeeruntime.CompileDeps
+	EmployeeCompile   agentruntime.CompileDeps
 	S3Client          *storage.S3Client
 
 	Rag          *ragtasks.Deps

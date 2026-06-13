@@ -7,12 +7,12 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 type RuntimeClientProvider interface {
-	GetRuntimeClient(context.Context, *model.Sandbox) (*employeeruntime.Client, error)
+	GetRuntimeClient(context.Context, *model.Sandbox) (*agentruntime.Client, error)
 }
 
 type OrchestratedRuntimeMessenger struct {
@@ -39,7 +39,7 @@ func (m *OrchestratedRuntimeMessenger) Send(ctx context.Context, message Runtime
 	if err != nil {
 		return nil, fmt.Errorf("get gateway runtime client: %w", err)
 	}
-	resp, err := client.PostHTTPMessage(ctx, employeeruntime.HTTPMessageRequest{
+	resp, err := client.PostHTTPMessage(ctx, agentruntime.HTTPMessageRequest{
 		Text:            message.Text,
 		ConversationID:  message.ConversationID,
 		User:            message.User,

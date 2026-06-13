@@ -8,14 +8,15 @@ send_eval_task() {
   echo -e "${BLUE}[5/7] Sending task...${NC}"
   echo -e "  ${GRAY}$EVAL_TASK${NC}"
 
-	  msg_response=$(curl -s -X POST "$BASE_URL/gateway/http/messages" \
+  SESSION_ID="${EVAL_SESSION_ID:-eval-$EVAL_RUN_ID}"
+  msg_response=$(curl -s -X POST "$BASE_URL/sessions/$SESSION_ID/messages" \
 	    -H "Authorization: Bearer $SECRET" \
 	    -H "Content-Type: application/json" \
 	    -d "$(jq -n \
 	      --arg text "$EVAL_TASK" \
 	      --arg run_id "$EVAL_RUN_ID" \
 	      --arg run_version "$EVAL_RUN_VERSION" \
-	      '{text: $text, user: "eval-user", user_display_name: "Evaluator", raw: {eval_run_id: $run_id, eval_run_version: $run_version}}')")
+	      '{text: $text, user: "eval-user", user_display_name: "Evaluator", raw: {source: "session", eval_run_id: $run_id, eval_run_version: $run_version}}')")
 
   STREAM_ID=$(echo "$msg_response" | jq -r '.stream_id')
   SESSION_ID=$(echo "$msg_response" | jq -r '.session_id')
@@ -48,7 +49,7 @@ stream_eval_output() {
   echo -e "  Subagent streams: ${BOLD}$EVAL_RUN_DIR/subagents/${NC}"
   echo -e "${GRAY}────────────────────────────────────────────────────${NC}"
 
-  curl -sN "$BASE_URL/gateway/http/streams/$STREAM_ID" \
+  curl -sN "$BASE_URL/sessions/$SESSION_ID/streams/$STREAM_ID" \
     -H "Authorization: Bearer $SECRET" \
     -H "Accept: text/event-stream" | while IFS= read -r line; do
     printf '%s\n' "$line" >>"$EVAL_SSE_LOG"

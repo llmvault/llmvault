@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/usehivy/hivy/internal/employeeruntime"
-	"github.com/usehivy/hivy/internal/employeesandbox"
+	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -62,7 +62,7 @@ func (h *EmployeeHandler) ensureEmployeeSandboxLocked(ctx context.Context, agent
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("load employee sandbox: %w", err)
 	}
-	secrets, prepErr := employeeruntime.PrepareStartup(ctx, h.compileDeps, agent)
+	secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, agent)
 	if prepErr != nil {
 		return nil, prepErr
 	}
@@ -70,7 +70,7 @@ func (h *EmployeeHandler) ensureEmployeeSandboxLocked(ctx context.Context, agent
 	if err != nil {
 		return nil, err
 	}
-	if err := employeeruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, agent, created.ID, secrets.ProxyTokenJTI); err != nil {
+	if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, agent, created.ID, secrets.ProxyTokenJTI); err != nil {
 		return nil, fmt.Errorf("tag employee proxy token sandbox: %w", err)
 	}
 	return created, nil
@@ -107,7 +107,7 @@ func (h *EmployeeHandler) SyncOrgHivyEmployee(ctx context.Context, orgID uuid.UU
 	return nil
 }
 
-func (h *EmployeeHandler) SyncEmployee(ctx context.Context, agent *model.Employee) (*model.Sandbox, *employeeruntime.SyncResponse, error) {
+func (h *EmployeeHandler) SyncEmployee(ctx context.Context, agent *model.Employee) (*model.Sandbox, *agentruntime.SyncResponse, error) {
 	if h == nil || h.db == nil || h.orchestrator == nil || h.compileDeps.EncKey == nil {
 		return nil, nil, fmt.Errorf("employee sandbox sync not configured")
 	}
@@ -122,7 +122,7 @@ func (h *EmployeeHandler) SyncEmployee(ctx context.Context, agent *model.Employe
 	return sb, resp, nil
 }
 
-func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Employee, sb *model.Sandbox) (*employeeruntime.SyncResponse, error) {
+func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Employee, sb *model.Sandbox) (*agentruntime.SyncResponse, error) {
 	if agent != nil && agent.OrgID != nil {
 		if err := attachEmployeeRequiredSkillsForAgent(ctx, h.db, *agent.OrgID, agent); err != nil {
 			return nil, fmt.Errorf("reconcile employee skills: %w", err)
@@ -132,29 +132,29 @@ func (h *EmployeeHandler) runEmployeeSync(ctx context.Context, agent *model.Empl
 	if err != nil {
 		return nil, fmt.Errorf("decrypt runtime secret: %w", err)
 	}
-	client := employeeruntime.NewClient(sb.RuntimeURL, apiKey)
+	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
 	if err := client.Healthz(ctx); err != nil {
 		return nil, fmt.Errorf("employee runtime healthz: %w", err)
 	}
-	proxyToken, err := employeeruntime.MintProxyToken(ctx, h.compileDeps, agent, sb.ID)
+	proxyToken, err := agentruntime.MintProxyToken(ctx, h.compileDeps, agent, sb.ID)
 	if err != nil {
 		return nil, fmt.Errorf("mint proxy token: %w", err)
 	}
-	runtimeEnv, err := employeeruntime.BuildRuntimeEnvWithProxyToken(ctx, h.compileDeps, agent, sb, apiKey, proxyToken)
+	runtimeEnv, err := agentruntime.BuildRuntimeEnvWithProxyToken(ctx, h.compileDeps, agent, sb, apiKey, proxyToken)
 	if err != nil {
 		return nil, fmt.Errorf("load runtime env: %w", err)
 	}
-	def, err := employeeruntime.CompileWithProxyToken(ctx, h.compileDeps, agent, proxyToken)
+	def, err := agentruntime.CompileWithProxyToken(ctx, h.compileDeps, agent, proxyToken)
 	if err != nil {
 		return nil, fmt.Errorf("compile: %w", err)
 	}
-	def.OutboundChannels = employeeruntime.ControlPlaneOutboundChannels(h.compileDeps.Cfg, sb.ID)
-	schedules, err := employeeruntime.BuildRuntimeSchedules(ctx, h.db, agent, sb)
+	def.OutboundChannels = agentruntime.ControlPlaneOutboundChannels(h.compileDeps.Cfg, sb.ID)
+	schedules, err := agentruntime.BuildRuntimeSchedules(ctx, h.db, agent, sb)
 	if err != nil {
 		return nil, fmt.Errorf("load runtime schedules: %w", err)
 	}
 
-	resp, err := client.PutRuntimeConfig(ctx, employeeruntime.ConfigUpdateRequest{
+	resp, err := client.PutRuntimeConfig(ctx, agentruntime.ConfigUpdateRequest{
 		Definition: def,
 		RuntimeEnv: runtimeEnv,
 		Schedules:  schedules,
@@ -203,19 +203,18 @@ func (h *EmployeeHandler) scheduleEmployeeProxyTokenRefresh(ctx context.Context,
 }
 
 func (h *EmployeeHandler) loadRuntimeEnv(ctx context.Context, agent *model.Employee, sb *model.Sandbox, runtimeSecret string) (map[string]string, error) {
-	return employeeruntime.BuildRuntimeEnv(ctx, h.compileDeps, agent, sb, runtimeSecret)
+	return agentruntime.BuildRuntimeEnv(ctx, h.compileDeps, agent, sb, runtimeSecret)
 }
 
-func (h *EmployeeHandler) mainEmployeeRuntimeSelector() employeesandbox.Selector {
-	selector := employeesandbox.Selector{DB: h.db}
+func (h *EmployeeHandler) mainEmployeeRuntimeSelector() agentsandbox.Selector {
+	selector := agentsandbox.Selector{DB: h.db}
 	if h != nil && h.compileDeps.Cfg != nil {
 		selector.EmployeeRuntimeImage = h.compileDeps.Cfg.SandboxesRuntimeBaseImage
-		selector.SpecialistRuntimeImage = h.compileDeps.Cfg.SandboxesRuntimeSpecialistImage
 	}
 	return selector
 }
 
-func toSyncResponseDTO(resp *employeeruntime.SyncResponse) syncEmployeeResponse {
+func toSyncResponseDTO(resp *agentruntime.SyncResponse) syncEmployeeResponse {
 	out := syncEmployeeResponse{}
 	if resp == nil {
 		return out

@@ -25,16 +25,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	}
 	sessionID := stringValue(payload, "session_id")
 	source := employeeEventSource(payload)
-	specialistTask, taskFound := h.specialistTaskForPayload(ctx, sb.ID, payload)
-	if taskFound {
-		sessionID = specialistTask.EmployeeSessionID
-		payload["mode"] = "specialist"
-		payload["specialist_slug"] = specialistTask.SpecialistSlug
-		payload["specialist_task_id"] = specialistTask.ID.String()
-		if enriched, err := json.Marshal(payload); err == nil {
-			event.Payload = enriched
-		}
-	} else if _, ok := payload["mode"]; !ok {
+	if _, ok := payload["mode"]; !ok {
 		payload["mode"] = "employee"
 	}
 	if event.EventType == "agent.run.model.usage" {
@@ -51,7 +42,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		}
 	}
 	if event.EventType == "session.created" {
-		session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload, specialistTask)
+		session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload)
 		if err != nil {
 			captureEmployeeWebhookIngest(ctx, "ensure_employee_session", sb, event, sessionID, source, err)
 			return fmt.Errorf("ensure employee session: %w", err)
@@ -65,7 +56,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	if !shouldStoreEmployeeSessionEvent(event.EventType) {
 		return nil
 	}
-	session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload, specialistTask)
+	session, createdSession, err := h.ensureEmployeeSession(ctx, sb, sessionID, source, payload)
 	if err != nil {
 		captureEmployeeWebhookIngest(ctx, "ensure_employee_session", sb, event, sessionID, source, err)
 		return fmt.Errorf("ensure employee session: %w", err)
@@ -79,13 +70,7 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 		captureEmployeeWebhookIngest(ctx, "drop_missing_sandbox_owner", sb, event, sessionID, source, fmt.Errorf("employee sandbox missing org_id or employee_id"))
 		return nil
 	}
-	if taskFound {
-		stored.Mode = "specialist"
-		stored.SpecialistSlug = specialistTask.SpecialistSlug
-		stored.SpecialistTaskID = &specialistTask.ID
-	} else {
-		stored.Mode = "employee"
-	}
+	stored.Mode = "employee"
 	if h.writer != nil {
 		// Buffered path: the writer's retrying drain provides durability; the ack
 		// doesn't block on the async write but a DB error no longer drops the row.
@@ -111,9 +96,6 @@ func (h *EmployeeOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Contex
 	if event.EventType == "agent.message.sent" {
 		h.enqueueEmployeeMemoryRetain(ctx, sb, session, sessionID, "agent_message_sent", "agent.message.sent")
 	}
-	if event.EventType == "agent.message.sent" && taskFound {
-		h.handleSpecialistAgentMessage(ctx, sb, specialistTask, payload, sessionID)
-	}
 	if event.EventType == "agent.message.sent" && h.gateway != nil && shouldDeliverGatewayRuntimeFinal(session, payload) {
 		if _, err := h.gateway.HandleRuntimeFinal(ctx, gateway.AgentResponse{
 			EmployeeSession:  *session,
@@ -138,18 +120,7 @@ func shouldDeliverGatewayRuntimeFinal(session *model.EmployeeSession, payload ma
 	if session == nil || session.Source != gateway.Source {
 		return false
 	}
-	if isSpecialistRuntimeEvent(payload) {
-		return false
-	}
 	return !isSlackGatewayEvent(payload)
-}
-
-func isSpecialistRuntimeEvent(payload map[string]any) bool {
-	if strings.EqualFold(strings.TrimSpace(stringValue(payload, "mode")), "specialist") {
-		return true
-	}
-	return strings.TrimSpace(stringValue(payload, "specialist_task_id")) != "" ||
-		strings.TrimSpace(stringValue(payload, "specialist_slug")) != ""
 }
 
 func isSlackGatewayEvent(payload map[string]any) bool {

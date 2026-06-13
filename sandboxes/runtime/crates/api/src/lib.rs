@@ -1,9 +1,8 @@
 mod auth;
 mod handlers;
-mod http_gateway;
 mod observability_handlers;
+mod session_stream;
 mod state;
-pub mod tunnel;
 
 use std::net::SocketAddr;
 
@@ -14,7 +13,7 @@ use axum::{
 use tokio::sync::oneshot;
 use tracing::{info, warn};
 
-pub use http_gateway::{HttpGatewayState, HttpStreamBroker, HttpStreamEvent};
+pub use session_stream::{SessionMessageState, SessionStreamBroker, SessionStreamEvent};
 pub use state::{ApiState, OutboundConfigReloader};
 
 #[cfg(feature = "openapi")]
@@ -32,17 +31,14 @@ mod openapi {
             crate::handlers::get_session_detail,
             crate::handlers::healthz,
             crate::handlers::readyz,
-            crate::handlers::post_http_message,
-            crate::handlers::get_http_stream,
-            crate::handlers::get_http_response_stream,
+            crate::handlers::post_session_message,
+            crate::handlers::get_session_stream,
             crate::observability_handlers::get_trace_events,
             crate::observability_handlers::get_trace_summary,
         ),
         components(schemas(
             domain::AgentDefinition,
             domain::AgentMeta,
-            domain::RuntimeMode,
-            domain::SpecialistProfile,
             domain::SystemPromptConfig,
             domain::SystemPromptSegment,
             domain::StaticPromptSegment,
@@ -70,15 +66,15 @@ mod openapi {
             domain::Attachment,
             domain::LinkPreview,
             domain::HistoryMessage,
-            domain::MessageHandle,
             domain::SessionId,
             domain::SessionStatus,
             domain::Session,
             domain::EventKind,
             domain::SessionEvent,
             domain::CronJobState,
-            domain::CronJobSource,
             domain::CronJob,
+            domain::SubagentTaskState,
+            domain::SubagentTask,
             observability::ObservabilityEventType,
             observability::EventTimings,
             observability::ModelUsage,
@@ -94,9 +90,9 @@ mod openapi {
             crate::handlers::ListSessionsParams,
             crate::handlers::ListSessionsResponse,
             crate::handlers::SessionDetailResponse,
-            crate::http_gateway::HttpStreamEvent,
-            crate::http_gateway::HttpMessageRequest,
-            crate::http_gateway::HttpMessageResponse,
+            crate::session_stream::SessionStreamEvent,
+            crate::session_stream::SessionMessageRequest,
+            crate::session_stream::SessionMessageResponse,
         )),
         modifiers(&SecurityAddon),
         security(("bearer" = []))
@@ -136,17 +132,16 @@ pub fn build_router(state: ApiState) -> Router {
         .route("/control/commands", post(handlers::post_control_commands))
         .route("/sessions", get(handlers::list_sessions))
         .route("/sessions/:session_id", get(handlers::get_session_detail))
+        .route(
+            "/sessions/:session_id/messages",
+            post(handlers::post_session_message),
+        )
+        .route(
+            "/sessions/:session_id/streams/:stream_id",
+            get(handlers::get_session_stream),
+        )
         .route("/healthz", get(handlers::healthz))
         .route("/readyz", get(handlers::readyz))
-        .route("/gateway/http/messages", post(handlers::post_http_message))
-        .route(
-            "/gateway/http/streams/:stream_id",
-            get(handlers::get_http_stream),
-        )
-        .route(
-            "/gateway/http/response-streams/:stream_id",
-            get(handlers::get_http_response_stream),
-        )
         .route(
             "/observability/traces/:trace_id/events",
             get(observability_handlers::get_trace_events),
@@ -155,11 +150,6 @@ pub fn build_router(state: ApiState) -> Router {
             "/observability/traces/:trace_id/summary",
             get(observability_handlers::get_trace_summary),
         )
-        .route(
-            "/tunnel/auth",
-            post(tunnel::post_tunnel_auth).get(tunnel::get_tunnel_auth),
-        )
-        .fallback(tunnel::handle_tunnel)
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             auth::bearer_auth,
@@ -207,15 +197,14 @@ mod openapi_tests {
         let expected = BTreeSet::from([
             "/config".to_string(),
             "/control/commands".to_string(),
-            "/gateway/http/messages".to_string(),
-            "/gateway/http/response-streams/{stream_id}".to_string(),
-            "/gateway/http/streams/{stream_id}".to_string(),
             "/healthz".to_string(),
             "/observability/traces/{trace_id}/events".to_string(),
             "/observability/traces/{trace_id}/summary".to_string(),
             "/readyz".to_string(),
             "/sessions".to_string(),
             "/sessions/{session_id}".to_string(),
+            "/sessions/{session_id}/messages".to_string(),
+            "/sessions/{session_id}/streams/{stream_id}".to_string(),
         ]);
 
         assert_eq!(actual, expected);

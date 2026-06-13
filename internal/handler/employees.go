@@ -5,21 +5,19 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/sandbox"
-	"github.com/usehivy/hivy/internal/specialists"
 )
 
 const (
-	employeeHarness           = "employee-sandbox"
-	employeeSpecialistHarness = "open_code"
-	hivyEmployeeName          = "Hivy"
-	hivyEmployeeDescription   = "Hivy is the organization's managed AI employee."
-	hivyEmployeeAvatarURL     = "/assets/hivy-avatar.png"
+	employeeHarness         = "employee-sandbox"
+	hivyEmployeeName        = "Hivy"
+	hivyEmployeeDescription = "Hivy is the organization's managed AI employee."
+	hivyEmployeeAvatarURL   = "/assets/hivy-avatar.png"
 )
 
 var defaultEmployeeSkills = []string{"drive"}
@@ -27,33 +25,20 @@ var defaultEmployeeSkills = []string{"drive"}
 type EmployeeHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator
-	compileDeps  employeeruntime.CompileDeps
+	compileDeps  agentruntime.CompileDeps
 	registry     *registry.Registry
-	specialists  *specialists.Catalog
 	enqueuer     enqueue.TaskEnqueuer
 	taskCleaner  enqueue.TaskCleaner
 	memoryBanks  *hindsight.BankProvisioner
 }
 
-func NewEmployeeHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps employeeruntime.CompileDeps, reg *registry.Registry, catalog ...*specialists.Catalog) *EmployeeHandler {
+func NewEmployeeHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, reg *registry.Registry) *EmployeeHandler {
 	return &EmployeeHandler{
 		db:           db,
 		orchestrator: orchestrator,
 		compileDeps:  compileDeps,
 		registry:     reg,
-		specialists:  specialistCatalogFromArgs(catalog...),
 	}
-}
-
-func specialistCatalogFromArgs(catalog ...*specialists.Catalog) *specialists.Catalog {
-	if len(catalog) > 0 && catalog[0] != nil {
-		return catalog[0]
-	}
-	loaded, err := specialists.Load("global/specialists")
-	if err == nil {
-		return loaded
-	}
-	return specialists.EmptyCatalog()
 }
 
 func (h *EmployeeHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {
@@ -73,11 +58,7 @@ type employeeProviderChoice struct {
 }
 
 func pickEmployeeCredential(db *gorm.DB) (*employeeProviderChoice, error) {
-	return pickSystemCredentialByModel(db, employeeruntime.DefaultEmployeeModel)
-}
-
-func pickEmployeeSpecialistCredential(db *gorm.DB) (*employeeProviderChoice, error) {
-	return pickSystemCredentialByModel(db, employeeruntime.DefaultEmployeeSpecialistModel)
+	return pickSystemCredentialByModel(db, agentruntime.DefaultEmployeeModel)
 }
 
 func pickSystemCredentialByModel(db *gorm.DB, modelID string) (*employeeProviderChoice, error) {

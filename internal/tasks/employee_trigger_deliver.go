@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -48,7 +48,7 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		captureTriggerDispatchBoundary(ctx, "decrypt_employee_runtime_key", payload, trigger, "", "", err)
 		return fmt.Errorf("decrypt employee runtime key: %w", err)
 	}
-	client := employeeruntime.NewClient(sb.RuntimeURL, apiKey)
+	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
 	if err := client.Healthz(ctx); err != nil {
 		captureTriggerDispatchBoundary(ctx, "employee_runtime_healthz", payload, trigger, "", "", err)
 		return fmt.Errorf("employee runtime healthz: %w", err)
@@ -60,12 +60,7 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		}
 	}
 
-	recentTasks, err := h.loadRecentSoftwareEngineeringTasks(ctx, agent)
-	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "load_recent_software_engineering_tasks", payload, trigger, "", "", err)
-		return err
-	}
-	compiled := h.compileMessage(payload, trigger, webhookPayload, recentTasks)
+	compiled := h.compileMessage(payload, trigger, webhookPayload)
 	conv, err := h.findOrCreateTriggerConversation(ctx, &agent, sb, trigger.ID, compiled.ResourceKey, compiled.ConversationID)
 	if err != nil {
 		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_conversation", payload, trigger, compiled.ResourceKey, "", err)
@@ -89,7 +84,7 @@ func (h *EmployeeTriggerDispatchHandler) deliver(ctx context.Context, payload Em
 		return nil
 	}
 
-	resp, err := client.PostHTTPMessage(ctx, employeeruntime.HTTPMessageRequest{
+	resp, err := client.PostHTTPMessage(ctx, agentruntime.HTTPMessageRequest{
 		Text:            compiled.Text,
 		ConversationID:  conv.RuntimeConversationID,
 		User:            "hivy-trigger",
@@ -185,12 +180,12 @@ func (h *EmployeeTriggerDispatchHandler) loadEmployeeSandbox(ctx context.Context
 	return sb, nil
 }
 
-func (h *EmployeeTriggerDispatchHandler) syncRuntime(ctx context.Context, agent *model.Employee, sb *model.Sandbox, client *employeeruntime.Client) error {
+func (h *EmployeeTriggerDispatchHandler) syncRuntime(ctx context.Context, agent *model.Employee, sb *model.Sandbox, client *agentruntime.Client) error {
 	runtimeSecret, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
 	if err != nil {
 		return fmt.Errorf("decrypt runtime secret: %w", err)
 	}
-	configUpdate, _, err := employeeruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, runtimeSecret)
+	configUpdate, _, err := agentruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, runtimeSecret)
 	if err != nil {
 		return fmt.Errorf("build employee runtime config: %w", err)
 	}

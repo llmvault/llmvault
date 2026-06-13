@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -30,7 +30,7 @@ type employeeProxyTokenRefreshFixture struct {
 	runtime     *proxyRefreshRuntime
 	enqueuer    *enqueue.MockClient
 	handler     *EmployeeProxyTokenRefreshHandler
-	compileDeps employeeruntime.CompileDeps
+	compileDeps agentruntime.CompileDeps
 	org         model.Org
 	agent       model.Employee
 	sandbox     model.Sandbox
@@ -55,7 +55,7 @@ func newEmployeeProxyTokenRefreshFixture(t *testing.T, envStatus int) *employeeP
 				_, _ = w.Write([]byte(`{"agent":{"name":"Hivy"},"system_prompt":{"cacheable_segments":[{"type":"static_text","config":{"content":"test"}}],"dynamic_segments":[]},"model":{"provider":"openai_compatible","base_url":"https://proxy.test/v1","model_id":"test","api_key_env":"HIVY_PROXY_API_KEY","temperature":0,"max_output_tokens":1000},"tools":[]}`))
 				return
 			}
-			var req employeeruntime.ConfigUpdateRequest
+			var req agentruntime.ConfigUpdateRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return
@@ -98,7 +98,7 @@ func newEmployeeProxyTokenRefreshFixture(t *testing.T, envStatus int) *employeeP
 		Name:          "employee-" + uuid.NewString()[:8],
 		IsEmployee:    true,
 		Harness:       "employee-sandbox",
-		Model:         employeeruntime.DefaultEmployeeModel,
+		Model:         agentruntime.DefaultEmployeeModel,
 		CredentialID:  &cred.ID,
 		Status:        "active",
 		SystemPrompt:  "test employee",
@@ -132,7 +132,7 @@ func newEmployeeProxyTokenRefreshFixture(t *testing.T, envStatus int) *employeeP
 	enqueuer := &enqueue.MockClient{}
 	provider := &employeeUpgradeProvider{endpoint: server.URL}
 	orch := sandbox.NewOrchestrator(db, provider, encKey, cfg)
-	compileDeps := employeeruntime.CompileDeps{
+	compileDeps := agentruntime.CompileDeps{
 		DB:         db,
 		EncKey:     encKey,
 		SigningKey: []byte("test-signing-key-32-bytes-long!!"),

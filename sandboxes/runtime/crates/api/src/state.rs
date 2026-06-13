@@ -11,7 +11,7 @@ use storage::{ConfigRepo, CronJobRepo, EventRepo, SessionRepo};
 use tokio::sync::{Notify, RwLock};
 use tools::LocalBashOperations;
 
-use crate::http_gateway::HttpGatewayState;
+use crate::session_stream::SessionMessageState;
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -21,17 +21,17 @@ pub struct ApiState {
     pub event_repo: Arc<dyn EventRepo>,
     pub cron_repo: Arc<dyn CronJobRepo>,
     pub bearer_token: Arc<RwLock<String>>,
+    pub stream_token: Arc<RwLock<Option<String>>>,
     pub workspace_root: PathBuf,
     pub bash: Arc<LocalBashOperations>,
-    pub gateway_ready: Arc<AtomicBool>,
+    pub session_api_ready: Arc<AtomicBool>,
     pub config_loaded: Arc<AtomicBool>,
     pub config_notify: Arc<Notify>,
     pub skill_writer: Arc<SkillWriter>,
-    pub http_gateway: Option<HttpGatewayState>,
+    pub session_stream: Option<SessionMessageState>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
     pub outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
     pub observability: ObservabilityRecorder,
-    pub tunnel_password: Option<String>,
     pub sentry_enabled: bool,
     pub sentry_dsn_set: bool,
 }
@@ -50,19 +50,19 @@ impl ApiState {
         event_repo: Arc<dyn EventRepo>,
         cron_repo: Arc<dyn CronJobRepo>,
         bearer_token: String,
+        stream_token: Option<String>,
         workspace_root: PathBuf,
         bash: Arc<LocalBashOperations>,
         skill_writer: Arc<SkillWriter>,
-        http_gateway: Option<HttpGatewayState>,
+        session_stream: Option<SessionMessageState>,
         mcp_registry: Option<Arc<McpRegistry>>,
         outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
-        tunnel_password: Option<String>,
         sentry_enabled: bool,
         sentry_dsn_set: bool,
     ) -> Self {
-        let observability = http_gateway
+        let observability = session_stream
             .as_ref()
-            .map(|gateway| gateway.broker.observability())
+            .map(|session_stream| session_stream.broker.observability())
             .unwrap_or_default();
         Self {
             config_store,
@@ -71,24 +71,26 @@ impl ApiState {
             event_repo,
             cron_repo,
             bearer_token: Arc::new(RwLock::new(bearer_token)),
+            stream_token: Arc::new(RwLock::new(
+                stream_token.filter(|token| !token.trim().is_empty()),
+            )),
             workspace_root,
             bash,
-            gateway_ready: Arc::new(AtomicBool::new(false)),
+            session_api_ready: Arc::new(AtomicBool::new(false)),
             config_loaded: Arc::new(AtomicBool::new(false)),
             config_notify: Arc::new(Notify::new()),
             skill_writer,
-            http_gateway,
+            session_stream,
             mcp_registry,
             outbound_reloader,
             observability,
-            tunnel_password,
             sentry_enabled,
             sentry_dsn_set,
         }
     }
 
-    pub fn mark_gateway_ready(&self) {
-        self.gateway_ready.store(true, Ordering::Release);
+    pub fn mark_session_api_ready(&self) {
+        self.session_api_ready.store(true, Ordering::Release);
     }
 
     pub fn mark_config_loaded(&self) {
@@ -111,6 +113,6 @@ impl ApiState {
     }
 
     pub fn is_ready(&self) -> bool {
-        self.gateway_ready.load(Ordering::Acquire) && self.config_loaded.load(Ordering::Acquire)
+        self.session_api_ready.load(Ordering::Acquire) && self.config_loaded.load(Ordering::Acquire)
     }
 }

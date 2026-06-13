@@ -14,9 +14,9 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/nango"
@@ -39,11 +39,11 @@ type employeeUpgradeFixture struct {
 type employeeUpgradeRuntime struct {
 	mu       sync.Mutex
 	calls    int
-	config   employeeruntime.ConfigUpdateRequest
+	config   agentruntime.ConfigUpdateRequest
 	onConfig func() // optional hook invoked on each /config call (Phase 5 sync)
 }
 
-func (r *employeeUpgradeRuntime) record(config employeeruntime.ConfigUpdateRequest) {
+func (r *employeeUpgradeRuntime) record(config agentruntime.ConfigUpdateRequest) {
 	r.mu.Lock()
 	hook := r.onConfig
 	r.calls++
@@ -60,7 +60,7 @@ func (r *employeeUpgradeRuntime) setOnConfig(fn func()) {
 	r.onConfig = fn
 }
 
-func (r *employeeUpgradeRuntime) snapshot() (int, employeeruntime.ConfigUpdateRequest) {
+func (r *employeeUpgradeRuntime) snapshot() (int, agentruntime.ConfigUpdateRequest) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.calls, r.config
@@ -73,7 +73,7 @@ func newEmployeeUpgradeFixture(t *testing.T) *employeeUpgradeFixture {
 	kms := testTasksKMS(t)
 	cfg := &config.Config{
 		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:test-v2",
-		SpecialistSandboxHost:     "cp.hivy.test",
+		APIWebhookBaseURL:         "https://cp.hivy.test",
 		ProxyHost:                 "proxy.hivy.test",
 	}
 	runtime := &employeeUpgradeRuntime{}
@@ -92,7 +92,7 @@ func newEmployeeUpgradeFixture(t *testing.T) *employeeUpgradeFixture {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			var config employeeruntime.ConfigUpdateRequest
+			var config agentruntime.ConfigUpdateRequest
 			if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 				t.Fatalf("decode config: %v", err)
 			}
@@ -185,7 +185,7 @@ func newEmployeeUpgradeFixture(t *testing.T) *employeeUpgradeFixture {
 	if err := db.Create(&upgrade).Error; err != nil {
 		t.Fatalf("create upgrade: %v", err)
 	}
-	handler := NewEmployeeSandboxUpgradeHandler(db, orch, fakeEmployeeUpgradeStore{size: 12}, employeeruntime.CompileDeps{
+	handler := NewEmployeeSandboxUpgradeHandler(db, orch, fakeEmployeeUpgradeStore{size: 12}, agentruntime.CompileDeps{
 		DB:         db,
 		KMS:        kms,
 		EncKey:     encKey,

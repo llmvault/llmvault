@@ -25,7 +25,6 @@ import (
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/sandbox"
-	"github.com/usehivy/hivy/internal/specialists"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/storage"
 
@@ -49,7 +48,6 @@ type Deps struct {
 	SigningKey      []byte
 	SandboxEncKey   *crypto.SymmetricKey
 	Orchestrator    *sandbox.Orchestrator
-	Specialists     *specialists.Catalog
 	HindsightClient *hindsight.Client
 	SpiderClient    *spider.Client              // nil if spider not configured
 	ToolUsageWriter *middleware.ToolUsageWriter // nil if spider not configured
@@ -89,11 +87,6 @@ func New(ctx context.Context) (*Deps, error) {
 	if err := seedGlobalSkills(ctx, database); err != nil {
 		return nil, err
 	}
-	specialistCatalog, err := loadGlobalSpecialists(ctx, database)
-	if err != nil {
-		return nil, err
-	}
-
 	logging.FromContext(ctx).InfoContext(ctx, "database ready")
 
 	var kms *crypto.KeyWrapper
@@ -237,7 +230,6 @@ func New(ctx context.Context) (*Deps, error) {
 		SigningKey:      signingKey,
 		SandboxEncKey:   sandboxEncKey,
 		Orchestrator:    orchestrator,
-		Specialists:     specialistCatalog,
 		HindsightClient: hClient,
 		SpiderClient:    spiderClient,
 		ToolUsageWriter: toolUsageWriter,

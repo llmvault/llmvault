@@ -121,123 +121,6 @@
         ]
       }
     },
-    "/gateway/http/messages": {
-      "post": {
-        "tags": [
-          "crate::handlers"
-        ],
-        "operationId": "post_http_message",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HttpMessageRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Message accepted and stream created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpMessageResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Failed to inject message"
-          },
-          "503": {
-            "description": "HTTP gateway is not enabled"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/gateway/http/response-streams/{stream_id}": {
-      "get": {
-        "tags": [
-          "crate::handlers"
-        ],
-        "operationId": "get_http_response_stream",
-        "parameters": [
-          {
-            "name": "stream_id",
-            "in": "path",
-            "description": "HTTP response-only stream identifier",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Response-only server-sent event stream",
-            "content": {
-              "text/event-stream": {}
-            }
-          },
-          "404": {
-            "description": "Stream not found"
-          },
-          "503": {
-            "description": "HTTP gateway is not enabled"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/gateway/http/streams/{stream_id}": {
-      "get": {
-        "tags": [
-          "crate::handlers"
-        ],
-        "operationId": "get_http_stream",
-        "parameters": [
-          {
-            "name": "stream_id",
-            "in": "path",
-            "description": "HTTP stream identifier",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Server-sent event stream",
-            "content": {
-              "text/event-stream": {}
-            }
-          },
-          "404": {
-            "description": "Stream not found"
-          },
-          "503": {
-            "description": "HTTP gateway is not enabled"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
     "/healthz": {
       "get": {
         "tags": [
@@ -392,33 +275,6 @@
             }
           },
           {
-            "name": "channel",
-            "in": "query",
-            "description": "Exact channel filter",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "thread_ts",
-            "in": "query",
-            "description": "Exact thread timestamp filter",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "agent_session_id",
-            "in": "query",
-            "description": "Exact agent session ID filter",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "q",
             "in": "query",
             "description": "Prefix search over session identifiers",
@@ -505,6 +361,105 @@
           }
         ]
       }
+    },
+    "/sessions/{session_id}/messages": {
+      "post": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "operationId": "post_session_message",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Message accepted and stream created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMessageResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to inject message"
+          },
+          "503": {
+            "description": "session API is not enabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/sessions/{session_id}/streams/{stream_id}": {
+      "get": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "operationId": "get_session_stream",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stream_id",
+            "in": "path",
+            "description": "Session stream identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent event stream",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "404": {
+            "description": "Stream not found"
+          },
+          "503": {
+            "description": "session API is not enabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -530,9 +485,6 @@
             "items": {
               "$ref": "#/components/schemas/McpSpec"
             }
-          },
-          "mode": {
-            "$ref": "#/components/schemas/RuntimeMode"
           },
           "model": {
             "$ref": "#/components/schemas/ModelConfig"
@@ -561,16 +513,6 @@
             "items": {
               "$ref": "#/components/schemas/SkillSpec"
             }
-          },
-          "specialist_profile": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/SpecialistProfile"
-              }
-            ]
           },
           "sub_agents": {
             "type": "object",
@@ -909,18 +851,11 @@
           "task_prompt",
           "repeat_completed",
           "state",
-          "source",
           "next_run_at",
           "created_at",
           "created_by_session"
         ],
         "properties": {
-          "agent_name": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "channel": {
             "type": "string"
           },
@@ -932,18 +867,6 @@
             "type": "string"
           },
           "cron_expression": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "delegate_stream_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "delegated_session_id": {
             "type": [
               "string",
               "null"
@@ -964,12 +887,6 @@
             "minimum": 0
           },
           "last_error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "last_result": {
             "type": [
               "string",
               "null"
@@ -1011,9 +928,6 @@
               "null"
             ]
           },
-          "source": {
-            "$ref": "#/components/schemas/CronJobSource"
-          },
           "state": {
             "$ref": "#/components/schemas/CronJobState"
           },
@@ -1022,13 +936,6 @@
           }
         }
       },
-      "CronJobSource": {
-        "type": "string",
-        "enum": [
-          "cron",
-          "delegate"
-        ]
-      },
       "CronJobState": {
         "type": "string",
         "enum": [
@@ -1036,18 +943,6 @@
           "paused",
           "completed"
         ]
-      },
-      "DelegateConfig": {
-        "type": "object",
-        "properties": {
-          "agents": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Allowlist of sub-agent names. Empty = all sub-agents available."
-          }
-        }
       },
       "DynamicContextPromptSegment": {
         "type": "object",
@@ -1071,7 +966,7 @@
           "tool_call",
           "tool_result",
           "run_event",
-          "specialist_event",
+          "subagent_event",
           "error"
         ]
       },
@@ -1174,97 +1069,6 @@
           }
         }
       },
-      "HttpMessageRequest": {
-        "type": "object",
-        "required": [
-          "text"
-        ],
-        "properties": {
-          "attachments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Attachment"
-            }
-          },
-          "conversation_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "dynamic_context": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "raw": {
-            "type": "object"
-          },
-          "text": {
-            "type": "string"
-          },
-          "user": {
-            "type": "string"
-          },
-          "user_display_name": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        }
-      },
-      "HttpMessageResponse": {
-        "type": "object",
-        "required": [
-          "session_id",
-          "stream_id",
-          "stream_url",
-          "response_stream_id",
-          "response_stream_url",
-          "trace_id",
-          "turn_id"
-        ],
-        "properties": {
-          "response_stream_id": {
-            "type": "string"
-          },
-          "response_stream_url": {
-            "type": "string"
-          },
-          "session_id": {
-            "type": "string"
-          },
-          "stream_id": {
-            "type": "string"
-          },
-          "stream_url": {
-            "type": "string"
-          },
-          "trace_id": {
-            "type": "string"
-          },
-          "turn_id": {
-            "type": "string"
-          }
-        }
-      },
-      "HttpStreamEvent": {
-        "type": "object",
-        "required": [
-          "event",
-          "payload"
-        ],
-        "properties": {
-          "event": {
-            "type": "string"
-          },
-          "payload": {
-            "type": "object"
-          }
-        }
-      },
       "Limits": {
         "type": "object",
         "required": [
@@ -1336,18 +1140,6 @@
       "ListSessionsParams": {
         "type": "object",
         "properties": {
-          "agent_session_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "channel": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "cursor": {
             "type": [
               "string",
@@ -1375,12 +1167,6 @@
             ]
           },
           "status": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "thread_ts": {
             "type": [
               "string",
               "null"
@@ -1605,22 +1391,6 @@
             "type": "string"
           },
           "title": {
-            "type": "string"
-          }
-        }
-      },
-      "MessageHandle": {
-        "type": "object",
-        "description": "Handle returned by `ChannelGateway::reply`, used to edit the message later\n(progressive streaming, status updates, ...).",
-        "required": [
-          "channel",
-          "ts"
-        ],
-        "properties": {
-          "channel": {
-            "type": "string"
-          },
-          "ts": {
             "type": "string"
           }
         }
@@ -1983,13 +1753,6 @@
           }
         }
       },
-      "RuntimeMode": {
-        "type": "string",
-        "enum": [
-          "employee",
-          "specialist"
-        ]
-      },
       "SafetyConfig": {
         "type": "object",
         "properties": {
@@ -2014,20 +1777,11 @@
         "type": "object",
         "required": [
           "id",
-          "channel",
-          "thread_ts",
-          "agent_session_id",
           "status",
           "created_at",
           "last_activity_at"
         ],
         "properties": {
-          "agent_session_id": {
-            "type": "string"
-          },
-          "channel": {
-            "type": "string"
-          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -2041,9 +1795,6 @@
           },
           "status": {
             "$ref": "#/components/schemas/SessionStatus"
-          },
-          "thread_ts": {
-            "type": "string"
           }
         }
       },
@@ -2101,6 +1852,68 @@
         "type": "string",
         "description": "`SessionId` is the canonical identifier for a session."
       },
+      "SessionMessageRequest": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          },
+          "dynamic_context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw": {
+            "type": "object"
+          },
+          "text": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "user_display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SessionMessageResponse": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "stream_id",
+          "stream_url",
+          "trace_id",
+          "turn_id"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "stream_id": {
+            "type": "string"
+          },
+          "stream_url": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "turn_id": {
+            "type": "string"
+          }
+        }
+      },
       "SessionStatus": {
         "type": "string",
         "enum": [
@@ -2108,6 +1921,21 @@
           "completed",
           "errored"
         ]
+      },
+      "SessionStreamEvent": {
+        "type": "object",
+        "required": [
+          "event",
+          "payload"
+        ],
+        "properties": {
+          "event": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object"
+          }
+        }
       },
       "SkillSpec": {
         "type": "object",
@@ -2213,20 +2041,6 @@
           }
         ]
       },
-      "SpecialistProfile": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
       "StaticPromptSegment": {
         "type": "object",
         "properties": {
@@ -2237,6 +2051,100 @@
             "type": "string"
           }
         }
+      },
+      "SubagentTask": {
+        "type": "object",
+        "required": [
+          "id",
+          "parent_session_id",
+          "child_session_id",
+          "agent_name",
+          "goal",
+          "state",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "agent_name": {
+            "type": "string"
+          },
+          "child_session_id": {
+            "$ref": "#/components/schemas/SessionId"
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "goal": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "parent_session_id": {
+            "$ref": "#/components/schemas/SessionId"
+          },
+          "result": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SubagentTaskState"
+          },
+          "stream_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SubagentTaskConfig": {
+        "type": "object",
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowlist of sub-agent names. Empty = all sub-agents available."
+          }
+        }
+      },
+      "SubagentTaskState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed"
+        ]
       },
       "SystemPromptConfig": {
         "type": "object",
@@ -2450,12 +2358,12 @@
             ],
             "properties": {
               "config": {
-                "$ref": "#/components/schemas/DelegateConfig"
+                "$ref": "#/components/schemas/SubagentTaskConfig"
               },
               "type": {
                 "type": "string",
                 "enum": [
-                  "builtin.delegate"
+                  "builtin.subagent_task"
                 ]
               }
             }
@@ -2469,7 +2377,7 @@
               "type": {
                 "type": "string",
                 "enum": [
-                  "builtin.check_delegated_status"
+                  "builtin.check_subagent_task_status"
                 ]
               }
             }

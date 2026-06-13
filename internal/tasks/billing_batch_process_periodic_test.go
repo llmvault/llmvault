@@ -42,8 +42,7 @@ func TestPeriodicTaskConfigs_RegistersSandboxTasksWhenProviderComplete(t *testin
 		SandboxEncryptionKey:              "present",
 		SandboxDockerPublicHost:           "host.docker.internal",
 		SandboxResourceCheckInterval:      30 * time.Minute,
-		SpecialistSandboxRuntimeVersion:   "v1.0.0",
-		SandboxesRuntimeBaseImage:   "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
+		SandboxesRuntimeBaseImage:         "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
 		SandboxDockerContainerLabelPrefix: "hivy",
 	}, nil)
 

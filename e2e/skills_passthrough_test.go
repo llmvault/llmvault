@@ -2,13 +2,14 @@ package e2e
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -81,7 +82,7 @@ func TestSkillsPassthrough_NewWireShape(t *testing.T) {
 	}
 	_ = skillIDs
 
-	def, err := employeeruntime.Compile(t.Context(), employeeruntime.CompileDeps{
+	def, err := agentruntime.Compile(t.Context(), agentruntime.CompileDeps{
 		DB:         h.db,
 		SigningKey: h.signingKey,
 		Cfg: &config.Config{
@@ -126,10 +127,43 @@ func TestSkillsPassthrough_NewWireShape(t *testing.T) {
 		}
 	}
 
-	if def.Mode != "employee" {
-		t.Errorf("mode: got %q, want employee", def.Mode)
+	rawDef, err := json.Marshal(def)
+	if err != nil {
+		t.Fatalf("marshal runtime definition: %v", err)
+	}
+	if json.Valid(rawDef) && containsJSONKey(rawDef, "mode") {
+		t.Errorf("runtime definition still contains legacy mode field: %s", rawDef)
 	}
 	if def.Model.ModelID != "claude-sonnet-4-5" {
 		t.Errorf("model: got %q, want claude-sonnet-4-5", def.Model.ModelID)
 	}
+}
+
+func containsJSONKey(raw []byte, key string) bool {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return false
+	}
+	return jsonValueContainsKey(value, key)
+}
+
+func jsonValueContainsKey(value any, key string) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		if _, ok := typed[key]; ok {
+			return true
+		}
+		for _, child := range typed {
+			if jsonValueContainsKey(child, key) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if jsonValueContainsKey(child, key) {
+				return true
+			}
+		}
+	}
+	return false
 }

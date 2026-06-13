@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/usehivy/hivy/internal/employeeprompts"
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentprompts"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -53,7 +53,7 @@ func ensureHivyEmployee(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*mod
 }
 
 func createHivyEmployeeWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*model.Employee, error) {
-	agent, err := createHivyEmployeeTx(ctx, tx, orgID, specialistCatalogFromArgs().AutoAttachSlugs())
+	agent, err := createHivyEmployeeTx(ctx, tx, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,11 +63,11 @@ func createHivyEmployeeWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID uu
 	return agent, nil
 }
 
-func createHivyEmployeeTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, attachedSpecialists []string) (*model.Employee, error) {
+func createHivyEmployeeTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*model.Employee, error) {
 	choice, err := pickEmployeeCredential(tx)
 	if err != nil {
 		logging.FromContext(ctx).WarnContext(ctx, "no provider credential available for Hivy employee", "error", err, "org_id", orgID)
-		choice = &employeeProviderChoice{model: employeeruntime.DefaultEmployeeModel}
+		choice = &employeeProviderChoice{model: agentruntime.DefaultEmployeeModel}
 	}
 
 	desc := hivyEmployeeDescription
@@ -76,7 +76,7 @@ func createHivyEmployeeTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, att
 		Name:                hivyEmployeeName,
 		Description:         &desc,
 		SystemPrompt:        "",
-		IdentityPrompt:      employeeprompts.EngineeringIdentityPrompt,
+		IdentityPrompt:      agentprompts.EngineeringIdentityPrompt,
 		Model:               choice.model,
 		Harness:             employeeHarness,
 		Status:              "draft",
@@ -87,7 +87,6 @@ func createHivyEmployeeTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, att
 		Resources:           model.JSON{},
 		RuntimeConfig:       model.JSON{},
 		Permissions:         model.JSON{},
-		AttachedSpecialists: attachedSpecialists,
 	}
 	if choice.cred != nil {
 		agent.CredentialID = &choice.cred.ID

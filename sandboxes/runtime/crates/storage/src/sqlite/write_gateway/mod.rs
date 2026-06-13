@@ -3,13 +3,16 @@ mod event_ops;
 mod outbox_ops;
 mod request;
 mod session_ops;
+mod subagent_ops;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use domain::cron::{CronJob, CronJobState};
-use domain::{AgentDefinition, EventKind, Session, SessionId, SessionStatus};
+use domain::{
+    AgentDefinition, EventKind, Session, SessionId, SessionStatus, SubagentTask, SubagentTaskState,
+};
 use serde_json::Value;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
@@ -225,37 +228,72 @@ impl SqliteWriteGateway {
         recv(rx).await
     }
 
-    pub async fn record_cron_result(&self, id: String, result: String) -> Result<()> {
+    pub async fn delete_cron(&self, id: String) -> Result<()> {
         let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronRecordResult { id, result, resp })
-            .await?;
+        self.send(WriteRequest::CronDelete { id, resp }).await?;
         recv(rx).await
     }
 
-    pub async fn complete_delegate_result(
-        &self,
-        id: String,
-        completed_at: DateTime<Utc>,
-        status: String,
-        error: Option<String>,
-        result: String,
-    ) -> Result<()> {
+    pub async fn create_subagent_task(&self, task: SubagentTask) -> Result<()> {
         let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronCompleteDelegateResult {
-            id,
-            completed_at,
-            status,
-            error,
-            result,
+        self.send(WriteRequest::SubagentTaskCreate {
+            task: Box::new(task),
             resp,
         })
         .await?;
         recv(rx).await
     }
 
-    pub async fn delete_cron(&self, id: String) -> Result<()> {
+    pub async fn mark_subagent_task_running(
+        &self,
+        id: String,
+        started_at: DateTime<Utc>,
+    ) -> Result<bool> {
         let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronDelete { id, resp }).await?;
+        self.send(WriteRequest::SubagentTaskMarkRunning {
+            id,
+            started_at,
+            resp,
+        })
+        .await?;
+        recv(rx).await
+    }
+
+    pub async fn complete_subagent_task(
+        &self,
+        id: String,
+        state: SubagentTaskState,
+        completed_at: DateTime<Utc>,
+        result: String,
+        error: Option<String>,
+    ) -> Result<()> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::SubagentTaskComplete {
+            id,
+            state,
+            completed_at,
+            result,
+            error,
+            resp,
+        })
+        .await?;
+        recv(rx).await
+    }
+
+    pub async fn fail_active_subagent_tasks_for_parent(
+        &self,
+        parent_session_id: SessionId,
+        completed_at: DateTime<Utc>,
+        error: String,
+    ) -> Result<()> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::SubagentTaskFailActiveForParent {
+            parent_session_id,
+            completed_at,
+            error,
+            resp,
+        })
+        .await?;
         recv(rx).await
     }
 

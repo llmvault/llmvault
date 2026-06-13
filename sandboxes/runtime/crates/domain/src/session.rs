@@ -49,9 +49,6 @@ pub enum SessionStatus {
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Session {
     pub id: SessionId,
-    pub channel: String,
-    pub thread_ts: String,
-    pub agent_session_id: String,
     pub status: SessionStatus,
     pub created_at: DateTime<Utc>,
     pub last_activity_at: DateTime<Utc>,
@@ -66,7 +63,7 @@ pub enum EventKind {
     ToolCall,
     ToolResult,
     RunEvent,
-    SpecialistEvent,
+    SubagentEvent,
     Error,
 }
 

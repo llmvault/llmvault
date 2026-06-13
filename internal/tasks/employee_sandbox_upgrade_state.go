@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -88,11 +88,11 @@ func (h *EmployeeSandboxUpgradeHandler) syncEmployeeRuntime(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("decrypt runtime secret: %w", err)
 	}
-	configUpdate, _, err := employeeruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, apiKey)
+	configUpdate, _, err := agentruntime.BuildEmployeeRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, apiKey)
 	if err != nil {
 		return fmt.Errorf("build employee runtime config: %w", err)
 	}
-	client := employeeruntime.NewClient(sb.RuntimeURL, apiKey)
+	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
 	if err := client.Healthz(ctx); err != nil {
 		return fmt.Errorf("employee runtime healthz: %w", err)
 	}
@@ -118,7 +118,7 @@ func (h *EmployeeSandboxUpgradeHandler) runSmokeTest(ctx context.Context, sb *mo
 	if err != nil {
 		return fmt.Errorf("decrypt runtime secret for smoke test: %w", err)
 	}
-	client := employeeruntime.NewClient(sb.RuntimeURL, apiKey)
+	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
 	if err := client.Healthz(ctx); err != nil {
 		return fmt.Errorf("smoke healthz: %w", err)
 	}

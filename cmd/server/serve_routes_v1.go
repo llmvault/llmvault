@@ -169,10 +169,6 @@ func setupV1Routes(
 					r.Get("/employees/{id}/sessions/{sessionID}/events", employeeHandler.ListSessionEvents)
 					r.Post("/employees/{id}/sessions/messages", employeeHandler.SendSessionMessage)
 					r.Get("/employees/{id}/sessions/{sessionID}/streams/{streamID}", employeeHandler.StreamSession)
-					r.Get("/employees/{id}/specialists", employeeHandler.ListSpecialists)
-					r.Patch("/employees/{id}/specialists/{slug}", employeeHandler.UpdateSpecialist)
-					r.Post("/employees/{id}/specialists/{slug}", employeeHandler.EnableSpecialist)
-					r.Delete("/employees/{id}/specialists/{slug}", employeeHandler.DisableSpecialist)
 					r.Route("/employees/{id}/skills", func(r chi.Router) {
 						r.Post("/", skillHandler.AttachToEmployee)
 						r.Get("/", skillHandler.ListEmployeeSkills)

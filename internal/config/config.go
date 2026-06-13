@@ -91,21 +91,17 @@ type Config struct {
 	RailwayEnvironmentID          string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
 	RailwayRegion                 string `env:"HIVY_RAILWAY_REGION"`
 	RailwayRuntimePort            int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
-	SandboxWarmPoolEmployeeSize   int    `env:"HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE" envDefault:"0"`
-	SandboxWarmPoolSpecialistSize int    `env:"HIVY_SANDBOX_WARM_POOL_SPECIALIST_SIZE" envDefault:"0"`
+	SandboxWarmPoolEmployeeSize int `env:"HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE" envDefault:"0"`
 
 	DaytonaAPIURL string `env:"HIVY_DAYTONA_API_URL"`
 	DaytonaAPIKey string `env:"HIVY_DAYTONA_API_KEY"`
 	DaytonaTarget string `env:"HIVY_DAYTONA_TARGET"`
 
-	SpecialistSandboxRuntimeVersion string `env:"HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION"`                        // usehivy/hivy release tag installed into user templates (e.g. v1.0.0)
-	SpecialistSandboxHost           string `env:"HIVY_SPECIALIST_SANDBOX_HOST"`                                   // public control-plane host reachable from runtime sandboxes
-	APIWebhookBaseURL               string `env:"HIVY_API_WEBHOOK_BASE_URL" envDefault:"https://api.usehivy.com"` // public API base URL for provider webhook callbacks
-	ProxyHost                       string `env:"HIVY_PROXY_HOST" envDefault:"proxy.usehivy.com"`                 // LLM proxy hostname (proxy.usehivy.com)
+	APIWebhookBaseURL string `env:"HIVY_API_WEBHOOK_BASE_URL" envDefault:"https://api.usehivy.com"` // public API base URL for provider webhook callbacks
+	ProxyHost         string `env:"HIVY_PROXY_HOST" envDefault:"proxy.usehivy.com"`                 // LLM proxy hostname (proxy.usehivy.com)
 
 	// Employee sandbox runtime — ghcr.io/usehivy/hivy-sandboxes-runtime image.
 	SandboxesRuntimeBaseImage       string `env:"HIVY_SANDBOXES_RUNTIME_BASE_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime:latest"`
-	SandboxesRuntimeSpecialistImage string `env:"HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:latest"`
 	EmployeeSandboxAutoUpgrade      bool   `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
 	EmployeeSandboxAutoUpgradeLimit int    `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
 
@@ -142,8 +138,7 @@ type Config struct {
 	PublicAssetsSignTTL   time.Duration `env:"HIVY_PUBLIC_ASSETS_SIGN_TTL" envDefault:"15m"`
 	PublicAssetsUseACL    bool          `env:"HIVY_PUBLIC_ASSETS_USE_ACL" envDefault:"false"`
 
-	SpecialistSandboxGracePeriodMins int           `env:"HIVY_SPECIALIST_SANDBOX_GRACE_PERIOD_MINS" envDefault:"5"`
-	SandboxResourceCheckInterval     time.Duration `env:"HIVY_SANDBOX_RESOURCE_CHECK_INTERVAL" envDefault:"30m"`
+	SandboxResourceCheckInterval time.Duration `env:"HIVY_SANDBOX_RESOURCE_CHECK_INTERVAL" envDefault:"30m"`
 
 	WorkerHealthPort     int           `env:"HIVY_WORKER_HEALTH_PORT" envDefault:"8090"`
 	AsynqConcurrency     int           `env:"HIVY_ASYNQ_CONCURRENCY" envDefault:"30"`

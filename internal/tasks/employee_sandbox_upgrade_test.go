@@ -8,7 +8,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -59,7 +59,7 @@ func TestEmployeeSandboxUpgradeWorker_SucceedsAndSchedulesOldRetirement(t *testi
 	if config.Definition == nil {
 		t.Fatalf("runtime config missing definition")
 	}
-	proxyToken := config.RuntimeEnv[employeeruntime.ProxyAPIKeyEnv]
+	proxyToken := config.RuntimeEnv[agentruntime.ProxyAPIKeyEnv]
 	if !strings.HasPrefix(proxyToken, "ptok_") {
 		t.Fatalf("runtime config missing proxy token env: %q", proxyToken)
 	}

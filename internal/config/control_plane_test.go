@@ -4,17 +4,16 @@ import "testing"
 
 func TestRuntimeControlPlaneBaseURLPrefersAPIWebhookBaseURL(t *testing.T) {
 	cfg := &Config{
-		APIWebhookBaseURL:     "http://host.docker.internal:8080/",
-		SpecialistSandboxHost: "api.usehivy.com",
+		APIWebhookBaseURL: "http://host.docker.internal:8080/",
 	}
 	if got := cfg.RuntimeControlPlaneBaseURL(); got != "http://host.docker.internal:8080" {
 		t.Fatalf("RuntimeControlPlaneBaseURL = %q", got)
 	}
 }
 
-func TestRuntimeControlPlaneBaseURLFallsBackToSandboxHost(t *testing.T) {
-	cfg := &Config{SpecialistSandboxHost: "api.hivy.test"}
-	if got := cfg.RuntimeControlPlaneBaseURL(); got != "https://api.hivy.test" {
+func TestRuntimeControlPlaneBaseURLFallsBackToDefault(t *testing.T) {
+	cfg := &Config{}
+	if got := cfg.RuntimeControlPlaneBaseURL(); got != defaultRuntimeControlPlaneBaseURL {
 		t.Fatalf("RuntimeControlPlaneBaseURL = %q", got)
 	}
 }

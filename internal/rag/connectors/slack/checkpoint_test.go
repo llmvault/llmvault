@@ -9,8 +9,8 @@ import (
 
 func TestCheckpoint_RoundTrip(t *testing.T) {
 	cp := SlackCheckpoint{
-		AnyCheckpoint: interfaces.AnyCheckpoint{HasMore: true},
-		ChannelIDs:    []string{"C1", "C2"},
+		AnyCheckpoint:        interfaces.AnyCheckpoint{HasMore: true},
+		ChannelIDs:           []string{"C1", "C2"},
 		ChannelCompletionMap: map[string]string{"C1": "1512085950.000216"},
 		CurrentChannelID:     "C2",
 		SeenThreadTS:         []string{"1512085950.000216"},

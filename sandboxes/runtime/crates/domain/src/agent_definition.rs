@@ -12,10 +12,6 @@ use crate::{
 pub struct AgentDefinition {
     pub agent: AgentMeta,
     #[serde(default)]
-    pub mode: RuntimeMode,
-    #[serde(default)]
-    pub specialist_profile: Option<SpecialistProfile>,
-    #[serde(default)]
     pub system_prompt: SystemPromptConfig,
     pub model: ModelConfig,
     #[serde(default)]
@@ -37,23 +33,6 @@ pub struct AgentDefinition {
     pub sub_agents: HashMap<String, AgentDefinition>,
     #[serde(default)]
     pub safety: SafetyConfig,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum RuntimeMode {
-    #[default]
-    Employee,
-    Specialist,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct SpecialistProfile {
-    pub name: String,
-    #[serde(default)]
-    pub description: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

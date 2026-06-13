@@ -32,7 +32,7 @@ func (h *OrgHandler) ListEnvironmentVariables(w http.ResponseWriter, r *http.Req
 
 // CreateEnvironmentVariable handles POST /v1/orgs/current/environment-variables.
 // @Summary Create an organization environment variable
-// @Description Stores a custom environment variable on the Hivy employee. It is pushed to employee and specialist sandboxes as HIVY_ORG_<NAME>.
+// @Description Stores a custom environment variable on the Hivy employee. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.
 // @Tags orgs
 // @Accept json
 // @Produce json

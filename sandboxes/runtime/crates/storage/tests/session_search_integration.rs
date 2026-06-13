@@ -27,9 +27,6 @@ async fn search_sessions_finds_readable_conversation_rows() {
     sessions
         .create(&Session {
             id: session_id.clone(),
-            channel: "http".into(),
-            thread_ts: "thread".into(),
-            agent_session_id: "agent-session".into(),
             status: SessionStatus::Active,
             created_at: now,
             last_activity_at: now,

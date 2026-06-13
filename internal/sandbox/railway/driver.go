@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	railwayapi "github.com/usehivy/hivy/internal/railway"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
@@ -219,8 +219,8 @@ func (d *Driver) ExecuteCommandViaRuntime(ctx context.Context, cmdCtx sandbox.Ru
 	if seconds <= 0 {
 		seconds = 120
 	}
-	client := employeeruntime.NewClientWithTimeout(cmdCtx.RuntimeURL, cmdCtx.RuntimeSecret, runtimeCommandHTTPTimeout(time.Duration(seconds)*time.Second))
-	resp, err := client.RunCommands(ctx, employeeruntime.ControlCommandsRequest{
+	client := agentruntime.NewClientWithTimeout(cmdCtx.RuntimeURL, cmdCtx.RuntimeSecret, runtimeCommandHTTPTimeout(time.Duration(seconds)*time.Second))
+	resp, err := client.RunCommands(ctx, agentruntime.ControlCommandsRequest{
 		Commands:       []string{command},
 		TimeoutSeconds: seconds,
 		StopOnError:    true,

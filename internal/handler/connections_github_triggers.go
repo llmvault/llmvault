@@ -112,10 +112,10 @@ func githubMentionTriggerInstructions() string {
 Inspect the linked issue or pull request, understand the user's requested work, and choose the right action:
 
 - If this is a simple question, acknowledgement, status request, or small notification, respond directly on GitHub using the GitHub skill.
-- If this is feedback or new information for an existing software engineering specialist task, use the recent task list below and call specialist_task_send_message with the matching task_id.
-- If this is a new coding, debugging, review, deployment, or implementation request, launch a new software engineering specialist task with the issue/PR URL, repository, branch context, and exact requested outcome.
+- If this is feedback or new information for existing work, continue in the existing Hivy session when one is clearly related.
+- If this is a new coding, debugging, review, deployment, or implementation request, start the work in this agent session with the issue/PR URL, repository, branch context, and exact requested outcome.
 
-Before starting specialist work, check the recent software engineering specialist tasks included in this trigger. If the matching task is not listed, search previous sessions before deciding. Do not create duplicate specialist tasks for the same GitHub issue or pull request.`
+Before starting work, search previous sessions when needed. Do not create duplicate work for the same GitHub issue or pull request.`
 }
 
 func githubCITriggerInstructions() string {
@@ -123,9 +123,9 @@ func githubCITriggerInstructions() string {
 
 Inspect the pull request and check suite result, then choose the right action:
 
-- If a software engineering specialist task is already working on this pull request, send the check result and any failure details to that task with specialist_task_send_message.
-- If no related specialist task exists and checks failed, timed out, were cancelled, or require action, inspect the relevant check runs or logs, then launch a software engineering specialist task only when follow-up work is needed.
+- If an existing Hivy session is already working on this pull request, continue there when possible.
+- If no related session exists and checks failed, timed out, were cancelled, or require action, inspect the relevant check runs or logs, then perform follow-up work only when needed.
 - If checks passed and no follow-up is needed, comment or update the GitHub thread only when useful; otherwise keep the session concise.
 
-Use the recent software engineering specialist tasks included in this trigger first. If the matching task is not listed, search previous sessions before deciding. Do not create duplicate specialist tasks for the same pull request.`
+Search previous sessions before deciding. Do not create duplicate work for the same pull request.`
 }

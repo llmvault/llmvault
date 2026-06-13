@@ -4,5 +4,6 @@ pub mod sqlite;
 pub use repos::*;
 pub use sqlite::{
     init_sqlite_store, EventsLogWrite, SqliteConfigRepo, SqliteCronJobRepo, SqliteEventRepo,
-    SqliteInboundDedupeRepo, SqliteOutboxRepo, SqliteSessionRepo, SqliteStore, SqliteWriteGateway,
+    SqliteInboundDedupeRepo, SqliteOutboxRepo, SqliteSessionRepo, SqliteStore,
+    SqliteSubagentTaskRepo, SqliteWriteGateway,
 };

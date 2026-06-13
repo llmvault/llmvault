@@ -3,9 +3,9 @@
 set -euo pipefail
 
 build_runtime_image() {
-  echo -e "${BLUE}[1/7] Building specialist runtime image...${NC}"
+  echo -e "${BLUE}[1/7] Building developer runtime image...${NC}"
   echo "  Image:      $IMAGE"
-  echo "  Dockerfile: ${HIVY_SANDBOXES_RUNTIME_DOCKERFILE:-Dockerfile.specialist}"
+  echo "  Dockerfile: ${HIVY_SANDBOXES_RUNTIME_DOCKERFILE:-Dockerfile.developers}"
   echo "  Rebuild:    image=$EVAL_REBUILD_IMAGE binary=$EVAL_REBUILD_BINARY"
 
   if [[ "$EVAL_REBUILD_IMAGE" == "1" ]] || ! docker image inspect "$IMAGE" &>/dev/null; then
@@ -17,7 +17,7 @@ build_runtime_image() {
     fi
 
     HIVY_SANDBOXES_RUNTIME_IMAGE="$IMAGE" \
-      HIVY_SANDBOXES_RUNTIME_DOCKERFILE="${HIVY_SANDBOXES_RUNTIME_DOCKERFILE:-Dockerfile.specialist}" \
+      HIVY_SANDBOXES_RUNTIME_DOCKERFILE="${HIVY_SANDBOXES_RUNTIME_DOCKERFILE:-Dockerfile.developers}" \
       "$ROOT/scripts/build_runtime_image.sh"
   else
     echo -e "  ${GREEN}Image exists: $IMAGE${NC}"

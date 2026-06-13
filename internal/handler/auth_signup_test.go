@@ -7,8 +7,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/billing"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/testdb"
 )
@@ -71,7 +71,7 @@ func cleanupOrgAndLedger(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	})
 }
 
-func TestCreateUserDefaultOrg_CreatesHivyWithAllSpecialists(t *testing.T) {
+func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	db := connectInternalTestDB(t)
 	user := seedSignupUser(t, db)
 
@@ -94,12 +94,8 @@ func TestCreateUserDefaultOrg_CreatesHivyWithAllSpecialists(t *testing.T) {
 	if resp.Name != "Hivy" {
 		t.Fatalf("employee name = %q, want Hivy", resp.Name)
 	}
-	if resp.Model != employeeruntime.DefaultEmployeeModel {
-		t.Fatalf("employee model = %q, want %q", resp.Model, employeeruntime.DefaultEmployeeModel)
-	}
-	catalog := specialistCatalogFromArgs()
-	if got, want := len(attachedSpecialistSet(employee.AttachedSpecialists)), len(catalog.AutoAttachSlugs()); got != want {
-		t.Fatalf("attached specialists = %d, want %d", got, want)
+	if resp.Model != agentruntime.DefaultEmployeeModel {
+		t.Fatalf("employee model = %q, want %q", resp.Model, agentruntime.DefaultEmployeeModel)
 	}
 }
 

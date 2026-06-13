@@ -97,28 +97,28 @@ type errorRate struct {
 }
 
 type sessionSummary struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Status    string  `json:"status"`
-	Source    string  `json:"source"`
-	EventCount int64  `json:"event_count"`
-	CreatedAt string  `json:"created_at"`
-	EndedAt   *string `json:"ended_at,omitempty"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Status     string  `json:"status"`
+	Source     string  `json:"source"`
+	EventCount int64   `json:"event_count"`
+	CreatedAt  string  `json:"created_at"`
+	EndedAt    *string `json:"ended_at,omitempty"`
 }
 
 type usageResponse struct {
-	Credentials    credentialStats `json:"credentials"`
-	Tokens         tokenStats      `json:"tokens"`
-	APIKeys        apiKeyStats     `json:"api_keys"`
-	Requests       requestStats    `json:"requests"`
-	DailyRequests  []dailyRequests `json:"daily_requests"`
-	TopCredentials []topCredential `json:"top_credentials"`
-	SpendOverTime  []spendOverTime `json:"spend_over_time"`
-	TokenVolumes   []tokenVolumes  `json:"token_volumes"`
-	Latency        []latencyStats  `json:"latency"`
-	TopModels      []topModel      `json:"top_models"`
-	TopUsers       []topUser       `json:"top_users"`
-	ErrorRates     []errorRate     `json:"error_rates"`
+	Credentials    credentialStats  `json:"credentials"`
+	Tokens         tokenStats       `json:"tokens"`
+	APIKeys        apiKeyStats      `json:"api_keys"`
+	Requests       requestStats     `json:"requests"`
+	DailyRequests  []dailyRequests  `json:"daily_requests"`
+	TopCredentials []topCredential  `json:"top_credentials"`
+	SpendOverTime  []spendOverTime  `json:"spend_over_time"`
+	TokenVolumes   []tokenVolumes   `json:"token_volumes"`
+	Latency        []latencyStats   `json:"latency"`
+	TopModels      []topModel       `json:"top_models"`
+	TopUsers       []topUser        `json:"top_users"`
+	ErrorRates     []errorRate      `json:"error_rates"`
 	Sessions       []sessionSummary `json:"sessions"`
 }
 

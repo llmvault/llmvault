@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 )
 
 func TestBundledProviderProxySkillsDeclareRuntimeEnv(t *testing.T) {
@@ -15,7 +15,7 @@ func TestBundledProviderProxySkillsDeclareRuntimeEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, spec := range employeeruntime.ServiceProxyEnvSpecs() {
+	for _, spec := range agentruntime.ServiceProxyEnvSpecs() {
 		manifest, err := os.ReadFile(filepath.Join(dir, "global/skills", spec.SkillName, "skill.json"))
 		if err != nil {
 			t.Fatalf("read bundled %s manifest: %v", spec.SkillName, err)

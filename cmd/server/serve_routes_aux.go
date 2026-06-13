@@ -7,11 +7,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/counter"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -31,7 +31,7 @@ func setupProxyAndAuxRoutes(
 	generationWriter *middleware.GenerationWriter,
 	ctr *counter.Counter,
 	enqueuer enqueue.TaskEnqueuer,
-	runtimeCompileDeps employeeruntime.CompileDeps,
+	runtimeCompileDeps agentruntime.CompileDeps,
 ) {
 	var tokenAuthOpts []middleware.TokenAuthOption
 	if enqueuer != nil {

@@ -27,12 +27,12 @@ func (h *SlackChannelHandler) autoCreateSlackRAGSource(ctx context.Context, orgI
 	}
 
 	src := &ragmodel.RAGSource{
-		OrgIDValue: orgID,
-		KindValue:  ragmodel.RAGSourceKindIntegration,
-		Name:       "Slack",
-		Status:     ragmodel.RAGSourceStatusInitialIndexing,
-		Enabled:    true,
-		AccessType: ragmodel.AccessTypeSync,
+		OrgIDValue:         orgID,
+		KindValue:          ragmodel.RAGSourceKindIntegration,
+		Name:               "Slack",
+		Status:             ragmodel.RAGSourceStatusInitialIndexing,
+		Enabled:            true,
+		AccessType:         ragmodel.AccessTypeSync,
 		RefreshFreqSeconds: intPtr(3600),
 	}
 	src.ConnectionID = &connID

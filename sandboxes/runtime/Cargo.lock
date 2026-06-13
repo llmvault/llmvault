@@ -177,7 +177,6 @@ dependencies = [
  "chrono",
  "domain",
  "futures",
- "gateway",
  "mcp",
  "outbound",
  "reqwest 0.13.3",
@@ -243,6 +242,7 @@ dependencies = [
  "hmac",
  "http 1.4.0",
  "mcp",
+ "nanoid",
  "observability",
  "outbound",
  "reqwest 0.12.28",
@@ -1090,18 +1090,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gateway"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "domain",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1254,7 +1242,6 @@ dependencies = [
  "dotenvy",
  "flate2",
  "futures",
- "gateway",
  "hex",
  "mcp",
  "outbound",
@@ -1268,6 +1255,7 @@ dependencies = [
  "sqlx",
  "storage",
  "tempfile",
+ "thiserror 1.0.69",
  "tokio",
  "tools",
  "tracing",

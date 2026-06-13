@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
-	"github.com/usehivy/hivy/internal/employeeruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/model"
@@ -157,7 +157,7 @@ func TestEmployeeMemoryRefreshHandler_TracksSuccessAndFailure(t *testing.T) {
 	if err := db.Create(&cred).Error; err != nil {
 		t.Fatalf("create credential: %v", err)
 	}
-	agent := model.Employee{ID: agentID, OrgID: &orgID, Name: "Aria", IsEmployee: true, Status: "active", Model: employeeruntime.DefaultEmployeeModel, CredentialID: &cred.ID}
+	agent := model.Employee{ID: agentID, OrgID: &orgID, Name: "Aria", IsEmployee: true, Status: "active", Model: agentruntime.DefaultEmployeeModel, CredentialID: &cred.ID}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestEmployeeMemoryRefreshHandler_TracksSuccessAndFailure(t *testing.T) {
 		t.Fatalf("encrypt secret: %v", err)
 	}
 	var configCalls int
-	var lastConfig employeeruntime.ConfigUpdateRequest
+	var lastConfig agentruntime.ConfigUpdateRequest
 	runtime := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/healthz", "/readyz":
@@ -191,7 +191,7 @@ func TestEmployeeMemoryRefreshHandler_TracksSuccessAndFailure(t *testing.T) {
 		t.Fatalf("create sandbox: %v", err)
 	}
 
-	handler := NewEmployeeMemoryRefreshHandler(db, employeeruntime.CompileDeps{
+	handler := NewEmployeeMemoryRefreshHandler(db, agentruntime.CompileDeps{
 		DB:         db,
 		EncKey:     encKey,
 		SigningKey: []byte("test-signing-key-32-bytes-long!!"),
@@ -217,7 +217,7 @@ func TestEmployeeMemoryRefreshHandler_TracksSuccessAndFailure(t *testing.T) {
 	if lastConfig.Definition == nil {
 		t.Fatalf("runtime config missing definition")
 	}
-	proxyToken := lastConfig.RuntimeEnv[employeeruntime.ProxyAPIKeyEnv]
+	proxyToken := lastConfig.RuntimeEnv[agentruntime.ProxyAPIKeyEnv]
 	if !strings.HasPrefix(proxyToken, "ptok_") {
 		t.Fatalf("runtime config missing proxy token env: %q", proxyToken)
 	}

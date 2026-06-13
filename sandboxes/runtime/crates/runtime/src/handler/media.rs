@@ -1,5 +1,5 @@
+use async_trait::async_trait;
 use domain::Attachment;
-use gateway::ChannelGateway;
 use tracing::{info, warn};
 
 const MAX_IMAGE_BYTES: usize = 10 * 1024 * 1024;
@@ -18,8 +18,66 @@ pub struct InlinedTextFile {
     pub contents: String,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum AttachmentDownloadError {
+    #[error("invalid attachment url: {0}")]
+    InvalidUrl(String),
+    #[error("unsupported attachment url scheme")]
+    UnsupportedScheme,
+    #[error("transport error: {0}")]
+    Transport(String),
+}
+
+#[async_trait]
+pub trait AttachmentDownloader: Send + Sync + 'static {
+    async fn download_attachment(
+        &self,
+        attachment: &Attachment,
+    ) -> Result<Vec<u8>, AttachmentDownloadError>;
+}
+
+pub struct HttpAttachmentDownloader {
+    client: reqwest::Client,
+}
+
+impl HttpAttachmentDownloader {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::Client::new(),
+        }
+    }
+}
+
+#[async_trait]
+impl AttachmentDownloader for HttpAttachmentDownloader {
+    async fn download_attachment(
+        &self,
+        attachment: &Attachment,
+    ) -> Result<Vec<u8>, AttachmentDownloadError> {
+        let url = reqwest::Url::parse(&attachment.url)
+            .map_err(|error| AttachmentDownloadError::InvalidUrl(error.to_string()))?;
+        match url.scheme() {
+            "http" | "https" => {}
+            _ => return Err(AttachmentDownloadError::UnsupportedScheme),
+        }
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(|error| AttachmentDownloadError::Transport(error.to_string()))?
+            .error_for_status()
+            .map_err(|error| AttachmentDownloadError::Transport(error.to_string()))?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|error| AttachmentDownloadError::Transport(error.to_string()))?;
+        Ok(bytes.to_vec())
+    }
+}
+
 pub async fn collect_media_for_turn(
-    gateway: &dyn ChannelGateway,
+    downloader: &dyn AttachmentDownloader,
     attachments: &[Attachment],
     multimodal_available: bool,
 ) -> DownloadResults {
@@ -32,7 +90,8 @@ pub async fn collect_media_for_turn(
     for attachment in attachments {
         if attachment.mime_type.starts_with("image/") {
             if multimodal_available {
-                handle_image_download(gateway, attachment, &mut images, &mut failure_notices).await;
+                handle_image_download(downloader, attachment, &mut images, &mut failure_notices)
+                    .await;
             } else {
                 tracing::info!(
                     name = %attachment.name,
@@ -41,7 +100,7 @@ pub async fn collect_media_for_turn(
             }
         } else if attachment.mime_type.starts_with("audio/") {
             handle_audio(
-                gateway,
+                downloader,
                 attachment,
                 &mut audio_summaries,
                 &mut failure_notices,
@@ -51,7 +110,7 @@ pub async fn collect_media_for_turn(
             || mime_is_textual_extension(&attachment.name)
         {
             handle_text_file_download(
-                gateway,
+                downloader,
                 attachment,
                 true,
                 102_400,
@@ -75,12 +134,12 @@ pub async fn collect_media_for_turn(
 }
 
 async fn handle_image_download(
-    gateway: &dyn ChannelGateway,
+    downloader: &dyn AttachmentDownloader,
     attachment: &Attachment,
     images: &mut Vec<(String, Vec<u8>)>,
     failure_notices: &mut Vec<String>,
 ) {
-    match gateway.download_attachment(attachment).await {
+    match downloader.download_attachment(attachment).await {
         Ok(bytes) if bytes.len() <= MAX_IMAGE_BYTES => {
             info!(name = %attachment.name, size = bytes.len(), "downloaded image for vision");
             images.push((attachment.mime_type.clone(), bytes));
@@ -100,12 +159,12 @@ async fn handle_image_download(
 }
 
 async fn handle_audio(
-    gateway: &dyn ChannelGateway,
+    downloader: &dyn AttachmentDownloader,
     attachment: &Attachment,
     audio_summaries: &mut Vec<String>,
     failure_notices: &mut Vec<String>,
 ) {
-    match gateway.download_attachment(attachment).await {
+    match downloader.download_attachment(attachment).await {
         Ok(bytes) => {
             audio_summaries.push(format!(
                 "{} ({}, {} bytes) — audio cannot be transcribed by the current model",
@@ -125,7 +184,7 @@ async fn handle_audio(
 }
 
 async fn handle_text_file_download(
-    gateway: &dyn ChannelGateway,
+    downloader: &dyn AttachmentDownloader,
     attachment: &Attachment,
     inlining_enabled: bool,
     max_bytes: u64,
@@ -137,7 +196,7 @@ async fn handle_text_file_download(
         document_summaries.push(format_document_summary(attachment));
         return;
     }
-    match gateway.download_attachment(attachment).await {
+    match downloader.download_attachment(attachment).await {
         Ok(bytes) if (bytes.len() as u64) <= max_bytes => match String::from_utf8(bytes) {
             Ok(text) => {
                 info!(name = %attachment.name, chars = text.len(), "inlined text file");

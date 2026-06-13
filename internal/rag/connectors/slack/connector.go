@@ -15,16 +15,16 @@ const Kind = "slack"
 
 var (
 	_ interfaces.CheckpointedConnector[SlackCheckpoint] = (*SlackConnector)(nil)
-	_ interfaces.PermSyncConnector                       = (*SlackConnector)(nil)
-	_ interfaces.SlimConnector                           = (*SlackConnector)(nil)
+	_ interfaces.PermSyncConnector                      = (*SlackConnector)(nil)
+	_ interfaces.SlimConnector                          = (*SlackConnector)(nil)
 )
 
 // SlackConnector indexes Slack workspace messages via Nango-proxied
 // Slack API calls. Only channels where the bot is already a member
 // (is_member=true) are indexed — no automatic join is performed.
 type SlackConnector struct {
-	cfg    SlackConfig
-	api    slackAPIClient
+	cfg       SlackConfig
+	api       slackAPIClient
 	userCache *userCache
 	cleaner   *SlackTextCleaner
 
@@ -32,8 +32,8 @@ type SlackConnector struct {
 	includeBots  bool
 	workspaceURL string
 
-	ctx       context.Context
-	finalCp   atomic.Pointer[SlackCheckpoint]
+	ctx     context.Context
+	finalCp atomic.Pointer[SlackCheckpoint]
 
 	memberChannels []SlackChannel
 }
@@ -43,11 +43,11 @@ func NewConnector(cfg SlackConfig, nangoClient *nango.Client, providerConfigKey,
 	uc := newUserCache()
 	cleaner := newTextCleaner(proxy, uc)
 	return &SlackConnector{
-		cfg:        cfg,
-		api:        proxy,
-		userCache:  uc,
-		cleaner:    cleaner,
-		channelBuf: maxSlackPageSize * 2,
+		cfg:         cfg,
+		api:         proxy,
+		userCache:   uc,
+		cleaner:     cleaner,
+		channelBuf:  maxSlackPageSize * 2,
 		includeBots: cfg.IncludeBotMessages,
 	}
 }

@@ -142,7 +142,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: build and push employee runtime image
+      - name: build and push default runtime image
         uses: useblacksmith/build-push-action@v2
         with:
           context: sandboxes/runtime
@@ -160,16 +160,16 @@ jobs:
             org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
 
-      - name: build and push specialist runtime image
+      - name: build and push developers runtime image
         uses: useblacksmith/build-push-action@v2
         with:
           context: sandboxes/runtime
-          file: sandboxes/runtime/Dockerfile.specialist
+          file: sandboxes/runtime/Dockerfile.developers
           platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}
-            ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}
+            ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}
+            ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}
           build-args: |
             VERSION=${{ needs.prepare.outputs.tag }}
             COMMIT=${{ needs.prepare.outputs.commit }}
@@ -204,8 +204,8 @@ jobs:
         shell: bash
         run: |
           employee="ghcr.io/usehivy/hivy-sandboxes-runtime"
-          specialist="ghcr.io/usehivy/hivy-sandboxes-runtime-specialist"
-          for image in "$employee" "$specialist"; do
+          developers="ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
+          for image in "$employee" "$developers"; do
             docker buildx imagetools create \
               -t "${image}:${{ needs.prepare.outputs.tag }}" \
               "${image}:${{ needs.prepare.outputs.tag }}-amd64" \

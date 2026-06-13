@@ -111,7 +111,7 @@ func (h *SandboxLifecycleHandler) Handle(ctx context.Context, _ *asynq.Task) err
 }
 
 // SandboxReapHandler releases leaked paid compute the inline cleanup missed
-// (worker death mid-provision, idle specialists, stranded warm slots).
+// (worker death mid-provision and stranded warm slots).
 type SandboxReapHandler struct {
 	orchestrator *sandbox.Orchestrator
 }

@@ -76,10 +76,6 @@ func TestIntegration_EmployeesList_HappyPath_LoadsAllRelations(t *testing.T) {
 	if item["id"] != emp.ID.String() {
 		t.Errorf("id mismatch: got %v", item["id"])
 	}
-	specialists := item["specialists"].([]any)
-	if len(specialists) != 2 {
-		t.Errorf("specialists len = %d, want 2", len(specialists))
-	}
 
 	attached := item["attached_skills"].([]any)
 	if len(attached) != 1 {
@@ -123,12 +119,9 @@ func TestIntegration_EmployeesList_ReportsSandboxUpgradeAvailability(t *testing.
 	outdatedSandbox := h.seedSandbox(t, m, outdated.ID)
 	outdatedSnapshot := "ghcr.io/usehivy/hivy-sandboxes-runtime:v0.0.1"
 	h.setSandboxSnapshot(t, outdatedSandbox.ID, &outdatedSnapshot)
-	shadowSpecialistSandbox := h.seedSandbox(t, m, outdated.ID)
-	h.setSandboxSnapshot(t, shadowSpecialistSandbox.ID, &h.cfg.SandboxesRuntimeSpecialistImage)
-
-	legacy := h.seedEmployeeAgent(t, m)
-	legacySandbox := h.seedSandbox(t, m, legacy.ID)
-	h.setSandboxSnapshot(t, legacySandbox.ID, nil)
+	missingSnapshot := h.seedEmployeeAgent(t, m)
+	missingSnapshotSandbox := h.seedSandbox(t, m, missingSnapshot.ID)
+	h.setSandboxSnapshot(t, missingSnapshotSandbox.ID, nil)
 
 	rr := h.listEmployees(t, m)
 	if rr.Code != http.StatusOK {
@@ -167,8 +160,8 @@ func TestIntegration_EmployeesList_ReportsSandboxUpgradeAvailability(t *testing.
 	if selectedSandboxID[outdated.ID.String()] != outdatedSandbox.ID.String() {
 		t.Errorf("outdated selected sandbox = %s, want %s", selectedSandboxID[outdated.ID.String()], outdatedSandbox.ID)
 	}
-	if !got[legacy.ID.String()] {
-		t.Errorf("legacy sandbox upgrade_available = false, want true")
+	if !got[missingSnapshot.ID.String()] {
+		t.Errorf("missing snapshot upgrade_available = false, want true")
 	}
 }
 

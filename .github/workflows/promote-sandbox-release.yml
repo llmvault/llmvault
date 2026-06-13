@@ -19,12 +19,12 @@ on:
           - large
           - xlarge
       runtime:
-        description: Register employee runtime snapshots
+        description: Register default runtime snapshots
         required: true
         default: true
         type: boolean
-      specialist:
-        description: Register specialist runtime snapshots
+      developers:
+        description: Register developers runtime snapshots
         required: true
         default: true
         type: boolean
@@ -39,11 +39,11 @@ on:
         required: true
         type: string
       runtime:
-        description: Register employee runtime snapshots
+        description: Register default runtime snapshots
         required: true
         type: boolean
-      specialist:
-        description: Register specialist runtime snapshots
+      developers:
+        description: Register developers runtime snapshots
         required: true
         type: boolean
 
@@ -73,16 +73,16 @@ jobs:
         id: version
         run: ./scripts/release/derive-version.sh "${{ inputs.tag }}" "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: register employee runtime snapshots
+      - name: register default runtime snapshots
         if: inputs.runtime
         run: |
           go run ./cmd/buildtemplates sandbox-runtime \
             -version="${{ steps.version.outputs.RELEASE_TAG }}" \
             -size="${{ inputs.size }}"
 
-      - name: register specialist runtime snapshots
-        if: inputs.specialist
+      - name: register developers runtime snapshots
+        if: inputs.developers
         run: |
-          go run ./cmd/buildtemplates sandbox-runtime-specialist \
+          go run ./cmd/buildtemplates sandbox-runtime-developers \
             -version="${{ steps.version.outputs.RELEASE_TAG }}" \
             -size="${{ inputs.size }}"

@@ -22,7 +22,7 @@ type compiledTriggerMessage struct {
 	Raw            map[string]any
 }
 
-func (h *EmployeeTriggerDispatchHandler) compileMessage(payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, webhookPayload map[string]any, recentTasks triggerRecentSpecialistTasks) compiledTriggerMessage {
+func (h *EmployeeTriggerDispatchHandler) compileMessage(payload EmployeeTriggerDispatchPayload, trigger model.EmployeeTrigger, webhookPayload map[string]any) compiledTriggerMessage {
 	triggerType := trigger.TriggerType
 	if triggerType == "" {
 		triggerType = "webhook"
@@ -71,7 +71,6 @@ func (h *EmployeeTriggerDispatchHandler) compileMessage(payload EmployeeTriggerD
 		b.WriteString("\nSummary:\n")
 		writeMap(&b, summaryRefs)
 	}
-	writeRecentSpecialistTasks(&b, recentTasks)
 	if triggerType == "http" && len(webhookPayload) > 0 {
 		b.WriteString("\nHTTP payload:\n")
 		encoded, _ := json.MarshalIndent(webhookPayload, "", "  ")
@@ -187,42 +186,4 @@ func writeMap(b *strings.Builder, values map[string]string) {
 	for _, key := range keys {
 		writeKV(b, key, values[key])
 	}
-}
-
-func writeRecentSpecialistTasks(b *strings.Builder, recentTasks triggerRecentSpecialistTasks) {
-	if !recentTasks.Attached {
-		return
-	}
-	b.WriteString("\nRecent software engineering specialist tasks:\n")
-	b.WriteString("Use this list before creating duplicate specialist work. ")
-	b.WriteString("Call specialist_task_status with a listed task_id for more detail. ")
-	b.WriteString("If the relevant work is older or missing, use search_sessions before deciding.\n")
-	if len(recentTasks.Tasks) == 0 {
-		b.WriteString("- none created in the past 7 days\n")
-		return
-	}
-	for _, task := range recentTasks.Tasks {
-		b.WriteString("- task_id: ")
-		b.WriteString(task.ID.String())
-		b.WriteByte('\n')
-		writeIndentedKV(b, "status", task.Status)
-		writeIndentedKV(b, "created_at", task.CreatedAt.UTC().Format(time.RFC3339))
-		writeIndentedKV(b, "updated_at", task.UpdatedAt.UTC().Format(time.RFC3339))
-		writeIndentedKV(b, "brief", compactTriggerText(task.Brief, 320))
-		if task.LastActivityAt != nil {
-			writeIndentedKV(b, "last_activity_at", task.LastActivityAt.UTC().Format(time.RFC3339))
-		}
-		writeIndentedKV(b, "last_activity", task.LastActivity)
-	}
-}
-
-func writeIndentedKV(b *strings.Builder, key, value string) {
-	if strings.TrimSpace(value) == "" {
-		return
-	}
-	b.WriteString("  ")
-	b.WriteString(key)
-	b.WriteString(": ")
-	b.WriteString(value)
-	b.WriteByte('\n')
 }

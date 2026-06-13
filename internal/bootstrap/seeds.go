@@ -13,7 +13,6 @@ import (
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/skills"
-	"github.com/usehivy/hivy/internal/specialists"
 )
 
 func seedGlobalSkills(ctx context.Context, database *gorm.DB) error {
@@ -55,19 +54,4 @@ func seedGlobalPlans(ctx context.Context, database *gorm.DB) error {
 		"unchanged", result.Unchanged,
 	)
 	return nil
-}
-
-func loadGlobalSpecialists(ctx context.Context, database *gorm.DB) (*specialists.Catalog, error) {
-	cat, err := specialists.Load("global/specialists")
-	if err != nil {
-		return nil, fmt.Errorf("loading global specialists: %w", err)
-	}
-	if err := cat.ValidateSkillNames(ctx, database); err != nil {
-		return nil, fmt.Errorf("validating global specialists: %w", err)
-	}
-	logging.FromContext(ctx).InfoContext(ctx, "global specialists loaded",
-		"count", len(cat.List()),
-		"auto_attach", len(cat.AutoAttachSlugs()),
-	)
-	return cat, nil
 }

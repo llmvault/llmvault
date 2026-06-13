@@ -31,7 +31,7 @@ func TestServiceHandleRuntimeFinalSendsSlackConnectionReply(t *testing.T) {
 		TurnID:           "turn-after-wake",
 		ChannelID:        "C123",
 		ThreadID:         "1780835661.752449",
-		Text:             "Specialist finished the report.",
+		Text:             "The report is finished.",
 	})
 	if err != nil {
 		t.Fatalf("handle slack runtime final: %v", err)

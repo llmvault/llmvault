@@ -21,7 +21,6 @@ type Service struct {
 	adapters                    map[string]Adapter
 	preload                     precontext.Builder
 	employeeRuntimeImage        string
-	specialistRuntimeImage      string
 	onSessionCreated            func(context.Context, model.EmployeeSession, string, string)
 	onConnectionInboundAccepted func(context.Context, ConnectionInboundAccepted)
 	now                         func() time.Time
@@ -45,9 +44,8 @@ func (s *Service) SetPreContextBuilder(builder precontext.Builder) {
 	s.preload = builder
 }
 
-func (s *Service) SetRuntimeImages(employeeImage, specialistImage string) {
+func (s *Service) SetRuntimeImages(employeeImage string) {
 	s.employeeRuntimeImage = strings.TrimSpace(employeeImage)
-	s.specialistRuntimeImage = strings.TrimSpace(specialistImage)
 }
 
 func (s *Service) SetSessionCreatedHook(hook func(context.Context, model.EmployeeSession, string, string)) {

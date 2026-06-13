@@ -14,9 +14,9 @@ import (
 	"github.com/usehivy/hivy/internal/trigger/hivy"
 )
 
-// EnrichmentAgent gathers context for webhook-triggered specialist employees.
+// EnrichmentAgent gathers context for webhook-triggered agents.
 // It calls fetch() to execute real API calls via the Nango proxy, sees results
-// in real-time, chains cross-platform lookups, and composes the specialist's
+// in real-time, chains cross-platform lookups, and composes the target agent's
 // first message via compose().
 type EnrichmentAgent struct {
 	nangoClient *nango.Client

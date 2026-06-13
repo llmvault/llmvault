@@ -3,7 +3,7 @@
 // Usage:
 //
 //	buildtemplates sandbox-runtime -version=v0.0.1              [-size=...]
-//	buildtemplates sandbox-runtime-specialist -version=v0.0.1   [-size=...]
+//	buildtemplates sandbox-runtime-developers -version=v0.0.1   [-size=...]
 package main
 
 import (
@@ -26,9 +26,9 @@ func main() {
 
 	switch target {
 	case "sandbox-runtime":
-		runSandboxRuntime(ctx, args, runtimeEmployeeVariant)
-	case "sandbox-runtime-specialist":
-		runSandboxRuntime(ctx, args, runtimeSpecialistVariant)
+		runSandboxRuntime(ctx, args, runtimeDefaultVariant)
+	case "sandbox-runtime-developers":
+		runSandboxRuntime(ctx, args, runtimeDevelopersVariant)
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -41,5 +41,5 @@ func main() {
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
   buildtemplates sandbox-runtime -version=v0.0.1              [-size=all|small,medium,large,xlarge]
-  buildtemplates sandbox-runtime-specialist -version=v0.0.1   [-size=all|small,medium,large,xlarge]`)
+  buildtemplates sandbox-runtime-developers -version=v0.0.1   [-size=all|small,medium,large,xlarge]`)
 }

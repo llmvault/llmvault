@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/employeeruntime"
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -62,15 +62,24 @@ func (h *EmployeeHandler) webSessionForMessage(ctx context.Context, orgID, emplo
 	return session, conversationID, true, nil
 }
 
-func (h *EmployeeHandler) runtimeClientForSession(ctx context.Context, session model.EmployeeSession) (*employeeruntime.Client, error) {
+func (h *EmployeeHandler) runtimeClientForSession(ctx context.Context, session model.EmployeeSession) (*agentruntime.Client, error) {
+	client, _, err := h.runtimeClientAndSandboxForSession(ctx, session)
+	return client, err
+}
+
+func (h *EmployeeHandler) runtimeClientAndSandboxForSession(ctx context.Context, session model.EmployeeSession) (*agentruntime.Client, model.Sandbox, error) {
 	if h.orchestrator == nil {
-		return nil, fmt.Errorf("employee runtime is not configured")
+		return nil, model.Sandbox{}, fmt.Errorf("employee runtime is not configured")
 	}
 	var sb model.Sandbox
 	if err := h.db.WithContext(ctx).Where("id = ?", session.SandboxID).First(&sb).Error; err != nil {
-		return nil, fmt.Errorf("load employee session sandbox: %w", err)
+		return nil, model.Sandbox{}, fmt.Errorf("load employee session sandbox: %w", err)
 	}
-	return h.orchestrator.GetRuntimeClient(ctx, &sb)
+	client, err := h.orchestrator.GetRuntimeClient(ctx, &sb)
+	if err != nil {
+		return nil, model.Sandbox{}, err
+	}
+	return client, sb, nil
 }
 
 func (h *EmployeeHandler) loadActiveEmployee(ctx context.Context, orgID, employeeID uuid.UUID, w http.ResponseWriter) (model.Employee, bool) {

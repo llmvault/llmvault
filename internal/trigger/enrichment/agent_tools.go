@@ -43,11 +43,11 @@ func buildEnrichmentToolDefs(connections []hivy.ConnectionWithActions) []hivy.To
 		},
 		{
 			Name:        "compose",
-			Description: "Write the specialist agent's first message. Call this after gathering all needed context. The message should be structured markdown summarizing the event and all fetched context.",
+			Description: "Write the target agent's first message. Call this after gathering all needed context. The message should be structured markdown summarizing the event and all fetched context.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"message": {"type": "string", "description": "Markdown message for the specialist agent"}
+					"message": {"type": "string", "description": "Markdown message for the target agent"}
 				},
 				"required": ["message"]
 			}`),

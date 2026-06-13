@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/usehivy/hivy/internal/employeesandbox"
+	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -126,11 +126,10 @@ func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeG
 	return session, conversationID, created, nil
 }
 
-func (s *Service) employeeSandboxSelector() employeesandbox.Selector {
-	return employeesandbox.Selector{
-		DB:                     s.db,
-		EmployeeRuntimeImage:   s.employeeRuntimeImage,
-		SpecialistRuntimeImage: s.specialistRuntimeImage,
+func (s *Service) employeeSandboxSelector() agentsandbox.Selector {
+	return agentsandbox.Selector{
+		DB:                   s.db,
+		EmployeeRuntimeImage: s.employeeRuntimeImage,
 	}
 }
 

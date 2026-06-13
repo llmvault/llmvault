@@ -56,8 +56,8 @@ jobs:
         shell: bash
         run: |
           employee="ghcr.io/usehivy/hivy-sandboxes-runtime"
-          specialist="ghcr.io/usehivy/hivy-sandboxes-runtime-specialist"
-          for image in "$employee" "$specialist"; do
+          developers="ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
+          for image in "$employee" "$developers"; do
             docker buildx imagetools create \
               -t "${image}:${{ steps.version.outputs.RELEASE_TAG }}" \
               "${image}:${{ steps.version.outputs.RELEASE_TAG }}-amd64" \

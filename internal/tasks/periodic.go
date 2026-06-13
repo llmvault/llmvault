@@ -101,7 +101,7 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 		})
 
 		// Sandbox reaper: releases leaked paid compute the inline cleanup missed
-		// (stuck creating/error, idle specialists, stranded warm slots).
+		// (stuck creating/error and stranded warm slots).
 		configs = append(configs, &asynq.PeriodicTaskConfig{
 			Cronspec: "@every 5m",
 			Task:     asynq.NewTask(TypeSandboxReap, nil),
@@ -128,8 +128,7 @@ func sandboxPeriodicTasksConfigured(cfg *config.Config) bool {
 	case sandbox.ProviderDocker:
 		return strings.TrimSpace(cfg.SandboxDockerPublicHost) != ""
 	case sandbox.ProviderDaytona:
-		return strings.TrimSpace(cfg.DaytonaAPIKey) != "" &&
-			strings.TrimSpace(cfg.SpecialistSandboxRuntimeVersion) != ""
+		return strings.TrimSpace(cfg.DaytonaAPIKey) != ""
 	case sandbox.ProviderRailway:
 		return strings.TrimSpace(cfg.RailwayAPIToken) != "" &&
 			strings.TrimSpace(cfg.RailwayProjectID) != "" &&

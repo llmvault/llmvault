@@ -127,7 +127,7 @@ fn kind_to_str(kind: EventKind) -> &'static str {
         EventKind::ToolCall => "tool_call",
         EventKind::ToolResult => "tool_result",
         EventKind::RunEvent => "run_event",
-        EventKind::SpecialistEvent => "specialist_event",
+        EventKind::SubagentEvent => "subagent_event",
         EventKind::Error => "error",
     }
 }
@@ -138,7 +138,7 @@ fn searchable_content(kind: EventKind, payload: &Value) -> Option<String> {
             message_text(payload)
         }
         EventKind::ToolCall => tool_call_summary(payload),
-        EventKind::RunEvent | EventKind::SpecialistEvent | EventKind::Error => None,
+        EventKind::RunEvent | EventKind::SubagentEvent | EventKind::Error => None,
     }
 }
 

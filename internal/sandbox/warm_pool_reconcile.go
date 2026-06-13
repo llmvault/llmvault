@@ -231,9 +231,6 @@ func (p *WarmPool) deleteStaleAvailableSlots(ctx context.Context, mode, image st
 }
 
 func (p *WarmPool) runtimeImage(mode string) string {
-	if mode == model.SandboxWarmSlotModeSpecialist {
-		return strings.TrimSpace(p.cfg.SandboxesRuntimeSpecialistImage)
-	}
 	return strings.TrimSpace(p.cfg.SandboxesRuntimeBaseImage)
 }
 

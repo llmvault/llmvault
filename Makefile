@@ -1,5 +1,5 @@
-.PHONY: build test test-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates build-sandbox-runtime-specialist-templates employee-env-doctor employee-debug-pack employee-eval test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek
-.PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-specialist-image sandbox-runtime-specialist-image-amd64 sandbox-runtime-specialist-image-arm64 sandbox-runtime-image-test
+.PHONY: build test test-e2e test-agent-runtime-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates employee-env-doctor employee-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek
+.PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -12,7 +12,6 @@ SANDBOX_RUNTIME_LINUX_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LI
 SANDBOX_RUNTIME_LINUX_AMD64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_AMD64_TARGET)
 SANDBOX_RUNTIME_LINUX_ARM64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_ARM64_TARGET)
 SANDBOX_RUNTIME_IMAGE ?= hivy-sandboxes-runtime:runtime
-SANDBOX_RUNTIME_SPECIALIST_IMAGE ?= hivy-sandboxes-runtime-specialist:latest
 GO_BIN ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /opt/homebrew/bin/go ]; then echo /opt/homebrew/bin/go; elif [ -x /usr/local/go/bin/go ]; then echo /usr/local/go/bin/go; else echo go; fi)
 DEV_COMPOSE_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight api worker proxy web
 DEV_INFRA_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight
@@ -23,6 +22,7 @@ TEST_REDIS_ADDR ?= localhost:$(or $(HIVY_COMPOSE_REDIS_PORT),16279)
 TEST_ENV = DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_REDIS_ADDR="$(TEST_REDIS_ADDR)"
 HANDLER_TEST_SHARDS ?= 8
 HANDLER_TEST_TIMEOUT ?= 5m
+AGENT_RUNTIME_E2E_TIMEOUT ?= 5m
 SHARD_INDEX ?= 0
 SHARD_TOTAL ?= 1
 RACE ?= 0
@@ -68,10 +68,6 @@ build-sandbox-runtime-templates:
 	@test -n "$(SANDBOX_RUNTIME_VERSION)" || (echo "error: SANDBOX_RUNTIME_VERSION is required (e.g. make build-sandbox-runtime-templates SANDBOX_RUNTIME_VERSION=v0.0.1)" && exit 1)
 	env $$(grep -v '^\s*\#' .env | grep -v '^\s*$$' | xargs) go run ./cmd/buildtemplates sandbox-runtime -version=$(SANDBOX_RUNTIME_VERSION) -size=$(or $(SIZE),all)
 
-build-sandbox-runtime-specialist-templates:
-	@test -n "$(SANDBOX_RUNTIME_VERSION)" || (echo "error: SANDBOX_RUNTIME_VERSION is required (e.g. make build-sandbox-runtime-specialist-templates SANDBOX_RUNTIME_VERSION=v0.0.1)" && exit 1)
-	env $$(grep -v '^\s*\#' .env | grep -v '^\s*$$' | xargs) go run ./cmd/buildtemplates sandbox-runtime-specialist -version=$(SANDBOX_RUNTIME_VERSION) -size=$(or $(SIZE),all)
-
 # Inspect a running employee sandbox's process env using the redacted doctor.
 # Usage: make employee-env-doctor SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b
 #        make employee-env-doctor SANDBOX_ID=... DOCTOR_SENSITIVE=1
@@ -80,21 +76,6 @@ DOCTOR_INCLUDE_UNEXPECTED ?= 1
 DOCTOR_SENSITIVE ?= 0
 DOCTOR_ENV_FILE ?= .env
 DOCTOR_PID ?=
-EVAL_SUITE ?= evals/employee-delegation-v1.yaml
-EVAL_MODELS ?=
-EVAL_RUNS ?= 1
-EVAL_PARALLEL ?= 6
-EVAL_API_URL ?= http://localhost:8080
-EVAL_OUT ?=
-EVAL_JUDGE_MODEL ?= gpt-4o-mini
-EVAL_VERBOSE ?= true
-EVAL_DB_HOST ?= localhost
-EVAL_DB_PORT ?= 5433
-EVAL_REDIS_ADDR ?= localhost:16279
-EVAL_NANGO_ENDPOINT ?= http://localhost:23003
-EVAL_NANGO_SECRET_KEY ?=
-EVAL_HINDSIGHT_API_URL ?= http://localhost:8888
-EVAL_S3_ENDPOINT ?= http://localhost:9000
 employee-env-doctor:
 	@test -n "$(SANDBOX_ID)" || (echo "error: SANDBOX_ID is required (e.g. make employee-env-doctor SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b)" && exit 1)
 	@flags="-id $(SANDBOX_ID) -json=$(DOCTOR_JSON) -env-file=$(DOCTOR_ENV_FILE)"; \
@@ -116,26 +97,6 @@ employee-debug-pack:
 	@flags="-id $(SANDBOX_ID) -env-file=$(DEBUG_ENV_FILE) -local-dir=$(DEBUG_LOCAL_DIR) -timeout=$(DEBUG_TIMEOUT)"; \
 	if [ "$(DEBUG_SENSITIVE)" = "1" ]; then flags="$$flags --sensitive"; fi; \
 	go run ./cmd/employee-debug-pack $$flags
-
-employee-eval:
-	@flags="-suite $(EVAL_SUITE) -runs $(EVAL_RUNS) -parallel $(EVAL_PARALLEL) -api-url $(EVAL_API_URL) -judge-model $(EVAL_JUDGE_MODEL) -verbose=$(EVAL_VERBOSE)"; \
-	if [ -n "$(EVAL_MODELS)" ]; then flags="$$flags -models $(EVAL_MODELS)"; fi; \
-	if [ -n "$(EVAL_OUT)" ]; then flags="$$flags -out $(EVAL_OUT)"; fi; \
-	set -a; . ./.env; set +a; \
-	nango_secret="$(EVAL_NANGO_SECRET_KEY)"; \
-	if [ -z "$$nango_secret" ]; then \
-		nango_secret="$$(docker compose exec -T postgres psql -U hivy -d nango -Atc "SELECT secret_key FROM nango._nango_environments WHERE name='prod' LIMIT 1" 2>/dev/null || true)"; \
-	fi; \
-	if [ -z "$$nango_secret" ]; then nango_secret="$$HIVY_NANGO_SECRET_KEY"; fi; \
-	HIVY_DB_HOST="$(EVAL_DB_HOST)" \
-	HIVY_DB_PORT="$(EVAL_DB_PORT)" \
-	HIVY_REDIS_ADDR="$(EVAL_REDIS_ADDR)" \
-	HIVY_NANGO_ENDPOINT="$(EVAL_NANGO_ENDPOINT)" \
-	HIVY_NANGO_SECRET_KEY="$$nango_secret" \
-	HIVY_HINDSIGHT_API_URL="$(EVAL_HINDSIGHT_API_URL)" \
-	HIVY_AWS_ENDPOINT_URL="$(EVAL_S3_ENDPOINT)" \
-	HIVY_PUBLIC_ASSETS_S3_ENDPOINT="$(EVAL_S3_ENDPOINT)" \
-	go run ./cmd/employee-eval $$flags
 
 # Generate Bridge Go client from OpenAPI spec.
 # Bridge emits OpenAPI 3.1 schemas oapi-codegen can't handle:
@@ -206,15 +167,6 @@ sandbox-runtime-image-amd64: sandbox-runtime-linux-build-amd64
 sandbox-runtime-image-arm64: sandbox-runtime-linux-build-arm64
 	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_ARM64_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)-arm64" scripts/build_runtime_image.sh
 
-sandbox-runtime-specialist-image: sandbox-runtime-linux-build
-	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_BINARY)" HIVY_SANDBOXES_RUNTIME_DOCKERFILE="Dockerfile.specialist" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_SPECIALIST_IMAGE)" scripts/build_runtime_image.sh
-
-sandbox-runtime-specialist-image-amd64: sandbox-runtime-linux-build-amd64
-	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_AMD64_BINARY)" HIVY_SANDBOXES_RUNTIME_DOCKERFILE="Dockerfile.specialist" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_SPECIALIST_IMAGE)-amd64" scripts/build_runtime_image.sh
-
-sandbox-runtime-specialist-image-arm64: sandbox-runtime-linux-build-arm64
-	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_ARM64_BINARY)" HIVY_SANDBOXES_RUNTIME_DOCKERFILE="Dockerfile.specialist" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_SPECIALIST_IMAGE)-arm64" scripts/build_runtime_image.sh
-
 sandbox-runtime-image-test:
 	cd $(SANDBOX_RUNTIME_DIR) && scripts/test_runtime_image.sh
 
@@ -235,6 +187,11 @@ test:
 # Run e2e tests (requires docker-compose stack running)
 test-e2e:
 	$(TEST_ENV) go test ./e2e/... -v -count=1 -timeout=5m
+
+# Run the live Docker-backed agent runtime E2E suite.
+# Optional: set HIVY_AGENT_RUNTIME_E2E_IMAGE=<tag> to reuse a prebuilt image.
+test-agent-runtime-e2e:
+	$(TEST_ENV) HIVY_AGENT_RUNTIME_E2E=1 HIVY_AGENT_RUNTIME_E2E_TRACE_COMPACT=1 $(GO_BIN) test ./e2e -run 'TestAgentRuntime.*E2E' -count=1 -timeout=$(AGENT_RUNTIME_E2E_TIMEOUT) -v
 
 # Run internal/handler tests split across stable parallel shards.
 test-handler-sharded:

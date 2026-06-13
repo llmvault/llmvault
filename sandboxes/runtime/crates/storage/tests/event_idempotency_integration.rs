@@ -9,7 +9,7 @@ static DB_COUNTER: AtomicU64 = AtomicU64::new(0);
 async fn idempotent_event_append_is_enforced_by_sqlite() {
     let unique = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
     let db_path = std::env::temp_dir().join(format!(
-        "employee-event-idempotency-{}-{unique}.db",
+        "agent-event-idempotency-{}-{unique}.db",
         std::process::id()
     ));
     let store = init_sqlite_store(&db_path, None)
@@ -22,9 +22,6 @@ async fn idempotent_event_append_is_enforced_by_sqlite() {
     sessions
         .create(&Session {
             id: session_id.clone(),
-            channel: "http".to_string(),
-            thread_ts: "thread-1".to_string(),
-            agent_session_id: "session-1".to_string(),
             status: SessionStatus::Active,
             created_at: now,
             last_activity_at: now,
@@ -35,18 +32,18 @@ async fn idempotent_event_append_is_enforced_by_sqlite() {
     let first = events
         .append_idempotent(
             &session_id,
-            EventKind::SpecialistEvent,
+            EventKind::SubagentEvent,
             serde_json::json!({"event_id": "event-1", "attempt": 1}),
-            "specialist-callback:task-1:event-1",
+            "subagent-callback:task-1:event-1",
         )
         .await
         .expect("first append");
     let duplicate = events
         .append_idempotent(
             &session_id,
-            EventKind::SpecialistEvent,
+            EventKind::SubagentEvent,
             serde_json::json!({"event_id": "event-1", "attempt": 2}),
-            "specialist-callback:task-1:event-1",
+            "subagent-callback:task-1:event-1",
         )
         .await
         .expect("duplicate append");

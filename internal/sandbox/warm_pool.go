@@ -44,8 +44,6 @@ func (p *WarmPool) DesiredCount(mode string) int {
 	switch mode {
 	case model.SandboxWarmSlotModeEmployee:
 		return p.cfg.SandboxWarmPoolEmployeeSize
-	case model.SandboxWarmSlotModeSpecialist:
-		return p.cfg.SandboxWarmPoolSpecialistSize
 	default:
 		return 0
 	}

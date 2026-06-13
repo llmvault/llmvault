@@ -117,8 +117,8 @@ pub fn build_builtin_tools(
                 );
             }
             ToolSpec::Cron
-            | ToolSpec::Delegate(_)
-            | ToolSpec::CheckDelegatedStatus
+            | ToolSpec::SubagentTask(_)
+            | ToolSpec::CheckSubagentTaskStatus
             | ToolSpec::CheckBashStatus
             | ToolSpec::Wake
             | ToolSpec::SearchSessions
