@@ -13,6 +13,7 @@ import (
 
 	"github.com/getsentry/sentry-go"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/control"
 	"github.com/usehivy/hivy/internal/microsandbox/db"
@@ -37,6 +38,9 @@ func main() {
 	}
 
 	cfg := config.Load()
+	logging.Init(cfg.LogLevel, cfg.LogFormat)
+	slog.Info("starting msb", "version", version, "commit", commit, "command", cmd)
+
 	if cfg.SentryDSN != "" {
 		if err := sentry.Init(sentry.ClientOptions{Dsn: cfg.SentryDSN, Environment: cfg.Environment}); err != nil {
 			slog.Error("sentry init failed", "error", err)
