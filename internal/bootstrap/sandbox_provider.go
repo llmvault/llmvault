@@ -9,6 +9,7 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/sandbox/daytona"
 	dockerprovider "github.com/usehivy/hivy/internal/sandbox/docker"
+	microsandboxprovider "github.com/usehivy/hivy/internal/sandbox/microsandbox"
 	railwayprovider "github.com/usehivy/hivy/internal/sandbox/railway"
 )
 
@@ -49,6 +50,20 @@ func newSandboxProvider(cfg *config.Config) (sandbox.Provider, error) {
 			EnvironmentID: cfg.RailwayEnvironmentID,
 			Region:        cfg.RailwayRegion,
 			RuntimePort:   cfg.RailwayRuntimePort,
+		})
+	case sandbox.ProviderMicrosandbox:
+		if strings.TrimSpace(cfg.MicrosandboxControlURL) == "" {
+			return nil, fmt.Errorf("%w: HIVY_MICROSANDBOX_CONTROL_URL is empty", errSandboxProviderNotConfigured)
+		}
+		if strings.TrimSpace(cfg.MicrosandboxControlAPIToken) == "" {
+			return nil, fmt.Errorf("%w: HIVY_MICROSANDBOX_CONTROL_API_TOKEN is empty", errSandboxProviderNotConfigured)
+		}
+		return microsandboxprovider.NewDriver(microsandboxprovider.Config{
+			ControlURL:          cfg.MicrosandboxControlURL,
+			APIToken:            cfg.MicrosandboxControlAPIToken,
+			DefaultPreviewPorts: cfg.MicrosandboxDefaultPreviewPorts,
+			RuntimePort:         sandbox.EmployeeSandboxPort,
+			RuntimeImage:        cfg.SandboxesRuntimeBaseImage,
 		})
 	default:
 		return nil, fmt.Errorf("unsupported HIVY_SANDBOX_PROVIDER_ID %q", providerID)

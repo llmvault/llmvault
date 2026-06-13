@@ -85,13 +85,16 @@ type Config struct {
 	SandboxDockerHost                 string `env:"HIVY_SANDBOX_DOCKER_HOST"`
 	SandboxDockerPublicHost           string `env:"HIVY_SANDBOX_DOCKER_PUBLIC_HOST"`
 	SandboxDockerContainerLabelPrefix string `env:"HIVY_SANDBOX_DOCKER_CONTAINER_LABEL_PREFIX" envDefault:"hivy"`
+	MicrosandboxControlURL            string `env:"HIVY_MICROSANDBOX_CONTROL_URL"`
+	MicrosandboxControlAPIToken       string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`
+	MicrosandboxDefaultPreviewPorts   []int  `env:"HIVY_MICROSANDBOX_DEFAULT_PREVIEW_PORTS" envSeparator:","`
 
-	RailwayAPIToken               string `env:"HIVY_RAILWAY_API_TOKEN"`
-	RailwayProjectID              string `env:"HIVY_RAILWAY_PROJECT_ID"`
-	RailwayEnvironmentID          string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
-	RailwayRegion                 string `env:"HIVY_RAILWAY_REGION"`
-	RailwayRuntimePort            int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
-	SandboxWarmPoolEmployeeSize int `env:"HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE" envDefault:"0"`
+	RailwayAPIToken             string `env:"HIVY_RAILWAY_API_TOKEN"`
+	RailwayProjectID            string `env:"HIVY_RAILWAY_PROJECT_ID"`
+	RailwayEnvironmentID        string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
+	RailwayRegion               string `env:"HIVY_RAILWAY_REGION"`
+	RailwayRuntimePort          int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
+	SandboxWarmPoolEmployeeSize int    `env:"HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE" envDefault:"0"`
 
 	DaytonaAPIURL string `env:"HIVY_DAYTONA_API_URL"`
 	DaytonaAPIKey string `env:"HIVY_DAYTONA_API_KEY"`
