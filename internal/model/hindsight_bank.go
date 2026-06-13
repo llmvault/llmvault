@@ -6,13 +6,13 @@ import (
 	"github.com/google/uuid"
 )
 
-// HindsightBank tracks which identities/employees have had their Hindsight memory bank
+// HindsightBank tracks which identities/agents have had their Hindsight memory bank
 // created and configured. Used for lazy bank provisioning and config change detection.
-// Banks are either identity-scoped (shared across employees) or employee-scoped (private).
+// Banks are either identity-scoped (shared across agents) or agent-scoped (private).
 type HindsightBank struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	EmployeeID *uuid.UUID `gorm:"type:uuid;index"`
-	Employee   *Employee  `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE"`
+	AgentID    *uuid.UUID `gorm:"type:uuid;index"`
+	Agent      *Agent     `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
 	BankID     string     `gorm:"not null;uniqueIndex"`
 	ConfigHash string     `gorm:"not null;default:''"` // SHA256 of applied MemoryConfig
 	CreatedAt  time.Time

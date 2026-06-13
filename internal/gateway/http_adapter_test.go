@@ -98,14 +98,14 @@ func TestHTTPAdapterSendResponsePostsMarkdownCallback(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	adapter := NewHTTPAdapter(server.Client())
-	route := model.EmployeeGatewayRoute{
+	route := model.AgentGatewayRoute{
 		ID:       uuid.New(),
 		Provider: HTTPProvider,
 		Config:   model.JSON{"response_url": server.URL},
 	}
 	payload, err := adapter.RenderResponse(t.Context(), AgentResponse{
 		Route: route,
-		EmployeeSession: model.EmployeeSession{
+		AgentSession: model.AgentSession{
 			SourceResourceKey: "http:" + route.ID.String() + ":thread-1",
 		},
 		ChannelID: route.ID.String(),
@@ -139,7 +139,7 @@ func TestHTTPAdapterSendResponseRejectsSSRFCallback(t *testing.T) {
 	t.Cleanup(func() { netguard.AllowLoopback = prev })
 
 	adapter := NewHTTPAdapter(nil)
-	route := model.EmployeeGatewayRoute{ID: uuid.New(), Provider: HTTPProvider}
+	route := model.AgentGatewayRoute{ID: uuid.New(), Provider: HTTPProvider}
 
 	for _, target := range []string{
 		"http://169.254.169.254/latest/meta-data/",

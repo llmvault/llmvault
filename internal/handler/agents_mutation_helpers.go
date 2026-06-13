@@ -1,0 +1,122 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/model"
+)
+
+func (h *AgentHandler) credentialIDForAgentModel(ctx context.Context, modelID string) (*uuid.UUID, error) {
+	modelID = strings.TrimSpace(modelID)
+	if err := h.validateAgentSelectableModel(ctx, modelID); err != nil {
+		return nil, err
+	}
+	cred, err := pickActiveSystemCredentialForModel(ctx, h.db, h.agentModelRegistry(), modelID)
+	if err != nil {
+		return nil, err
+	}
+	return &cred.ID, nil
+}
+
+func agentIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	agentID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid agent id"})
+		return uuid.Nil, false
+	}
+	return agentID, true
+}
+
+func cleanStringPtr(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+func optionalStringPtr(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func normalizeJSONPtr(value *model.JSON) model.JSON {
+	if value == nil || *value == nil {
+		return model.JSON{}
+	}
+	return *value
+}
+
+func normalizeMCPServersForRequest(w http.ResponseWriter, raw *json.RawMessage) (model.RawJSON, bool) {
+	if raw == nil || len(*raw) == 0 || string(*raw) == "null" {
+		return model.RawJSON("[]"), true
+	}
+	var servers []any
+	if err := json.Unmarshal(*raw, &servers); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "mcp_servers must be an array"})
+		return nil, false
+	}
+	clean, err := json.Marshal(servers)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid mcp_servers"})
+		return nil, false
+	}
+	return model.RawJSON(clean), true
+}
+
+func normalizeSandboxToolsForRequest(w http.ResponseWriter, value *[]string) ([]string, bool) {
+	if value == nil {
+		return nil, true
+	}
+	out := make([]string, 0, len(*value))
+	seen := map[string]bool{}
+	for _, item := range *value {
+		item = strings.TrimSpace(item)
+		if item == "" || seen[item] {
+			continue
+		}
+		seen[item] = true
+		out = append(out, item)
+	}
+	if invalid := model.ValidateSandboxTools(out); invalid != "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("invalid sandbox tool %q", invalid)})
+		return nil, false
+	}
+	return out, true
+}
+
+func normalizePermissionsForRequest(w http.ResponseWriter, value *model.JSON) (model.JSON, bool) {
+	permissions := normalizeJSONPtr(value)
+	for key := range permissions {
+		if !model.IsValidPermissionKey(key) {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("invalid permission key %q", key)})
+			return nil, false
+		}
+	}
+	return permissions, true
+}
+
+func parseOptionalUUIDForRequest(w http.ResponseWriter, value *string, field string) (*uuid.UUID, bool) {
+	raw := cleanStringPtr(value)
+	if raw == "" {
+		return nil, true
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: field + " must be a uuid"})
+		return nil, false
+	}
+	return &id, true
+}
+
+func isValidAgentSandboxStrategy(strategy string) bool {
+	return strategy == agentStrategyAlwaysOn || strategy == agentStrategyPerSession
+}

@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// scheduleTestFixture creates an org, employee, and the sandbox the schedule initially points at.
-func scheduleTestFixture(t *testing.T, db *gorm.DB) (model.Employee, model.Sandbox) {
+// scheduleTestFixture creates an org, agent, and the sandbox the schedule initially points at.
+func scheduleTestFixture(t *testing.T, db *gorm.DB) (model.Agent, model.Sandbox) {
 	t.Helper()
 	org := model.Org{Name: "Sched-" + uuid.NewString()}
 	if err := db.Create(&org).Error; err != nil {
@@ -20,11 +20,11 @@ func scheduleTestFixture(t *testing.T, db *gorm.DB) (model.Employee, model.Sandb
 	}
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
 
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
 		Name:          "Aria",
-		Model:         DefaultEmployeeModel,
+		Model:         DefaultAgentModel,
 		Tools:         model.JSON{},
 		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
@@ -40,7 +40,7 @@ func scheduleTestFixture(t *testing.T, db *gorm.DB) (model.Employee, model.Sandb
 	sb := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  &org.ID,
-		EmployeeID:             &agent.ID,
+		AgentID:                &agent.ID,
 		ProviderID:             "docker",
 		ExternalID:             "ext-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:7080",
@@ -53,13 +53,13 @@ func scheduleTestFixture(t *testing.T, db *gorm.DB) (model.Employee, model.Sandb
 	return agent, sb
 }
 
-func createSchedule(t *testing.T, db *gorm.DB, agent model.Employee, sandboxID uuid.UUID) model.EmployeeSchedule {
+func createSchedule(t *testing.T, db *gorm.DB, agent model.Agent, sandboxID uuid.UUID) model.AgentSchedule {
 	t.Helper()
 	next := time.Now().Add(time.Hour)
-	sched := model.EmployeeSchedule{
+	sched := model.AgentSchedule{
 		ID:           uuid.New(),
 		OrgID:        *agent.OrgID,
-		EmployeeID:   agent.ID,
+		AgentID:      agent.ID,
 		SandboxID:    &sandboxID,
 		RuntimeJobID: "cron-" + uuid.NewString(),
 		Status:       "active",
@@ -83,7 +83,7 @@ func TestBuildRuntimeSchedules_DoesNotRepointSandbox(t *testing.T) {
 	otherSb := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  agent.OrgID,
-		EmployeeID:             &agent.ID,
+		AgentID:                &agent.ID,
 		ProviderID:             "docker",
 		ExternalID:             "ext-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:7081",
@@ -102,7 +102,7 @@ func TestBuildRuntimeSchedules_DoesNotRepointSandbox(t *testing.T) {
 		t.Fatalf("expected 1 compiled schedule, got %d", len(schedules))
 	}
 
-	var reloaded model.EmployeeSchedule
+	var reloaded model.AgentSchedule
 	if err := db.Where("id = ?", sched.ID).First(&reloaded).Error; err != nil {
 		t.Fatalf("reload schedule: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestBuildRuntimeSchedules_DoesNotRepointSandbox(t *testing.T) {
 }
 
 // The explicit repoint path moves active/paused schedules onto the new sandbox.
-func TestRepointEmployeeSchedules_RepointsAfterPush(t *testing.T) {
+func TestRepointAgentSchedules_RepointsAfterPush(t *testing.T) {
 	db := connectCompileTestDB(t)
 	agent, origSb := scheduleTestFixture(t, db)
 	sched := createSchedule(t, db, agent, origSb.ID)
@@ -120,7 +120,7 @@ func TestRepointEmployeeSchedules_RepointsAfterPush(t *testing.T) {
 	newSb := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  agent.OrgID,
-		EmployeeID:             &agent.ID,
+		AgentID:                &agent.ID,
 		ProviderID:             "docker",
 		ExternalID:             "ext-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:7082",
@@ -131,16 +131,16 @@ func TestRepointEmployeeSchedules_RepointsAfterPush(t *testing.T) {
 		t.Fatalf("create new sandbox: %v", err)
 	}
 
-	if err := RepointEmployeeSchedules(context.Background(), db, &agent, &newSb); err != nil {
-		t.Fatalf("RepointEmployeeSchedules: %v", err)
+	if err := RepointAgentSchedules(context.Background(), db, &agent, &newSb); err != nil {
+		t.Fatalf("RepointAgentSchedules: %v", err)
 	}
 
-	var reloaded model.EmployeeSchedule
+	var reloaded model.AgentSchedule
 	if err := db.Where("id = ?", sched.ID).First(&reloaded).Error; err != nil {
 		t.Fatalf("reload schedule: %v", err)
 	}
 	if reloaded.SandboxID == nil || *reloaded.SandboxID != newSb.ID {
-		t.Fatalf("RepointEmployeeSchedules must repoint to new sandbox: got %v want %v", reloaded.SandboxID, newSb.ID)
+		t.Fatalf("RepointAgentSchedules must repoint to new sandbox: got %v want %v", reloaded.SandboxID, newSb.ID)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestSandboxDelete_SetsScheduleSandboxNull(t *testing.T) {
 		t.Fatalf("delete sandbox: %v", err)
 	}
 
-	var reloaded model.EmployeeSchedule
+	var reloaded model.AgentSchedule
 	if err := db.Where("id = ?", sched.ID).First(&reloaded).Error; err != nil {
 		t.Fatalf("schedule must survive sandbox deletion: %v", err)
 	}

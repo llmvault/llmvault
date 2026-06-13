@@ -101,7 +101,7 @@ func TestReceiveConnectionResultFields(t *testing.T) {
 			Text:       "hello",
 			ReceivedAt: now,
 		},
-		Session: model.EmployeeSession{
+		Session: model.AgentSession{
 			ID: uuid.New(),
 		},
 		RuntimeConversationID: "http-gateway-abc123",

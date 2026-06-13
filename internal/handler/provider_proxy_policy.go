@@ -22,7 +22,7 @@ type providerProxyPolicyContext struct {
 	Provider      string
 	OrgID         uuid.UUID
 	CallerAgentID uuid.UUID
-	EmployeeID    uuid.UUID
+	AgentID       uuid.UUID
 	ConnectionID  uuid.UUID
 	Method        string
 	Path          string
@@ -280,10 +280,10 @@ func captureProviderProxyPolicyDenial(ctx context.Context, eventCtx providerProx
 			scope.SetTag("org_id", eventCtx.OrgID.String())
 		}
 		if eventCtx.CallerAgentID != uuid.Nil {
-			scope.SetTag("caller_employee_id", eventCtx.CallerAgentID.String())
+			scope.SetTag("caller_agent_id", eventCtx.CallerAgentID.String())
 		}
-		if eventCtx.EmployeeID != uuid.Nil {
-			scope.SetTag("employee_id", eventCtx.EmployeeID.String())
+		if eventCtx.AgentID != uuid.Nil {
+			scope.SetTag("agent_id", eventCtx.AgentID.String())
 		}
 		if eventCtx.ConnectionID != uuid.Nil {
 			scope.SetTag("connection_id", eventCtx.ConnectionID.String())

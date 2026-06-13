@@ -25,7 +25,7 @@ func TestControlPlaneOutboundChannels_EmitsAgentWebhookSpec(t *testing.T) {
 	if channel["url"] != "https://api.hivy.test/internal/webhooks/agent/"+sandboxID.String() {
 		t.Fatalf("url = %q", channel["url"])
 	}
-	if channel["secret_env"] != EmployeeEnvRuntimeSecret {
+	if channel["secret_env"] != AgentEnvRuntimeSecret {
 		t.Fatalf("secret env = %q", channel["secret_env"])
 	}
 }
@@ -41,7 +41,7 @@ func TestControlPlaneOutboundChannels_UsesAPIWebhookBaseURL(t *testing.T) {
 
 func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 	orgID := uuid.New()
-	agent := &model.Employee{ID: uuid.New(), OrgID: &orgID, Name: "Aria", Model: DefaultEmployeeModel}
+	agent := &model.Agent{ID: uuid.New(), OrgID: &orgID, Name: "Aria", Model: DefaultAgentModel}
 
 	def, err := Compile(context.Background(), CompileDeps{Cfg: &config.Config{ProxyHost: "proxy.hivy.test"}}, agent)
 	if err != nil {
@@ -56,8 +56,8 @@ func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 	if def.MultimodalModel == nil || def.MultimodalModel.APIKeyEnv != ProxyAPIKeyEnv {
 		t.Fatalf("multimodal_model.api_key_env = %#v, want %q", def.MultimodalModel, ProxyAPIKeyEnv)
 	}
-	if employeeMCPAuthorizationHeader() != "Bearer ${"+ProxyAPIKeyEnv+"}" {
-		t.Fatalf("MCP auth header references wrong env: %q", employeeMCPAuthorizationHeader())
+	if agentMCPAuthorizationHeader() != "Bearer ${"+ProxyAPIKeyEnv+"}" {
+		t.Fatalf("MCP auth header references wrong env: %q", agentMCPAuthorizationHeader())
 	}
 
 	bashConfig, ok := def.Tools[0]["config"].(map[string]any)
@@ -76,7 +76,7 @@ func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal definition: %v", err)
 	}
-	for _, forbidden := range EmployeeForbiddenRawProviderEnvKeys() {
+	for _, forbidden := range AgentForbiddenRawProviderEnvKeys() {
 		if strings.Contains(string(body), forbidden) {
 			t.Fatalf("runtime config leaked raw provider key %s: %s", forbidden, string(body))
 		}
@@ -85,7 +85,7 @@ func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 
 func TestCompile_UsesAgentModelWithDefaultFallback(t *testing.T) {
 	orgID := uuid.New()
-	agent := &model.Employee{ID: uuid.New(), OrgID: &orgID, Name: "Aria", Model: "deepseek-v4-pro"}
+	agent := &model.Agent{ID: uuid.New(), OrgID: &orgID, Name: "Aria", Model: "deepseek-v4-pro"}
 
 	def, err := Compile(context.Background(), CompileDeps{Cfg: &config.Config{}}, agent)
 	if err != nil {
@@ -100,7 +100,7 @@ func TestCompile_UsesAgentModelWithDefaultFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile blank model: %v", err)
 	}
-	if def.Model.ModelID != DefaultEmployeeModel {
-		t.Fatalf("blank model fallback = %q, want %q", def.Model.ModelID, DefaultEmployeeModel)
+	if def.Model.ModelID != DefaultAgentModel {
+		t.Fatalf("blank model fallback = %q, want %q", def.Model.ModelID, DefaultAgentModel)
 	}
 }

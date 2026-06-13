@@ -11,23 +11,23 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// CreateRoute handles POST /v1/employees/{id}/gateway-routes.
+// CreateRoute handles POST /v1/agents/{id}/gateway-routes.
 // @Summary Create an external gateway route
-// @Tags employees
+// @Tags agents
 // @Accept json
 // @Produce json
-// @Param id path string true "Employee ID"
+// @Param id path string true "Agent ID"
 // @Param body body createGatewayRouteRequest true "Gateway route"
 // @Success 201 {object} gatewayRouteResponse
 // @Security BearerAuth
-// @Router /v1/employees/{id}/gateway-routes [post]
+// @Router /v1/agents/{id}/gateway-routes [post]
 func (h *GatewayExternalHandler) CreateRoute(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
 		writeMissingOrg(w)
 		return
 	}
-	agent, ok := h.loadEmployee(w, r, org.ID)
+	agent, ok := h.loadAgent(w, r, org.ID)
 	if !ok {
 		return
 	}
@@ -55,13 +55,13 @@ func (h *GatewayExternalHandler) CreateRoute(w http.ResponseWriter, r *http.Requ
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	route := model.EmployeeGatewayRoute{
-		OrgID:      org.ID,
-		EmployeeID: agent.ID,
-		Provider:   provider,
-		Name:       strings.TrimSpace(req.Name),
-		Enabled:    enabled,
-		Config:     config,
+	route := model.AgentGatewayRoute{
+		OrgID:    org.ID,
+		AgentID:  agent.ID,
+		Provider: provider,
+		Name:     strings.TrimSpace(req.Name),
+		Enabled:  enabled,
+		Config:   config,
 	}
 	if route.Name == "" {
 		route.Name = provider
@@ -73,27 +73,27 @@ func (h *GatewayExternalHandler) CreateRoute(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusCreated, h.routeResponse(route, secret))
 }
 
-// ListRoutes handles GET /v1/employees/{id}/gateway-routes.
+// ListRoutes handles GET /v1/agents/{id}/gateway-routes.
 // @Summary List external gateway routes
-// @Tags employees
+// @Tags agents
 // @Produce json
-// @Param id path string true "Employee ID"
+// @Param id path string true "Agent ID"
 // @Success 200 {array} gatewayRouteResponse
 // @Security BearerAuth
-// @Router /v1/employees/{id}/gateway-routes [get]
+// @Router /v1/agents/{id}/gateway-routes [get]
 func (h *GatewayExternalHandler) ListRoutes(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
 		writeMissingOrg(w)
 		return
 	}
-	agent, ok := h.loadEmployee(w, r, org.ID)
+	agent, ok := h.loadAgent(w, r, org.ID)
 	if !ok {
 		return
 	}
-	var routes []model.EmployeeGatewayRoute
+	var routes []model.AgentGatewayRoute
 	if err := h.db.WithContext(r.Context()).
-		Where("org_id = ? AND employee_id = ? AND config->>'adapter' = ? AND revoked_at IS NULL", org.ID, agent.ID, gateway.ExternalAdapterName).
+		Where("org_id = ? AND agent_id = ? AND config->>'adapter' = ? AND revoked_at IS NULL", org.ID, agent.ID, gateway.ExternalAdapterName).
 		Order("created_at DESC").
 		Find(&routes).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list gateway routes"})
@@ -106,17 +106,17 @@ func (h *GatewayExternalHandler) ListRoutes(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// GetRoute handles GET /v1/employees/{id}/gateway-routes/{routeID}.
+// GetRoute handles GET /v1/agents/{id}/gateway-routes/{routeID}.
 // @Summary Get an external gateway route
-// @Tags employees
+// @Tags agents
 // @Produce json
-// @Param id path string true "Employee ID"
+// @Param id path string true "Agent ID"
 // @Param routeID path string true "Gateway route ID"
 // @Success 200 {object} gatewayRouteResponse
 // @Security BearerAuth
-// @Router /v1/employees/{id}/gateway-routes/{routeID} [get]
+// @Router /v1/agents/{id}/gateway-routes/{routeID} [get]
 func (h *GatewayExternalHandler) GetRoute(w http.ResponseWriter, r *http.Request) {
-	route, ok := h.loadRouteForEmployee(w, r)
+	route, ok := h.loadRouteForAgent(w, r)
 	if !ok {
 		return
 	}

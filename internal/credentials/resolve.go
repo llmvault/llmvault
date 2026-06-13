@@ -13,7 +13,7 @@ func Resolve(
 	ctx context.Context,
 	db *gorm.DB,
 	picker Picker,
-	agent *model.Employee,
+	agent *model.Agent,
 ) (*model.Credential, error) {
 	if agent == nil {
 		return nil, fmt.Errorf("credentials: Resolve called with nil agent")

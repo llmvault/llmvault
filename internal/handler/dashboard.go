@@ -35,12 +35,6 @@ type dashboardConnectionsResponse struct {
 	NonSlackConnected int64 `json:"non_slack_connected"`
 }
 
-type dashboardOnboardingResponse struct {
-	PlanSelected        bool  `json:"plan_selected"`
-	ExtraToolsConnected int64 `json:"extra_tools_connected"`
-	ExtraToolsRequired  int64 `json:"extra_tools_required"`
-}
-
 type dashboardSchedulesResponse struct {
 	Total int64 `json:"total"`
 }
@@ -48,7 +42,6 @@ type dashboardSchedulesResponse struct {
 type dashboardResponse struct {
 	Credits     dashboardCreditsResponse     `json:"credits"`
 	Connections dashboardConnectionsResponse `json:"connections"`
-	Onboarding  dashboardOnboardingResponse  `json:"onboarding"`
 	Schedules   dashboardSchedulesResponse   `json:"schedules"`
 }
 
@@ -106,12 +99,7 @@ func (h *DashboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 			PeriodEnd:       periodEnd.Format(time.RFC3339),
 		},
 		Connections: connections,
-		Onboarding: dashboardOnboardingResponse{
-			PlanSelected:        org.PlanSlug != "",
-			ExtraToolsConnected: connections.NonSlackConnected,
-			ExtraToolsRequired:  3,
-		},
-		Schedules: dashboardSchedulesResponse{Total: scheduleCount},
+		Schedules:   dashboardSchedulesResponse{Total: scheduleCount},
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -185,7 +173,7 @@ func (h *DashboardHandler) connectionSummary(ctx context.Context, orgID uuid.UUI
 
 func (h *DashboardHandler) scheduleCount(ctx context.Context, orgID uuid.UUID) (int64, error) {
 	var count int64
-	if err := h.db.WithContext(ctx).Model(&model.EmployeeSchedule{}).
+	if err := h.db.WithContext(ctx).Model(&model.AgentSchedule{}).
 		Where("org_id = ?", orgID).
 		Count(&count).Error; err != nil {
 		return 0, err

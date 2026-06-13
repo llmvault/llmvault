@@ -39,9 +39,9 @@ func (r *externalGatewayRuntime) Send(_ context.Context, message gateway.Runtime
 func TestGatewayExternalRouteCreateAndInboundEnqueuesCallback(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
-	employee := model.Employee{OrgID: &org.ID, Model: "deepseek-v4-flash", Status: "active"}
-	if err := db.Create(&employee).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+	agent := model.Agent{OrgID: &org.ID, Model: "deepseek-v4-flash", Status: "active"}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
 	}
 	encKey := testGatewayEncKey(t)
 	runtimeSecret, err := encKey.EncryptString("runtime-secret")
@@ -50,7 +50,7 @@ func TestGatewayExternalRouteCreateAndInboundEnqueuesCallback(t *testing.T) {
 	}
 	sandbox := model.Sandbox{
 		OrgID:                  &org.ID,
-		EmployeeID:             &employee.ID,
+		AgentID:                &agent.ID,
 		ExternalID:             "external-gateway-sandbox",
 		RuntimeURL:             "https://runtime.example.test",
 		EncryptedRuntimeSecret: runtimeSecret,
@@ -65,11 +65,11 @@ func TestGatewayExternalRouteCreateAndInboundEnqueuesCallback(t *testing.T) {
 	h := handler.NewGatewayExternalHandler(db, service, encKey, enq, "https://api.usehivy.test")
 
 	router := chi.NewRouter()
-	router.Post("/v1/employees/{id}/gateway-routes", h.CreateRoute)
+	router.Post("/v1/agents/{id}/gateway-routes", h.CreateRoute)
 	router.Post("/incoming/gateways/external/{routeID}", h.HandleInbound)
 
 	createBody := []byte(`{"name":"WhatsApp support","provider":"whatsapp","callback_url":"https://wrapper.example.test/hivy/callback"}`)
-	req := httptest.NewRequest(http.MethodPost, "/v1/employees/"+employee.ID.String()+"/gateway-routes", bytes.NewReader(createBody))
+	req := httptest.NewRequest(http.MethodPost, "/v1/agents/"+agent.ID.String()+"/gateway-routes", bytes.NewReader(createBody))
 	req = middleware.WithOrg(req, &org)
 	createResp := httptest.NewRecorder()
 	router.ServeHTTP(createResp, req)
@@ -132,10 +132,10 @@ func testGatewayEncKey(t *testing.T) *crypto.SymmetricKey {
 func TestGatewayExternalInboundRejectsWrongSecret(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
-	employeeID := uuid.New()
-	employee := model.Employee{ID: employeeID, OrgID: &org.ID, Model: "deepseek-v4-flash", Status: "active"}
-	if err := db.Create(&employee).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+	agentID := uuid.New()
+	agent := model.Agent{ID: agentID, OrgID: &org.ID, Model: "deepseek-v4-flash", Status: "active"}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
 	}
 	encKey := testGatewayEncKey(t)
 	secret, hash, prefix, err := gateway.GenerateExternalGatewaySecret()
@@ -146,12 +146,12 @@ func TestGatewayExternalInboundRejectsWrongSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encrypt secret: %v", err)
 	}
-	route := model.EmployeeGatewayRoute{
-		OrgID:      org.ID,
-		EmployeeID: employee.ID,
-		Provider:   "signal",
-		Name:       "Signal",
-		Enabled:    true,
+	route := model.AgentGatewayRoute{
+		OrgID:    org.ID,
+		AgentID:  agent.ID,
+		Provider: "signal",
+		Name:     "Signal",
+		Enabled:  true,
 		Config: model.JSON{
 			"adapter":          gateway.ExternalAdapterName,
 			"callback_url":     "https://wrapper.example.test/callback",

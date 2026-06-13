@@ -9,7 +9,7 @@ Use Notion through the Hivy-provided Notion API proxy at `$HIVY_NOTION_API_URL`.
 
 You are running inside the Hivy runtime. All external Notion API calls must go through the Hivy proxy for security, credential isolation, and tracking.
 
-`HIVY_NOTION_API_URL` and `HIVY_NOTION_TOKEN` are provided by the Hivy runtime for the employee's configured Notion profile. Always call the provided `HIVY_NOTION_API_URL` exactly; it is not expected to be `https://api.notion.com`, and the runtime handles forwarding to Notion for the selected profile connection. Do not substitute another workspace, base URL, or token.
+`HIVY_NOTION_API_URL` and `HIVY_NOTION_TOKEN` are provided by the Hivy runtime for the agent's configured Notion profile. Always call the provided `HIVY_NOTION_API_URL` exactly; it is not expected to be `https://api.notion.com`, and the runtime handles forwarding to Notion for the selected profile connection. Do not substitute another workspace, base URL, or token.
 
 Never use `HIVY_NOTION_API_URL` to construct human-facing Notion dashboard links. It is an API proxy, not the Notion UI host. For links shown to users, use the `url` or `public_url` fields returned by Notion page, database, or data source responses. If no Notion response URL is available, provide the object ID and say the UI URL is unavailable instead of inventing one from the proxy.
 

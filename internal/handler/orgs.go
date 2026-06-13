@@ -19,23 +19,23 @@ import (
 )
 
 type OrgHandler struct {
-	db             *gorm.DB
-	enq            enqueue.TaskEnqueuer
-	employeeSyncer OrgEmployeeSyncer
-	envEncKey      *crypto.SymmetricKey
-	memoryBanks    memoryBankProvisioner
+	db          *gorm.DB
+	enq         enqueue.TaskEnqueuer
+	agentSyncer OrgAgentSyncer
+	envEncKey   *crypto.SymmetricKey
+	memoryBanks memoryBankProvisioner
 }
 
 func NewOrgHandler(db *gorm.DB, enq enqueue.TaskEnqueuer) *OrgHandler {
 	return &OrgHandler{db: db, enq: enq}
 }
 
-type OrgEmployeeSyncer interface {
-	SyncOrgHivyEmployee(ctx context.Context, orgID uuid.UUID) error
+type OrgAgentSyncer interface {
+	SyncOrgHivyAgent(ctx context.Context, orgID uuid.UUID) error
 }
 
-func (h *OrgHandler) SetEmployeeSyncer(syncer OrgEmployeeSyncer) {
-	h.employeeSyncer = syncer
+func (h *OrgHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
+	h.agentSyncer = syncer
 }
 
 func (h *OrgHandler) SetEnvironmentEncryptionKey(key *crypto.SymmetricKey) {
@@ -147,8 +147,12 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("creating membership: %w", err)
 		}
 
-		if _, err := createHivyEmployeeWithDefaultsTx(r.Context(), tx, org.ID); err != nil {
-			return fmt.Errorf("creating Hivy employee: %w", err)
+		agent, err := createHivyAgentWithDefaultsTx(r.Context(), tx, org.ID)
+		if err != nil {
+			return fmt.Errorf("creating Hivy agent: %w", err)
+		}
+		if _, err := createDefaultGeneralChannelTx(r.Context(), tx, org.ID, uuid.MustParse(claims.UserID), agent.ID); err != nil {
+			return fmt.Errorf("creating default channel: %w", err)
 		}
 
 		return nil
@@ -231,9 +235,6 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.PromptCompany != nil {
 		updates["prompt_company"] = strings.TrimSpace(*req.PromptCompany)
 	}
-	if !req.Sync {
-		updates["onboarded"] = true
-	}
 
 	if err := h.db.Model(&model.Org{}).Where("id = ?", ctxOrg.ID).Updates(updates).Error; err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to update org", "org_id", ctxOrg.ID, "error", err)
@@ -242,20 +243,15 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Sync {
-		if h.employeeSyncer == nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "employee sandbox sync not configured", "org_id", ctxOrg.ID)
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to start Hivy employee sandbox; please retry onboarding"})
+		if h.agentSyncer == nil {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "agent sandbox sync not configured", "org_id", ctxOrg.ID)
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to start Hivy agent sandbox; please retry"})
 			return
 		}
-		if err := h.employeeSyncer.SyncOrgHivyEmployee(r.Context(), ctxOrg.ID); err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to sync Hivy employee sandbox during org update", "org_id", ctxOrg.ID, "error", err)
-			logging.Capture(r.Context(), fmt.Errorf("sync Hivy employee sandbox during org update: %w", err))
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to start Hivy employee sandbox; please retry onboarding"})
-			return
-		}
-		if err := h.db.Model(&model.Org{}).Where("id = ?", ctxOrg.ID).Update("onboarded", true).Error; err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to mark org onboarded after employee sync", "org_id", ctxOrg.ID, "error", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update organization"})
+		if err := h.agentSyncer.SyncOrgHivyAgent(r.Context(), ctxOrg.ID); err != nil {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to sync Hivy agent sandbox during org update", "org_id", ctxOrg.ID, "error", err)
+			logging.Capture(r.Context(), fmt.Errorf("sync Hivy agent sandbox during org update: %w", err))
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to start Hivy agent sandbox; please retry"})
 			return
 		}
 	}

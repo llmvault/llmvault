@@ -22,8 +22,8 @@ const globalSkillSeedLockKey int64 = 2026052401
 var obsoleteGlobalSkillNames = []string{
 	"asset-uploads",
 	"public-assets-uploads",
-	"employee-public-assets-uploads",
-	"employee-assets-uploads",
+	"agent-public-assets-uploads",
+	"agent-assets-uploads",
 }
 
 type GlobalSeedResult struct {

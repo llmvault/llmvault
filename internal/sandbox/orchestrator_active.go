@@ -30,7 +30,7 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 		if err := o.waitForPopulatedRuntimeURL(ctx, sb); err != nil {
 			return nil, err
 		}
-		if err := o.waitForEmployeeRuntimeLive(ctx, sb); err != nil {
+		if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
 			return nil, fmt.Errorf("waiting for in-flight sandbox: %w", err)
 		}
 		now := time.Now()
@@ -91,7 +91,7 @@ func (o *Orchestrator) waitForPopulatedRuntimeURL(ctx context.Context, sb *model
 	if strings.TrimSpace(sb.RuntimeURL) != "" {
 		return nil
 	}
-	deadline := time.Now().Add(employeeHealthTimeout)
+	deadline := time.Now().Add(agentHealthTimeout)
 	for time.Now().Before(deadline) {
 		var current model.Sandbox
 		if err := o.db.WithContext(ctx).Select("status", "runtime_url").First(&current, "id = ?", sb.ID).Error; err != nil {
@@ -110,5 +110,5 @@ func (o *Orchestrator) waitForPopulatedRuntimeURL(ctx context.Context, sb *model
 		case <-time.After(inFlightRuntimeURLInterval):
 		}
 	}
-	return fmt.Errorf("sandbox %s runtime url not populated within %s", sb.ID, employeeHealthTimeout)
+	return fmt.Errorf("sandbox %s runtime url not populated within %s", sb.ID, agentHealthTimeout)
 }

@@ -15,16 +15,16 @@ func TestSeedGlobalSkills_ArchivesObsoleteDriveSkillNames(t *testing.T) {
 	dir := t.TempDir()
 	writeGlobalSkill(t, dir, "drive", "new drive", "# Drive\n", nil)
 	orgID := createOrg(t, db)
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:    uuid.New(),
 		OrgID: &orgID,
 		Model: "deepseek-v4-flash",
 	}
 	if err := db.Create(&agent).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+		t.Fatalf("create agent: %v", err)
 	}
 
-	obsoleteNames := []string{"asset-uploads", "public-assets-uploads", "employee-public-assets-uploads", "employee-assets-uploads"}
+	obsoleteNames := []string{"asset-uploads", "public-assets-uploads", "agent-public-assets-uploads", "agent-assets-uploads"}
 	for _, name := range obsoleteNames {
 		skill := model.Skill{
 			OrgID:      nil,
@@ -37,7 +37,7 @@ func TestSeedGlobalSkills_ArchivesObsoleteDriveSkillNames(t *testing.T) {
 		if err := db.Create(&skill).Error; err != nil {
 			t.Fatalf("create obsolete skill %s: %v", name, err)
 		}
-		if err := db.Create(&model.EmployeeSkill{EmployeeID: agent.ID, SkillID: skill.ID}).Error; err != nil {
+		if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
 			t.Fatalf("attach obsolete skill %s: %v", name, err)
 		}
 	}
@@ -57,11 +57,11 @@ func TestSeedGlobalSkills_ArchivesObsoleteDriveSkillNames(t *testing.T) {
 	}
 
 	var obsoleteLinks int64
-	if err := db.Model(&model.EmployeeSkill{}).
-		Joins("JOIN skills ON skills.id = employee_skills.skill_id").
-		Where("employee_skills.employee_id = ? AND skills.name IN ?", agent.ID, obsoleteNames).
+	if err := db.Model(&model.AgentSkill{}).
+		Joins("JOIN skills ON skills.id = agent_skills.skill_id").
+		Where("agent_skills.agent_id = ? AND skills.name IN ?", agent.ID, obsoleteNames).
 		Count(&obsoleteLinks).Error; err != nil {
-		t.Fatalf("count obsolete employee skill links: %v", err)
+		t.Fatalf("count obsolete agent skill links: %v", err)
 	}
 	if obsoleteLinks != 0 {
 		t.Fatalf("expected obsolete upload skill links to be detached, got %d", obsoleteLinks)

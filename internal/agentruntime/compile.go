@@ -24,24 +24,17 @@ const (
 	proxyTokenTTL               = 24 * time.Hour
 	managedAgentName            = "Hivy"
 	managedAgentDescription     = "Hivy is the organization's managed AI agent."
-	managedEmployeeName         = managedAgentName
-	managedEmployeeDescription  = managedAgentDescription
-)
-
-const (
-	DefaultEmployeeModel           = DefaultAgentModel
-	DefaultEmployeeMultimodalModel = DefaultAgentMultimodalModel
 )
 
 type CompileDeps struct {
-	DB          *gorm.DB
-	Picker      credentials.Picker
-	KMS         *crypto.KeyWrapper
-	EncKey      *crypto.SymmetricKey
-	SigningKey  []byte
-	Cfg         *config.Config
-	Nango       *nango.Client
-	Hindsight   HindsightRecallClient
+	DB         *gorm.DB
+	Picker     credentials.Picker
+	KMS        *crypto.KeyWrapper
+	EncKey     *crypto.SymmetricKey
+	SigningKey []byte
+	Cfg        *config.Config
+	Nango      *nango.Client
+	Hindsight  HindsightRecallClient
 }
 
 type HindsightRecallClient interface {
@@ -60,21 +53,19 @@ type ProxyTokenResult struct {
 	ExpiresAt time.Time
 }
 
-type EmployeeDefinition struct {
-	Agent            AgentMeta                      `json:"agent"`
-	SystemPrompt     SystemPromptConfig             `json:"system_prompt"`
-	Model            ModelConfig                    `json:"model"`
-	MultimodalModel  *ModelConfig                   `json:"multimodal_model,omitempty"`
-	Limits           map[string]any                 `json:"limits,omitempty"`
-	Context          map[string]any                 `json:"context,omitempty"`
-	Tools            []map[string]any               `json:"tools"`
-	McpServers       []any                          `json:"mcp_servers"`
-	Skills           []SkillSpec                    `json:"skills"`
-	OutboundChannels []any                          `json:"outbound_channels"`
-	SubAgents        map[string]*EmployeeDefinition `json:"sub_agents,omitempty"`
+type AgentDefinition struct {
+	Agent            AgentMeta                   `json:"agent"`
+	SystemPrompt     SystemPromptConfig          `json:"system_prompt"`
+	Model            ModelConfig                 `json:"model"`
+	MultimodalModel  *ModelConfig                `json:"multimodal_model,omitempty"`
+	Limits           map[string]any              `json:"limits,omitempty"`
+	Context          map[string]any              `json:"context,omitempty"`
+	Tools            []map[string]any            `json:"tools"`
+	McpServers       []any                       `json:"mcp_servers"`
+	Skills           []SkillSpec                 `json:"skills"`
+	OutboundChannels []any                       `json:"outbound_channels"`
+	SubAgents        map[string]*AgentDefinition `json:"sub_agents,omitempty"`
 }
-
-type AgentDefinition = EmployeeDefinition
 
 type AgentMeta struct {
 	Name        string `json:"name"`
@@ -119,7 +110,7 @@ type MemoryContextEntry struct {
 	Tags       []string `json:"tags,omitempty"`
 }
 
-func PrepareStartup(ctx context.Context, deps CompileDeps, agent *model.Employee) (*StartupSecrets, error) {
+func PrepareStartup(ctx context.Context, deps CompileDeps, agent *model.Agent) (*StartupSecrets, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent runtime startup: agent must have org_id")
 	}
@@ -134,11 +125,11 @@ func PrepareStartup(ctx context.Context, deps CompileDeps, agent *model.Employee
 	}, nil
 }
 
-func MintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID) (*ProxyTokenResult, error) {
+func MintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sandboxID uuid.UUID) (*ProxyTokenResult, error) {
 	return mintProxyToken(ctx, deps, agent, sandboxID)
 }
 
-func mintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID) (*ProxyTokenResult, error) {
+func mintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sandboxID uuid.UUID) (*ProxyTokenResult, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent runtime proxy token: agent must have org_id")
 	}
@@ -190,13 +181,13 @@ func mintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee
 	}, nil
 }
 
-func AttachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, jti string) error {
+func AttachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Agent, sandboxID uuid.UUID, jti string) error {
 	return attachProxyTokenToSandbox(ctx, deps, agent, sandboxID, jti)
 }
 
 // attachProxyTokenToSandbox binds the minted token by JTI (not "latest by created_at", which could
 // tag a stale/concurrent row and leave the refresh scheduler on the wrong one).
-func attachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Employee, sandboxID uuid.UUID, jti string) error {
+func attachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *model.Agent, sandboxID uuid.UUID, jti string) error {
 	if agent == nil || agent.OrgID == nil {
 		return fmt.Errorf("attach proxy token: agent must have org_id")
 	}
@@ -230,18 +221,18 @@ func attachProxyTokenToSandbox(ctx context.Context, deps CompileDeps, agent *mod
 	return deps.DB.WithContext(ctx).Model(&tok).Update("meta", meta).Error
 }
 
-func Compile(ctx context.Context, deps CompileDeps, agent *model.Employee) (*EmployeeDefinition, error) {
+func Compile(ctx context.Context, deps CompileDeps, agent *model.Agent) (*AgentDefinition, error) {
 	return compile(ctx, deps, agent, nil)
 }
 
-func CompileWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, proxyToken *ProxyTokenResult) (*EmployeeDefinition, error) {
+func CompileWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyToken *ProxyTokenResult) (*AgentDefinition, error) {
 	if proxyToken == nil || proxyToken.JTI == "" || proxyToken.Token == "" {
 		return nil, fmt.Errorf("agent runtime compile: proxy token is required")
 	}
 	return compile(ctx, deps, agent, proxyToken)
 }
 
-func compile(ctx context.Context, deps CompileDeps, agent *model.Employee, proxyToken *ProxyTokenResult) (*EmployeeDefinition, error) {
+func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyToken *ProxyTokenResult) (*AgentDefinition, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent runtime compile: agent must have org_id")
 	}
@@ -252,7 +243,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Employee, proxy
 	mcpServers := jsonArray(agent.McpServers)
 	ourMCP := buildHivyMCPServer(ctx, deps, agent)
 	if proxyToken != nil {
-		ourMCP = buildEmployeeMCPServerWithToken(deps, proxyToken)
+		ourMCP = buildAgentMCPServerWithToken(deps, proxyToken)
 	}
 	if ourMCP != nil {
 		mcpServers = upsertHivyMCPServer(mcpServers, ourMCP)
@@ -266,7 +257,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Employee, proxy
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
-	return &EmployeeDefinition{
+	return &AgentDefinition{
 		Agent: AgentMeta{
 			Name:        managedAgentName,
 			Description: description,
@@ -280,7 +271,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Employee, proxy
 		McpServers:       mcpServers,
 		Skills:           skills,
 		OutboundChannels: []any{},
-		SubAgents:        map[string]*EmployeeDefinition{},
+		SubAgents:        map[string]*AgentDefinition{},
 	}, nil
 }
 
@@ -291,7 +282,7 @@ func ControlPlaneOutboundChannels(cfg *config.Config, sandboxID uuid.UUID) []any
 			"name":       "control-plane-memory",
 			"type":       "webhook",
 			"url":        fmt.Sprintf("%s/internal/webhooks/agent/%s", baseURL, sandboxID),
-			"secret_env": EmployeeEnvRuntimeSecret,
+			"secret_env": AgentEnvRuntimeSecret,
 		},
 	}
 }

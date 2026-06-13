@@ -99,7 +99,7 @@ all seven primitives the Phase 0 spike requires:
    `scripts/download-artifacts.sh` in CI and propagate
    `CGO_CFLAGS`/`CGO_LDFLAGS` into every `go build` / `go test`
    invocation. This is an operational addition, not a showstopper, but
-   it needs wiring in CI and in developer onboarding.
+   it needs wiring in CI and in developer setup.
 2. **`v0.x`.** The surface is small and stable, but we should pin
    `v0.1.2` in `go.mod` and not auto-upgrade.
 3. **`list<string>` filter semantics.** DataFusion's `array_has` is

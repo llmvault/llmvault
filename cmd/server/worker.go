@@ -88,29 +88,29 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		Hindsight:       deps.HindsightClient,
 		PreContextCache: preContextCache,
 		S3Client:        deps.S3Client,
-		EmployeeCompile: agentruntime.CompileDeps{
-			DB:          deps.DB,
-			Picker:      credentials.NewPickerWithRegistry(deps.DB, deps.Registry),
-			KMS:         deps.KMS,
-			EncKey:      deps.SandboxEncKey,
-			SigningKey:  deps.SigningKey,
-			Cfg:         cfg,
-			Hindsight:   deps.HindsightClient,
+		AgentCompile: agentruntime.CompileDeps{
+			DB:         deps.DB,
+			Picker:     credentials.NewPickerWithRegistry(deps.DB, deps.Registry),
+			KMS:        deps.KMS,
+			EncKey:     deps.SandboxEncKey,
+			SigningKey: deps.SigningKey,
+			Cfg:        cfg,
+			Hindsight:  deps.HindsightClient,
 		},
 		Rag:          ragDeps,
 		RagScheduler: ragSched,
 	}
-	if deps.Orchestrator != nil && workerDeps.EmployeeCompile.EncKey != nil {
-		deps.Orchestrator.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
-			return agentruntime.PushEmployeeRuntimeConfigForSandbox(ctx, workerDeps.EmployeeCompile, sb)
+	if deps.Orchestrator != nil && workerDeps.AgentCompile.EncKey != nil {
+		deps.Orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
+			return agentruntime.PushAgentRuntimeConfigForSandbox(ctx, workerDeps.AgentCompile, sb)
 		})
 	}
-	if deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.EmployeeCompile.EncKey != nil && workerDeps.EmployeeCompile.KMS != nil && cfg.EmployeeSandboxAutoUpgrade {
-		if err := tasks.EnqueueEmployeeSandboxAutoUpgrade(ctx, enqueuer, tasks.EmployeeSandboxAutoUpgradePayload{
+	if deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.AgentCompile.EncKey != nil && workerDeps.AgentCompile.KMS != nil && cfg.AgentSandboxAutoUpgrade {
+		if err := tasks.EnqueueAgentSandboxAutoUpgrade(ctx, enqueuer, tasks.AgentSandboxAutoUpgradePayload{
 			RuntimeImage: cfg.SandboxesRuntimeBaseImage,
-			Limit:        cfg.EmployeeSandboxAutoUpgradeLimit,
+			Limit:        cfg.AgentSandboxAutoUpgradeLimit,
 		}); err != nil {
-			slog.Error("enqueue employee sandbox auto-upgrade sweep", "error", err)
+			slog.Error("enqueue agent sandbox auto-upgrade sweep", "error", err)
 		}
 	}
 

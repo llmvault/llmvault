@@ -74,7 +74,7 @@ func gatewayStreamPayloadFromSlack(payload GatewaySlackPayload) GatewayStreamPay
 	return GatewayStreamPayload{
 		RouteID:          payload.RouteID,
 		OrgID:            payload.OrgID,
-		EmployeeID:       payload.EmployeeID,
+		AgentID:          payload.AgentID,
 		EventID:          payload.EventID,
 		SessionID:        payload.SessionID,
 		RuntimeSessionID: payload.RuntimeConvoID,

@@ -15,18 +15,18 @@ import (
 
 func TestSlackConnectionContinuationRequiresHivyAsPreviousMessage(t *testing.T) {
 	db := connectGatewayTestDB(t)
-	conn, orgID, employeeID := seedSlackConnectionGateway(t, db)
+	conn, orgID, agentID := seedSlackConnectionGateway(t, db)
 	runtime := &recordingRuntime{}
 	service := NewService(db, runtime, nil, NewSlackAdapter())
-	var createdSessions []model.EmployeeSession
-	service.SetSessionCreatedHook(func(_ context.Context, session model.EmployeeSession, _, _ string) {
+	var createdSessions []model.AgentSession
+	service.SetSessionCreatedHook(func(_ context.Context, session model.AgentSession, _, _ string) {
 		createdSessions = append(createdSessions, session)
 	})
 	envelope := func(body []byte) WebhookEnvelope {
 		return WebhookEnvelope{
 			ConnectionID: conn.ID,
 			OrgID:        orgID,
-			EmployeeID:   employeeID,
+			AgentID:      agentID,
 			Provider:     SlackProvider,
 			Body:         body,
 		}
@@ -87,13 +87,13 @@ func seedSlackConnectionGateway(t *testing.T, db *gorm.DB) (model.Connection, uu
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	employee := model.Employee{OrgID: &org.ID, Model: "test-model", Status: "active"}
-	if err := db.Create(&employee).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+	agent := model.Agent{OrgID: &org.ID, Model: "test-model", Status: "active"}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
 	}
 	sandbox := model.Sandbox{
 		OrgID:                  &org.ID,
-		EmployeeID:             &employee.ID,
+		AgentID:                &agent.ID,
 		ExternalID:             "slack-gateway-test-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:1",
 		EncryptedRuntimeSecret: []byte("test-key"),
@@ -122,7 +122,7 @@ func seedSlackConnectionGateway(t *testing.T, db *gorm.DB) (model.Connection, uu
 		t.Fatalf("create connection: %v", err)
 	}
 	conn.Integration = integration
-	return conn, org.ID, employee.ID
+	return conn, org.ID, agent.ID
 }
 
 func slackEventBody(eventID, eventType, ts, threadTS, user, text string) []byte {
@@ -141,7 +141,7 @@ func slackEventBody(eventID, eventType, ts, threadTS, user, text string) []byte 
 	return []byte(body)
 }
 
-func seedSlackDelivery(t *testing.T, db *gorm.DB, session model.EmployeeSession, slackTS string) {
+func seedSlackDelivery(t *testing.T, db *gorm.DB, session model.AgentSession, slackTS string) {
 	t.Helper()
 	handles, err := json.Marshal([]MessageHandle{{
 		ProviderMessageID: slackTS,
@@ -154,18 +154,18 @@ func seedSlackDelivery(t *testing.T, db *gorm.DB, session model.EmployeeSession,
 	if err != nil {
 		t.Fatalf("marshal handles: %v", err)
 	}
-	delivery := model.EmployeeGatewayDelivery{
-		OrgID:             session.OrgID,
-		EmployeeID:        session.EmployeeID,
-		EmployeeSessionID: session.ID,
-		Provider:          SlackProvider,
-		DedupeKey:         "delivery-" + slackTS,
-		ThreadKey:         "C123:100.000",
-		ChannelID:         "C123",
-		ThreadID:          "100.000",
-		ResponseText:      "Here are the metrics.",
-		ProviderHandles:   model.RawJSON(handles),
-		Status:            "sent",
+	delivery := model.AgentGatewayDelivery{
+		OrgID:           session.OrgID,
+		AgentID:         session.AgentID,
+		AgentSessionID:  session.ID,
+		Provider:        SlackProvider,
+		DedupeKey:       "delivery-" + slackTS,
+		ThreadKey:       "C123:100.000",
+		ChannelID:       "C123",
+		ThreadID:        "100.000",
+		ResponseText:    "Here are the metrics.",
+		ProviderHandles: model.RawJSON(handles),
+		Status:          "sent",
 	}
 	if err := db.Create(&delivery).Error; err != nil {
 		t.Fatalf("create delivery: %v", err)

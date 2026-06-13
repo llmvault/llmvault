@@ -68,7 +68,7 @@ func (h *ConnectionHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.afterConnectionRevoked(r, org.ID, conn.Integration.Provider); err != nil {
-		logging.FromContext(r.Context()).WarnContext(r.Context(), "post-revoke employee connection cleanup failed",
+		logging.FromContext(r.Context()).WarnContext(r.Context(), "post-revoke agent connection cleanup failed",
 			"error", err, "connection_id", conn.ID, "org_id", org.ID, "provider", conn.Integration.Provider)
 	}
 	h.disableServiceDiscoveryScheduleForConnection(r.Context(), org.ID, conn)
@@ -91,7 +91,7 @@ func (h *ConnectionHandler) disableServiceDiscoveryScheduleForConnection(ctx con
 }
 
 func (h *ConnectionHandler) afterConnectionRevoked(r *http.Request, orgID uuid.UUID, provider string) error {
-	employee, err := ensureHivyEmployee(r.Context(), h.db, orgID)
+	agent, err := ensureHivyAgent(r.Context(), h.db, orgID)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (h *ConnectionHandler) afterConnectionRevoked(r *http.Request, orgID uuid.U
 	if err != nil {
 		return err
 	}
-	stillRequired, _, err := employeeRequiredSkills(r.Context(), h.db, orgID)
+	stillRequired, _, err := agentRequiredSkills(r.Context(), h.db, orgID)
 	if err != nil {
 		return err
 	}
@@ -109,13 +109,13 @@ func (h *ConnectionHandler) afterConnectionRevoked(r *http.Request, orgID uuid.U
 			continue
 		}
 		if err := h.db.WithContext(r.Context()).
-			Where("employee_id = ? AND skill_id = ?", employee.ID, skill.ID).
-			Delete(&model.EmployeeSkill{}).Error; err != nil {
+			Where("agent_id = ? AND skill_id = ?", agent.ID, skill.ID).
+			Delete(&model.AgentSkill{}).Error; err != nil {
 			return err
 		}
 	}
 	if provider == "slack" {
-		providers, _, err := activeEmployeeConnectionProviders(r.Context(), h.db, orgID)
+		providers, _, err := activeAgentConnectionProviders(r.Context(), h.db, orgID)
 		if err != nil {
 			return err
 		}
@@ -124,7 +124,7 @@ func (h *ConnectionHandler) afterConnectionRevoked(r *http.Request, orgID uuid.U
 				return nil
 			}
 		}
-		return h.db.WithContext(r.Context()).Model(&model.Org{}).Where("id = ?", orgID).Update("onboarded", false).Error
+		return nil
 	}
 	return nil
 }

@@ -14,7 +14,7 @@ import (
 func TestStreamAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/employees/%s/drive/x.png", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/x.png", h.agentID),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		"not-the-real-key",
@@ -27,7 +27,7 @@ func TestStreamAsset_BadBearer(t *testing.T) {
 func TestStreamAsset_MissingBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/employees/%s/drive/x.png", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/x.png", h.agentID),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		"",
@@ -37,10 +37,10 @@ func TestStreamAsset_MissingBearer(t *testing.T) {
 	}
 }
 
-func TestStreamAsset_EmployeeNotFound(t *testing.T) {
+func TestStreamAsset_AgentNotFound(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/employees/%s/drive/x.png", uuid.New()),
+		fmt.Sprintf("/internal/agents/%s/drive/x.png", uuid.New()),
 		bytes.NewReader([]byte("hi")),
 		"image/png",
 		h.runtimeSecret,
@@ -53,7 +53,7 @@ func TestStreamAsset_EmployeeNotFound(t *testing.T) {
 func TestStreamAsset_PathTraversalRejected(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/employees/%s/drive/../../etc/passwd", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/../../etc/passwd", h.agentID),
 		bytes.NewReader([]byte("hi")),
 		"text/plain",
 		h.runtimeSecret,
@@ -66,7 +66,7 @@ func TestStreamAsset_PathTraversalRejected(t *testing.T) {
 func TestStreamAsset_FilenameRequired(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/employees/%s/drive/", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/", h.agentID),
 		bytes.NewReader([]byte("x")),
 		"text/plain",
 		h.runtimeSecret,
@@ -79,7 +79,7 @@ func TestStreamAsset_FilenameRequired(t *testing.T) {
 func TestStreamAsset_RejectsEmptyFile(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.put(t,
-		fmt.Sprintf("/internal/employees/%s/drive/images/empty.jpg", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/images/empty.jpg", h.agentID),
 		bytes.NewReader(nil),
 		"image/jpeg",
 		h.runtimeSecret,
@@ -89,8 +89,8 @@ func TestStreamAsset_RejectsEmptyFile(t *testing.T) {
 	}
 
 	var count int64
-	h.db.Model(&model.EmployeeAsset{}).
-		Where("employee_id = ? AND path = ? AND filename = ?", h.agentID, "images", "empty.jpg").
+	h.db.Model(&model.AgentAsset{}).
+		Where("agent_id = ? AND path = ? AND filename = ?", h.agentID, "images", "empty.jpg").
 		Count(&count)
 	if count != 0 {
 		t.Fatalf("empty upload should not create asset row, count=%d", count)

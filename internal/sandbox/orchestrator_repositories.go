@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (o *Orchestrator) cloneAgentRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Employee) error {
+func (o *Orchestrator) cloneAgentRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Agent) error {
 	if len(agent.Resources) == 0 {
 		return nil
 	}
@@ -48,25 +48,25 @@ func (o *Orchestrator) cloneAgentRepositories(ctx context.Context, sb *model.San
 	if len(repos) == 0 {
 		return nil
 	}
-	return o.cloneRepositories(ctx, sb, repos, o.runtimeLayout().AgentRepoDir)
+	return o.cloneRepositories(ctx, sb, repos, o.runtimeLayout().WorkspaceRepoDir)
 }
 
-func (o *Orchestrator) cloneEmployeeSelectedRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Employee) error {
-	return o.SyncEmployeeSelectedRepositories(ctx, sb, agent)
+func (o *Orchestrator) cloneAgentSelectedRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Agent) error {
+	return o.SyncAgentSelectedRepositories(ctx, sb, agent)
 }
 
-func (o *Orchestrator) SyncEmployeeSelectedRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Employee) error {
-	repos, err := o.loadEmployeeSelectedGitHubRepositories(ctx, agent)
+func (o *Orchestrator) SyncAgentSelectedRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Agent) error {
+	repos, err := o.loadAgentSelectedGitHubRepositories(ctx, agent)
 	if err != nil {
 		return err
 	}
 	if len(repos) == 0 {
 		return nil
 	}
-	return o.cloneRepositories(ctx, sb, repos, o.runtimeLayout().EmployeeRepoDir)
+	return o.cloneRepositories(ctx, sb, repos, o.runtimeLayout().AgentRepoDir)
 }
 
-func (o *Orchestrator) loadEmployeeSelectedGitHubRepositories(ctx context.Context, agent *model.Employee) ([]repoResource, error) {
+func (o *Orchestrator) loadAgentSelectedGitHubRepositories(ctx context.Context, agent *model.Agent) ([]repoResource, error) {
 	if agent == nil {
 		return nil, nil
 	}
@@ -77,13 +77,13 @@ func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, ag
 	if db == nil {
 		return nil, nil
 	}
-	var agent model.Employee
+	var agent model.Agent
 	err := db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("load employee github resources: %w", err)
+		return nil, fmt.Errorf("load agent github resources: %w", err)
 	}
 
 	raw := selectedRepositoriesFromResources(agent.Resources)

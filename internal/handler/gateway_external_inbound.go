@@ -58,7 +58,7 @@ func (h *GatewayExternalHandler) HandleInbound(w http.ResponseWriter, r *http.Re
 	})
 	if err != nil {
 		logging.CaptureWithFields(r.Context(), fmt.Errorf("external gateway inbound: %w", err), map[string]any{
-			"route_id": route.ID.String(), "org_id": route.OrgID.String(), "employee_id": route.EmployeeID.String(),
+			"route_id": route.ID.String(), "org_id": route.OrgID.String(), "agent_id": route.AgentID.String(),
 		})
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -83,17 +83,17 @@ func (h *GatewayExternalHandler) HandleInbound(w http.ResponseWriter, r *http.Re
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{
-		"status":              "accepted",
-		"duplicate":           false,
-		"event_id":            result.Event.ID.String(),
-		"employee_session_id": result.Session.ID.String(),
-		"runtime_session_id":  result.Runtime.SessionID,
-		"runtime_trace_id":    result.Runtime.TraceID,
-		"runtime_turn_id":     result.Runtime.TurnID,
+		"status":             "accepted",
+		"duplicate":          false,
+		"event_id":           result.Event.ID.String(),
+		"agent_session_id":   result.Session.ID.String(),
+		"runtime_session_id": result.Runtime.SessionID,
+		"runtime_trace_id":   result.Runtime.TraceID,
+		"runtime_turn_id":    result.Runtime.TurnID,
 	})
 }
 
-func (h *GatewayExternalHandler) enqueueExternalCallback(r *http.Request, route model.EmployeeGatewayRoute, result *gateway.ReceiveResult) error {
+func (h *GatewayExternalHandler) enqueueExternalCallback(r *http.Request, route model.AgentGatewayRoute, result *gateway.ReceiveResult) error {
 	var sandbox model.Sandbox
 	if err := h.db.WithContext(r.Context()).Where("id = ?", result.Session.SandboxID).First(&sandbox).Error; err != nil {
 		return fmt.Errorf("load gateway session sandbox: %w", err)
@@ -116,7 +116,7 @@ func (h *GatewayExternalHandler) enqueueExternalCallback(r *http.Request, route 
 	task, taskOpts, err := tasks.NewGatewayExternalCallbackTask(tasks.GatewayExternalCallbackPayload{
 		RouteID:        route.ID.String(),
 		OrgID:          route.OrgID.String(),
-		EmployeeID:     route.EmployeeID.String(),
+		AgentID:        route.AgentID.String(),
 		EventID:        result.Event.ID.String(),
 		SessionID:      result.Session.ID.String(),
 		RuntimeConvoID: result.Session.RuntimeConversationID,

@@ -77,10 +77,10 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 			},
 		},
 		{
-			name:          "EmployeeCleanup",
+			name:          "AgentCleanup",
 			expectedQueue: QueueDefault,
 			run: func() ([]asynq.Option, error) {
-				_, opts, err := NewEmployeeCleanupTask(uuid.New())
+				_, opts, err := NewAgentCleanupTask(uuid.New())
 				return opts, err
 			},
 		},
@@ -109,23 +109,23 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 			},
 		},
 		{
-			name:          "EmployeeMemoryRetain",
+			name:          "AgentMemoryRetain",
 			expectedQueue: QueueDefault,
 			run: func() ([]asynq.Option, error) {
-				_, opts, err := NewEmployeeMemoryRetainTask(EmployeeMemoryRetainPayload{
-					EmployeeID: uuid.New(),
-					SandboxID:  uuid.New(),
-					SessionID:  "sess-1",
+				_, opts, err := NewAgentMemoryRetainTask(AgentMemoryRetainPayload{
+					AgentID:   uuid.New(),
+					SandboxID: uuid.New(),
+					SessionID: "sess-1",
 				})
 				return opts, err
 			},
 		},
 		{
-			name:          "EmployeeMemoryRefresh",
+			name:          "AgentMemoryRefresh",
 			expectedQueue: QueueDefault,
 			run: func() ([]asynq.Option, error) {
-				_, opts, err := NewEmployeeMemoryRefreshTask(EmployeeMemoryRefreshPayload{
-					EmployeeID: uuid.New(),
+				_, opts, err := NewAgentMemoryRefreshTask(AgentMemoryRefreshPayload{
+					AgentID: uuid.New(),
 				})
 				return opts, err
 			},
@@ -137,7 +137,7 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 				_, opts, err := NewGatewaySlackTask(GatewaySlackPayload{
 					ConnectionID: "c1",
 					OrgID:        "o1",
-					EmployeeID:   "e1",
+					AgentID:      "e1",
 				})
 				return opts, err
 			},
@@ -147,9 +147,9 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 			expectedQueue: QueueCritical,
 			run: func() ([]asynq.Option, error) {
 				_, opts, err := NewGatewayExternalCallbackTask(GatewayExternalCallbackPayload{
-					RouteID:    "r1",
-					OrgID:      "o1",
-					EmployeeID: "e1",
+					RouteID: "r1",
+					OrgID:   "o1",
+					AgentID: "e1",
 				})
 				return opts, err
 			},
@@ -161,7 +161,7 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 				_, opts, err := NewGatewaySlackStatusTask(GatewaySlackStatusPayload{
 					ConnectionID: "c1",
 					OrgID:        "o1",
-					EmployeeID:   "e1",
+					AgentID:      "e1",
 				})
 				return opts, err
 			},
@@ -183,10 +183,10 @@ func TestAllConvergedConstructorsReturnOptionsSeparately(t *testing.T) {
 			},
 		},
 		{
-			name:          "EmployeeTriggerDispatch",
+			name:          "AgentTriggerDispatch",
 			expectedQueue: QueueCritical,
 			run: func() ([]asynq.Option, error) {
-				_, opts, err := NewEmployeeTriggerDispatchTask(EmployeeTriggerDispatchPayload{
+				_, opts, err := NewAgentTriggerDispatchTask(AgentTriggerDispatchPayload{
 					OrgID:      uuid.New(),
 					DeliveryID: "d1",
 				})

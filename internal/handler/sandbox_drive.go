@@ -39,7 +39,7 @@ func NewSandboxDriveHandler(db *gorm.DB, store *storage.S3Client, encKey *crypto
 
 // resolveSandboxAgent validates the runtime secret and resolves the agent
 // assigned to the sandbox.
-func (handler *SandboxDriveHandler) resolveSandboxAgent(writer http.ResponseWriter, request *http.Request) (uuid.UUID, *model.Employee, bool) {
+func (handler *SandboxDriveHandler) resolveSandboxAgent(writer http.ResponseWriter, request *http.Request) (uuid.UUID, *model.Agent, bool) {
 	sandboxID := chi.URLParam(request, "sandboxID")
 	if sandboxID == "" {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": "sandbox ID is required"})
@@ -79,7 +79,7 @@ func (handler *SandboxDriveHandler) resolveSandboxAgent(writer http.ResponseWrit
 		return uuid.Nil, nil, false
 	}
 
-	var agent model.Employee
+	var agent model.Agent
 	if err := handler.db.Where("sandbox_id = ?", sandbox.ID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(writer, http.StatusNotFound, map[string]string{"error": "no agent assigned to this sandbox"})
@@ -137,7 +137,7 @@ func (handler *SandboxDriveHandler) Upload(writer http.ResponseWriter, request *
 
 		if err := handler.storage.Upload(request.Context(), s3Key, file, contentType, fileHeader.Size); err != nil {
 			file.Close()
-			logging.FromContext(request.Context()).ErrorContext(request.Context(), "sandbox drive upload failed", "employee_id", agent.ID, "filename", fileHeader.Filename, "error", err)
+			logging.FromContext(request.Context()).ErrorContext(request.Context(), "sandbox drive upload failed", "agent_id", agent.ID, "filename", fileHeader.Filename, "error", err)
 			writeJSON(writer, http.StatusInternalServerError, map[string]string{"error": "failed to upload file to storage"})
 			return
 		}
@@ -146,7 +146,7 @@ func (handler *SandboxDriveHandler) Upload(writer http.ResponseWriter, request *
 		asset := model.DriveAsset{
 			ID:          assetID,
 			OrgID:       orgID,
-			EmployeeID:  agent.ID,
+			AgentID:     agent.ID,
 			Filename:    fileHeader.Filename,
 			ContentType: contentType,
 			Size:        fileHeader.Size,
@@ -154,7 +154,7 @@ func (handler *SandboxDriveHandler) Upload(writer http.ResponseWriter, request *
 		}
 		if err := handler.db.Create(&asset).Error; err != nil {
 			_ = handler.storage.Delete(request.Context(), s3Key)
-			logging.FromContext(request.Context()).ErrorContext(request.Context(), "sandbox drive asset db insert failed", "employee_id", agent.ID, "error", err)
+			logging.FromContext(request.Context()).ErrorContext(request.Context(), "sandbox drive asset db insert failed", "agent_id", agent.ID, "error", err)
 			writeJSON(writer, http.StatusInternalServerError, map[string]string{"error": "failed to save asset record"})
 			return
 		}
@@ -173,7 +173,7 @@ func (handler *SandboxDriveHandler) List(writer http.ResponseWriter, request *ht
 	}
 
 	var assets []model.DriveAsset
-	if err := handler.db.Where("employee_id = ?", agent.ID).Order("created_at DESC").Limit(100).Find(&assets).Error; err != nil {
+	if err := handler.db.Where("agent_id = ?", agent.ID).Order("created_at DESC").Limit(100).Find(&assets).Error; err != nil {
 		writeJSON(writer, http.StatusInternalServerError, map[string]string{"error": "failed to list assets"})
 		return
 	}
@@ -196,7 +196,7 @@ func (handler *SandboxDriveHandler) Get(writer http.ResponseWriter, request *htt
 	assetID := chi.URLParam(request, "assetID")
 
 	var asset model.DriveAsset
-	if err := handler.db.Where("id = ? AND employee_id = ?", assetID, agent.ID).First(&asset).Error; err != nil {
+	if err := handler.db.Where("id = ? AND agent_id = ?", assetID, agent.ID).First(&asset).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(writer, http.StatusNotFound, map[string]string{"error": "asset not found"})
 			return
@@ -228,7 +228,7 @@ func (handler *SandboxDriveHandler) Delete(writer http.ResponseWriter, request *
 	assetID := chi.URLParam(request, "assetID")
 
 	var asset model.DriveAsset
-	if err := handler.db.Where("id = ? AND employee_id = ?", assetID, agent.ID).First(&asset).Error; err != nil {
+	if err := handler.db.Where("id = ? AND agent_id = ?", assetID, agent.ID).First(&asset).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(writer, http.StatusNotFound, map[string]string{"error": "asset not found"})
 			return

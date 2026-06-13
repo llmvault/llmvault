@@ -50,7 +50,7 @@ func TestGatewaySlackHandler_HandleStatusSetsSlackLoading(t *testing.T) {
 	task, _, err := NewGatewaySlackStatusTask(GatewaySlackStatusPayload{
 		ConnectionID: "conn-1",
 		OrgID:        "org-1",
-		EmployeeID:   "employee-1",
+		AgentID:      "agent-1",
 		ChannelID:    "C123",
 		ThreadTS:     "1710000000.123",
 		EventID:      "event-1",

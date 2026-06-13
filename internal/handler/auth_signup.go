@@ -15,13 +15,15 @@ import (
 // createUserDefaultOrg is the single source of truth for "this user is signing
 // up — give them their default workspace." All three signup entry points
 // (password Register, OTPVerify, OAuth findOrCreateUser) call this so that any
-// onboarding side effects (notably the welcome credit grant) live in one place
+// bootstrap side effects (notably the welcome credit grant) live in one place
 // and stay consistent.
 //
 // Side effects, all atomic with the caller's transaction:
 //  1. Create the org named "<user.Name>'s Workspace" (PlanSlug defaults to "free").
 //  2. Insert an owner OrgMembership for user → org.
-//  3. If a free plan row exists with WelcomeCredits > 0, grant that amount to
+//  3. Create Hivy, the default managed agent.
+//  4. Create #general and make the signing-up user its owner.
+//  5. If a free plan row exists with WelcomeCredits > 0, grant that amount to
 //     the new org as a permanent (non-expiring) credit, refType="signup",
 //     refID=user.ID. The unique credit-ledger index keys off (org, reason,
 //     ref_type, ref_id), so the grant is naturally idempotent if signup is
@@ -50,8 +52,12 @@ func createUserDefaultOrg(tx *gorm.DB, credits *billing.CreditsService, user *mo
 	if err := grantWelcomeCredits(tx, credits, org.ID, user.ID); err != nil {
 		return org, err
 	}
-	if _, err := createHivyEmployeeWithDefaultsTx(context.TODO(), tx, org.ID); err != nil {
-		return org, fmt.Errorf("creating Hivy employee: %w", err)
+	agent, err := createHivyAgentWithDefaultsTx(context.TODO(), tx, org.ID)
+	if err != nil {
+		return org, fmt.Errorf("creating Hivy agent: %w", err)
+	}
+	if _, err := createDefaultGeneralChannelTx(context.TODO(), tx, org.ID, user.ID, agent.ID); err != nil {
+		return org, fmt.Errorf("creating default channel: %w", err)
 	}
 	return org, nil
 }

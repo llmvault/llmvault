@@ -185,7 +185,7 @@ func TestCapture5xxResponses_CapturesUnhandledServerResponse(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
-	req := httptest.NewRequest(http.MethodPatch, "/v1/employees/employee/repositories", nil)
+	req := httptest.NewRequest(http.MethodPatch, "/v1/agents/agent/repositories", nil)
 	Middleware()(Capture5xxResponses()(handler)).ServeHTTP(httptest.NewRecorder(), req)
 
 	ev := transport.event.Load()
@@ -195,7 +195,7 @@ func TestCapture5xxResponses_CapturesUnhandledServerResponse(t *testing.T) {
 	if ev.Tags["http.status_code"] != "500" {
 		t.Fatalf("http.status_code tag = %q, want 500", ev.Tags["http.status_code"])
 	}
-	if ev.Tags["http.route"] != "/v1/employees/employee/repositories" {
+	if ev.Tags["http.route"] != "/v1/agents/agent/repositories" {
 		t.Fatalf("http.route tag = %q", ev.Tags["http.route"])
 	}
 }
@@ -208,8 +208,8 @@ func TestScrubSensitiveQueryParams_ScrubbsTokenAndKey(t *testing.T) {
 	}{
 		{
 			name:  "token param is scrubbed",
-			input: "https://api.usehivy.com/v1/employees/abc/sessions/def/streams/ghi?token=supersecret",
-			want:  "https://api.usehivy.com/v1/employees/abc/sessions/def/streams/ghi?token=%5BFiltered%5D",
+			input: "https://api.usehivy.com/v1/agents/abc/sessions/def/streams/ghi?token=supersecret",
+			want:  "https://api.usehivy.com/v1/agents/abc/sessions/def/streams/ghi?token=%5BFiltered%5D",
 		},
 		{
 			name:  "key param is scrubbed",

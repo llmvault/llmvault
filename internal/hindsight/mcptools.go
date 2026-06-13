@@ -11,9 +11,9 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// MemoryRefreshFunc is called after a destructive memory change so employee
+// MemoryRefreshFunc is called after a destructive memory change so agent
 // runtimes can reload their precomputed memory context.
-type MemoryRefreshFunc func(ctx context.Context, agent *model.Employee)
+type MemoryRefreshFunc func(ctx context.Context, agent *model.Agent)
 
 // NewMemoryToolsFunc returns a callback compatible with mcpserver.MemoryToolsFunc.
 // Designed to be passed to mcpserver.BuildServer to avoid import cycles.
@@ -23,7 +23,7 @@ func NewMemoryToolsFunc(client *Client, refreshFns ...MemoryRefreshFunc) func(se
 		refresh = refreshFns[0]
 	}
 	return func(server *mcp.Server, agentID string, db *gorm.DB) {
-		var agent model.Employee
+		var agent model.Agent
 		if err := db.Where("id = ?", agentID).First(&agent).Error; err != nil {
 			return
 		}
@@ -33,7 +33,7 @@ func NewMemoryToolsFunc(client *Client, refreshFns ...MemoryRefreshFunc) func(se
 
 // AddMemoryTools registers memory tools on an existing MCP server. Memory is
 // scoped per org.
-func AddMemoryTools(server *mcp.Server, agent *model.Employee, client *Client, db *gorm.DB, refresh MemoryRefreshFunc) {
+func AddMemoryTools(server *mcp.Server, agent *model.Agent, client *Client, db *gorm.DB, refresh MemoryRefreshFunc) {
 	if agent.OrgID == nil || client == nil {
 		return
 	}
@@ -48,7 +48,7 @@ func AddMemoryTools(server *mcp.Server, agent *model.Employee, client *Client, d
 	addReflectTool(server, client, db, bankID, tagGroups)
 }
 
-func baseMemoryTags(agent *model.Employee, source string) []string {
+func baseMemoryTags(agent *model.Agent, source string) []string {
 	if agent == nil || agent.OrgID == nil {
 		return nil
 	}
@@ -63,7 +63,7 @@ func baseMemoryTags(agent *model.Employee, source string) []string {
 	return tags
 }
 
-func recallTagGroups(agent *model.Employee) []any {
+func recallTagGroups(agent *model.Agent) []any {
 	if agent == nil || agent.OrgID == nil {
 		return nil
 	}

@@ -28,9 +28,9 @@ func TestClaimWarmRuntimeSlotWaitsAndDispatchesReconcile(t *testing.T) {
 	t.Cleanup(health.Close)
 	provider.warmEndpoint = health.URL
 	pool := NewWarmPool(db, provider, testEncKey(t), &config.Config{
-		SandboxWarmPoolEmployeeSize: 1,
-		RailwayRuntimePort:          7080,
-		SandboxesRuntimeBaseImage:   "runtime:test",
+		SandboxWarmPoolAgentSize:  1,
+		RailwayRuntimePort:        7080,
+		SandboxesRuntimeBaseImage: "runtime:test",
 	})
 	orch := NewOrchestrator(db, provider, testEncKey(t), &config.Config{})
 	orch.warmPool = pool
@@ -85,7 +85,7 @@ func TestClaimWarmRuntimeSlotWaitsAndDispatchesReconcile(t *testing.T) {
 		return nil
 	})
 
-	claimed, err := orch.claimWarmRuntimeSlot(context.Background(), model.SandboxWarmSlotModeEmployee, sb.ID)
+	claimed, err := orch.claimWarmRuntimeSlot(context.Background(), model.SandboxWarmSlotModeAgent, sb.ID)
 	if err != nil {
 		t.Fatalf("claim warm runtime slot: %v", err)
 	}

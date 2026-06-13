@@ -22,7 +22,7 @@ type memoryRetainToolResponse struct {
 	DocumentID  string `json:"document_id"`
 }
 
-func addRetainTool(server *mcp.Server, agent *model.Employee, client *Client, banks *BankProvisioner, bankID string, memoryTags []string) {
+func addRetainTool(server *mcp.Server, agent *model.Agent, client *Client, banks *BankProvisioner, bankID string, memoryTags []string) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "memory_retain",
@@ -51,7 +51,7 @@ Write the content as a clear, specific factual statement. Bad: "User talked abou
 					},
 					"context": map[string]any{
 						"type":        "string",
-						"description": "Describe the nature and source of this information. This significantly improves how the memory is indexed and retrieved. Examples: 'Technical architecture discussion', 'User preference stated during onboarding', 'Decision from Q2 planning meeting'. Do NOT use generic values like 'conversation' or 'chat'.",
+						"description": "Describe the nature and source of this information. This significantly improves how the memory is indexed and retrieved. Examples: 'Technical architecture discussion', 'User preference stated during product setup', 'Decision from Q2 planning meeting'. Do NOT use generic values like 'conversation' or 'chat'.",
 					},
 					"memory_type": map[string]any{
 						"type":        "string",
@@ -111,7 +111,7 @@ Write the content as a clear, specific factual statement. Bad: "User talked abou
 				tags = upsertMemoryTag(tags, "memory_type", params.Type)
 			}
 			documentID := "manual:" + agent.ID.String() + ":" + uuid.NewString()
-			metadata := map[string]string{"employee_id": agent.ID.String(), "document_id": documentID}
+			metadata := map[string]string{"agent_id": agent.ID.String(), "document_id": documentID}
 			addMetadataValue(metadata, "provider", params.Provider)
 			addMetadataValue(metadata, "source", params.Source)
 			addMetadataValue(metadata, "resource_type", params.ResourceType)

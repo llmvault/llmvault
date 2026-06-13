@@ -14,7 +14,7 @@ import (
 )
 
 func (s *Service) fetchSessionsSection(ctx context.Context, req Request) (string, error) {
-	if s.cfg.DB == nil || req.OrgID == uuid.Nil || req.EmployeeID == uuid.Nil {
+	if s.cfg.DB == nil || req.OrgID == uuid.Nil || req.AgentID == uuid.Nil {
 		return "", nil
 	}
 	sessions, err := s.loadRecentSessions(ctx, req)
@@ -28,16 +28,16 @@ func (s *Service) fetchSessionsSection(ctx context.Context, req Request) (string
 	for _, session := range sessions {
 		ids = append(ids, session.ID)
 	}
-	var events []model.EmployeeSessionEvent
+	var events []model.AgentSessionEvent
 	if err := s.cfg.DB.WithContext(ctx).
-		Where("employee_session_id IN ? AND event_type IN ?", ids, []string{"user.message.received", "agent.message.sent"}).
+		Where("agent_session_id IN ? AND event_type IN ?", ids, []string{"user.message.received", "agent.message.sent"}).
 		Order("event_at ASC, created_at ASC").
 		Find(&events).Error; err != nil {
 		return "", fmt.Errorf("load recent session events: %w", err)
 	}
-	eventsBySession := map[uuid.UUID][]model.EmployeeSessionEvent{}
+	eventsBySession := map[uuid.UUID][]model.AgentSessionEvent{}
 	for _, event := range events {
-		eventsBySession[event.EmployeeSessionID] = append(eventsBySession[event.EmployeeSessionID], event)
+		eventsBySession[event.AgentSessionID] = append(eventsBySession[event.AgentSessionID], event)
 	}
 	var lines []string
 	for _, session := range sessions {
@@ -49,13 +49,13 @@ func (s *Service) fetchSessionsSection(ctx context.Context, req Request) (string
 	return section("## Recent sessions", strings.Join(lines, "\n"), SessionsBudgetBytes), nil
 }
 
-func (s *Service) loadRecentSessions(ctx context.Context, req Request) ([]model.EmployeeSession, error) {
+func (s *Service) loadRecentSessions(ctx context.Context, req Request) ([]model.AgentSession, error) {
 	query := s.cfg.DB.WithContext(ctx).
-		Where("org_id = ? AND employee_id = ? AND status <> ?", req.OrgID, req.EmployeeID, "error")
+		Where("org_id = ? AND agent_id = ? AND status <> ?", req.OrgID, req.AgentID, "error")
 	if req.CurrentSessionID != uuid.Nil {
 		query = query.Where("id <> ?", req.CurrentSessionID)
 	}
-	var sessions []model.EmployeeSession
+	var sessions []model.AgentSession
 	if err := query.Order("updated_at DESC, created_at DESC").Limit(10).Find(&sessions).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -65,7 +65,7 @@ func (s *Service) loadRecentSessions(ctx context.Context, req Request) ([]model.
 	return sessions, nil
 }
 
-func formatSessionSummary(session model.EmployeeSession, events []model.EmployeeSessionEvent) string {
+func formatSessionSummary(session model.AgentSession, events []model.AgentSessionEvent) string {
 	user, modelReply := latestUserAndModel(events)
 	if user == "" && modelReply == "" {
 		return ""
@@ -90,7 +90,7 @@ func formatSessionSummary(session model.EmployeeSession, events []model.Employee
 	return trimToBytes(line, 430)
 }
 
-func sessionTimestamp(session model.EmployeeSession) string {
+func sessionTimestamp(session model.AgentSession) string {
 	when := session.UpdatedAt
 	if when.IsZero() {
 		when = session.CreatedAt
@@ -101,7 +101,7 @@ func sessionTimestamp(session model.EmployeeSession) string {
 	return when.UTC().Format(time.RFC3339)
 }
 
-func latestUserAndModel(events []model.EmployeeSessionEvent) (string, string) {
+func latestUserAndModel(events []model.AgentSessionEvent) (string, string) {
 	user := ""
 	modelReply := ""
 	for _, event := range events {

@@ -44,14 +44,13 @@ type updateProfileRequest struct {
 }
 
 type orgMemberDTO struct {
-	ID        string   `json:"id"`
-	Name      string   `json:"name"`
-	Role      string   `json:"role"`
-	Plan      *planDTO `json:"plan,omitempty"`
-	Credits   *int64   `json:"credits,omitempty"`
-	BYOK      bool     `json:"byok"`
-	LogoURL   string   `json:"logo_url,omitempty"`
-	Onboarded bool     `json:"onboarded"`
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Role    string   `json:"role"`
+	Plan    *planDTO `json:"plan,omitempty"`
+	Credits *int64   `json:"credits,omitempty"`
+	BYOK    bool     `json:"byok"`
+	LogoURL string   `json:"logo_url,omitempty"`
 }
 
 // planDTO is the customer-facing shape of a billing plan. Returned both as a

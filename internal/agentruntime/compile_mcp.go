@@ -9,11 +9,11 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func buildEmployeeMCPServer(ctx context.Context, deps CompileDeps, agent *model.Employee) any {
+func buildAgentMCPServer(ctx context.Context, deps CompileDeps, agent *model.Agent) any {
 	return buildHivyMCPServer(ctx, deps, agent)
 }
 
-func buildEmployeeMCPServerWithToken(deps CompileDeps, token *ProxyTokenResult) any {
+func buildAgentMCPServerWithToken(deps CompileDeps, token *ProxyTokenResult) any {
 	return buildHivyMCPServerWithToken(deps, token)
 }
 
@@ -24,7 +24,7 @@ func buildHivyMCPServerWithToken(deps CompileDeps, token *ProxyTokenResult) any 
 	return hivyMCPServer(deps.Cfg.MCPBaseURL, token.JTI)
 }
 
-func buildHivyMCPServer(ctx context.Context, deps CompileDeps, agent *model.Employee) any {
+func buildHivyMCPServer(ctx context.Context, deps CompileDeps, agent *model.Agent) any {
 	if deps.DB == nil || deps.Cfg == nil || deps.Cfg.MCPBaseURL == "" || agent.OrgID == nil {
 		return nil
 	}
@@ -49,12 +49,12 @@ func hivyMCPServer(baseURL, jti string) any {
 		"transport": "streamable_http",
 		"url":       url,
 		"headers": map[string]string{
-			"Authorization": employeeMCPAuthorizationHeader(),
+			"Authorization": agentMCPAuthorizationHeader(),
 		},
 	}
 }
 
-func employeeMCPAuthorizationHeader() string {
+func agentMCPAuthorizationHeader() string {
 	return "Bearer ${" + ProxyAPIKeyEnv + "}"
 }
 

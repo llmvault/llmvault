@@ -58,13 +58,13 @@ func (h *GatewayHTTPHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		code = http.StatusOK
 	}
 	writeJSON(w, code, map[string]any{
-		"status":              status,
-		"event_id":            result.Event.ID.String(),
-		"employee_session_id": result.Session.ID.String(),
-		"runtime_session_id":  result.Runtime.SessionID,
-		"runtime_stream_id":   result.Runtime.StreamID,
-		"runtime_trace_id":    result.Runtime.TraceID,
-		"runtime_turn_id":     result.Runtime.TurnID,
+		"status":             status,
+		"event_id":           result.Event.ID.String(),
+		"agent_session_id":   result.Session.ID.String(),
+		"runtime_session_id": result.Runtime.SessionID,
+		"runtime_stream_id":  result.Runtime.StreamID,
+		"runtime_trace_id":   result.Runtime.TraceID,
+		"runtime_turn_id":    result.Runtime.TurnID,
 	})
 }
 

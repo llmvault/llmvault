@@ -26,7 +26,7 @@ func TestWarmPoolReconcileTrimsSurplusSlots(t *testing.T) {
 		provider.registerSandbox(ext, StatusRunning)
 		slot := model.SandboxWarmSlot{
 			ProviderID:             provider.ID(),
-			Mode:                   model.SandboxWarmSlotModeEmployee,
+			Mode:                   model.SandboxWarmSlotModeAgent,
 			Status:                 model.SandboxWarmSlotStatusWarm,
 			ExternalID:             ext,
 			EndpointURL:            "https://surplus.example",
@@ -40,11 +40,11 @@ func TestWarmPoolReconcileTrimsSurplusSlots(t *testing.T) {
 	}
 
 	pool := NewWarmPool(db, provider, encKey, &config.Config{
-		SandboxWarmPoolEmployeeSize: 1,
-		RailwayRuntimePort:          7080,
-		SandboxesRuntimeBaseImage:   image,
+		SandboxWarmPoolAgentSize:  1,
+		RailwayRuntimePort:        7080,
+		SandboxesRuntimeBaseImage: image,
 	})
-	created, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeEmployee, nil)
+	created, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeAgent, nil)
 	if err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestWarmPoolReconcileTrimsSurplusSlots(t *testing.T) {
 
 	var warm int64
 	if err := db.Model(&model.SandboxWarmSlot{}).
-		Where("provider_id = ? AND mode = ? AND status = ?", provider.ID(), model.SandboxWarmSlotModeEmployee, model.SandboxWarmSlotStatusWarm).
+		Where("provider_id = ? AND mode = ? AND status = ?", provider.ID(), model.SandboxWarmSlotModeAgent, model.SandboxWarmSlotStatusWarm).
 		Count(&warm).Error; err != nil {
 		t.Fatalf("count warm: %v", err)
 	}
@@ -77,16 +77,16 @@ func TestWarmPoolReconcileSerializesConcurrentCalls(t *testing.T) {
 	db.Where("provider_id = ?", provider.ID()).Delete(&model.SandboxWarmSlot{})
 
 	pool := NewWarmPool(db, provider, testEncKey(t), &config.Config{
-		SandboxWarmPoolEmployeeSize: 2,
-		RailwayRuntimePort:          7080,
-		SandboxesRuntimeBaseImage:   "runtime:test",
+		SandboxWarmPoolAgentSize:  2,
+		RailwayRuntimePort:        7080,
+		SandboxesRuntimeBaseImage: "runtime:test",
 	})
 
 	const goroutines = 4
 	errCh := make(chan error, goroutines)
 	for i := 0; i < goroutines; i++ {
 		go func() {
-			_, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeEmployee, nil)
+			_, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeAgent, nil)
 			errCh <- err
 		}()
 	}
@@ -98,7 +98,7 @@ func TestWarmPoolReconcileSerializesConcurrentCalls(t *testing.T) {
 
 	var total int64
 	if err := db.Model(&model.SandboxWarmSlot{}).
-		Where("provider_id = ? AND mode = ? AND status IN ?", provider.ID(), model.SandboxWarmSlotModeEmployee, []string{
+		Where("provider_id = ? AND mode = ? AND status IN ?", provider.ID(), model.SandboxWarmSlotModeAgent, []string{
 			model.SandboxWarmSlotStatusWarm, model.SandboxWarmSlotStatusWarming,
 		}).
 		Count(&total).Error; err != nil {

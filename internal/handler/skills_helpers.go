@@ -108,12 +108,12 @@ func (h *SkillHandler) loadOwnSkill(ctx context.Context, id string, orgID uuid.U
 	return &skill, nil
 }
 
-func (h *SkillHandler) loadEmployee(ctx context.Context, id string, orgID uuid.UUID) (*model.Employee, error) {
+func (h *SkillHandler) loadAgent(ctx context.Context, id string, orgID uuid.UUID) (*model.Agent, error) {
 	agentID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, gorm.ErrRecordNotFound
 	}
-	var agent model.Employee
+	var agent model.Agent
 	err = h.db.WithContext(ctx).
 		Where("id = ? AND org_id = ?", agentID, orgID).
 		First(&agent).Error
@@ -131,8 +131,8 @@ func writeSkillLookupError(w http.ResponseWriter, err error) {
 	writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "lookup failed"})
 }
 
-func toEmployeeSkillResponse(link model.EmployeeSkill, skill model.Skill) employeeSkillResponse {
-	resp := employeeSkillResponse{
+func toAgentSkillResponse(link model.AgentSkill, skill model.Skill) agentSkillResponse {
+	resp := agentSkillResponse{
 		SkillID:   link.SkillID.String(),
 		CreatedAt: link.CreatedAt,
 		Skill:     toSkillResponse(skill),

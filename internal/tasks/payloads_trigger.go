@@ -9,11 +9,11 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// EmployeeTriggerDispatchPayload carries one inbound trigger event to the
-// employee trigger dispatcher. For webhook triggers, TriggerID is empty and the
-// worker matches all employee triggers for the connection/event. For HTTP
+// AgentTriggerDispatchPayload carries one inbound trigger event to the
+// agent trigger dispatcher. For webhook triggers, TriggerID is empty and the
+// worker matches all agent triggers for the connection/event. For HTTP
 // triggers, TriggerID is set and the worker delivers only that trigger.
-type EmployeeTriggerDispatchPayload struct {
+type AgentTriggerDispatchPayload struct {
 	Provider     string     `json:"provider,omitempty"`
 	EventType    string     `json:"event_type,omitempty"`
 	EventAction  string     `json:"event_action,omitempty"`
@@ -24,19 +24,19 @@ type EmployeeTriggerDispatchPayload struct {
 	PayloadJSON  []byte     `json:"payload"`
 }
 
-// NewEmployeeTriggerDispatchTask returns the task plus its enqueue options.
+// NewAgentTriggerDispatchTask returns the task plus its enqueue options.
 // Options are returned separately (see NewWebhookForwardTask).
-func NewEmployeeTriggerDispatchTask(payload EmployeeTriggerDispatchPayload) (*asynq.Task, []asynq.Option, error) {
+func NewAgentTriggerDispatchTask(payload AgentTriggerDispatchPayload) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("marshal employee trigger dispatch payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal agent trigger dispatch payload: %w", err)
 	}
 	opts := []asynq.Option{
 		asynq.Queue(QueueCritical),
 		asynq.MaxRetry(3),
 		asynq.Timeout(2 * time.Minute),
 	}
-	return asynq.NewTask(TypeEmployeeTriggerDispatch, encoded), opts, nil
+	return asynq.NewTask(TypeAgentTriggerDispatch, encoded), opts, nil
 }
 
 // ConversationNamePayload is the payload for TypeConversationName tasks.

@@ -12,7 +12,7 @@ import (
 func TestBaseMemoryTags(t *testing.T) {
 	orgID := uuid.New()
 	agentID := uuid.New()
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:    agentID,
 		OrgID: &orgID,
 	}
@@ -24,8 +24,8 @@ func TestBaseMemoryTags(t *testing.T) {
 		"visibility:company":        false,
 	}
 	for _, tag := range tags {
-		if tag == "employee:"+agentID.String() {
-			t.Fatalf("memory tags must not include employee-private scoping: %#v", tags)
+		if tag == "agent:"+agentID.String() {
+			t.Fatalf("memory tags must not include agent-private scoping: %#v", tags)
 		}
 		if _, ok := want[tag]; ok {
 			want[tag] = true

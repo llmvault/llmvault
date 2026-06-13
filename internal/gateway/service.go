@@ -20,8 +20,8 @@ type Service struct {
 	encKey                      *crypto.SymmetricKey
 	adapters                    map[string]Adapter
 	preload                     precontext.Builder
-	employeeRuntimeImage        string
-	onSessionCreated            func(context.Context, model.EmployeeSession, string, string)
+	agentRuntimeImage           string
+	onSessionCreated            func(context.Context, model.AgentSession, string, string)
 	onConnectionInboundAccepted func(context.Context, ConnectionInboundAccepted)
 	now                         func() time.Time
 }
@@ -44,11 +44,11 @@ func (s *Service) SetPreContextBuilder(builder precontext.Builder) {
 	s.preload = builder
 }
 
-func (s *Service) SetRuntimeImages(employeeImage string) {
-	s.employeeRuntimeImage = strings.TrimSpace(employeeImage)
+func (s *Service) SetRuntimeImages(agentImage string) {
+	s.agentRuntimeImage = strings.TrimSpace(agentImage)
 }
 
-func (s *Service) SetSessionCreatedHook(hook func(context.Context, model.EmployeeSession, string, string)) {
+func (s *Service) SetSessionCreatedHook(hook func(context.Context, model.AgentSession, string, string)) {
 	s.onSessionCreated = hook
 }
 
@@ -63,7 +63,7 @@ func (s *Service) RegisterAdapter(adapter Adapter) {
 	s.adapters[strings.ToLower(strings.TrimSpace(adapter.Provider()))] = adapter
 }
 
-func (s *Service) adapterForRoute(route model.EmployeeGatewayRoute) (Adapter, error) {
+func (s *Service) adapterForRoute(route model.AgentGatewayRoute) (Adapter, error) {
 	if RouteUsesExternalAdapter(route) {
 		return s.adapter(ExternalProvider)
 	}
@@ -138,7 +138,7 @@ func (s *Service) Receive(ctx context.Context, inbound InboundEnvelope) (*Receiv
 	}
 	dynamicContext := s.buildPreContext(ctx, created, precontext.Request{
 		OrgID:                 route.OrgID,
-		EmployeeID:            route.EmployeeID,
+		AgentID:               route.AgentID,
 		CurrentSessionID:      session.ID,
 		RuntimeConversationID: conversationID,
 		Text:                  req.Markdown,
@@ -173,7 +173,7 @@ func (s *Service) Receive(ctx context.Context, inbound InboundEnvelope) (*Receiv
 	if err := s.markEventDelivered(ctx, event.ID, session.ID, conversationID, delivery); err != nil {
 		return nil, err
 	}
-	event.EmployeeSessionID = &session.ID
+	event.AgentSessionID = &session.ID
 	event.RuntimeConversationID = conversationID
 	event.RuntimeSessionID = delivery.SessionID
 	event.RuntimeStreamID = delivery.StreamID
@@ -194,8 +194,8 @@ func (s *Service) buildPreContext(ctx context.Context, created bool, req precont
 	return dynamicContext
 }
 
-func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse) (*model.EmployeeGatewayDelivery, error) {
-	session := response.EmployeeSession
+func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse) (*model.AgentGatewayDelivery, error) {
+	session := response.AgentSession
 	if session.ID == uuid.Nil {
 		loaded, found, err := s.loadActiveSessionByRuntimeID(ctx, response.RuntimeSessionID)
 		if err != nil {
@@ -216,10 +216,10 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 		if connErr != nil {
 			return nil, fmt.Errorf("load gateway route or connection: %w", err)
 		}
-		route = model.EmployeeGatewayRoute{
+		route = model.AgentGatewayRoute{
 			ID:           uuid.Nil,
 			OrgID:        conn.OrgID,
-			EmployeeID:   session.EmployeeID,
+			AgentID:      session.AgentID,
 			ConnectionID: &conn.ID,
 			Connection:   conn,
 			Provider:     conn.Integration.Provider,
@@ -235,7 +235,7 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 	}
 	response.RouteID = route.ID
 	response.Route = route
-	response.EmployeeSession = session
+	response.AgentSession = session
 	if response.RuntimeSessionID == "" {
 		response.RuntimeSessionID = session.RuntimeConversationID
 	}
@@ -273,8 +273,8 @@ func (s *Service) HandleRuntimeFinal(ctx context.Context, response AgentResponse
 	return s.upsertDelivery(ctx, route, session, response, dedupe, existing, handles, "sent", "")
 }
 
-func (s *Service) loadRoute(ctx context.Context, id uuid.UUID) (model.EmployeeGatewayRoute, error) {
-	var route model.EmployeeGatewayRoute
+func (s *Service) loadRoute(ctx context.Context, id uuid.UUID) (model.AgentGatewayRoute, error) {
+	var route model.AgentGatewayRoute
 	if err := s.db.WithContext(ctx).
 		Preload("Connection.Integration").
 		Where("id = ? AND enabled = true AND revoked_at IS NULL", id).

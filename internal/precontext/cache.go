@@ -70,31 +70,31 @@ func (c *RedisCache) DeletePrefix(ctx context.Context, prefix string) error {
 	}
 }
 
-func SessionsCacheKey(orgID, employeeID uuid.UUID) string {
-	return fmt.Sprintf("employee_precontext:sessions:%s:%s", orgID, employeeID)
+func SessionsCacheKey(orgID, agentID uuid.UUID) string {
+	return fmt.Sprintf("agent_precontext:sessions:%s:%s", orgID, agentID)
 }
 
-func MemoriesCacheKey(orgID, employeeID uuid.UUID) string {
-	return fmt.Sprintf("employee_precontext:memories:%s:%s", orgID, employeeID)
+func MemoriesCacheKey(orgID, agentID uuid.UUID) string {
+	return fmt.Sprintf("agent_precontext:memories:%s:%s", orgID, agentID)
 }
 
-func KnowledgeCacheKey(orgID, employeeID uuid.UUID, query string) string {
-	return fmt.Sprintf("employee_precontext:knowledge:%s:%s:%s", orgID, employeeID, queryHash(query))
+func KnowledgeCacheKey(orgID, agentID uuid.UUID, query string) string {
+	return fmt.Sprintf("agent_precontext:knowledge:%s:%s:%s", orgID, agentID, queryHash(query))
 }
 
-func InvalidateSessions(ctx context.Context, cache Cache, orgID, employeeID uuid.UUID) {
-	_ = cacheDel(ctx, cache, SessionsCacheKey(orgID, employeeID))
+func InvalidateSessions(ctx context.Context, cache Cache, orgID, agentID uuid.UUID) {
+	_ = cacheDel(ctx, cache, SessionsCacheKey(orgID, agentID))
 }
 
-func InvalidateMemories(ctx context.Context, cache Cache, orgID, employeeID uuid.UUID) {
-	_ = cacheDel(ctx, cache, MemoriesCacheKey(orgID, employeeID))
+func InvalidateMemories(ctx context.Context, cache Cache, orgID, agentID uuid.UUID) {
+	_ = cacheDel(ctx, cache, MemoriesCacheKey(orgID, agentID))
 }
 
 func InvalidateKnowledge(ctx context.Context, cache Cache, orgID uuid.UUID) {
 	if cache == nil || orgID == uuid.Nil {
 		return
 	}
-	_ = cache.DeletePrefix(ctx, fmt.Sprintf("employee_precontext:knowledge:%s:", orgID))
+	_ = cache.DeletePrefix(ctx, fmt.Sprintf("agent_precontext:knowledge:%s:", orgID))
 }
 
 func cacheDel(ctx context.Context, cache Cache, key string) error {

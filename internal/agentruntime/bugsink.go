@@ -16,20 +16,20 @@ const bugsinkProvider = "bugsink"
 const glitchTipProvider = "glitchtip"
 
 // BugsinkDashboardBaseURL returns the real Bugsink instance base URL attached
-// to the employee. It deliberately does not return HIVY_BUGSINK_URL, because
+// to the agent. It deliberately does not return HIVY_BUGSINK_URL, because
 // HIVY_BUGSINK_URL is the Hivy proxy URL used for API calls.
-func BugsinkDashboardBaseURL(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agent model.Employee) string {
+func BugsinkDashboardBaseURL(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agent model.Agent) string {
 	return providerDashboardBaseURL(ctx, db, orgID, agent, bugsinkProvider)
 }
 
 // GlitchTipDashboardBaseURL returns the real GlitchTip instance base URL attached
-// to the employee. It deliberately does not return HIVY_GLITCHTIP_URL, because
+// to the agent. It deliberately does not return HIVY_GLITCHTIP_URL, because
 // HIVY_GLITCHTIP_URL is the Hivy proxy URL used for API calls.
-func GlitchTipDashboardBaseURL(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agent model.Employee) string {
+func GlitchTipDashboardBaseURL(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agent model.Agent) string {
 	return providerDashboardBaseURL(ctx, db, orgID, agent, glitchTipProvider)
 }
 
-func providerDashboardBaseURL(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agent model.Employee, provider string) string {
+func providerDashboardBaseURL(ctx context.Context, db *gorm.DB, orgID uuid.UUID, agent model.Agent, provider string) string {
 	if db == nil || orgID == uuid.Nil {
 		return ""
 	}

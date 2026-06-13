@@ -42,9 +42,9 @@ func newStreamHarness(t *testing.T) *streamHarness {
 
 	r := chi.NewRouter()
 	r.Get("/v1/assets/preview", h.PreviewAsset)
-	r.Put("/internal/employees/{employeeID}/drive/*", h.StreamEmployeeAsset)
-	r.Post("/internal/employees/{employeeID}/drive/move", h.MoveEmployeeAsset)
-	r.Delete("/internal/employees/{employeeID}/drive/*", h.DeleteEmployeeAsset)
+	r.Put("/internal/agents/{agentID}/drive/*", h.StreamAgentAsset)
+	r.Post("/internal/agents/{agentID}/drive/move", h.MoveAgentAsset)
+	r.Delete("/internal/agents/{agentID}/drive/*", h.DeleteAgentAsset)
 
 	orgID := uuid.New()
 	if err := db.Create(&model.Org{
@@ -58,7 +58,7 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	t.Cleanup(func() { db.Where("id = ?", orgID).Delete(&model.Org{}) })
 
 	agentID := uuid.New()
-	if err := db.Create(&model.Employee{
+	if err := db.Create(&model.Agent{
 		ID:     agentID,
 		OrgID:  &orgID,
 		Name:   "stream-agent",
@@ -77,7 +77,7 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	if err := db.Create(&model.Sandbox{
 		ID:                     sandboxID,
 		OrgID:                  &orgID,
-		EmployeeID:             &agentID,
+		AgentID:                &agentID,
 		EncryptedRuntimeSecret: encrypted,
 		Status:                 "running",
 		ExternalID:             "mock-external-id",
@@ -135,9 +135,9 @@ func (s *streamHarness) delete(t *testing.T, urlPath, bearer string) *httptest.R
 	return rr
 }
 
-func (s *streamHarness) seedEmployeeAsset(t *testing.T, folder, filename, body string) string {
+func (s *streamHarness) seedAgentAsset(t *testing.T, folder, filename, body string) string {
 	t.Helper()
-	urlPath := "/internal/employees/" + s.agentID.String() + "/drive/"
+	urlPath := "/internal/agents/" + s.agentID.String() + "/drive/"
 	if folder != "" {
 		urlPath += folder + "/"
 	}
@@ -155,7 +155,7 @@ func (s *streamHarness) seedEmployeeAsset(t *testing.T, folder, filename, body s
 	return resp.PublicURL
 }
 
-func TestStreamEmployeeDrive_LargeMultipartStream(t *testing.T) {
+func TestStreamAgentDrive_LargeMultipartStream(t *testing.T) {
 	h := newStreamHarness(t)
 
 	const size = 24 * 1024 * 1024
@@ -165,7 +165,7 @@ func TestStreamEmployeeDrive_LargeMultipartStream(t *testing.T) {
 	}
 
 	rr := h.put(t,
-		fmt.Sprintf("/internal/employees/%s/drive/videos/big.bin", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/videos/big.bin", h.agentID),
 		bytes.NewReader(body),
 		"application/octet-stream",
 		h.runtimeSecret,
@@ -183,9 +183,9 @@ func TestStreamEmployeeDrive_LargeMultipartStream(t *testing.T) {
 	}
 }
 
-func TestStreamEmployeeDrive_OverwriteByPath(t *testing.T) {
+func TestStreamAgentDrive_OverwriteByPath(t *testing.T) {
 	h := newStreamHarness(t)
-	urlPath := fmt.Sprintf("/internal/employees/%s/drive/exports/data.csv", h.agentID)
+	urlPath := fmt.Sprintf("/internal/agents/%s/drive/exports/data.csv", h.agentID)
 
 	first := h.put(t, urlPath, bytes.NewReader([]byte("v1,a")), "text/csv", h.runtimeSecret)
 	if first.Code != http.StatusCreated {
@@ -215,7 +215,7 @@ func TestStreamEmployeeDrive_OverwriteByPath(t *testing.T) {
 	}
 
 	wantKey := fmt.Sprintf("pub/e/%s/exports/data.csv", h.agentID)
-	var row model.EmployeeAsset
+	var row model.AgentAsset
 	if err := h.db.Where("key = ?", wantKey).First(&row).Error; err != nil {
 		t.Fatalf("load row: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestStreamEmployeeDrive_OverwriteByPath(t *testing.T) {
 	}
 
 	var count int64
-	h.db.Model(&model.EmployeeAsset{}).Where("key = ?", wantKey).Count(&count)
+	h.db.Model(&model.AgentAsset{}).Where("key = ?", wantKey).Count(&count)
 	if count != 1 {
 		t.Fatalf("expected 1 row for key, got %d", count)
 	}

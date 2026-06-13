@@ -44,12 +44,12 @@ func (h *orgUpdateHarness) doEnvRequest(t *testing.T, method, path string, userI
 	return rr
 }
 
-func TestOrgEnvironmentVariables_CRUDUsesEncryptedEmployeeEnvAndSyncs(t *testing.T) {
+func TestOrgEnvironmentVariables_CRUDUsesEncryptedAgentEnvAndSyncs(t *testing.T) {
 	h := newOrgUpdateHarness(t)
 	encKey := newTestEncKey(t)
 	h.orgHandler.SetEnvironmentEncryptionKey(encKey)
-	syncer := &stubOrgEmployeeSyncer{}
-	h.orgHandler.SetEmployeeSyncer(syncer)
+	syncer := &stubOrgAgentSyncer{}
+	h.orgHandler.SetAgentSyncer(syncer)
 	org, user := h.createOrg(t, "admin")
 
 	createRR := h.doEnvRequest(t, http.MethodPost, "/v1/orgs/current/environment-variables", user.ID, org.ID, "admin", map[string]any{
@@ -77,7 +77,7 @@ func TestOrgEnvironmentVariables_CRUDUsesEncryptedEmployeeEnvAndSyncs(t *testing
 	if envVars["HIVY_ORG_STRIPE_API_KEY"] != "sk_test_123" {
 		t.Fatalf("encrypted env HIVY_ORG_STRIPE_API_KEY = %q, want sk_test_123", envVars["HIVY_ORG_STRIPE_API_KEY"])
 	}
-	envVars["EMPLOYEE_INTERNAL_ONLY"] = "keep-me"
+	envVars["AGENT_INTERNAL_ONLY"] = "keep-me"
 	saveOrgTestEnvVars(t, h, encKey, org.ID, envVars)
 
 	listRR := h.doEnvRequest(t, http.MethodGet, "/v1/orgs/current/environment-variables", user.ID, org.ID, "admin", nil)
@@ -111,8 +111,8 @@ func TestOrgEnvironmentVariables_CRUDUsesEncryptedEmployeeEnvAndSyncs(t *testing
 	if envVars["HIVY_ORG_BILLING_SECRET"] != "bill_secret_456" {
 		t.Fatalf("renamed env = %q, want bill_secret_456", envVars["HIVY_ORG_BILLING_SECRET"])
 	}
-	if envVars["EMPLOYEE_INTERNAL_ONLY"] != "keep-me" {
-		t.Fatalf("non-custom env = %q, want keep-me", envVars["EMPLOYEE_INTERNAL_ONLY"])
+	if envVars["AGENT_INTERNAL_ONLY"] != "keep-me" {
+		t.Fatalf("non-custom env = %q, want keep-me", envVars["AGENT_INTERNAL_ONLY"])
 	}
 
 	deleteRR := h.doEnvRequest(t, http.MethodDelete, "/v1/orgs/current/environment-variables/BILLING_SECRET", user.ID, org.ID, "admin", nil)
@@ -123,8 +123,8 @@ func TestOrgEnvironmentVariables_CRUDUsesEncryptedEmployeeEnvAndSyncs(t *testing
 	if _, exists := envVars["HIVY_ORG_BILLING_SECRET"]; exists {
 		t.Fatal("custom env should be removed after delete")
 	}
-	if envVars["EMPLOYEE_INTERNAL_ONLY"] != "keep-me" {
-		t.Fatalf("non-custom env after delete = %q, want keep-me", envVars["EMPLOYEE_INTERNAL_ONLY"])
+	if envVars["AGENT_INTERNAL_ONLY"] != "keep-me" {
+		t.Fatalf("non-custom env after delete = %q, want keep-me", envVars["AGENT_INTERNAL_ONLY"])
 	}
 	if syncer.calls != 3 {
 		t.Fatalf("sync calls = %d, want 3", syncer.calls)
@@ -171,14 +171,14 @@ func decryptOrgTestEnvVars(t *testing.T, h *orgUpdateHarness, encKey interface {
 	DecryptString([]byte) (string, error)
 }, orgID uuid.UUID) map[string]string {
 	t.Helper()
-	var employee model.Employee
-	if err := h.db.First(&employee, "org_id = ?", orgID).Error; err != nil {
-		t.Fatalf("load employee: %v", err)
+	var agent model.Agent
+	if err := h.db.First(&agent, "org_id = ?", orgID).Error; err != nil {
+		t.Fatalf("load agent: %v", err)
 	}
-	if len(employee.EncryptedEnvVars) == 0 {
+	if len(agent.EncryptedEnvVars) == 0 {
 		return map[string]string{}
 	}
-	decrypted, err := encKey.DecryptString(employee.EncryptedEnvVars)
+	decrypted, err := encKey.DecryptString(agent.EncryptedEnvVars)
 	if err != nil {
 		t.Fatalf("decrypt env vars: %v", err)
 	}
@@ -201,7 +201,7 @@ func saveOrgTestEnvVars(t *testing.T, h *orgUpdateHarness, encKey interface {
 	if err != nil {
 		t.Fatalf("encrypt env vars: %v", err)
 	}
-	if err := h.db.Model(&model.Employee{}).Where("org_id = ?", orgID).Update("encrypted_env_vars", encrypted).Error; err != nil {
+	if err := h.db.Model(&model.Agent{}).Where("org_id = ?", orgID).Update("encrypted_env_vars", encrypted).Error; err != nil {
 		t.Fatalf("save env vars: %v", err)
 	}
 }

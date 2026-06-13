@@ -65,25 +65,25 @@ func slackInboundThreadReply(inbound InboundEnvelope) bool {
 	return isThreadReply
 }
 
-func (s *Service) loadActiveConnectionSession(ctx context.Context, envelope WebhookEnvelope, threadKey string) (model.EmployeeSession, bool, error) {
-	var session model.EmployeeSession
+func (s *Service) loadActiveConnectionSession(ctx context.Context, envelope WebhookEnvelope, threadKey string) (model.AgentSession, bool, error) {
+	var session model.AgentSession
 	err := s.db.WithContext(ctx).
-		Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
-			envelope.OrgID, envelope.EmployeeID, Source, envelope.ConnectionID, threadKey, "active").
+		Where("org_id = ? AND agent_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
+			envelope.OrgID, envelope.AgentID, Source, envelope.ConnectionID, threadKey, "active").
 		First(&session).Error
 	if err == nil {
 		return session, true, nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.EmployeeSession{}, false, nil
+		return model.AgentSession{}, false, nil
 	}
-	return model.EmployeeSession{}, false, fmt.Errorf("load active slack thread session: %w", err)
+	return model.AgentSession{}, false, fmt.Errorf("load active slack thread session: %w", err)
 }
 
-func (s *Service) latestSlackInboundTS(ctx context.Context, session model.EmployeeSession) (string, error) {
-	var events []model.EmployeeGatewayEvent
+func (s *Service) latestSlackInboundTS(ctx context.Context, session model.AgentSession) (string, error) {
+	var events []model.AgentGatewayEvent
 	err := s.db.WithContext(ctx).
-		Where("employee_session_id = ? AND provider = ? AND sender_id <> ? AND status = ?",
+		Where("agent_session_id = ? AND provider = ? AND sender_id <> ? AND status = ?",
 			session.ID, SlackProvider, "", "delivered").
 		Order("received_at DESC, created_at DESC").
 		Limit(50).
@@ -98,10 +98,10 @@ func (s *Service) latestSlackInboundTS(ctx context.Context, session model.Employ
 	return latest, nil
 }
 
-func (s *Service) latestSlackDeliveryTS(ctx context.Context, session model.EmployeeSession) (string, error) {
-	var deliveries []model.EmployeeGatewayDelivery
+func (s *Service) latestSlackDeliveryTS(ctx context.Context, session model.AgentSession) (string, error) {
+	var deliveries []model.AgentGatewayDelivery
 	if err := s.db.WithContext(ctx).
-		Where("employee_session_id = ? AND provider = ? AND status = ?", session.ID, SlackProvider, "sent").
+		Where("agent_session_id = ? AND provider = ? AND status = ?", session.ID, SlackProvider, "sent").
 		Order("created_at DESC").
 		Limit(20).
 		Find(&deliveries).Error; err != nil {
@@ -114,7 +114,7 @@ func (s *Service) latestSlackDeliveryTS(ctx context.Context, session model.Emplo
 	return latest, nil
 }
 
-func slackDeliveryTS(delivery model.EmployeeGatewayDelivery) string {
+func slackDeliveryTS(delivery model.AgentGatewayDelivery) string {
 	var handles []MessageHandle
 	if err := json.Unmarshal([]byte(delivery.ProviderHandles), &handles); err != nil {
 		return ""

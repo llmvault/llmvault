@@ -9,19 +9,19 @@ import (
 	"github.com/usehivy/hivy/internal/gateway"
 )
 
-// UpdateRoute handles PATCH /v1/employees/{id}/gateway-routes/{routeID}.
+// UpdateRoute handles PATCH /v1/agents/{id}/gateway-routes/{routeID}.
 // @Summary Update an external gateway route
-// @Tags employees
+// @Tags agents
 // @Accept json
 // @Produce json
-// @Param id path string true "Employee ID"
+// @Param id path string true "Agent ID"
 // @Param routeID path string true "Gateway route ID"
 // @Param body body updateGatewayRouteRequest true "Gateway route updates"
 // @Success 200 {object} gatewayRouteResponse
 // @Security BearerAuth
-// @Router /v1/employees/{id}/gateway-routes/{routeID} [patch]
+// @Router /v1/agents/{id}/gateway-routes/{routeID} [patch]
 func (h *GatewayExternalHandler) UpdateRoute(w http.ResponseWriter, r *http.Request) {
-	route, ok := h.loadRouteForEmployee(w, r)
+	route, ok := h.loadRouteForAgent(w, r)
 	if !ok {
 		return
 	}
@@ -71,17 +71,17 @@ func (h *GatewayExternalHandler) UpdateRoute(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, h.routeResponse(route, ""))
 }
 
-// DeleteRoute handles DELETE /v1/employees/{id}/gateway-routes/{routeID}.
+// DeleteRoute handles DELETE /v1/agents/{id}/gateway-routes/{routeID}.
 // @Summary Revoke an external gateway route
-// @Tags employees
+// @Tags agents
 // @Produce json
-// @Param id path string true "Employee ID"
+// @Param id path string true "Agent ID"
 // @Param routeID path string true "Gateway route ID"
 // @Success 200 {object} map[string]string
 // @Security BearerAuth
-// @Router /v1/employees/{id}/gateway-routes/{routeID} [delete]
+// @Router /v1/agents/{id}/gateway-routes/{routeID} [delete]
 func (h *GatewayExternalHandler) DeleteRoute(w http.ResponseWriter, r *http.Request) {
-	route, ok := h.loadRouteForEmployee(w, r)
+	route, ok := h.loadRouteForAgent(w, r)
 	if !ok {
 		return
 	}
@@ -96,17 +96,17 @@ func (h *GatewayExternalHandler) DeleteRoute(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 
-// RotateSecret handles POST /v1/employees/{id}/gateway-routes/{routeID}/rotate-secret.
+// RotateSecret handles POST /v1/agents/{id}/gateway-routes/{routeID}/rotate-secret.
 // @Summary Rotate an external gateway route secret
-// @Tags employees
+// @Tags agents
 // @Produce json
-// @Param id path string true "Employee ID"
+// @Param id path string true "Agent ID"
 // @Param routeID path string true "Gateway route ID"
 // @Success 200 {object} gatewayRouteResponse
 // @Security BearerAuth
-// @Router /v1/employees/{id}/gateway-routes/{routeID}/rotate-secret [post]
+// @Router /v1/agents/{id}/gateway-routes/{routeID}/rotate-secret [post]
 func (h *GatewayExternalHandler) RotateSecret(w http.ResponseWriter, r *http.Request) {
-	route, ok := h.loadRouteForEmployee(w, r)
+	route, ok := h.loadRouteForAgent(w, r)
 	if !ok {
 		return
 	}

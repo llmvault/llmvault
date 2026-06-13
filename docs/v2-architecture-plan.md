@@ -10,7 +10,7 @@
 
 1. **Zero onboarding.** Sign up → land directly in `/w` with a prompt input. No wizard, no Slack/connection/business-profile gates.
 2. **Multiple agents, no specialists.** Users CRUD agents. Hivy remains the default agent auto-created for every org — the always-on, org-wide concierge that does **not** write code. Each agent declares a `sandbox_strategy`: `always_on` (one 24/7 sandbox, sessions multiplexed — Hivy) or `per_session` (an isolated sandbox forked per session from the agent's workspace snapshot — the default for agents with repos/workspace tools). The specialist construct (catalog, dispatch tool, specialist sandboxes, `specialist_tasks`) is deleted entirely.
-3. **First-class channels, web-first.** Channels are a real domain object usable entirely without Slack: any org member can create channels, channels have `public|private` visibility (public = org-discoverable and joinable), org members are added to channels, and channels have a **default agent**. A Slack link is an optional property of a channel, never its identity.
+3. **First-class channels, web-first.** Channels are a real domain object usable entirely without any chat connector: any org member can create channels, channels have `public|private` visibility (public = org-discoverable and joinable), org members are added to channels, and channels have a **default agent**. An external app link (Slack, Discord, Microsoft Teams, or an arbitrary connected app) is optional provider/resource metadata on a channel, never its identity.
 4. **Sessions live inside channels** and are **multi-user**: org members can be invited into a session and collaborate in real time (presence, shared streaming, queued messages). A session's agent is **mutable** — reassignable by humans and via agent-initiated handoff (see decision 6 and W10).
 5. **Artifacts** (apps, drive, canvas, browser, review, terminal, files) become real, backed by the session's sandbox and org storage. Static versions exist in the `/w` right panel today.
 6. **Slack routing precedence — static beats dynamic.** (1) A mention of a per-agent custom Slack bot routes to its bound agent (Gumloop model; user supplies their own Slack app credentials). (2) Otherwise the linked channel's default agent takes the session. (3) Otherwise Hivy takes it and may invoke `handoff_to_agent()` — a one-shot, guarded, human-reversible **transfer** (never a delegation; no return path) when it isn't the right agent. See W10.
@@ -44,7 +44,7 @@ Org
  │    ├─ always_on  → 1 long-lived sandbox; sessions multiplex over it (Hivy)
  │    └─ per_session → workspace snapshot; 1 sandbox forked per session
  ├─ Channel (N; "#general" auto-created at signup; default_agent_id;
- │    │       visibility public|private; optional Slack link)
+ │    │       visibility public|private; optional external app link)
  │    ├─ ChannelMember (org members create/join/are added — fully usable without Slack)
  │    └─ Session (N; channel_id NOT NULL, agent_id NOT NULL **mutable**, created_by)
  │         ├─ SessionParticipant (multi-user; creator + invited members)
@@ -127,15 +127,26 @@ CREATE TABLE channels (
                                                -- (personal channels: private by construction)
     default_agent_id uuid NOT NULL REFERENCES agents(id),
     is_default boolean NOT NULL DEFAULT false, -- #general
-    slack_team_id text,                      -- linked Slack workspace (nullable)
-    slack_channel_id text,                   -- linked Slack channel (nullable)
+    origin text NOT NULL DEFAULT 'native',   -- native|external; intentionally open-ended
+    external_provider text NOT NULL DEFAULT '', -- slack|discord|microsoft_teams|custom|...
+    external_connection_id uuid REFERENCES connections(id) ON DELETE SET NULL,
+    external_workspace_key text NOT NULL DEFAULT '', -- Slack team, Discord guild, Teams tenant/team, etc.
+    external_resource_type text NOT NULL DEFAULT 'channel',
+    external_resource_key text NOT NULL DEFAULT '',  -- provider channel/conversation/resource id
+    external_resource_name text NOT NULL DEFAULT '',
+    external_resource_url text NOT NULL DEFAULT '',
+    external_metadata jsonb NOT NULL DEFAULT '{}',
     created_by uuid REFERENCES users(id),
     archived_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (org_id, name),
-    UNIQUE (org_id, slack_channel_id)        -- one hivy channel per slack channel
+    UNIQUE (org_id, name)
 );
+
+CREATE UNIQUE INDEX idx_channels_org_external_resource
+    ON channels (org_id, external_provider, external_workspace_key,
+                 external_resource_type, external_resource_key)
+    WHERE external_resource_key <> '';
 
 CREATE TABLE channel_members (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -309,7 +320,7 @@ Notes:
 
 ### W3 — Channels
 
-Channels are **web-first**: a team that never connects Slack gets the full experience — create channels, join public ones, organize sessions inside them. Slack linking is one optional property.
+Channels are **web-first**: a team that never connects Slack, Discord, Teams, or any other app gets the full experience — create channels, join public ones, organize sessions inside them. External linking is optional generic provider/resource metadata.
 
 ```
 POST   /v1/channels                       create (name, description, visibility,
@@ -378,7 +389,7 @@ Keep: Nango OAuth + webhook ingestion (`nango_webhooks.go`), `SlackAdapter` deco
 Change `findOrCreateSessionByConnection` (`internal/gateway/service_connection.go`):
 
 1. If the inbound event arrived on a **custom-app connection** (see below), route directly to its bound agent — skip channel-default resolution.
-2. Otherwise resolve the Slack `channel_id` → org's `channels` row via `slack_channel_id` link. If none, **auto-create** a linked Hivy channel (name from Slack channel name, `default_agent_id` = Hivy, creator NULL) on first mention — zero-config like today.
+2. Otherwise resolve the Slack `channel_id` → org's `channels` row via `external_provider='slack'`, `external_workspace_key=<team_id>`, `external_resource_type='channel'`, and `external_resource_key=<channel_id>`. If none, **auto-create** a linked Hivy channel (name from Slack channel name, `default_agent_id` = Hivy, creator NULL) on first mention — zero-config like today. Discord, Microsoft Teams, and arbitrary app connectors use the same external-provider/resource columns.
 3. New session ⇒ `agent_id = channel.default_agent_id`, `channel_id` set; existing thread ⇒ the session keeps its current agent (which may have changed via handoff/reassignment — replies go to `sessions.agent_id`, not the channel default; changing a channel's default only affects *new* threads).
 4. Sandbox resolution follows the agent's `sandbox_strategy` (W9); `MainRuntime()` loses its specialist-exclusion filter.
 5. Delete the specialist runtime-image plumbing in `gateway/service.go` (`SetRuntimeImages` specialist half).

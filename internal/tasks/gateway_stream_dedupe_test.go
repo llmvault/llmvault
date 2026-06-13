@@ -31,24 +31,24 @@ func (s *countingGatewaySink) OnFailure(context.Context, GatewayStreamPayload, e
 	return nil
 }
 
-func seedGatewayDeliveryParents(t *testing.T, db *gorm.DB) (orgID, employeeID, sessionID uuid.UUID) {
+func seedGatewayDeliveryParents(t *testing.T, db *gorm.DB) (orgID, agentID, sessionID uuid.UUID) {
 	t.Helper()
 	orgID = uuid.New()
 	if err := db.Create(&model.Org{ID: orgID, Name: "gw-dedupe-" + uuid.NewString()[:8], Active: true}).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	agent := model.Employee{ID: uuid.New(), OrgID: &orgID, Model: "test-model", Status: "active"}
+	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, Model: "test-model", Status: "active"}
 	if err := db.Create(&agent).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+		t.Fatalf("create agent: %v", err)
 	}
-	sb := model.Sandbox{ID: uuid.New(), OrgID: &orgID, EmployeeID: &agent.ID, EncryptedRuntimeSecret: []byte("secret"), Status: "running"}
+	sb := model.Sandbox{ID: uuid.New(), OrgID: &orgID, AgentID: &agent.ID, EncryptedRuntimeSecret: []byte("secret"), Status: "running"}
 	if err := db.Create(&sb).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)
 	}
-	session := model.EmployeeSession{
+	session := model.AgentSession{
 		ID:                    uuid.New(),
 		OrgID:                 orgID,
-		EmployeeID:            agent.ID,
+		AgentID:               agent.ID,
 		SandboxID:             sb.ID,
 		RuntimeConversationID: "gw-dedupe-conv-" + uuid.NewString()[:8],
 		Status:                "active",
@@ -63,13 +63,13 @@ func seedGatewayDeliveryParents(t *testing.T, db *gorm.DB) (orgID, employeeID, s
 // finds the prior "sent" row and short-circuits.
 func TestGatewayStreamDeliverySkipsDuplicateSendOnRetry(t *testing.T) {
 	db := openTasksMemoryTestDB(t)
-	orgID, employeeID, sessionID := seedGatewayDeliveryParents(t, db)
+	orgID, agentID, sessionID := seedGatewayDeliveryParents(t, db)
 	svc := NewGatewayStreamDeliveryService(db)
 
 	payload := GatewayStreamPayload{
 		Provider:         "test",
 		OrgID:            orgID.String(),
-		EmployeeID:       employeeID.String(),
+		AgentID:          agentID.String(),
 		SessionID:        sessionID.String(),
 		RuntimeSessionID: "rt-session-1",
 		TraceID:          "trace-dedupe-" + uuid.NewString(),
@@ -106,7 +106,7 @@ func TestGatewayStreamDeliverySkipsDuplicateSendOnRetry(t *testing.T) {
 
 	var count int64
 	dedupe := deliveryDedupeKey(payload, "the answer")
-	if err := db.Model(&model.EmployeeGatewayDelivery{}).
+	if err := db.Model(&model.AgentGatewayDelivery{}).
 		Where("dedupe_key = ?", dedupe).Count(&count).Error; err != nil {
 		t.Fatalf("count rows: %v", err)
 	}

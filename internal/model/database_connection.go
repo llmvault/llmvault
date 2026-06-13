@@ -10,8 +10,8 @@ type DatabaseConnection struct {
 	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID          uuid.UUID  `gorm:"type:uuid;not null;index"`
 	Org            Org        `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	EmployeeID     *uuid.UUID `gorm:"type:uuid;index"`
-	Employee       *Employee  `gorm:"foreignKey:EmployeeID;constraint:OnDelete:SET NULL"`
+	AgentID        *uuid.UUID `gorm:"type:uuid;index"`
+	Agent          *Agent     `gorm:"foreignKey:AgentID;constraint:OnDelete:SET NULL"`
 	Provider       string     `gorm:"type:varchar(32);not null;index"`
 	DisplayName    string     `gorm:"type:text;not null;default:''"`
 	EncryptedDSN   []byte     `gorm:"type:bytea;not null"`

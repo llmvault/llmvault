@@ -34,14 +34,14 @@ func newRawProviderProxyHarness(t *testing.T, provider string, nangoHandler http
 	org := createTestOrg(t, db)
 	user := createTestUser(t, db, fmt.Sprintf("%s-proxy-%s@example.com", provider, uuid.NewString()[:8]))
 	integration := createTestIntegration(t, db, provider)
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:     uuid.New(),
 		OrgID:  &org.ID,
 		Name:   provider + "-proxy-agent",
 		Status: "active",
 	}
 	if err := db.Create(&agent).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+		t.Fatalf("create agent: %v", err)
 	}
 
 	runtimeSecret := "test-runtime-secret-" + provider
@@ -52,7 +52,7 @@ func newRawProviderProxyHarness(t *testing.T, provider string, nangoHandler http
 	sandbox := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  &org.ID,
-		EmployeeID:             &agent.ID,
+		AgentID:                &agent.ID,
 		Status:                 "running",
 		EncryptedRuntimeSecret: encryptedRuntimeSecret,
 		RuntimeURL:             "http://localhost:7080",
@@ -76,17 +76,17 @@ func newRawProviderProxyHarness(t *testing.T, provider string, nangoHandler http
 	t.Cleanup(func() {
 		db.Where("id = ?", connection.ID).Delete(&model.Connection{})
 		db.Where("id = ?", sandbox.ID).Delete(&model.Sandbox{})
-		db.Where("id = ?", agent.ID).Delete(&model.Employee{})
+		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
 	})
 
 	router := chi.NewRouter()
 	switch provider {
 	case "vercel":
-		router.Handle("/internal/vercel-proxy/{employeeID}/*", http.HandlerFunc(handler.NewVercelProxyHandler(db, encKey, nangoClient).Handle))
+		router.Handle("/internal/vercel-proxy/{agentID}/*", http.HandlerFunc(handler.NewVercelProxyHandler(db, encKey, nangoClient).Handle))
 	case "glitchtip":
-		router.Handle("/internal/glitchtip-proxy/{employeeID}/*", http.HandlerFunc(handler.NewGlitchTipProxyHandler(db, encKey, nangoClient).Handle))
+		router.Handle("/internal/glitchtip-proxy/{agentID}/*", http.HandlerFunc(handler.NewGlitchTipProxyHandler(db, encKey, nangoClient).Handle))
 	case "slack":
-		router.Handle("/internal/slack-proxy/{employeeID}/*", http.HandlerFunc(handler.NewSlackProxyHandler(db, encKey, nangoClient).Handle))
+		router.Handle("/internal/slack-proxy/{agentID}/*", http.HandlerFunc(handler.NewSlackProxyHandler(db, encKey, nangoClient).Handle))
 	default:
 		t.Fatalf("unsupported provider %q", provider)
 	}

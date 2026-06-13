@@ -76,7 +76,7 @@ func TestConnectionHandler_Create_Success(t *testing.T) {
 	}
 }
 
-func TestConnectionHandler_CreateSlackKeepsOnboardingOpenAndEnsuresHivy(t *testing.T) {
+func TestConnectionHandler_CreateSlackEnsuresHivy(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -108,20 +108,12 @@ func TestConnectionHandler_CreateSlackKeepsOnboardingOpenAndEnsuresHivy(t *testi
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var reloaded model.Org
-	if err := db.First(&reloaded, "id = ?", org.ID).Error; err != nil {
-		t.Fatalf("reload org: %v", err)
+	var agent model.Agent
+	if err := db.Where("org_id = ? AND status <> ?", org.ID, "archived").First(&agent).Error; err != nil {
+		t.Fatalf("load Hivy agent: %v", err)
 	}
-	if reloaded.Onboarded {
-		t.Fatal("org onboarded = true, want false until org profile update")
-	}
-
-	var employee model.Employee
-	if err := db.Where("org_id = ? AND status <> ?", org.ID, "archived").First(&employee).Error; err != nil {
-		t.Fatalf("load Hivy employee: %v", err)
-	}
-	if employee.ID == uuid.Nil {
-		t.Fatal("Hivy employee was not created")
+	if agent.ID == uuid.Nil {
+		t.Fatal("Hivy agent was not created")
 	}
 }
 
@@ -158,13 +150,13 @@ func TestConnectionHandler_CreateAttachesIntegrationManagedSkill(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var employee model.Employee
-	if err := db.Where("org_id = ? AND status <> ?", org.ID, "archived").First(&employee).Error; err != nil {
-		t.Fatalf("load Hivy employee: %v", err)
+	var agent model.Agent
+	if err := db.Where("org_id = ? AND status <> ?", org.ID, "archived").First(&agent).Error; err != nil {
+		t.Fatalf("load Hivy agent: %v", err)
 	}
 	var count int64
-	if err := db.Model(&model.EmployeeSkill{}).
-		Where("employee_id = ? AND skill_id = ?", employee.ID, skill.ID).
+	if err := db.Model(&model.AgentSkill{}).
+		Where("agent_id = ? AND skill_id = ?", agent.ID, skill.ID).
 		Count(&count).Error; err != nil {
 		t.Fatalf("count attached skill: %v", err)
 	}
@@ -184,7 +176,7 @@ func TestSkillHandler_DetachRejectsActiveIntegrationManagedSkill(t *testing.T) {
 	org := createTestOrg(t, db)
 	integ := createTestIntegration(t, db, "linear")
 	skill := createTestIntegrationManagedSkill(t, db, "locked-linear-"+uuid.New().String()[:8], []string{"linear"})
-	employee := model.Employee{
+	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
 		Model:         "test-model",
@@ -196,10 +188,10 @@ func TestSkillHandler_DetachRejectsActiveIntegrationManagedSkill(t *testing.T) {
 		Permissions:   model.JSON{},
 		Resources:     model.JSON{},
 	}
-	if err := db.Create(&employee).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
 	}
-	if err := db.Create(&model.EmployeeSkill{EmployeeID: employee.ID, SkillID: skill.ID}).Error; err != nil {
+	if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
 		t.Fatalf("attach skill: %v", err)
 	}
 	if err := db.Create(&model.Connection{
@@ -214,9 +206,9 @@ func TestSkillHandler_DetachRejectsActiveIntegrationManagedSkill(t *testing.T) {
 
 	h := handler.NewSkillHandler(db, nil)
 	r := chi.NewRouter()
-	r.Delete("/v1/employees/{id}/skills/{skillID}", h.DetachFromEmployee)
+	r.Delete("/v1/agents/{id}/skills/{skillID}", h.DetachFromAgent)
 
-	req := httptest.NewRequest(http.MethodDelete, "/v1/employees/"+employee.ID.String()+"/skills/"+skill.ID.String(), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/v1/agents/"+agent.ID.String()+"/skills/"+skill.ID.String(), nil)
 	req = middleware.WithOrg(req, &org)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)

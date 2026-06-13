@@ -51,7 +51,7 @@ func TestResolve_PlatformAgentCallsPickerByModel(t *testing.T) {
 	}
 	picker := &fakePicker{byModel: map[string]*model.Credential{"kimi-k2.5": sysCred}}
 
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:           uuid.New(),
 		CredentialID: nil,
 		Model:        "kimi-k2.5",
@@ -70,7 +70,7 @@ func TestResolve_PlatformAgentCallsPickerByModel(t *testing.T) {
 }
 
 func TestResolve_PlatformAgentWithoutModelErrors(t *testing.T) {
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:           uuid.New(),
 		CredentialID: nil,
 		Model:        "",
@@ -82,7 +82,7 @@ func TestResolve_PlatformAgentWithoutModelErrors(t *testing.T) {
 }
 
 func TestResolve_PlatformAgentWithoutPickerErrors(t *testing.T) {
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:           uuid.New(),
 		CredentialID: nil,
 		Model:        "kimi-k2.5",
@@ -96,7 +96,7 @@ func TestResolve_PlatformAgentWithoutPickerErrors(t *testing.T) {
 func TestResolve_PickerErrorPropagates(t *testing.T) {
 	sentinel := errors.New("picker boom")
 	picker := &fakePicker{err: sentinel}
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:           uuid.New(),
 		CredentialID: nil,
 		Model:        "kimi-k2.5",

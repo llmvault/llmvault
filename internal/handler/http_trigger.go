@@ -23,7 +23,7 @@ const maxHTTPTriggerBodyBytes int64 = 256 * 1024
 var httpTriggerRedactedValue = "[redacted]"
 
 // HTTPTriggerHandler receives HTTP requests at /incoming/triggers/{triggerID}
-// and dispatches them to the owning employee runtime. Unlike provider webhooks,
+// and dispatches them to the owning agent runtime. Unlike provider webhooks,
 // these bypass connection/event-key matching — the trigger is already known.
 //
 // Security: the trigger's unguessable UUID acts as a bearer token. If a
@@ -43,7 +43,7 @@ func NewHTTPTriggerHandler(db *gorm.DB, enqueuer enqueue.TaskEnqueuer) *HTTPTrig
 
 // Handle processes POST /incoming/triggers/{triggerID}.
 // @Summary Receive HTTP trigger request
-// @Description Receives an HTTP request and dispatches it to the owning employee runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
+// @Description Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
 // @Tags triggers
 // @Accept json
 // @Produce json
@@ -67,10 +67,10 @@ func (handler *HTTPTriggerHandler) Handle(writer http.ResponseWriter, request *h
 		return
 	}
 
-	var trigger model.EmployeeTrigger
+	var trigger model.AgentTrigger
 	if err := handler.db.
-		Joins("JOIN employees ON employees.id = employee_triggers.employee_id").
-		Where("employee_triggers.id = ? AND employee_triggers.enabled = TRUE AND employee_triggers.trigger_type = ? AND employees.status <> ?", triggerID, "http", "archived").
+		Joins("JOIN agents ON agents.id = agent_triggers.agent_id").
+		Where("agent_triggers.id = ? AND agent_triggers.enabled = TRUE AND agent_triggers.trigger_type = ? AND agents.status <> ?", triggerID, "http", "archived").
 		First(&trigger).Error; err != nil {
 		writeJSON(writer, http.StatusNotFound, errorResponse{Error: "trigger not found"})
 		return
@@ -111,7 +111,7 @@ func (handler *HTTPTriggerHandler) Handle(writer http.ResponseWriter, request *h
 	writeJSON(writer, http.StatusOK, map[string]string{"status": "ok"})
 
 	deliveryID := triggerID.String() + ":" + uuid.New().String()
-	task, opts, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
+	task, opts, err := tasks.NewAgentTriggerDispatchTask(tasks.AgentTriggerDispatchPayload{
 		Provider:    "http",
 		EventType:   "http",
 		DeliveryID:  deliveryID,
@@ -126,7 +126,7 @@ func (handler *HTTPTriggerHandler) Handle(writer http.ResponseWriter, request *h
 		)
 		logging.CaptureWithFields(request.Context(), fmt.Errorf("http trigger: failed to build dispatch task: %w", err), map[string]any{
 			"org_id":      trigger.OrgID.String(),
-			"employee_id": trigger.EmployeeID.String(),
+			"agent_id":    trigger.AgentID.String(),
 			"trigger_id":  triggerID.String(),
 			"delivery_id": deliveryID,
 			"event_key":   "http",
@@ -141,7 +141,7 @@ func (handler *HTTPTriggerHandler) Handle(writer http.ResponseWriter, request *h
 		)
 		logging.CaptureWithFields(request.Context(), fmt.Errorf("http trigger: failed to enqueue dispatch task: %w", enqueueErr), map[string]any{
 			"org_id":      trigger.OrgID.String(),
-			"employee_id": trigger.EmployeeID.String(),
+			"agent_id":    trigger.AgentID.String(),
 			"trigger_id":  triggerID.String(),
 			"delivery_id": deliveryID,
 			"event_key":   "http",

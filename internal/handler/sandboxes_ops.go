@@ -47,7 +47,7 @@ func (h *SandboxHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
 		return
 	}
-	if h.blockEmployeeUpgradeConflict(w, r, org.ID, &sb) {
+	if h.blockAgentUpgradeConflict(w, r, org.ID, &sb) {
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *SandboxHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
 		return
 	}
-	if h.blockEmployeeUpgradeConflict(w, r, org.ID, &sb) {
+	if h.blockAgentUpgradeConflict(w, r, org.ID, &sb) {
 		return
 	}
 
@@ -151,7 +151,7 @@ func (h *SandboxHandler) Exec(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sandbox"})
 		return
 	}
-	if h.blockEmployeeUpgradeConflict(w, r, org.ID, &sb) {
+	if h.blockAgentUpgradeConflict(w, r, org.ID, &sb) {
 		return
 	}
 
@@ -203,11 +203,11 @@ func (h *SandboxHandler) Exec(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *SandboxHandler) blockEmployeeUpgradeConflict(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, sb *model.Sandbox) bool {
-	if sb.EmployeeID == nil {
+func (h *SandboxHandler) blockAgentUpgradeConflict(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, sb *model.Sandbox) bool {
+	if sb.AgentID == nil {
 		return false
 	}
-	upgrade, ok, err := activeEmployeeSandboxUpgrade(r.Context(), h.db, orgID, *sb.EmployeeID)
+	upgrade, ok, err := activeAgentSandboxUpgrade(r.Context(), h.db, orgID, *sb.AgentID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load active upgrade"})
 		return true
@@ -215,6 +215,6 @@ func (h *SandboxHandler) blockEmployeeUpgradeConflict(w http.ResponseWriter, r *
 	if !ok {
 		return false
 	}
-	writeEmployeeUpgradeConflict(w, upgrade)
+	writeAgentUpgradeConflict(w, upgrade)
 	return true
 }

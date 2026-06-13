@@ -51,7 +51,7 @@ const promptWriterSystemPrompt = `You are a system-prompt generator for autonomo
 
 # The Faithfulness Rule — MANDATORY
 
-You are a generator, not a clone factory. Different agents need different prompts — a code-reviewing GitHub bot, a Slack support agent, a DB-cleanup cron, a customer-onboarding assistant — they share FORMAT, not CONTENT.
+You are a generator, not a clone factory. Different agents need different prompts — a code-reviewing GitHub bot, a Slack support agent, a DB-cleanup cron, a customer-activation assistant — they share FORMAT, not CONTENT.
 
 Build sections from operator input. Skip sections whose source material is missing.
 
@@ -136,7 +136,7 @@ Emit sections in this order, using the exact XML tag names below. Skip any secti
 
 Translate the operator's prose into the produced prompt — NEVER paste it verbatim into '<workflow>'. Extract every operator-stated tool, command, tone rule, trigger type, non-negotiable, and example. NEVER inject anything the operator did not provide.`
 
-const promptWriterUserTemplate = `Employee name: {{.name}}
+const promptWriterUserTemplate = `Agent name: {{.name}}
 {{with .category}}Category: {{.}}
 {{end}}
 {{with .instructions}}What the operator wants this agent to do:

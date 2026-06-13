@@ -33,16 +33,16 @@ type assetsListHarness struct {
 	sandboxB1 uuid.UUID
 }
 
-func seedAssetRow(t *testing.T, db *gorm.DB, orgID, employeeID, sandboxID uuid.UUID, folder, filename, contentType string, bytes int64, createdAt time.Time) model.EmployeeAsset {
+func seedAssetRow(t *testing.T, db *gorm.DB, orgID, agentID, sandboxID uuid.UUID, folder, filename, contentType string, bytes int64, createdAt time.Time) model.AgentAsset {
 	t.Helper()
-	key := fmt.Sprintf("pub/e/%s/%s", employeeID, filename)
+	key := fmt.Sprintf("pub/e/%s/%s", agentID, filename)
 	if folder != "" {
-		key = fmt.Sprintf("pub/e/%s/%s/%s", employeeID, folder, filename)
+		key = fmt.Sprintf("pub/e/%s/%s/%s", agentID, folder, filename)
 	}
-	a := model.EmployeeAsset{
+	a := model.AgentAsset{
 		ID:          uuid.New(),
 		OrgID:       orgID,
-		EmployeeID:  employeeID,
+		AgentID:     agentID,
 		SandboxID:   sandboxID,
 		Path:        folder,
 		Filename:    filename,
@@ -56,7 +56,7 @@ func seedAssetRow(t *testing.T, db *gorm.DB, orgID, employeeID, sandboxID uuid.U
 	if err := db.Create(&a).Error; err != nil {
 		t.Fatalf("seed asset: %v", err)
 	}
-	t.Cleanup(func() { db.Where("id = ?", a.ID).Delete(&model.EmployeeAsset{}) })
+	t.Cleanup(func() { db.Where("id = ?", a.ID).Delete(&model.AgentAsset{}) })
 	return a
 }
 
@@ -84,7 +84,7 @@ func newAssetsListHarness(t *testing.T) *assetsListHarness {
 	}
 	mkAgent := func(orgID uuid.UUID, name string) uuid.UUID {
 		id := uuid.New()
-		if err := db.Create(&model.Employee{ID: id, OrgID: &orgID, Name: name, Status: "active"}).Error; err != nil {
+		if err := db.Create(&model.Agent{ID: id, OrgID: &orgID, Name: name, Status: "active"}).Error; err != nil {
 			t.Fatalf("create agent: %v", err)
 		}
 		return id
@@ -94,7 +94,7 @@ func newAssetsListHarness(t *testing.T) *assetsListHarness {
 		if err := db.Create(&model.Sandbox{
 			ID:                     id,
 			OrgID:                  &orgID,
-			EmployeeID:             &agentID,
+			AgentID:                &agentID,
 			EncryptedRuntimeSecret: []byte("placeholder"),
 			Status:                 "running",
 			ExternalID:             "x",

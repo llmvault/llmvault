@@ -11,13 +11,13 @@ import (
 )
 
 func TestFormatSessionSummaryKeepsUserAndModelTextOnly(t *testing.T) {
-	session := model.EmployeeSession{
+	session := model.AgentSession{
 		ID:                    uuid.New(),
 		Name:                  "Slack thread",
 		RuntimeConversationID: "runtime-1",
 		UpdatedAt:             time.Date(2026, 6, 3, 12, 30, 0, 0, time.FixedZone("WAT", 3600)),
 	}
-	events := []model.EmployeeSessionEvent{
+	events := []model.AgentSessionEvent{
 		{EventType: "tool.call.started", Payload: model.RawJSON(`{"text":"secret tool output"}`), EventAt: time.Now()},
 		{EventType: "user.message.received", Payload: model.RawJSON(`{"text":"What tools do you have? token=abc123"}`), EventAt: time.Now()},
 		{EventType: "agent.message.sent", Payload: model.RawJSON(`{"text":"I can search docs and remember project facts."}`), EventAt: time.Now()},

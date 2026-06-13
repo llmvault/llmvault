@@ -1,14 +1,14 @@
 # External Gateway API
 
-The External Gateway API lets a customer-owned chat wrapper send messages into a Hivy employee session and receive the final assistant reply by callback.
+The External Gateway API lets a customer-owned chat wrapper send messages into a Hivy agent session and receive the final assistant reply by callback.
 
 ## 1. Create a gateway route
 
 Create one route per external app or channel integration.
 
 ```http
-POST /v1/employees/{employee_id}/gateway-routes
-Authorization: Bearer <Hivy user JWT or org API key with employees scope>
+POST /v1/agents/{agent_id}/gateway-routes
+Authorization: Bearer <Hivy user JWT or org API key with agents scope>
 Content-Type: application/json
 ```
 
@@ -65,7 +65,7 @@ Accepted response:
   "status": "accepted",
   "duplicate": false,
   "event_id": "event_uuid",
-  "employee_session_id": "session_uuid",
+  "agent_session_id": "session_uuid",
   "runtime_session_id": "runtime-session-id",
   "runtime_trace_id": "trace-id",
   "runtime_turn_id": "turn-id"
@@ -98,7 +98,7 @@ X-Hivy-Signature: sha256=<hmac>
 {
   "route_id": "route_uuid",
   "event_id": "event_uuid",
-  "employee_session_id": "session_uuid",
+  "agent_session_id": "session_uuid",
   "runtime_session_id": "runtime-session-id",
   "runtime_trace_id": "trace-id",
   "runtime_turn_id": "turn-id",

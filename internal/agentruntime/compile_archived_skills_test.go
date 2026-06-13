@@ -17,12 +17,12 @@ func TestCompile_IgnoresArchivedAttachedSkills(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	category := "engineering"
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
 		Name:          "Aria",
 		Category:      &category,
-		Model:         DefaultEmployeeModel,
+		Model:         DefaultAgentModel,
 		Tools:         model.JSON{},
 		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
@@ -41,7 +41,7 @@ func TestCompile_IgnoresArchivedAttachedSkills(t *testing.T) {
 		if err := db.Create(&skill).Error; err != nil {
 			t.Fatalf("create skill %s: %v", skill.Slug, err)
 		}
-		if err := db.Create(&model.EmployeeSkill{EmployeeID: agent.ID, SkillID: skill.ID}).Error; err != nil {
+		if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
 			t.Fatalf("attach skill %s: %v", skill.Slug, err)
 		}
 	}

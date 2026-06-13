@@ -376,6 +376,341 @@ definitions:
       response_schema:
         type: string
     type: object
+  agentConnectionResourceSelection:
+    properties:
+      full_name:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  agentListItem:
+    properties:
+      attached_skills:
+        items:
+          $ref: '#/definitions/agentSkillSummary'
+        type: array
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      is_default:
+        type: boolean
+      last_memory_refreshed_at:
+        type: string
+      mcp_servers:
+        items:
+          type: integer
+        type: array
+      memory_refresh_error:
+        type: string
+      memory_refresh_status:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      permissions:
+        $ref: '#/definitions/JSON'
+      placeholder:
+        type: string
+      resources:
+        $ref: '#/definitions/JSON'
+      sandbox:
+        $ref: '#/definitions/agentSandboxSummary'
+      sandbox_strategy:
+        type: string
+      sandbox_template_id:
+        type: string
+      sandbox_tools:
+        items:
+          type: string
+        type: array
+      skills:
+        $ref: '#/definitions/JSON'
+      status:
+        type: string
+      tools:
+        $ref: '#/definitions/JSON'
+      triggers:
+        items:
+          $ref: '#/definitions/agentTriggerResponse'
+        type: array
+      updated_at:
+        type: string
+      upgrade_available:
+        type: boolean
+    type: object
+  agentMutationRequest:
+    properties:
+      avatar_url:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      instructions:
+        type: string
+      mcp_servers:
+        items:
+          type: integer
+        type: array
+      model:
+        type: string
+      name:
+        type: string
+      permissions:
+        $ref: '#/definitions/JSON'
+      placeholder:
+        type: string
+      resources:
+        $ref: '#/definitions/JSON'
+      sandbox_strategy:
+        type: string
+      sandbox_template_id:
+        type: string
+      sandbox_tools:
+        items:
+          type: string
+        type: array
+      skills:
+        $ref: '#/definitions/JSON'
+      tools:
+        $ref: '#/definitions/JSON'
+    type: object
+  agentMutationResponse:
+    properties:
+      agent:
+        $ref: '#/definitions/agentListItem'
+    type: object
+  agentResponse:
+    properties:
+      attached_skills:
+        items:
+          $ref: '#/definitions/agentSkillSummary'
+        type: array
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      is_default:
+        type: boolean
+      last_memory_refreshed_at:
+        type: string
+      mcp_servers:
+        items:
+          type: integer
+        type: array
+      memory_refresh_error:
+        type: string
+      memory_refresh_status:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      permissions:
+        $ref: '#/definitions/JSON'
+      placeholder:
+        type: string
+      resources:
+        $ref: '#/definitions/JSON'
+      sandbox_strategy:
+        type: string
+      sandbox_template_id:
+        type: string
+      sandbox_tools:
+        items:
+          type: string
+        type: array
+      skills:
+        $ref: '#/definitions/JSON'
+      status:
+        type: string
+      tools:
+        $ref: '#/definitions/JSON'
+      triggers:
+        items:
+          $ref: '#/definitions/agentTriggerResponse'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  agentSandboxSummary:
+    properties:
+      created_at:
+        type: string
+      error_message:
+        type: string
+      external_id:
+        type: string
+      id:
+        type: string
+      last_active_at:
+        type: string
+      status:
+        type: string
+    type: object
+  agentSandboxUpgradeResponse:
+    properties:
+      backup_bytes:
+        type: integer
+      backup_key:
+        type: string
+      backup_sha256:
+        type: string
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      error_message:
+        type: string
+      new_sandbox_id:
+        type: string
+      old_sandbox_id:
+        type: string
+      phase:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      upgrade_id:
+        type: string
+    type: object
+  agentSessionEventResponse:
+    properties:
+      agent_session_id:
+        type: string
+      created_at:
+        type: string
+      event_at:
+        type: string
+      event_id:
+        type: string
+      event_type:
+        type: string
+      id:
+        type: string
+      mode:
+        type: string
+      payload:
+        items:
+          type: integer
+        type: array
+      runtime_session_id:
+        type: string
+      sequence_number:
+        type: integer
+      source:
+        type: string
+    type: object
+  agentSessionResponse:
+    properties:
+      agent_session_id:
+        type: string
+      channel:
+        type: string
+      created_at:
+        type: string
+      ended_at:
+        type: string
+      event_count:
+        type: integer
+      id:
+        type: string
+      last_activity_at:
+        type: string
+      name:
+        type: string
+      runtime_conversation_id:
+        type: string
+      source:
+        type: string
+      source_resource_key:
+        type: string
+      status:
+        type: string
+      thread_ts:
+        type: string
+      trigger_delivery:
+        $ref: '#/definitions/triggerDeliveryResponse'
+      updated_at:
+        type: string
+    type: object
+  agentSkillResponse:
+    properties:
+      created_at:
+        type: string
+      locked:
+        type: boolean
+      required:
+        type: boolean
+      skill:
+        $ref: '#/definitions/skillResponse'
+      skill_id:
+        type: string
+    type: object
+  agentSkillSummary:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      locked:
+        type: boolean
+      name:
+        type: string
+      required:
+        type: boolean
+      source_type:
+        type: string
+    type: object
+  agentTriggerResponse:
+    properties:
+      conditions: {}
+      connection_id:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      instructions:
+        type: string
+      provider:
+        type: string
+      secret_set:
+        description: |-
+          SecretSet indicates whether an HTTP trigger has a shared secret configured.
+          True when the trigger requires auth on incoming requests. The secret value
+          is never returned.
+        type: boolean
+      trigger_keys:
+        items:
+          type: string
+        type: array
+      trigger_type:
+        type: string
+    type: object
   apiKeyResponse:
     properties:
       created_at:
@@ -422,6 +757,8 @@ definitions:
     type: object
   assetListItem:
     properties:
+      agent_id:
+        type: string
       asset_url:
         type: string
       bytes:
@@ -429,8 +766,6 @@ definitions:
       content_type:
         type: string
       created_at:
-        type: string
-      employee_id:
         type: string
       filename:
         type: string
@@ -750,9 +1085,7 @@ definitions:
   createSkillRequest:
     properties:
       bundle:
-        allOf:
-        - $ref: '#/definitions/Bundle'
-        description: Inline source
+        $ref: '#/definitions/Bundle'
       category:
         type: string
       description:
@@ -770,7 +1103,6 @@ definitions:
       repo_subpath:
         type: string
       repo_url:
-        description: Git source
         type: string
       source_type:
         description: '"inline" | "git"'
@@ -845,23 +1177,12 @@ definitions:
       spent_this_period:
         type: integer
     type: object
-  dashboardOnboardingResponse:
-    properties:
-      extra_tools_connected:
-        type: integer
-      extra_tools_required:
-        type: integer
-      plan_selected:
-        type: boolean
-    type: object
   dashboardResponse:
     properties:
       connections:
         $ref: '#/definitions/dashboardConnectionsResponse'
       credits:
         $ref: '#/definitions/dashboardCreditsResponse'
-      onboarding:
-        $ref: '#/definitions/dashboardOnboardingResponse'
       schedules:
         $ref: '#/definitions/dashboardSchedulesResponse'
     type: object
@@ -874,11 +1195,11 @@ definitions:
     properties:
       access_policy:
         $ref: '#/definitions/Policy'
+      agent_id:
+        type: string
       connection_url:
         type: string
       display_name:
-        type: string
-      employee_id:
         type: string
       provider:
         type: string
@@ -887,11 +1208,11 @@ definitions:
     properties:
       access_policy:
         $ref: '#/definitions/JSON'
+      agent_id:
+        type: string
       created_at:
         type: string
       display_name:
-        type: string
-      employee_id:
         type: string
       id:
         type: string
@@ -910,311 +1231,6 @@ definitions:
       type:
         type: string
       value:
-        type: string
-    type: object
-  employeeConnectionResourceSelection:
-    properties:
-      full_name:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      type:
-        type: string
-    type: object
-  employeeListItem:
-    properties:
-      attached_skills:
-        items:
-          $ref: '#/definitions/employeeSkillSummary'
-        type: array
-      avatar_url:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      last_memory_refreshed_at:
-        type: string
-      memory_refresh_error:
-        type: string
-      memory_refresh_status:
-        type: string
-      model:
-        type: string
-      name:
-        type: string
-      resources:
-        $ref: '#/definitions/JSON'
-      sandbox:
-        $ref: '#/definitions/employeeSandboxSummary'
-      sandbox_template_id:
-        type: string
-      specialist_ids:
-        items:
-          type: string
-        type: array
-      specialists:
-        items:
-          $ref: '#/definitions/employeeSpecialistSummary'
-        type: array
-      status:
-        type: string
-      triggers:
-        items:
-          $ref: '#/definitions/employeeTriggerResponse'
-        type: array
-      updated_at:
-        type: string
-      upgrade_available:
-        type: boolean
-    type: object
-  employeeResponse:
-    properties:
-      attached_skills:
-        items:
-          $ref: '#/definitions/employeeSkillSummary'
-        type: array
-      avatar_url:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      last_memory_refreshed_at:
-        type: string
-      memory_refresh_error:
-        type: string
-      memory_refresh_status:
-        type: string
-      model:
-        type: string
-      name:
-        type: string
-      resources:
-        $ref: '#/definitions/JSON'
-      sandbox_template_id:
-        type: string
-      specialist_ids:
-        items:
-          type: string
-        type: array
-      status:
-        type: string
-      triggers:
-        items:
-          $ref: '#/definitions/employeeTriggerResponse'
-        type: array
-      updated_at:
-        type: string
-    type: object
-  employeeSandboxSummary:
-    properties:
-      created_at:
-        type: string
-      error_message:
-        type: string
-      external_id:
-        type: string
-      id:
-        type: string
-      last_active_at:
-        type: string
-      status:
-        type: string
-    type: object
-  employeeSandboxUpgradeResponse:
-    properties:
-      backup_bytes:
-        type: integer
-      backup_key:
-        type: string
-      backup_sha256:
-        type: string
-      completed_at:
-        type: string
-      created_at:
-        type: string
-      error_message:
-        type: string
-      new_sandbox_id:
-        type: string
-      old_sandbox_id:
-        type: string
-      phase:
-        type: string
-      status:
-        type: string
-      updated_at:
-        type: string
-      upgrade_id:
-        type: string
-    type: object
-  employeeSessionEventResponse:
-    properties:
-      created_at:
-        type: string
-      employee_session_id:
-        type: string
-      event_at:
-        type: string
-      event_id:
-        type: string
-      event_type:
-        type: string
-      id:
-        type: string
-      mode:
-        type: string
-      payload:
-        items:
-          type: integer
-        type: array
-      runtime_session_id:
-        type: string
-      sequence_number:
-        type: integer
-      source:
-        type: string
-      specialist_slug:
-        type: string
-      specialist_task_id:
-        type: string
-    type: object
-  employeeSessionResponse:
-    properties:
-      agent_session_id:
-        type: string
-      channel:
-        type: string
-      created_at:
-        type: string
-      ended_at:
-        type: string
-      event_count:
-        type: integer
-      id:
-        type: string
-      last_activity_at:
-        type: string
-      name:
-        type: string
-      runtime_conversation_id:
-        type: string
-      source:
-        type: string
-      source_resource_key:
-        type: string
-      status:
-        type: string
-      thread_ts:
-        type: string
-      trigger_delivery:
-        $ref: '#/definitions/triggerDeliveryResponse'
-      updated_at:
-        type: string
-    type: object
-  employeeSkillResponse:
-    properties:
-      created_at:
-        type: string
-      locked:
-        type: boolean
-      required:
-        type: boolean
-      skill:
-        $ref: '#/definitions/skillResponse'
-      skill_id:
-        type: string
-    type: object
-  employeeSkillSummary:
-    properties:
-      description:
-        type: string
-      id:
-        type: string
-      locked:
-        type: boolean
-      name:
-        type: string
-      required:
-        type: boolean
-      source_type:
-        type: string
-    type: object
-  employeeSpecialistResponse:
-    properties:
-      attached:
-        type: boolean
-      configured_model:
-        type: string
-      default_model:
-        type: string
-      description:
-        type: string
-      effective_model:
-        type: string
-      name:
-        type: string
-      slug:
-        type: string
-      specialist_type:
-        type: string
-      version:
-        type: integer
-    type: object
-  employeeSpecialistSummary:
-    properties:
-      avatar_url:
-        type: string
-      configured_model:
-        type: string
-      default_model:
-        type: string
-      description:
-        type: string
-      effective_model:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      status:
-        type: string
-      template_slug:
-        type: string
-      template_specialist_type:
-        type: string
-    type: object
-  employeeTriggerResponse:
-    properties:
-      conditions: {}
-      connection_id:
-        type: string
-      enabled:
-        type: boolean
-      id:
-        type: string
-      instructions:
-        type: string
-      provider:
-        type: string
-      secret_set:
-        description: |-
-          SecretSet indicates whether an HTTP trigger has a shared secret configured.
-          True when the trigger requires auth on incoming requests. The secret value
-          is never returned.
-        type: boolean
-      trigger_keys:
-        items:
-          type: string
-        type: array
-      trigger_type:
         type: string
     type: object
   errorRate:
@@ -1623,8 +1639,6 @@ definitions:
         type: string
       name:
         type: string
-      onboarded:
-        type: boolean
       plan:
         $ref: '#/definitions/planDTO'
       role:
@@ -1676,6 +1690,17 @@ definitions:
       email:
         type: string
     type: object
+  paginatedResponse-agentListItem:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/agentListItem'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
   paginatedResponse-connectionResponse:
     properties:
       data:
@@ -1709,6 +1734,28 @@ definitions:
       next_cursor:
         type: string
     type: object
+  paginatedResponse-handler_agentSessionEventResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/agentSessionEventResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
+  paginatedResponse-handler_agentSessionResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/agentSessionResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
   paginatedResponse-handler_apiKeyResponse:
     properties:
       data:
@@ -1736,39 +1783,6 @@ definitions:
       data:
         items:
           $ref: '#/definitions/auditEntryResponse'
-        type: array
-      has_more:
-        type: boolean
-      next_cursor:
-        type: string
-    type: object
-  paginatedResponse-handler_employeeListItem:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/employeeListItem'
-        type: array
-      has_more:
-        type: boolean
-      next_cursor:
-        type: string
-    type: object
-  paginatedResponse-handler_employeeSessionEventResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/employeeSessionEventResponse'
-        type: array
-      has_more:
-        type: boolean
-      next_cursor:
-        type: string
-    type: object
-  paginatedResponse-handler_employeeSessionResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/employeeSessionResponse'
         type: array
       has_more:
         type: boolean
@@ -2198,14 +2212,14 @@ definitions:
       updated_at:
         type: string
     type: object
-  rebootEmployeeSandboxResponse:
+  rebootAgentSandboxResponse:
     properties:
-      employee:
-        $ref: '#/definitions/employeeResponse'
+      agent:
+        $ref: '#/definitions/agentResponse'
       sandbox_id:
         type: string
       sync:
-        $ref: '#/definitions/syncEmployeeResponse'
+        $ref: '#/definitions/syncAgentResponse'
     type: object
   refreshRequest:
     properties:
@@ -2308,9 +2322,9 @@ definitions:
     type: object
   sandboxResponse:
     properties:
-      created_at:
+      agent_id:
         type: string
-      employee_id:
+      created_at:
         type: string
       error_message:
         type: string
@@ -2378,7 +2392,7 @@ definitions:
           type: string
         type: object
     type: object
-  sendEmployeeSessionMessageRequest:
+  sendAgentSessionMessageRequest:
     properties:
       message:
         type: string
@@ -2387,11 +2401,15 @@ definitions:
       text:
         type: string
     type: object
-  sendEmployeeSessionMessageResponse:
+  sendAgentSessionMessageResponse:
     properties:
+      agent_session_id:
+        type: string
       created:
         type: boolean
-      employee_session_id:
+      direct_response_stream_url:
+        type: string
+      direct_stream_url:
         type: string
       response_stream_url:
         type: string
@@ -2640,7 +2658,7 @@ definitions:
       status:
         type: string
     type: object
-  syncEmployeeResponse:
+  syncAgentResponse:
     properties:
       applied:
         type: integer
@@ -2759,6 +2777,8 @@ definitions:
     type: object
   triggerDeliveryResponse:
     properties:
+      agent_id:
+        type: string
       connection_id:
         type: string
       conversation_id:
@@ -2766,8 +2786,6 @@ definitions:
       created_at:
         type: string
       delivery_id:
-        type: string
-      employee_id:
         type: string
       event_key:
         type: string
@@ -2827,49 +2845,42 @@ definitions:
       webhook_config:
         $ref: '#/definitions/WebhookConfig'
     type: object
-  updateContentRequest:
-    properties:
-      bundle:
-        $ref: '#/definitions/Bundle'
-    type: object
-  updateEmployeeConnectionResourcesRequest:
+  updateAgentConnectionResourcesRequest:
     properties:
       resources:
         additionalProperties:
           items:
-            $ref: '#/definitions/employeeConnectionResourceSelection'
+            $ref: '#/definitions/agentConnectionResourceSelection'
           type: array
         type: object
     type: object
-  updateEmployeeConnectionResourcesResponse:
+  updateAgentConnectionResourcesResponse:
     properties:
+      agent_id:
+        type: string
       clone_queued:
         type: boolean
       connection_id:
         type: string
-      employee_id:
-        type: string
       resources:
         $ref: '#/definitions/JSON'
     type: object
-  updateEmployeeModelRequest:
+  updateAgentModelRequest:
     properties:
       model:
         type: string
     type: object
-  updateEmployeeModelResponse:
+  updateAgentModelResponse:
     properties:
-      employee:
-        $ref: '#/definitions/employeeResponse'
+      agent:
+        $ref: '#/definitions/agentResponse'
       sync:
-        $ref: '#/definitions/syncEmployeeResponse'
+        $ref: '#/definitions/syncAgentResponse'
     type: object
-  updateEmployeeSpecialistRequest:
+  updateContentRequest:
     properties:
-      model:
-        items:
-          type: integer
-        type: array
+      bundle:
+        $ref: '#/definitions/Bundle'
     type: object
   updateGatewayRouteRequest:
     properties:
@@ -3489,7 +3500,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Receives an HTTP request and dispatches it to the owning employee
+      description: 'Receives an HTTP request and dispatches it to the owning agent
         runtime for the specified trigger. The trigger UUID acts as a bearer token.
         If the trigger has a shared secret configured, the request must include the
         plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret,
@@ -3813,6 +3824,1030 @@ paths:
       summary: Sync an admin integration
       tags:
       - admin
+  /v1/agents:
+    get:
+      description: |-
+        Returns all agents in the org with skills (metadata only — no bundle content),
+        triggers, and the latest sandbox row.
+      parameters:
+      - description: Filter by status (draft, active, archived)
+        in: query
+        name: status
+        type: string
+      - description: Page size (default 50, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-agentListItem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List AI agents
+      tags:
+      - agents
+    post:
+      consumes:
+      - application/json
+      description: Creates a user-managed agent definition. Sandbox creation stays
+        lazy until the first session.
+      parameters:
+      - description: Agent create payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/agentMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/agentMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an agent
+      tags:
+      - agents
+  /v1/agents/{id}:
+    delete:
+      description: Archives an agent when it is not the default Hivy agent and has
+        no active sessions.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive an agent
+      tags:
+      - agents
+    get:
+      description: |-
+        Returns one agent in the org with skills (metadata only — no bundle content),
+        triggers, and the latest sandbox row.
+      parameters:
+      - description: Agent agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentListItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an AI agent
+      tags:
+      - agents
+    patch:
+      consumes:
+      - application/json
+      description: Updates a user-managed agent definition. The default Hivy agent
+        cannot be renamed or moved away from always_on.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/agentMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an agent
+      tags:
+      - agents
+  /v1/agents/{id}/connections/{connectionID}/resources:
+    put:
+      consumes:
+      - application/json
+      description: Saves provider resources such as selected GitHub repositories on
+        the agent, then queues provider-specific reconciliation when needed.
+      parameters:
+      - description: Agent UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Connection UUID
+        in: path
+        name: connectionID
+        required: true
+        type: string
+      - description: Selected resources grouped by resource type
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateAgentConnectionResourcesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/updateAgentConnectionResourcesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Save selected connection resources for an agent
+      tags:
+      - agents
+  /v1/agents/{id}/gateway-routes:
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/gatewayRouteResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List external gateway routes
+      tags:
+      - agents
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createGatewayRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an external gateway route
+      tags:
+      - agents
+  /v1/agents/{id}/gateway-routes/{routeID}:
+    delete:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Revoke an external gateway route
+      tags:
+      - agents
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an external gateway route
+      tags:
+      - agents
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      - description: Gateway route updates
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateGatewayRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an external gateway route
+      tags:
+      - agents
+  /v1/agents/{id}/gateway-routes/{routeID}/rotate-secret:
+    post:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Gateway route ID
+        in: path
+        name: routeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gatewayRouteResponse'
+      security:
+      - BearerAuth: []
+      summary: Rotate an external gateway route secret
+      tags:
+      - agents
+  /v1/agents/{id}/model:
+    patch:
+      consumes:
+      - application/json
+      description: Persists Hivy's agent model and pushes the full runtime config
+        to the live sandbox.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent model update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateAgentModelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/updateAgentModelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an agent model
+      tags:
+      - agents
+  /v1/agents/{id}/sandbox/reboot:
+    post:
+      description: Restarts the agent sandbox, pushes fresh runtime config, mints
+        fresh proxy credentials, and verifies readiness.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rebootAgentSandboxResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reboot an agent sandbox
+      tags:
+      - agents
+  /v1/agents/{id}/sandbox/upgrade:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Queues a control-plane upgrade that snapshots the agent runtime SQLite database,
+        recreates the sandbox on the current agent image, restores the database,
+        syncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.
+        If an upgrade is already queued or running for the agent, the active operation is returned.
+      parameters:
+      - description: Agent agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/agentSandboxUpgradeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start an agent sandbox upgrade
+      tags:
+      - agents
+  /v1/agents/{id}/sandbox/upgrades/{upgradeID}:
+    get:
+      description: Returns the current status and phase for a sandbox upgrade operation.
+      parameters:
+      - description: Agent agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Upgrade operation ID
+        in: path
+        name: upgradeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentSandboxUpgradeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an agent sandbox upgrade
+      tags:
+      - agents
+  /v1/agents/{id}/sessions:
+    get:
+      description: Returns persisted agent sessions with optional trigger delivery
+        metadata.
+      parameters:
+      - description: Agent agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Filter by status (active, completed, errored)
+        in: query
+        name: status
+        type: string
+      - description: Exact session ID filter
+        in: query
+        name: session_id
+        type: string
+      - description: Exact channel filter
+        in: query
+        name: channel
+        type: string
+      - description: Exact thread timestamp filter
+        in: query
+        name: thread_ts
+        type: string
+      - description: Exact agent session ID filter
+        in: query
+        name: agent_session_id
+        type: string
+      - description: Search over session title, source key, or runtime conversation
+          ID
+        in: query
+        name: q
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-handler_agentSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List sessions for an agent
+      tags:
+      - agents
+  /v1/agents/{id}/sessions/{sessionID}/events:
+    get:
+      description: Returns persisted agent session events ordered newest-first with
+        cursor pagination.
+      parameters:
+      - description: Agent agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent session ID
+        in: path
+        name: sessionID
+        required: true
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-handler_agentSessionEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List persisted session events
+      tags:
+      - agents
+  /v1/agents/{id}/sessions/{sessionID}/streams/{streamID}:
+    get:
+      description: Proxies a signed runtime SSE stream for an authenticated web session.
+      parameters:
+      - description: Agent agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent session ID
+        in: path
+        name: sessionID
+        required: true
+        type: string
+      - description: Runtime HTTP stream ID
+        in: path
+        name: streamID
+        required: true
+        type: string
+      - description: Signed stream token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Stream a web session turn
+      tags:
+      - agents
+  /v1/agents/{id}/sessions/messages:
+    post:
+      consumes:
+      - application/json
+      description: Creates a web-backed agent session when session_id is omitted,
+        or sends a new turn to an existing web session. Returns a backend SSE URL
+        for the response stream.
+      parameters:
+      - description: Agent agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sendAgentSessionMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/sendAgentSessionMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send a web session message
+      tags:
+      - agents
+  /v1/agents/{id}/skills:
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/agentSkillResponse'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List skills attached to an agent
+      tags:
+      - skills
+    post:
+      consumes:
+      - application/json
+      description: Creates an agent skill attachment.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Skill to attach
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/attachSkillRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/agentSkillResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Attach a skill to an agent
+      tags:
+      - skills
+  /v1/agents/{id}/skills/{skillID}:
+    delete:
+      description: Removes an agent skill attachment.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Skill ID
+        in: path
+        name: skillID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Detach a skill from an agent
+      tags:
+      - skills
+  /v1/agents/{id}/sync:
+    post:
+      description: |-
+        Compiles the agent config, provisions an agent sandbox if
+        needed, pushes it to the runtime, and verifies readiness.
+      parameters:
+      - description: Agent UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/syncAgentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Push compiled config to an agent sandbox
+      tags:
+      - agents
+  /v1/agents/models:
+    get:
+      description: Returns the OpenRouter-backed model allowlist supported for Hivy
+        agents.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/modelSummary'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List agent-selectable models
+      tags:
+      - agents
   /v1/api-keys:
     get:
       description: Returns API keys for the current organization with cursor pagination.
@@ -3926,13 +4961,13 @@ paths:
       - api-keys
   /v1/assets:
     get:
-      description: 'Lists employee drive assets owned by the caller''s org. Optional
-        filters: employee_id, path, path_prefix, q/search, extension, content_type,
-        created_from, created_to. Ordered by created_at desc by default and cursor-paginated.'
+      description: 'Lists agent drive assets owned by the caller''s org. Optional
+        filters: agent_id, path, path_prefix, q/search, extension, content_type, created_from,
+        created_to. Ordered by created_at desc by default and cursor-paginated.'
       parameters:
-      - description: Filter to files owned by this employee
+      - description: Filter to files owned by this agent
         in: query
-        name: employee_id
+        name: agent_id
         type: string
       - description: Filter by exact folder label (empty = root)
         in: query
@@ -5085,1068 +6120,6 @@ paths:
       summary: Test database integration
       tags:
       - database-integrations
-  /v1/employees:
-    get:
-      description: |-
-        Returns all employees in the org with enabled specialists,
-        skills (metadata only — no bundle content),
-        triggers, and the latest sandbox row.
-      parameters:
-      - description: Filter by status (draft, active, archived)
-        in: query
-        name: status
-        type: string
-      - description: Page size (default 50, max 100)
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination cursor
-        in: query
-        name: cursor
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/paginatedResponse-handler_employeeListItem'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List AI employees
-      tags:
-      - employees
-  /v1/employees/{id}:
-    get:
-      description: |-
-        Returns one employee in the org with enabled specialists,
-        skills (metadata only — no bundle content),
-        triggers, and the latest sandbox row.
-      parameters:
-      - description: Employee agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/employeeListItem'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get an AI employee
-      tags:
-      - employees
-  /v1/employees/{id}/connections/{connectionID}/resources:
-    put:
-      consumes:
-      - application/json
-      description: Saves provider resources such as selected GitHub repositories on
-        the employee, then queues provider-specific reconciliation when needed.
-      parameters:
-      - description: Employee UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Connection UUID
-        in: path
-        name: connectionID
-        required: true
-        type: string
-      - description: Selected resources grouped by resource type
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateEmployeeConnectionResourcesRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/updateEmployeeConnectionResourcesResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Save selected connection resources for an employee
-      tags:
-      - employees
-  /v1/employees/{id}/gateway-routes:
-    get:
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/gatewayRouteResponse'
-            type: array
-      security:
-      - BearerAuth: []
-      summary: List external gateway routes
-      tags:
-      - employees
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Gateway route
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/createGatewayRouteRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/gatewayRouteResponse'
-      security:
-      - BearerAuth: []
-      summary: Create an external gateway route
-      tags:
-      - employees
-  /v1/employees/{id}/gateway-routes/{routeID}:
-    delete:
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Gateway route ID
-        in: path
-        name: routeID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Revoke an external gateway route
-      tags:
-      - employees
-    get:
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Gateway route ID
-        in: path
-        name: routeID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/gatewayRouteResponse'
-      security:
-      - BearerAuth: []
-      summary: Get an external gateway route
-      tags:
-      - employees
-    patch:
-      consumes:
-      - application/json
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Gateway route ID
-        in: path
-        name: routeID
-        required: true
-        type: string
-      - description: Gateway route updates
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateGatewayRouteRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/gatewayRouteResponse'
-      security:
-      - BearerAuth: []
-      summary: Update an external gateway route
-      tags:
-      - employees
-  /v1/employees/{id}/gateway-routes/{routeID}/rotate-secret:
-    post:
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Gateway route ID
-        in: path
-        name: routeID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/gatewayRouteResponse'
-      security:
-      - BearerAuth: []
-      summary: Rotate an external gateway route secret
-      tags:
-      - employees
-  /v1/employees/{id}/model:
-    patch:
-      consumes:
-      - application/json
-      description: Persists Hivy's employee model and pushes the full runtime config
-        to the live sandbox.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Employee model update
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateEmployeeModelRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/updateEmployeeModelResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "502":
-          description: Bad Gateway
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update an employee model
-      tags:
-      - employees
-  /v1/employees/{id}/sandbox/reboot:
-    post:
-      description: Restarts the employee sandbox, pushes fresh runtime config, mints
-        fresh proxy credentials, and verifies readiness.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/rebootEmployeeSandboxResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "502":
-          description: Bad Gateway
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Reboot an employee sandbox
-      tags:
-      - employees
-  /v1/employees/{id}/sandbox/upgrade:
-    post:
-      consumes:
-      - application/json
-      description: |-
-        Queues a control-plane upgrade that snapshots the employee runtime SQLite database,
-        recreates the sandbox on the current employee image, restores the database,
-        syncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.
-        If an upgrade is already queued or running for the employee, the active operation is returned.
-      parameters:
-      - description: Employee agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "202":
-          description: Accepted
-          schema:
-            $ref: '#/definitions/employeeSandboxUpgradeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "503":
-          description: Service Unavailable
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Start an employee sandbox upgrade
-      tags:
-      - employees
-  /v1/employees/{id}/sandbox/upgrades/{upgradeID}:
-    get:
-      description: Returns the current status and phase for a sandbox upgrade operation.
-      parameters:
-      - description: Employee agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Upgrade operation ID
-        in: path
-        name: upgradeID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/employeeSandboxUpgradeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get an employee sandbox upgrade
-      tags:
-      - employees
-  /v1/employees/{id}/sessions:
-    get:
-      description: Returns persisted employee sessions with optional trigger delivery
-        metadata.
-      parameters:
-      - description: Employee agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Filter by status (active, completed, errored)
-        in: query
-        name: status
-        type: string
-      - description: Exact session ID filter
-        in: query
-        name: session_id
-        type: string
-      - description: Exact channel filter
-        in: query
-        name: channel
-        type: string
-      - description: Exact thread timestamp filter
-        in: query
-        name: thread_ts
-        type: string
-      - description: Exact agent session ID filter
-        in: query
-        name: agent_session_id
-        type: string
-      - description: Search over session title, source key, or runtime conversation
-          ID
-        in: query
-        name: q
-        type: string
-      - description: Page size
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination cursor
-        in: query
-        name: cursor
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/paginatedResponse-handler_employeeSessionResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List sessions for an employee
-      tags:
-      - employees
-  /v1/employees/{id}/sessions/{sessionID}/events:
-    get:
-      description: Returns persisted employee session events ordered newest-first
-        with cursor pagination.
-      parameters:
-      - description: Employee agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Employee session ID
-        in: path
-        name: sessionID
-        required: true
-        type: string
-      - description: Page size
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination cursor
-        in: query
-        name: cursor
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/paginatedResponse-handler_employeeSessionEventResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List persisted session events
-      tags:
-      - employees
-  /v1/employees/{id}/sessions/{sessionID}/streams/{streamID}:
-    get:
-      description: Proxies a signed runtime SSE stream for an authenticated web session.
-      parameters:
-      - description: Employee agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Employee session ID
-        in: path
-        name: sessionID
-        required: true
-        type: string
-      - description: Runtime HTTP stream ID
-        in: path
-        name: streamID
-        required: true
-        type: string
-      - description: Signed stream token
-        in: query
-        name: token
-        required: true
-        type: string
-      produces:
-      - text/event-stream
-      responses:
-        "200":
-          description: SSE stream
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Stream a web session turn
-      tags:
-      - employees
-  /v1/employees/{id}/sessions/messages:
-    post:
-      consumes:
-      - application/json
-      description: Creates a web-backed employee session when session_id is omitted,
-        or sends a new turn to an existing web session. Returns a backend SSE URL
-        for the response stream.
-      parameters:
-      - description: Employee agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Message payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/sendEmployeeSessionMessageRequest'
-      produces:
-      - application/json
-      responses:
-        "202":
-          description: Accepted
-          schema:
-            $ref: '#/definitions/sendEmployeeSessionMessageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Send a web session message
-      tags:
-      - employees
-  /v1/employees/{id}/skills:
-    get:
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/employeeSkillResponse'
-            type: array
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List skills attached to an employee
-      tags:
-      - skills
-    post:
-      consumes:
-      - application/json
-      description: Creates an employee skill attachment.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Skill to attach
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/attachSkillRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/employeeSkillResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Attach a skill to an employee
-      tags:
-      - skills
-  /v1/employees/{id}/skills/{skillID}:
-    delete:
-      description: Removes an employee skill attachment.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Skill ID
-        in: path
-        name: skillID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Detach a skill from an employee
-      tags:
-      - skills
-  /v1/employees/{id}/specialists:
-    get:
-      description: Returns all global specialists and whether Hivy currently has each
-        attached.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/employeeSpecialistResponse'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List employee specialists
-      tags:
-      - employees
-  /v1/employees/{id}/specialists/{slug}:
-    delete:
-      description: Removes a global specialist slug from Hivy's attached specialist
-        list.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Specialist slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Detach an employee specialist
-      tags:
-      - employees
-    patch:
-      consumes:
-      - application/json
-      description: Sets or clears the model override for a specialist attached to
-        Hivy.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Specialist slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Specialist config patch
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/updateEmployeeSpecialistRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/employeeSpecialistResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update an employee specialist config
-      tags:
-      - employees
-    post:
-      description: Adds a global specialist slug to Hivy's attached specialist list.
-      parameters:
-      - description: Employee ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Specialist slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Attach an employee specialist
-      tags:
-      - employees
-  /v1/employees/{id}/sync:
-    post:
-      description: |-
-        Compiles the employee config, provisions an employee sandbox if
-        needed, pushes it to the runtime, and verifies readiness.
-      parameters:
-      - description: Employee UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/syncEmployeeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "502":
-          description: Bad Gateway
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Push compiled config to an employee sandbox
-      tags:
-      - employees
-  /v1/employees/models:
-    get:
-      description: Returns the OpenRouter-backed model allowlist supported for Hivy
-        employees.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/modelSummary'
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List employee-selectable models
-      tags:
-      - employees
   /v1/generations:
     get:
       description: Returns generation records for the current organization with cursor
@@ -6512,8 +6485,8 @@ paths:
       - orgs
   /v1/orgs/current/environment-variables:
     get:
-      description: Lists custom environment variables stored on the Hivy employee.
-        Values are not returned.
+      description: Lists custom environment variables stored on the Hivy agent. Values
+        are not returned.
       produces:
       - application/json
       responses:
@@ -6537,8 +6510,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Stores a custom environment variable on the Hivy employee. It is
-        pushed to employee and specialist sandboxes as HIVY_ORG_<NAME>.
+      description: Stores a custom environment variable on the Hivy agent. It is pushed
+        to runtime sandboxes as HIVY_ORG_<NAME>.
       parameters:
       - description: Environment variable
         in: body
@@ -6572,7 +6545,7 @@ paths:
       - orgs
   /v1/orgs/current/environment-variables/{name}:
     delete:
-      description: Removes a custom environment variable from the Hivy employee.
+      description: Removes a custom environment variable from the Hivy agent.
       parameters:
       - description: Environment variable name
         in: path
@@ -6611,7 +6584,7 @@ paths:
       consumes:
       - application/json
       description: Renames and/or updates a custom environment variable stored on
-        the Hivy employee.
+        the Hivy agent.
       parameters:
       - description: Environment variable name
         in: path
@@ -7079,8 +7052,8 @@ paths:
   /v1/rag/sources/{id}/attempts/{attempt_id}:
     get:
       description: Returns the attempt's status / counts / window plus the first page
-        of per-doc failure rows. The specialist errors page can be used to walk later
-        pages if needed.
+        of per-doc failure rows. The target agent errors page can be used to walk
+        later pages if needed.
       parameters:
       - description: Source ID
         in: path

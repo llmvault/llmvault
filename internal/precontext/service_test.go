@@ -28,7 +28,7 @@ func TestBuildFetchesSourcesInParallel(t *testing.T) {
 
 	done := make(chan []string, 1)
 	go func() {
-		out, _ := service.Build(context.Background(), Request{OrgID: uuid.New(), EmployeeID: uuid.New(), Text: "hello"})
+		out, _ := service.Build(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
 		done <- out
 	}()
 
@@ -58,7 +58,7 @@ func TestBuildOmitsFailedSource(t *testing.T) {
 		return "## Relevant knowledge\n- knowledge", nil
 	}
 
-	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), EmployeeID: uuid.New(), Text: "hello"})
+	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestBuildOmitsPanickingSource(t *testing.T) {
 		return "## Relevant knowledge\n- knowledge", nil
 	}
 
-	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), EmployeeID: uuid.New(), Text: "hello"})
+	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -102,11 +102,11 @@ func TestBuildOmitsPanickingSource(t *testing.T) {
 
 func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	orgID := uuid.New()
-	employeeID := uuid.New()
+	agentID := uuid.New()
 	cache := newFakeCache()
-	cache.values[SessionsCacheKey(orgID, employeeID)] = "## Recent sessions\n- cached"
-	cache.values[MemoriesCacheKey(orgID, employeeID)] = "## Recent memories\n- cached"
-	cache.values[KnowledgeCacheKey(orgID, employeeID, "hello")] = "## Relevant knowledge\n- cached"
+	cache.values[SessionsCacheKey(orgID, agentID)] = "## Recent sessions\n- cached"
+	cache.values[MemoriesCacheKey(orgID, agentID)] = "## Recent memories\n- cached"
+	cache.values[KnowledgeCacheKey(orgID, agentID, "hello")] = "## Relevant knowledge\n- cached"
 
 	service := NewService(Config{Cache: cache})
 	calls := 0
@@ -118,7 +118,7 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	service.memories = source
 	service.knowledge = source
 
-	out, err := service.Build(context.Background(), Request{OrgID: orgID, EmployeeID: employeeID, Text: "hello"})
+	out, err := service.Build(context.Background(), Request{OrgID: orgID, AgentID: agentID, Text: "hello"})
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}

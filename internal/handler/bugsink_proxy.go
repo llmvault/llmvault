@@ -27,7 +27,7 @@ const (
 type bugsinkProxyContext struct {
 	OrgID         uuid.UUID
 	CallerAgentID uuid.UUID
-	EmployeeID    uuid.UUID
+	AgentID       uuid.UUID
 	ConnectionID  uuid.UUID
 	Method        string
 	Path          string
@@ -63,7 +63,7 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var agent model.Employee
+	var agent model.Agent
 	if err := h.db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			h.captureProxyFailure(ctx, eventCtx, http.StatusNotFound, "agent not found")
@@ -87,24 +87,24 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	employee, err := h.resolveOwningEmployee(ctx, *agent.OrgID, agent)
+	owningAgent, err := h.resolveOwningAgent(ctx, *agent.OrgID, agent)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			h.captureProxyFailure(ctx, eventCtx, http.StatusNotFound, "agent is not attached to an employee")
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent is not attached to an employee"})
+			h.captureProxyFailure(ctx, eventCtx, http.StatusNotFound, "agent is not attached to an agent")
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent is not attached to an agent"})
 			return
 		}
-		h.captureProxyFailure(ctx, eventCtx, http.StatusInternalServerError, "failed to resolve employee")
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve employee"})
+		h.captureProxyFailure(ctx, eventCtx, http.StatusInternalServerError, "failed to resolve agent")
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve agent"})
 		return
 	}
-	eventCtx.EmployeeID = employee.ID
+	eventCtx.AgentID = owningAgent.ID
 
-	conn, err := h.resolveAttachedBugsinkConnection(ctx, employee)
+	conn, err := h.resolveAttachedBugsinkConnection(ctx, owningAgent)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			h.captureProxyFailure(ctx, eventCtx, http.StatusNotFound, "no bugsink connection attached to employee")
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no bugsink connection attached to employee"})
+			h.captureProxyFailure(ctx, eventCtx, http.StatusNotFound, "no bugsink connection attached to agent")
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no bugsink connection attached to agent"})
 			return
 		}
 		h.captureProxyFailure(ctx, eventCtx, http.StatusInternalServerError, "failed to look up bugsink connection")
@@ -123,7 +123,7 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		Provider:      bugsinkProvider,
 		OrgID:         eventCtx.OrgID,
 		CallerAgentID: eventCtx.CallerAgentID,
-		EmployeeID:    eventCtx.EmployeeID,
+		AgentID:       eventCtx.AgentID,
 		ConnectionID:  eventCtx.ConnectionID,
 		Method:        eventCtx.Method,
 		Path:          eventCtx.Path,
@@ -134,8 +134,8 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.nango.RawProxyRequest(ctx, r.Method, nangoProviderConfigKey(conn.Integration.UniqueKey), conn.NangoConnectionID, forwardPath, r.URL.RawQuery, proxyRequestBodyFromBytes(r.Method, body), r.Header.Get("Content-Type"))
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "bugsink-proxy: nango proxy failed",
-			"employee_id", agentID,
-			"employee_id", employee.ID,
+			"agent_id", agentID,
+			"agent_id", agent.ID,
 			"connection_id", conn.ID,
 			"path", path,
 			"method", r.Method,
@@ -156,9 +156,9 @@ func (h *BugsinkProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BugsinkProxyHandler) parseRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, string, string, bool) {
-	agentID, err := uuid.Parse(chi.URLParam(r, "employeeID"))
+	agentID, err := uuid.Parse(chi.URLParam(r, "agentID"))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employee_id"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent_id"})
 		return uuid.Nil, "", "", false
 	}
 	path := "/" + strings.TrimLeft(chi.URLParam(r, "*"), "/")
@@ -173,7 +173,7 @@ func (h *BugsinkProxyHandler) parseRequest(w http.ResponseWriter, r *http.Reques
 
 func (h *BugsinkProxyHandler) authenticatedSandbox(ctx context.Context, agentID uuid.UUID, bearerToken string) bool {
 	var sandboxes []model.Sandbox
-	if err := h.db.WithContext(ctx).Where("employee_id = ?", agentID).Find(&sandboxes).Error; err != nil {
+	if err := h.db.WithContext(ctx).Where("agent_id = ?", agentID).Find(&sandboxes).Error; err != nil {
 		return false
 	}
 	for _, sb := range sandboxes {
@@ -188,29 +188,29 @@ func (h *BugsinkProxyHandler) authenticatedSandbox(ctx context.Context, agentID 
 	return false
 }
 
-func (h *BugsinkProxyHandler) resolveOwningEmployee(ctx context.Context, orgID uuid.UUID, agent model.Employee) (model.Employee, error) {
+func (h *BugsinkProxyHandler) resolveOwningAgent(ctx context.Context, orgID uuid.UUID, agent model.Agent) (model.Agent, error) {
 	if agent.OrgID != nil && *agent.OrgID == orgID {
 		return agent, nil
 	}
-	var employee model.Employee
+	var owningAgent model.Agent
 	if err := h.db.WithContext(ctx).
 		Where("org_id = ? AND status <> ?", orgID, "archived").
 		Order("created_at ASC").
-		First(&employee).Error; err != nil {
-		return model.Employee{}, err
+		First(&owningAgent).Error; err != nil {
+		return model.Agent{}, err
 	}
-	return employee, nil
+	return owningAgent, nil
 }
 
-func (h *BugsinkProxyHandler) resolveAttachedBugsinkConnection(ctx context.Context, employee model.Employee) (model.Connection, error) {
-	if employee.OrgID == nil {
+func (h *BugsinkProxyHandler) resolveAttachedBugsinkConnection(ctx context.Context, agent model.Agent) (model.Connection, error) {
+	if agent.OrgID == nil {
 		return model.Connection{}, gorm.ErrRecordNotFound
 	}
 	var conn model.Connection
 	if err := h.db.WithContext(ctx).
 		Preload("Integration").
 		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", *employee.OrgID, bugsinkProvider).
+		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", *agent.OrgID, bugsinkProvider).
 		Order("connections.created_at ASC").
 		First(&conn).Error; err != nil {
 		return model.Connection{}, err
@@ -234,10 +234,10 @@ func (h *BugsinkProxyHandler) captureProxyFailure(ctx context.Context, eventCtx 
 			scope.SetTag("org_id", eventCtx.OrgID.String())
 		}
 		if eventCtx.CallerAgentID != uuid.Nil {
-			scope.SetTag("employee_id", eventCtx.CallerAgentID.String())
+			scope.SetTag("agent_id", eventCtx.CallerAgentID.String())
 		}
-		if eventCtx.EmployeeID != uuid.Nil {
-			scope.SetTag("employee_id", eventCtx.EmployeeID.String())
+		if eventCtx.AgentID != uuid.Nil {
+			scope.SetTag("agent_id", eventCtx.AgentID.String())
 		}
 		if eventCtx.ConnectionID != uuid.Nil {
 			scope.SetTag("connection_id", eventCtx.ConnectionID.String())

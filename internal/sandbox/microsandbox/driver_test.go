@@ -46,9 +46,9 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	}
 
 	info, err := driver.CreateSandbox(context.Background(), sandbox.CreateSandboxOpts{
-		Name:        "employee-test",
+		Name:        "agent-test",
 		TemplateRef: "snp_template",
-		Labels:      map[string]string{"org_id": "org_123", "employee_id": "emp_123"},
+		Labels:      map[string]string{"org_id": "org_123", "agent_id": "emp_123"},
 		EnvVars:     map[string]string{"HIVY_RUNTIME_SECRET": "secret"},
 	})
 	if err != nil {
@@ -74,8 +74,8 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if endpoint != "https://7080-sbx_test.preview.test?rt=signed" {
 		t.Fatalf("endpoint = %q", endpoint)
 	}
-	if runtimeReq["port"] != float64(sandbox.EmployeeSandboxPort) {
-		t.Fatalf("runtime port = %v, want %d", runtimeReq["port"], sandbox.EmployeeSandboxPort)
+	if runtimeReq["port"] != float64(sandbox.AgentSandboxPort) {
+		t.Fatalf("runtime port = %v, want %d", runtimeReq["port"], sandbox.AgentSandboxPort)
 	}
 	if runtimeReq["ttl_seconds"] != float64(defaultRuntimeEndpointTTLSeconds) {
 		t.Fatalf("runtime ttl = %v, want %d", runtimeReq["ttl_seconds"], defaultRuntimeEndpointTTLSeconds)

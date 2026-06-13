@@ -21,8 +21,8 @@ func (h *UsageHandler) querySessions(orgID uuid.UUID) ([]sessionSummary, error) 
 		SELECT es.id, es.name, es.status, es.source,
 			COALESCE(COUNT(ese.id), 0) AS event_count,
 			es.created_at, es.ended_at
-		FROM employee_sessions es
-		LEFT JOIN employee_session_events ese ON ese.employee_session_id = es.id
+		FROM agent_sessions es
+		LEFT JOIN agent_session_events ese ON ese.agent_session_id = es.id
 		WHERE es.org_id = ?
 		GROUP BY es.id
 		ORDER BY es.created_at DESC

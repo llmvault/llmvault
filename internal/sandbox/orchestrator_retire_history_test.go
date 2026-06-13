@@ -14,7 +14,7 @@ import (
 
 // seedSandboxWithHistory creates a running sandbox plus a session and event that
 // FK the sandbox ON DELETE CASCADE — the org history an upgrade must carry forward.
-func seedSandboxWithHistory(t *testing.T, db *gorm.DB) (model.Sandbox, model.EmployeeSession, model.EmployeeSessionEvent) {
+func seedSandboxWithHistory(t *testing.T, db *gorm.DB) (model.Sandbox, model.AgentSession, model.AgentSessionEvent) {
 	t.Helper()
 	org := createTestOrg(t, db)
 	cred := createTestCred(t, db, org.ID)
@@ -22,7 +22,7 @@ func seedSandboxWithHistory(t *testing.T, db *gorm.DB) (model.Sandbox, model.Emp
 
 	sb := model.Sandbox{
 		OrgID:                  &org.ID,
-		EmployeeID:             &agent.ID,
+		AgentID:                &agent.ID,
 		ExternalID:             "retire-history-" + time.Now().Format("150405.000000"),
 		RuntimeURL:             "http://localhost:1",
 		EncryptedRuntimeSecret: []byte("test-key"),
@@ -33,9 +33,9 @@ func seedSandboxWithHistory(t *testing.T, db *gorm.DB) (model.Sandbox, model.Emp
 	}
 	t.Cleanup(func() { db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}) })
 
-	session := model.EmployeeSession{
+	session := model.AgentSession{
 		OrgID:                 org.ID,
-		EmployeeID:            agent.ID,
+		AgentID:               agent.ID,
 		SandboxID:             sb.ID,
 		RuntimeConversationID: "conv-" + sb.ExternalID,
 		Status:                "active",
@@ -43,14 +43,14 @@ func seedSandboxWithHistory(t *testing.T, db *gorm.DB) (model.Sandbox, model.Emp
 	if err := db.Create(&session).Error; err != nil {
 		t.Fatalf("create session: %v", err)
 	}
-	event := model.EmployeeSessionEvent{
-		OrgID:             org.ID,
-		EmployeeID:        agent.ID,
-		SandboxID:         sb.ID,
-		EmployeeSessionID: session.ID,
-		SessionID:         "rt-session",
-		EventType:         "agent.message.sent",
-		EventAt:           time.Now().UTC(),
+	event := model.AgentSessionEvent{
+		OrgID:          org.ID,
+		AgentID:        agent.ID,
+		SandboxID:      sb.ID,
+		AgentSessionID: session.ID,
+		SessionID:      "rt-session",
+		EventType:      "agent.message.sent",
+		EventAt:        time.Now().UTC(),
 	}
 	if err := db.Create(&event).Error; err != nil {
 		t.Fatalf("create session event: %v", err)
@@ -62,8 +62,8 @@ func countSandboxHistory(t *testing.T, db *gorm.DB, sandboxID, sessionID, eventI
 	t.Helper()
 	var sandboxes, sessions, events int64
 	db.Model(&model.Sandbox{}).Where("id = ?", sandboxID).Count(&sandboxes)
-	db.Model(&model.EmployeeSession{}).Where("id = ?", sessionID).Count(&sessions)
-	db.Model(&model.EmployeeSessionEvent{}).Where("id = ?", eventID).Count(&events)
+	db.Model(&model.AgentSession{}).Where("id = ?", sessionID).Count(&sessions)
+	db.Model(&model.AgentSessionEvent{}).Where("id = ?", eventID).Count(&events)
 	return sandboxes, sessions, events
 }
 

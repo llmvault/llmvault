@@ -14,7 +14,7 @@ const Source = "gateway"
 type WebhookEnvelope struct {
 	ConnectionID uuid.UUID
 	OrgID        uuid.UUID
-	EmployeeID   uuid.UUID
+	AgentID      uuid.UUID
 	Provider     string
 	RouteID      uuid.UUID
 	ProviderKey  string
@@ -46,8 +46,8 @@ type AgentRequest struct {
 
 type AgentResponse struct {
 	RouteID          uuid.UUID
-	Route            model.EmployeeGatewayRoute
-	EmployeeSession  model.EmployeeSession
+	Route            model.AgentGatewayRoute
+	AgentSession     model.AgentSession
 	RuntimeSessionID string
 	TraceID          string
 	TurnID           string
@@ -58,8 +58,8 @@ type AgentResponse struct {
 }
 
 type ProviderResponsePayload struct {
-	Route     model.EmployeeGatewayRoute
-	Session   model.EmployeeSession
+	Route     model.AgentGatewayRoute
+	Session   model.AgentSession
 	ChannelID string
 	ThreadID  string
 	Text      string
@@ -83,8 +83,8 @@ type Adapter interface {
 }
 
 type RuntimeMessage struct {
-	Route                model.EmployeeGatewayRoute
-	Session              model.EmployeeSession
+	Route                model.AgentGatewayRoute
+	Session              model.AgentSession
 	Text                 string
 	User                 string
 	UserDisplayName      string
@@ -116,12 +116,12 @@ type RuntimeMessenger interface {
 type ConnectionInboundAccepted struct {
 	Envelope WebhookEnvelope
 	Inbound  InboundEnvelope
-	Event    model.EmployeeGatewayEvent
+	Event    model.AgentGatewayEvent
 }
 
 type ReceiveResult struct {
-	Event     model.EmployeeGatewayEvent
-	Session   model.EmployeeSession
+	Event     model.AgentGatewayEvent
+	Session   model.AgentSession
 	Runtime   RuntimeDelivery
 	Duplicate bool
 	Ignored   bool

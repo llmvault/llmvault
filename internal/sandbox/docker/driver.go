@@ -56,8 +56,8 @@ func (d *Driver) Validate(ctx context.Context) error {
 
 func (d *Driver) RuntimeLayout() sandbox.RuntimeLayout {
 	return sandbox.RuntimeLayout{
-		AgentRepoDir:    "/work/repos",
-		EmployeeRepoDir: "/workspace/repos",
+		AgentRepoDir:     "/work/repos",
+		WorkspaceRepoDir: "/workspace/repos",
 	}
 }
 

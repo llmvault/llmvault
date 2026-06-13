@@ -10,7 +10,7 @@ import (
 
 func TestPreviewAsset_RedirectsToSignedGetURL(t *testing.T) {
 	h := newStreamHarness(t)
-	publicURL := h.seedEmployeeAsset(t, "previews", "demo.txt", "preview body")
+	publicURL := h.seedAgentAsset(t, "previews", "demo.txt", "preview body")
 
 	u, err := url.Parse(publicURL)
 	if err != nil {

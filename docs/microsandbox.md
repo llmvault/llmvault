@@ -115,7 +115,7 @@ HIVY_MICROSANDBOX_DEFAULT_PREVIEW_PORTS=3000,3001,5173,7080,8000,8080
 HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime:latest
 ```
 
-Employee runtime traffic uses signed runtime endpoint URLs from the control plane. Browser previews keep the password/JWT cookie flow.
+Agent runtime traffic uses signed runtime endpoint URLs from the control plane. Browser previews keep the password/JWT cookie flow.
 
 ## Caddy
 

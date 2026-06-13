@@ -13,7 +13,7 @@ import (
 
 // ListEnvironmentVariables handles GET /v1/orgs/current/environment-variables.
 // @Summary List organization environment variables
-// @Description Lists custom environment variables stored on the Hivy employee. Values are not returned.
+// @Description Lists custom environment variables stored on the Hivy agent. Values are not returned.
 // @Tags orgs
 // @Produce json
 // @Success 200 {object} orgEnvironmentVariablesResponse
@@ -32,7 +32,7 @@ func (h *OrgHandler) ListEnvironmentVariables(w http.ResponseWriter, r *http.Req
 
 // CreateEnvironmentVariable handles POST /v1/orgs/current/environment-variables.
 // @Summary Create an organization environment variable
-// @Description Stores a custom environment variable on the Hivy employee. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.
+// @Description Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.
 // @Tags orgs
 // @Accept json
 // @Produce json
@@ -59,7 +59,7 @@ func (h *OrgHandler) CreateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	employee, envVars, ok := h.loadOrgEnvironmentVars(w, r)
+	agent, envVars, ok := h.loadOrgEnvironmentVars(w, r)
 	if !ok {
 		return
 	}
@@ -70,7 +70,7 @@ func (h *OrgHandler) CreateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 	}
 	envVars[envKey] = req.Value
 
-	if !h.saveAndSyncOrgEnvironmentVars(w, r, employee, envVars) {
+	if !h.saveAndSyncOrgEnvironmentVars(w, r, agent, envVars) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, orgEnvResponse(name))
@@ -78,7 +78,7 @@ func (h *OrgHandler) CreateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 
 // UpdateEnvironmentVariable handles PATCH /v1/orgs/current/environment-variables/{name}.
 // @Summary Update an organization environment variable
-// @Description Renames and/or updates a custom environment variable stored on the Hivy employee.
+// @Description Renames and/or updates a custom environment variable stored on the Hivy agent.
 // @Tags orgs
 // @Accept json
 // @Produce json
@@ -122,7 +122,7 @@ func (h *OrgHandler) UpdateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	employee, envVars, ok := h.loadOrgEnvironmentVars(w, r)
+	agent, envVars, ok := h.loadOrgEnvironmentVars(w, r)
 	if !ok {
 		return
 	}
@@ -146,7 +146,7 @@ func (h *OrgHandler) UpdateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 	}
 	envVars[newKey] = currentValue
 
-	if !h.saveAndSyncOrgEnvironmentVars(w, r, employee, envVars) {
+	if !h.saveAndSyncOrgEnvironmentVars(w, r, agent, envVars) {
 		return
 	}
 	writeJSON(w, http.StatusOK, orgEnvResponse(newName))
@@ -154,7 +154,7 @@ func (h *OrgHandler) UpdateEnvironmentVariable(w http.ResponseWriter, r *http.Re
 
 // DeleteEnvironmentVariable handles DELETE /v1/orgs/current/environment-variables/{name}.
 // @Summary Delete an organization environment variable
-// @Description Removes a custom environment variable from the Hivy employee.
+// @Description Removes a custom environment variable from the Hivy agent.
 // @Tags orgs
 // @Produce json
 // @Param name path string true "Environment variable name"
@@ -172,7 +172,7 @@ func (h *OrgHandler) DeleteEnvironmentVariable(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	employee, envVars, ok := h.loadOrgEnvironmentVars(w, r)
+	agent, envVars, ok := h.loadOrgEnvironmentVars(w, r)
 	if !ok {
 		return
 	}
@@ -183,13 +183,13 @@ func (h *OrgHandler) DeleteEnvironmentVariable(w http.ResponseWriter, r *http.Re
 	}
 	delete(envVars, envKey)
 
-	if !h.saveAndSyncOrgEnvironmentVars(w, r, employee, envVars) {
+	if !h.saveAndSyncOrgEnvironmentVars(w, r, agent, envVars) {
 		return
 	}
 	writeJSON(w, http.StatusOK, statusResponse{Status: "deleted"})
 }
 
-func (h *OrgHandler) loadOrgEnvironmentVars(w http.ResponseWriter, r *http.Request) (*model.Employee, map[string]string, bool) {
+func (h *OrgHandler) loadOrgEnvironmentVars(w http.ResponseWriter, r *http.Request) (*model.Agent, map[string]string, bool) {
 	if h.envEncKey == nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "environment variable encryption is not configured"})
 		return nil, nil, false
@@ -199,32 +199,32 @@ func (h *OrgHandler) loadOrgEnvironmentVars(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "no organization context"})
 		return nil, nil, false
 	}
-	employee, err := ensureHivyEmployee(r.Context(), h.db, org.ID)
+	agent, err := ensureHivyAgent(r.Context(), h.db, org.ID)
 	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to load Hivy employee for environment variables", "error", err, "org_id", org.ID)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load Hivy employee"})
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to load Hivy agent for environment variables", "error", err, "org_id", org.ID)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load Hivy agent"})
 		return nil, nil, false
 	}
 
 	envVars := map[string]string{}
-	if len(employee.EncryptedEnvVars) == 0 {
-		return employee, envVars, true
+	if len(agent.EncryptedEnvVars) == 0 {
+		return agent, envVars, true
 	}
-	decrypted, err := h.envEncKey.DecryptString(employee.EncryptedEnvVars)
+	decrypted, err := h.envEncKey.DecryptString(agent.EncryptedEnvVars)
 	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to decrypt Hivy employee environment variables", "error", err, "employee_id", employee.ID)
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to decrypt Hivy agent environment variables", "error", err, "agent_id", agent.ID)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load environment variables"})
 		return nil, nil, false
 	}
 	if err := json.Unmarshal([]byte(decrypted), &envVars); err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to decode Hivy employee environment variables", "error", err, "employee_id", employee.ID)
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to decode Hivy agent environment variables", "error", err, "agent_id", agent.ID)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load environment variables"})
 		return nil, nil, false
 	}
-	return employee, envVars, true
+	return agent, envVars, true
 }
 
-func (h *OrgHandler) saveAndSyncOrgEnvironmentVars(w http.ResponseWriter, r *http.Request, employee *model.Employee, envVars map[string]string) bool {
+func (h *OrgHandler) saveAndSyncOrgEnvironmentVars(w http.ResponseWriter, r *http.Request, agent *model.Agent, envVars map[string]string) bool {
 	encoded, err := json.Marshal(envVars)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to encode environment variables"})
@@ -232,25 +232,25 @@ func (h *OrgHandler) saveAndSyncOrgEnvironmentVars(w http.ResponseWriter, r *htt
 	}
 	encrypted, err := h.envEncKey.EncryptString(string(encoded))
 	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to encrypt Hivy employee environment variables", "error", err, "employee_id", employee.ID)
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to encrypt Hivy agent environment variables", "error", err, "agent_id", agent.ID)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to save environment variables"})
 		return false
 	}
 	if err := h.db.WithContext(r.Context()).
-		Model(&model.Employee{}).
-		Where("id = ?", employee.ID).
+		Model(&model.Agent{}).
+		Where("id = ?", agent.ID).
 		Update("encrypted_env_vars", encrypted).Error; err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to save Hivy employee environment variables", "error", err, "employee_id", employee.ID)
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to save Hivy agent environment variables", "error", err, "agent_id", agent.ID)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to save environment variables"})
 		return false
 	}
 
-	if h.employeeSyncer == nil {
+	if h.agentSyncer == nil {
 		return true
 	}
-	if err := h.employeeSyncer.SyncOrgHivyEmployee(r.Context(), *employee.OrgID); err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to sync Hivy employee environment variables", "error", err, "employee_id", employee.ID, "org_id", employee.OrgID)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "environment variable saved, but failed to sync employee sandbox"})
+	if err := h.agentSyncer.SyncOrgHivyAgent(r.Context(), *agent.OrgID); err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to sync Hivy agent environment variables", "error", err, "agent_id", agent.ID, "org_id", agent.OrgID)
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "environment variable saved, but failed to sync agent sandbox"})
 		return false
 	}
 	return true

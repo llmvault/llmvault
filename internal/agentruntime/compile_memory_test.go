@@ -14,16 +14,16 @@ import (
 
 func TestCompile_PopulatesMemoryContextFromHindsight(t *testing.T) {
 	orgID := uuid.New()
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:    uuid.New(),
 		OrgID: &orgID,
 		Name:  "Aria",
-		Model: DefaultEmployeeModel,
+		Model: DefaultAgentModel,
 	}
 	fake := &fakeMemoryRecall{response: &hindsight.RecallResponse{
 		Results: []any{
 			map[string]any{
-				"content":     "The Platform team requires integration tests for employee-runtime changes.",
+				"content":     "The Platform team requires integration tests for agent-runtime changes.",
 				"source":      "manual",
 				"memory_type": "technical_context",
 				"tags":        []any{"company:" + orgID.String()},
@@ -55,7 +55,7 @@ func TestCompile_PopulatesMemoryContextFromHindsight(t *testing.T) {
 
 func TestCompile_SucceedsWhenHindsightRecallFails(t *testing.T) {
 	orgID := uuid.New()
-	agent := model.Employee{ID: uuid.New(), OrgID: &orgID, Name: "Aria", Model: DefaultEmployeeModel}
+	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, Name: "Aria", Model: DefaultAgentModel}
 
 	def, err := Compile(context.Background(), CompileDeps{Hindsight: &fakeMemoryRecall{err: errors.New("offline")}, Cfg: &config.Config{}}, &agent)
 	if err != nil {

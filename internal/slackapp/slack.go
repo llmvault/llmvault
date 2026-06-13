@@ -1,4 +1,4 @@
-// Package slackapp contains Slack Web API helpers used by employee runtime code.
+// Package slackapp contains Slack Web API helpers used by agent runtime code.
 package slackapp
 
 import (
@@ -18,7 +18,7 @@ const Provider = "slack"
 // http.DefaultClient has no timeout and would hang a goroutine if Slack stalls.
 var slackHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
-// Mirrors the bot scopes in apps/web/app/onboarding/slack-manifest.ts —
+// Mirrors the bot scopes in the web Slack manifest —
 // keep the two lists in sync.
 var RequiredBotScopes = []string{
 	"app_mentions:read",

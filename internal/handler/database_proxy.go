@@ -45,9 +45,9 @@ func (h *DatabaseProxyHandler) handle(w http.ResponseWriter, r *http.Request, pr
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "database proxy only supports POST"})
 		return
 	}
-	agentID, err := uuid.Parse(chi.URLParam(r, "employeeID"))
+	agentID, err := uuid.Parse(chi.URLParam(r, "agentID"))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employee_id"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent_id"})
 		return
 	}
 	token := extractBearerToken(r)
@@ -56,17 +56,17 @@ func (h *DatabaseProxyHandler) handle(w http.ResponseWriter, r *http.Request, pr
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 		return
 	}
-	employee, err := h.resolveEmployee(ctx, agentID)
+	agent, err := h.resolveAgent(ctx, agentID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
 		}
-		h.capture(ctx, provider, status, "database proxy employee resolution failed", err)
-		writeJSON(w, status, map[string]string{"error": "employee not found"})
+		h.capture(ctx, provider, status, "database proxy agent resolution failed", err)
+		writeJSON(w, status, map[string]string{"error": "agent not found"})
 		return
 	}
-	conn, err := h.resolveConnection(ctx, employee, provider)
+	conn, err := h.resolveConnection(ctx, agent, provider)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -98,7 +98,7 @@ func (h *DatabaseProxyHandler) handle(w http.ResponseWriter, r *http.Request, pr
 
 func (h *DatabaseProxyHandler) authenticatedSandbox(ctx context.Context, agentID uuid.UUID, bearerToken string) bool {
 	var sandboxes []model.Sandbox
-	if err := h.db.WithContext(ctx).Where("employee_id = ?", agentID).Find(&sandboxes).Error; err != nil {
+	if err := h.db.WithContext(ctx).Where("agent_id = ?", agentID).Find(&sandboxes).Error; err != nil {
 		return false
 	}
 	for _, sb := range sandboxes {
@@ -110,23 +110,23 @@ func (h *DatabaseProxyHandler) authenticatedSandbox(ctx context.Context, agentID
 	return false
 }
 
-func (h *DatabaseProxyHandler) resolveEmployee(ctx context.Context, agentID uuid.UUID) (model.Employee, error) {
-	var employee model.Employee
-	if err := h.db.WithContext(ctx).Where("id = ?", agentID).First(&employee).Error; err != nil {
-		return model.Employee{}, err
+func (h *DatabaseProxyHandler) resolveAgent(ctx context.Context, agentID uuid.UUID) (model.Agent, error) {
+	var agent model.Agent
+	if err := h.db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error; err != nil {
+		return model.Agent{}, err
 	}
-	if employee.OrgID == nil {
-		return model.Employee{}, gorm.ErrRecordNotFound
+	if agent.OrgID == nil {
+		return model.Agent{}, gorm.ErrRecordNotFound
 	}
-	return employee, nil
+	return agent, nil
 }
 
-func (h *DatabaseProxyHandler) resolveConnection(ctx context.Context, employee model.Employee, provider string) (model.DatabaseConnection, error) {
+func (h *DatabaseProxyHandler) resolveConnection(ctx context.Context, agent model.Agent, provider string) (model.DatabaseConnection, error) {
 	var conn model.DatabaseConnection
 	return conn, h.db.WithContext(ctx).
-		Where("org_id = ? AND provider = ? AND revoked_at IS NULL", *employee.OrgID, provider).
-		Where("employee_id IS NULL OR employee_id = ?", employee.ID).
-		Order("employee_id DESC, created_at ASC").
+		Where("org_id = ? AND provider = ? AND revoked_at IS NULL", *agent.OrgID, provider).
+		Where("agent_id IS NULL OR agent_id = ?", agent.ID).
+		Order("agent_id DESC, created_at ASC").
 		First(&conn).Error
 }
 

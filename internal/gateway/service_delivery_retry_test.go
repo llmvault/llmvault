@@ -119,25 +119,25 @@ func TestHandleRuntimeFinalRetriesFailedDelivery(t *testing.T) {
 	}
 
 	var rows int64
-	db.Model(&model.EmployeeGatewayDelivery{}).Where("route_id = ? AND dedupe_key = ?", route.ID, firstDelivery.DedupeKey).Count(&rows)
+	db.Model(&model.AgentGatewayDelivery{}).Where("route_id = ? AND dedupe_key = ?", route.ID, firstDelivery.DedupeKey).Count(&rows)
 	if rows != 1 {
 		t.Fatalf("expected exactly one delivery row for the dedupe key, got %d", rows)
 	}
 }
 
-func seedFlakyRoute(t *testing.T, db *gorm.DB, provider string) model.EmployeeGatewayRoute {
+func seedFlakyRoute(t *testing.T, db *gorm.DB, provider string) model.AgentGatewayRoute {
 	t.Helper()
 	org := model.Org{Name: "Gateway Flaky " + uuid.NewString()}
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	employee := model.Employee{OrgID: &org.ID, Model: "test-model", Status: "active"}
-	if err := db.Create(&employee).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+	agent := model.Agent{OrgID: &org.ID, Model: "test-model", Status: "active"}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
 	}
 	sandbox := model.Sandbox{
 		OrgID:                  &org.ID,
-		EmployeeID:             &employee.ID,
+		AgentID:                &agent.ID,
 		ExternalID:             "gateway-flaky-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:1",
 		EncryptedRuntimeSecret: []byte("test-key"),
@@ -146,13 +146,13 @@ func seedFlakyRoute(t *testing.T, db *gorm.DB, provider string) model.EmployeeGa
 	if err := db.Create(&sandbox).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)
 	}
-	route := model.EmployeeGatewayRoute{
-		OrgID:      org.ID,
-		EmployeeID: employee.ID,
-		Provider:   provider,
-		Name:       "Flaky Slack",
-		Enabled:    true,
-		Config:     model.JSON{},
+	route := model.AgentGatewayRoute{
+		OrgID:    org.ID,
+		AgentID:  agent.ID,
+		Provider: provider,
+		Name:     "Flaky Slack",
+		Enabled:  true,
+		Config:   model.JSON{},
 	}
 	if err := db.Create(&route).Error; err != nil {
 		t.Fatalf("create route: %v", err)

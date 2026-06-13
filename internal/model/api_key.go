@@ -53,6 +53,6 @@ var ValidAPIKeyScopes = map[string]bool{
 	"credentials":  true,
 	"tokens":       true,
 	"integrations": true,
-	"employees":    true,
+	"agents":       true,
 	"all":          true,
 }

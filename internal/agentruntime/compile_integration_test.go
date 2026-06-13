@@ -26,16 +26,18 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
 	description := "Coordinates platform engineering work."
 	category := "engineering"
-	agent := model.Employee{
+	instructions := "Use production telemetry before recommending a rollback."
+	agent := model.Agent{
 		ID:                        uuid.New(),
 		OrgID:                     &org.ID,
 		Name:                      "Aria",
 		Description:               &description,
+		Instructions:              &instructions,
 		Category:                  &category,
 		SystemPrompt:              "raw system prompt must not be forwarded",
 		IdentityPrompt:            "Act like the Platform team's coordinator.",
 		PromptOperatingPrinciples: "Prefer focused implementation work.",
-		Model:                     DefaultEmployeeModel,
+		Model:                     DefaultAgentModel,
 		Tools:                     model.JSON{},
 		McpServers:                model.RawJSON("[]"),
 		Skills:                    model.JSON{},
@@ -57,19 +59,19 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 		t.Fatalf("marshal definition: %v", err)
 	}
 	if !strings.Contains(string(body), `"system_prompt"`) {
-		t.Fatalf("employee config must include system_prompt: %s", string(body))
+		t.Fatalf("agent config must include system_prompt: %s", string(body))
 	}
 	if strings.Contains(string(body), "raw system prompt must not be forwarded") {
-		t.Fatalf("employee config forwarded raw agent system prompt: %s", string(body))
+		t.Fatalf("agent config forwarded raw agent system prompt: %s", string(body))
 	}
 	if strings.Contains(string(body), `"prompt_fragments"`) {
-		t.Fatalf("employee config included prompt_fragments: %s", string(body))
+		t.Fatalf("agent config included prompt_fragments: %s", string(body))
 	}
 	assertRuntimeSystemPromptPayloadShape(t, body)
 	cacheable := requireCacheableSegments(t, def.SystemPrompt)
 	dynamic := requireDynamicSegments(t, def.SystemPrompt)
-	if len(cacheable) < 3 {
-		t.Fatalf("expected base, identity, and company prompt segments: %#v", cacheable)
+	if len(cacheable) < 4 {
+		t.Fatalf("expected base, identity, instructions, and company prompt segments: %#v", cacheable)
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
 	if !strings.Contains(requirePromptString(t, base.Content), "Your job is to drive real team work forward.") {
@@ -79,10 +81,17 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	if requirePromptString(t, identity.Title) != "Your identity" {
 		t.Fatalf("identity title = %q", requirePromptString(t, identity.Title))
 	}
-	if !strings.Contains(requirePromptString(t, identity.Content), "You are a "+orgName+" employee.") {
+	if !strings.Contains(requirePromptString(t, identity.Content), "You are a "+orgName+" agent.") {
 		t.Fatalf("identity content missing company sentence: %q", requirePromptString(t, identity.Content))
 	}
-	company := requireStaticPromptSegment(t, cacheable[2])
+	instructionsSegment := requireStaticPromptSegment(t, cacheable[2])
+	if requirePromptString(t, instructionsSegment.Title) != "Agent instructions" {
+		t.Fatalf("instructions title = %q", requirePromptString(t, instructionsSegment.Title))
+	}
+	if requirePromptString(t, instructionsSegment.Content) != instructions {
+		t.Fatalf("instructions content = %q", requirePromptString(t, instructionsSegment.Content))
+	}
+	company := requireStaticPromptSegment(t, cacheable[3])
 	if requirePromptString(t, company.Title) != "About the company" {
 		t.Fatalf("company title = %q", requirePromptString(t, company.Title))
 	}
@@ -133,12 +142,12 @@ func TestCompile_SerializesSkillOptionalArraysAsEmptyArrays(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	category := "engineering"
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
 		Name:          "Aria",
 		Category:      &category,
-		Model:         DefaultEmployeeModel,
+		Model:         DefaultAgentModel,
 		Tools:         model.JSON{},
 		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
@@ -165,7 +174,7 @@ func TestCompile_SerializesSkillOptionalArraysAsEmptyArrays(t *testing.T) {
 	if err := db.Create(&skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	if err := db.Create(&model.EmployeeSkill{EmployeeID: agent.ID, SkillID: skill.ID}).Error; err != nil {
+	if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
 		t.Fatalf("attach skill: %v", err)
 	}
 
@@ -198,12 +207,12 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 		t.Fatalf("create org: %v", err)
 	}
 	category := "engineering"
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
 		Name:          "Aria",
 		Category:      &category,
-		Model:         DefaultEmployeeModel,
+		Model:         DefaultAgentModel,
 		Tools:         model.JSON{},
 		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
@@ -235,7 +244,7 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 	if err := db.Create(&skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	if err := db.Create(&model.EmployeeSkill{EmployeeID: agent.ID, SkillID: skill.ID}).Error; err != nil {
+	if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
 		t.Fatalf("attach skill: %v", err)
 	}
 
@@ -246,7 +255,7 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 	if len(def.Skills) != 1 {
 		t.Fatalf("skills = %#v", def.Skills)
 	}
-	want := []string{EmployeeEnvDriveUploadBearer, EmployeeEnvDriveUploadURL}
+	want := []string{AgentEnvDriveUploadBearer, AgentEnvDriveUploadURL}
 	if !reflect.DeepEqual(def.Skills[0].RequiredEnvironmentVariables, want) {
 		t.Fatalf("required env vars = %#v, want %#v", def.Skills[0].RequiredEnvironmentVariables, want)
 	}

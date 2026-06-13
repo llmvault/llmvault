@@ -10,9 +10,9 @@ single delivery.
 
 Derived from the code at:
 `internal/gateway`, `internal/handler/nango_webhooks.go`,
-`internal/handler/employee_outbound_webhooks.go`,
-`internal/handler/employee_event_writer.go`,
-`internal/tasks/employee_trigger_dispatch.go`,
+`internal/handler/agent_outbound_webhooks.go`,
+`internal/handler/agent_event_writer.go`,
+`internal/tasks/agent_trigger_dispatch.go`,
 `sandboxes/runtime/crates/outbound`.
 
 ---
@@ -47,8 +47,8 @@ If `gatewayService.ReceiveWebhookFromConnection`/`Receive` returns an error
 - Inbound events are keyed by `(route_id, dedupe_key)` (or
   `(route_id IS NULL, org_id, dedupe_key)` for the connection path). The insert
   uses `ON CONFLICT DO NOTHING` (`store.go insertInboundEvent`). Both keys are
-  enforced by partial unique indexes: `idx_employee_gateway_events_route_dedupe`
-  for the route path and `idx_employee_gateway_events_null_route_dedupe`
+  enforced by partial unique indexes: `idx_agent_gateway_events_route_dedupe`
+  for the route path and `idx_agent_gateway_events_null_route_dedupe`
   (migration 000034) for the NULL-route connection path — without the latter,
   Postgres treats the NULL route_id as distinct and the connection-path
   `ON CONFLICT` never fires, so a webhook redelivery double-inserts and
@@ -67,10 +67,10 @@ Tested by: `internal/gateway/service_inbound_retry_test.go`.
 
 ---
 
-## 2. Outbound (runtime outbox → Go: `employee_outbound_webhooks`)
+## 2. Outbound (runtime outbox → Go: `agent_outbound_webhooks`)
 
 Flow: runtime SQLite outbox (`crates/outbound`) → signed HTTP POST →
-`EmployeeOutboundWebhookHandler.Handle`. The outbox retries any non-2xx with
+`AgentOutboundWebhookHandler.Handle`. The outbox retries any non-2xx with
 backoff, so the Go handler's ack policy defines durability.
 
 ### Ack rules: `5xx` until durable
@@ -85,7 +85,7 @@ reply-bearing** record could not be durably persisted:
   retry is **idempotent** — a duplicate insert collides on the PK and is treated
   as already-recorded, never double-billed.
 - `session.created` / session-event persistence in the **synchronous** writer
-  path (no `EmployeeEventWriter` configured): the `tx.Create` runs inside the
+  path (no `AgentEventWriter` configured): the `tx.Create` runs inside the
   request and a failure returns `500`.
 
 `Handle` returns `200` for best-effort side effects that are captured to Sentry
@@ -95,7 +95,7 @@ delivery, schedule sync, `last_active_at` update).
 Signature verification **fails closed**: with no encryption key, or an invalid
 HMAC, the handler returns `401` and never persists (P1-2).
 
-### Event-writer flush guarantees (`EmployeeEventWriter`)
+### Event-writer flush guarantees (`AgentEventWriter`)
 
 Production wires the **buffered** writer (`cmd/server/serve.go`). Its durability
 does not come from the HTTP ack (which returns immediately); it comes from the
@@ -103,7 +103,7 @@ drain:
 
 - `flushBatch` inserts each batch inside a transaction and **retries transient
   failures** with capped exponential backoff
-  (`employeeEventFlushRetries=5`, `250ms → 5s`). A transient Postgres blip no
+  (`agentEventFlushRetries=5`, `250ms → 5s`). A transient Postgres blip no
   longer silently drops up to 100 buffered events (notably
   `agent.message.sent`, the only durable record of a reply) — P0-15.
 - A unique-violation on retry is treated as success (a prior attempt already
@@ -115,20 +115,20 @@ drain:
 - Buffer-full falls back to a synchronous, transactional direct write rather
   than dropping the entry.
 
-Tested by: `internal/handler/employee_event_writer_retry_test.go`,
-`employee_event_writer_shutdown_test.go`,
-`employee_outbound_generation_idempotency_test.go`,
-`employee_event_writer_redelivery_test.go` (this change).
+Tested by: `internal/handler/agent_event_writer_retry_test.go`,
+`agent_event_writer_shutdown_test.go`,
+`agent_outbound_generation_idempotency_test.go`,
+`agent_event_writer_redelivery_test.go` (this change).
 
 ### Outbound agent replies (gateway runtime-final)
 
 When an `agent.message.sent` event drives a gateway reply,
 `gateway.Service.HandleRuntimeFinal` sends the provider reply keyed by an
 outbound dedupe key on `(route_id, dedupe_key)`, enforced by
-`idx_employee_gateway_deliveries_route_dedupe`. The NULL-route connection path
+`idx_agent_gateway_deliveries_route_dedupe`. The NULL-route connection path
 deduplicates on `dedupe_key` alone (matching `loadDeliveryByDedupe` and the
 `gateway_stream_delivery` pre-send read), enforced by
-`idx_employee_gateway_deliveries_null_route_dedupe` (migration 000034):
+`idx_agent_gateway_deliveries_null_route_dedupe` (migration 000034):
 
 - A `sent` (or in-flight) delivery row short-circuits — no duplicate reply.
 - A **`failed`** delivery row is **retried in place** (`upsertDelivery` updates
@@ -140,16 +140,16 @@ Tested by: `internal/gateway/service_delivery_retry_test.go`.
 
 ---
 
-## 3. Trigger dispatch idempotency (`employee_trigger_dispatch.go`)
+## 3. Trigger dispatch idempotency (`agent_trigger_dispatch.go`)
 
-Flow: provider/event → `EmployeeTriggerDispatch` asynq task →
+Flow: provider/event → `AgentTriggerDispatch` asynq task →
 `Handle` loops over all matched triggers → `deliver` → `PostHTTPMessage` to the
 runtime. asynq retries the **whole task** on any returned error.
 
 The irreversible step is `PostHTTPMessage` (it makes the agent act — open PRs,
 send messages). Idempotency is enforced by a **claim before post**:
 
-1. `claimTriggerDelivery` inserts an `employee_trigger_deliveries` row keyed by
+1. `claimTriggerDelivery` inserts an `agent_trigger_deliveries` row keyed by
    `(trigger_id, delivery_id)` with `ON CONFLICT DO NOTHING` *before* posting.
    - Won the claim (`RowsAffected > 0`) ⇒ this attempt posts.
    - Lost the claim ⇒ a prior attempt already posted; **skip** (return nil).
@@ -166,6 +166,6 @@ row exists per `(trigger_id, delivery_id)`.
 
 A blank `delivery_id` disables dedupe (always-deliver fallback).
 
-Tested by: `internal/tasks/employee_trigger_idempotency_test.go` (unit) and
-`internal/tasks/employee_trigger_dispatch_retry_test.go` (full-`Handle`
+Tested by: `internal/tasks/agent_trigger_idempotency_test.go` (unit) and
+`internal/tasks/agent_trigger_dispatch_retry_test.go` (full-`Handle`
 batch-fails-at-N integration, this change).

@@ -20,7 +20,7 @@ func TestWarmPoolMarkErrorDeletesProviderResource(t *testing.T) {
 	provider.registerSandbox("warm-ext-1", StatusRunning)
 	slot := model.SandboxWarmSlot{
 		ProviderID:             provider.ID(),
-		Mode:                   model.SandboxWarmSlotModeEmployee,
+		Mode:                   model.SandboxWarmSlotModeAgent,
 		Status:                 model.SandboxWarmSlotStatusWarm,
 		ExternalID:             "warm-ext-1",
 		EndpointURL:            "https://warm.test",
@@ -58,7 +58,7 @@ func TestWarmPoolReapStaleSlots(t *testing.T) {
 	provider.registerSandbox("stale-claim-1", StatusRunning)
 	slot := model.SandboxWarmSlot{
 		ProviderID:             provider.ID(),
-		Mode:                   model.SandboxWarmSlotModeEmployee,
+		Mode:                   model.SandboxWarmSlotModeAgent,
 		Status:                 model.SandboxWarmSlotStatusClaiming,
 		ExternalID:             "stale-claim-1",
 		EndpointURL:            "https://warm.test",
@@ -100,7 +100,7 @@ func TestWarmPoolReapStaleSlotsLeavesFreshClaiming(t *testing.T) {
 	provider.registerSandbox("fresh-claim-1", StatusRunning)
 	slot := model.SandboxWarmSlot{
 		ProviderID:             provider.ID(),
-		Mode:                   model.SandboxWarmSlotModeEmployee,
+		Mode:                   model.SandboxWarmSlotModeAgent,
 		Status:                 model.SandboxWarmSlotStatusClaiming,
 		ExternalID:             "fresh-claim-1",
 		EndpointURL:            "https://warm.test",

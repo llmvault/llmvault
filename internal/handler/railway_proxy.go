@@ -61,14 +61,14 @@ func NewRailwayProxyHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoClien
 	}
 }
 
-// Handle processes POST /internal/railway-proxy/{employeeID}.
+// Handle processes POST /internal/railway-proxy/{agentID}.
 // Authenticates via the sandbox's runtime secret, fetches Railway credentials
 // from Nango, and forwards the request body to Railway's GraphQL API.
 func (h *RailwayProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	agentIDStr := chi.URLParam(r, "employeeID")
+	agentIDStr := chi.URLParam(r, "agentID")
 	agentID, err := uuid.Parse(agentIDStr)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employee_id"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent_id"})
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *RailwayProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var agent model.Employee
+	var agent model.Agent
 	if err := h.db.Where("id = ?", agentID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
@@ -89,7 +89,7 @@ func (h *RailwayProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sandboxes []model.Sandbox
-	if err := h.db.Where("employee_id = ?", agentID).Find(&sandboxes).Error; err != nil {
+	if err := h.db.Where("agent_id = ?", agentID).Find(&sandboxes).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to look up sandboxes"})
 		return
 	}
@@ -122,7 +122,7 @@ func (h *RailwayProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		Provider:      railwayProvider,
 		OrgID:         orgID,
 		CallerAgentID: agentID,
-		EmployeeID:    agentID,
+		AgentID:       agentID,
 		Method:        r.Method,
 		Path:          "/graphql/v2",
 	}, body) {
@@ -140,7 +140,7 @@ func (h *RailwayProxyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 // getRailwayToken returns a Railway API token for the agent's org, using
 // the in-memory cache or fetching fresh from Nango. Cached by org ID so
 // all agents in the same org share one token.
-func (h *RailwayProxyHandler) getRailwayToken(w http.ResponseWriter, r *http.Request, agent *model.Employee, agentID uuid.UUID) (string, error) {
+func (h *RailwayProxyHandler) getRailwayToken(w http.ResponseWriter, r *http.Request, agent *model.Agent, agentID uuid.UUID) (string, error) {
 	if agent.OrgID == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent has no org"})
 		return "", fmt.Errorf("no org")
@@ -177,7 +177,7 @@ func (h *RailwayProxyHandler) getRailwayToken(w http.ResponseWriter, r *http.Req
 	nangoConn, err := h.nango.GetConnection(r.Context(), conn.NangoConnectionID, providerConfigKey)
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "railway-proxy: failed to fetch from nango",
-			"employee_id", agentID,
+			"agent_id", agentID,
 			"connection_id", conn.ID,
 			"error", err,
 		)

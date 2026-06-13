@@ -16,13 +16,13 @@ import (
 )
 
 func hindsightMemoryRefresh(enqueuer enqueue.TaskEnqueuer) hindsight.MemoryRefreshFunc {
-	return func(ctx context.Context, agent *model.Employee) {
-		if enqueuer == nil || agent == nil || !agent.IsEmployee {
+	return func(ctx context.Context, agent *model.Agent) {
+		if enqueuer == nil || agent == nil || !agent.IsManaged {
 			return
 		}
-		task, opts, err := tasks.NewEmployeeMemoryRefreshTask(tasks.EmployeeMemoryRefreshPayload{
-			EmployeeID: agent.ID,
-			Reason:     "memory_forget",
+		task, opts, err := tasks.NewAgentMemoryRefreshTask(tasks.AgentMemoryRefreshPayload{
+			AgentID: agent.ID,
+			Reason:  "memory_forget",
 		})
 		if err != nil {
 			logging.Capture(ctx, err)
@@ -30,11 +30,11 @@ func hindsightMemoryRefresh(enqueuer enqueue.TaskEnqueuer) hindsight.MemoryRefre
 		}
 		opts = append(opts,
 			asynq.Unique(2*time.Minute),
-			asynq.TaskID("employee-memory-refresh:"+agent.ID.String()),
+			asynq.TaskID("agent-memory-refresh:"+agent.ID.String()),
 		)
 		_, err = enqueuer.EnqueueContext(ctx, task, opts...)
 		if err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
-			logging.Capture(ctx, fmt.Errorf("memory forget: enqueue employee memory refresh: %w", err))
+			logging.Capture(ctx, fmt.Errorf("memory forget: enqueue agent memory refresh: %w", err))
 		}
 	}
 }

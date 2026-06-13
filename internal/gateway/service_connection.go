@@ -15,7 +15,7 @@ import (
 
 type ReceiveConnectionResult struct {
 	Inbound               InboundEnvelope
-	Session               model.EmployeeSession
+	Session               model.AgentSession
 	RuntimeConversationID string
 	RuntimeSessionID      string
 	StreamURL             string
@@ -70,11 +70,11 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 		return &ReceiveConnectionResult{Inbound: inbound, Ignored: true, IgnoreReason: decision.reason}, nil
 	}
 
-	route := model.EmployeeGatewayRoute{
-		ID:         uuid.Nil,
-		OrgID:      envelope.OrgID,
-		EmployeeID: envelope.EmployeeID,
-		Provider:   envelope.Provider,
+	route := model.AgentGatewayRoute{
+		ID:       uuid.Nil,
+		OrgID:    envelope.OrgID,
+		AgentID:  envelope.AgentID,
+		Provider: envelope.Provider,
 	}
 
 	event, duplicate, err := s.insertInboundEvent(ctx, route, inbound)
@@ -108,7 +108,7 @@ func (s *Service) ReceiveWebhookFromConnection(ctx context.Context, envelope Web
 	}
 	dynamicContext := s.buildPreContext(ctx, created, precontext.Request{
 		OrgID:                 envelope.OrgID,
-		EmployeeID:            envelope.EmployeeID,
+		AgentID:               envelope.AgentID,
 		CurrentSessionID:      session.ID,
 		RuntimeConversationID: conversationID,
 		Text:                  req.Markdown,
@@ -198,21 +198,21 @@ func absoluteRuntimeURL(runtimeURL, pathOrURL string) string {
 	return strings.TrimRight(runtimeURL, "/") + "/" + strings.TrimLeft(pathOrURL, "/")
 }
 
-func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope WebhookEnvelope, threadKey string) (model.EmployeeSession, string, bool, error) {
+func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope WebhookEnvelope, threadKey string) (model.AgentSession, string, bool, error) {
 	conversationID := stableConversationID(envelope.ConnectionID, threadKey)
 	sessionID := runtimeSessionID(conversationID)
 
-	sandbox, err := s.employeeSandboxSelector().MainRuntime(ctx, envelope.OrgID, envelope.EmployeeID)
+	sandbox, err := s.agentSandboxSelector().MainRuntime(ctx, envelope.OrgID, envelope.AgentID)
 	if err != nil {
-		return model.EmployeeSession{}, "", false, fmt.Errorf("load employee sandbox: %w", err)
+		return model.AgentSession{}, "", false, fmt.Errorf("load agent sandbox: %w", err)
 	}
 
 	connectionID := envelope.ConnectionID
-	session := model.EmployeeSession{}
+	session := model.AgentSession{}
 	created := false
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
-			envelope.OrgID, envelope.EmployeeID, Source, envelope.ConnectionID, threadKey, "active").
+		err := tx.Where("org_id = ? AND agent_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
+			envelope.OrgID, envelope.AgentID, Source, envelope.ConnectionID, threadKey, "active").
 			First(&session).Error
 		if err == nil {
 			if session.SandboxID != sandbox.ID {
@@ -226,9 +226,9 @@ func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope 
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		session = model.EmployeeSession{
+		session = model.AgentSession{
 			OrgID:                 envelope.OrgID,
-			EmployeeID:            envelope.EmployeeID,
+			AgentID:               envelope.AgentID,
 			SandboxID:             sandbox.ID,
 			RuntimeConversationID: sessionID,
 			Source:                Source,
@@ -245,7 +245,7 @@ func (s *Service) findOrCreateSessionByConnection(ctx context.Context, envelope 
 		return nil
 	})
 	if err != nil {
-		return model.EmployeeSession{}, "", false, fmt.Errorf("find or create gateway session: %w", err)
+		return model.AgentSession{}, "", false, fmt.Errorf("find or create gateway session: %w", err)
 	}
 	return session, conversationID, created, nil
 }

@@ -62,7 +62,7 @@ func newSandboxProvider(cfg *config.Config) (sandbox.Provider, error) {
 			ControlURL:          cfg.MicrosandboxControlURL,
 			APIToken:            cfg.MicrosandboxControlAPIToken,
 			DefaultPreviewPorts: cfg.MicrosandboxDefaultPreviewPorts,
-			RuntimePort:         sandbox.EmployeeSandboxPort,
+			RuntimePort:         sandbox.AgentSandboxPort,
 			RuntimeImage:        cfg.SandboxesRuntimeBaseImage,
 		})
 	default:

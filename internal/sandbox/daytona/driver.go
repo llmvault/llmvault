@@ -36,18 +36,18 @@ type Config struct {
 // any future endpoint should be added by extending this struct rather than
 // reaching back to raw http.
 type Driver struct {
-	sdk                             *daytonasdk.Client
-	apiClient                       *apiclient.APIClient
-	apiURL                          string
-	apiKey                          string
+	sdk       *daytonasdk.Client
+	apiClient *apiclient.APIClient
+	apiURL    string
+	apiKey    string
 }
 
 func (d *Driver) ID() string { return sandbox.ProviderDaytona }
 
 func (d *Driver) RuntimeLayout() sandbox.RuntimeLayout {
 	return sandbox.RuntimeLayout{
-		AgentRepoDir:    "/home/daytona/repos",
-		EmployeeRepoDir: "/workspace/repos",
+		AgentRepoDir:     "/home/daytona/repos",
+		WorkspaceRepoDir: "/workspace/repos",
 	}
 }
 

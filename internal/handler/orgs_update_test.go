@@ -62,7 +62,7 @@ func (h *orgUpdateHarness) createOrg(t *testing.T, role string) (model.Org, mode
 	}
 	t.Cleanup(func() {
 		h.db.Where("org_id = ?", org.ID).Delete(&ragmodel.RAGSource{})
-		h.db.Where("org_id = ?", org.ID).Delete(&model.Employee{})
+		h.db.Where("org_id = ?", org.ID).Delete(&model.Agent{})
 		h.db.Where("user_id = ?", user.ID).Delete(&model.OrgMembership{})
 		h.db.Where("id = ?", org.ID).Delete(&model.Org{})
 		h.db.Where("id = ?", user.ID).Delete(&model.User{})
@@ -192,30 +192,6 @@ func TestOrgUpdate_BusinessProfileFieldsSucceed(t *testing.T) {
 	}
 	if reloaded.PromptCompany != "Builds internal operations software." {
 		t.Errorf("db prompt_company: got %q", reloaded.PromptCompany)
-	}
-	if !reloaded.Onboarded {
-		t.Error("org should be marked onboarded after profile update")
-	}
-}
-
-func TestOrgUpdate_MarksOrgOnboarded(t *testing.T) {
-	h := newOrgUpdateHarness(t)
-	org, user := h.createOrg(t, "admin")
-
-	rr := h.doPatch(t, user.ID, org.ID, "admin", map[string]any{
-		"website": "https://acme.example",
-	})
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status: got %d body=%s, want 200", rr.Code, rr.Body.String())
-	}
-
-	var reloaded model.Org
-	if err := h.db.First(&reloaded, "id = ?", org.ID).Error; err != nil {
-		t.Fatalf("reload: %v", err)
-	}
-	if !reloaded.Onboarded {
-		t.Fatal("org onboarded = false, want true after org update")
 	}
 }
 

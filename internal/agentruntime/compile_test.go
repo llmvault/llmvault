@@ -13,8 +13,8 @@ import (
 
 func TestBuildPromptSections_UsesTypedFields(t *testing.T) {
 	orgID := uuid.New()
-	description := managedEmployeeDescription
-	agent := &model.Employee{
+	description := managedAgentDescription
+	agent := &model.Agent{
 		ID:             uuid.New(),
 		OrgID:          &orgID,
 		Name:           "Aria",
@@ -25,8 +25,8 @@ func TestBuildPromptSections_UsesTypedFields(t *testing.T) {
 
 	fragments := buildPromptSections(context.Background(), nil, agent, description)
 
-	if !strings.Contains(fragments.Identity.Content, managedEmployeeName) {
-		t.Fatalf("identity fragment should include employee name: %#v", fragments.Identity)
+	if !strings.Contains(fragments.Identity.Content, managedAgentName) {
+		t.Fatalf("identity fragment should include agent name: %#v", fragments.Identity)
 	}
 	if !strings.Contains(fragments.Identity.Content, description) {
 		t.Fatalf("identity fragment should include description: %#v", fragments.Identity)
@@ -50,7 +50,7 @@ func TestBuildPromptSections_UpgradesDefaultManagedIdentityPrompt(t *testing.T) 
 		{name: "blank", identityPrompt: ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			agent := &model.Employee{
+			agent := &model.Agent{
 				ID:             uuid.New(),
 				OrgID:          &orgID,
 				Name:           "Higu",
@@ -78,7 +78,7 @@ func TestBuildPromptSections_PreservesCustomIdentityPrompt(t *testing.T) {
 	orgID := uuid.New()
 	description := "Coordinates engineering work."
 	custom := "Use the team's incident voice."
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:             uuid.New(),
 		OrgID:          &orgID,
 		Name:           "Higu",
@@ -96,11 +96,11 @@ func TestBuildPromptSections_PreservesCustomIdentityPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildEmployeeSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
+func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	fragments := PromptSections{
 		Identity: PromptSection{
 			Title:   "Your identity",
-			Content: "You are the managed employee.",
+			Content: "You are the managed agent.",
 		},
 		Company: PromptSection{
 			Title:   "About the company",

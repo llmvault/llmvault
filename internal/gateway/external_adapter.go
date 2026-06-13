@@ -105,7 +105,7 @@ func (a *ExternalAdapter) RenderResponse(_ context.Context, response AgentRespon
 	}
 	return ProviderResponsePayload{
 		Route:     response.Route,
-		Session:   response.EmployeeSession,
+		Session:   response.AgentSession,
 		ChannelID: response.ChannelID,
 		ThreadID:  response.ThreadID,
 		Text:      response.Text,
@@ -117,7 +117,7 @@ func (a *ExternalAdapter) SendResponse(context.Context, ProviderResponsePayload)
 	return nil, fmt.Errorf("external gateway responses are delivered by gateway:external_callback task")
 }
 
-func RouteUsesExternalAdapter(route model.EmployeeGatewayRoute) bool {
+func RouteUsesExternalAdapter(route model.AgentGatewayRoute) bool {
 	adapter, _ := route.Config["adapter"].(string)
 	return strings.EqualFold(strings.TrimSpace(adapter), ExternalAdapterName)
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func buildMemoryContext(ctx context.Context, deps CompileDeps, agent *model.Employee) MemoryContext {
+func buildMemoryContext(ctx context.Context, deps CompileDeps, agent *model.Agent) MemoryContext {
 	memory := MemoryContext{Entries: []MemoryContextEntry{}, TokenBudget: 1000}
 	if deps.Hindsight == nil || agent == nil || agent.OrgID == nil {
 		return memory
@@ -24,11 +24,11 @@ func buildMemoryContext(ctx context.Context, deps CompileDeps, agent *model.Empl
 	recallCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	query := "Durable company, people, project, decision, policy, preference, technical, customer, and communication-behavior memories relevant to this employee's current work."
+	query := "Durable company, people, project, decision, policy, preference, technical, customer, and communication-behavior memories relevant to this agent's current work."
 	result, err := deps.Hindsight.Recall(recallCtx, bankID, &hindsight.RecallRequest{
 		Query:     query,
 		Budget:    "mid",
-		TagGroups: employeeMemoryTagGroups(agent),
+		TagGroups: agentMemoryTagGroups(agent),
 	})
 	if err != nil || result == nil {
 		return memory
@@ -37,7 +37,7 @@ func buildMemoryContext(ctx context.Context, deps CompileDeps, agent *model.Empl
 	return memory
 }
 
-func employeeMemoryTagGroups(agent *model.Employee) []any {
+func agentMemoryTagGroups(agent *model.Agent) []any {
 	if agent == nil || agent.OrgID == nil {
 		return nil
 	}

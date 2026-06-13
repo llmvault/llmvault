@@ -17,50 +17,50 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *GatewayExternalHandler) loadEmployee(w http.ResponseWriter, r *http.Request, orgID uuid.UUID) (*model.Employee, bool) {
+func (h *GatewayExternalHandler) loadAgent(w http.ResponseWriter, r *http.Request, orgID uuid.UUID) (*model.Agent, bool) {
 	agentID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employee id"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent id"})
 		return nil, false
 	}
-	var agent model.Employee
+	var agent model.Agent
 	if err := h.db.WithContext(r.Context()).
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
 		First(&agent).Error; err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "employee not found"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
 		return nil, false
 	}
 	return &agent, true
 }
 
-func (h *GatewayExternalHandler) loadRouteForEmployee(w http.ResponseWriter, r *http.Request) (model.EmployeeGatewayRoute, bool) {
+func (h *GatewayExternalHandler) loadRouteForAgent(w http.ResponseWriter, r *http.Request) (model.AgentGatewayRoute, bool) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
 		writeMissingOrg(w)
-		return model.EmployeeGatewayRoute{}, false
+		return model.AgentGatewayRoute{}, false
 	}
-	agent, ok := h.loadEmployee(w, r, org.ID)
+	agent, ok := h.loadAgent(w, r, org.ID)
 	if !ok {
-		return model.EmployeeGatewayRoute{}, false
+		return model.AgentGatewayRoute{}, false
 	}
 	routeID, err := uuid.Parse(chi.URLParam(r, "routeID"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid route_id"})
-		return model.EmployeeGatewayRoute{}, false
+		return model.AgentGatewayRoute{}, false
 	}
-	var route model.EmployeeGatewayRoute
+	var route model.AgentGatewayRoute
 	err = h.db.WithContext(r.Context()).
-		Where("id = ? AND org_id = ? AND employee_id = ? AND config->>'adapter' = ? AND revoked_at IS NULL", routeID, org.ID, agent.ID, gateway.ExternalAdapterName).
+		Where("id = ? AND org_id = ? AND agent_id = ? AND config->>'adapter' = ? AND revoked_at IS NULL", routeID, org.ID, agent.ID, gateway.ExternalAdapterName).
 		First(&route).Error
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "gateway route not found"})
-		return model.EmployeeGatewayRoute{}, false
+		return model.AgentGatewayRoute{}, false
 	}
 	return route, true
 }
 
-func (h *GatewayExternalHandler) loadExternalRoute(r *http.Request, routeID uuid.UUID) (model.EmployeeGatewayRoute, error) {
-	var route model.EmployeeGatewayRoute
+func (h *GatewayExternalHandler) loadExternalRoute(r *http.Request, routeID uuid.UUID) (model.AgentGatewayRoute, error) {
+	var route model.AgentGatewayRoute
 	err := h.db.WithContext(r.Context()).
 		Where("id = ? AND config->>'adapter' = ?", routeID, gateway.ExternalAdapterName).
 		First(&route).Error
@@ -87,7 +87,7 @@ func (h *GatewayExternalHandler) externalRouteConfig(callbackURL, hash, prefix, 
 	}, nil
 }
 
-func (h *GatewayExternalHandler) routeResponse(route model.EmployeeGatewayRoute, secret string) gatewayRouteResponse {
+func (h *GatewayExternalHandler) routeResponse(route model.AgentGatewayRoute, secret string) gatewayRouteResponse {
 	return gatewayRouteResponse{
 		ID:           route.ID.String(),
 		Name:         route.Name,
@@ -122,22 +122,22 @@ func validateGatewayRouteInput(provider, callbackURL string) (string, string, er
 	return provider, callbackURL, nil
 }
 
-func externalRouteCallbackURL(route model.EmployeeGatewayRoute) string {
+func externalRouteCallbackURL(route model.AgentGatewayRoute) string {
 	value, _ := route.Config["callback_url"].(string)
 	return strings.TrimSpace(value)
 }
 
-func externalRouteSecretHash(route model.EmployeeGatewayRoute) string {
+func externalRouteSecretHash(route model.AgentGatewayRoute) string {
 	value, _ := route.Config["secret_hash"].(string)
 	return strings.TrimSpace(value)
 }
 
-func externalRouteSecretPrefix(route model.EmployeeGatewayRoute) string {
+func externalRouteSecretPrefix(route model.AgentGatewayRoute) string {
 	value, _ := route.Config["secret_prefix"].(string)
 	return strings.TrimSpace(value)
 }
 
-func decryptExternalRouteSecret(encKey *crypto.SymmetricKey, route model.EmployeeGatewayRoute) (string, error) {
+func decryptExternalRouteSecret(encKey *crypto.SymmetricKey, route model.AgentGatewayRoute) (string, error) {
 	encoded, _ := route.Config["encrypted_secret"].(string)
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
 	if err != nil {

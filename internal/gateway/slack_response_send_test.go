@@ -26,7 +26,7 @@ func TestServiceHandleRuntimeFinalSendsSlackConnectionReply(t *testing.T) {
 	service := NewService(db, nil, nil, NewSlackAdapter(WithSlackResponseSender(sender)))
 
 	delivery, err := service.HandleRuntimeFinal(t.Context(), AgentResponse{
-		EmployeeSession:  session,
+		AgentSession:     session,
 		RuntimeSessionID: session.RuntimeConversationID,
 		TurnID:           "turn-after-wake",
 		ChannelID:        "C123",
@@ -75,7 +75,7 @@ func (c *recordingSlackThreadClient) PostMessageContext(_ context.Context, chann
 	return channelID, c.messageTS, nil
 }
 
-func seedSlackConnectionSession(t *testing.T, db *gorm.DB) model.EmployeeSession {
+func seedSlackConnectionSession(t *testing.T, db *gorm.DB) model.AgentSession {
 	t.Helper()
 	org := model.Org{Name: "Slack Gateway Test " + uuid.NewString()}
 	if err := db.Create(&org).Error; err != nil {
@@ -85,13 +85,13 @@ func seedSlackConnectionSession(t *testing.T, db *gorm.DB) model.EmployeeSession
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	employee := model.Employee{OrgID: &org.ID, Model: "test-model", Status: "active"}
-	if err := db.Create(&employee).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+	agent := model.Agent{OrgID: &org.ID, Model: "test-model", Status: "active"}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
 	}
 	sandbox := model.Sandbox{
 		OrgID:                  &org.ID,
-		EmployeeID:             &employee.ID,
+		AgentID:                &agent.ID,
 		ExternalID:             "slack-gateway-test-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:1",
 		EncryptedRuntimeSecret: []byte("test-key"),
@@ -114,9 +114,9 @@ func seedSlackConnectionSession(t *testing.T, db *gorm.DB) model.EmployeeSession
 		t.Fatalf("create connection: %v", err)
 	}
 	sourceID := connection.ID
-	session := model.EmployeeSession{
+	session := model.AgentSession{
 		OrgID:                 org.ID,
-		EmployeeID:            employee.ID,
+		AgentID:               agent.ID,
 		SandboxID:             sandbox.ID,
 		RuntimeConversationID: "http-gateway-" + uuid.NewString(),
 		Source:                Source,
@@ -125,12 +125,12 @@ func seedSlackConnectionSession(t *testing.T, db *gorm.DB) model.EmployeeSession
 		Status:                "active",
 	}
 	if err := db.Create(&session).Error; err != nil {
-		t.Fatalf("create employee session: %v", err)
+		t.Fatalf("create agent session: %v", err)
 	}
-	event := model.EmployeeGatewayEvent{
+	event := model.AgentGatewayEvent{
 		OrgID:                 org.ID,
-		EmployeeID:            employee.ID,
-		EmployeeSessionID:     &session.ID,
+		AgentID:               agent.ID,
+		AgentSessionID:        &session.ID,
 		Provider:              SlackProvider,
 		ExternalMessageID:     "1780835661.752449",
 		DedupeKey:             "Ev-slack-test",

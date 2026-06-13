@@ -75,7 +75,7 @@ func (a *HTTPAdapter) RenderResponse(_ context.Context, response AgentResponse) 
 	callbackURL := httpResponseURL(response.Route, response.Raw)
 	return ProviderResponsePayload{
 		Route:     response.Route,
-		Session:   response.EmployeeSession,
+		Session:   response.AgentSession,
 		ChannelID: response.ChannelID,
 		ThreadID:  response.ThreadID,
 		Text:      response.Text,
@@ -185,7 +185,7 @@ func httpInboundEnvelope(envelope WebhookEnvelope, markdown, threadID, messageID
 	}, true, nil
 }
 
-func httpResponseURL(route model.EmployeeGatewayRoute, raw map[string]any) string {
+func httpResponseURL(route model.AgentGatewayRoute, raw map[string]any) string {
 	if value, ok := route.Config["response_url"].(string); ok && strings.TrimSpace(value) != "" {
 		return strings.TrimSpace(value)
 	}
