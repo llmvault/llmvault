@@ -2,23 +2,18 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-
-	"github.com/usehivy/hivy/internal/microsandbox/model"
 )
 
 func Open(ctx context.Context, dsn string) (*gorm.DB, error) {
-	var dialector gorm.Dialector
-	if strings.HasPrefix(dsn, "postgres://") || strings.Contains(dsn, "host=") {
-		dialector = postgres.Open(dsn)
-	} else {
-		dialector = sqlite.Open(dsn)
+	if !IsPostgresDSN(dsn) {
+		return nil, fmt.Errorf("HIVY_MICROSANDBOX_DATABASE_DSN is required and must be a Postgres DSN")
 	}
-	db, err := gorm.Open(dialector, &gorm.Config{TranslateError: true})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
 		return nil, err
 	}
@@ -32,13 +27,9 @@ func Open(ctx context.Context, dsn string) (*gorm.DB, error) {
 	return db, nil
 }
 
-func Migrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&model.Runner{},
-		&model.OrgPreviewSecret{},
-		&model.Sandbox{},
-		&model.SandboxPort{},
-		&model.Snapshot{},
-		&model.Event{},
-	)
+func IsPostgresDSN(dsn string) bool {
+	dsn = strings.TrimSpace(dsn)
+	return strings.HasPrefix(dsn, "postgres://") ||
+		strings.HasPrefix(dsn, "postgresql://") ||
+		strings.Contains(dsn, "host=")
 }

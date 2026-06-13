@@ -25,13 +25,11 @@ cat >"${out}" <<EOF
     "apiSemver": "ghcr.io/usehivy/hivy:${RELEASE_VERSION}",
     "sandboxesRuntime": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_TAG}",
     "sandboxesRuntimeSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_VERSION}",
-    "sandboxesRuntimeSpecialist": "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:${RELEASE_TAG}",
-    "sandboxesRuntimeSpecialistSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:${RELEASE_VERSION}"
+    "sandboxesRuntimeDevelopers": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_TAG}",
+    "sandboxesRuntimeDevelopersSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_VERSION}"
   },
   "runtimeConfig": {
-    "HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION": "${RELEASE_TAG}",
-    "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_TAG}",
-    "HIVY_SANDBOXES_RUNTIME_SPECIALIST_IMAGE": "ghcr.io/usehivy/hivy-sandboxes-runtime-specialist:${RELEASE_TAG}"
+    "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_TAG}"
   },
   "snapshots": {
     "sandboxesRuntime": {
@@ -40,11 +38,11 @@ cat >"${out}" <<EOF
       "large": "hivy-sandboxes-runtime-${RELEASE_DASHED}-large-v1",
       "xlarge": "hivy-sandboxes-runtime-${RELEASE_DASHED}-xlarge-v1"
     },
-    "sandboxesRuntimeSpecialist": {
-      "small": "hivy-sandboxes-runtime-specialist-${RELEASE_DASHED}-small-v1",
-      "medium": "hivy-sandboxes-runtime-specialist-${RELEASE_DASHED}-medium-v1",
-      "large": "hivy-sandboxes-runtime-specialist-${RELEASE_DASHED}-large-v1",
-      "xlarge": "hivy-sandboxes-runtime-specialist-${RELEASE_DASHED}-xlarge-v1"
+    "sandboxesRuntimeDevelopers": {
+      "small": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-small-v1",
+      "medium": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-medium-v1",
+      "large": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-large-v1",
+      "xlarge": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-xlarge-v1"
     }
   }
 }

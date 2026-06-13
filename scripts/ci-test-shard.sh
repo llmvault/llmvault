@@ -98,11 +98,11 @@ internal_core_shard_packages() {
     1) select_internal_core_packages billing billing/plancatalog billing/subscription ;;
     2) select_internal_core_packages billing/fake billing/paystack ;;
     3) select_internal_core_packages bootstrap cache config goroutine system system/tasks logging ;;
-    4) select_internal_core_packages bridge bridgeevents gateway proxy streaming slackapp ;;
-    5) select_internal_core_packages employeeruntime employeeprompts sandboxruntime ;;
+    4) select_internal_core_packages bridge bridgeevents proxy streaming slackapp ;;
+    5) select_internal_core_packages agentruntime agentprompts sandboxruntime ;;
     6) select_internal_core_packages sandbox sandbox/daytona sandbox/docker ;;
     7) select_internal_core_packages mcp mcp/catalog mcpserver skills resources providergroups ;;
-    8) select_internal_core_packages specialists specialisttasks ;;
+    8) select_internal_core_packages agents agentsandbox ;;
     9) select_internal_core_packages model registry db migrations testdb counter ;;
     10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider enqueue email ;;
     11) select_internal_core_packages evals observability/sentry observe ;;

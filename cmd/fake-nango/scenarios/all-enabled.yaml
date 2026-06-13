@@ -1,5 +1,5 @@
 name: all-enabled
-# Mirrors scripts/seed-test-data.sql. Loaded into fake-nango with
+# Loaded into fake-nango with
 #   curl -X POST http://localhost:13004/_admin/load -d '{"name":"all-enabled"}'
 #
 # Each integration's unique_key matches `in_<provider>-test`, which is what

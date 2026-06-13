@@ -59,15 +59,15 @@ jobs:
           - shard: 3
             group: config-bootstrap
           - shard: 4
-            group: bridge-gateway
+            group: proxy-streaming
           - shard: 5
-            group: employee-runtime
+            group: agent-runtime
           - shard: 6
             group: sandbox-providers
           - shard: 7
             group: mcp-skills
           - shard: 8
-            group: specialists
+            group: agents-sandboxes
           - shard: 9
             group: data-registry
           - shard: 10

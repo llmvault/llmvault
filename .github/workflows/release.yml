@@ -203,9 +203,9 @@ jobs:
       - name: create sandbox runtime multi-arch manifests
         shell: bash
         run: |
-          employee="ghcr.io/usehivy/hivy-sandboxes-runtime"
+          runtime="ghcr.io/usehivy/hivy-sandboxes-runtime"
           developers="ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
-          for image in "$employee" "$developers"; do
+          for image in "$runtime" "$developers"; do
             docker buildx imagetools create \
               -t "${image}:${{ needs.prepare.outputs.tag }}" \
               "${image}:${{ needs.prepare.outputs.tag }}-amd64" \

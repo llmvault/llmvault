@@ -158,7 +158,6 @@ HIVY_NANGO_ENDPOINT=http://localhost:$FAKE_NANGO_PORT
 HIVY_NANGO_SECRET_KEY=fake-nango-secret
 HIVY_NANGO_WEBHOOKS_SECRET=fake-nango-secret
 HIVY_SANDBOX_PROVIDER_ID=daytona
-HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION=v1.0.1
 EOF
   ensure_secret HIVY_AUTH_RSA_PRIVATE_KEY auth-rsa.key gen_rsa
   ensure_secret HIVY_KMS_KEY              kms.key      gen_aes

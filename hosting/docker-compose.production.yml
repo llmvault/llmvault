@@ -152,7 +152,7 @@ services:
       retries: 5
       start_period: 30s
 
-  # ── Worker (asynq task processor — billing, emails, gateway deliveries) ───
+  # ── Worker (asynq task processor — billing, emails, triggers) ────────────
   #
   # Runs /hivy work; uses the same image and env as the api service.
   # Required env vars: same as api (set in .env).

@@ -99,22 +99,6 @@ agent-debug-pack:
 	if [ "$(DEBUG_SENSITIVE)" = "1" ]; then flags="$$flags --sensitive"; fi; \
 	go run ./cmd/agent-debug-pack $$flags
 
-# Generate Bridge Go client from OpenAPI spec.
-# Bridge emits OpenAPI 3.1 schemas oapi-codegen can't handle:
-#   1. {oneOf: [{type:null}, {$ref}]} for nullable refs → collapse to the $ref
-#   2. {type: ["integer", "null"]} array-form types → strip "null", keep scalar
-generate-bridge-client:
-	jq 'walk( \
-		if type == "object" and has("oneOf") and (.oneOf | type == "array") and (.oneOf | length == 2) and (.oneOf | any(. == {"type":"null"})) then \
-			(.oneOf | map(select(. != {"type":"null"}))[0]) \
-		elif type == "object" and has("type") and (.type | type == "array") then \
-			.type |= (map(select(. != "null")) | if length == 1 then .[0] else . end) \
-		else . end)' \
-		openapi/bridge.json > openapi/bridge.generated.json
-	$(GO_BIN) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest \
-		--config=internal/bridge/oapi-codegen.yaml openapi/bridge.generated.json
-	rm openapi/bridge.generated.json
-
 # Generate sandbox runtime Go client from OpenAPI spec.
 generate-sandbox-runtime-client:
 	jq 'walk( \
@@ -572,18 +556,10 @@ ragtest-kb-search-live:
 	HIVY_QDRANT_PORT=$${HIVY_QDRANT_PORT:-6334} \
 	go test ./internal/rag -run TestSearchKnowledgeBase_LiveSlackCollection -count=1 -v
 
-seed-test:
-	@PG_PORT=$${HIVY_DB_PORT:-$$(test -s /tmp/agent-test/pg.port && cat /tmp/agent-test/pg.port || echo 5432)}; \
-	PGPASSWORD=$${HIVY_DB_PASSWORD:-localdev} psql -q \
-		-h $${HIVY_DB_HOST:-localhost} -p $$PG_PORT \
-		-U $${HIVY_DB_USER:-hivy} -d $${HIVY_DB_NAME:-hivy} \
-		-f scripts/seed-test-data.sql
-
 # --- Local test stack ---
 
 local-up:
 	@./scripts/local-up.sh
-	@$(MAKE) -s seed-test
 
 local-down:
 	@./scripts/local-down.sh
