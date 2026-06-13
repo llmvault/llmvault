@@ -17,9 +17,6 @@ func stringValueDefault(payload map[string]any, key, fallback string) string {
 func agentEventSource(payload map[string]any) string {
 	source := sanitizeTagValue(stringValue(payload, "source"))
 	if source == "" {
-		source = sanitizeTagValue(stringValue(payload, "gateway"))
-	}
-	if source == "" {
 		source = sanitizeTagValue(stringValue(payload, "platform"))
 	}
 	if source == "" {

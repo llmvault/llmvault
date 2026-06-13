@@ -10,7 +10,7 @@ import (
 
 var memorySecretPattern = regexp.MustCompile(`(?i)(ptok_|xox[baprs]-|sk-[a-z0-9]|api[_-]?key|secret|token|password)\s*[:=]\s*\S+`)
 
-func agentSessionEventsContainSecret(events []model.SessionEvent) bool {
+func sessionEventsContainSecret(events []model.SessionEvent) bool {
 	for _, event := range events {
 		payload := agentMemoryPayload(event)
 		for _, key := range []string{"text", "message", "result_summary"} {

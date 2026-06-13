@@ -48,7 +48,7 @@ func buildSandboxOrchestrator(ctx context.Context, cfg *config.Config, database 
 	if err := validateSandboxProvider(ctx, cfg, sandboxProvider); err != nil {
 		// A configured provider that fails validation is a hard error in production:
 		// a boot-time blip must not yield a "healthy" instance with the whole
-		// agent/gateway subsystem missing (validation already retried).
+		// agent runtime subsystem missing (validation already retried).
 		if cfg.IsProduction() {
 			return nil, nil, fmt.Errorf("validating sandbox provider %q: %w", sandboxProvider.ID(), err)
 		}

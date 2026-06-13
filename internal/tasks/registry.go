@@ -100,8 +100,8 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	// Conversation naming (async title generation from the first message).
 	// Requires the cache manager for credential decryption.
 	if deps.CacheManager != nil {
-		if handler := NewConversationNameHandler(deps.DB, deps.CacheManager); handler != nil {
-			mux.HandleFunc(TypeConversationName, handler.Handle)
+		if handler := NewSessionNameHandler(deps.DB, deps.CacheManager); handler != nil {
+			mux.HandleFunc(TypeSessionName, handler.Handle)
 		}
 	}
 

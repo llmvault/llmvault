@@ -39,23 +39,23 @@ func NewAgentTriggerDispatchTask(payload AgentTriggerDispatchPayload) (*asynq.Ta
 	return asynq.NewTask(TypeAgentTriggerDispatch, encoded), opts, nil
 }
 
-// ConversationNamePayload is the payload for TypeConversationName tasks.
-// The worker loads everything else (conversation, agent, credential, first
+// SessionNamePayload is the payload for TypeSessionName tasks.
+// The worker loads everything else (session, agent, credential, first
 // message) from the DB — we only need the ID.
-type ConversationNamePayload struct {
-	ConversationID uuid.UUID `json:"conversation_id"`
+type SessionNamePayload struct {
+	SessionID uuid.UUID `json:"session_id"`
 }
 
-// NewConversationNameTask creates a task that generates a title for a
-// conversation by calling the cheapest model available to the conversation's
+// NewSessionNameTask creates a task that generates a title for a
+// session by calling the cheapest model available to the session's
 // credential provider. Bulk queue — this is nice-to-have UX, not critical
 // path. MaxRetry is 3: transient provider failures are common and the
 // handler is idempotent (refuses to overwrite an already-set name).
 // Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
-func NewConversationNameTask(conversationID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
-	encoded, err := json.Marshal(ConversationNamePayload{ConversationID: conversationID})
+func NewSessionNameTask(sessionID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
+	encoded, err := json.Marshal(SessionNamePayload{SessionID: sessionID})
 	if err != nil {
-		return nil, nil, fmt.Errorf("marshal conversation name payload: %w", err)
+		return nil, nil, fmt.Errorf("marshal session name payload: %w", err)
 	}
 	opts := []asynq.Option{
 		asynq.Queue(QueueBulk),
@@ -63,5 +63,5 @@ func NewConversationNameTask(conversationID uuid.UUID) (*asynq.Task, []asynq.Opt
 		asynq.Timeout(30 * time.Second),
 		asynq.Unique(5 * time.Minute),
 	}
-	return asynq.NewTask(TypeConversationName, encoded), opts, nil
+	return asynq.NewTask(TypeSessionName, encoded), opts, nil
 }

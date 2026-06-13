@@ -142,7 +142,7 @@ func (h *AgentMemoryRetainHandler) Handle(ctx context.Context, task *asynq.Task)
 	now := time.Now().UTC()
 	update := h.db.WithContext(ctx).
 		Model(&model.SessionEvent{}).
-		Where("id IN ?", agentSessionEventIDs(events)).
+		Where("id IN ?", sessionEventIDs(events)).
 		Update("retained_at", now)
 	if update.Error != nil {
 		return fmt.Errorf("mark agent session events retained: %w", update.Error)

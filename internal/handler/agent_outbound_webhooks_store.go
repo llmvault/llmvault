@@ -51,7 +51,7 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 		}
 		return nil
 	}
-	if !shouldStoreAgentSessionEvent(event.EventType) {
+	if !shouldStoreRuntimeSessionEvent(event.EventType) {
 		return nil
 	}
 	session, createdSession, err := h.ensureRuntimeSession(ctx, sb, sessionID, source, payload)
@@ -76,16 +76,16 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 		// Synchronous path: the ack must depend on the durable write, so a failure
 		// returns 5xx. The (sandbox_id, event_id) dedupe makes redelivery idempotent.
 		err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Clauses(agentSessionEventOnConflict()).Create(&stored).Error; err != nil {
+			if err := tx.Clauses(sessionEventOnConflict()).Create(&stored).Error; err != nil {
 				return err
 			}
 			if err := syncAgentScheduleEvent(tx, stored); err != nil {
-				captureAgentSessionEventFailure(ctx, "sync_schedule", stored, err)
+				captureSessionEventFailure(ctx, "sync_schedule", stored, err)
 			}
 			return nil
 		})
 		if err != nil {
-			captureAgentSessionEventFailure(ctx, "store_memory_event", stored, err)
+			captureSessionEventFailure(ctx, "store_memory_event", stored, err)
 			return fmt.Errorf("store session event: %w", err)
 		}
 		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.AgentID)

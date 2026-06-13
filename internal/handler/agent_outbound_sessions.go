@@ -17,10 +17,10 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// agentSessionEventOnConflict deduplicates inserts against the partial unique
-// index on (sandbox_id, event_id), so an outbox redelivery is skipped. TargetWhere
+// sessionEventOnConflict deduplicates inserts against the partial unique
+// index on (session_id, event_id), so an outbox redelivery is skipped. TargetWhere
 // mirrors the index predicate so Postgres matches the partial index.
-func agentSessionEventOnConflict() clause.OnConflict {
+func sessionEventOnConflict() clause.OnConflict {
 	return clause.OnConflict{
 		Columns:     []clause.Column{{Name: "session_id"}, {Name: "event_id"}},
 		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("event_id IS NOT NULL")}},
@@ -184,7 +184,7 @@ func deriveSessionEventID(sandboxID uuid.UUID, event *agentOutboundEvent, sessio
 	return "evt_rt_" + hex.EncodeToString(sum[:16])
 }
 
-func shouldStoreAgentSessionEvent(eventType string) bool {
+func shouldStoreRuntimeSessionEvent(eventType string) bool {
 	switch {
 	case eventType == "session.created":
 		return false

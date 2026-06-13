@@ -1,5 +1,5 @@
 -- +goose Up
--- Make channel name uniqueness source-aware.
+-- Source-aware channel name uniqueness.
 
 DROP INDEX IF EXISTS idx_channels_org_name;
 

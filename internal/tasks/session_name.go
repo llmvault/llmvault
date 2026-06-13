@@ -16,27 +16,27 @@ import (
 	"github.com/usehivy/hivy/internal/trigger/hivy"
 )
 
-// messageContentMaxBytes caps the first-message content we send to the naming
+// messageContentMaxBytes caps the initial message content we send to the naming
 // model. The naming prompt doesn't need the full webhook payload — the first
 // couple KB almost always contain the signal (subject, headline, etc.).
 const messageContentMaxBytes = 2048
 
-// ConversationNameHandler generates a short title for a session by
+// SessionNameHandler generates a short title for a session by
 // calling the cheapest model available on the session agent's credential
 // provider. It's idempotent: if the session already has a name, the
 // handler returns nil without making any external calls.
-type ConversationNameHandler struct {
+type SessionNameHandler struct {
 	db           *gorm.DB
 	cacheManager *cache.Manager
 }
 
-// NewConversationNameHandler constructs a handler. Returns nil if the cache
+// NewSessionNameHandler constructs a handler. Returns nil if the cache
 // manager is nil — the handler requires credential decryption.
-func NewConversationNameHandler(db *gorm.DB, cacheManager *cache.Manager) *ConversationNameHandler {
+func NewSessionNameHandler(db *gorm.DB, cacheManager *cache.Manager) *SessionNameHandler {
 	if db == nil || cacheManager == nil {
 		return nil
 	}
-	return &ConversationNameHandler{db: db, cacheManager: cacheManager}
+	return &SessionNameHandler{db: db, cacheManager: cacheManager}
 }
 
 // Handle runs one naming job. On retryable failures (provider timeouts,
@@ -44,15 +44,15 @@ func NewConversationNameHandler(db *gorm.DB, cacheManager *cache.Manager) *Conve
 // failures (missing credential, no supported model) it returns nil so the
 // job is dropped — the session simply stays unnamed, and the frontend
 // falls back to deriving a title from the first message.
-func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.Task) error {
-	var payload ConversationNamePayload
+func (handler *SessionNameHandler) Handle(ctx context.Context, task *asynq.Task) error {
+	var payload SessionNamePayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("unmarshal payload: %w", err)
 	}
 
 	var session model.Session
 	if err := handler.db.WithContext(ctx).
-		Where("id = ?", payload.ConversationID).
+		Where("id = ?", payload.SessionID).
 		First(&session).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil
