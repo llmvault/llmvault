@@ -5,7 +5,7 @@ derived from the code as it currently stands (post-P0). It is the reference for
 the contract tests in:
 
 - Rust: `sandboxes/runtime/crates/api/src/http_gateway.rs` (`#[cfg(test)] mod tests`)
-- Go: `internal/employeeruntime/client_test.go`, `internal/handler/employees_session_stream_test.go`
+- Go: `internal/agentruntime/client_test.go`, `internal/handler/agents_session_stream_test.go`
 - Web: `apps/web/lib/sessions/stream.test.ts`
 
 The three layers are:
@@ -13,9 +13,9 @@ The three layers are:
 1. **Rust broker** — `HttpStreamBroker` in `crates/api/src/http_gateway.rs`. Owns
    per-stream broadcast channels + a bounded replay history. Streamed over SSE by
    `stream_response`.
-2. **Go SSE proxy** — `EmployeeHandler.StreamSession` in
-   `internal/handler/employees_session_messages.go`, using the runtime client
-   `internal/employeeruntime/client.go` + `client_stream.go`. Authenticates the
+2. **Go SSE proxy** — `AgentHandler.StreamSession` in
+   `internal/handler/agents_session_messages.go`, using the runtime client
+   `internal/agentruntime/client.go` + `client_stream.go`. Authenticates the
    browser, then byte-forwards the runtime SSE body.
 3. **Web client** — `startSessionStream` in `apps/web/app/w/sessions/page.tsx`,
    built on the pure helpers in `apps/web/lib/sessions/stream.ts`.
@@ -165,7 +165,7 @@ server-side (P2-27). Three credentials are in play across the hops:
   to client JS has been removed.
 - **Proxy → Go backend (`StreamSession`):** the user's JWT bearer (added by the
   proxy from the session) **plus** an HMAC-signed **web stream token**, minted by
-  `signedWebStreamURL` / `signWebStreamToken` (`employees_session_stream_token.go`).
+  `signedWebStreamURL` / `signWebStreamToken` (`agents_session_stream_token.go`).
   Payload is `sessionID|streamID|expiresAt`, signed with `compileDeps.SigningKey`
   (HMAC-SHA256), base64url-encoded. TTL is `webStreamTokenLifetime = 1h`.
   The token is extracted by `extractWebStreamToken`:
@@ -192,14 +192,14 @@ Tests:
 - Web (`stream.test.ts`, `proxiedStreamURL` suite): a backend-relative signed
   path is prefixed with `/api/proxy`; an already-proxied path is unchanged;
   absolute `http(s)://` and protocol-relative `//` URLs are rejected.
-- Go (`employees_session_messages_test.go`): `StreamSession` rejects a missing /
+- Go (`agents_session_messages_test.go`): `StreamSession` rejects a missing /
   forged / cross-stream / expired web stream token.
 
 ---
 
 ## 5. Go SSE proxy: no 2-minute kill (P0-29)
 
-`employeeruntime.Client` has **two** HTTP clients:
+`agentruntime.Client` has **two** HTTP clients:
 
 - `http` — general requests, `Timeout: 2m` (Go's `Client.Timeout` covers the
   *entire* body read).
@@ -212,7 +212,7 @@ Tests:
 old bug where the SSE proxy reused the 2m-timeout client and cut every turn longer
 than ~2 minutes mid-answer.
 
-The proxy forwards the body with `copySSEStream` (`employees_session_messages.go`),
+The proxy forwards the body with `copySSEStream` (`agents_session_messages.go`),
 which reads line-by-line and `Flush`es at each SSE event boundary (blank line), so
 tokens reach the browser progressively and are never buffered for the whole turn.
 A clean EOF returns `nil`; a mid-body read error propagates as an error (ending the
@@ -253,7 +253,7 @@ When a follow-up message arrives for a session whose turn is still in flight,
 
 Each turn streams into its **own** `StreamBuffer`; a follow-up never reuses or
 clears turn 1's committed text. On stream completion the client invalidates the
-`employee-session-events` (and `employee-sessions`) React Query caches
+`agent-session-events` (and `agent-sessions`) React Query caches
 (`refetchPersistedSession`) so the previous turn's answer is refetched from the
 durable store rather than being lost when the live state for the new turn starts.
 
@@ -300,7 +300,7 @@ Tests (`stream.test.ts`):
 
 ## 8. End-to-end happy path (web session turn)
 
-1. `POST /v1/employees/{id}/sessions/messages` → `PostHTTPMessage` →
+1. `POST /v1/agents/{id}/sessions/messages` → `PostHTTPMessage` →
    broker `inject_message` creates a stream, registers the session, returns
    `stream_id` + signed `stream_url`.
 2. Browser opens `GET …/streams/{streamID}?token=…` via the Go proxy.

@@ -25,7 +25,7 @@ func (h *recordingExpiredProxyTokenHandler) HandleExpiredProxyToken(_ context.Co
 	return nil
 }
 
-func TestIntegration_TokenAuth_ExpiredEmployeeProxyTokenCallsHandler(t *testing.T) {
+func TestIntegration_TokenAuth_ExpiredAgentProxyTokenCallsHandler(t *testing.T) {
 	db := connectTestDB(t)
 
 	orgID := uuid.New()
@@ -33,7 +33,7 @@ func TestIntegration_TokenAuth_ExpiredEmployeeProxyTokenCallsHandler(t *testing.
 
 	org := model.Org{
 		ID:        orgID,
-		Name:      "integration-expired-employee-token-org",
+		Name:      "integration-expired-agent-token-org",
 		RateLimit: 1000,
 		Active:    true,
 	}
@@ -66,9 +66,8 @@ func TestIntegration_TokenAuth_ExpiredEmployeeProxyTokenCallsHandler(t *testing.
 		JTI:          jti,
 		ExpiresAt:    time.Now().Add(-time.Hour),
 		Meta: model.JSON{
-			model.TokenMetaType:        model.TokenTypeEmployeeProxy,
-			model.TokenMetaHarness:     model.TokenHarnessEmployeeSandbox,
-			model.TokenMetaRuntimeMode: model.TokenRuntimeModeEmployee,
+			model.TokenMetaType:    model.TokenTypeAgentProxy,
+			model.TokenMetaHarness: model.TokenHarnessAgentSandbox,
 		},
 	}
 	if err := db.Create(&tokenRecord).Error; err != nil {

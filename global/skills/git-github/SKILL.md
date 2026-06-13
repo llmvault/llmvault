@@ -223,7 +223,7 @@ test -f .github/PULL_REQUEST_TEMPLATE.md && cat .github/PULL_REQUEST_TEMPLATE.md
 
 **This is the only supported way to host an image in a PR description.** Do not commit screenshots into the project repo, do not paste data-URIs into markdown, do not create a gist, do not call GitHub's `user-attachments` endpoint, do not upload to imgur or any other host. All of these are wrong.
 
-Every PR image, video, GIF, before/after screenshot, demo recording, etc. must be written through the employee **drive** so the URL is stable, owned by us, and tied to the employee.
+Every PR image, video, GIF, before/after screenshot, demo recording, etc. must be written through the agent **drive** so the URL is stable, owned by us, and tied to the agent.
 
 **Load the `drive` skill before generating the PR body.** It documents the exact `curl` invocation, the env vars (`HIVY_DRIVE_UPLOAD_URL`, `HIVY_DRIVE_UPLOAD_BEARER`), the response shape, and the conventions for choosing descriptive paths. Do not try to reconstruct the drive protocol from memory — load the skill, follow it.
 

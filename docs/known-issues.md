@@ -22,20 +22,20 @@ authenticated user's org.
 
 ---
 
-### KI-04 — Shared subagents inherit the first employee's GitHub identity
+### KI-04 — Shared subagents inherit the first agent's GitHub identity
 **Severity: P0 / Security**
 
 `internal/sandbox/orchestrator_git_identity.go:resolveGitIdentityAgent` (lines 35-57)
-falls back to the first employee in the org by `created_at ASC` when the
-executing agent is a subagent. If the dispatching employee differs from the
-first employee, commits are attributed to the wrong GitHub account.
+falls back to the first agent in the org by `created_at ASC` when the
+executing agent is a subagent. If the dispatching agent differs from the
+first agent, commits are attributed to the wrong GitHub account.
 
-**Fix:** Pass the dispatching employee ID through sandbox-creation and git-credential
+**Fix:** Pass the dispatching agent ID through sandbox-creation and git-credential
 resolution; do not infer ownership from the first `agent_subagents` row.
 
 **Key files:**
 - `internal/sandbox/orchestrator_git_identity.go:35-57`
-- `internal/handler/specialists.go`
+- `internal/handler/subagents.go`
 
 ---
 
@@ -43,7 +43,7 @@ resolution; do not infer ownership from the first `agent_subagents` row.
 **Severity: P1 / Security**
 
 `internal/handler/git_credentials.go` lines 93-108 load ALL sandboxes for
-an employee (`WHERE employee_id = ?`) with no status filter. A stopped, error,
+an agent (`WHERE agent_id = ?`) with no status filter. A stopped, error,
 or archived sandbox retains its encrypted runtime secret and can still be used
 to mint GitHub tokens.
 
@@ -71,10 +71,10 @@ headers map and use it as the delivery ID when present.
 
 ---
 
-### KI-14 — Failed specialist sandbox setup/clone leaves live provider sandboxes running
+### KI-14 — Failed subagent sandbox setup/clone leaves live provider sandboxes running
 **Severity: P1 / Resource leak**
 
-`internal/sandbox/orchestrator_create_specialist.go` marks the DB row with
+`internal/sandbox/orchestrator_create_subagent.go` marks the DB row with
 `status=error` on endpoint, runtime, setup-command, and clone failures but
 never calls `o.provider.DeleteSandbox()`. The Daytona/Docker sandbox continues
 consuming provider resources.
@@ -83,24 +83,24 @@ consuming provider resources.
 branch after the provider sandbox has been created, or use a `defer`-based
 rollback that fires on any non-nil error.
 
-**Key file:** `internal/sandbox/orchestrator_create_specialist.go:88-155`
+**Key file:** `internal/sandbox/orchestrator_create_subagent.go:88-155`
 
 ---
 
 ### KI-15 — Subagent task upload bearer is not restricted to the task folder
 **Severity: P1 / Security**
 
-`internal/handler/employee_uploads_stream.go` authenticates the bearer against
-the employee's sandbox runtime secret but places no constraint on the upload
+`internal/handler/agent_uploads_stream.go` authenticates the bearer against
+the agent's sandbox runtime secret but places no constraint on the upload
 path. A compromised sandbox bearer can write or delete assets at arbitrary
-paths under the employee drive.
+paths under the agent drive.
 
 **Fix:** Bind the bearer/sandbox to an allowed path prefix derived from the
 task ID and reject writes or deletes outside that prefix.
 
 **Key files:**
-- `internal/handler/employee_uploads_stream.go`
-- `internal/handler/specialists.go` (where upload URLs are issued)
+- `internal/handler/agent_uploads_stream.go`
+- `internal/handler/subagents.go` (where upload URLs are issued)
 
 ---
 
@@ -147,7 +147,7 @@ entry when a connection is revoked.
 
 `internal/sandbox/orchestrator_helpers.go:156` formats the error as
 `"setup command failed: <cmd>: <err>"`, which includes the raw command string.
-`orchestrator_create_specialist.go:141` stores this verbatim in
+`orchestrator_create_subagent.go:141` stores this verbatim in
 `error_message` (visible via the sandboxes API). If the setup command contains
 secrets in env-variable form (e.g. `--token=$SECRET`), they may appear in the
 stored error.
@@ -159,7 +159,7 @@ detail server-side).
 
 **Key files:**
 - `internal/sandbox/orchestrator_helpers.go:153-160`
-- `internal/sandbox/orchestrator_create_specialist.go:138-143`
+- `internal/sandbox/orchestrator_create_subagent.go:138-143`
 
 ---
 
@@ -211,39 +211,39 @@ connection is not configured to expose.
 
 ---
 
-### KI-34 — Employee.Tools column carries deprecated data with no removal path
+### KI-34 — Agent.Tools column carries deprecated data with no removal path
 **Severity: P2 / Cleanup**
 
-`internal/model/employee.go` line 29 retains the `Tools JSON` column (mapped to
+`internal/model/agent.go` line 29 retains the `Tools JSON` column (mapped to
 `jsonb`). Functional built-in tool management now uses `ValidBuiltInTools` and
 `SandboxTools`; the column appears unused in handler create/update paths. It
 is still exposed in generated API types.
 
-**Fix:** Audit any remaining writes to `employee.Tools`, archive data if non-empty
+**Fix:** Audit any remaining writes to `agent.Tools`, archive data if non-empty
 in production, drop the column in a migration, and regenerate API types.
 
 **Key files:**
-- `internal/model/employee.go:29`
+- `internal/model/agent.go:29`
 - `docs/openapi.json`
 - `apps/web/lib/api/schema.d.ts`
 
 ---
 
-### KI-37 — No sandbox-runtime E2E coverage for the full employee lifecycle
+### KI-37 — No sandbox-runtime E2E coverage for the full agent lifecycle
 **Severity: P1 / Testing**
 
 `e2e/` contains `sandbox_exec_test.go` and `sandbox_provider_test.go` but no
-test that exercises the full path: create employee, connect Slack/GitHub
+test that exercises the full path: create agent, connect Slack/GitHub
 profiles, provision sandbox, push `/config`, verify `/healthz` and `/readyz`,
 and confirm model/proxy/env behavior.
 
-**Fix:** Add an E2E test suite in `e2e/` that covers the employee + sandbox
+**Fix:** Add an E2E test suite in `e2e/` that covers the agent + sandbox
 runtime lifecycle end-to-end.
 
 **Key files:**
 - `e2e/` (new file)
-- `internal/sandbox/orchestrator_create_employee.go`
-- `internal/employeeruntime/compile.go`
+- `internal/sandbox/orchestrator_create_agent.go`
+- `internal/agentruntime/compile.go`
 
 ---
 
@@ -255,7 +255,7 @@ runtime lifecycle end-to-end.
 - `internal/handler/connections_create_test.go` (342 lines — split opportunistically)
 - `internal/handler/connections_revoke_test.go` (long integration test — split opportunistically)
 - `internal/evals/setup.go` (342 lines)
-- `internal/employeeruntime/compile.go` (401 lines)
+- `internal/agentruntime/compile.go` (401 lines)
 
 **Fix:** Split the non-generated files as they are touched in normal development
 work, then remove their allowlist entries.
@@ -263,7 +263,7 @@ work, then remove their allowlist entries.
 **Key files:**
 - `scripts/file-length-allowlist.txt`
 - `internal/evals/setup.go`
-- `internal/employeeruntime/compile.go`
+- `internal/agentruntime/compile.go`
 
 ---
 
@@ -278,22 +278,22 @@ campaigns. Brief citations are included so readers can trace the fix.
 | 2 | Agent MCP integration connection org-validation | Verified via connection org-scoping in agent helpers; connection lookup gated by org context |
 | 3 | Next proxy refresh lock could swap user sessions | `apps/web/lib/auth/refresh.ts:RefreshCoordinator` — per-token sha256-keyed singleflight |
 | 5 | GitHub profiles bound to another user's org connection | `agent_profiles_github.go` feature not present in codebase; connection scope is org-only in current routes |
-| 6 | GitHub repo selection limits | `employees_connection_resources.go` validates connections; resource constraints enforced before clone |
+| 6 | GitHub repo selection limits | `agents_connection_resources.go` validates connections; resource constraints enforced before clone |
 | 8 | Nango webhook routing hijack via duplicate nango_connection_id | `identify()` uses `ORDER BY created_at DESC` as tie-break; creation still accepts duplicates (partial mitigation only) |
 | 9 | Public /spider routes | `cmd/server/serve_routes_aux.go:79` — `middleware.TokenAuth` added |
 | 11 | Subscription renewal double-charge | `internal/billing/subscription/renew.go:184` — SELECT FOR UPDATE + deterministic `renewalChargeReference` |
 | 12 | Credit grant idempotency race | Migration `000027_credit_ledger_idempotency_index.sql` + ON CONFLICT DO NOTHING in `internal/billing/credits.go` |
-| 16 | GitHub webhook setup missing bridgeHost / employee webhook not mounted | Feature (`agent_profiles_github.go`, `github_employee_webhooks.go`) not implemented in this codebase; no partial wire to regress |
+| 16 | GitHub webhook setup missing bridgeHost / agent webhook not mounted | Feature (`agent_profiles_github.go`, `github_agent_webhooks.go`) not implemented in this codebase; no partial wire to regress |
 | 17 | Direct incoming webhooks use connection UUID as secret | `incoming_webhooks.go` documents this explicitly; Railway relies on the unguessable UUID (low-risk for current provider set) |
-| 18 | Bridge/employee webhook replay protection | No `bridge_webhooks.go` in codebase; outbound webhook HMAC added in P1 campaign |
+| 18 | Bridge/agent webhook replay protection | No `bridge_webhooks.go` in codebase; outbound webhook HMAC added in P1 campaign |
 | 20 | CORS fails open when CORS_ORIGINS omitted | `internal/middleware/cors.go` — fail-closed in production mode |
-| 22 | Revoked profiles feed employee runtime state | `internal/employeeruntime/bugsink.go:45` and `compile_mcp.go:37` filter `revoked_at IS NULL` |
-| 23 | Deleting agents leaves external sandboxes running | No DELETE /employees/{id} route exists; lifecycle managed via archive + sandbox cleanup task |
+| 22 | Revoked profiles feed agent runtime state | `internal/agentruntime/bugsink.go:45` and `compile_mcp.go:37` filter `revoked_at IS NULL` |
+| 23 | Deleting agents leaves external sandboxes running | No DELETE /agents/{id} route exists; lifecycle managed via archive + sandbox cleanup task |
 | 25 | Git author env overrides bypass GitHub identity | Git identity resolution goes through `setGitIdentityEnvVars`; user env is not expected to override runtime git config (no shell escaping issue found) |
 | 26 | Legacy sandbox-drive resolves agent via wrong join | `internal/handler/sandbox_drive.go:83` now queries `WHERE sandbox_id = ?` (sandbox → agent) |
 | 30 | RAG tables missing from migration path | Migration `000010_rag.sql` embedded in `internal/migrations/sql/`; included in standard goose run |
 | 32 | RAG mutations not admin-gated | `cmd/server/serve_routes_v1.go:238` — `RequireOrgAdmin` applied to RAG mutation group |
-| 35 | Employee category expansion | No category validation on POST /employees; all category strings accepted; decision deferred |
-| 36 | Non-Slack employee startup profile | Slack-only is explicit v1 contract; `compile.go` and `employees_sync_runner.go` document this |
+| 35 | Agent category expansion | No category validation on POST /agents; all category strings accepted; decision deferred |
+| 36 | Non-Slack agent startup profile | Slack-only is explicit v1 contract; `compile.go` and `agents_sync_runner.go` document this |
 | 38 | DB cleanup findings from db-todos.txt | `sandboxes/runtime/db-todos.txt` retired (removed in this pass); open schema decisions moved to KI-34 |
 | 40 | Trigger architecture docs stale | `trigger-architecture/` directory removed; `docs/contracts/streaming.md` and `delivery.md` are the current contracts |

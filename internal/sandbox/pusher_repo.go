@@ -70,11 +70,11 @@ func buildSelectedGitHubRepoContext(repos []repoResource, baseDir string) string
 	}
 
 	var builder strings.Builder
-	builder.WriteString("── EMPLOYEE GITHUB PROFILE REPOSITORIES ──\n\n")
-	builder.WriteString("The employee's selected GitHub connection repositories have been cloned into your workspace:\n\n")
+	builder.WriteString("── AGENT GITHUB PROFILE REPOSITORIES ──\n\n")
+	builder.WriteString("The agent's selected GitHub connection repositories have been cloned into your workspace:\n\n")
 	for _, repo := range repos {
 		builder.WriteString(fmt.Sprintf("  - %s → %s/%s\n", repo.ID, baseDir, repo.Name))
 	}
-	builder.WriteString("\nUse these paths for codebase work that depends on the employee's GitHub connection access.")
+	builder.WriteString("\nUse these paths for codebase work that depends on the agent's GitHub connection access.")
 	return builder.String()
 }

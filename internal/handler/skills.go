@@ -14,7 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
-// SkillHandler serves the global skill library plus employee attach/detach API.
+// SkillHandler serves the global skill library plus agent attach/detach API.
 type SkillHandler struct {
 	db       *gorm.DB
 	enqueuer enqueue.TaskEnqueuer
@@ -89,7 +89,7 @@ type attachSkillRequest struct {
 	SkillID string `json:"skill_id"`
 }
 
-type employeeSkillResponse struct {
+type agentSkillResponse struct {
 	SkillID   string        `json:"skill_id"`
 	CreatedAt time.Time     `json:"created_at"`
 	Skill     skillResponse `json:"skill"`
@@ -196,8 +196,8 @@ func (h *SkillHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = h.db.First(&skill, "id = ?", skill.ID).Error
-	if employee, err := ensureHivyEmployee(r.Context(), h.db, org.ID); err == nil {
-		_, _ = h.attachSkillToEmployee(r.Context(), employee.ID, skill.ID)
+	if agent, err := ensureHivyAgent(r.Context(), h.db, org.ID); err == nil {
+		_, _ = h.attachSkillToAgent(r.Context(), agent.ID, skill.ID)
 	}
 
 	writeJSON(w, http.StatusCreated, toSkillDetailResponse(skill))

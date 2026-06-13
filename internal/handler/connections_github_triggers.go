@@ -13,17 +13,17 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-type githubEmployeeTriggerSpec struct {
+type githubAgentTriggerSpec struct {
 	triggerKeys  pq.StringArray
 	conditions   model.TriggerMatch
 	instructions string
 }
 
-func (h *ConnectionHandler) ensureGitHubEmployeeTriggers(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, conn model.Connection, employee *model.Employee) error {
-	if employee == nil || !isGitHubProvider(conn.Integration.Provider) {
+func (h *ConnectionHandler) ensureGitHubAgentTriggers(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, conn model.Connection, agent *model.Agent) error {
+	if agent == nil || !isGitHubProvider(conn.Integration.Provider) {
 		return nil
 	}
-	specs := []githubEmployeeTriggerSpec{
+	specs := []githubAgentTriggerSpec{
 		{
 			triggerKeys:  pq.StringArray{"issue_comment.created"},
 			conditions:   githubMentionTriggerConditions(),
@@ -37,24 +37,24 @@ func (h *ConnectionHandler) ensureGitHubEmployeeTriggers(ctx context.Context, tx
 	}
 
 	for _, spec := range specs {
-		if err := upsertGitHubEmployeeTrigger(ctx, tx, orgID, conn.ID, employee.ID, spec); err != nil {
+		if err := upsertGitHubAgentTrigger(ctx, tx, orgID, conn.ID, agent.ID, spec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func upsertGitHubEmployeeTrigger(ctx context.Context, tx *gorm.DB, orgID, connectionID, employeeID uuid.UUID, spec githubEmployeeTriggerSpec) error {
+func upsertGitHubAgentTrigger(ctx context.Context, tx *gorm.DB, orgID, connectionID, agentID uuid.UUID, spec githubAgentTriggerSpec) error {
 	conditionsJSON, err := json.Marshal(spec.conditions)
 	if err != nil {
 		return fmt.Errorf("marshal github trigger conditions: %w", err)
 	}
 	instructions := strings.TrimSpace(spec.instructions)
 
-	var existing model.EmployeeTrigger
+	var existing model.AgentTrigger
 	err = tx.WithContext(ctx).
-		Where("org_id = ? AND employee_id = ? AND connection_id = ? AND trigger_type = ?",
-			orgID, employeeID, connectionID, "webhook").
+		Where("org_id = ? AND agent_id = ? AND connection_id = ? AND trigger_type = ?",
+			orgID, agentID, connectionID, "webhook").
 		Where("trigger_keys = ? AND conditions = ?::jsonb", spec.triggerKeys, string(conditionsJSON)).
 		First(&existing).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -69,9 +69,9 @@ func upsertGitHubEmployeeTrigger(ctx context.Context, tx *gorm.DB, orgID, connec
 		}).Error
 	}
 
-	trigger := model.EmployeeTrigger{
+	trigger := model.AgentTrigger{
 		OrgID:        orgID,
-		EmployeeID:   employeeID,
+		AgentID:      agentID,
 		TriggerType:  "webhook",
 		ConnectionID: &connectionID,
 		TriggerKeys:  spec.triggerKeys,

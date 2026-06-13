@@ -1,13 +1,13 @@
 ---
 name: drive
-description: Use whenever you need to save a file produced in the sandbox to the employee drive. The Hivy runtime provides HIVY_DRIVE_UPLOAD_URL and HIVY_DRIVE_UPLOAD_BEARER. Write generated images, videos, audio, screenshots, charts, CSV/Excel exports, PDFs, zip bundles, reports, and PR/demo artifacts here, then share the returned file URL.
+description: Use whenever you need to save a file produced in the sandbox to the agent drive. The Hivy runtime provides HIVY_DRIVE_UPLOAD_URL and HIVY_DRIVE_UPLOAD_BEARER. Write generated images, videos, audio, screenshots, charts, CSV/Excel exports, PDFs, zip bundles, reports, and PR/demo artifacts here, then share the returned file URL.
 ---
 
 # Drive
 
-Write files to the employee drive using `HIVY_DRIVE_UPLOAD_URL` and `HIVY_DRIVE_UPLOAD_BEARER`.
+Write files to the agent drive using `HIVY_DRIVE_UPLOAD_URL` and `HIVY_DRIVE_UPLOAD_BEARER`.
 
-You are running inside the Hivy runtime. Use this Hivy-provided drive endpoint exactly as provided; it is used for security, access control, and tracking. Append a descriptive filename or relative path so humans can find the file later in the employee drive.
+You are running inside the Hivy runtime. Use this Hivy-provided drive endpoint exactly as provided; it is used for security, access control, and tracking. Append a descriptive filename or relative path so humans can find the file later in the agent drive.
 
 ## Environment
 
@@ -15,8 +15,8 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_DRIVE_UPLOAD_URL` | Employee drive upload root |
-| `HIVY_DRIVE_UPLOAD_BEARER` | Bearer token for writing to the employee drive |
+| `HIVY_DRIVE_UPLOAD_URL` | Agent drive upload root |
+| `HIVY_DRIVE_UPLOAD_BEARER` | Bearer token for writing to the agent drive |
 
 ```bash
 test -n "$HIVY_DRIVE_UPLOAD_URL" || { echo "HIVY_DRIVE_UPLOAD_URL is not set" >&2; exit 1; }
@@ -47,7 +47,7 @@ url=$(
 printf '%s\n' "$url"
 ```
 
-For organized files, append a relative path below the employee drive root:
+For organized files, append a relative path below the agent drive root:
 
 ```bash
 curl -fsS --retry 3 --retry-all-errors --connect-timeout 10 --max-time 300 -X PUT \

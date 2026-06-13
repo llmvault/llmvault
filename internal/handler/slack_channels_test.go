@@ -153,7 +153,7 @@ func TestSlackChannelHandler_JoinAllPublic(t *testing.T) {
 	}
 }
 
-func TestSlackChannelHandler_JoinedPrivateDoesNotCompleteOnboarding(t *testing.T) {
+func TestSlackChannelHandler_JoinedPrivateDoesNotMutateOrgProfile(t *testing.T) {
 	h := NewSlackChannelHandler(nil, nil, nil)
 	h.listPublicChannels = func(context.Context, string) ([]slackapp.Channel, error) {
 		return []slackapp.Channel{{ID: "C1", Name: "general"}}, nil

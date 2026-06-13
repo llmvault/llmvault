@@ -30,22 +30,22 @@ func TestListAssets_OrgScopeIsolatesOtherOrgs(t *testing.T) {
 	}
 }
 
-func TestListAssets_FilterByEmployee(t *testing.T) {
+func TestListAssets_FilterByAgent(t *testing.T) {
 	h := newAssetsListHarness(t)
 	now := time.Now()
 	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "videos", "a1.mp4", "video/mp4", 10, now)
 	seedAssetRow(t, h.db, h.orgA.ID, h.agentA2, h.sandboxA2, "videos", "a2.mp4", "video/mp4", 10, now)
 
-	rr := h.get(t, "?employee_id="+h.agentA2.String(), &h.orgA)
+	rr := h.get(t, "?agent_id="+h.agentA2.String(), &h.orgA)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("got %d: %s", rr.Code, rr.Body.String())
 	}
 	page := decodeAssetList(t, rr)
 	if len(page.Data) != 1 || page.Data[0]["filename"] != "a2.mp4" {
-		t.Fatalf("filter employee_id failed: %+v", page.Data)
+		t.Fatalf("filter agent_id failed: %+v", page.Data)
 	}
-	if page.Data[0]["employee_id"] != h.agentA2.String() {
-		t.Fatalf("employee_id field: %v", page.Data[0]["employee_id"])
+	if page.Data[0]["agent_id"] != h.agentA2.String() {
+		t.Fatalf("agent_id field: %v", page.Data[0]["agent_id"])
 	}
 }
 
@@ -110,7 +110,7 @@ func TestListAssets_CombinedFilters(t *testing.T) {
 	seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "exports", "a1-data.csv", "text/csv", 10, now)
 	seedAssetRow(t, h.db, h.orgA.ID, h.agentA2, h.sandboxA2, "videos", "a2-vid.mp4", "video/mp4", 10, now)
 
-	q := fmt.Sprintf("?employee_id=%s&path=videos", h.agentA1)
+	q := fmt.Sprintf("?agent_id=%s&path=videos", h.agentA1)
 	rr := h.get(t, q, &h.orgA)
 	page := decodeAssetList(t, rr)
 	if len(page.Data) != 1 || page.Data[0]["filename"] != "a1-vid.mp4" {
@@ -118,15 +118,15 @@ func TestListAssets_CombinedFilters(t *testing.T) {
 	}
 }
 
-func TestListAssets_ForeignEmployeeReturnsEmpty(t *testing.T) {
+func TestListAssets_ForeignAgentReturnsEmpty(t *testing.T) {
 	h := newAssetsListHarness(t)
 	now := time.Now()
 	seedAssetRow(t, h.db, h.orgB.ID, h.agentB1, h.sandboxB1, "videos", "b.mp4", "video/mp4", 10, now)
 
-	rr := h.get(t, "?employee_id="+h.agentB1.String(), &h.orgA)
+	rr := h.get(t, "?agent_id="+h.agentB1.String(), &h.orgA)
 	page := decodeAssetList(t, rr)
 	if len(page.Data) != 0 {
-		t.Fatalf("expected empty (foreign employee), got %d rows", len(page.Data))
+		t.Fatalf("expected empty (foreign agent), got %d rows", len(page.Data))
 	}
 }
 
@@ -137,14 +137,14 @@ func TestListAssets_Pagination(t *testing.T) {
 		seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "page", fmt.Sprintf("f%d.txt", i), "text/plain", 10, base.Add(time.Duration(i)*time.Second))
 	}
 
-	rr := h.get(t, "?employee_id="+h.agentA1.String()+"&limit=2", &h.orgA)
+	rr := h.get(t, "?agent_id="+h.agentA1.String()+"&limit=2", &h.orgA)
 	page := decodeAssetList(t, rr)
 	if len(page.Data) != 2 || !page.HasMore || page.NextCursor == nil {
 		t.Fatalf("first page wrong: %+v", page)
 	}
 
 	rr = h.get(t,
-		fmt.Sprintf("?employee_id=%s&limit=2&cursor=%s", h.agentA1, *page.NextCursor),
+		fmt.Sprintf("?agent_id=%s&limit=2&cursor=%s", h.agentA1, *page.NextCursor),
 		&h.orgA,
 	)
 	page2 := decodeAssetList(t, rr)
@@ -159,7 +159,7 @@ func TestListAssets_Pagination(t *testing.T) {
 func TestListAssets_RejectsBadFilters(t *testing.T) {
 	h := newAssetsListHarness(t)
 	for _, q := range []string{
-		"?employee_id=not-a-uuid",
+		"?agent_id=not-a-uuid",
 		"?limit=0",
 		"?limit=abc",
 		"?cursor=not-a-number",

@@ -41,14 +41,14 @@ func (h *GatewayExternalCallbackHandler) Handle(ctx context.Context, t *asynq.Ta
 		return err
 	}
 	fields := map[string]any{
-		"route_id":    payload.RouteID,
-		"org_id":      payload.OrgID,
-		"employee_id": payload.EmployeeID,
-		"event_id":    payload.EventID,
-		"session_id":  payload.SessionID,
-		"trace_id":    payload.TraceID,
-		"turn_id":     payload.TurnID,
-		"provider":    payload.Provider,
+		"route_id":   payload.RouteID,
+		"org_id":     payload.OrgID,
+		"agent_id":   payload.AgentID,
+		"event_id":   payload.EventID,
+		"session_id": payload.SessionID,
+		"trace_id":   payload.TraceID,
+		"turn_id":    payload.TurnID,
+		"provider":   payload.Provider,
 	}
 	sink := &ExternalCallbackSink{payload: payload, client: h.client}
 	_, err := NewGatewayStreamDeliveryService(h.db).DeliverFromStream(ctx, gatewayStreamPayloadFromExternal(payload), sink, fields)
@@ -72,7 +72,7 @@ func (s *ExternalCallbackSink) SendFinal(ctx context.Context, payload GatewayStr
 	body, err := json.Marshal(map[string]any{
 		"route_id":              s.payload.RouteID,
 		"event_id":              s.payload.EventID,
-		"employee_session_id":   s.payload.SessionID,
+		"agent_session_id":      s.payload.SessionID,
 		"runtime_session_id":    s.payload.RuntimeConvoID,
 		"runtime_trace_id":      s.payload.TraceID,
 		"runtime_turn_id":       s.payload.TurnID,
@@ -124,7 +124,7 @@ func (s *ExternalCallbackSink) AfterSend(ctx context.Context, _ GatewayStreamPay
 	logging.FromContext(ctx).InfoContext(ctx, "gateway_external_callback_completed",
 		"route_id", s.payload.RouteID,
 		"org_id", s.payload.OrgID,
-		"employee_id", s.payload.EmployeeID,
+		"agent_id", s.payload.AgentID,
 		"event_id", s.payload.EventID,
 		"provider", s.payload.Provider,
 		"token_count", result.TokenCount,
@@ -141,7 +141,7 @@ func gatewayStreamPayloadFromExternal(payload GatewayExternalCallbackPayload) Ga
 	return GatewayStreamPayload{
 		RouteID:          payload.RouteID,
 		OrgID:            payload.OrgID,
-		EmployeeID:       payload.EmployeeID,
+		AgentID:          payload.AgentID,
 		EventID:          payload.EventID,
 		SessionID:        payload.SessionID,
 		RuntimeSessionID: payload.RuntimeConvoID,

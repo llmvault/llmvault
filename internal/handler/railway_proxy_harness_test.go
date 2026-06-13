@@ -65,7 +65,7 @@ func newRailwayHarness(t *testing.T, nangoHandler http.Handler, railwayHandler h
 	}
 
 	agentID := uuid.New()
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:     agentID,
 		OrgID:  &orgID,
 		Name:   "test-railway-agent",
@@ -85,7 +85,7 @@ func newRailwayHarness(t *testing.T, nangoHandler http.Handler, railwayHandler h
 	sandbox := model.Sandbox{
 		ID:                     sandboxID,
 		OrgID:                  &orgID,
-		EmployeeID:             &agentID,
+		AgentID:                &agentID,
 		EncryptedRuntimeSecret: encryptedKey,
 		Status:                 "running",
 		ExternalID:             "mock-external-id",
@@ -132,13 +132,13 @@ func newRailwayHarness(t *testing.T, nangoHandler http.Handler, railwayHandler h
 		database.Where("org_id = ?", orgID).Delete(&model.Connection{})
 		database.Where("id = ?", integrationID).Delete(&model.Integration{})
 		database.Where("id = ?", sandboxID).Delete(&model.Sandbox{})
-		database.Where("org_id = ?", orgID).Delete(&model.Employee{})
+		database.Where("org_id = ?", orgID).Delete(&model.Agent{})
 		database.Where("id = ?", userID).Delete(&model.User{})
 		database.Where("id = ?", orgID).Delete(&model.Org{})
 	})
 
 	router := chi.NewRouter()
-	router.Post("/internal/railway-proxy/{employeeID}", railwayProxyHandler.Handle)
+	router.Post("/internal/railway-proxy/{agentID}", railwayProxyHandler.Handle)
 
 	return &railwayTestHarness{
 		db:            database,

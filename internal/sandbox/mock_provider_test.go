@@ -58,8 +58,8 @@ func (m *mockProvider) Validate(context.Context) error { return nil }
 
 func (m *mockProvider) RuntimeLayout() RuntimeLayout {
 	return RuntimeLayout{
-		AgentRepoDir:    "/home/daytona/repos",
-		EmployeeRepoDir: "/workspace/repos",
+		AgentRepoDir:     "/home/daytona/repos",
+		WorkspaceRepoDir: "/workspace/repos",
 	}
 }
 

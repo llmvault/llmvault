@@ -53,12 +53,12 @@ func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, 
 	sb.Status = "running"
 	sb.LastActiveAt = &now
 
-	if err := o.waitForEmployeeRuntimeLive(ctx, sb); err != nil {
+	if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
 		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime health: %v", err))
 		return fmt.Errorf("waiting for claimed runtime: %w", err)
 	}
-	if mode == model.SandboxWarmSlotModeEmployee {
-		if err := o.pushEmployeeRuntimeConfig(ctx, sb, "warm claim"); err != nil {
+	if mode == model.SandboxWarmSlotModeAgent {
+		if err := o.pushAgentRuntimeConfig(ctx, sb, "warm claim"); err != nil {
 			_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime config push: %v", err))
 			return err
 		}

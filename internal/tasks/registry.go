@@ -34,8 +34,8 @@ type WorkerDeps struct {
 	Subscriptions     *subscription.Service   // required for renewal worker
 	Enqueuer          enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
 	Hindsight         *hindsight.Client       // nil if Hindsight not configured
-	PreContextCache   precontext.Cache        // nil disables employee pre-context cache invalidation
-	EmployeeCompile   agentruntime.CompileDeps
+	PreContextCache   precontext.Cache        // nil disables agent pre-context cache invalidation
+	AgentCompile      agentruntime.CompileDeps
 	S3Client          *storage.S3Client
 
 	Rag          *ragtasks.Deps
@@ -66,13 +66,13 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		mux.HandleFunc(TypeSandboxResourceCheck, NewSandboxResourceCheckHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxLifecycle, NewSandboxLifecycleHandler(deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxReap, NewSandboxReapHandler(deps.Orchestrator).Handle)
-		mux.HandleFunc(TypeEmployeeSandboxRetire, NewEmployeeSandboxRetireHandler(deps.DB, deps.Orchestrator).Handle)
+		mux.HandleFunc(TypeAgentSandboxRetire, NewAgentSandboxRetireHandler(deps.DB, deps.Orchestrator).Handle)
 		mux.HandleFunc(TypeSandboxWarmPoolReconcile, NewSandboxWarmPoolReconcileHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeSandboxWarmSlotCheck, NewSandboxWarmSlotCheckHandler(deps.Orchestrator, deps.Enqueuer).Handle)
 	}
 
-	// Employee cleanup works with or without sandbox orchestration.
-	mux.HandleFunc(TypeEmployeeCleanup, NewEmployeeCleanupHandler(deps.DB, deps.Orchestrator).Handle)
+	// Agent cleanup works with or without sandbox orchestration.
+	mux.HandleFunc(TypeAgentCleanup, NewAgentCleanupHandler(deps.DB, deps.Orchestrator).Handle)
 
 	if deps.Orchestrator != nil {
 		handler := NewSandboxTemplateBuildHandler(deps.DB, deps.Orchestrator)
@@ -106,28 +106,28 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	}
 
 	if deps.Hindsight != nil {
-		mux.HandleFunc(TypeEmployeeMemoryRetain, NewEmployeeMemoryRetainHandler(deps.DB, deps.Hindsight, deps.Enqueuer, deps.PreContextCache).Handle)
-		mux.HandleFunc(TypeEmployeeMemoryRefresh, NewEmployeeMemoryRefreshHandler(deps.DB, deps.EmployeeCompile).Handle)
+		mux.HandleFunc(TypeAgentMemoryRetain, NewAgentMemoryRetainHandler(deps.DB, deps.Hindsight, deps.Enqueuer, deps.PreContextCache).Handle)
+		mux.HandleFunc(TypeAgentMemoryRefresh, NewAgentMemoryRefreshHandler(deps.DB, deps.AgentCompile).Handle)
 	}
-	if deps.Orchestrator != nil && deps.S3Client != nil && deps.EmployeeCompile.EncKey != nil && deps.EmployeeCompile.KMS != nil {
-		mux.HandleFunc(TypeEmployeeSandboxUpgrade,
-			NewEmployeeSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.S3Client, deps.EmployeeCompile, deps.Enqueuer).Handle)
-		mux.HandleFunc(TypeEmployeeSandboxAutoUpgrade,
-			NewEmployeeSandboxAutoUpgradeHandler(deps.DB, deps.EmployeeCompile, deps.Enqueuer).Handle)
+	if deps.Orchestrator != nil && deps.S3Client != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil {
+		mux.HandleFunc(TypeAgentSandboxUpgrade,
+			NewAgentSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.S3Client, deps.AgentCompile, deps.Enqueuer).Handle)
+		mux.HandleFunc(TypeAgentSandboxAutoUpgrade,
+			NewAgentSandboxAutoUpgradeHandler(deps.DB, deps.AgentCompile, deps.Enqueuer).Handle)
 	}
 
-	if deps.Orchestrator != nil && deps.EmployeeCompile.EncKey != nil && deps.Enqueuer != nil {
-		mux.HandleFunc(TypeEmployeeProxyTokenRefresh,
-			NewEmployeeProxyTokenRefreshHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile, deps.Enqueuer).Handle)
+	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.Enqueuer != nil {
+		mux.HandleFunc(TypeAgentProxyTokenRefresh,
+			NewAgentProxyTokenRefreshHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 	}
-	if deps.Orchestrator != nil && deps.EmployeeCompile.EncKey != nil {
-		triggerHandler := NewEmployeeTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile, deps.Enqueuer)
+	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil {
+		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
-		mux.HandleFunc(TypeEmployeeTriggerDispatch, triggerHandler.Handle)
-		mux.HandleFunc(TypeEmployeeGitHubResourcesClone,
-			NewEmployeeGitHubResourcesCloneHandler(deps.DB, deps.Orchestrator, deps.EmployeeCompile).Handle)
+		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)
+		mux.HandleFunc(TypeAgentGitHubResourcesClone,
+			NewAgentGitHubResourcesCloneHandler(deps.DB, deps.Orchestrator, deps.AgentCompile).Handle)
 	}
-	mux.HandleFunc(TypeEmployeeTriggerStoreDelivery, NewEmployeeTriggerStoreDeliveryHandler(deps.DB).Handle)
+	mux.HandleFunc(TypeAgentTriggerStoreDelivery, NewAgentTriggerStoreDeliveryHandler(deps.DB).Handle)
 
 	if deps.Orchestrator != nil && deps.NangoClient != nil {
 		handler := NewGatewaySlackHandler(deps.DB, deps.NangoClient)

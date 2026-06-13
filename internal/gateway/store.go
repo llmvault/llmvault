@@ -13,8 +13,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (s *Service) loadActiveSessionByRuntimeID(ctx context.Context, runtimeID string) (model.EmployeeSession, bool, error) {
-	var session model.EmployeeSession
+func (s *Service) loadActiveSessionByRuntimeID(ctx context.Context, runtimeID string) (model.AgentSession, bool, error) {
+	var session model.AgentSession
 	err := s.db.WithContext(ctx).
 		Where("runtime_conversation_id = ? AND source = ? AND status = ?", runtimeID, Source, "active").
 		First(&session).Error
@@ -22,15 +22,15 @@ func (s *Service) loadActiveSessionByRuntimeID(ctx context.Context, runtimeID st
 		return session, true, nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.EmployeeSession{}, false, nil
+		return model.AgentSession{}, false, nil
 	}
-	return model.EmployeeSession{}, false, err
+	return model.AgentSession{}, false, err
 }
 
-func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGatewayRoute, inbound InboundEnvelope) (model.EmployeeGatewayEvent, bool, error) {
-	event := model.EmployeeGatewayEvent{
+func (s *Service) insertInboundEvent(ctx context.Context, route model.AgentGatewayRoute, inbound InboundEnvelope) (model.AgentGatewayEvent, bool, error) {
+	event := model.AgentGatewayEvent{
 		OrgID:             route.OrgID,
-		EmployeeID:        route.EmployeeID,
+		AgentID:           route.AgentID,
 		RouteID:           routeIDPtr(route.ID),
 		Provider:          route.Provider,
 		ExternalMessageID: inbound.ExternalMessageID,
@@ -48,7 +48,7 @@ func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGa
 		return event, false, fmt.Errorf("insert gateway event: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		var existing model.EmployeeGatewayEvent
+		var existing model.AgentGatewayEvent
 		query := s.db.WithContext(ctx)
 		if route.ID == uuid.Nil {
 			query = query.Where("route_id IS NULL AND org_id = ? AND dedupe_key = ?", route.OrgID, inbound.DedupeKey)
@@ -62,7 +62,7 @@ func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGa
 		// so re-claim and re-run Send rather than dropping as a duplicate.
 		// Successful/in-flight rows stay deduped.
 		if existing.Status == "failed" {
-			if err := s.db.WithContext(ctx).Model(&model.EmployeeGatewayEvent{}).
+			if err := s.db.WithContext(ctx).Model(&model.AgentGatewayEvent{}).
 				Where("id = ? AND status = ?", existing.ID, "failed").
 				Updates(map[string]any{"status": "received", "error": ""}).Error; err != nil {
 				return existing, true, fmt.Errorf("reclaim failed gateway event: %w", err)
@@ -76,19 +76,19 @@ func (s *Service) insertInboundEvent(ctx context.Context, route model.EmployeeGa
 	return event, false, nil
 }
 
-func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeGatewayRoute, threadKey string) (model.EmployeeSession, string, bool, error) {
+func (s *Service) findOrCreateSession(ctx context.Context, route model.AgentGatewayRoute, threadKey string) (model.AgentSession, string, bool, error) {
 	conversationID := stableConversationID(route.ID, threadKey)
 	sessionID := runtimeSessionID(conversationID)
-	sandbox, err := s.employeeSandboxSelector().MainRuntime(ctx, route.OrgID, route.EmployeeID)
+	sandbox, err := s.agentSandboxSelector().MainRuntime(ctx, route.OrgID, route.AgentID)
 	if err != nil {
-		return model.EmployeeSession{}, "", false, fmt.Errorf("load employee sandbox: %w", err)
+		return model.AgentSession{}, "", false, fmt.Errorf("load agent sandbox: %w", err)
 	}
 	sourceID := route.ID
-	session := model.EmployeeSession{}
+	session := model.AgentSession{}
 	created := false
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Where("org_id = ? AND employee_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
-			route.OrgID, route.EmployeeID, Source, route.ID, threadKey, "active").
+		err := tx.Where("org_id = ? AND agent_id = ? AND source = ? AND source_id = ? AND source_resource_key = ? AND status = ?",
+			route.OrgID, route.AgentID, Source, route.ID, threadKey, "active").
 			First(&session).Error
 		if err == nil {
 			if session.SandboxID != sandbox.ID {
@@ -102,9 +102,9 @@ func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeG
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		session = model.EmployeeSession{
+		session = model.AgentSession{
 			OrgID:                 route.OrgID,
-			EmployeeID:            route.EmployeeID,
+			AgentID:               route.AgentID,
 			SandboxID:             sandbox.ID,
 			RuntimeConversationID: sessionID,
 			Source:                Source,
@@ -121,21 +121,21 @@ func (s *Service) findOrCreateSession(ctx context.Context, route model.EmployeeG
 		return nil
 	})
 	if err != nil {
-		return model.EmployeeSession{}, "", false, fmt.Errorf("find or create gateway session: %w", err)
+		return model.AgentSession{}, "", false, fmt.Errorf("find or create gateway session: %w", err)
 	}
 	return session, conversationID, created, nil
 }
 
-func (s *Service) employeeSandboxSelector() agentsandbox.Selector {
+func (s *Service) agentSandboxSelector() agentsandbox.Selector {
 	return agentsandbox.Selector{
-		DB:                   s.db,
-		EmployeeRuntimeImage: s.employeeRuntimeImage,
+		DB:                s.db,
+		AgentRuntimeImage: s.agentRuntimeImage,
 	}
 }
 
 func (s *Service) markEventDelivered(ctx context.Context, eventID, sessionID uuid.UUID, conversationID string, delivery *RuntimeDelivery) error {
 	updates := map[string]any{
-		"employee_session_id":     sessionID,
+		"agent_session_id":        sessionID,
 		"status":                  "delivered",
 		"processed_at":            s.now().UTC(),
 		"runtime_conversation_id": conversationID,
@@ -144,17 +144,17 @@ func (s *Service) markEventDelivered(ctx context.Context, eventID, sessionID uui
 		"runtime_trace_id":        delivery.TraceID,
 		"runtime_turn_id":         delivery.TurnID,
 	}
-	return s.db.WithContext(ctx).Model(&model.EmployeeGatewayEvent{}).Where("id = ?", eventID).Updates(updates).Error
+	return s.db.WithContext(ctx).Model(&model.AgentGatewayEvent{}).Where("id = ?", eventID).Updates(updates).Error
 }
 
 func (s *Service) markEventFailed(ctx context.Context, eventID uuid.UUID, err error) error {
-	return s.db.WithContext(ctx).Model(&model.EmployeeGatewayEvent{}).
+	return s.db.WithContext(ctx).Model(&model.AgentGatewayEvent{}).
 		Where("id = ?", eventID).
 		Updates(map[string]any{"status": "failed", "error": err.Error(), "processed_at": s.now().UTC()}).Error
 }
 
-func (s *Service) loadDeliveryByDedupe(ctx context.Context, routeID uuid.UUID, dedupe string) (*model.EmployeeGatewayDelivery, bool, error) {
-	var delivery model.EmployeeGatewayDelivery
+func (s *Service) loadDeliveryByDedupe(ctx context.Context, routeID uuid.UUID, dedupe string) (*model.AgentGatewayDelivery, bool, error) {
+	var delivery model.AgentGatewayDelivery
 	var err error
 	if routeID == uuid.Nil {
 		err = s.db.WithContext(ctx).Where("route_id IS NULL AND dedupe_key = ?", dedupe).First(&delivery).Error
@@ -170,25 +170,25 @@ func (s *Service) loadDeliveryByDedupe(ctx context.Context, routeID uuid.UUID, d
 	return nil, false, err
 }
 
-func (s *Service) loadLatestEventForSession(ctx context.Context, sessionID uuid.UUID) (model.EmployeeGatewayEvent, bool, error) {
-	var event model.EmployeeGatewayEvent
+func (s *Service) loadLatestEventForSession(ctx context.Context, sessionID uuid.UUID) (model.AgentGatewayEvent, bool, error) {
+	var event model.AgentGatewayEvent
 	err := s.db.WithContext(ctx).
-		Where("employee_session_id = ?", sessionID).
+		Where("agent_session_id = ?", sessionID).
 		Order("received_at DESC, created_at DESC").
 		First(&event).Error
 	if err == nil {
 		return event, true, nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.EmployeeGatewayEvent{}, false, nil
+		return model.AgentGatewayEvent{}, false, nil
 	}
-	return model.EmployeeGatewayEvent{}, false, fmt.Errorf("load latest gateway event: %w", err)
+	return model.AgentGatewayEvent{}, false, fmt.Errorf("load latest gateway event: %w", err)
 }
 
 // upsertDelivery records the delivery outcome, updating any prior "failed" row in
 // place rather than inserting a duplicate (violating the (route_id, dedupe_key)
 // unique index). This lets a transient failure be retried instead of dropped.
-func (s *Service) upsertDelivery(ctx context.Context, route model.EmployeeGatewayRoute, session model.EmployeeSession, response AgentResponse, dedupe string, existing *model.EmployeeGatewayDelivery, handles []MessageHandle, status string, errText string) (*model.EmployeeGatewayDelivery, error) {
+func (s *Service) upsertDelivery(ctx context.Context, route model.AgentGatewayRoute, session model.AgentSession, response AgentResponse, dedupe string, existing *model.AgentGatewayDelivery, handles []MessageHandle, status string, errText string) (*model.AgentGatewayDelivery, error) {
 	if existing == nil {
 		return s.insertDelivery(ctx, route, session, response, dedupe, handles, status, errText)
 	}
@@ -210,7 +210,7 @@ func (s *Service) upsertDelivery(ctx context.Context, route model.EmployeeGatewa
 		"channel_id":         channelID,
 		"thread_id":          threadID,
 	}
-	if err := s.db.WithContext(ctx).Model(&model.EmployeeGatewayDelivery{}).
+	if err := s.db.WithContext(ctx).Model(&model.AgentGatewayDelivery{}).
 		Where("id = ?", existing.ID).
 		Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("update gateway delivery: %w", err)
@@ -227,24 +227,24 @@ func (s *Service) upsertDelivery(ctx context.Context, route model.EmployeeGatewa
 	return existing, nil
 }
 
-func (s *Service) insertDelivery(ctx context.Context, route model.EmployeeGatewayRoute, session model.EmployeeSession, response AgentResponse, dedupe string, handles []MessageHandle, status string, errText string) (*model.EmployeeGatewayDelivery, error) {
-	row := model.EmployeeGatewayDelivery{
-		OrgID:             route.OrgID,
-		EmployeeID:        route.EmployeeID,
-		RouteID:           routeIDPtr(route.ID),
-		EmployeeSessionID: session.ID,
-		Provider:          route.Provider,
-		DedupeKey:         dedupe,
-		RuntimeSessionID:  response.RuntimeSessionID,
-		RuntimeTraceID:    response.TraceID,
-		RuntimeTurnID:     response.TurnID,
-		ThreadKey:         session.SourceResourceKey,
-		ResponseText:      response.Text,
-		ProviderHandles:   handlesJSON(handles),
-		Status:            status,
-		Error:             errText,
-		ChannelID:         response.ChannelID,
-		ThreadID:          response.ThreadID,
+func (s *Service) insertDelivery(ctx context.Context, route model.AgentGatewayRoute, session model.AgentSession, response AgentResponse, dedupe string, handles []MessageHandle, status string, errText string) (*model.AgentGatewayDelivery, error) {
+	row := model.AgentGatewayDelivery{
+		OrgID:            route.OrgID,
+		AgentID:          route.AgentID,
+		RouteID:          routeIDPtr(route.ID),
+		AgentSessionID:   session.ID,
+		Provider:         route.Provider,
+		DedupeKey:        dedupe,
+		RuntimeSessionID: response.RuntimeSessionID,
+		RuntimeTraceID:   response.TraceID,
+		RuntimeTurnID:    response.TurnID,
+		ThreadKey:        session.SourceResourceKey,
+		ResponseText:     response.Text,
+		ProviderHandles:  handlesJSON(handles),
+		Status:           status,
+		Error:            errText,
+		ChannelID:        response.ChannelID,
+		ThreadID:         response.ThreadID,
 	}
 	if len(handles) > 0 {
 		row.ChannelID = handles[0].ChannelID

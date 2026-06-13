@@ -19,7 +19,7 @@ type ConnectionHandler struct {
 	catalog                 *catalog.Catalog
 	discovery               *resources.Discovery
 	enq                     enqueue.TaskEnqueuer
-	serviceDiscoveryManager employeeServiceDiscoveryManager
+	serviceDiscoveryManager agentServiceDiscoveryManager
 }
 
 func NewConnectionHandler(db *gorm.DB, nangoClient *nango.Client, cat *catalog.Catalog, enq enqueue.TaskEnqueuer) *ConnectionHandler {
@@ -32,12 +32,12 @@ func NewConnectionHandler(db *gorm.DB, nangoClient *nango.Client, cat *catalog.C
 	}
 }
 
-type employeeServiceDiscoveryManager interface {
+type agentServiceDiscoveryManager interface {
 	EnsureServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) error
 	DisableServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) error
 }
 
-func (h *ConnectionHandler) SetServiceDiscoveryManager(manager employeeServiceDiscoveryManager) {
+func (h *ConnectionHandler) SetServiceDiscoveryManager(manager agentServiceDiscoveryManager) {
 	h.serviceDiscoveryManager = manager
 }
 

@@ -12,20 +12,20 @@ func TestServiceReceiveWebhookUsesLatestAgentRuntimeSandbox(t *testing.T) {
 	db := connectGatewayTestDB(t)
 	route := seedGatewayRoute(t, db)
 
-	employeeImage := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.5"
-	oldEmployeeImage := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.4"
+	agentImage := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.5"
+	oldAgentImage := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.4"
 
-	var employeeSandbox model.Sandbox
-	if err := db.Where("org_id = ? AND employee_id = ?", route.OrgID, route.EmployeeID).First(&employeeSandbox).Error; err != nil {
+	var agentSandbox model.Sandbox
+	if err := db.Where("org_id = ? AND agent_id = ?", route.OrgID, route.AgentID).First(&agentSandbox).Error; err != nil {
 		t.Fatalf("load seeded sandbox: %v", err)
 	}
-	if err := db.Model(&employeeSandbox).Update("snapshot_id", oldEmployeeImage).Error; err != nil {
-		t.Fatalf("set employee sandbox image: %v", err)
+	if err := db.Model(&agentSandbox).Update("snapshot_id", oldAgentImage).Error; err != nil {
+		t.Fatalf("set agent sandbox image: %v", err)
 	}
 	replacementSandbox := model.Sandbox{
 		OrgID:                  &route.OrgID,
-		EmployeeID:             &route.EmployeeID,
-		SnapshotID:             &employeeImage,
+		AgentID:                &route.AgentID,
+		SnapshotID:             &agentImage,
 		ExternalID:             "gateway-agent-" + uuid.NewString(),
 		RuntimeURL:             "http://localhost:2",
 		EncryptedRuntimeSecret: []byte("agent-key"),
@@ -34,10 +34,10 @@ func TestServiceReceiveWebhookUsesLatestAgentRuntimeSandbox(t *testing.T) {
 	if err := db.Create(&replacementSandbox).Error; err != nil {
 		t.Fatalf("create replacement sandbox: %v", err)
 	}
-	existingBadSession := model.EmployeeSession{
+	existingBadSession := model.AgentSession{
 		OrgID:                 route.OrgID,
-		EmployeeID:            route.EmployeeID,
-		SandboxID:             employeeSandbox.ID,
+		AgentID:               route.AgentID,
+		SandboxID:             agentSandbox.ID,
 		RuntimeConversationID: "runtime-bad-existing",
 		Source:                Source,
 		SourceID:              &route.ID,
@@ -52,7 +52,7 @@ func TestServiceReceiveWebhookUsesLatestAgentRuntimeSandbox(t *testing.T) {
 
 	runtime := &recordingRuntime{}
 	service := NewService(db, runtime, nil, NewFakeSlackAdapter())
-	service.SetRuntimeImages(employeeImage)
+	service.SetRuntimeImages(agentImage)
 
 	result, err := service.ReceiveWebhook(t.Context(), WebhookEnvelope{
 		RouteID: route.ID,
@@ -64,7 +64,7 @@ func TestServiceReceiveWebhookUsesLatestAgentRuntimeSandbox(t *testing.T) {
 	if result.Session.SandboxID != replacementSandbox.ID {
 		t.Fatalf("session sandbox = %s, want agent runtime sandbox %s", result.Session.SandboxID, replacementSandbox.ID)
 	}
-	var stored model.EmployeeSession
+	var stored model.AgentSession
 	if err := db.First(&stored, "id = ?", existingBadSession.ID).Error; err != nil {
 		t.Fatalf("load retargeted session: %v", err)
 	}

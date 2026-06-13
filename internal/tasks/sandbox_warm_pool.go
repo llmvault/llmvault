@@ -112,7 +112,7 @@ func EnqueueConfiguredWarmPoolReconciles(ctx context.Context, enqueuer enqueue.T
 	if orchestrator == nil || orchestrator.WarmPool() == nil {
 		return
 	}
-	mode := model.SandboxWarmSlotModeEmployee
+	mode := model.SandboxWarmSlotModeAgent
 	if orchestrator.WarmPool().DesiredCount(mode) > 0 {
 		_ = EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, orchestrator.ProviderID(), mode)
 	}

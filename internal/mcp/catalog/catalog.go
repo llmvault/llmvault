@@ -152,7 +152,7 @@ type ProviderTriggers struct {
 // SubscribableResource describes a class of external resource that provider
 // webhook triggers can use for affinity. The server parses the resource id,
 // substitutes the named groups into CanonicalTemplate, and uses that canonical
-// key as the trigger resource key for employee runtime conversations.
+// key as the trigger resource key for agent runtime conversations.
 //
 // Example (github_pull_request):
 //

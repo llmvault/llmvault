@@ -29,7 +29,7 @@ func (m *OrchestratedRuntimeMessenger) Send(ctx context.Context, message Runtime
 		return nil, fmt.Errorf("gateway runtime messenger is not configured")
 	}
 	if message.Session.SandboxID == uuid.Nil {
-		return nil, fmt.Errorf("gateway runtime message is missing employee session sandbox_id")
+		return nil, fmt.Errorf("gateway runtime message is missing agent session sandbox_id")
 	}
 	var sandbox model.Sandbox
 	if err := m.db.WithContext(ctx).Where("id = ?", message.Session.SandboxID).First(&sandbox).Error; err != nil {
@@ -65,7 +65,7 @@ func runtimeRaw(message RuntimeMessage) map[string]any {
 		"source":              Source,
 		"provider":            message.GatewayProvider,
 		"route_id":            message.Route.ID.String(),
-		"employee_session_id": message.Session.ID.String(),
+		"agent_session_id":    message.Session.ID.String(),
 		"gateway_event_id":    message.GatewayEventID.String(),
 		"dedupe_key":          message.GatewayDedupeKey,
 		"thread_key":          message.GatewayThreadKey,

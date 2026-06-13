@@ -22,15 +22,15 @@ import (
 
 // MCPHandler handles MCP protocol requests for scoped proxy tokens.
 type MCPHandler struct {
-	db              *gorm.DB
-	signingKey      []byte
-	catalog         *catalog.Catalog
-	nango           *nango.Client
-	counter         *counter.Counter
-	memoryTools     mcpserver.MemoryToolsFunc
-	webTools        mcpserver.WebToolsFunc
-	knowledgeTools  mcpserver.KnowledgeToolsFunc
-	ServerCache     *mcpserver.ServerCache
+	db             *gorm.DB
+	signingKey     []byte
+	catalog        *catalog.Catalog
+	nango          *nango.Client
+	counter        *counter.Counter
+	memoryTools    mcpserver.MemoryToolsFunc
+	webTools       mcpserver.WebToolsFunc
+	knowledgeTools mcpserver.KnowledgeToolsFunc
+	ServerCache    *mcpserver.ServerCache
 }
 
 // NewMCPHandler creates a new MCP handler.
@@ -139,7 +139,7 @@ func (h *MCPHandler) ValidateHasScopes(next http.Handler) http.Handler {
 			return
 		}
 		if token.Meta != nil {
-			if tokenType, _ := token.Meta["type"].(string); tokenType == "employee_proxy" {
+			if tokenType, _ := token.Meta["type"].(string); tokenType == "agent_proxy" {
 				next.ServeHTTP(w, r)
 				return
 			}

@@ -34,10 +34,4 @@ const (
 
 	TokenTypeAgentProxy      = "agent_proxy"
 	TokenHarnessAgentSandbox = "agent-sandbox"
-
-	// Legacy aliases retained for non-runtime code that has not moved to the v2
-	// domain model yet. Agent runtime code should use the agent-named constants.
-	TokenMetaEmployeeID         = TokenMetaAgentID
-	TokenTypeEmployeeProxy      = TokenTypeAgentProxy
-	TokenHarnessEmployeeSandbox = TokenHarnessAgentSandbox
 )

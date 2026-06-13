@@ -12,11 +12,11 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestBuildEmployeeMCPServer_DisabledWithoutRuntimeToken(t *testing.T) {
+func TestBuildAgentMCPServer_DisabledWithoutRuntimeToken(t *testing.T) {
 	orgID := uuid.New()
-	agent := &model.Employee{ID: uuid.New(), OrgID: &orgID}
+	agent := &model.Agent{ID: uuid.New(), OrgID: &orgID}
 
-	if got := buildEmployeeMCPServer(context.Background(), CompileDeps{}, agent); got != nil {
+	if got := buildAgentMCPServer(context.Background(), CompileDeps{}, agent); got != nil {
 		t.Fatalf("expected no MCP server without DB/config/token, got %#v", got)
 	}
 }
@@ -84,7 +84,7 @@ func TestUpsertHivyMCPServer_ReplacesExistingHivyServer(t *testing.T) {
 	}
 }
 
-func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Employee {
+func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Agent {
 	t.Helper()
 	org := model.Org{Name: "compile-token-org-" + uuid.NewString(), Active: true}
 	if err := db.Create(&org).Error; err != nil {
@@ -102,11 +102,11 @@ func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Employee {
 	if err := db.Create(&cred).Error; err != nil {
 		t.Fatalf("create credential: %v", err)
 	}
-	agent := model.Employee{
+	agent := model.Agent{
 		OrgID:        &org.ID,
 		CredentialID: &cred.ID,
 		Name:         "Hivy",
-		Model:        DefaultEmployeeModel,
+		Model:        DefaultAgentModel,
 		Status:       "active",
 		Tools:        model.JSON{},
 		McpServers:   model.RawJSON("[]"),
@@ -115,11 +115,11 @@ func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Employee {
 		Permissions:  model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+		t.Fatalf("create agent: %v", err)
 	}
 	t.Cleanup(func() {
 		db.Where("org_id = ?", org.ID).Delete(&model.Token{})
-		db.Where("id = ?", agent.ID).Delete(&model.Employee{})
+		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
 		db.Where("id = ?", cred.ID).Delete(&model.Credential{})
 		db.Where("id = ?", org.ID).Delete(&model.Org{})
 	})

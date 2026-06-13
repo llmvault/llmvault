@@ -14,7 +14,7 @@ import (
 
 // A failure after provider-create must delete the provider resource and revoke
 // the minted proxy token instead of leaking a live billing sandbox.
-func TestCreateEmployeeSandboxCleansUpOnEndpointFailure(t *testing.T) {
+func TestCreateAgentSandboxCleansUpOnEndpointFailure(t *testing.T) {
 	db := setupTestDB(t)
 	provider := newMockProvider()
 	provider.getEndpointFn = func(_ context.Context, _ string, _ int) (string, error) {
@@ -27,9 +27,9 @@ func TestCreateEmployeeSandboxCleansUpOnEndpointFailure(t *testing.T) {
 	cred := createTestCred(t, db, org.ID)
 	agent := createTestAgent(t, db, org.ID, cred.ID)
 
-	_, err := orch.CreateEmployeeSandbox(context.Background(), &agent, employeeStartupSecrets())
+	_, err := orch.CreateAgentSandbox(context.Background(), &agent, agentStartupSecrets())
 	if err == nil {
-		t.Fatal("expected CreateEmployeeSandbox to fail")
+		t.Fatal("expected CreateAgentSandbox to fail")
 	}
 
 	if len(provider.deletedIDs) != 1 {
@@ -37,7 +37,7 @@ func TestCreateEmployeeSandboxCleansUpOnEndpointFailure(t *testing.T) {
 	}
 
 	var sb model.Sandbox
-	if err := db.Where("employee_id = ?", agent.ID).First(&sb).Error; err != nil {
+	if err := db.Where("agent_id = ?", agent.ID).First(&sb).Error; err != nil {
 		t.Fatalf("load sandbox row: %v", err)
 	}
 	t.Cleanup(func() { db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}) })

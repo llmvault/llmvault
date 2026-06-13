@@ -148,7 +148,7 @@ func seedOrgWithCredentialAndCredits(t *testing.T, db *gorm.DB, granted int64) (
 
 func seedAgentWithToken(t *testing.T, db *gorm.DB, orgID, credID uuid.UUID, agentModel string) string {
 	t.Helper()
-	agent := model.Employee{
+	agent := model.Agent{
 		OrgID:        &orgID,
 		Name:         "billing-test-" + uuid.NewString()[:8],
 		Model:        agentModel,
@@ -164,7 +164,7 @@ func seedAgentWithToken(t *testing.T, db *gorm.DB, orgID, credID uuid.UUID, agen
 		CredentialID: credID,
 		JTI:          jti,
 		ExpiresAt:    time.Now().Add(time.Hour),
-		Meta:         model.JSON{"employee_id": agent.ID.String(), "type": "employee_proxy"},
+		Meta:         model.JSON{"agent_id": agent.ID.String(), "type": "agent_proxy"},
 	}
 	if err := db.Create(&tok).Error; err != nil {
 		t.Fatalf("seed token: %v", err)

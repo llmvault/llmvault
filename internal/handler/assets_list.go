@@ -14,7 +14,7 @@ import (
 
 type assetListItem struct {
 	ID          string `json:"id"`
-	EmployeeID  string `json:"employee_id"`
+	AgentID     string `json:"agent_id"`
 	Path        string `json:"path"`
 	Filename    string `json:"filename"`
 	Key         string `json:"key"`
@@ -27,9 +27,9 @@ type assetListItem struct {
 
 // ListAssets handles GET /v1/assets.
 //
-// Returns employee drive assets owned by the caller's org, optionally filtered by:
+// Returns agent drive assets owned by the caller's org, optionally filtered by:
 //
-//	?employee_id={uuid}      — files owned by one employee
+//	?agent_id={uuid}      — files owned by one agent
 //	?path={folder}           — exact match on the file's logical folder
 //	?path_prefix={folder}    — folder tree match
 //	?q={text}                — fuzzy match path, filename, content type, or storage key
@@ -43,10 +43,10 @@ type assetListItem struct {
 // Filters combine. Ordered by created_at desc, cursor-paginated.
 //
 // @Summary List org assets
-// @Description Lists employee drive assets owned by the caller's org. Optional filters: employee_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.
+// @Description Lists agent drive assets owned by the caller's org. Optional filters: agent_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.
 // @Tags assets
 // @Produce json
-// @Param employee_id query string false "Filter to files owned by this employee"
+// @Param agent_id query string false "Filter to files owned by this agent"
 // @Param path query string false "Filter by exact folder label (empty = root)"
 // @Param path_prefix query string false "Filter by folder tree prefix"
 // @Param q query string false "Fuzzy search path, filename, content type, and storage key"
@@ -85,16 +85,16 @@ func (h *UploadsHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := h.db.
-		Table("employee_assets AS ea").
+		Table("agent_assets AS ea").
 		Where("ea.org_id = ?", org.ID)
 
-	if v := r.URL.Query().Get("employee_id"); v != "" {
-		employeeID, err := uuid.Parse(v)
+	if v := r.URL.Query().Get("agent_id"); v != "" {
+		agentID, err := uuid.Parse(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employee_id"})
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent_id"})
 			return
 		}
-		q = q.Where("ea.employee_id = ?", employeeID)
+		q = q.Where("ea.agent_id = ?", agentID)
 	}
 	if v, ok := r.URL.Query()["path"]; ok && len(v) > 0 {
 		q = q.Where("ea.path = ?", strings.Trim(strings.TrimSpace(v[0]), "/"))
@@ -206,7 +206,7 @@ func (h *UploadsHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 		q = q.Where(sortColumn+" "+op+" ?", time.Unix(0, n))
 	}
 
-	var rows []model.EmployeeAsset
+	var rows []model.AgentAsset
 	if err := q.Order(sortColumn + " " + sortDir).Limit(limit + 1).Find(&rows).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list assets"})
 		return
@@ -221,7 +221,7 @@ func (h *UploadsHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 	for i, r := range rows {
 		out[i] = assetListItem{
 			ID:          r.ID.String(),
-			EmployeeID:  r.EmployeeID.String(),
+			AgentID:     r.AgentID.String(),
 			Path:        r.Path,
 			Filename:    r.Filename,
 			Key:         r.Key,

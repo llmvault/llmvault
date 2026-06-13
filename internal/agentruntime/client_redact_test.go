@@ -12,11 +12,11 @@ func TestRedactConfigUpdateRequestStripsSecrets(t *testing.T) {
 	body := ConfigUpdateRequest{
 		RuntimeSecret: "super-secret-runtime-value",
 		RuntimeEnv: map[string]string{
-			EmployeeEnvProxyAPIKey:   "proxy-token-abc",   // catalog Sensitive
-			EmployeeEnvSlackToken:    "xoxb-real-token",   // catalog Sensitive
+			AgentEnvProxyAPIKey:      "proxy-token-abc",   // catalog Sensitive
+			AgentEnvSlackToken:       "xoxb-real-token",   // catalog Sensitive
 			"CUSTOM_API_SECRET":      "leak-me",           // heuristic Sensitive
 			"DATABASE_PASSWORD":      "hunter2",           // heuristic Sensitive
-			EmployeeEnvAgentBaseURL:  "https://llm.local", // not sensitive
+			AgentEnvAgentBaseURL:     "https://llm.local", // not sensitive
 			"FEATURE_FLAG_SOMETHING": "on",                // not sensitive
 		},
 		Definition: &AgentDefinition{
@@ -62,7 +62,7 @@ func TestRedactConfigUpdateRequestStripsSecrets(t *testing.T) {
 	if body.RuntimeSecret != "super-secret-runtime-value" {
 		t.Fatal("redaction mutated the original RuntimeSecret")
 	}
-	if body.RuntimeEnv[EmployeeEnvSlackToken] != "xoxb-real-token" {
+	if body.RuntimeEnv[AgentEnvSlackToken] != "xoxb-real-token" {
 		t.Fatal("redaction mutated the original RuntimeEnv")
 	}
 	servers, _ := body.Definition.McpServers[0].(map[string]any)

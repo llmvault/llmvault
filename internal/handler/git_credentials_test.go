@@ -77,7 +77,7 @@ func newGitCredsHarness(t *testing.T, nangoHandler http.Handler) *gitCredsHarnes
 	}
 
 	agentID := uuid.New()
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:     agentID,
 		OrgID:  &orgID,
 		Name:   "test-agent",
@@ -97,7 +97,7 @@ func newGitCredsHarness(t *testing.T, nangoHandler http.Handler) *gitCredsHarnes
 	sandbox := model.Sandbox{
 		ID:                     sandboxID,
 		OrgID:                  &orgID,
-		EmployeeID:             &agentID,
+		AgentID:                &agentID,
 		EncryptedRuntimeSecret: encryptedKey,
 		Status:                 "running",
 		ExternalID:             "mock-external-id",
@@ -134,13 +134,13 @@ func newGitCredsHarness(t *testing.T, nangoHandler http.Handler) *gitCredsHarnes
 	t.Cleanup(func() {
 		database.Where("org_id = ?", orgID).Delete(&model.Connection{})
 		database.Where("id = ?", sandboxID).Delete(&model.Sandbox{})
-		database.Where("org_id = ?", orgID).Delete(&model.Employee{})
+		database.Where("org_id = ?", orgID).Delete(&model.Agent{})
 		database.Where("id = ?", userID).Delete(&model.User{})
 		database.Where("id = ?", orgID).Delete(&model.Org{})
 	})
 
 	router := chi.NewRouter()
-	router.Post("/internal/git-credentials/{employeeID}", gitCredsHandler.Handle)
+	router.Post("/internal/git-credentials/{agentID}", gitCredsHandler.Handle)
 
 	return &gitCredsHarness{
 		db:            database,

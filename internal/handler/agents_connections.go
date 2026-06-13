@@ -1,0 +1,93 @@
+package handler
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/middleware"
+	"github.com/usehivy/hivy/internal/model"
+)
+
+type agentConnectionResponse struct {
+	ID                string     `json:"id"`
+	OrgID             string     `json:"org_id"`
+	IntegrationID     string     `json:"integration_id"`
+	Provider          string     `json:"provider"`
+	DisplayName       string     `json:"display_name"`
+	NangoConnectionID string     `json:"nango_connection_id"`
+	Meta              model.JSON `json:"meta,omitempty"`
+	CreatedAt         string     `json:"created_at"`
+	UpdatedAt         string     `json:"updated_at"`
+}
+
+func (h *AgentHandler) ListAvailableConnections(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	org, ok := middleware.OrgFromContext(ctx)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		return
+	}
+
+	agentID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent id"})
+		return
+	}
+
+	var count int64
+	if err := h.db.WithContext(ctx).Model(&model.Agent{}).
+		Where("id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "archived").
+		Count(&count).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load agent"})
+		return
+	}
+	if count == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
+		return
+	}
+
+	var connections []model.Connection
+	if err := h.db.WithContext(ctx).
+		Preload("Integration").
+		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
+		Where("connections.org_id = ? AND connections.revoked_at IS NULL", org.ID).
+		Order("connections.created_at DESC, connections.id DESC").
+		Find(&connections).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list agent connections"})
+		return
+	}
+
+	resp := make([]agentConnectionResponse, 0, len(connections))
+	for _, conn := range connections {
+		resp = append(resp, toAgentConnectionResponse(conn))
+	}
+
+	writeJSON(w, http.StatusOK, paginatedResponse[agentConnectionResponse]{
+		Data:    resp,
+		HasMore: false,
+	})
+}
+
+func agentConnectionProvider(conn model.Connection) string {
+	if conn.Integration.Provider != "" {
+		return conn.Integration.Provider
+	}
+	return conn.Integration.UniqueKey
+}
+
+func toAgentConnectionResponse(conn model.Connection) agentConnectionResponse {
+	return agentConnectionResponse{
+		ID:                conn.ID.String(),
+		OrgID:             conn.OrgID.String(),
+		IntegrationID:     conn.IntegrationID.String(),
+		Provider:          agentConnectionProvider(conn),
+		DisplayName:       conn.Integration.DisplayName,
+		NangoConnectionID: conn.NangoConnectionID,
+		Meta:              conn.Meta,
+		CreatedAt:         conn.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         conn.UpdatedAt.Format(time.RFC3339),
+	}
+}

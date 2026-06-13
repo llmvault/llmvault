@@ -80,18 +80,18 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		mcpHandler.SetWebTools(spider.NewWebToolsFunc(deps.SpiderClient))
 	}
 	runtimeCompileDeps := agentruntime.CompileDeps{
-		DB:          database,
-		Picker:      credentials.NewPickerWithRegistry(database, reg),
-		KMS:         deps.KMS,
-		EncKey:      sandboxEncKey,
-		SigningKey:  signingKey,
-		Cfg:         cfg,
-		Nango:       nangoClient,
-		Hindsight:   hindsightClient,
+		DB:         database,
+		Picker:     credentials.NewPickerWithRegistry(database, reg),
+		KMS:        deps.KMS,
+		EncKey:     sandboxEncKey,
+		SigningKey: signingKey,
+		Cfg:        cfg,
+		Nango:      nangoClient,
+		Hindsight:  hindsightClient,
 	}
 	if orchestrator != nil {
-		orchestrator.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
-			return agentruntime.PushEmployeeRuntimeConfigForSandbox(ctx, runtimeCompileDeps, sb)
+		orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
+			return agentruntime.PushAgentRuntimeConfigForSandbox(ctx, runtimeCompileDeps, sb)
 		})
 	}
 	credHandler := handler.NewCredentialHandler(database, deps.KMS, cacheManager, ctr)
@@ -138,9 +138,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		return err
 	}
 	preContextCache := precontext.NewRedisCache(redisClient)
-	employeeEventWriter := handler.NewEmployeeEventWriter(ctx, database, 20000)
-	employeeOutboundWebhookHandler := handler.NewEmployeeOutboundWebhookHandler(database, sandboxEncKey, enqueuer, employeeEventWriter)
-	employeeOutboundWebhookHandler.SetPreContextCache(preContextCache)
+	agentEventWriter := handler.NewAgentEventWriter(ctx, database, 20000)
+	agentOutboundWebhookHandler := handler.NewAgentOutboundWebhookHandler(database, sandboxEncKey, enqueuer, agentEventWriter)
+	agentOutboundWebhookHandler.SetPreContextCache(preContextCache)
 	var gatewayHTTPHandler *handler.GatewayHTTPHandler
 	var gatewayExternalHandler *handler.GatewayExternalHandler
 	var gatewayService *gateway.Service
@@ -159,10 +159,10 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			Reranker:   ragRuntime.reranker,
 			Collection: cfg.QdrantCollection,
 		}))
-		gatewayService.SetSessionCreatedHook(func(ctx context.Context, session model.EmployeeSession, reason, sourceEvent string) {
-			enqueueGatewayEmployeeMemoryRetain(ctx, enqueuer, session, reason, sourceEvent)
+		gatewayService.SetSessionCreatedHook(func(ctx context.Context, session model.AgentSession, reason, sourceEvent string) {
+			enqueueGatewayAgentMemoryRetain(ctx, enqueuer, session, reason, sourceEvent)
 		})
-		employeeOutboundWebhookHandler.SetGatewayService(gatewayService)
+		agentOutboundWebhookHandler.SetGatewayService(gatewayService)
 		gatewayHTTPHandler = handler.NewGatewayHTTPHandler(gatewayService)
 		gatewayExternalHandler = handler.NewGatewayExternalHandler(database, gatewayService, sandboxEncKey, enqueuer, cfg.RuntimeControlPlaneBaseURL())
 	}
@@ -178,27 +178,27 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	sandboxTemplateHandler := handler.NewSandboxTemplateHandler(database, templateBuilder, enqueuer)
 	skillHandler := handler.NewSkillHandler(database, enqueuer)
 
-	var employeeHandler *handler.EmployeeHandler
+	var agentHandler *handler.AgentHandler
 	if orchestrator != nil {
-		employeeHandler = handler.NewEmployeeHandler(database, orchestrator, runtimeCompileDeps, reg)
-		employeeHandler.SetMemoryProvisioner(hindsightBanks)
+		agentHandler = handler.NewAgentHandler(database, orchestrator, runtimeCompileDeps, reg)
+		agentHandler.SetMemoryProvisioner(hindsightBanks)
 		if deps.S3Client != nil {
-			employeeHandler.SetEnqueuer(enqueuer)
+			agentHandler.SetEnqueuer(enqueuer)
 		}
-		orgHandler.SetEmployeeSyncer(employeeHandler)
-		connectionHandler.SetServiceDiscoveryManager(employeeHandler)
+		orgHandler.SetAgentSyncer(agentHandler)
+		connectionHandler.SetServiceDiscoveryManager(agentHandler)
 	}
 	var driveHandler *handler.DriveHandler
 	if deps.S3Client != nil {
 		driveHandler = handler.NewDriveHandler(database, deps.S3Client)
 	}
-	var sqliteBackupHandler *handler.EmployeeSQLiteBackupHandler
+	var sqliteBackupHandler *handler.AgentSQLiteBackupHandler
 	if deps.S3Client != nil && sandboxEncKey != nil {
-		sqliteBackupHandler = handler.NewEmployeeSQLiteBackupHandler(
+		sqliteBackupHandler = handler.NewAgentSQLiteBackupHandler(
 			database,
 			deps.S3Client,
 			sandboxEncKey,
-			cfg.EmployeeSQLiteBackupMaxBytes,
+			cfg.AgentSQLiteBackupMaxBytes,
 		).WithRuntimeImages(cfg.SandboxesRuntimeBaseImage)
 	}
 
@@ -226,12 +226,12 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, employeeOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestratorMissing)
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, agentOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestratorMissing)
 
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
 	systemTaskHandler := buildSystemTaskHandler(database, deps, redisClient)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, databaseIntegrationHandler, customDomainHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, systemTaskHandler, employeeHandler, gatewayExternalHandler, orchestrator, auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, databaseIntegrationHandler, customDomainHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, systemTaskHandler, agentHandler, gatewayExternalHandler, orchestrator, auditWriter)
 
 	var platformAdminEmails []string
 	if cfg.PlatformAdminEmails != "" {
@@ -275,7 +275,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	auditWriter.Shutdown(shutdownCtx)
 	generationWriter.Shutdown(shutdownCtx)
-	employeeEventWriter.Shutdown(shutdownCtx)
+	agentEventWriter.Shutdown(shutdownCtx)
 	if deps.ToolUsageWriter != nil {
 		deps.ToolUsageWriter.Shutdown(shutdownCtx)
 	}

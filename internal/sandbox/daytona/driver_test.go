@@ -14,14 +14,14 @@ func TestDriverImplementsProvider(t *testing.T) {
 
 func TestSnapshotParamsFromCreateOpts_PassesEnvVarsUnchanged(t *testing.T) {
 	opts := sandbox.CreateSandboxOpts{
-		Name:        "employee-test",
-		TemplateRef: "employee-snapshot",
+		Name:        "agent-test",
+		TemplateRef: "agent-snapshot",
 		EnvVars: map[string]string{
 			"HIVY_RUNTIME_SECRET":    "secret",
 			"HIVY_PROXY_API_KEY":     "ptok_test",
 			"HIVY_AGENT_API_KEY_ENV": "HIVY_PROXY_API_KEY",
 		},
-		Labels: map[string]string{"harness": "employee-sandbox"},
+		Labels: map[string]string{"harness": "agent-sandbox"},
 	}
 
 	params := snapshotParamsFromCreateOpts(opts)

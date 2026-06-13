@@ -37,9 +37,9 @@ func testEncryptJSON(t *testing.T, key *crypto.SymmetricKey, obj map[string]stri
 
 func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 	orgID := uuid.New()
-	employeeID := uuid.New()
-	agent := &model.Employee{
-		ID:     employeeID,
+	agentID := uuid.New()
+	agent := &model.Agent{
+		ID:     agentID,
 		OrgID:  &orgID,
 		Name:   "Hivy",
 		Status: "active",
@@ -62,36 +62,36 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 	}
 
 	want := map[string]string{
-		EmployeeEnvDriveUploadURL:         "https://api.example.test/internal/employees/" + employeeID.String() + "/drive",
-		EmployeeEnvGitUsername:            "hivy",
-		EmployeeEnvGitEmail:               "hivy@users.noreply.github.com",
-		EmployeeEnvGitCredentialsURL:      "https://api.example.test/internal/git-credentials/" + employeeID.String(),
-		EmployeeEnvGitHubNoKeyring:        "1",
-		EmployeeEnvBugsinkURL:             "https://api.example.test/internal/bugsink-proxy/" + employeeID.String(),
-		EmployeeEnvBugsinkToken:           "runtime-secret",
-		EmployeeEnvGlitchTipURL:           "https://api.example.test/internal/glitchtip-proxy/" + employeeID.String(),
-		EmployeeEnvGlitchTipToken:         "runtime-secret",
-		EmployeeEnvLinearURL:              "https://api.example.test/internal/linear-proxy/" + employeeID.String(),
-		EmployeeEnvLinearToken:            "runtime-secret",
-		EmployeeEnvNotionAPIURL:           "https://api.example.test/internal/notion-proxy/" + employeeID.String(),
-		EmployeeEnvNotionToken:            "runtime-secret",
-		EmployeeEnvRailwayAPIURL:          "https://api.example.test/internal/railway-proxy/" + employeeID.String(),
-		EmployeeEnvRailwayAPIKey:          "runtime-secret",
-		EmployeeEnvVercelAPIURL:           "https://api.example.test/internal/vercel-proxy/" + employeeID.String(),
-		EmployeeEnvVercelAPIKey:           "runtime-secret",
-		EmployeeEnvSlackAPIURL:            "https://api.example.test/internal/slack-proxy/" + employeeID.String(),
-		EmployeeEnvSlackToken:             "runtime-secret",
-		EmployeeEnvPostgresURL:            "https://api.example.test/internal/database-proxy/postgres/" + employeeID.String(),
-		EmployeeEnvPostgresToken:          "runtime-secret",
-		EmployeeEnvMySQLURL:               "https://api.example.test/internal/database-proxy/mysql/" + employeeID.String(),
-		EmployeeEnvMySQLToken:             "runtime-secret",
-		EmployeeEnvMongoDBURL:             "https://api.example.test/internal/database-proxy/mongodb/" + employeeID.String(),
-		EmployeeEnvMongoDBToken:           "runtime-secret",
-		EmployeeEnvSentryDSN:              "https://agent@example.test/1",
-		EmployeeEnvSentryEnvironment:      "production",
-		EmployeeEnvSentrySampleRate:       "1",
-		EmployeeEnvSentryTracesSampleRate: "0.25",
-		EmployeeEnvSentryEnableLogs:       "true",
+		AgentEnvDriveUploadURL:         "https://api.example.test/internal/agents/" + agentID.String() + "/drive",
+		AgentEnvGitUsername:            "hivy",
+		AgentEnvGitEmail:               "hivy@users.noreply.github.com",
+		AgentEnvGitCredentialsURL:      "https://api.example.test/internal/git-credentials/" + agentID.String(),
+		AgentEnvGitHubNoKeyring:        "1",
+		AgentEnvBugsinkURL:             "https://api.example.test/internal/bugsink-proxy/" + agentID.String(),
+		AgentEnvBugsinkToken:           "runtime-secret",
+		AgentEnvGlitchTipURL:           "https://api.example.test/internal/glitchtip-proxy/" + agentID.String(),
+		AgentEnvGlitchTipToken:         "runtime-secret",
+		AgentEnvLinearURL:              "https://api.example.test/internal/linear-proxy/" + agentID.String(),
+		AgentEnvLinearToken:            "runtime-secret",
+		AgentEnvNotionAPIURL:           "https://api.example.test/internal/notion-proxy/" + agentID.String(),
+		AgentEnvNotionToken:            "runtime-secret",
+		AgentEnvRailwayAPIURL:          "https://api.example.test/internal/railway-proxy/" + agentID.String(),
+		AgentEnvRailwayAPIKey:          "runtime-secret",
+		AgentEnvVercelAPIURL:           "https://api.example.test/internal/vercel-proxy/" + agentID.String(),
+		AgentEnvVercelAPIKey:           "runtime-secret",
+		AgentEnvSlackAPIURL:            "https://api.example.test/internal/slack-proxy/" + agentID.String(),
+		AgentEnvSlackToken:             "runtime-secret",
+		AgentEnvPostgresURL:            "https://api.example.test/internal/database-proxy/postgres/" + agentID.String(),
+		AgentEnvPostgresToken:          "runtime-secret",
+		AgentEnvMySQLURL:               "https://api.example.test/internal/database-proxy/mysql/" + agentID.String(),
+		AgentEnvMySQLToken:             "runtime-secret",
+		AgentEnvMongoDBURL:             "https://api.example.test/internal/database-proxy/mongodb/" + agentID.String(),
+		AgentEnvMongoDBToken:           "runtime-secret",
+		AgentEnvSentryDSN:              "https://agent@example.test/1",
+		AgentEnvSentryEnvironment:      "production",
+		AgentEnvSentrySampleRate:       "1",
+		AgentEnvSentryTracesSampleRate: "0.25",
+		AgentEnvSentryEnableLogs:       "true",
 	}
 	for key, value := range want {
 		if env[key] != value {
@@ -104,7 +104,7 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 // HIVY_TUNNEL_PASSWORD is unset, so the control plane must always provision it.
 func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 	orgID := uuid.New()
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:     uuid.New(),
 		OrgID:  &orgID,
 		Name:   "Hivy",
@@ -125,14 +125,14 @@ func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 		t.Fatalf("build env: %v", err)
 	}
 
-	if env[EmployeeEnvTunnelPassword] != "runtime-secret" {
-		t.Fatalf("%s = %q, want %q (tunnel must fail closed)", EmployeeEnvTunnelPassword, env[EmployeeEnvTunnelPassword], "runtime-secret")
+	if env[AgentEnvTunnelPassword] != "runtime-secret" {
+		t.Fatalf("%s = %q, want %q (tunnel must fail closed)", AgentEnvTunnelPassword, env[AgentEnvTunnelPassword], "runtime-secret")
 	}
-	if env[EmployeeEnvStreamToken] == "" {
-		t.Fatalf("%s must be provisioned for direct browser stream auth", EmployeeEnvStreamToken)
+	if env[AgentEnvStreamToken] == "" {
+		t.Fatalf("%s must be provisioned for direct browser stream auth", AgentEnvStreamToken)
 	}
-	if env[EmployeeEnvStreamToken] == "runtime-secret" {
-		t.Fatalf("%s must not reuse %s", EmployeeEnvStreamToken, EmployeeEnvRuntimeSecret)
+	if env[AgentEnvStreamToken] == "runtime-secret" {
+		t.Fatalf("%s must not reuse %s", AgentEnvStreamToken, AgentEnvRuntimeSecret)
 	}
 }
 
@@ -142,16 +142,16 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testin
 	encKey := testSymmetricKey(t)
 
 	orgID := uuid.New()
-	agent := &model.Employee{
+	agent := &model.Agent{
 		ID:    uuid.New(),
 		OrgID: &orgID,
 		// Org env vars smuggling reserved HIVY_ keys.
 		EncryptedEnvVars: testEncryptJSON(t, encKey, map[string]string{
-			EmployeeEnvRuntimeSecret:     "user-controlled-secret",
-			EmployeeEnvStreamToken:       "user-controlled-stream-token",
-			EmployeeEnvProxyAPIKey:       "user-controlled-proxy-key",
-			EmployeeEnvDriveUploadBearer: "user-controlled-bearer",
-			"MY_CUSTOM_VAR":              "custom-value",
+			AgentEnvRuntimeSecret:     "user-controlled-secret",
+			AgentEnvStreamToken:       "user-controlled-stream-token",
+			AgentEnvProxyAPIKey:       "user-controlled-proxy-key",
+			AgentEnvDriveUploadBearer: "user-controlled-bearer",
+			"MY_CUSTOM_VAR":           "custom-value",
 		}),
 	}
 
@@ -176,21 +176,21 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testin
 	}
 
 	// Control-plane values must always win over any user-supplied values.
-	if got := env[EmployeeEnvRuntimeSecret]; got != runtimeSecret {
+	if got := env[AgentEnvRuntimeSecret]; got != runtimeSecret {
 		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			EmployeeEnvRuntimeSecret, got, runtimeSecret)
+			AgentEnvRuntimeSecret, got, runtimeSecret)
 	}
-	if got := env[EmployeeEnvProxyAPIKey]; got != proxyToken.Token {
+	if got := env[AgentEnvProxyAPIKey]; got != proxyToken.Token {
 		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			EmployeeEnvProxyAPIKey, got, proxyToken.Token)
+			AgentEnvProxyAPIKey, got, proxyToken.Token)
 	}
-	if got, want := env[EmployeeEnvStreamToken], StreamTokenFromRuntimeSecret(runtimeSecret); got != want {
+	if got, want := env[AgentEnvStreamToken], StreamTokenFromRuntimeSecret(runtimeSecret); got != want {
 		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			EmployeeEnvStreamToken, got, want)
+			AgentEnvStreamToken, got, want)
 	}
-	if got := env[EmployeeEnvDriveUploadBearer]; got != runtimeSecret {
+	if got := env[AgentEnvDriveUploadBearer]; got != runtimeSecret {
 		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			EmployeeEnvDriveUploadBearer, got, runtimeSecret)
+			AgentEnvDriveUploadBearer, got, runtimeSecret)
 	}
 
 	if got := env["MY_CUSTOM_VAR"]; got != "custom-value" {

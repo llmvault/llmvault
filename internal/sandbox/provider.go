@@ -37,7 +37,7 @@ type CreateSandboxOpts struct {
 	Name        string            // human-readable name
 	TemplateRef string            // provider template/image reference
 	EnvVars     map[string]string // runtime environment variables
-	Labels      map[string]string // metadata labels (org_id, sandbox_id, employee_id)
+	Labels      map[string]string // metadata labels (org_id, sandbox_id, agent_id)
 	CPU         int               // CPU cores (0 = provider default)
 	Memory      int               // memory in GB (0 = provider default)
 	Disk        int               // disk in GB (0 = provider default)
@@ -85,8 +85,8 @@ type ResourceUsage struct {
 }
 
 type RuntimeLayout struct {
-	AgentRepoDir    string
-	EmployeeRepoDir string
+	AgentRepoDir     string
+	WorkspaceRepoDir string
 }
 
 type WarmSlotCreateOpts struct {

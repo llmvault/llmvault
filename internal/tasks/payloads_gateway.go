@@ -13,7 +13,7 @@ type GatewaySlackPayload struct {
 	EventID        string `json:"event_id,omitempty"`
 	ConnectionID   string `json:"connection_id"`
 	OrgID          string `json:"org_id"`
-	EmployeeID     string `json:"employee_id"`
+	AgentID        string `json:"agent_id"`
 	ChannelID      string `json:"channel_id"`
 	ThreadTS       string `json:"thread_ts"`
 	TeamID         string `json:"team_id,omitempty"`
@@ -33,7 +33,7 @@ type GatewaySlackPayload struct {
 type GatewayExternalCallbackPayload struct {
 	RouteID        string `json:"route_id"`
 	OrgID          string `json:"org_id"`
-	EmployeeID     string `json:"employee_id"`
+	AgentID        string `json:"agent_id"`
 	EventID        string `json:"event_id"`
 	SessionID      string `json:"session_id"`
 	RuntimeConvoID string `json:"runtime_conversation_id"`
@@ -53,7 +53,7 @@ type GatewayExternalCallbackPayload struct {
 type GatewaySlackStatusPayload struct {
 	ConnectionID string `json:"connection_id"`
 	OrgID        string `json:"org_id"`
-	EmployeeID   string `json:"employee_id"`
+	AgentID      string `json:"agent_id"`
 	ChannelID    string `json:"channel_id"`
 	ThreadTS     string `json:"thread_ts"`
 	TeamID       string `json:"team_id,omitempty"`

@@ -103,7 +103,7 @@ func (a *FakeSlackAdapter) RenderResponse(_ context.Context, response AgentRespo
 	}
 	return ProviderResponsePayload{
 		Route:     response.Route,
-		Session:   response.EmployeeSession,
+		Session:   response.AgentSession,
 		ChannelID: response.ChannelID,
 		ThreadID:  response.ThreadID,
 		Text:      text,

@@ -190,8 +190,8 @@ func archiveObsoleteGlobalSkills(ctx context.Context, db *gorm.DB) error {
 		for _, skill := range obsolete {
 			ids = append(ids, skill.ID)
 		}
-		if err := tx.Where("skill_id IN ?", ids).Delete(&model.EmployeeSkill{}).Error; err != nil {
-			return fmt.Errorf("detach obsolete global skills from employees: %w", err)
+		if err := tx.Where("skill_id IN ?", ids).Delete(&model.AgentSkill{}).Error; err != nil {
+			return fmt.Errorf("detach obsolete global skills from agents: %w", err)
 		}
 		if err := tx.Model(&model.Skill{}).
 			Where("id IN ?", ids).
@@ -216,7 +216,7 @@ func resetSkillInstallCounts(tx *gorm.DB, skillIDs []uuid.UUID) error {
 	for _, skillID := range skillIDs {
 		if err := tx.Model(&model.Skill{}).
 			Where("id = ?", skillID).
-			UpdateColumn("install_count", gorm.Expr("(SELECT COUNT(*) FROM employee_skills WHERE skill_id = ?)", skillID)).Error; err != nil {
+			UpdateColumn("install_count", gorm.Expr("(SELECT COUNT(*) FROM agent_skills WHERE skill_id = ?)", skillID)).Error; err != nil {
 			return fmt.Errorf("reset skill install count %s: %w", skillID, err)
 		}
 	}

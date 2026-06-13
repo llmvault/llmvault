@@ -223,7 +223,7 @@ func shouldCaptureProxyGeneration(claims *TokenClaims) bool {
 	if claims == nil {
 		return false
 	}
-	return claims.TokenType != "employee_proxy"
+	return claims.TokenType != "agent_proxy"
 }
 
 func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.CapturedData, providerID string, reg *registry.Registry, db *gorm.DB) model.Generation {

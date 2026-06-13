@@ -39,7 +39,7 @@ func NewDriver(cfg Config) (*Driver, error) {
 	}
 	runtimePort := cfg.RuntimePort
 	if runtimePort == 0 {
-		runtimePort = sandbox.EmployeeSandboxPort
+		runtimePort = sandbox.AgentSandboxPort
 	}
 	return &Driver{
 		controlURL:          strings.TrimRight(strings.TrimSpace(cfg.ControlURL), "/"),
@@ -77,8 +77,8 @@ func (d *Driver) Validate(ctx context.Context) error {
 
 func (d *Driver) RuntimeLayout() sandbox.RuntimeLayout {
 	return sandbox.RuntimeLayout{
-		AgentRepoDir:    "/workspace/repos",
-		EmployeeRepoDir: "/workspace/repos",
+		AgentRepoDir:     "/workspace/repos",
+		WorkspaceRepoDir: "/workspace/repos",
 	}
 }
 

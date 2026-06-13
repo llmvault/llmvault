@@ -114,15 +114,15 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	if isSlackProvider(wctx.connection) && wh.Type == "forward" {
 		slackFields := slackWebhookSentryFields("start", &wh, wctx.connection, wh.Payload)
-		employee, err := ensureHivyEmployee(r.Context(), h.db, wctx.connection.OrgID)
+		agent, err := ensureHivyAgent(r.Context(), h.db, wctx.connection.OrgID)
 		if err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "slack_webhook_failed_to_ensure_employee",
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "slack_webhook_failed_to_ensure_agent",
 				"org_id", wctx.connection.OrgID.String(),
 				"error", err,
 			)
-			slackFields["stage"] = "ensure_employee"
-			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: ensure employee: %w", err), slackFields)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load employee"})
+			slackFields["stage"] = "ensure_agent"
+			logging.CaptureWithFields(r.Context(), fmt.Errorf("slack webhook: ensure agent: %w", err), slackFields)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load agent"})
 			return
 		}
 
@@ -138,7 +138,7 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		envelope := gateway.WebhookEnvelope{
 			ConnectionID: wctx.connection.ID,
 			OrgID:        wctx.connection.OrgID,
-			EmployeeID:   employee.ID,
+			AgentID:      agent.ID,
 			Provider:     wctx.connection.Integration.Provider,
 			ProviderKey:  providerKey,
 			NangoConnID:  wctx.connection.NangoConnectionID,
@@ -168,7 +168,7 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			logging.FromContext(r.Context()).InfoContext(r.Context(), "slack_webhook_skipped",
 				"connection_id", envelope.ConnectionID.String(),
 				"org_id", envelope.OrgID.String(),
-				"employee_id", envelope.EmployeeID.String(),
+				"agent_id", envelope.AgentID.String(),
 				"status", status,
 				"reason", reason,
 			)
@@ -194,7 +194,7 @@ func (h *NangoWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		logging.FromContext(r.Context()).InfoContext(r.Context(), "slack_webhook_dispatched",
 			"connection_id", envelope.ConnectionID.String(),
 			"org_id", envelope.OrgID.String(),
-			"employee_id", envelope.EmployeeID.String(),
+			"agent_id", envelope.AgentID.String(),
 			"channel_id", result.Inbound.ChannelID,
 			"thread_ts", result.Inbound.ThreadID,
 		)
@@ -221,7 +221,7 @@ func gatewaySlackPayload(envelope gateway.WebhookEnvelope, result *gateway.Recei
 	return tasks.GatewaySlackPayload{
 		ConnectionID:   envelope.ConnectionID.String(),
 		OrgID:          envelope.OrgID.String(),
-		EmployeeID:     envelope.EmployeeID.String(),
+		AgentID:        envelope.AgentID.String(),
 		ChannelID:      result.Inbound.ChannelID,
 		ThreadTS:       result.Inbound.ThreadID,
 		TeamID:         slackInboundTeamID(result.Inbound.Raw),
@@ -246,7 +246,7 @@ func (h *NangoWebhookHandler) enqueueGatewaySlackStatus(ctx context.Context, acc
 	fields := map[string]any{
 		"connection_id": accepted.Envelope.ConnectionID.String(),
 		"org_id":        accepted.Envelope.OrgID.String(),
-		"employee_id":   accepted.Envelope.EmployeeID.String(),
+		"agent_id":      accepted.Envelope.AgentID.String(),
 		"channel_id":    accepted.Inbound.ChannelID,
 		"thread_ts":     accepted.Inbound.ThreadID,
 		"event_id":      accepted.Event.ID.String(),
@@ -254,7 +254,7 @@ func (h *NangoWebhookHandler) enqueueGatewaySlackStatus(ctx context.Context, acc
 	task, taskOpts, err := tasks.NewGatewaySlackStatusTask(tasks.GatewaySlackStatusPayload{
 		ConnectionID: accepted.Envelope.ConnectionID.String(),
 		OrgID:        accepted.Envelope.OrgID.String(),
-		EmployeeID:   accepted.Envelope.EmployeeID.String(),
+		AgentID:      accepted.Envelope.AgentID.String(),
 		ChannelID:    accepted.Inbound.ChannelID,
 		ThreadTS:     accepted.Inbound.ThreadID,
 		TeamID:       slackInboundTeamID(accepted.Inbound.Raw),

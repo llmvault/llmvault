@@ -1196,7 +1196,7 @@
           },
           "size": {
             "type": "integer",
-            "description": "The number of employees in this company."
+            "description": "The number of agents in this company."
           },
           "website": {
             "type": "string",
@@ -4611,7 +4611,7 @@
           },
           "size": {
             "type": "integer",
-            "description": "The number of employees in this company."
+            "description": "The number of agents in this company."
           },
           "website": {
             "type": "string",
@@ -5834,7 +5834,7 @@
         },
         "size": {
           "type": "integer",
-          "description": "The number of employees in the company."
+          "description": "The number of agents in the company."
         },
         "tags": {
           "type": "object",

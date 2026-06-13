@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	SandboxWarmSlotModeEmployee = "employee"
+	SandboxWarmSlotModeAgent = "agent"
 
 	SandboxWarmSlotStatusWarming  = "warming"
 	SandboxWarmSlotStatusWarm     = "warm"

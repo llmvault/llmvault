@@ -34,7 +34,7 @@ func (e errStreamTransport) Unwrap() error { return e.err }
 type GatewayStreamPayload struct {
 	RouteID          string
 	OrgID            string
-	EmployeeID       string
+	AgentID          string
 	EventID          string
 	SessionID        string
 	RuntimeSessionID string

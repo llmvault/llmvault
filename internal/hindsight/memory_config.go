@@ -21,9 +21,9 @@ type MemoryConfig struct {
 }
 
 const (
-	defaultRetainMission = `You are retaining memory for an AI employee embedded inside a real company.
+	defaultRetainMission = `You are retaining memory for an AI agent embedded inside a real company.
 
-Extract only durable company memory that will help the employee make better decisions in future conversations.
+Extract only durable company memory that will help the agent make better decisions in future conversations.
 
 Keep:
 - company identity, positioning, business model, customers, market, goals, and constraints
@@ -34,7 +34,7 @@ Keep:
 - policies, standards, operating procedures, and recurring workflows
 - technical context: architecture, repositories, stack choices, deploy practices, testing norms, incidents, and durable operational constraints
 - customer context: segments, important accounts, recurring feedback, objections, feature requests, and durable sentiment
-- explicit feedback about how the AI employee should communicate or behave
+- explicit feedback about how the AI agent should communicate or behave
 
 Ignore:
 - greetings, jokes, filler, reactions without substance, and ordinary small talk
@@ -46,8 +46,8 @@ Ignore:
 - duplicate facts already established unless the new evidence changes or contradicts them
 - secrets, credentials, private tokens, or sensitive personal data
 
-Write memories as concise facts the employee should know later.
-Do not write memories about the employee merely doing work.
+Write memories as concise facts the agent should know later.
+Do not write memories about the agent merely doing work.
 Preserve source, speaker, time, and channel/project context only when it helps explain authority, ownership, recency, or why the memory matters.`
 
 	defaultObservationsMission = `Identify durable patterns and evolving company knowledge from retained memories.
@@ -60,7 +60,7 @@ Good observations:
 - changes in strategy, priorities, ownership, or technical direction
 - recurring customer feedback, objections, and product requests
 - recurring incidents, blockers, engineering risks, or process failures
-- repeated feedback about how the AI employee should behave
+- repeated feedback about how the AI agent should behave
 
 Bad observations:
 - summaries of a single task being done
@@ -73,7 +73,7 @@ Prefer stable patterns over one-off statements.
 When new evidence contradicts older memory, preserve the transition: what changed, when, who said it, and why.
 Do not create observations from filler, transient task chatter, or isolated low-confidence comments.`
 
-	defaultReflectMission = `You are the long-term memory of an AI employee working inside this company.
+	defaultReflectMission = `You are the long-term memory of an AI agent working inside this company.
 
 When reflecting, synthesize company, team, project, technical, customer, people, policy, preference, and decision memories into a concise, useful answer.
 
@@ -88,7 +88,7 @@ Prioritize:
 Do not invent facts outside memory.
 If memory is incomplete, stale, or conflicting, say so clearly.
 When useful, explain the evidence or source pattern behind the answer.
-Keep the answer practical and employee-like.`
+Keep the answer practical and agent-like.`
 
 	defaultSkepticism = 3
 	defaultLiteralism = 4
@@ -107,7 +107,7 @@ var SupportedMemoryTypes = []string{
 	"bot_feedback",
 }
 
-// DefaultMemoryConfig returns sensible defaults for general-purpose employees.
+// DefaultMemoryConfig returns sensible defaults for general-purpose agents.
 func DefaultMemoryConfig() MemoryConfig {
 	enabled := true
 	skep, lit, emp := defaultSkepticism, defaultLiteralism, defaultEmpathy
@@ -218,7 +218,7 @@ func memoryTypeEntityValues() []map[string]string {
 		"preference":        "Durable preferences about communication, execution, process, or collaboration.",
 		"technical_context": "Architecture, repositories, stack choices, deploy practices, testing norms, incidents, and operational facts.",
 		"customer_context":  "Customer segments, accounts, feedback, objections, feature requests, and sentiment.",
-		"bot_feedback":      "Explicit feedback about how the AI employee should communicate, decide, or behave.",
+		"bot_feedback":      "Explicit feedback about how the AI agent should communicate, decide, or behave.",
 	}
 	values := make([]map[string]string, 0, len(SupportedMemoryTypes))
 	for _, value := range SupportedMemoryTypes {

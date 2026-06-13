@@ -54,20 +54,20 @@ func newHTTPTriggerHarness(t *testing.T) *httpTriggerHarness {
 	if err := database.Create(&model.Org{ID: orgID, Name: "test-org-" + orgID.String()}).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	if err := database.Create(&model.Employee{
+	if err := database.Create(&model.Agent{
 		ID:           agentID,
 		OrgID:        &orgID,
-		Name:         "Employee",
-		SystemPrompt: "You are an employee.",
+		Name:         "Agent",
+		SystemPrompt: "You are an agent.",
 		Model:        "test-model",
-		IsEmployee:   true,
+		IsManaged:    true,
 		Status:       "active",
 	}).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+		t.Fatalf("create agent: %v", err)
 	}
 	t.Cleanup(func() {
-		database.Where("org_id = ?", orgID).Delete(&model.EmployeeTrigger{})
-		database.Where("id = ?", agentID).Delete(&model.Employee{})
+		database.Where("org_id = ?", orgID).Delete(&model.AgentTrigger{})
+		database.Where("id = ?", agentID).Delete(&model.Agent{})
 		database.Where("id = ?", orgID).Delete(&model.Org{})
 	})
 
@@ -87,7 +87,7 @@ func newHTTPTriggerHarness(t *testing.T) *httpTriggerHarness {
 	}
 }
 
-func (harness *httpTriggerHarness) createTrigger(t *testing.T, triggerType, plaintextSecret string) model.EmployeeTrigger {
+func (harness *httpTriggerHarness) createTrigger(t *testing.T, triggerType, plaintextSecret string) model.AgentTrigger {
 	t.Helper()
 	storedSecret := ""
 	if plaintextSecret != "" {
@@ -97,9 +97,9 @@ func (harness *httpTriggerHarness) createTrigger(t *testing.T, triggerType, plai
 		}
 		storedSecret = string(hash)
 	}
-	trigger := model.EmployeeTrigger{
+	trigger := model.AgentTrigger{
 		OrgID:       harness.orgID,
-		EmployeeID:  harness.agentID,
+		AgentID:     harness.agentID,
 		TriggerType: triggerType,
 		Enabled:     true,
 		SecretKey:   storedSecret,
@@ -108,7 +108,7 @@ func (harness *httpTriggerHarness) createTrigger(t *testing.T, triggerType, plai
 		t.Fatalf("create trigger: %v", err)
 	}
 	t.Cleanup(func() {
-		harness.db.Where("id = ?", trigger.ID).Delete(&model.EmployeeTrigger{})
+		harness.db.Where("id = ?", trigger.ID).Delete(&model.AgentTrigger{})
 	})
 	return trigger
 }
@@ -130,7 +130,7 @@ func (harness *httpTriggerHarness) doPostWithQuery(t *testing.T, triggerID, quer
 }
 
 // TestHTTPTrigger_ValidRequest_Returns200AndEnqueues verifies that a valid HTTP trigger request
-// correctly enqueues an employee trigger dispatch task with the expected payload.
+// correctly enqueues an agent trigger dispatch task with the expected payload.
 func TestHTTPTrigger_ValidRequest_Returns200AndEnqueues(t *testing.T) {
 	harness := newHTTPTriggerHarness(t)
 	trigger := harness.createTrigger(t, "http", "")
@@ -142,14 +142,14 @@ func TestHTTPTrigger_ValidRequest_Returns200AndEnqueues(t *testing.T) {
 		t.Fatalf("status: got %d, want 200", recorder.Code)
 	}
 
-	harness.mock.AssertEnqueued(t, tasks.TypeEmployeeTriggerDispatch)
+	harness.mock.AssertEnqueued(t, tasks.TypeAgentTriggerDispatch)
 
 	enqueuedTasks := harness.mock.Tasks()
 	if len(enqueuedTasks) != 1 {
 		t.Fatalf("expected 1 enqueued task, got %d", len(enqueuedTasks))
 	}
 
-	var payload tasks.EmployeeTriggerDispatchPayload
+	var payload tasks.AgentTriggerDispatchPayload
 	if err := json.Unmarshal(enqueuedTasks[0].Payload, &payload); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestHTTPTrigger_ValidBearer_Returns200(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want 200 with valid Bearer token", recorder.Code)
 	}
-	harness.mock.AssertEnqueued(t, tasks.TypeEmployeeTriggerDispatch)
+	harness.mock.AssertEnqueued(t, tasks.TypeAgentTriggerDispatch)
 }
 
 // TestHTTPTrigger_NoSecret_AcceptsAnyRequest verifies that triggers without a secret
@@ -191,7 +191,7 @@ func TestHTTPTrigger_NoSecret_AcceptsAnyRequest(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want 200 without secret configured", recorder.Code)
 	}
-	harness.mock.AssertEnqueued(t, tasks.TypeEmployeeTriggerDispatch)
+	harness.mock.AssertEnqueued(t, tasks.TypeAgentTriggerDispatch)
 }
 
 func TestHTTPTrigger_RedactsSensitiveJSONKeysBeforeEnqueue(t *testing.T) {
@@ -213,7 +213,7 @@ func TestHTTPTrigger_RedactsSensitiveJSONKeysBeforeEnqueue(t *testing.T) {
 	if len(enqueuedTasks) != 1 {
 		t.Fatalf("expected 1 enqueued task, got %d", len(enqueuedTasks))
 	}
-	var payload tasks.EmployeeTriggerDispatchPayload
+	var payload tasks.AgentTriggerDispatchPayload
 	if err := json.Unmarshal(enqueuedTasks[0].Payload, &payload); err != nil {
 		t.Fatalf("unmarshal task payload: %v", err)
 	}

@@ -7,133 +7,133 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestEmployeeEnvCatalogGolden(t *testing.T) {
-	got := EmployeeEnvCatalog()
+func TestAgentEnvCatalogGolden(t *testing.T) {
+	got := AgentEnvCatalog()
 	var keys []string
 	for _, spec := range got {
 		keys = append(keys, spec.Key)
 	}
 	want := []string{
-		EmployeeEnvRuntimeSecret,
-		EmployeeEnvProxyAPIKey,
-		EmployeeEnvAgentModel,
-		EmployeeEnvAgentBaseURL,
-		EmployeeEnvAgentAPIKeyEnv,
-		EmployeeEnvAgentMultimodalModel,
-		EmployeeEnvAgentMultimodalBaseURL,
-		EmployeeEnvAgentMultimodalAPIKeyEnv,
-		EmployeeEnvEmployeeID,
-		EmployeeEnvCloudControlPlaneURL,
-		EmployeeEnvDriveUploadBearer,
-		EmployeeEnvWorkspaceRoot,
-		EmployeeEnvDBPath,
-		EmployeeEnvRuntimeBindAddr,
-		EmployeeEnvTunnelPassword,
-		EmployeeEnvSandboxID,
-		EmployeeEnvOrgID,
-		EmployeeEnvGitUsername,
-		EmployeeEnvGitEmail,
-		EmployeeEnvGitCredentialsURL,
-		EmployeeEnvGitHubNoKeyring,
-		EmployeeEnvDriveUploadURL,
-		EmployeeEnvBugsinkURL,
-		EmployeeEnvBugsinkDashboardBaseURL,
-		EmployeeEnvBugsinkToken,
-		EmployeeEnvGlitchTipURL,
-		EmployeeEnvGlitchTipDashboardBaseURL,
-		EmployeeEnvGlitchTipToken,
-		EmployeeEnvLinearURL,
-		EmployeeEnvLinearToken,
-		EmployeeEnvNotionAPIURL,
-		EmployeeEnvNotionToken,
-		EmployeeEnvRailwayAPIURL,
-		EmployeeEnvRailwayAPIKey,
-		EmployeeEnvVercelAPIURL,
-		EmployeeEnvVercelAPIKey,
-		EmployeeEnvSlackAPIURL,
-		EmployeeEnvSlackToken,
-		EmployeeEnvPostgresURL,
-		EmployeeEnvPostgresToken,
-		EmployeeEnvMySQLURL,
-		EmployeeEnvMySQLToken,
-		EmployeeEnvMongoDBURL,
-		EmployeeEnvMongoDBToken,
-		EmployeeEnvSentryDSN,
-		EmployeeEnvSentryEnvironment,
-		EmployeeEnvSentrySampleRate,
-		EmployeeEnvSentryTracesSampleRate,
-		EmployeeEnvSentryEnableLogs,
-		EmployeeEnvSentryRelease,
-		EmployeeEnvHome,
-		EmployeeEnvPath,
-		EmployeeEnvLang,
-		EmployeeEnvLCAll,
+		AgentEnvRuntimeSecret,
+		AgentEnvProxyAPIKey,
+		AgentEnvAgentModel,
+		AgentEnvAgentBaseURL,
+		AgentEnvAgentAPIKeyEnv,
+		AgentEnvAgentMultimodalModel,
+		AgentEnvAgentMultimodalBaseURL,
+		AgentEnvAgentMultimodalAPIKeyEnv,
+		AgentEnvAgentID,
+		AgentEnvCloudControlPlaneURL,
+		AgentEnvDriveUploadBearer,
+		AgentEnvWorkspaceRoot,
+		AgentEnvDBPath,
+		AgentEnvRuntimeBindAddr,
+		AgentEnvTunnelPassword,
+		AgentEnvSandboxID,
+		AgentEnvOrgID,
+		AgentEnvGitUsername,
+		AgentEnvGitEmail,
+		AgentEnvGitCredentialsURL,
+		AgentEnvGitHubNoKeyring,
+		AgentEnvDriveUploadURL,
+		AgentEnvBugsinkURL,
+		AgentEnvBugsinkDashboardBaseURL,
+		AgentEnvBugsinkToken,
+		AgentEnvGlitchTipURL,
+		AgentEnvGlitchTipDashboardBaseURL,
+		AgentEnvGlitchTipToken,
+		AgentEnvLinearURL,
+		AgentEnvLinearToken,
+		AgentEnvNotionAPIURL,
+		AgentEnvNotionToken,
+		AgentEnvRailwayAPIURL,
+		AgentEnvRailwayAPIKey,
+		AgentEnvVercelAPIURL,
+		AgentEnvVercelAPIKey,
+		AgentEnvSlackAPIURL,
+		AgentEnvSlackToken,
+		AgentEnvPostgresURL,
+		AgentEnvPostgresToken,
+		AgentEnvMySQLURL,
+		AgentEnvMySQLToken,
+		AgentEnvMongoDBURL,
+		AgentEnvMongoDBToken,
+		AgentEnvSentryDSN,
+		AgentEnvSentryEnvironment,
+		AgentEnvSentrySampleRate,
+		AgentEnvSentryTracesSampleRate,
+		AgentEnvSentryEnableLogs,
+		AgentEnvSentryRelease,
+		AgentEnvHome,
+		AgentEnvPath,
+		AgentEnvLang,
+		AgentEnvLCAll,
 	}
 	if !reflect.DeepEqual(gotKeys(got), want) {
-		t.Fatalf("employee env catalog keys changed\ngot:  %#v\nwant: %#v", keys, want)
+		t.Fatalf("agent env catalog keys changed\ngot:  %#v\nwant: %#v", keys, want)
 	}
 }
 
 func TestApplyServiceProxyEnvSetsAllProviderProxyVariables(t *testing.T) {
-	employeeID := mustParseUUID(t, "11111111-1111-1111-1111-111111111111")
+	agentID := mustParseUUID(t, "11111111-1111-1111-1111-111111111111")
 	env := map[string]string{}
-	ApplyServiceProxyEnv(env, "https://api.example.test/", employeeID, "runtime-secret")
+	ApplyServiceProxyEnv(env, "https://api.example.test/", agentID, "runtime-secret")
 
 	want := map[string]string{
-		EmployeeEnvBugsinkURL:     "https://api.example.test/internal/bugsink-proxy/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvBugsinkToken:   "runtime-secret",
-		EmployeeEnvGlitchTipURL:   "https://api.example.test/internal/glitchtip-proxy/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvGlitchTipToken: "runtime-secret",
-		EmployeeEnvLinearURL:      "https://api.example.test/internal/linear-proxy/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvLinearToken:    "runtime-secret",
-		EmployeeEnvNotionAPIURL:   "https://api.example.test/internal/notion-proxy/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvNotionToken:    "runtime-secret",
-		EmployeeEnvRailwayAPIURL:  "https://api.example.test/internal/railway-proxy/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvRailwayAPIKey:  "runtime-secret",
-		EmployeeEnvVercelAPIURL:   "https://api.example.test/internal/vercel-proxy/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvVercelAPIKey:   "runtime-secret",
-		EmployeeEnvSlackAPIURL:    "https://api.example.test/internal/slack-proxy/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvSlackToken:     "runtime-secret",
-		EmployeeEnvPostgresURL:    "https://api.example.test/internal/database-proxy/postgres/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvPostgresToken:  "runtime-secret",
-		EmployeeEnvMySQLURL:       "https://api.example.test/internal/database-proxy/mysql/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvMySQLToken:     "runtime-secret",
-		EmployeeEnvMongoDBURL:     "https://api.example.test/internal/database-proxy/mongodb/11111111-1111-1111-1111-111111111111",
-		EmployeeEnvMongoDBToken:   "runtime-secret",
+		AgentEnvBugsinkURL:     "https://api.example.test/internal/bugsink-proxy/11111111-1111-1111-1111-111111111111",
+		AgentEnvBugsinkToken:   "runtime-secret",
+		AgentEnvGlitchTipURL:   "https://api.example.test/internal/glitchtip-proxy/11111111-1111-1111-1111-111111111111",
+		AgentEnvGlitchTipToken: "runtime-secret",
+		AgentEnvLinearURL:      "https://api.example.test/internal/linear-proxy/11111111-1111-1111-1111-111111111111",
+		AgentEnvLinearToken:    "runtime-secret",
+		AgentEnvNotionAPIURL:   "https://api.example.test/internal/notion-proxy/11111111-1111-1111-1111-111111111111",
+		AgentEnvNotionToken:    "runtime-secret",
+		AgentEnvRailwayAPIURL:  "https://api.example.test/internal/railway-proxy/11111111-1111-1111-1111-111111111111",
+		AgentEnvRailwayAPIKey:  "runtime-secret",
+		AgentEnvVercelAPIURL:   "https://api.example.test/internal/vercel-proxy/11111111-1111-1111-1111-111111111111",
+		AgentEnvVercelAPIKey:   "runtime-secret",
+		AgentEnvSlackAPIURL:    "https://api.example.test/internal/slack-proxy/11111111-1111-1111-1111-111111111111",
+		AgentEnvSlackToken:     "runtime-secret",
+		AgentEnvPostgresURL:    "https://api.example.test/internal/database-proxy/postgres/11111111-1111-1111-1111-111111111111",
+		AgentEnvPostgresToken:  "runtime-secret",
+		AgentEnvMySQLURL:       "https://api.example.test/internal/database-proxy/mysql/11111111-1111-1111-1111-111111111111",
+		AgentEnvMySQLToken:     "runtime-secret",
+		AgentEnvMongoDBURL:     "https://api.example.test/internal/database-proxy/mongodb/11111111-1111-1111-1111-111111111111",
+		AgentEnvMongoDBToken:   "runtime-secret",
 	}
 	if !reflect.DeepEqual(env, want) {
 		t.Fatalf("proxy env = %#v, want %#v", env, want)
 	}
 }
 
-func TestEmployeeEnvReport_TracksMissingForbiddenAndRedactedValues(t *testing.T) {
-	report := EmployeeEnvReportFromEnv(map[string]string{
-		EmployeeEnvRuntimeSecret: "runtime-secret",
-		EmployeeEnvAgentBaseURL:  "https://proxy.example.test/v1",
-		EmployeeEnvProxyAPIKey:   "ptok_test",
+func TestAgentEnvReport_TracksMissingForbiddenAndRedactedValues(t *testing.T) {
+	report := AgentEnvReportFromEnv(map[string]string{
+		AgentEnvRuntimeSecret: "runtime-secret",
+		AgentEnvAgentBaseURL:  "https://proxy.example.test/v1",
+		AgentEnvProxyAPIKey:   "ptok_test",
 	}, false, false)
-	byKey := map[string]EmployeeEnvReportEntry{}
+	byKey := map[string]AgentEnvReportEntry{}
 	for _, entry := range report {
 		byKey[entry.Key] = entry
 	}
-	if got := byKey[EmployeeEnvRuntimeSecret]; !got.Set || got.Status != EmployeeEnvStatusOK || !got.Sensitive || got.Value != EmployeeEnvValueRedacted || !got.Redacted {
+	if got := byKey[AgentEnvRuntimeSecret]; !got.Set || got.Status != AgentEnvStatusOK || !got.Sensitive || got.Value != AgentEnvValueRedacted || !got.Redacted {
 		t.Fatalf("runtime secret report = %+v", got)
 	}
-	if got := byKey[EmployeeEnvAgentBaseURL]; !got.Set || got.Value != "https://proxy.example.test/v1" || got.Redacted {
+	if got := byKey[AgentEnvAgentBaseURL]; !got.Set || got.Value != "https://proxy.example.test/v1" || got.Redacted {
 		t.Fatalf("non-sensitive env report = %+v", got)
 	}
 }
 
-func TestEmployeeEnvReport_PrintsSensitiveValuesWhenRequested(t *testing.T) {
-	report := EmployeeEnvReportFromEnv(map[string]string{
-		EmployeeEnvRuntimeSecret: "runtime-secret",
-		"EXTRA_API_TOKEN":        "extra-token",
+func TestAgentEnvReport_PrintsSensitiveValuesWhenRequested(t *testing.T) {
+	report := AgentEnvReportFromEnv(map[string]string{
+		AgentEnvRuntimeSecret: "runtime-secret",
+		"EXTRA_API_TOKEN":     "extra-token",
 	}, true, true)
-	byKey := map[string]EmployeeEnvReportEntry{}
+	byKey := map[string]AgentEnvReportEntry{}
 	for _, entry := range report {
 		byKey[entry.Key] = entry
 	}
-	if got := byKey[EmployeeEnvRuntimeSecret]; got.Value != "runtime-secret" || got.Redacted {
+	if got := byKey[AgentEnvRuntimeSecret]; got.Value != "runtime-secret" || got.Redacted {
 		t.Fatalf("runtime secret report = %+v", got)
 	}
 	if got := byKey["EXTRA_API_TOKEN"]; !got.Sensitive || got.Value != "extra-token" || got.Redacted {
@@ -141,7 +141,7 @@ func TestEmployeeEnvReport_PrintsSensitiveValuesWhenRequested(t *testing.T) {
 	}
 }
 
-func gotKeys(specs []EmployeeEnvSpec) []string {
+func gotKeys(specs []AgentEnvSpec) []string {
 	keys := make([]string, 0, len(specs))
 	for _, spec := range specs {
 		keys = append(keys, spec.Key)

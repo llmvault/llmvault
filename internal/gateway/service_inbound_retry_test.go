@@ -56,7 +56,7 @@ func TestReceiveRetriesFailedInboundEvent(t *testing.T) {
 	}
 
 	var status string
-	db.Model(&model.EmployeeGatewayEvent{}).
+	db.Model(&model.AgentGatewayEvent{}).
 		Where("route_id = ?", route.ID).
 		Select("status").Scan(&status)
 	if status != "failed" {
@@ -86,7 +86,7 @@ func TestReceiveRetriesFailedInboundEvent(t *testing.T) {
 	}
 
 	var rows int64
-	db.Model(&model.EmployeeGatewayEvent{}).Where("route_id = ?", route.ID).Count(&rows)
+	db.Model(&model.AgentGatewayEvent{}).Where("route_id = ?", route.ID).Count(&rows)
 	if rows != 1 {
 		t.Fatalf("expected a single inbound event row, got %d", rows)
 	}

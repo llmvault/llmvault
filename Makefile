@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates employee-env-doctor employee-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
+.PHONY: build test test-e2e test-agent-runtime-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -69,35 +69,35 @@ build-sandbox-runtime-templates:
 	@test -n "$(SANDBOX_RUNTIME_VERSION)" || (echo "error: SANDBOX_RUNTIME_VERSION is required (e.g. make build-sandbox-runtime-templates SANDBOX_RUNTIME_VERSION=v0.0.1)" && exit 1)
 	env $$(grep -v '^\s*\#' .env | grep -v '^\s*$$' | xargs) go run ./cmd/buildtemplates sandbox-runtime -version=$(SANDBOX_RUNTIME_VERSION) -size=$(or $(SIZE),all)
 
-# Inspect a running employee sandbox's process env using the redacted doctor.
-# Usage: make employee-env-doctor SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b
-#        make employee-env-doctor SANDBOX_ID=... DOCTOR_SENSITIVE=1
+# Inspect a running agent sandbox's process env using the redacted doctor.
+# Usage: make agent-env-doctor SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b
+#        make agent-env-doctor SANDBOX_ID=... DOCTOR_SENSITIVE=1
 DOCTOR_JSON ?= false
 DOCTOR_INCLUDE_UNEXPECTED ?= 1
 DOCTOR_SENSITIVE ?= 0
 DOCTOR_ENV_FILE ?= .env
 DOCTOR_PID ?=
-employee-env-doctor:
-	@test -n "$(SANDBOX_ID)" || (echo "error: SANDBOX_ID is required (e.g. make employee-env-doctor SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b)" && exit 1)
+agent-env-doctor:
+	@test -n "$(SANDBOX_ID)" || (echo "error: SANDBOX_ID is required (e.g. make agent-env-doctor SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b)" && exit 1)
 	@flags="-id $(SANDBOX_ID) -json=$(DOCTOR_JSON) -env-file=$(DOCTOR_ENV_FILE)"; \
 	if [ -n "$(DOCTOR_PID)" ]; then flags="$$flags -pid $(DOCTOR_PID)"; fi; \
 	if [ "$(DOCTOR_INCLUDE_UNEXPECTED)" = "1" ]; then flags="$$flags -include-unexpected"; fi; \
 	if [ "$(DOCTOR_SENSITIVE)" = "1" ]; then flags="$$flags --sensitive"; fi; \
-	go run ./cmd/employee-env-doctor $$flags
+	go run ./cmd/agent-env-doctor $$flags
 
-# Upload a debug collector to an employee sandbox, run it, download the archive,
+# Upload a debug collector to an agent sandbox, run it, download the archive,
 # extract it locally, and print absolute paths to extracted files.
-# Usage: make employee-debug-pack SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b
-#        make employee-debug-pack SANDBOX_ID=... DEBUG_SENSITIVE=1
+# Usage: make agent-debug-pack SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b
+#        make agent-debug-pack SANDBOX_ID=... DEBUG_SENSITIVE=1
 DEBUG_ENV_FILE ?= .env
 DEBUG_LOCAL_DIR ?= /tmp
 DEBUG_SENSITIVE ?= 0
 DEBUG_TIMEOUT ?= 10m
-employee-debug-pack:
-	@test -n "$(SANDBOX_ID)" || (echo "error: SANDBOX_ID is required (e.g. make employee-debug-pack SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b)" && exit 1)
+agent-debug-pack:
+	@test -n "$(SANDBOX_ID)" || (echo "error: SANDBOX_ID is required (e.g. make agent-debug-pack SANDBOX_ID=48a54bb8-cd44-4454-845d-3be611f9090b)" && exit 1)
 	@flags="-id $(SANDBOX_ID) -env-file=$(DEBUG_ENV_FILE) -local-dir=$(DEBUG_LOCAL_DIR) -timeout=$(DEBUG_TIMEOUT)"; \
 	if [ "$(DEBUG_SENSITIVE)" = "1" ]; then flags="$$flags --sensitive"; fi; \
-	go run ./cmd/employee-debug-pack $$flags
+	go run ./cmd/agent-debug-pack $$flags
 
 # Generate Bridge Go client from OpenAPI spec.
 # Bridge emits OpenAPI 3.1 schemas oapi-codegen can't handle:
@@ -520,7 +520,6 @@ docker-run:
 		-e HIVY_JWT_SIGNING_KEY=local-dev-signing-key \
 		-e HIVY_AUTH_RSA_PRIVATE_KEY=$${HIVY_AUTH_RSA_PRIVATE_KEY} \
 		-e HIVY_FRONTEND_URL=http://localhost:30112 \
-		-e HIVY_SPECIALIST_SANDBOX_RUNTIME_VERSION=dev \
 		$(IMAGE):latest
 
 migrate-up:

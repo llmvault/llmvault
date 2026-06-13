@@ -22,11 +22,11 @@ func TestBuildSkills_AttachedSkillWithBadBundleFailsCompile(t *testing.T) {
 	if err := db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
-	agent := model.Employee{
+	agent := model.Agent{
 		ID:            uuid.New(),
 		OrgID:         &org.ID,
 		Name:          "Aria",
-		Model:         DefaultEmployeeModel,
+		Model:         DefaultAgentModel,
 		Tools:         model.JSON{},
 		McpServers:    model.RawJSON("[]"),
 		Skills:        model.JSON{},
@@ -44,7 +44,7 @@ func TestBuildSkills_AttachedSkillWithBadBundleFailsCompile(t *testing.T) {
 	if err := db.Create(&skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	if err := db.Create(&model.EmployeeSkill{EmployeeID: agent.ID, SkillID: skill.ID}).Error; err != nil {
+	if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
 		t.Fatalf("attach skill: %v", err)
 	}
 
@@ -61,7 +61,7 @@ func TestBuildSkills_AttachedSkillWithBadBundleFailsCompile(t *testing.T) {
 // bad seed skill can't break every compile.
 func TestBuildSkills_DefaultSkillWithBadBundleIsDropped(t *testing.T) {
 	db := connectCompileTestDB(t)
-	agentID := uuid.New() // no EmployeeSkill links -> nothing explicitly attached
+	agentID := uuid.New() // no AgentSkill links -> nothing explicitly attached
 
 	suffix := uuid.NewString()
 	badName := "default-bad-" + suffix

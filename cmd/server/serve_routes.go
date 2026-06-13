@@ -27,7 +27,7 @@ func setupPublicRoutes(
 	actionsCatalog *catalog.Catalog,
 	orgInviteHandler *handler.OrgInviteHandler,
 	plansHandler *handler.PlansHandler,
-	employeeOutboundWebhookHandler *handler.EmployeeOutboundWebhookHandler,
+	agentOutboundWebhookHandler *handler.AgentOutboundWebhookHandler,
 	nangoWebhookHandler *handler.NangoWebhookHandler,
 	incomingWebhookHandler *handler.IncomingWebhookHandler,
 	gatewayHTTPHandler *handler.GatewayHTTPHandler,
@@ -36,7 +36,7 @@ func setupPublicRoutes(
 	sandboxEncKey *crypto.SymmetricKey,
 	kms *crypto.KeyWrapper,
 	uploadsHandler *handler.UploadsHandler,
-	sqliteBackupHandler *handler.EmployeeSQLiteBackupHandler,
+	sqliteBackupHandler *handler.AgentSQLiteBackupHandler,
 	orchestratorMissing bool,
 ) {
 	r.Get("/healthz", healthz)
@@ -69,41 +69,41 @@ func setupPublicRoutes(
 	}
 
 	// Webhook receivers (HMAC-verified, no auth middleware)
-	r.Post("/internal/webhooks/employee/{sandboxID}", employeeOutboundWebhookHandler.Handle)
-	r.Post("/internal/webhooks/employee/{sandboxID}/batch", employeeOutboundWebhookHandler.HandleBatch)
+	r.Post("/internal/webhooks/agent/{sandboxID}", agentOutboundWebhookHandler.Handle)
+	r.Post("/internal/webhooks/agent/{sandboxID}/batch", agentOutboundWebhookHandler.HandleBatch)
 	r.Post("/internal/webhooks/nango", nangoWebhookHandler.Handle)
 
 	// Sandbox proxy endpoints (bearer-token auth, no middleware)
 	if nangoClient != nil && sandboxEncKey != nil {
 		gitCredsHandler := handler.NewGitCredentialsHandler(database, sandboxEncKey, nangoClient)
-		r.Post("/internal/git-credentials/{employeeID}", gitCredsHandler.Handle)
+		r.Post("/internal/git-credentials/{agentID}", gitCredsHandler.Handle)
 
 		railwayProxyHandler := handler.NewRailwayProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Post("/internal/railway-proxy/{employeeID}", railwayProxyHandler.Handle)
+		r.Post("/internal/railway-proxy/{agentID}", railwayProxyHandler.Handle)
 
 		bugsinkProxyHandler := handler.NewBugsinkProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/bugsink-proxy/{employeeID}/*", http.HandlerFunc(bugsinkProxyHandler.Handle))
+		r.Handle("/internal/bugsink-proxy/{agentID}/*", http.HandlerFunc(bugsinkProxyHandler.Handle))
 
 		glitchTipProxyHandler := handler.NewGlitchTipProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/glitchtip-proxy/{employeeID}/*", http.HandlerFunc(glitchTipProxyHandler.Handle))
+		r.Handle("/internal/glitchtip-proxy/{agentID}/*", http.HandlerFunc(glitchTipProxyHandler.Handle))
 
 		linearProxyHandler := handler.NewLinearProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Post("/internal/linear-proxy/{employeeID}", linearProxyHandler.Handle)
+		r.Post("/internal/linear-proxy/{agentID}", linearProxyHandler.Handle)
 
 		notionProxyHandler := handler.NewNotionProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/notion-proxy/{employeeID}/*", http.HandlerFunc(notionProxyHandler.Handle))
+		r.Handle("/internal/notion-proxy/{agentID}/*", http.HandlerFunc(notionProxyHandler.Handle))
 
 		vercelProxyHandler := handler.NewVercelProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/vercel-proxy/{employeeID}/*", http.HandlerFunc(vercelProxyHandler.Handle))
+		r.Handle("/internal/vercel-proxy/{agentID}/*", http.HandlerFunc(vercelProxyHandler.Handle))
 
 		slackProxyHandler := handler.NewSlackProxyHandler(database, sandboxEncKey, nangoClient)
-		r.Handle("/internal/slack-proxy/{employeeID}/*", http.HandlerFunc(slackProxyHandler.Handle))
+		r.Handle("/internal/slack-proxy/{agentID}/*", http.HandlerFunc(slackProxyHandler.Handle))
 	}
 	if sandboxEncKey != nil && kms != nil {
 		databaseProxyHandler := handler.NewDatabaseProxyHandler(database, sandboxEncKey, kms)
-		r.Post("/internal/database-proxy/postgres/{employeeID}", databaseProxyHandler.Handle("postgres"))
-		r.Post("/internal/database-proxy/mysql/{employeeID}", databaseProxyHandler.Handle("mysql"))
-		r.Post("/internal/database-proxy/mongodb/{employeeID}", databaseProxyHandler.Handle("mongodb"))
+		r.Post("/internal/database-proxy/postgres/{agentID}", databaseProxyHandler.Handle("postgres"))
+		r.Post("/internal/database-proxy/mysql/{agentID}", databaseProxyHandler.Handle("mysql"))
+		r.Post("/internal/database-proxy/mongodb/{agentID}", databaseProxyHandler.Handle("mongodb"))
 	}
 
 	// Direct incoming webhooks for providers requiring manual webhook configuration
@@ -116,15 +116,15 @@ func setupPublicRoutes(
 	}
 
 	if uploadsHandler != nil {
-		r.Put("/internal/employees/{employeeID}/drive/*", uploadsHandler.StreamEmployeeAsset)
-		r.Post("/internal/employees/{employeeID}/drive/move", uploadsHandler.MoveEmployeeAsset)
-		r.Delete("/internal/employees/{employeeID}/drive/*", uploadsHandler.DeleteEmployeeAsset)
+		r.Put("/internal/agents/{agentID}/drive/*", uploadsHandler.StreamAgentAsset)
+		r.Post("/internal/agents/{agentID}/drive/move", uploadsHandler.MoveAgentAsset)
+		r.Delete("/internal/agents/{agentID}/drive/*", uploadsHandler.DeleteAgentAsset)
 	}
 
 	if sqliteBackupHandler != nil {
-		r.Put("/internal/employees/{employeeID}/sqlite-backup", sqliteBackupHandler.Upload)
-		r.Post("/internal/employees/{employeeID}/sqlite-backup/presign", sqliteBackupHandler.Presign)
-		r.Post("/internal/employees/{employeeID}/sqlite-backup/confirm", sqliteBackupHandler.Confirm)
+		r.Put("/internal/agents/{agentID}/sqlite-backup", sqliteBackupHandler.Upload)
+		r.Post("/internal/agents/{agentID}/sqlite-backup/presign", sqliteBackupHandler.Presign)
+		r.Post("/internal/agents/{agentID}/sqlite-backup/confirm", sqliteBackupHandler.Confirm)
 	}
 
 }

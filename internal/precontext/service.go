@@ -80,20 +80,20 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 		defer wg.Done()
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				logging.Capture(ctx, fmt.Errorf("employee precontext %s panic: %v", name, recovered))
+				logging.Capture(ctx, fmt.Errorf("agent precontext %s panic: %v", name, recovered))
 			}
 		}()
 		text, err := fetch(ctx, req)
 		if err != nil {
-			logging.Capture(ctx, fmt.Errorf("employee precontext %s: %w", name, err))
+			logging.Capture(ctx, fmt.Errorf("agent precontext %s: %w", name, err))
 			return
 		}
 		results <- result{index: index, text: text}
 	}
 	wg.Add(3)
-	go run(0, "sessions", s.cached(SessionsCacheKey(req.OrgID, req.EmployeeID), s.sessions))
-	go run(1, "memories", s.cached(MemoriesCacheKey(req.OrgID, req.EmployeeID), s.memories))
-	go run(2, "knowledge", s.cached(KnowledgeCacheKey(req.OrgID, req.EmployeeID, req.Text), s.knowledge))
+	go run(0, "sessions", s.cached(SessionsCacheKey(req.OrgID, req.AgentID), s.sessions))
+	go run(1, "memories", s.cached(MemoriesCacheKey(req.OrgID, req.AgentID), s.memories))
+	go run(2, "knowledge", s.cached(KnowledgeCacheKey(req.OrgID, req.AgentID, req.Text), s.knowledge))
 	wg.Wait()
 	close(results)
 
@@ -112,7 +112,7 @@ func (s *Service) cached(key string, fetch SourceFetcher) SourceFetcher {
 	return func(ctx context.Context, req Request) (string, error) {
 		if s.cfg.Cache != nil {
 			if value, hit, err := s.cfg.Cache.Get(ctx, key); err != nil {
-				logging.Capture(ctx, fmt.Errorf("employee precontext cache get %s: %w", key, err))
+				logging.Capture(ctx, fmt.Errorf("agent precontext cache get %s: %w", key, err))
 			} else if hit {
 				return value, nil
 			}
@@ -123,7 +123,7 @@ func (s *Service) cached(key string, fetch SourceFetcher) SourceFetcher {
 		}
 		if s.cfg.Cache != nil {
 			if err := s.cfg.Cache.Set(ctx, key, value, s.cfg.CacheTTL); err != nil {
-				logging.Capture(ctx, fmt.Errorf("employee precontext cache set %s: %w", key, err))
+				logging.Capture(ctx, fmt.Errorf("agent precontext cache set %s: %w", key, err))
 			}
 		}
 		return value, nil

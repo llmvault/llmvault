@@ -410,7 +410,7 @@ Webhook delivery retries are failing after the trigger router refactor.
 
 ## Evidence
 - Bugsink shows repeated `502` responses from the delivery worker.
-- Retry attempts exhaust before the employee sandbox accepts the event.
+- Retry attempts exhaust before the agent sandbox accepts the event.
 
 ## Acceptance criteria
 - [ ] Identify the failing request path
@@ -461,7 +461,7 @@ TITLE="Fix failing deploy check"
 DESCRIPTION=$(cat <<'MD'
 ## Failing check
 
-The deploy job fails while building the employee sandbox image.
+The deploy job fails while building the agent sandbox image.
 
 ```bash
 docker build -f sandboxes/runtime/Dockerfile.runtime .

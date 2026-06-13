@@ -6,94 +6,76 @@ import (
 )
 
 const (
-	EmployeeEnvRuntimeSecret              = "HIVY_RUNTIME_SECRET"
-	EmployeeEnvStreamToken                = "HIVY_STREAM_TOKEN"
-	EmployeeEnvProxyAPIKey                = "HIVY_PROXY_API_KEY"
-	EmployeeEnvAgentModel                 = "HIVY_AGENT_MODEL"
-	EmployeeEnvAgentBaseURL               = "HIVY_AGENT_BASE_URL"
-	EmployeeEnvAgentAPIKeyEnv             = "HIVY_AGENT_API_KEY_ENV"
-	EmployeeEnvAgentMultimodalModel       = "HIVY_AGENT_MULTIMODAL_MODEL"
-	EmployeeEnvAgentMultimodalBaseURL     = "HIVY_AGENT_MULTIMODAL_BASE_URL"
-	EmployeeEnvAgentMultimodalAPIKeyEnv   = "HIVY_AGENT_MULTIMODAL_API_KEY_ENV"
-	EmployeeEnvEmployeeID                 = "HIVY_AGENT_ID"
-	EmployeeEnvCloudControlPlaneURL       = "HIVY_CONTROL_PLANE_URL"
-	EmployeeEnvDriveUploadBearer          = "HIVY_DRIVE_UPLOAD_BEARER"
-	EmployeeEnvWorkspaceRoot              = "HIVY_WORKSPACE_ROOT"
-	EmployeeEnvDBPath                     = "HIVY_DB_PATH"
-	EmployeeEnvRuntimeBindAddr            = "HIVY_RUNTIME_BIND_ADDR"
-	EmployeeEnvTunnelPassword             = "HIVY_TUNNEL_PASSWORD"
-	EmployeeEnvSandboxID                  = "HIVY_SANDBOX_ID"
-	EmployeeEnvOrgID                      = "HIVY_ORG_ID"
-	EmployeeEnvGitUsername                = "HIVY_GIT_USERNAME"
-	EmployeeEnvGitEmail                   = "HIVY_GIT_EMAIL"
-	EmployeeEnvGitCredentialsURL          = "HIVY_GIT_CREDENTIALS_URL"
-	EmployeeEnvGitHubNoKeyring            = "GH_NO_KEYRING"
-	EmployeeEnvDriveUploadURL             = "HIVY_DRIVE_UPLOAD_URL"
-	EmployeeEnvBugsinkURL                 = "HIVY_BUGSINK_URL"
-	EmployeeEnvBugsinkDashboardBaseURL    = "HIVY_BUGSINK_DASHBOARD_BASE_URL"
-	EmployeeEnvBugsinkToken               = "HIVY_BUGSINK_TOKEN"
-	EmployeeEnvGlitchTipURL               = "HIVY_GLITCHTIP_URL"
-	EmployeeEnvGlitchTipDashboardBaseURL  = "HIVY_GLITCHTIP_DASHBOARD_BASE_URL"
-	EmployeeEnvGlitchTipToken             = "HIVY_GLITCHTIP_TOKEN"
-	EmployeeEnvLinearURL                  = "HIVY_LINEAR_URL"
-	EmployeeEnvLinearToken                = "HIVY_LINEAR_TOKEN"
-	EmployeeEnvNotionAPIURL               = "HIVY_NOTION_API_URL"
-	EmployeeEnvNotionToken                = "HIVY_NOTION_TOKEN"
-	EmployeeEnvRailwayAPIURL              = "HIVY_RAILWAY_API_URL"
-	EmployeeEnvRailwayAPIKey              = "HIVY_RAILWAY_API_KEY"
-	EmployeeEnvVercelAPIURL               = "HIVY_VERCEL_API_URL"
-	EmployeeEnvVercelAPIKey               = "HIVY_VERCEL_API_KEY"
-	EmployeeEnvSlackAPIURL                = "HIVY_SLACK_API_URL"
-	EmployeeEnvSlackToken                 = "HIVY_SLACK_TOKEN"
-	EmployeeEnvPostgresURL                = "HIVY_POSTGRES_URL"
-	EmployeeEnvPostgresToken              = "HIVY_POSTGRES_TOKEN"
-	EmployeeEnvMySQLURL                   = "HIVY_MYSQL_URL"
-	EmployeeEnvMySQLToken                 = "HIVY_MYSQL_TOKEN"
-	EmployeeEnvMongoDBURL                 = "HIVY_MONGODB_URL"
-	EmployeeEnvMongoDBToken               = "HIVY_MONGODB_TOKEN"
-	EmployeeEnvSentryDSN                  = "SENTRY_DSN"
-	EmployeeEnvSentryEnvironment          = "SENTRY_ENVIRONMENT"
-	EmployeeEnvSentrySampleRate           = "SENTRY_SAMPLE_RATE"
-	EmployeeEnvSentryTracesSampleRate     = "SENTRY_TRACES_SAMPLE_RATE"
-	EmployeeEnvSentryEnableLogs           = "SENTRY_ENABLE_LOGS"
-	EmployeeEnvSentryRelease              = "SENTRY_RELEASE"
-	EmployeeEnvHome                       = "HOME"
-	EmployeeEnvPath                       = "PATH"
-	EmployeeEnvLang                       = "LANG"
-	EmployeeEnvLCAll                      = "LC_ALL"
-	EmployeeEnvSourceControlPlaneInjected = "control_plane_injected"
-	EmployeeEnvSourceConditionalSentry    = "conditional_sentry"
-	EmployeeEnvSourceContainerOS          = "container_os"
-	EmployeeEnvStatusOK                   = "ok"
-	EmployeeEnvStatusMissing              = "missing"
-	EmployeeEnvStatusMissingOptional      = "missing_optional"
-	EmployeeEnvStatusForbidden            = "forbidden"
-	EmployeeEnvStatusUnexpected           = "unexpected"
-	EmployeeEnvValueRedacted              = "<redacted>"
-)
-
-const (
-	AgentEnvRuntimeSecret            = EmployeeEnvRuntimeSecret
-	AgentEnvProxyAPIKey              = EmployeeEnvProxyAPIKey
-	AgentEnvAgentModel               = EmployeeEnvAgentModel
-	AgentEnvAgentBaseURL             = EmployeeEnvAgentBaseURL
-	AgentEnvAgentAPIKeyEnv           = EmployeeEnvAgentAPIKeyEnv
-	AgentEnvAgentMultimodalModel     = EmployeeEnvAgentMultimodalModel
-	AgentEnvAgentMultimodalBaseURL   = EmployeeEnvAgentMultimodalBaseURL
-	AgentEnvAgentMultimodalAPIKeyEnv = EmployeeEnvAgentMultimodalAPIKeyEnv
-	AgentEnvAgentID                  = EmployeeEnvEmployeeID
-	AgentEnvCloudControlPlaneURL     = EmployeeEnvCloudControlPlaneURL
-	AgentEnvWorkspaceRoot            = EmployeeEnvWorkspaceRoot
-	AgentEnvDBPath                   = EmployeeEnvDBPath
-	AgentEnvRuntimeBindAddr          = EmployeeEnvRuntimeBindAddr
-	AgentEnvSandboxID                = EmployeeEnvSandboxID
-	AgentEnvOrgID                    = EmployeeEnvOrgID
+	AgentEnvRuntimeSecret              = "HIVY_RUNTIME_SECRET"
+	AgentEnvStreamToken                = "HIVY_STREAM_TOKEN"
+	AgentEnvProxyAPIKey                = "HIVY_PROXY_API_KEY"
+	AgentEnvAgentModel                 = "HIVY_AGENT_MODEL"
+	AgentEnvAgentBaseURL               = "HIVY_AGENT_BASE_URL"
+	AgentEnvAgentAPIKeyEnv             = "HIVY_AGENT_API_KEY_ENV"
+	AgentEnvAgentMultimodalModel       = "HIVY_AGENT_MULTIMODAL_MODEL"
+	AgentEnvAgentMultimodalBaseURL     = "HIVY_AGENT_MULTIMODAL_BASE_URL"
+	AgentEnvAgentMultimodalAPIKeyEnv   = "HIVY_AGENT_MULTIMODAL_API_KEY_ENV"
+	AgentEnvAgentID                    = "HIVY_AGENT_ID"
+	AgentEnvCloudControlPlaneURL       = "HIVY_CONTROL_PLANE_URL"
+	AgentEnvDriveUploadBearer          = "HIVY_DRIVE_UPLOAD_BEARER"
+	AgentEnvWorkspaceRoot              = "HIVY_WORKSPACE_ROOT"
+	AgentEnvDBPath                     = "HIVY_DB_PATH"
+	AgentEnvRuntimeBindAddr            = "HIVY_RUNTIME_BIND_ADDR"
+	AgentEnvTunnelPassword             = "HIVY_TUNNEL_PASSWORD"
+	AgentEnvSandboxID                  = "HIVY_SANDBOX_ID"
+	AgentEnvOrgID                      = "HIVY_ORG_ID"
+	AgentEnvGitUsername                = "HIVY_GIT_USERNAME"
+	AgentEnvGitEmail                   = "HIVY_GIT_EMAIL"
+	AgentEnvGitCredentialsURL          = "HIVY_GIT_CREDENTIALS_URL"
+	AgentEnvGitHubNoKeyring            = "GH_NO_KEYRING"
+	AgentEnvDriveUploadURL             = "HIVY_DRIVE_UPLOAD_URL"
+	AgentEnvBugsinkURL                 = "HIVY_BUGSINK_URL"
+	AgentEnvBugsinkDashboardBaseURL    = "HIVY_BUGSINK_DASHBOARD_BASE_URL"
+	AgentEnvBugsinkToken               = "HIVY_BUGSINK_TOKEN"
+	AgentEnvGlitchTipURL               = "HIVY_GLITCHTIP_URL"
+	AgentEnvGlitchTipDashboardBaseURL  = "HIVY_GLITCHTIP_DASHBOARD_BASE_URL"
+	AgentEnvGlitchTipToken             = "HIVY_GLITCHTIP_TOKEN"
+	AgentEnvLinearURL                  = "HIVY_LINEAR_URL"
+	AgentEnvLinearToken                = "HIVY_LINEAR_TOKEN"
+	AgentEnvNotionAPIURL               = "HIVY_NOTION_API_URL"
+	AgentEnvNotionToken                = "HIVY_NOTION_TOKEN"
+	AgentEnvRailwayAPIURL              = "HIVY_RAILWAY_API_URL"
+	AgentEnvRailwayAPIKey              = "HIVY_RAILWAY_API_KEY"
+	AgentEnvVercelAPIURL               = "HIVY_VERCEL_API_URL"
+	AgentEnvVercelAPIKey               = "HIVY_VERCEL_API_KEY"
+	AgentEnvSlackAPIURL                = "HIVY_SLACK_API_URL"
+	AgentEnvSlackToken                 = "HIVY_SLACK_TOKEN"
+	AgentEnvPostgresURL                = "HIVY_POSTGRES_URL"
+	AgentEnvPostgresToken              = "HIVY_POSTGRES_TOKEN"
+	AgentEnvMySQLURL                   = "HIVY_MYSQL_URL"
+	AgentEnvMySQLToken                 = "HIVY_MYSQL_TOKEN"
+	AgentEnvMongoDBURL                 = "HIVY_MONGODB_URL"
+	AgentEnvMongoDBToken               = "HIVY_MONGODB_TOKEN"
+	AgentEnvSentryDSN                  = "SENTRY_DSN"
+	AgentEnvSentryEnvironment          = "SENTRY_ENVIRONMENT"
+	AgentEnvSentrySampleRate           = "SENTRY_SAMPLE_RATE"
+	AgentEnvSentryTracesSampleRate     = "SENTRY_TRACES_SAMPLE_RATE"
+	AgentEnvSentryEnableLogs           = "SENTRY_ENABLE_LOGS"
+	AgentEnvSentryRelease              = "SENTRY_RELEASE"
+	AgentEnvHome                       = "HOME"
+	AgentEnvPath                       = "PATH"
+	AgentEnvLang                       = "LANG"
+	AgentEnvLCAll                      = "LC_ALL"
+	AgentEnvSourceControlPlaneInjected = "control_plane_injected"
+	AgentEnvSourceConditionalSentry    = "conditional_sentry"
+	AgentEnvSourceContainerOS          = "container_os"
+	AgentEnvStatusOK                   = "ok"
+	AgentEnvStatusMissing              = "missing"
+	AgentEnvStatusMissingOptional      = "missing_optional"
+	AgentEnvStatusForbidden            = "forbidden"
+	AgentEnvStatusUnexpected           = "unexpected"
+	AgentEnvValueRedacted              = "<redacted>"
 )
 
 // ProxyAPIKeyEnv is kept for callers that already depend on this exported name.
-const ProxyAPIKeyEnv = EmployeeEnvProxyAPIKey
+const ProxyAPIKeyEnv = AgentEnvProxyAPIKey
 
-type EmployeeEnvSpec struct {
+type AgentEnvSpec struct {
 	Key       string `json:"key"`
 	Source    string `json:"source"`
 	Sensitive bool   `json:"sensitive"`
@@ -101,7 +83,7 @@ type EmployeeEnvSpec struct {
 	Optional  bool   `json:"optional"`
 }
 
-type EmployeeEnvReportEntry struct {
+type AgentEnvReportEntry struct {
 	Key       string `json:"key"`
 	Source    string `json:"source"`
 	Set       bool   `json:"set"`
@@ -112,73 +94,73 @@ type EmployeeEnvReportEntry struct {
 	Redacted  bool   `json:"redacted,omitempty"`
 }
 
-var employeeEnvCatalog = []EmployeeEnvSpec{
-	{Key: EmployeeEnvRuntimeSecret, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvStreamToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvProxyAPIKey, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvAgentModel, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvAgentBaseURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvAgentAPIKeyEnv, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvAgentMultimodalModel, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvAgentMultimodalBaseURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvAgentMultimodalAPIKeyEnv, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvEmployeeID, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvCloudControlPlaneURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvDriveUploadBearer, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvWorkspaceRoot, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvDBPath, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvRuntimeBindAddr, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvTunnelPassword, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvSandboxID, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvOrgID, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvGitUsername, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvGitEmail, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvGitCredentialsURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvGitHubNoKeyring, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvDriveUploadURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvBugsinkURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvBugsinkDashboardBaseURL, Source: EmployeeEnvSourceControlPlaneInjected, Optional: true},
-	{Key: EmployeeEnvBugsinkToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvGlitchTipURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvGlitchTipDashboardBaseURL, Source: EmployeeEnvSourceControlPlaneInjected, Optional: true},
-	{Key: EmployeeEnvGlitchTipToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvLinearURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvLinearToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvNotionAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvNotionToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvRailwayAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvRailwayAPIKey, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvVercelAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvVercelAPIKey, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvSlackAPIURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvSlackToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvPostgresURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvPostgresToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvMySQLURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvMySQLToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvMongoDBURL, Source: EmployeeEnvSourceControlPlaneInjected},
-	{Key: EmployeeEnvMongoDBToken, Source: EmployeeEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: EmployeeEnvSentryDSN, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
-	{Key: EmployeeEnvSentryEnvironment, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
-	{Key: EmployeeEnvSentrySampleRate, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
-	{Key: EmployeeEnvSentryTracesSampleRate, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
-	{Key: EmployeeEnvSentryEnableLogs, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
-	{Key: EmployeeEnvSentryRelease, Source: EmployeeEnvSourceConditionalSentry, Optional: true},
-	{Key: EmployeeEnvHome, Source: EmployeeEnvSourceContainerOS, Optional: true},
-	{Key: EmployeeEnvPath, Source: EmployeeEnvSourceContainerOS, Optional: true},
-	{Key: EmployeeEnvLang, Source: EmployeeEnvSourceContainerOS, Optional: true},
-	{Key: EmployeeEnvLCAll, Source: EmployeeEnvSourceContainerOS, Optional: true},
+var agentEnvCatalog = []AgentEnvSpec{
+	{Key: AgentEnvRuntimeSecret, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvStreamToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvProxyAPIKey, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvAgentModel, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvAgentBaseURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvAgentAPIKeyEnv, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvAgentMultimodalModel, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvAgentMultimodalBaseURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvAgentMultimodalAPIKeyEnv, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvAgentID, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvCloudControlPlaneURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvDriveUploadBearer, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvWorkspaceRoot, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvDBPath, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvRuntimeBindAddr, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvTunnelPassword, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvSandboxID, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvOrgID, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvGitUsername, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvGitEmail, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvGitCredentialsURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvGitHubNoKeyring, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvDriveUploadURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvBugsinkURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvBugsinkDashboardBaseURL, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
+	{Key: AgentEnvBugsinkToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvGlitchTipURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvGlitchTipDashboardBaseURL, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
+	{Key: AgentEnvGlitchTipToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvLinearURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvLinearToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvNotionAPIURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvNotionToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvRailwayAPIURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvRailwayAPIKey, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvVercelAPIURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvVercelAPIKey, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvSlackAPIURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvSlackToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvPostgresURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvPostgresToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvMySQLURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvMySQLToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvMongoDBURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvMongoDBToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvSentryDSN, Source: AgentEnvSourceConditionalSentry, Optional: true},
+	{Key: AgentEnvSentryEnvironment, Source: AgentEnvSourceConditionalSentry, Optional: true},
+	{Key: AgentEnvSentrySampleRate, Source: AgentEnvSourceConditionalSentry, Optional: true},
+	{Key: AgentEnvSentryTracesSampleRate, Source: AgentEnvSourceConditionalSentry, Optional: true},
+	{Key: AgentEnvSentryEnableLogs, Source: AgentEnvSourceConditionalSentry, Optional: true},
+	{Key: AgentEnvSentryRelease, Source: AgentEnvSourceConditionalSentry, Optional: true},
+	{Key: AgentEnvHome, Source: AgentEnvSourceContainerOS, Optional: true},
+	{Key: AgentEnvPath, Source: AgentEnvSourceContainerOS, Optional: true},
+	{Key: AgentEnvLang, Source: AgentEnvSourceContainerOS, Optional: true},
+	{Key: AgentEnvLCAll, Source: AgentEnvSourceContainerOS, Optional: true},
 }
 
-func EmployeeEnvCatalog() []EmployeeEnvSpec {
-	out := make([]EmployeeEnvSpec, len(employeeEnvCatalog))
-	copy(out, employeeEnvCatalog)
+func AgentEnvCatalog() []AgentEnvSpec {
+	out := make([]AgentEnvSpec, len(agentEnvCatalog))
+	copy(out, agentEnvCatalog)
 	return out
 }
 
-func EmployeeForbiddenRawProviderEnvKeys() []string {
+func AgentForbiddenRawProviderEnvKeys() []string {
 	out := make([]string, 0, 4)
-	for _, spec := range employeeEnvCatalog {
+	for _, spec := range agentEnvCatalog {
 		if spec.Forbidden {
 			out = append(out, spec.Key)
 		}
@@ -187,35 +169,35 @@ func EmployeeForbiddenRawProviderEnvKeys() []string {
 	return out
 }
 
-func EmployeeEnvReportFromKeys(keys []string, includeUnexpected bool) []EmployeeEnvReportEntry {
+func AgentEnvReportFromKeys(keys []string, includeUnexpected bool) []AgentEnvReportEntry {
 	env := make(map[string]string, len(keys))
 	for _, key := range keys {
 		if key != "" {
 			env[key] = ""
 		}
 	}
-	return EmployeeEnvReportFromEnv(env, includeUnexpected, false)
+	return AgentEnvReportFromEnv(env, includeUnexpected, false)
 }
 
-func EmployeeEnvReportFromEnv(env map[string]string, includeUnexpected bool, includeSensitive bool) []EmployeeEnvReportEntry {
-	known := make(map[string]EmployeeEnvSpec, len(employeeEnvCatalog))
-	out := make([]EmployeeEnvReportEntry, 0, len(employeeEnvCatalog))
-	for _, spec := range employeeEnvCatalog {
+func AgentEnvReportFromEnv(env map[string]string, includeUnexpected bool, includeSensitive bool) []AgentEnvReportEntry {
+	known := make(map[string]AgentEnvSpec, len(agentEnvCatalog))
+	out := make([]AgentEnvReportEntry, 0, len(agentEnvCatalog))
+	for _, spec := range agentEnvCatalog {
 		known[spec.Key] = spec
 		value, present := env[spec.Key]
-		status := EmployeeEnvStatusOK
+		status := AgentEnvStatusOK
 		switch {
 		case spec.Forbidden && present:
-			status = EmployeeEnvStatusForbidden
+			status = AgentEnvStatusForbidden
 		case spec.Forbidden:
-			status = EmployeeEnvStatusOK
+			status = AgentEnvStatusOK
 		case !present && spec.Optional:
-			status = EmployeeEnvStatusMissingOptional
+			status = AgentEnvStatusMissingOptional
 		case !present:
-			status = EmployeeEnvStatusMissing
+			status = AgentEnvStatusMissing
 		}
 		value, redacted := reportValue(value, present, spec.Sensitive, includeSensitive)
-		out = append(out, EmployeeEnvReportEntry{
+		out = append(out, AgentEnvReportEntry{
 			Key:       spec.Key,
 			Source:    spec.Source,
 			Set:       present,
@@ -233,12 +215,12 @@ func EmployeeEnvReportFromEnv(env map[string]string, includeUnexpected bool, inc
 			}
 			sensitive := looksSensitiveEnvKey(key)
 			value, redacted := reportValue(value, true, sensitive, includeSensitive)
-			out = append(out, EmployeeEnvReportEntry{
+			out = append(out, AgentEnvReportEntry{
 				Key:       key,
-				Source:    EmployeeEnvStatusUnexpected,
+				Source:    AgentEnvStatusUnexpected,
 				Set:       true,
 				Sensitive: sensitive,
-				Status:    EmployeeEnvStatusUnexpected,
+				Status:    AgentEnvStatusUnexpected,
 				Value:     value,
 				Redacted:  redacted,
 			})
@@ -258,7 +240,7 @@ func reportValue(value string, present bool, sensitive bool, includeSensitive bo
 		return "", false
 	}
 	if sensitive && !includeSensitive {
-		return EmployeeEnvValueRedacted, true
+		return AgentEnvValueRedacted, true
 	}
 	return value, false
 }
@@ -266,7 +248,7 @@ func reportValue(value string, present bool, sensitive bool, includeSensitive bo
 // IsSensitiveEnvKey reports whether an env var should be treated as a secret (for
 // log redaction), by catalog Sensitive flag or a credential-looking key name.
 func IsSensitiveEnvKey(key string) bool {
-	for _, spec := range employeeEnvCatalog {
+	for _, spec := range agentEnvCatalog {
 		if spec.Key == key {
 			return spec.Sensitive
 		}

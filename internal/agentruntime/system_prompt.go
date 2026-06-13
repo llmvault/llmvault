@@ -14,6 +14,7 @@ import (
 
 type PromptSections struct {
 	Identity            PromptSection
+	AgentInstructions   PromptSection
 	Company             PromptSection
 	OperatingPrinciples PromptSection
 }
@@ -27,7 +28,7 @@ type SystemPromptConfig = runtimeapi.SystemPromptConfig
 type SystemPromptSegment = runtimeapi.SystemPromptSegment
 type StaticPromptSegment = runtimeapi.StaticPromptSegment
 
-const employeeBaseSystemPrompt = `Your job is to drive real team work forward.
+const agentBaseSystemPrompt = `Your job is to drive real team work forward.
 
 You own outcomes as an agent: use available tools directly, keep work grounded in evidence, and keep the team informed. Speak like a team member with a real personality: direct, specific, grounded in available context, and clear about what is known versus unknown. Use concise channel-friendly formatting and keep replies useful without performative assistant language. If the useful response is one sentence, use one sentence.
 
@@ -57,7 +58,7 @@ You own outcomes as an agent: use available tools directly, keep work grounded i
 - Do not store greetings, small talk, transient task state, raw transcripts, active conversation framing, or large source dumps as memory.
 - If remembered context conflicts with the current user's explicit correction, follow the current correction and store the corrected durable fact when appropriate.`
 
-func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Employee, description string) PromptSections {
+func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, description string) PromptSections {
 	var org model.Org
 	var hasOrg bool
 	if agent.OrgID != nil && db != nil {
@@ -71,11 +72,16 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Employee
 			Title: "Your identity",
 			Content: strings.TrimSpace(strings.Join([]string{
 				identityOpening(org, hasOrg),
-				"Name: " + managedEmployeeName,
+				"Name: " + managedAgentName,
 				optionalLine("Role description", description),
-				employeeIdentityPrompt(agent),
+				agentIdentityPrompt(agent),
 			}, "\n")),
 		},
+	}
+	if agent != nil && agent.Instructions != nil {
+		if instructions := strings.TrimSpace(*agent.Instructions); instructions != "" {
+			fragments.AgentInstructions = PromptSection{Title: "Agent instructions", Content: instructions}
+		}
 	}
 	if hasOrg {
 		companyContent := strings.TrimSpace(org.PromptCompany)
@@ -91,10 +97,11 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Employee
 
 func buildAgentSystemPrompt(fragments PromptSections) SystemPromptConfig {
 	cacheable := []SystemPromptSegment{
-		staticPromptSegment("", employeeBaseSystemPrompt),
+		staticPromptSegment("", agentBaseSystemPrompt),
 	}
 	for _, fragment := range []PromptSection{
 		fragments.Identity,
+		fragments.AgentInstructions,
 		fragments.Company,
 		fragments.OperatingPrinciples,
 	} {
@@ -185,7 +192,7 @@ func mcpToolsPromptSegment() SystemPromptSegment {
 
 func mustBuildPromptSegment(err error) {
 	if err != nil {
-		panic(fmt.Sprintf("build employee system prompt segment: %v", err))
+		panic(fmt.Sprintf("build agent system prompt segment: %v", err))
 	}
 }
 
@@ -205,14 +212,14 @@ func identityOpening(org model.Org, hasOrg bool) string {
 	if hasOrg && strings.TrimSpace(org.Name) != "" {
 		companyName = strings.TrimSpace(org.Name)
 	}
-	return fmt.Sprintf("You are a %s employee.", companyName)
+	return fmt.Sprintf("You are a %s agent.", companyName)
 }
 
-func employeeIdentityPrompt(agent *model.Employee) string {
+func agentIdentityPrompt(agent *model.Agent) string {
 	return agentprompts.EngineeringIdentityPrompt
 }
 
-func isDefaultManagedEmployeeIdentityPrompt(prompt string) bool {
+func isDefaultManagedAgentIdentityPrompt(prompt string) bool {
 	prompt = strings.TrimSpace(prompt)
 	return prompt == "" ||
 		prompt == strings.TrimSpace(agentprompts.EngineeringIdentityPrompt)

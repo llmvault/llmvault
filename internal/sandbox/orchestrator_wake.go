@@ -17,13 +17,13 @@ func (o *Orchestrator) WakeSandbox(ctx context.Context, sb *model.Sandbox) (*mod
 		return nil, fmt.Errorf("starting sandbox %s: %w", sb.ID, err)
 	}
 
-	if err := o.RefreshEmployeeSandboxURL(ctx, sb); err != nil {
+	if err := o.RefreshAgentSandboxURL(ctx, sb); err != nil {
 		return nil, fmt.Errorf("refreshing runtime URL after wake: %w", err)
 	}
 
 	// Flip to 'running' only after the runtime is confirmed healthy: persisting it
 	// earlier lets a concurrent EnsureSandboxActive route traffic to a dead URL.
-	if err := o.waitForEmployeeRuntimeLive(ctx, sb); err != nil {
+	if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
 		if dbErr := o.db.Model(sb).Updates(map[string]any{
 			"status":        "error",
 			"error_message": fmt.Sprintf("runtime not healthy after wake: %v", err),

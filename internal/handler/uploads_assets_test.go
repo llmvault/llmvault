@@ -12,19 +12,19 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestDeleteEmployeeAsset_HappyPath(t *testing.T) {
+func TestDeleteAgentAsset_HappyPath(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedEmployeeAsset(t, "tmp", "scratch.txt", "delete me")
+	h.seedAgentAsset(t, "tmp", "scratch.txt", "delete me")
 	directURL := fmt.Sprintf("%s/pub/e/%s/tmp/scratch.txt", h.publicBase, h.agentID)
 
-	urlPath := fmt.Sprintf("/internal/employees/%s/drive/tmp/scratch.txt", h.agentID)
+	urlPath := fmt.Sprintf("/internal/agents/%s/drive/tmp/scratch.txt", h.agentID)
 	rr := h.delete(t, urlPath, h.runtimeSecret)
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
 	}
 
 	var count int64
-	h.db.Model(&model.EmployeeAsset{}).Where("key = ?", fmt.Sprintf("pub/e/%s/tmp/scratch.txt", h.agentID)).Count(&count)
+	h.db.Model(&model.AgentAsset{}).Where("key = ?", fmt.Sprintf("pub/e/%s/tmp/scratch.txt", h.agentID)).Count(&count)
 	if count != 0 {
 		t.Fatalf("row still present after delete (count=%d)", count)
 	}
@@ -41,10 +41,10 @@ func TestDeleteEmployeeAsset_HappyPath(t *testing.T) {
 	}
 }
 
-func TestDeleteEmployeeAsset_NotFound(t *testing.T) {
+func TestDeleteAgentAsset_NotFound(t *testing.T) {
 	h := newStreamHarness(t)
 	rr := h.delete(t,
-		fmt.Sprintf("/internal/employees/%s/drive/nope/missing.txt", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/nope/missing.txt", h.agentID),
 		h.runtimeSecret,
 	)
 	if rr.Code != http.StatusNotFound {
@@ -52,11 +52,11 @@ func TestDeleteEmployeeAsset_NotFound(t *testing.T) {
 	}
 }
 
-func TestDeleteEmployeeAsset_BadBearer(t *testing.T) {
+func TestDeleteAgentAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedEmployeeAsset(t, "tmp", "x.txt", "hi")
+	h.seedAgentAsset(t, "tmp", "x.txt", "hi")
 	rr := h.delete(t,
-		fmt.Sprintf("/internal/employees/%s/drive/tmp/x.txt", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/tmp/x.txt", h.agentID),
 		"wrong-key",
 	)
 	if rr.Code != http.StatusUnauthorized {
@@ -64,13 +64,13 @@ func TestDeleteEmployeeAsset_BadBearer(t *testing.T) {
 	}
 }
 
-func TestMoveEmployeeAsset_ByRelativePath(t *testing.T) {
+func TestMoveAgentAsset_ByRelativePath(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedEmployeeAsset(t, "videos", "demo.mp4", "fake mp4")
+	h.seedAgentAsset(t, "videos", "demo.mp4", "fake mp4")
 
 	body := `{"asset":"videos/demo.mp4","new_path":"archive/2026"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -94,7 +94,7 @@ func TestMoveEmployeeAsset_ByRelativePath(t *testing.T) {
 		t.Fatalf("key changed: got %q want %q", resp.Key, wantKey)
 	}
 
-	var row model.EmployeeAsset
+	var row model.AgentAsset
 	if err := h.db.Where("key = ?", wantKey).First(&row).Error; err != nil {
 		t.Fatalf("load row: %v", err)
 	}
@@ -103,13 +103,13 @@ func TestMoveEmployeeAsset_ByRelativePath(t *testing.T) {
 	}
 }
 
-func TestMoveEmployeeAsset_ByPublicURL(t *testing.T) {
+func TestMoveAgentAsset_ByPublicURL(t *testing.T) {
 	h := newStreamHarness(t)
-	publicURL := h.seedEmployeeAsset(t, "tmp", "doc.txt", "hi")
+	publicURL := h.seedAgentAsset(t, "tmp", "doc.txt", "hi")
 
 	body := fmt.Sprintf(`{"asset":%q,"new_path":""}`, publicURL)
 	rr := h.post(t,
-		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -128,14 +128,14 @@ func TestMoveEmployeeAsset_ByPublicURL(t *testing.T) {
 	}
 }
 
-func TestMoveEmployeeAsset_ByLegacyDirectPublicURL(t *testing.T) {
+func TestMoveAgentAsset_ByLegacyDirectPublicURL(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedEmployeeAsset(t, "tmp", "legacy.txt", "hi")
+	h.seedAgentAsset(t, "tmp", "legacy.txt", "hi")
 	publicURL := fmt.Sprintf("%s/pub/e/%s/tmp/legacy.txt", h.publicBase, h.agentID)
 
 	body := fmt.Sprintf(`{"asset":%q,"new_path":"archive"}`, publicURL)
 	rr := h.post(t,
-		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -154,11 +154,11 @@ func TestMoveEmployeeAsset_ByLegacyDirectPublicURL(t *testing.T) {
 	}
 }
 
-func TestMoveEmployeeAsset_RejectsForeignURL(t *testing.T) {
+func TestMoveAgentAsset_RejectsForeignURL(t *testing.T) {
 	h := newStreamHarness(t)
 	body := fmt.Sprintf(`{"asset":"https://example.com/pub/e/%s/foo.txt","new_path":"archive"}`, uuid.New())
 	rr := h.post(t,
-		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -167,12 +167,12 @@ func TestMoveEmployeeAsset_RejectsForeignURL(t *testing.T) {
 	}
 }
 
-func TestMoveEmployeeAsset_RejectsTraversalNewPath(t *testing.T) {
+func TestMoveAgentAsset_RejectsTraversalNewPath(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedEmployeeAsset(t, "tmp", "x.txt", "hi")
+	h.seedAgentAsset(t, "tmp", "x.txt", "hi")
 	body := `{"asset":"tmp/x.txt","new_path":"../escape"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
 		body,
 		h.runtimeSecret,
 	)
@@ -181,11 +181,11 @@ func TestMoveEmployeeAsset_RejectsTraversalNewPath(t *testing.T) {
 	}
 }
 
-func TestMoveEmployeeAsset_BadBearer(t *testing.T) {
+func TestMoveAgentAsset_BadBearer(t *testing.T) {
 	h := newStreamHarness(t)
 	body := `{"asset":"tmp/x.txt","new_path":"archive"}`
 	rr := h.post(t,
-		fmt.Sprintf("/internal/employees/%s/drive/move", h.agentID),
+		fmt.Sprintf("/internal/agents/%s/drive/move", h.agentID),
 		body,
 		"not-the-key",
 	)

@@ -120,13 +120,13 @@ func TestNormalizedHeaders(t *testing.T) {
 func TestGatewaySlackPayloadIncludesRuntimeAPIKey(t *testing.T) {
 	connectionID := uuid.New()
 	orgID := uuid.New()
-	employeeID := uuid.New()
+	agentID := uuid.New()
 	sessionID := uuid.New()
 
 	envelope := gateway.WebhookEnvelope{
 		ConnectionID: connectionID,
 		OrgID:        orgID,
-		EmployeeID:   employeeID,
+		AgentID:      agentID,
 	}
 	result := &gateway.ReceiveConnectionResult{
 		Inbound: gateway.InboundEnvelope{
@@ -135,7 +135,7 @@ func TestGatewaySlackPayloadIncludesRuntimeAPIKey(t *testing.T) {
 			SenderID:  "U123",
 			Raw:       map[string]any{"team_id": "T123"},
 		},
-		Session: model.EmployeeSession{
+		Session: model.AgentSession{
 			ID: sessionID,
 		},
 		RuntimeConversationID: "gateway-conversation",
@@ -169,14 +169,14 @@ func TestGatewaySlackPayloadFallsBackToFullStreamURL(t *testing.T) {
 	envelope := gateway.WebhookEnvelope{
 		ConnectionID: uuid.New(),
 		OrgID:        uuid.New(),
-		EmployeeID:   uuid.New(),
+		AgentID:      uuid.New(),
 	}
 	result := &gateway.ReceiveConnectionResult{
 		Inbound: gateway.InboundEnvelope{
 			ChannelID: "C123",
 			ThreadID:  "1710000000.123",
 		},
-		Session:   model.EmployeeSession{ID: uuid.New()},
+		Session:   model.AgentSession{ID: uuid.New()},
 		StreamURL: "https://runtime.example.com/gateway/http/streams/stream-123",
 	}
 
@@ -196,7 +196,7 @@ func TestEnqueueGatewaySlackStatusBuildsEarlyStatusTask(t *testing.T) {
 		Envelope: gateway.WebhookEnvelope{
 			ConnectionID: uuid.New(),
 			OrgID:        uuid.New(),
-			EmployeeID:   uuid.New(),
+			AgentID:      uuid.New(),
 			Provider:     gateway.SlackProvider,
 			ProviderKey:  "slack",
 			NangoConnID:  "nango-conn",
@@ -206,7 +206,7 @@ func TestEnqueueGatewaySlackStatusBuildsEarlyStatusTask(t *testing.T) {
 			ThreadID:  "1710000000.123",
 			Raw:       map[string]any{"team_id": "T123"},
 		},
-		Event: model.EmployeeGatewayEvent{ID: eventID},
+		Event: model.AgentGatewayEvent{ID: eventID},
 	})
 
 	if len(enq.tasks) != 1 {

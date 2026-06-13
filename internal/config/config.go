@@ -89,12 +89,12 @@ type Config struct {
 	MicrosandboxControlAPIToken       string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`
 	MicrosandboxDefaultPreviewPorts   []int  `env:"HIVY_MICROSANDBOX_DEFAULT_PREVIEW_PORTS" envSeparator:","`
 
-	RailwayAPIToken             string `env:"HIVY_RAILWAY_API_TOKEN"`
-	RailwayProjectID            string `env:"HIVY_RAILWAY_PROJECT_ID"`
-	RailwayEnvironmentID        string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
-	RailwayRegion               string `env:"HIVY_RAILWAY_REGION"`
-	RailwayRuntimePort          int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
-	SandboxWarmPoolEmployeeSize int    `env:"HIVY_SANDBOX_WARM_POOL_EMPLOYEE_SIZE" envDefault:"0"`
+	RailwayAPIToken          string `env:"HIVY_RAILWAY_API_TOKEN"`
+	RailwayProjectID         string `env:"HIVY_RAILWAY_PROJECT_ID"`
+	RailwayEnvironmentID     string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
+	RailwayRegion            string `env:"HIVY_RAILWAY_REGION"`
+	RailwayRuntimePort       int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
+	SandboxWarmPoolAgentSize int    `env:"HIVY_SANDBOX_WARM_POOL_AGENT_SIZE" envDefault:"0"`
 
 	DaytonaAPIURL string `env:"HIVY_DAYTONA_API_URL"`
 	DaytonaAPIKey string `env:"HIVY_DAYTONA_API_KEY"`
@@ -103,10 +103,10 @@ type Config struct {
 	APIWebhookBaseURL string `env:"HIVY_API_WEBHOOK_BASE_URL" envDefault:"https://api.usehivy.com"` // public API base URL for provider webhook callbacks
 	ProxyHost         string `env:"HIVY_PROXY_HOST" envDefault:"proxy.usehivy.com"`                 // LLM proxy hostname (proxy.usehivy.com)
 
-	// Employee sandbox runtime — ghcr.io/usehivy/hivy-sandboxes-runtime image.
-	SandboxesRuntimeBaseImage       string `env:"HIVY_SANDBOXES_RUNTIME_BASE_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime:latest"`
-	EmployeeSandboxAutoUpgrade      bool   `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
-	EmployeeSandboxAutoUpgradeLimit int    `env:"HIVY_EMPLOYEE_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
+	// Agent sandbox runtime — ghcr.io/usehivy/hivy-sandboxes-runtime image.
+	SandboxesRuntimeBaseImage    string `env:"HIVY_SANDBOXES_RUNTIME_BASE_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime:latest"`
+	AgentSandboxAutoUpgrade      bool   `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
+	AgentSandboxAutoUpgradeLimit int    `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
 
 	HindsightAPIURL string `env:"HIVY_HINDSIGHT_API_URL"` // e.g. http://hindsight.railway.internal:8888 — empty = memory disabled
 
@@ -123,13 +123,13 @@ type Config struct {
 	SpiderBaseURL string `env:"HIVY_SPIDER_BASE_URL" envDefault:"https://api.spider.cloud"` // Spider.cloud API endpoint
 
 	// S3 (agent drive storage — empty HIVY_AWS_S3_BUCKET_NAME disables the drive)
-	S3Bucket                     string `env:"HIVY_AWS_S3_BUCKET_NAME"`
-	S3Region                     string `env:"HIVY_AWS_DEFAULT_REGION" envDefault:"us-east-1"`
-	S3Endpoint                   string `env:"HIVY_AWS_ENDPOINT_URL"` // for MinIO / R2 / local dev
-	S3PresignEndpoint            string `env:"HIVY_AWS_PRESIGN_ENDPOINT_URL"`
-	S3AccessKey                  string `env:"HIVY_AWS_ACCESS_KEY_ID"`
-	S3SecretKey                  string `env:"HIVY_AWS_SECRET_ACCESS_KEY"`
-	EmployeeSQLiteBackupMaxBytes int64  `env:"HIVY_EMPLOYEE_SQLITE_BACKUP_MAX_BYTES" envDefault:"5368709120"`
+	S3Bucket                  string `env:"HIVY_AWS_S3_BUCKET_NAME"`
+	S3Region                  string `env:"HIVY_AWS_DEFAULT_REGION" envDefault:"us-east-1"`
+	S3Endpoint                string `env:"HIVY_AWS_ENDPOINT_URL"` // for MinIO / R2 / local dev
+	S3PresignEndpoint         string `env:"HIVY_AWS_PRESIGN_ENDPOINT_URL"`
+	S3AccessKey               string `env:"HIVY_AWS_ACCESS_KEY_ID"`
+	S3SecretKey               string `env:"HIVY_AWS_SECRET_ACCESS_KEY"`
+	AgentSQLiteBackupMaxBytes int64  `env:"HIVY_AGENT_SQLITE_BACKUP_MAX_BYTES" envDefault:"5368709120"`
 
 	// Public assets (avatars, org logos, generic public uploads). Empty
 	// HIVY_PUBLIC_ASSETS_S3_BUCKET disables the /v1/uploads/sign endpoint.

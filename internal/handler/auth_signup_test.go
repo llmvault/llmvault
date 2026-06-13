@@ -64,7 +64,7 @@ func seedSignupUser(t *testing.T, db *gorm.DB) *model.User {
 func cleanupOrgAndLedger(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	t.Helper()
 	t.Cleanup(func() {
-		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.Employee{})
+		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.Agent{})
 		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.CreditLedgerEntry{})
 		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.OrgMembership{})
 		db.Unscoped().Where("id = ?", orgID).Delete(&model.Org{})
@@ -86,16 +86,16 @@ func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	}
 	cleanupOrgAndLedger(t, db, org.ID)
 
-	var employee model.Employee
-	if err := db.Where("org_id = ?", org.ID).First(&employee).Error; err != nil {
-		t.Fatalf("load Hivy employee: %v", err)
+	var agent model.Agent
+	if err := db.Where("org_id = ?", org.ID).First(&agent).Error; err != nil {
+		t.Fatalf("load Hivy agent: %v", err)
 	}
-	resp := toEmployeeResponse(employee)
+	resp := toAgentResponse(agent)
 	if resp.Name != "Hivy" {
-		t.Fatalf("employee name = %q, want Hivy", resp.Name)
+		t.Fatalf("agent name = %q, want Hivy", resp.Name)
 	}
-	if resp.Model != agentruntime.DefaultEmployeeModel {
-		t.Fatalf("employee model = %q, want %q", resp.Model, agentruntime.DefaultEmployeeModel)
+	if resp.Model != agentruntime.DefaultAgentModel {
+		t.Fatalf("agent model = %q, want %q", resp.Model, agentruntime.DefaultAgentModel)
 	}
 }
 

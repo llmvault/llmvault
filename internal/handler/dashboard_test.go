@@ -55,11 +55,6 @@ func TestDashboardHandler_Get_ReturnsOrgSummary(t *testing.T) {
 			SlackConnected    bool  `json:"slack_connected"`
 			NonSlackConnected int64 `json:"non_slack_connected"`
 		} `json:"connections"`
-		Onboarding struct {
-			PlanSelected        bool  `json:"plan_selected"`
-			ExtraToolsConnected int64 `json:"extra_tools_connected"`
-			ExtraToolsRequired  int64 `json:"extra_tools_required"`
-		} `json:"onboarding"`
 		Schedules struct {
 			Total int64 `json:"total"`
 		} `json:"schedules"`
@@ -78,9 +73,6 @@ func TestDashboardHandler_Get_ReturnsOrgSummary(t *testing.T) {
 	}
 	if resp.Connections.Total != 3 || !resp.Connections.SlackConnected || resp.Connections.NonSlackConnected != 2 {
 		t.Fatalf("connections = %#v", resp.Connections)
-	}
-	if !resp.Onboarding.PlanSelected || resp.Onboarding.ExtraToolsConnected != 2 || resp.Onboarding.ExtraToolsRequired != 3 {
-		t.Fatalf("onboarding = %#v", resp.Onboarding)
 	}
 	if resp.Schedules.Total != 1 {
 		t.Fatalf("schedules = %d, want 1", resp.Schedules.Total)
@@ -165,14 +157,14 @@ func seedDashboardConnection(t *testing.T, db *gorm.DB, orgID, userID uuid.UUID,
 
 func seedDashboardSchedule(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	t.Helper()
-	employee := model.Employee{ID: uuid.New(), OrgID: &orgID, Model: "gpt-5.4", Status: "active"}
-	if err := db.Create(&employee).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+	agent := model.Agent{ID: uuid.New(), OrgID: &orgID, Model: "gpt-5.4", Status: "active"}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
 	}
 	sandbox := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  &orgID,
-		EmployeeID:             &employee.ID,
+		AgentID:                &agent.ID,
 		ExternalID:             "sb-test",
 		RuntimeURL:             "https://runtime.test",
 		EncryptedRuntimeSecret: []byte("encrypted"),
@@ -181,10 +173,10 @@ func seedDashboardSchedule(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	if err := db.Create(&sandbox).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)
 	}
-	schedule := model.EmployeeSchedule{
+	schedule := model.AgentSchedule{
 		ID:           uuid.New(),
 		OrgID:        orgID,
-		EmployeeID:   employee.ID,
+		AgentID:      agent.ID,
 		SandboxID:    &sandbox.ID,
 		RuntimeJobID: "cron-test",
 		Status:       "cancelled",

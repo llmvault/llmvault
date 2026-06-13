@@ -20,7 +20,7 @@ const (
 	runtimePort          = 7080
 )
 
-func BuildRuntimeEnv(ctx context.Context, deps CompileDeps, agent *model.Employee, sb *model.Sandbox, runtimeSecret string) (map[string]string, error) {
+func BuildRuntimeEnv(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string) (map[string]string, error) {
 	sandboxID := uuid.Nil
 	if sb != nil {
 		sandboxID = sb.ID
@@ -32,7 +32,7 @@ func BuildRuntimeEnv(ctx context.Context, deps CompileDeps, agent *model.Employe
 	return BuildRuntimeEnvWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
 }
 
-func BuildEmployeeRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent *model.Employee, sb *model.Sandbox, runtimeSecret string) (ConfigUpdateRequest, *ProxyTokenResult, error) {
+func BuildAgentRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string) (ConfigUpdateRequest, *ProxyTokenResult, error) {
 	sandboxID := uuid.Nil
 	if sb != nil {
 		sandboxID = sb.ID
@@ -61,7 +61,7 @@ func BuildEmployeeRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, age
 	}, token, nil
 }
 
-func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Employee, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (map[string]string, error) {
+func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (map[string]string, error) {
 	env := make(map[string]string)
 	if agent == nil {
 		return env, nil
@@ -76,29 +76,29 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	}
 
 	if sb != nil {
-		env[EmployeeEnvSandboxID] = sb.ID.String()
+		env[AgentEnvSandboxID] = sb.ID.String()
 	}
-	env[EmployeeEnvRuntimeSecret] = runtimeSecret
-	env[EmployeeEnvStreamToken] = StreamTokenFromRuntimeSecret(runtimeSecret)
-	env[EmployeeEnvDriveUploadBearer] = runtimeSecret
-	env[EmployeeEnvEmployeeID] = agent.ID.String()
+	env[AgentEnvRuntimeSecret] = runtimeSecret
+	env[AgentEnvStreamToken] = StreamTokenFromRuntimeSecret(runtimeSecret)
+	env[AgentEnvDriveUploadBearer] = runtimeSecret
+	env[AgentEnvAgentID] = agent.ID.String()
 	if agent.OrgID != nil {
-		env[EmployeeEnvOrgID] = agent.OrgID.String()
+		env[AgentEnvOrgID] = agent.OrgID.String()
 	}
 	if deps.Cfg != nil {
-		env[EmployeeEnvAgentBaseURL] = deps.Cfg.ProxyOpenAIBaseURL()
-		env[EmployeeEnvAgentMultimodalBaseURL] = deps.Cfg.ProxyOpenAIBaseURL()
-		env[EmployeeEnvWorkspaceRoot] = runtimeWorkspaceRoot
-		env[EmployeeEnvDBPath] = runtimeDBPath
-		env[EmployeeEnvRuntimeBindAddr] = fmt.Sprintf("0.0.0.0:%d", runtimePort)
+		env[AgentEnvAgentBaseURL] = deps.Cfg.ProxyOpenAIBaseURL()
+		env[AgentEnvAgentMultimodalBaseURL] = deps.Cfg.ProxyOpenAIBaseURL()
+		env[AgentEnvWorkspaceRoot] = runtimeWorkspaceRoot
+		env[AgentEnvDBPath] = runtimeDBPath
+		env[AgentEnvRuntimeBindAddr] = fmt.Sprintf("0.0.0.0:%d", runtimePort)
 	}
-	env[EmployeeEnvAgentModel] = DefaultEmployeeModel
-	env[EmployeeEnvAgentAPIKeyEnv] = ProxyAPIKeyEnv
-	env[EmployeeEnvAgentMultimodalModel] = DefaultEmployeeMultimodalModel
-	env[EmployeeEnvAgentMultimodalAPIKeyEnv] = ProxyAPIKeyEnv
+	env[AgentEnvAgentModel] = DefaultAgentModel
+	env[AgentEnvAgentAPIKeyEnv] = ProxyAPIKeyEnv
+	env[AgentEnvAgentMultimodalModel] = DefaultAgentMultimodalModel
+	env[AgentEnvAgentMultimodalAPIKeyEnv] = ProxyAPIKeyEnv
 	// Provision a tunnel password so the tunnel proxy fails closed (it is an open
 	// proxy to every sandbox localhost port when unset).
-	env[EmployeeEnvTunnelPassword] = runtimeSecret
+	env[AgentEnvTunnelPassword] = runtimeSecret
 	env[ProxyAPIKeyEnv] = token.Token
 	addControlPlaneRuntimeEnv(ctx, deps, env, agent, runtimeSecret)
 
@@ -113,7 +113,7 @@ func StreamTokenFromRuntimeSecret(runtimeSecret string) string {
 // mergeAgentEnvVars decrypts and merges org-supplied env vars into env. It must
 // run before the reserved control-plane keys are written so a user HIVY_* key is
 // overwritten by the authoritative value.
-func mergeAgentEnvVars(deps CompileDeps, env map[string]string, agent *model.Employee) error {
+func mergeAgentEnvVars(deps CompileDeps, env map[string]string, agent *model.Agent) error {
 	if len(agent.EncryptedEnvVars) == 0 {
 		return nil
 	}
@@ -138,7 +138,7 @@ func mergeAgentEnvVars(deps CompileDeps, env map[string]string, agent *model.Emp
 	return nil
 }
 
-func addAgentRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]string, agent *model.Employee, runtimeSecret string) error {
+func addAgentRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]string, agent *model.Agent, runtimeSecret string) error {
 	if err := mergeAgentEnvVars(deps, env, agent); err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func addAgentRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]st
 	return nil
 }
 
-func addControlPlaneRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]string, agent *model.Employee, runtimeSecret string) {
+func addControlPlaneRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]string, agent *model.Agent, runtimeSecret string) {
 	if env == nil || deps.Cfg == nil || agent == nil || agent.ID == uuid.Nil || runtimeSecret == "" {
 		return
 	}
@@ -165,33 +165,33 @@ type ControlPlaneRuntimeEnvOptions struct {
 	GlitchTipDashboardBaseURL string
 }
 
-func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agent *model.Employee, runtimeSecret string, opts ControlPlaneRuntimeEnvOptions) {
+func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agent *model.Agent, runtimeSecret string, opts ControlPlaneRuntimeEnvOptions) {
 	if env == nil || cfg == nil || agent == nil {
 		return
 	}
 	controlPlaneBaseURL := cfg.RuntimeControlPlaneBaseURL()
-	env[EmployeeEnvCloudControlPlaneURL] = controlPlaneBaseURL
+	env[AgentEnvCloudControlPlaneURL] = controlPlaneBaseURL
 	if agent.ID != uuid.Nil {
-		env[EmployeeEnvGitCredentialsURL] = fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID)
-		env[EmployeeEnvDriveUploadURL] = EmployeeDriveUploadURL(controlPlaneBaseURL, agent.ID)
+		env[AgentEnvGitCredentialsURL] = fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID)
+		env[AgentEnvDriveUploadURL] = AgentDriveUploadURL(controlPlaneBaseURL, agent.ID)
 		if runtimeSecret != "" {
 			ApplyServiceProxyEnv(env, controlPlaneBaseURL, agent.ID, runtimeSecret)
 		}
 	}
-	env[EmployeeEnvGitHubNoKeyring] = "1"
-	env[EmployeeEnvGitUsername] = strings.TrimSpace(opts.GitUsername)
-	if env[EmployeeEnvGitUsername] == "" {
-		env[EmployeeEnvGitUsername] = EmployeeGitUsername(agent)
+	env[AgentEnvGitHubNoKeyring] = "1"
+	env[AgentEnvGitUsername] = strings.TrimSpace(opts.GitUsername)
+	if env[AgentEnvGitUsername] == "" {
+		env[AgentEnvGitUsername] = AgentGitUsername(agent)
 	}
-	env[EmployeeEnvGitEmail] = strings.TrimSpace(opts.GitEmail)
-	if env[EmployeeEnvGitEmail] == "" {
-		env[EmployeeEnvGitEmail] = EmployeeGitEmail(agent)
+	env[AgentEnvGitEmail] = strings.TrimSpace(opts.GitEmail)
+	if env[AgentEnvGitEmail] == "" {
+		env[AgentEnvGitEmail] = AgentGitEmail(agent)
 	}
 	if strings.TrimSpace(opts.BugsinkDashboardBaseURL) != "" {
-		env[EmployeeEnvBugsinkDashboardBaseURL] = strings.TrimSpace(opts.BugsinkDashboardBaseURL)
+		env[AgentEnvBugsinkDashboardBaseURL] = strings.TrimSpace(opts.BugsinkDashboardBaseURL)
 	}
 	if strings.TrimSpace(opts.GlitchTipDashboardBaseURL) != "" {
-		env[EmployeeEnvGlitchTipDashboardBaseURL] = strings.TrimSpace(opts.GlitchTipDashboardBaseURL)
+		env[AgentEnvGlitchTipDashboardBaseURL] = strings.TrimSpace(opts.GlitchTipDashboardBaseURL)
 	}
 	ApplySandboxSentryEnv(env, cfg, cfg.AgentSandboxSentryDSN)
 }
@@ -200,17 +200,17 @@ func ApplySandboxSentryEnv(env map[string]string, cfg *config.Config, dsn string
 	if env == nil || cfg == nil || strings.TrimSpace(dsn) == "" {
 		return
 	}
-	env[EmployeeEnvSentryDSN] = strings.TrimSpace(dsn)
-	env[EmployeeEnvSentryEnvironment] = cfg.Environment
-	env[EmployeeEnvSentrySampleRate] = "1"
-	env[EmployeeEnvSentryTracesSampleRate] = fmt.Sprintf("%g", cfg.SentryTracesSampleRate)
-	env[EmployeeEnvSentryEnableLogs] = "true"
+	env[AgentEnvSentryDSN] = strings.TrimSpace(dsn)
+	env[AgentEnvSentryEnvironment] = cfg.Environment
+	env[AgentEnvSentrySampleRate] = "1"
+	env[AgentEnvSentryTracesSampleRate] = fmt.Sprintf("%g", cfg.SentryTracesSampleRate)
+	env[AgentEnvSentryEnableLogs] = "true"
 	if strings.TrimSpace(cfg.SentryRelease) != "" {
-		env[EmployeeEnvSentryRelease] = cfg.SentryRelease
+		env[AgentEnvSentryRelease] = cfg.SentryRelease
 	}
 }
 
-func EmployeeGitUsername(agent *model.Employee) string {
+func AgentGitUsername(agent *model.Agent) string {
 	if agent == nil {
 		return "agent"
 	}
@@ -220,8 +220,8 @@ func EmployeeGitUsername(agent *model.Employee) string {
 	return "hivy"
 }
 
-func EmployeeGitEmail(agent *model.Employee) string {
-	return EmployeeGitUsername(agent) + "@users.noreply.github.com"
+func AgentGitEmail(agent *model.Agent) string {
+	return AgentGitUsername(agent) + "@users.noreply.github.com"
 }
 
 func sanitizeGitIdentity(name string) string {

@@ -42,7 +42,7 @@ func setupV1Routes(
 	ragSearchHandler *handler.RAGSearchHandler,
 	uploadsHandler *handler.UploadsHandler,
 	systemTaskHandler *handler.SystemTaskHandler,
-	employeeHandler *handler.EmployeeHandler,
+	agentHandler *handler.AgentHandler,
 	gatewayExternalHandler *handler.GatewayExternalHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
@@ -130,7 +130,7 @@ func setupV1Routes(
 			})
 
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("employees"))
+				r.Use(middleware.RequireAPIKeyScopeOrJWT("agents"))
 				if databaseIntegrationHandler != nil {
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
@@ -161,36 +161,39 @@ func setupV1Routes(
 					r.Post("/{id}/hydrate", skillHandler.Hydrate)
 				})
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
-				if employeeHandler != nil {
-					r.Get("/employees", employeeHandler.List)
-					r.Get("/employees/models", employeeHandler.ListModels)
-					r.Get("/employees/{id}", employeeHandler.Get)
-					r.Get("/employees/{id}/sessions", employeeHandler.ListSessions)
-					r.Get("/employees/{id}/sessions/{sessionID}/events", employeeHandler.ListSessionEvents)
-					r.Post("/employees/{id}/sessions/messages", employeeHandler.SendSessionMessage)
-					r.Get("/employees/{id}/sessions/{sessionID}/streams/{streamID}", employeeHandler.StreamSession)
-					r.Route("/employees/{id}/skills", func(r chi.Router) {
-						r.Post("/", skillHandler.AttachToEmployee)
-						r.Get("/", skillHandler.ListEmployeeSkills)
-						r.Delete("/{skillID}", skillHandler.DetachFromEmployee)
+				if agentHandler != nil {
+					r.Get("/agents", agentHandler.List)
+					r.Get("/agents/models", agentHandler.ListModels)
+					r.Get("/agents/{id}", agentHandler.Get)
+					r.Get("/agents/{id}/sessions", agentHandler.ListSessions)
+					r.Get("/agents/{id}/sessions/{sessionID}/events", agentHandler.ListSessionEvents)
+					r.Post("/agents/{id}/sessions/messages", agentHandler.SendSessionMessage)
+					r.Get("/agents/{id}/sessions/{sessionID}/streams/{streamID}", agentHandler.StreamSession)
+					r.Route("/agents/{id}/skills", func(r chi.Router) {
+						r.Post("/", skillHandler.AttachToAgent)
+						r.Get("/", skillHandler.ListAgentSkills)
+						r.Delete("/{skillID}", skillHandler.DetachFromAgent)
 					})
-					r.Get("/employees/{id}/trigger-deliveries", triggerDeliveryHandler.List)
-					r.Get("/employees/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
+					r.Get("/agents/{id}/trigger-deliveries", triggerDeliveryHandler.List)
+					r.Get("/agents/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
-						r.Patch("/employees/{id}/model", employeeHandler.UpdateModel)
-						r.Post("/employees/{id}/sync", employeeHandler.Sync)
-						r.Put("/employees/{id}/connections/{connectionID}/resources", employeeHandler.UpdateConnectionResources)
-						r.Post("/employees/{id}/sandbox/reboot", employeeHandler.RebootSandbox)
-						r.Post("/employees/{id}/sandbox/upgrade", employeeHandler.StartSandboxUpgrade)
-						r.Get("/employees/{id}/sandbox/upgrades/{upgradeID}", employeeHandler.GetSandboxUpgrade)
+						r.Post("/agents", agentHandler.Create)
+						r.Patch("/agents/{id}", agentHandler.Update)
+						r.Delete("/agents/{id}", agentHandler.Archive)
+						r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
+						r.Post("/agents/{id}/sync", agentHandler.Sync)
+						r.Put("/agents/{id}/connections/{connectionID}/resources", agentHandler.UpdateConnectionResources)
+						r.Post("/agents/{id}/sandbox/reboot", agentHandler.RebootSandbox)
+						r.Post("/agents/{id}/sandbox/upgrade", agentHandler.StartSandboxUpgrade)
+						r.Get("/agents/{id}/sandbox/upgrades/{upgradeID}", agentHandler.GetSandboxUpgrade)
 						if gatewayExternalHandler != nil {
-							r.Post("/employees/{id}/gateway-routes", gatewayExternalHandler.CreateRoute)
-							r.Get("/employees/{id}/gateway-routes", gatewayExternalHandler.ListRoutes)
-							r.Get("/employees/{id}/gateway-routes/{routeID}", gatewayExternalHandler.GetRoute)
-							r.Patch("/employees/{id}/gateway-routes/{routeID}", gatewayExternalHandler.UpdateRoute)
-							r.Delete("/employees/{id}/gateway-routes/{routeID}", gatewayExternalHandler.DeleteRoute)
-							r.Post("/employees/{id}/gateway-routes/{routeID}/rotate-secret", gatewayExternalHandler.RotateSecret)
+							r.Post("/agents/{id}/gateway-routes", gatewayExternalHandler.CreateRoute)
+							r.Get("/agents/{id}/gateway-routes", gatewayExternalHandler.ListRoutes)
+							r.Get("/agents/{id}/gateway-routes/{routeID}", gatewayExternalHandler.GetRoute)
+							r.Patch("/agents/{id}/gateway-routes/{routeID}", gatewayExternalHandler.UpdateRoute)
+							r.Delete("/agents/{id}/gateway-routes/{routeID}", gatewayExternalHandler.DeleteRoute)
+							r.Post("/agents/{id}/gateway-routes/{routeID}/rotate-secret", gatewayExternalHandler.RotateSecret)
 						}
 					})
 				}

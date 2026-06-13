@@ -37,7 +37,7 @@ func TestKnowledgeSectionIgnoresTypedNilEmbedder(t *testing.T) {
 		Embedder: embedder,
 	})
 
-	out, err := service.fetchKnowledgeSection(context.Background(), Request{OrgID: uuid.New(), EmployeeID: uuid.New(), Text: "hello"})
+	out, err := service.fetchKnowledgeSection(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
 	if err != nil {
 		t.Fatalf("fetchKnowledgeSection returned error: %v", err)
 	}

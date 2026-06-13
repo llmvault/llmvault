@@ -56,16 +56,16 @@ func (o *Orchestrator) SetWarmPoolReconciler(fn func(context.Context, string, st
 	o.reconcileWarmPool = fn
 }
 
-func (o *Orchestrator) SetEmployeeRuntimeConfigPusher(fn func(context.Context, *model.Sandbox) error) {
+func (o *Orchestrator) SetAgentRuntimeConfigPusher(fn func(context.Context, *model.Sandbox) error) {
 	o.pushRuntimeConfig = fn
 }
 
-func (o *Orchestrator) pushEmployeeRuntimeConfig(ctx context.Context, sb *model.Sandbox, reason string) error {
+func (o *Orchestrator) pushAgentRuntimeConfig(ctx context.Context, sb *model.Sandbox, reason string) error {
 	if o.pushRuntimeConfig == nil {
 		return nil
 	}
 	if err := o.pushRuntimeConfig(ctx, sb); err != nil {
-		return fmt.Errorf("push employee runtime config after %s: %w", reason, err)
+		return fmt.Errorf("push agent runtime config after %s: %w", reason, err)
 	}
 	return nil
 }
@@ -95,7 +95,7 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 		return nil, fmt.Errorf("ensuring sandbox active: %w", err)
 	}
 	if o.needsURLRefresh(sb) {
-		if err := o.RefreshEmployeeSandboxURL(ctx, sb); err != nil {
+		if err := o.RefreshAgentSandboxURL(ctx, sb); err != nil {
 			return nil, fmt.Errorf("refreshing runtime URL: %w", err)
 		}
 	}
@@ -103,6 +103,6 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 	return agentruntime.NewClient(sb.RuntimeURL, apiKey), nil
 }
 
-func (o *Orchestrator) EmployeeDriveUploadURL(employeeID uuid.UUID) string {
-	return employeeDriveUploadURL(o.cfg, employeeID)
+func (o *Orchestrator) AgentDriveUploadURL(agentID uuid.UUID) string {
+	return agentDriveUploadURL(o.cfg, agentID)
 }

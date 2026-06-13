@@ -21,7 +21,16 @@ func ApplyMigrations(t testing.TB, db *gorm.DB) {
 		t.Fatalf("get sql db: %v", err)
 	}
 	if current, ok := currentMigrationVersion(t.Context(), sqlDB); ok && current >= latestMigrationVersion {
-		return
+		if missing, err := missingMigratedTables(t.Context(), sqlDB); err == nil && len(missing) == 0 {
+			return
+		} else {
+			if err != nil {
+				t.Logf("test database schema reset required after migration check failed: %v", err)
+			} else {
+				t.Logf("test database schema reset required; missing baseline tables: %s", strings.Join(missing, ", "))
+			}
+			resetTestSchema(t, sqlDB)
+		}
 	}
 
 	unlock, err := lockMigrationSetup(t.Context(), sqlDB)
@@ -31,7 +40,10 @@ func ApplyMigrations(t testing.TB, db *gorm.DB) {
 	defer unlock(t.Context())
 
 	if current, ok := currentMigrationVersion(t.Context(), sqlDB); ok && current >= latestMigrationVersion {
-		return
+		if missing, err := missingMigratedTables(t.Context(), sqlDB); err == nil && len(missing) == 0 {
+			return
+		}
+		resetTestSchema(t, sqlDB)
 	}
 	if _, err := migrations.Up(t.Context(), sqlDB); err == nil {
 		return
@@ -43,6 +55,19 @@ func ApplyMigrations(t testing.TB, db *gorm.DB) {
 		}
 	} else {
 		t.Fatalf("apply migrations: %v", err)
+	}
+}
+
+func resetTestSchema(t testing.TB, db *sql.DB) {
+	t.Helper()
+	for _, stmt := range []string{
+		`DROP SCHEMA IF EXISTS public CASCADE`,
+		`CREATE SCHEMA public`,
+		`GRANT ALL ON SCHEMA public TO public`,
+	} {
+		if _, err := db.ExecContext(t.Context(), stmt); err != nil {
+			t.Fatalf("reset test schema with %q: %v", stmt, err)
+		}
 	}
 }
 
@@ -110,7 +135,7 @@ func stampLegacyInitialSchema(t testing.TB, db *sql.DB, migrationErr error) bool
 		return false
 	}
 
-	for version := int64(2); version <= 11; version++ {
+	for version := int64(2); version <= latestMigrationVersion; version++ {
 		if _, err := db.ExecContext(t.Context(), `
 				INSERT INTO goose_db_version (version_id, is_applied, tstamp)
 				SELECT $1, true, now()
@@ -161,29 +186,39 @@ WHERE table_schema = current_schema()
 var migratedTables = []string{
 	"api_keys",
 	"audit_log",
+	"artifacts",
+	"channel_members",
+	"channels",
 	"connections",
 	"credentials",
 	"credit_ledger_entries",
 	"custom_domains",
+	"database_connections",
 	"drive_assets",
 	"email_verifications",
-	"employee_assets",
-	"employee_gateway_deliveries",
-	"employee_gateway_events",
-	"employee_gateway_routes",
-	"employee_session_events",
-	"employee_sandbox_upgrades",
-	"employee_schedule_runs",
-	"employee_schedules",
-	"employee_sessions",
-	"employee_skills",
-	"employee_trigger_deliveries",
-	"employee_triggers",
-	"employees",
+	"agent_assets",
+	"agent_gateway_deliveries",
+	"agent_gateway_events",
+	"agent_gateway_routes",
+	"agent_session_events",
+	"agent_sandbox_upgrades",
+	"agent_schedule_runs",
+	"agent_schedules",
+	"agent_sessions",
+	"agent_skills",
+	"agent_trigger_deliveries",
+	"agent_triggers",
+	"agents",
 	"failed_events",
 	"generations",
 	"hindsight_banks",
 	"integrations",
+	"microsandbox_events",
+	"microsandbox_org_preview_secrets",
+	"microsandbox_runners",
+	"microsandbox_sandbox_ports",
+	"microsandbox_sandboxes",
+	"microsandbox_snapshots",
 	"oauth_accounts",
 	"oauth_exchange_tokens",
 	"org_invites",
@@ -207,6 +242,10 @@ var migratedTables = []string{
 	"sandbox_templates",
 	"sandbox_warm_slots",
 	"sandboxes",
+	"session_events",
+	"session_message_queue",
+	"session_participants",
+	"sessions",
 	"skills",
 	"subscription_change_quotes",
 	"subscriptions",
@@ -216,4 +255,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 34
+const latestMigrationVersion = 14

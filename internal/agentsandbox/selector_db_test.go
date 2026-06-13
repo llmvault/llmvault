@@ -36,13 +36,13 @@ func createSelectorOrg(t *testing.T, db *gorm.DB) model.Org {
 	return org
 }
 
-func createSelectorEmployee(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Employee {
+func createSelectorAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 	t.Helper()
-	emp := model.Employee{OrgID: &orgID, Name: "emp-" + uuid.NewString()[:8], SystemPrompt: "x", Model: "gpt-4o"}
+	emp := model.Agent{OrgID: &orgID, Name: "emp-" + uuid.NewString()[:8], SystemPrompt: "x", Model: "gpt-4o"}
 	if err := db.Create(&emp).Error; err != nil {
-		t.Fatalf("create employee: %v", err)
+		t.Fatalf("create agent: %v", err)
 	}
-	t.Cleanup(func() { db.Where("id = ?", emp.ID).Delete(&model.Employee{}) })
+	t.Cleanup(func() { db.Where("id = ?", emp.ID).Delete(&model.Agent{}) })
 	return emp
 }
 
@@ -51,12 +51,12 @@ func createSelectorEmployee(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Em
 func TestSelectorReturnsNonRunningSandbox(t *testing.T) {
 	db := connectSelectorTestDB(t)
 	org := createSelectorOrg(t, db)
-	emp := createSelectorEmployee(t, db, org.ID)
+	emp := createSelectorAgent(t, db, org.ID)
 
 	for _, status := range []string{"creating", "starting", "stopped"} {
 		sb := model.Sandbox{
 			OrgID:                  &org.ID,
-			EmployeeID:             &emp.ID,
+			AgentID:                &emp.ID,
 			ProviderID:             "daytona",
 			ExternalID:             "ext-" + status,
 			RuntimeURL:             "https://x.test",
@@ -77,22 +77,22 @@ func TestSelectorReturnsNonRunningSandbox(t *testing.T) {
 	}
 }
 
-// employeeSandboxLockKey mirrors the handler's per-employee advisory-lock key
+// agentSandboxLockKey mirrors the handler's per-agent advisory-lock key
 // derivation so this DB-level test exercises the exact serialization.
-func employeeSandboxLockKey(employeeID uuid.UUID) int64 {
-	return int64(binary.BigEndian.Uint64(employeeID[:8])) // #nosec G115
+func agentSandboxLockKey(agentID uuid.UUID) int64 {
+	return int64(binary.BigEndian.Uint64(agentID[:8])) // #nosec G115
 }
 
-// A per-employee pg_advisory_xact_lock serialises concurrent ensure runs so only
+// A per-agent pg_advisory_xact_lock serialises concurrent ensure runs so only
 // one provisions (the loser waits, then reuses) instead of both racing
-// check-then-create. A different employee maps to a different key and does not block.
-func TestEmployeeSandboxAdvisoryLockSerializes(t *testing.T) {
+// check-then-create. A different agent maps to a different key and does not block.
+func TestAgentSandboxAdvisoryLockSerializes(t *testing.T) {
 	db := connectSelectorTestDB(t)
 	org := createSelectorOrg(t, db)
-	emp := createSelectorEmployee(t, db, org.ID)
-	other := createSelectorEmployee(t, db, org.ID)
+	emp := createSelectorAgent(t, db, org.ID)
+	other := createSelectorAgent(t, db, org.ID)
 
-	key := employeeSandboxLockKey(emp.ID)
+	key := agentSandboxLockKey(emp.ID)
 
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -118,7 +118,7 @@ func TestEmployeeSandboxAdvisoryLockSerializes(t *testing.T) {
 		_ = holder.QueryRowContext(ctx, "SELECT pg_advisory_unlock($1)", key).Scan(&released)
 	}()
 
-	// Dedicated connection #2 tries the SAME employee's lock — must fail (held).
+	// Dedicated connection #2 tries the SAME agent's lock — must fail (held).
 	contender, err := sqlDB.Conn(ctx)
 	if err != nil {
 		t.Fatalf("acquire contender conn: %v", err)
@@ -129,15 +129,15 @@ func TestEmployeeSandboxAdvisoryLockSerializes(t *testing.T) {
 		t.Fatalf("try same lock: %v", err)
 	}
 	if gotSame {
-		t.Fatal("expected same-employee advisory lock to be unavailable while held")
+		t.Fatal("expected same-agent advisory lock to be unavailable while held")
 	}
 
-	// The DIFFERENT employee's lock must remain available — different key.
+	// The DIFFERENT agent's lock must remain available — different key.
 	var gotOther bool
-	if err := contender.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", employeeSandboxLockKey(other.ID)).Scan(&gotOther); err != nil {
+	if err := contender.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", agentSandboxLockKey(other.ID)).Scan(&gotOther); err != nil {
 		t.Fatalf("try other lock: %v", err)
 	}
 	if !gotOther {
-		t.Fatal("expected different-employee advisory lock to be available")
+		t.Fatal("expected different-agent advisory lock to be available")
 	}
 }

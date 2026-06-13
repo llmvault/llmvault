@@ -662,7 +662,7 @@
         },
         "/incoming/triggers/{triggerID}": {
             "post": {
-                "description": "Receives an HTTP request and dispatches it to the owning employee runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer \u003csecret\u003e, X-Api-Key, X-Webhook-Secret, or ?secret=\u003csecret\u003e.",
+                "description": "Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer \u003csecret\u003e, X-Api-Key, X-Webhook-Secret, or ?secret=\u003csecret\u003e.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1128,6 +1128,1567 @@
                 }
             }
         },
+        "/v1/agents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all agents in the org with skills (metadata only — no bundle content),\ntriggers, and the latest sandbox row.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "List AI agents",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by status (draft, active, archived)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginatedResponse-agentListItem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a user-managed agent definition. Sandbox creation stays lazy until the first session.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Create an agent",
+                "parameters": [
+                    {
+                        "description": "Agent create payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agentMutationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/agentMutationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/models": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the OpenRouter-backed model allowlist supported for Hivy agents.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "List agent-selectable models",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/modelSummary"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns one agent in the org with skills (metadata only — no bundle content),\ntriggers, and the latest sandbox row.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Get an AI agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agentListItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Archives an agent when it is not the default Hivy agent and has no active sessions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Archive an agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agentMutationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates a user-managed agent definition. The default Hivy agent cannot be renamed or moved away from always_on.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Update an agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Agent update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agentMutationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agentMutationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/connections/{connectionID}/resources": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves provider resources such as selected GitHub repositories on the agent, then queues provider-specific reconciliation when needed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Save selected connection resources for an agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Connection UUID",
+                        "name": "connectionID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Selected resources grouped by resource type",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateAgentConnectionResourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/updateAgentConnectionResourcesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/gateway-routes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "List external gateway routes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/gatewayRouteResponse"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Create an external gateway route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Gateway route",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createGatewayRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/gatewayRouteResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/gateway-routes/{routeID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Get an external gateway route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Gateway route ID",
+                        "name": "routeID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gatewayRouteResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Revoke an external gateway route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Gateway route ID",
+                        "name": "routeID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Update an external gateway route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Gateway route ID",
+                        "name": "routeID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Gateway route updates",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateGatewayRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gatewayRouteResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/gateway-routes/{routeID}/rotate-secret": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Rotate an external gateway route secret",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Gateway route ID",
+                        "name": "routeID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gatewayRouteResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/model": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persists Hivy's agent model and pushes the full runtime config to the live sandbox.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Update an agent model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Agent model update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/updateAgentModelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/updateAgentModelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sandbox/reboot": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Restarts the agent sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Reboot an agent sandbox",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rebootAgentSandboxResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sandbox/upgrade": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Queues a control-plane upgrade that snapshots the agent runtime SQLite database,\nrecreates the sandbox on the current agent image, restores the database,\nsyncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.\nIf an upgrade is already queued or running for the agent, the active operation is returned.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Start an agent sandbox upgrade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/agentSandboxUpgradeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sandbox/upgrades/{upgradeID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the current status and phase for a sandbox upgrade operation.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Get an agent sandbox upgrade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Upgrade operation ID",
+                        "name": "upgradeID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agentSandboxUpgradeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sessions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns persisted agent sessions with optional trigger delivery metadata.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "List sessions for an agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (active, completed, errored)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact session ID filter",
+                        "name": "session_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact channel filter",
+                        "name": "channel",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact thread timestamp filter",
+                        "name": "thread_ts",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact agent session ID filter",
+                        "name": "agent_session_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search over session title, source key, or runtime conversation ID",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginatedResponse-handler_agentSessionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sessions/messages": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a web-backed agent session when session_id is omitted, or sends a new turn to an existing web session. Returns a backend SSE URL for the response stream.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Send a web session message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sendAgentSessionMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/sendAgentSessionMessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sessions/{sessionID}/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns persisted agent session events ordered newest-first with cursor pagination.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "List persisted session events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Agent session ID",
+                        "name": "sessionID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginatedResponse-handler_agentSessionEventResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sessions/{sessionID}/streams/{streamID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Proxies a signed runtime SSE stream for an authenticated web session.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Stream a web session turn",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Agent session ID",
+                        "name": "sessionID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Runtime HTTP stream ID",
+                        "name": "streamID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Signed stream token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/skills": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "List skills attached to an agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/agentSkillResponse"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates an agent skill attachment.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Attach a skill to an agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Skill to attach",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/attachSkillRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/agentSkillResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/skills/{skillID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes an agent skill attachment.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Detach a skill from an agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agents/{id}/sync": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Compiles the agent config, provisions an agent sandbox if\nneeded, pushes it to the runtime, and verifies readiness.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Push compiled config to an agent sandbox",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/syncAgentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/api-keys": {
             "get": {
                 "security": [
@@ -1308,7 +2869,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lists employee drive assets owned by the caller's org. Optional filters: employee_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.",
+                "description": "Lists agent drive assets owned by the caller's org. Optional filters: agent_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.",
                 "produces": [
                     "application/json"
                 ],
@@ -1319,8 +2880,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Filter to files owned by this employee",
-                        "name": "employee_id",
+                        "description": "Filter to files owned by this agent",
+                        "name": "agent_id",
                         "in": "query"
                     },
                     {
@@ -3096,1622 +4657,6 @@
                 }
             }
         },
-        "/v1/employees": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns all employees in the org with enabled specialists,\nskills (metadata only — no bundle content),\ntriggers, and the latest sandbox row.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "List AI employees",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Filter by status (draft, active, archived)",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 50, max 100)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Pagination cursor",
-                        "name": "cursor",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/paginatedResponse-handler_employeeListItem"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/models": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns the OpenRouter-backed model allowlist supported for Hivy employees.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "List employee-selectable models",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/modelSummary"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns one employee in the org with enabled specialists,\nskills (metadata only — no bundle content),\ntriggers, and the latest sandbox row.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Get an AI employee",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/employeeListItem"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/connections/{connectionID}/resources": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Saves provider resources such as selected GitHub repositories on the employee, then queues provider-specific reconciliation when needed.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Save selected connection resources for an employee",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Connection UUID",
-                        "name": "connectionID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Selected resources grouped by resource type",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/updateEmployeeConnectionResourcesRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/updateEmployeeConnectionResourcesResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/gateway-routes": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "List external gateway routes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/gatewayRouteResponse"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Create an external gateway route",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Gateway route",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/createGatewayRouteRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/gatewayRouteResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/gateway-routes/{routeID}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Get an external gateway route",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Gateway route ID",
-                        "name": "routeID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gatewayRouteResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Revoke an external gateway route",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Gateway route ID",
-                        "name": "routeID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Update an external gateway route",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Gateway route ID",
-                        "name": "routeID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Gateway route updates",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/updateGatewayRouteRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gatewayRouteResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/gateway-routes/{routeID}/rotate-secret": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Rotate an external gateway route secret",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Gateway route ID",
-                        "name": "routeID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gatewayRouteResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/model": {
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Persists Hivy's employee model and pushes the full runtime config to the live sandbox.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Update an employee model",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Employee model update",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/updateEmployeeModelRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/updateEmployeeModelResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sandbox/reboot": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Restarts the employee sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Reboot an employee sandbox",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/rebootEmployeeSandboxResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sandbox/upgrade": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Queues a control-plane upgrade that snapshots the employee runtime SQLite database,\nrecreates the sandbox on the current employee image, restores the database,\nsyncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.\nIf an upgrade is already queued or running for the employee, the active operation is returned.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Start an employee sandbox upgrade",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted",
-                        "schema": {
-                            "$ref": "#/definitions/employeeSandboxUpgradeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sandbox/upgrades/{upgradeID}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns the current status and phase for a sandbox upgrade operation.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Get an employee sandbox upgrade",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Upgrade operation ID",
-                        "name": "upgradeID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/employeeSandboxUpgradeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sessions": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns persisted employee sessions with optional trigger delivery metadata.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "List sessions for an employee",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by status (active, completed, errored)",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Exact session ID filter",
-                        "name": "session_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Exact channel filter",
-                        "name": "channel",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Exact thread timestamp filter",
-                        "name": "thread_ts",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Exact agent session ID filter",
-                        "name": "agent_session_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search over session title, source key, or runtime conversation ID",
-                        "name": "q",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Pagination cursor",
-                        "name": "cursor",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/paginatedResponse-handler_employeeSessionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sessions/messages": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates a web-backed employee session when session_id is omitted, or sends a new turn to an existing web session. Returns a backend SSE URL for the response stream.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Send a web session message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Message payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/sendEmployeeSessionMessageRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted",
-                        "schema": {
-                            "$ref": "#/definitions/sendEmployeeSessionMessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sessions/{sessionID}/events": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns persisted employee session events ordered newest-first with cursor pagination.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "List persisted session events",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Employee session ID",
-                        "name": "sessionID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Pagination cursor",
-                        "name": "cursor",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/paginatedResponse-handler_employeeSessionEventResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sessions/{sessionID}/streams/{streamID}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Proxies a signed runtime SSE stream for an authenticated web session.",
-                "produces": [
-                    "text/event-stream"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Stream a web session turn",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Employee session ID",
-                        "name": "sessionID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Runtime HTTP stream ID",
-                        "name": "streamID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Signed stream token",
-                        "name": "token",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "SSE stream",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/skills": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "List skills attached to an employee",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/employeeSkillResponse"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates an employee skill attachment.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Attach a skill to an employee",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Skill to attach",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/attachSkillRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/employeeSkillResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/skills/{skillID}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Removes an employee skill attachment.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Detach a skill from an employee",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Skill ID",
-                        "name": "skillID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/specialists": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns all global specialists and whether Hivy currently has each attached.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "List employee specialists",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/employeeSpecialistResponse"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/specialists/{slug}": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Adds a global specialist slug to Hivy's attached specialist list.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Attach an employee specialist",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Specialist slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Removes a global specialist slug from Hivy's attached specialist list.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Detach an employee specialist",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Specialist slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Sets or clears the model override for a specialist attached to Hivy.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Update an employee specialist config",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Specialist slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Specialist config patch",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/updateEmployeeSpecialistRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/employeeSpecialistResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/employees/{id}/sync": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Compiles the employee config, provisions an employee sandbox if\nneeded, pushes it to the runtime, and verifies readiness.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Push compiled config to an employee sandbox",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/syncEmployeeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/generations": {
             "get": {
                 "security": [
@@ -5277,7 +5222,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lists custom environment variables stored on the Hivy employee. Values are not returned.",
+                "description": "Lists custom environment variables stored on the Hivy agent. Values are not returned.",
                 "produces": [
                     "application/json"
                 ],
@@ -5312,7 +5257,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Stores a custom environment variable on the Hivy employee. It is pushed to employee and specialist sandboxes as HIVY_ORG_\u003cNAME\u003e.",
+                "description": "Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_\u003cNAME\u003e.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5369,7 +5314,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Removes a custom environment variable from the Hivy employee.",
+                "description": "Removes a custom environment variable from the Hivy agent.",
                 "produces": [
                     "application/json"
                 ],
@@ -5425,7 +5370,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Renames and/or updates a custom environment variable stored on the Hivy employee.",
+                "description": "Renames and/or updates a custom environment variable stored on the Hivy agent.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6140,7 +6085,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the attempt's status / counts / window plus the first page of per-doc failure rows. The specialist errors page can be used to walk later pages if needed.",
+                "description": "Returns the attempt's status / counts / window plus the first page of per-doc failure rows. The target agent errors page can be used to walk later pages if needed.",
                 "produces": [
                     "application/json"
                 ],
@@ -8434,6 +8379,509 @@
                 }
             }
         },
+        "agentConnectionResourceSelection": {
+            "type": "object",
+            "properties": {
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentListItem": {
+            "type": "object",
+            "properties": {
+                "attached_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agentSkillSummary"
+                    }
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "last_memory_refreshed_at": {
+                    "type": "string"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "memory_refresh_error": {
+                    "type": "string"
+                },
+                "memory_refresh_status": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "resources": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "sandbox": {
+                    "$ref": "#/definitions/agentSandboxSummary"
+                },
+                "sandbox_strategy": {
+                    "type": "string"
+                },
+                "sandbox_template_id": {
+                    "type": "string"
+                },
+                "sandbox_tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tools": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agentTriggerResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "upgrade_available": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "agentMutationRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "resources": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "sandbox_strategy": {
+                    "type": "string"
+                },
+                "sandbox_template_id": {
+                    "type": "string"
+                },
+                "sandbox_tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "tools": {
+                    "$ref": "#/definitions/JSON"
+                }
+            }
+        },
+        "agentMutationResponse": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "$ref": "#/definitions/agentListItem"
+                }
+            }
+        },
+        "agentResponse": {
+            "type": "object",
+            "properties": {
+                "attached_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agentSkillSummary"
+                    }
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "last_memory_refreshed_at": {
+                    "type": "string"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "memory_refresh_error": {
+                    "type": "string"
+                },
+                "memory_refresh_status": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "resources": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "sandbox_strategy": {
+                    "type": "string"
+                },
+                "sandbox_template_id": {
+                    "type": "string"
+                },
+                "sandbox_tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tools": {
+                    "$ref": "#/definitions/JSON"
+                },
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agentTriggerResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentSandboxSummary": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_active_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentSandboxUpgradeResponse": {
+            "type": "object",
+            "properties": {
+                "backup_bytes": {
+                    "type": "integer"
+                },
+                "backup_key": {
+                    "type": "string"
+                },
+                "backup_sha256": {
+                    "type": "string"
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "new_sandbox_id": {
+                    "type": "string"
+                },
+                "old_sandbox_id": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "upgrade_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentSessionEventResponse": {
+            "type": "object",
+            "properties": {
+                "agent_session_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "event_at": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "runtime_session_id": {
+                    "type": "string"
+                },
+                "sequence_number": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentSessionResponse": {
+            "type": "object",
+            "properties": {
+                "agent_session_id": {
+                    "type": "string"
+                },
+                "channel": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "ended_at": {
+                    "type": "string"
+                },
+                "event_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_activity_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "runtime_conversation_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "source_resource_key": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "thread_ts": {
+                    "type": "string"
+                },
+                "trigger_delivery": {
+                    "$ref": "#/definitions/triggerDeliveryResponse"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentSkillResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "locked": {
+                    "type": "boolean"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "skill": {
+                    "$ref": "#/definitions/skillResponse"
+                },
+                "skill_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentSkillSummary": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "locked": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "source_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentTriggerResponse": {
+            "type": "object",
+            "properties": {
+                "conditions": {},
+                "connection_id": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "secret_set": {
+                    "description": "SecretSet indicates whether an HTTP trigger has a shared secret configured.\nTrue when the trigger requires auth on incoming requests. The secret value\nis never returned.",
+                    "type": "boolean"
+                },
+                "trigger_keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "trigger_type": {
+                    "type": "string"
+                }
+            }
+        },
         "apiKeyResponse": {
             "type": "object",
             "properties": {
@@ -8505,6 +8953,9 @@
         "assetListItem": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
                 "asset_url": {
                     "type": "string"
                 },
@@ -8515,9 +8966,6 @@
                     "type": "string"
                 },
                 "created_at": {
-                    "type": "string"
-                },
-                "employee_id": {
                     "type": "string"
                 },
                 "filename": {
@@ -9007,12 +9455,7 @@
             "type": "object",
             "properties": {
                 "bundle": {
-                    "description": "Inline source",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/Bundle"
-                        }
-                    ]
+                    "$ref": "#/definitions/Bundle"
                 },
                 "category": {
                     "type": "string"
@@ -9039,7 +9482,6 @@
                     "type": "string"
                 },
                 "repo_url": {
-                    "description": "Git source",
                     "type": "string"
                 },
                 "source_type": {
@@ -9154,20 +9596,6 @@
                 }
             }
         },
-        "dashboardOnboardingResponse": {
-            "type": "object",
-            "properties": {
-                "extra_tools_connected": {
-                    "type": "integer"
-                },
-                "extra_tools_required": {
-                    "type": "integer"
-                },
-                "plan_selected": {
-                    "type": "boolean"
-                }
-            }
-        },
         "dashboardResponse": {
             "type": "object",
             "properties": {
@@ -9176,9 +9604,6 @@
                 },
                 "credits": {
                     "$ref": "#/definitions/dashboardCreditsResponse"
-                },
-                "onboarding": {
-                    "$ref": "#/definitions/dashboardOnboardingResponse"
                 },
                 "schedules": {
                     "$ref": "#/definitions/dashboardSchedulesResponse"
@@ -9199,13 +9624,13 @@
                 "access_policy": {
                     "$ref": "#/definitions/Policy"
                 },
+                "agent_id": {
+                    "type": "string"
+                },
                 "connection_url": {
                     "type": "string"
                 },
                 "display_name": {
-                    "type": "string"
-                },
-                "employee_id": {
                     "type": "string"
                 },
                 "provider": {
@@ -9219,13 +9644,13 @@
                 "access_policy": {
                     "$ref": "#/definitions/JSON"
                 },
+                "agent_id": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
                 "display_name": {
-                    "type": "string"
-                },
-                "employee_id": {
                     "type": "string"
                 },
                 "id": {
@@ -9253,464 +9678,6 @@
                     "type": "string"
                 },
                 "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeConnectionResourceSelection": {
-            "type": "object",
-            "properties": {
-                "full_name": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeListItem": {
-            "type": "object",
-            "properties": {
-                "attached_skills": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeSkillSummary"
-                    }
-                },
-                "avatar_url": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "last_memory_refreshed_at": {
-                    "type": "string"
-                },
-                "memory_refresh_error": {
-                    "type": "string"
-                },
-                "memory_refresh_status": {
-                    "type": "string"
-                },
-                "model": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "resources": {
-                    "$ref": "#/definitions/JSON"
-                },
-                "sandbox": {
-                    "$ref": "#/definitions/employeeSandboxSummary"
-                },
-                "sandbox_template_id": {
-                    "type": "string"
-                },
-                "specialist_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "specialists": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeSpecialistSummary"
-                    }
-                },
-                "status": {
-                    "type": "string"
-                },
-                "triggers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeTriggerResponse"
-                    }
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "upgrade_available": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "employeeResponse": {
-            "type": "object",
-            "properties": {
-                "attached_skills": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeSkillSummary"
-                    }
-                },
-                "avatar_url": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "last_memory_refreshed_at": {
-                    "type": "string"
-                },
-                "memory_refresh_error": {
-                    "type": "string"
-                },
-                "memory_refresh_status": {
-                    "type": "string"
-                },
-                "model": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "resources": {
-                    "$ref": "#/definitions/JSON"
-                },
-                "sandbox_template_id": {
-                    "type": "string"
-                },
-                "specialist_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "status": {
-                    "type": "string"
-                },
-                "triggers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeTriggerResponse"
-                    }
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeSandboxSummary": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "error_message": {
-                    "type": "string"
-                },
-                "external_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "last_active_at": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeSandboxUpgradeResponse": {
-            "type": "object",
-            "properties": {
-                "backup_bytes": {
-                    "type": "integer"
-                },
-                "backup_key": {
-                    "type": "string"
-                },
-                "backup_sha256": {
-                    "type": "string"
-                },
-                "completed_at": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "error_message": {
-                    "type": "string"
-                },
-                "new_sandbox_id": {
-                    "type": "string"
-                },
-                "old_sandbox_id": {
-                    "type": "string"
-                },
-                "phase": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "upgrade_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeSessionEventResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "employee_session_id": {
-                    "type": "string"
-                },
-                "event_at": {
-                    "type": "string"
-                },
-                "event_id": {
-                    "type": "string"
-                },
-                "event_type": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "string"
-                },
-                "payload": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "runtime_session_id": {
-                    "type": "string"
-                },
-                "sequence_number": {
-                    "type": "integer"
-                },
-                "source": {
-                    "type": "string"
-                },
-                "specialist_slug": {
-                    "type": "string"
-                },
-                "specialist_task_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeSessionResponse": {
-            "type": "object",
-            "properties": {
-                "agent_session_id": {
-                    "type": "string"
-                },
-                "channel": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "ended_at": {
-                    "type": "string"
-                },
-                "event_count": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "last_activity_at": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "runtime_conversation_id": {
-                    "type": "string"
-                },
-                "source": {
-                    "type": "string"
-                },
-                "source_resource_key": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "thread_ts": {
-                    "type": "string"
-                },
-                "trigger_delivery": {
-                    "$ref": "#/definitions/triggerDeliveryResponse"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeSkillResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "locked": {
-                    "type": "boolean"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "skill": {
-                    "$ref": "#/definitions/skillResponse"
-                },
-                "skill_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeSkillSummary": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "locked": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "source_type": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeSpecialistResponse": {
-            "type": "object",
-            "properties": {
-                "attached": {
-                    "type": "boolean"
-                },
-                "configured_model": {
-                    "type": "string"
-                },
-                "default_model": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "effective_model": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "specialist_type": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "employeeSpecialistSummary": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "configured_model": {
-                    "type": "string"
-                },
-                "default_model": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "effective_model": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "template_slug": {
-                    "type": "string"
-                },
-                "template_specialist_type": {
-                    "type": "string"
-                }
-            }
-        },
-        "employeeTriggerResponse": {
-            "type": "object",
-            "properties": {
-                "conditions": {},
-                "connection_id": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "instructions": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "secret_set": {
-                    "description": "SecretSet indicates whether an HTTP trigger has a shared secret configured.\nTrue when the trigger requires auth on incoming requests. The secret value\nis never returned.",
-                    "type": "boolean"
-                },
-                "trigger_keys": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "trigger_type": {
                     "type": "string"
                 }
             }
@@ -10338,9 +10305,6 @@
                 "name": {
                     "type": "string"
                 },
-                "onboarded": {
-                    "type": "boolean"
-                },
                 "plan": {
                     "$ref": "#/definitions/planDTO"
                 },
@@ -10420,6 +10384,23 @@
                 }
             }
         },
+        "paginatedResponse-agentListItem": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agentListItem"
+                    }
+                },
+                "has_more": {
+                    "type": "boolean"
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
         "paginatedResponse-connectionResponse": {
             "type": "object",
             "properties": {
@@ -10471,6 +10452,40 @@
                 }
             }
         },
+        "paginatedResponse-handler_agentSessionEventResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agentSessionEventResponse"
+                    }
+                },
+                "has_more": {
+                    "type": "boolean"
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "paginatedResponse-handler_agentSessionResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agentSessionResponse"
+                    }
+                },
+                "has_more": {
+                    "type": "boolean"
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
         "paginatedResponse-handler_apiKeyResponse": {
             "type": "object",
             "properties": {
@@ -10512,57 +10527,6 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auditEntryResponse"
-                    }
-                },
-                "has_more": {
-                    "type": "boolean"
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "paginatedResponse-handler_employeeListItem": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeListItem"
-                    }
-                },
-                "has_more": {
-                    "type": "boolean"
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "paginatedResponse-handler_employeeSessionEventResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeSessionEventResponse"
-                    }
-                },
-                "has_more": {
-                    "type": "boolean"
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "paginatedResponse-handler_employeeSessionResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/employeeSessionResponse"
                     }
                 },
                 "has_more": {
@@ -11219,17 +11183,17 @@
                 }
             }
         },
-        "rebootEmployeeSandboxResponse": {
+        "rebootAgentSandboxResponse": {
             "type": "object",
             "properties": {
-                "employee": {
-                    "$ref": "#/definitions/employeeResponse"
+                "agent": {
+                    "$ref": "#/definitions/agentResponse"
                 },
                 "sandbox_id": {
                     "type": "string"
                 },
                 "sync": {
-                    "$ref": "#/definitions/syncEmployeeResponse"
+                    "$ref": "#/definitions/syncAgentResponse"
                 }
             }
         },
@@ -11388,10 +11352,10 @@
         "sandboxResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "agent_id": {
                     "type": "string"
                 },
-                "employee_id": {
+                "created_at": {
                     "type": "string"
                 },
                 "error_message": {
@@ -11495,7 +11459,7 @@
                 }
             }
         },
-        "sendEmployeeSessionMessageRequest": {
+        "sendAgentSessionMessageRequest": {
             "type": "object",
             "properties": {
                 "message": {
@@ -11509,13 +11473,19 @@
                 }
             }
         },
-        "sendEmployeeSessionMessageResponse": {
+        "sendAgentSessionMessageResponse": {
             "type": "object",
             "properties": {
+                "agent_session_id": {
+                    "type": "string"
+                },
                 "created": {
                     "type": "boolean"
                 },
-                "employee_session_id": {
+                "direct_response_stream_url": {
+                    "type": "string"
+                },
+                "direct_stream_url": {
                     "type": "string"
                 },
                 "response_stream_url": {
@@ -11892,7 +11862,7 @@
                 }
             }
         },
-        "syncEmployeeResponse": {
+        "syncAgentResponse": {
             "type": "object",
             "properties": {
                 "applied": {
@@ -12075,6 +12045,9 @@
         "triggerDeliveryResponse": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
                 "connection_id": {
                     "type": "string"
                 },
@@ -12085,9 +12058,6 @@
                     "type": "string"
                 },
                 "delivery_id": {
-                    "type": "string"
-                },
-                "employee_id": {
                     "type": "string"
                 },
                 "event_key": {
@@ -12179,15 +12149,7 @@
                 }
             }
         },
-        "updateContentRequest": {
-            "type": "object",
-            "properties": {
-                "bundle": {
-                    "$ref": "#/definitions/Bundle"
-                }
-            }
-        },
-        "updateEmployeeConnectionResourcesRequest": {
+        "updateAgentConnectionResourcesRequest": {
             "type": "object",
             "properties": {
                 "resources": {
@@ -12195,22 +12157,22 @@
                     "additionalProperties": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/definitions/employeeConnectionResourceSelection"
+                            "$ref": "#/definitions/agentConnectionResourceSelection"
                         }
                     }
                 }
             }
         },
-        "updateEmployeeConnectionResourcesResponse": {
+        "updateAgentConnectionResourcesResponse": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
                 "clone_queued": {
                     "type": "boolean"
                 },
                 "connection_id": {
-                    "type": "string"
-                },
-                "employee_id": {
                     "type": "string"
                 },
                 "resources": {
@@ -12218,7 +12180,7 @@
                 }
             }
         },
-        "updateEmployeeModelRequest": {
+        "updateAgentModelRequest": {
             "type": "object",
             "properties": {
                 "model": {
@@ -12226,25 +12188,22 @@
                 }
             }
         },
-        "updateEmployeeModelResponse": {
+        "updateAgentModelResponse": {
             "type": "object",
             "properties": {
-                "employee": {
-                    "$ref": "#/definitions/employeeResponse"
+                "agent": {
+                    "$ref": "#/definitions/agentResponse"
                 },
                 "sync": {
-                    "$ref": "#/definitions/syncEmployeeResponse"
+                    "$ref": "#/definitions/syncAgentResponse"
                 }
             }
         },
-        "updateEmployeeSpecialistRequest": {
+        "updateContentRequest": {
             "type": "object",
             "properties": {
-                "model": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                "bundle": {
+                    "$ref": "#/definitions/Bundle"
                 }
             }
         },

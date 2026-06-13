@@ -1,0 +1,138 @@
+package sandbox
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/model"
+)
+
+const (
+	AgentSandboxPort    = 7080
+	agentHealthTimeout  = 90 * time.Second
+	agentHealthInterval = 2 * time.Second
+)
+
+func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets) (*model.Sandbox, error) {
+	if agent == nil || agent.OrgID == nil {
+		return nil, fmt.Errorf("CreateAgentSandbox: agent must have org_id")
+	}
+	if secrets == nil || secrets.ProxyToken == "" {
+		return nil, fmt.Errorf("CreateAgentSandbox: proxy token is required")
+	}
+	orgID := *agent.OrgID
+
+	gitIdentity, err := o.loadAgentGitIdentity(ctx, agent)
+	if err != nil {
+		return nil, fmt.Errorf("loading agent git identity: %w", err)
+	}
+
+	runtimeSecret, err := generateRandomHex(32)
+	if err != nil {
+		return nil, fmt.Errorf("generating runtime secret: %w", err)
+	}
+	encryptedSecret, err := o.encKey.EncryptString(runtimeSecret)
+	if err != nil {
+		return nil, fmt.Errorf("encrypting runtime secret: %w", err)
+	}
+
+	snapshotID := o.cfg.SandboxesRuntimeBaseImage
+	sb := model.Sandbox{
+		OrgID:                  &orgID,
+		AgentID:                &agent.ID,
+		SnapshotID:             &snapshotID,
+		ProviderID:             o.provider.ID(),
+		EncryptedRuntimeSecret: encryptedSecret,
+		Status:                 "creating",
+	}
+	if err := o.db.Create(&sb).Error; err != nil {
+		return nil, fmt.Errorf("saving sandbox: %w", err)
+	}
+
+	bugsinkDashboardURL := agentruntime.BugsinkDashboardBaseURL(ctx, o.db, orgID, *agent)
+	glitchTipDashboardURL := agentruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
+	envVars := agentSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
+	labels := map[string]string{
+		"org_id":     orgID.String(),
+		"sandbox_id": sb.ID.String(),
+		"agent_id":   agent.ID.String(),
+		"harness":    "agent-sandbox",
+	}
+
+	if _, usesWarmPool := o.provider.(WarmPoolCapable); usesWarmPool {
+		if err := o.claimWarmRuntime(ctx, &sb, model.SandboxWarmSlotModeAgent); err != nil {
+			if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {
+				logging.FromContext(ctx).ErrorContext(ctx, "delete orphaned agent sandbox row after warm claim failure",
+					"error", delErr, "sandbox_id", sb.ID)
+			}
+			return nil, err
+		}
+		if err := o.cloneAgentSelectedRepositories(ctx, &sb, agent); err != nil {
+			o.cleanupFailedSandbox(ctx, &sb, sb.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
+			return nil, fmt.Errorf("cloning agent repositories: %w", err)
+		}
+		logging.FromContext(ctx).InfoContext(ctx, "agent sandbox claimed from warm pool",
+			"sandbox_id", sb.ID, "external_id", sb.ExternalID, "agent_id", agent.ID)
+		return &sb, nil
+	}
+
+	info, err := o.provider.CreateSandbox(ctx, CreateSandboxOpts{
+		Name:        buildAgentSandboxName(agent),
+		TemplateRef: snapshotID,
+		EnvVars:     envVars,
+		Labels:      labels,
+	})
+	if err != nil {
+		if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {
+			logging.FromContext(ctx).ErrorContext(ctx, "delete orphaned agent sandbox row after provider create failure",
+				"error", delErr, "sandbox_id", sb.ID)
+		}
+		return nil, fmt.Errorf("provider create: %w", err)
+	}
+
+	sandboxURL, err := o.provider.GetEndpoint(ctx, info.ExternalID, AgentSandboxPort)
+	if err != nil {
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "get endpoint failed")
+		return nil, fmt.Errorf("getting agent runtime endpoint: %w", err)
+	}
+
+	now := time.Now()
+	expiresAt := now.Add(runtimeURLTTL)
+	if err := o.db.Model(&sb).Updates(map[string]any{
+		"external_id":            info.ExternalID,
+		"runtime_url":            sandboxURL,
+		"runtime_url_expires_at": expiresAt,
+		"status":                 "running",
+		"last_active_at":         now,
+	}).Error; err != nil {
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, fmt.Sprintf("updating sandbox row failed: %v", err))
+		return nil, fmt.Errorf("updating sandbox: %w", err)
+	}
+	sb.ExternalID = info.ExternalID
+	sb.RuntimeURL = sandboxURL
+	sb.RuntimeURLExpiresAt = &expiresAt
+	sb.Status = "running"
+	sb.LastActiveAt = &now
+
+	if err := o.waitForAgentRuntimeLive(ctx, &sb); err != nil {
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime not live")
+		return nil, fmt.Errorf("waiting for agent runtime: %w", err)
+	}
+	if err := o.pushAgentRuntimeConfig(ctx, &sb, "create"); err != nil {
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime config push failed")
+		return nil, err
+	}
+
+	if err := o.cloneAgentSelectedRepositories(ctx, &sb, agent); err != nil {
+		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
+		return nil, fmt.Errorf("cloning agent repositories: %w", err)
+	}
+
+	disableProviderLifecycle(ctx, o.provider, &sb, info.ExternalID)
+	logging.FromContext(ctx).InfoContext(ctx, "agent sandbox created",
+		"sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID)
+	return &sb, nil
+}

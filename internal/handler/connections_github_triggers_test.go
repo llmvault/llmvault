@@ -20,7 +20,7 @@ import (
 	"github.com/usehivy/hivy/internal/nango"
 )
 
-func TestConnectionHandler_CreateGitHubAppCreatesEmployeeTriggers(t *testing.T) {
+func TestConnectionHandler_CreateGitHubAppCreatesAgentTriggers(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -52,18 +52,18 @@ func TestConnectionHandler_CreateGitHubAppCreatesEmployeeTriggers(t *testing.T) 
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var employee model.Employee
-	if err := db.Where("org_id = ? AND status <> ?", org.ID, "archived").First(&employee).Error; err != nil {
-		t.Fatalf("load employee: %v", err)
+	var agent model.Agent
+	if err := db.Where("org_id = ? AND status <> ?", org.ID, "archived").First(&agent).Error; err != nil {
+		t.Fatalf("load agent: %v", err)
 	}
 	var conn model.Connection
 	if err := db.Where("org_id = ? AND integration_id = ?", org.ID, integ.ID).First(&conn).Error; err != nil {
 		t.Fatalf("load connection: %v", err)
 	}
 
-	var triggers []model.EmployeeTrigger
-	if err := db.Where("org_id = ? AND employee_id = ? AND connection_id = ?",
-		org.ID, employee.ID, conn.ID).
+	var triggers []model.AgentTrigger
+	if err := db.Where("org_id = ? AND agent_id = ? AND connection_id = ?",
+		org.ID, agent.ID, conn.ID).
 		Order("created_at ASC").
 		Find(&triggers).Error; err != nil {
 		t.Fatalf("load triggers: %v", err)
@@ -72,7 +72,7 @@ func TestConnectionHandler_CreateGitHubAppCreatesEmployeeTriggers(t *testing.T) 
 		t.Fatalf("github triggers = %d, want 2: %#v", len(triggers), triggers)
 	}
 
-	byKey := map[string]model.EmployeeTrigger{}
+	byKey := map[string]model.AgentTrigger{}
 	for _, trigger := range triggers {
 		if len(trigger.TriggerKeys) != 1 {
 			t.Fatalf("trigger keys = %#v, want exactly one", trigger.TriggerKeys)
@@ -91,7 +91,7 @@ func TestConnectionHandler_CreateGitHubAppCreatesEmployeeTriggers(t *testing.T) 
 		!strings.Contains(mention.Instructions, "Inspect the linked issue or pull request") {
 		t.Fatalf("mention instructions unexpected:\n%s", mention.Instructions)
 	}
-	if strings.Contains(mention.Instructions, "Route this request through the employee agent") {
+	if strings.Contains(mention.Instructions, "Route this request through the agent agent") {
 		t.Fatalf("mention instructions leaked internal routing text:\n%s", mention.Instructions)
 	}
 	assertTriggerCondition(t, mention, "comment.body", "matches", "@usehivy")
@@ -104,13 +104,13 @@ func TestConnectionHandler_CreateGitHubAppCreatesEmployeeTriggers(t *testing.T) 
 		!strings.Contains(ci.Instructions, "check suite result") {
 		t.Fatalf("ci instructions unexpected:\n%s", ci.Instructions)
 	}
-	if strings.Contains(ci.Instructions, "Route this event through the employee agent") {
+	if strings.Contains(ci.Instructions, "Route this event through the agent agent") {
 		t.Fatalf("ci instructions leaked internal routing text:\n%s", ci.Instructions)
 	}
 	assertTriggerCondition(t, ci, "check_suite.pull_requests.0.number", "exists", "")
 }
 
-func assertTriggerCondition(t *testing.T, trigger model.EmployeeTrigger, path, operator, valueContains string) {
+func assertTriggerCondition(t *testing.T, trigger model.AgentTrigger, path, operator, valueContains string) {
 	t.Helper()
 	var match model.TriggerMatch
 	if err := json.Unmarshal(trigger.Conditions, &match); err != nil {

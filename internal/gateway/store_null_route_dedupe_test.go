@@ -17,11 +17,11 @@ func TestInsertInboundEventNullRouteDedupe(t *testing.T) {
 	route := seedGatewayRoute(t, db)
 
 	// Connection-path route: no persisted route row, so route_id resolves to NULL.
-	nilRoute := model.EmployeeGatewayRoute{
-		ID:         uuid.Nil,
-		OrgID:      route.OrgID,
-		EmployeeID: route.EmployeeID,
-		Provider:   route.Provider,
+	nilRoute := model.AgentGatewayRoute{
+		ID:       uuid.Nil,
+		OrgID:    route.OrgID,
+		AgentID:  route.AgentID,
+		Provider: route.Provider,
 	}
 	service := NewService(db, &flakyRuntime{}, nil, NewFakeSlackAdapter())
 
@@ -56,7 +56,7 @@ func TestInsertInboundEventNullRouteDedupe(t *testing.T) {
 	}
 
 	var rows int64
-	db.Model(&model.EmployeeGatewayEvent{}).
+	db.Model(&model.AgentGatewayEvent{}).
 		Where("route_id IS NULL AND org_id = ? AND dedupe_key = ?", nilRoute.OrgID, inbound.DedupeKey).
 		Count(&rows)
 	if rows != 1 {

@@ -12,7 +12,7 @@ import (
 )
 
 // claimWarmRuntimeForMode runs the full claimWarmRuntime path for the given mode,
-// recording whether the employee-config pusher callback fired.
+// recording whether the agent-config pusher callback fired.
 func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	t.Helper()
 	db := setupTestDB(t)
@@ -28,9 +28,9 @@ func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	provider.warmEndpoint = health.URL
 
 	cfg := &config.Config{
-		SandboxWarmPoolEmployeeSize: 1,
-		RailwayRuntimePort:          7080,
-		SandboxesRuntimeBaseImage:   "runtime:test",
+		SandboxWarmPoolAgentSize:  1,
+		RailwayRuntimePort:        7080,
+		SandboxesRuntimeBaseImage: "runtime:test",
 	}
 	pool := NewWarmPool(db, provider, testEncKey(t), cfg)
 	if _, err := pool.Reconcile(context.Background(), mode, nil); err != nil {
@@ -58,7 +58,7 @@ func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	orch.warmPool = pool
 
 	var mu sync.Mutex
-	orch.SetEmployeeRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
+	orch.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
 		mu.Lock()
 		pushed = true
 		mu.Unlock()
@@ -87,8 +87,8 @@ func claimWarmRuntimeForMode(t *testing.T, mode string) (pushed bool) {
 	return pushed
 }
 
-func TestClaimWarmRuntime_PushesEmployeeConfig(t *testing.T) {
-	if pushed := claimWarmRuntimeForMode(t, model.SandboxWarmSlotModeEmployee); !pushed {
-		t.Fatal("employee warm claim must push the employee runtime config")
+func TestClaimWarmRuntime_PushesAgentConfig(t *testing.T) {
+	if pushed := claimWarmRuntimeForMode(t, model.SandboxWarmSlotModeAgent); !pushed {
+		t.Fatal("agent warm claim must push the agent runtime config")
 	}
 }

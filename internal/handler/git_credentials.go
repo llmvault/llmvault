@@ -63,14 +63,14 @@ func NewGitCredentialsHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoCli
 	}
 }
 
-// Handle processes POST /internal/git-credentials/{employeeID}.
+// Handle processes POST /internal/git-credentials/{agentID}.
 // Authenticates via the sandbox's runtime secret, then returns a fresh
 // GitHub installation token from Nango in git credential protocol format.
 func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	agentIDStr := chi.URLParam(r, "employeeID")
+	agentIDStr := chi.URLParam(r, "agentID")
 	agentID, err := uuid.Parse(agentIDStr)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employee_id"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid agent_id"})
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var agent model.Employee
+	var agent model.Agent
 	if err := h.db.Where("id = ?", agentID).First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
@@ -91,7 +91,7 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sandboxes []model.Sandbox
-	if err := h.db.Where("employee_id = ?", agentID).Find(&sandboxes).Error; err != nil {
+	if err := h.db.Where("agent_id = ?", agentID).Find(&sandboxes).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to look up sandboxes"})
 		return
 	}
@@ -124,7 +124,7 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "git-credentials: failed to resolve github connection",
-			"employee_id", agentID,
+			"agent_id", agentID,
 			"error", err,
 		)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to look up connection"})
@@ -139,7 +139,7 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	nangoConn, err := h.nango.GetConnection(r.Context(), tokenConn.conn.NangoConnectionID, tokenConn.providerConfigKey)
 	if err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "git-credentials: failed to fetch from nango",
-			"employee_id", agentID,
+			"agent_id", agentID,
 			"connection_id", tokenConn.conn.ID,
 			"error", err,
 		)
@@ -166,7 +166,7 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	writeGitCredentials(w, accessToken)
 }
 
-func (h *GitCredentialsHandler) resolveGitHubTokenConnection(ctx context.Context, orgID uuid.UUID, agent model.Employee) (gitHubTokenConnection, error) {
+func (h *GitCredentialsHandler) resolveGitHubTokenConnection(ctx context.Context, orgID uuid.UUID, agent model.Agent) (gitHubTokenConnection, error) {
 	var conn model.Connection
 	if err := h.db.WithContext(ctx).
 		Preload("Integration").

@@ -50,7 +50,7 @@ func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.
 		return fmt.Errorf("unmarshal payload: %w", err)
 	}
 
-	var conv model.EmployeeSession
+	var conv model.AgentSession
 	if err := handler.db.WithContext(ctx).
 		Where("id = ?", payload.ConversationID).
 		First(&conv).Error; err != nil {
@@ -108,7 +108,7 @@ func (handler *ConversationNameHandler) Handle(ctx context.Context, task *asynq.
 	}
 
 	result := handler.db.WithContext(ctx).
-		Model(&model.EmployeeSession{}).
+		Model(&model.AgentSession{}).
 		Where("id = ? AND (name IS NULL OR name = '')", conv.ID).
 		Update("name", title)
 	if result.Error != nil {
@@ -158,9 +158,9 @@ func pickCheapestModel(providerID string) (string, bool, bool) {
 
 // loadFirstMessageContent returns the first user message content for a session, truncated.
 func loadFirstMessageContent(ctx context.Context, db *gorm.DB, conversationID any) (string, error) {
-	var event model.EmployeeSessionEvent
+	var event model.AgentSessionEvent
 	err := db.WithContext(ctx).
-		Where("employee_session_id = ? AND event_type IN ?", conversationID, []string{"message_received", "user.message.received"}).
+		Where("agent_session_id = ? AND event_type IN ?", conversationID, []string{"message_received", "user.message.received"}).
 		Order("sequence_number ASC, event_at ASC").
 		Limit(1).
 		First(&event).Error

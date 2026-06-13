@@ -102,7 +102,7 @@ func (h *IncomingWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 
 	deliveryID := connectionID.String() + ":" + uuid.New().String()
-	task, opts, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
+	task, opts, err := tasks.NewAgentTriggerDispatchTask(tasks.AgentTriggerDispatchPayload{
 		Provider:     provider,
 		EventType:    eventType,
 		EventAction:  eventAction,

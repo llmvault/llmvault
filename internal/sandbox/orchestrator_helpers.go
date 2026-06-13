@@ -30,16 +30,16 @@ func (o *Orchestrator) providerID() string {
 
 func (o *Orchestrator) runtimeLayout() RuntimeLayout {
 	layout := RuntimeLayout{
-		AgentRepoDir:    "/work/repos",
-		EmployeeRepoDir: "/workspace/repos",
+		AgentRepoDir:     "/work/repos",
+		WorkspaceRepoDir: "/workspace/repos",
 	}
 	if o != nil && o.provider != nil {
 		providerLayout := o.provider.RuntimeLayout()
 		if providerLayout.AgentRepoDir != "" {
 			layout.AgentRepoDir = providerLayout.AgentRepoDir
 		}
-		if providerLayout.EmployeeRepoDir != "" {
-			layout.EmployeeRepoDir = providerLayout.EmployeeRepoDir
+		if providerLayout.WorkspaceRepoDir != "" {
+			layout.WorkspaceRepoDir = providerLayout.WorkspaceRepoDir
 		}
 	}
 	return layout
@@ -98,22 +98,22 @@ func (o *Orchestrator) mergeUserEnvVars(ctx context.Context, envVars map[string]
 	}
 }
 
-func (o *Orchestrator) loadOwningEmployee(ctx context.Context, agent *model.Employee) (*model.Employee, error) {
-	if agent == nil || agent.IsEmployee || agent.OrgID == nil {
+func (o *Orchestrator) loadOwningAgent(ctx context.Context, agent *model.Agent) (*model.Agent, error) {
+	if agent == nil || agent.IsManaged || agent.OrgID == nil {
 		return nil, nil
 	}
-	var employee model.Employee
+	var owner model.Agent
 	err := o.db.WithContext(ctx).
 		Where("org_id = ? AND id <> ? AND status <> ?", *agent.OrgID, agent.ID, "archived").
 		Order("created_at ASC").
-		First(&employee).Error
+		First(&owner).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &employee, nil
+	return &owner, nil
 }
 
 func mergeJSONMaps(base model.JSON, override model.JSON) model.JSON {
@@ -130,12 +130,12 @@ func mergeJSONMaps(base model.JSON, override model.JSON) model.JSON {
 	return out
 }
 
-func cloneAgentWithInheritedResources(agent *model.Employee, employee *model.Employee) *model.Employee {
-	if agent == nil || employee == nil {
+func cloneAgentWithInheritedResources(agent *model.Agent, owner *model.Agent) *model.Agent {
+	if agent == nil || owner == nil {
 		return agent
 	}
 	clone := *agent
-	clone.Resources = mergeJSONMaps(employee.Resources, agent.Resources)
+	clone.Resources = mergeJSONMaps(owner.Resources, agent.Resources)
 	return &clone
 }
 

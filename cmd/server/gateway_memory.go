@@ -12,54 +12,54 @@ import (
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func enqueueGatewayEmployeeMemoryRetain(ctx context.Context, enqueuer enqueue.TaskEnqueuer, session model.EmployeeSession, reason, sourceEvent string) {
+func enqueueGatewayAgentMemoryRetain(ctx context.Context, enqueuer enqueue.TaskEnqueuer, session model.AgentSession, reason, sourceEvent string) {
 	if enqueuer == nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("gateway employee memory retain: enqueuer missing"), gatewayEmployeeMemoryRetainFields(session, reason, sourceEvent))
+		logging.CaptureWithFields(ctx, fmt.Errorf("gateway agent memory retain: enqueuer missing"), gatewayAgentMemoryRetainFields(session, reason, sourceEvent))
 		return
 	}
-	if session.ID == uuid.Nil || session.EmployeeID == uuid.Nil || session.SandboxID == uuid.Nil {
-		logging.FromContext(ctx).WarnContext(ctx, "gateway employee memory retain enqueue skipped",
+	if session.ID == uuid.Nil || session.AgentID == uuid.Nil || session.SandboxID == uuid.Nil {
+		logging.FromContext(ctx).WarnContext(ctx, "gateway agent memory retain enqueue skipped",
 			"skip_reason", "session_identity_missing",
-			"employee_session_id", session.ID.String(),
-			"employee_id", session.EmployeeID.String(),
+			"agent_session_id", session.ID.String(),
+			"agent_id", session.AgentID.String(),
 			"sandbox_id", session.SandboxID.String(),
 			"reason", reason,
 			"source_event", sourceEvent,
 		)
 		return
 	}
-	payload := tasks.EmployeeMemoryRetainPayload{
-		EmployeeID:        session.EmployeeID,
-		SandboxID:         session.SandboxID,
-		EmployeeSessionID: session.ID,
-		SessionID:         session.RuntimeConversationID,
-		Reason:            reason,
-		SourceEvent:       sourceEvent,
+	payload := tasks.AgentMemoryRetainPayload{
+		AgentID:        session.AgentID,
+		SandboxID:      session.SandboxID,
+		AgentSessionID: session.ID,
+		SessionID:      session.RuntimeConversationID,
+		Reason:         reason,
+		SourceEvent:    sourceEvent,
 	}
-	duplicate, err := tasks.EnqueueEmployeeMemoryRetain(ctx, enqueuer, payload)
+	duplicate, err := tasks.EnqueueAgentMemoryRetain(ctx, enqueuer, payload)
 	if err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("gateway employee memory retain: enqueue: %w", err), gatewayEmployeeMemoryRetainFields(session, reason, sourceEvent))
+		logging.CaptureWithFields(ctx, fmt.Errorf("gateway agent memory retain: enqueue: %w", err), gatewayAgentMemoryRetainFields(session, reason, sourceEvent))
 		return
 	}
-	logging.FromContext(ctx).InfoContext(ctx, "gateway employee memory retain enqueued",
+	logging.FromContext(ctx).InfoContext(ctx, "gateway agent memory retain enqueued",
 		"org_id", session.OrgID.String(),
-		"employee_id", session.EmployeeID.String(),
+		"agent_id", session.AgentID.String(),
 		"sandbox_id", session.SandboxID.String(),
-		"employee_session_id", session.ID.String(),
+		"agent_session_id", session.ID.String(),
 		"runtime_conversation_id", session.RuntimeConversationID,
 		"reason", reason,
 		"source_event", sourceEvent,
-		"delay_seconds", int(tasks.EmployeeMemoryRetainDelay.Seconds()),
+		"delay_seconds", int(tasks.AgentMemoryRetainDelay.Seconds()),
 		"duplicate", duplicate,
 	)
 }
 
-func gatewayEmployeeMemoryRetainFields(session model.EmployeeSession, reason, sourceEvent string) map[string]any {
+func gatewayAgentMemoryRetainFields(session model.AgentSession, reason, sourceEvent string) map[string]any {
 	return map[string]any{
 		"org_id":                  session.OrgID.String(),
-		"employee_id":             session.EmployeeID.String(),
+		"agent_id":                session.AgentID.String(),
 		"sandbox_id":              session.SandboxID.String(),
-		"employee_session_id":     session.ID.String(),
+		"agent_session_id":        session.ID.String(),
 		"runtime_conversation_id": session.RuntimeConversationID,
 		"reason":                  reason,
 		"source_event":            sourceEvent,

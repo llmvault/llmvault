@@ -9,13 +9,13 @@ import (
 	"gorm.io/gorm"
 )
 
-func BuildRuntimeSchedules(ctx context.Context, db *gorm.DB, agent *model.Employee, sb *model.Sandbox) ([]RuntimeSchedule, error) {
+func BuildRuntimeSchedules(ctx context.Context, db *gorm.DB, agent *model.Agent, sb *model.Sandbox) ([]RuntimeSchedule, error) {
 	if db == nil || agent == nil {
 		return nil, nil
 	}
-	var rows []model.EmployeeSchedule
+	var rows []model.AgentSchedule
 	query := db.WithContext(ctx).
-		Where("employee_id = ? AND cancelled_at IS NULL", agent.ID).
+		Where("agent_id = ? AND cancelled_at IS NULL", agent.ID).
 		Where("status IN ?", []string{"active", "paused"})
 	if agent.OrgID != nil {
 		query = query.Where("org_id = ?", *agent.OrgID)
@@ -33,15 +33,15 @@ func BuildRuntimeSchedules(ctx context.Context, db *gorm.DB, agent *model.Employ
 	return out, nil
 }
 
-// RepointEmployeeSchedules repoints active/paused schedules to the sandbox. It
+// RepointAgentSchedules repoints active/paused schedules to the sandbox. It
 // stays off the read path so a failed push never mutates rows; the FK is ON
 // DELETE SET NULL.
-func RepointEmployeeSchedules(ctx context.Context, db *gorm.DB, agent *model.Employee, sb *model.Sandbox) error {
+func RepointAgentSchedules(ctx context.Context, db *gorm.DB, agent *model.Agent, sb *model.Sandbox) error {
 	if db == nil || agent == nil || sb == nil {
 		return nil
 	}
-	query := db.WithContext(ctx).Model(&model.EmployeeSchedule{}).
-		Where("employee_id = ? AND cancelled_at IS NULL", agent.ID).
+	query := db.WithContext(ctx).Model(&model.AgentSchedule{}).
+		Where("agent_id = ? AND cancelled_at IS NULL", agent.ID).
 		Where("status IN ?", []string{"active", "paused"}).
 		Where("sandbox_id IS DISTINCT FROM ?", sb.ID)
 	if agent.OrgID != nil {
@@ -50,7 +50,7 @@ func RepointEmployeeSchedules(ctx context.Context, db *gorm.DB, agent *model.Emp
 	return query.Update("sandbox_id", sb.ID).Error
 }
 
-func runtimeScheduleFromModel(row model.EmployeeSchedule) RuntimeSchedule {
+func runtimeScheduleFromModel(row model.AgentSchedule) RuntimeSchedule {
 	nextRunAt := row.NextRunAt
 	if nextRunAt == nil {
 		at := time.Now().UTC().Add(time.Minute)

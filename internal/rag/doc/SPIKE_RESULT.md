@@ -148,7 +148,7 @@ specific `main` commit in `go.mod` (already an option: `go get
 github.com/lancedb/lancedb-go@main` returned a valid
 `v0.1.3-0.20260413172403-c43f33236280` pseudo-version).
 
-Requires: Rust toolchain in CI and in developer onboarding; a storage
+Requires: Rust toolchain in CI and in developer setup; a storage
 location for the compiled `.a` (we can check it into the repo or host
 it on R2). Adds ~3-5 min to cold CI. Otherwise this is the cleanest
 path — it keeps the Go-only data path and gets us all the upstream

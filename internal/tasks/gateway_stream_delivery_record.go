@@ -17,27 +17,27 @@ func (s *GatewayStreamDeliveryService) recordDelivery(ctx context.Context, paylo
 		return nil
 	}
 	orgID, _ := parseUUID(payload.OrgID)
-	employeeID, _ := parseUUID(payload.EmployeeID)
+	agentID, _ := parseUUID(payload.AgentID)
 	sessionID, _ := parseUUID(payload.SessionID)
 	routeID, _ := parseUUID(payload.RouteID)
 	dedupe := deliveryDedupeKey(payload, text)
-	row := model.EmployeeGatewayDelivery{
-		OrgID:             orgID,
-		EmployeeID:        employeeID,
-		RouteID:           routeIDPtr(routeID),
-		EmployeeSessionID: sessionID,
-		Provider:          firstNonEmpty(payload.Provider, sinkProvider(handles)),
-		DedupeKey:         dedupe,
-		RuntimeSessionID:  payload.RuntimeSessionID,
-		RuntimeTraceID:    payload.TraceID,
-		RuntimeTurnID:     payload.TurnID,
-		ThreadKey:         payload.ThreadKey,
-		ChannelID:         payload.ChannelID,
-		ThreadID:          payload.ThreadID,
-		ResponseText:      text,
-		ProviderHandles:   handlesJSON(handles),
-		Status:            status,
-		Error:             errText,
+	row := model.AgentGatewayDelivery{
+		OrgID:            orgID,
+		AgentID:          agentID,
+		RouteID:          routeIDPtr(routeID),
+		AgentSessionID:   sessionID,
+		Provider:         firstNonEmpty(payload.Provider, sinkProvider(handles)),
+		DedupeKey:        dedupe,
+		RuntimeSessionID: payload.RuntimeSessionID,
+		RuntimeTraceID:   payload.TraceID,
+		RuntimeTurnID:    payload.TurnID,
+		ThreadKey:        payload.ThreadKey,
+		ChannelID:        payload.ChannelID,
+		ThreadID:         payload.ThreadID,
+		ResponseText:     text,
+		ProviderHandles:  handlesJSON(handles),
+		Status:           status,
+		Error:            errText,
 	}
 	if len(handles) > 0 {
 		row.ChannelID = handles[0].ChannelID
@@ -59,20 +59,20 @@ func deliveryDedupeKey(payload GatewayStreamPayload, text string) string {
 // alreadyDelivered reports whether a prior attempt already sent this turn,
 // returning the existing row so the caller can reuse its handles/text. Only
 // rows with status "sent" count — a prior "failed" row must be retried.
-func (s *GatewayStreamDeliveryService) alreadyDelivered(ctx context.Context, payload GatewayStreamPayload, text string) (model.EmployeeGatewayDelivery, bool) {
+func (s *GatewayStreamDeliveryService) alreadyDelivered(ctx context.Context, payload GatewayStreamPayload, text string) (model.AgentGatewayDelivery, bool) {
 	if s == nil || s.db == nil {
-		return model.EmployeeGatewayDelivery{}, false
+		return model.AgentGatewayDelivery{}, false
 	}
 	dedupe := deliveryDedupeKey(payload, text)
 	if strings.Trim(dedupe, ":") == "" {
-		return model.EmployeeGatewayDelivery{}, false
+		return model.AgentGatewayDelivery{}, false
 	}
-	var row model.EmployeeGatewayDelivery
+	var row model.AgentGatewayDelivery
 	err := s.db.WithContext(ctx).
 		Where("dedupe_key = ? AND status = ?", dedupe, "sent").
 		Take(&row).Error
 	if err != nil {
-		return model.EmployeeGatewayDelivery{}, false
+		return model.AgentGatewayDelivery{}, false
 	}
 	return row, true
 }

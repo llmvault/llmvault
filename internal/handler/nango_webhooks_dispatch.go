@@ -90,7 +90,7 @@ func enqueueTriggerDispatch(
 		}
 	}
 
-	task, opts, err := tasks.NewEmployeeTriggerDispatchTask(tasks.EmployeeTriggerDispatchPayload{
+	task, opts, err := tasks.NewAgentTriggerDispatchTask(tasks.AgentTriggerDispatchPayload{
 		Provider:     providerName,
 		EventType:    metadata.EventType,
 		EventAction:  metadata.EventAction,

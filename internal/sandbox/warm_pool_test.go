@@ -26,18 +26,18 @@ func TestWarmPoolReconcileCreatesWarmSlotAndClaimMarksClaiming(t *testing.T) {
 	provider.warmEndpoint = health.URL
 
 	pool := NewWarmPool(db, provider, testEncKey(t), &config.Config{
-		SandboxWarmPoolEmployeeSize: 1,
-		RailwayRuntimePort:          7080,
-		SandboxesRuntimeBaseImage:   "runtime:test",
-		Environment:                 "production",
-		SentryTracesSampleRate:      0.25,
-		AgentSandboxSentryDSN:       "https://agent@example.com/2",
+		SandboxWarmPoolAgentSize:  1,
+		RailwayRuntimePort:        7080,
+		SandboxesRuntimeBaseImage: "runtime:test",
+		Environment:               "production",
+		SentryTracesSampleRate:    0.25,
+		AgentSandboxSentryDSN:     "https://agent@example.com/2",
 	})
 	if pool == nil {
 		t.Fatal("warm pool is nil")
 	}
 
-	created, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeEmployee, nil)
+	created, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeAgent, nil)
 	if err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestWarmPoolReconcileCreatesWarmSlotAndClaimMarksClaiming(t *testing.T) {
 		t.Fatalf("create sandbox: %v", err)
 	}
 
-	claimed, err := pool.Claim(context.Background(), model.SandboxWarmSlotModeEmployee, sb.ID)
+	claimed, err := pool.Claim(context.Background(), model.SandboxWarmSlotModeAgent, sb.ID)
 	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestWarmPoolDeletesStaleRuntimeImageSlotsAndReconciles(t *testing.T) {
 	}
 	stale := model.SandboxWarmSlot{
 		ProviderID:             provider.ID(),
-		Mode:                   model.SandboxWarmSlotModeEmployee,
+		Mode:                   model.SandboxWarmSlotModeAgent,
 		Status:                 model.SandboxWarmSlotStatusWarm,
 		ExternalID:             "stale-warm-slot",
 		EndpointURL:            "https://stale.example",
@@ -133,11 +133,11 @@ func TestWarmPoolDeletesStaleRuntimeImageSlotsAndReconciles(t *testing.T) {
 	}
 
 	pool := NewWarmPool(db, provider, encKey, &config.Config{
-		SandboxWarmPoolEmployeeSize: 1,
-		RailwayRuntimePort:          7080,
-		SandboxesRuntimeBaseImage:   "runtime:test-v2",
+		SandboxWarmPoolAgentSize:  1,
+		RailwayRuntimePort:        7080,
+		SandboxesRuntimeBaseImage: "runtime:test-v2",
 	})
-	created, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeEmployee, nil)
+	created, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeAgent, nil)
 	if err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestWarmPoolDeletesStaleRuntimeImageSlotsAndReconciles(t *testing.T) {
 		t.Fatalf("create sandbox: %v", err)
 	}
 
-	claimed, err := pool.Claim(context.Background(), model.SandboxWarmSlotModeEmployee, sb.ID)
+	claimed, err := pool.Claim(context.Background(), model.SandboxWarmSlotModeAgent, sb.ID)
 	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}

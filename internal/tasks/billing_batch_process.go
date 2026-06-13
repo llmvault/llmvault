@@ -145,7 +145,7 @@ func selectUnbilledBatch(tx *gorm.DB, limit int) ([]unbilledRow, error) {
 		       g.billing_attempts
 		FROM generations AS g
 		LEFT JOIN tokens AS t ON t.jti = g.token_jti
-		LEFT JOIN employees AS a ON a.id = NULLIF(t.meta->>'employee_id', '')::uuid
+		LEFT JOIN agents AS a ON a.id = NULLIF(t.meta->>'agent_id', '')::uuid
 		WHERE g.billed_at IS NULL
 		  AND g.is_system = TRUE
 		  AND (g.cost > 0 OR g.input_tokens > 0 OR g.output_tokens > 0)

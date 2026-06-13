@@ -33,8 +33,6 @@ type Org struct {
 
 	PromptCompany string `gorm:"type:text;not null;default:''"`
 
-	Onboarded bool `gorm:"not null;default:false"`
-
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

@@ -53,7 +53,7 @@ func (h *GatewaySlackHandler) Handle(ctx context.Context, t *asynq.Task) error {
 	fields := map[string]any{
 		"connection_id": payload.ConnectionID,
 		"org_id":        payload.OrgID,
-		"employee_id":   payload.EmployeeID,
+		"agent_id":      payload.AgentID,
 		"channel_id":    payload.ChannelID,
 		"thread_ts":     payload.ThreadTS,
 		"session_id":    payload.SessionID,
@@ -92,7 +92,7 @@ func (h *GatewaySlackHandler) HandleStatus(ctx context.Context, t *asynq.Task) e
 	fields := map[string]any{
 		"connection_id": payload.ConnectionID,
 		"org_id":        payload.OrgID,
-		"employee_id":   payload.EmployeeID,
+		"agent_id":      payload.AgentID,
 		"channel_id":    payload.ChannelID,
 		"thread_ts":     payload.ThreadTS,
 		"event_id":      payload.EventID,

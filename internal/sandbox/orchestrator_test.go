@@ -77,16 +77,16 @@ func createTestOrg(t *testing.T, db *gorm.DB) model.Org {
 	return org
 }
 
-func createTestAgent(t *testing.T, db *gorm.DB, orgID, credID uuid.UUID) model.Employee {
+func createTestAgent(t *testing.T, db *gorm.DB, orgID, credID uuid.UUID) model.Agent {
 	t.Helper()
 	suffix := uuid.New().String()[:8]
-	agent := model.Employee{
+	agent := model.Agent{
 		OrgID: &orgID, Name: "agent-" + suffix,
 		CredentialID: &credID,
 		SystemPrompt: "test", Model: "gpt-4o",
 	}
 	db.Create(&agent)
-	t.Cleanup(func() { db.Where("id = ?", agent.ID).Delete(&model.Employee{}) })
+	t.Cleanup(func() { db.Where("id = ?", agent.ID).Delete(&model.Agent{}) })
 	return agent
 }
 

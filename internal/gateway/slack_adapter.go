@@ -184,7 +184,7 @@ func (a *SlackAdapter) RenderResponse(_ context.Context, response AgentResponse)
 	}
 	return ProviderResponsePayload{
 		Route:     response.Route,
-		Session:   response.EmployeeSession,
+		Session:   response.AgentSession,
 		ChannelID: response.ChannelID,
 		ThreadID:  response.ThreadID,
 		Text:      text,
@@ -255,7 +255,7 @@ func (s *SlackNangoResponseSender) SendSlackResponse(ctx context.Context, payloa
 	messageTS, err := slackgateway.PostThreadReply(ctx, s.newSlackClient(botToken), payload.ChannelID, payload.ThreadID, payload.Text, map[string]any{
 		"connection_id": connection.ID.String(),
 		"org_id":        payload.Session.OrgID.String(),
-		"employee_id":   payload.Session.EmployeeID.String(),
+		"agent_id":      payload.Session.AgentID.String(),
 		"channel_id":    payload.ChannelID,
 		"thread_ts":     payload.ThreadID,
 	})
