@@ -32,11 +32,11 @@ func main() {
 		cmd = os.Args[1]
 	}
 	if cmd == "version" {
-		fmt.Printf("microsandbox-control %s (%s)\n", version, commit)
+		fmt.Printf("msb %s (%s)\n", version, commit)
 		return
 	}
 	if cmd != "control" {
-		slog.Error("unsupported microsandbox-control command", "command", cmd)
+		slog.Error("unsupported msb command", "command", cmd)
 		os.Exit(1)
 	}
 
