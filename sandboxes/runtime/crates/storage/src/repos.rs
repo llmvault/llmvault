@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::cron::{CronJob, CronJobState};
 use domain::{
-    AgentDefinition, EventKind, Session, SessionEvent, SessionId, SessionStatus, SubagentTask,
-    SubagentTaskState,
+    AgentDefinition, EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionEvent,
+    SessionId, SessionStatus, SubagentTask, SubagentTaskState,
 };
 use std::sync::Arc;
 
@@ -183,4 +183,16 @@ pub trait SubagentTaskRepo: Send + Sync + 'static {
         completed_at: DateTime<Utc>,
         error: &str,
     ) -> Result<()>;
+}
+
+#[async_trait]
+pub trait QuestionRequestRepo: Send + Sync + 'static {
+    async fn create(&self, request: &QuestionRequest) -> Result<()>;
+    async fn get(&self, id: &str) -> Result<Option<QuestionRequest>>;
+    async fn answer(
+        &self,
+        id: &str,
+        answer: &QuestionAnswerPayload,
+        answered_at: DateTime<Utc>,
+    ) -> Result<bool>;
 }

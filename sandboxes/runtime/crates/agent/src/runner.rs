@@ -32,6 +32,7 @@ use crate::rig_tool_registry::{
     build_agent_tools, emit_tool_error, emit_tool_invoked, DynamicTool, ToolContext,
 };
 use crate::{AgentEvent, AgentRunner, Result, TurnInput};
+use crate::{PlanUpdater, QuestionRequester};
 
 const CREDITS_EXHAUSTED_MESSAGE: &str =
     "Sorry, it seems your organisation ran out of credits. Please visit https://usehivy.com/w to resolve this and you'll be back up and running immediately.";
@@ -48,6 +49,8 @@ pub struct RigAgentRunner {
     outbound_emitter: Option<Arc<OutboundEmitter>>,
     cron_repo: Option<Arc<dyn CronJobRepo>>,
     subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
+    question_requester: Option<Arc<dyn QuestionRequester>>,
+    plan_updater: Option<Arc<dyn PlanUpdater>>,
     event_repo: Option<Arc<dyn storage::EventRepo>>,
     mcp_registry: Option<Arc<McpRegistry>>,
     subagent_stream_creator: Option<crate::rig_tool_registry::SubagentStreamCreator>,
@@ -62,6 +65,8 @@ impl RigAgentRunner {
             outbound_emitter: None,
             cron_repo: None,
             subagent_task_repo: None,
+            question_requester: None,
+            plan_updater: None,
             event_repo: None,
             mcp_registry: None,
             subagent_stream_creator: None,
@@ -81,6 +86,16 @@ impl RigAgentRunner {
 
     pub fn with_subagent_task_repo(mut self, repo: Arc<dyn SubagentTaskRepo>) -> Self {
         self.subagent_task_repo = Some(repo);
+        self
+    }
+
+    pub fn with_question_requester(mut self, requester: Arc<dyn QuestionRequester>) -> Self {
+        self.question_requester = Some(requester);
+        self
+    }
+
+    pub fn with_plan_updater(mut self, updater: Arc<dyn PlanUpdater>) -> Self {
+        self.plan_updater = Some(updater);
         self
     }
 
@@ -163,6 +178,8 @@ impl AgentRunner for RigAgentRunner {
             &ToolContext {
                 cron_repo: cron_repo.clone(),
                 subagent_task_repo: subagent_task_repo.clone(),
+                question_requester: self.question_requester.clone(),
+                plan_updater: self.plan_updater.clone(),
                 event_repo: event_repo_for_tools.clone(),
                 process_registry: Some(process_registry.clone()),
                 mcp_registry: mcp_registry.clone(),

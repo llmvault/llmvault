@@ -1,0 +1,28 @@
+---
+- name: Check local Microsandbox release binary exists
+  ansible.builtin.stat:
+    path: "{{ microsandbox_binary_local_path }}"
+  delegate_to: localhost
+  become: false
+  register: microsandbox_local_binary
+
+- name: Require local linux/amd64 Microsandbox binary
+  ansible.builtin.assert:
+    that:
+      - microsandbox_local_binary.stat.exists
+      - microsandbox_local_binary.stat.isreg
+    fail_msg: "Build the runner binary first: make microsandbox-release-linux-amd64"
+
+- name: Install Microsandbox runner binary
+  ansible.builtin.copy:
+    src: "{{ microsandbox_binary_local_path }}"
+    dest: "{{ microsandbox_binary_remote_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart microsandbox runner
+
+- name: Verify installed Microsandbox binary
+  ansible.builtin.command: "{{ microsandbox_binary_remote_path }} version"
+  register: microsandbox_binary_version
+  changed_when: false

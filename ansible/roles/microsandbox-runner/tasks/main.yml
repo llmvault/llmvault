@@ -1,0 +1,92 @@
+---
+- name: Validate required runner inventory values
+  ansible.builtin.assert:
+    that:
+      - runner_name is defined
+      - runner_name | trim | length > 0
+      - runner_public_url is defined
+      - runner_public_url | trim | length > 0
+    fail_msg: "Each runner host must define runner_name and runner_public_url."
+
+- name: Check installed Microsandbox runner binary exists
+  ansible.builtin.stat:
+    path: "{{ microsandbox_binary_remote_path }}"
+  register: microsandbox_remote_binary
+
+- name: Require installed Microsandbox runner binary
+  ansible.builtin.assert:
+    that:
+      - microsandbox_remote_binary.stat.exists
+      - microsandbox_remote_binary.stat.isreg
+    fail_msg: "Run phase2-install.yml before phase3-deploy.yml."
+
+- name: Check local ansible .env exists
+  ansible.builtin.stat:
+    path: "{{ microsandbox_env_file }}"
+  delegate_to: localhost
+  become: false
+  register: microsandbox_env_file_stat
+
+- name: Require ansible .env
+  ansible.builtin.assert:
+    that:
+      - microsandbox_env_file_stat.stat.exists
+      - microsandbox_env_file_stat.stat.isreg
+    fail_msg: "Create ansible/.env from ansible/.env.example before deploying runners."
+
+- name: Read ansible .env
+  ansible.builtin.set_fact:
+    microsandbox_env_lines: "{{ lookup('ansible.builtin.file', microsandbox_env_file).splitlines() }}"
+  no_log: true
+
+- name: Parse ansible .env
+  ansible.builtin.set_fact:
+    microsandbox_env: "{{ microsandbox_env | default({}) | combine({(item.split('=', 1)[0] | trim): (item.split('=', 1)[1] | trim | regex_replace('^\"(.*)\"$', '\\1') | regex_replace(\"^'(.*)'$\", '\\1'))}) }}"
+  loop: "{{ microsandbox_env_lines }}"
+  when: item is match('^\\s*[A-Za-z_][A-Za-z0-9_]*=')
+  no_log: true
+
+- name: Require Microsandbox runner env values
+  ansible.builtin.assert:
+    that:
+      - microsandbox_env[item] is defined
+      - microsandbox_env[item] | string | trim | length > 0
+    fail_msg: "Required value {{ item }} is missing from ansible/.env."
+  loop: "{{ microsandbox_required_env }}"
+  no_log: true
+
+- name: Locate root filesystem mount
+  ansible.builtin.set_fact:
+    microsandbox_root_mount: "{{ (ansible_mounts | selectattr('mount', 'equalto', '/') | list | first) }}"
+
+- name: Compute runner capacity
+  ansible.builtin.set_fact:
+    microsandbox_runner_total_cpu: "{{ ansible_processor_vcpus | default(ansible_processor_count) | int }}"
+    microsandbox_runner_total_memory_mb: "{{ ansible_memtotal_mb | int }}"
+    microsandbox_runner_total_disk_gb: "{{ (microsandbox_root_mount.size_total / 1073741824) | int }}"
+
+- name: Render Microsandbox runner env file
+  ansible.builtin.template:
+    src: microsandbox-runner.env.j2
+    dest: "{{ microsandbox_runner_env_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart microsandbox runner
+  no_log: true
+
+- name: Install Microsandbox runner systemd unit
+  ansible.builtin.template:
+    src: microsandbox-runner.service.j2
+    dest: "/etc/systemd/system/{{ microsandbox_runner_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart microsandbox runner
+
+- name: Enable and start Microsandbox runner
+  ansible.builtin.systemd:
+    name: "{{ microsandbox_runner_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true

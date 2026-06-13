@@ -1,0 +1,7 @@
+---
+- name: Deploy Microsandbox runner service
+  hosts: runners
+  become: true
+  gather_facts: true
+  roles:
+    - microsandbox-runner

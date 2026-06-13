@@ -1,0 +1,56 @@
+---
+- name: Validate Microsandbox runners
+  hosts: runners
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Validate runner service and health endpoints
+      block:
+        - name: Check systemd service is active
+          ansible.builtin.command: "systemctl is-active {{ microsandbox_runner_service_name }}"
+          register: microsandbox_service_status
+          changed_when: false
+
+        - name: Check local runner health
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:{{ runner_api_port }}/health"
+            method: GET
+            return_content: true
+            status_code: 200
+            timeout: 10
+          register: microsandbox_local_health
+
+        - name: Check public runner health from Ansible controller
+          ansible.builtin.uri:
+            url: "{{ runner_public_url | trim | regex_replace('/+$', '') }}/health"
+            method: GET
+            return_content: true
+            status_code: 200
+            timeout: 15
+          delegate_to: localhost
+          become: false
+          register: microsandbox_public_health
+
+        - name: Print validation result
+          ansible.builtin.debug:
+            msg:
+              - "Runner {{ runner_name }} is active."
+              - "Local health: {{ microsandbox_local_health.content | default('') | trim }}"
+              - "Public health: {{ microsandbox_public_health.content | default('') | trim }}"
+
+      rescue:
+        - name: Print runner journal tail
+          ansible.builtin.command: "journalctl -u {{ microsandbox_runner_service_name }} -n 120 --no-pager"
+          register: microsandbox_runner_journal
+          changed_when: false
+          failed_when: false
+
+        - name: Show runner diagnostics
+          ansible.builtin.debug:
+            msg:
+              - "Microsandbox runner validation failed on {{ inventory_hostname }}."
+              - "{{ microsandbox_runner_journal.stdout | default('No journal output') }}"
+
+        - name: Fail validation phase
+          ansible.builtin.fail:
+            msg: "Microsandbox runner validation failed on {{ inventory_hostname }}."

@@ -1,0 +1,7 @@
+---
+- name: Install Microsandbox runner binary
+  hosts: runners
+  become: true
+  gather_facts: false
+  roles:
+    - microsandbox-binary

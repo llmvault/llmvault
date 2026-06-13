@@ -1,22 +1,32 @@
 use axum::{
     extract::State,
-    http::{header::AUTHORIZATION, Method, Request, StatusCode},
+    http::{header::AUTHORIZATION, HeaderName, Method, Request, StatusCode},
     middleware::Next,
     response::Response,
 };
 
 use crate::state::ApiState;
 
+const STREAM_TOKEN_HEADER: HeaderName = HeaderName::from_static("x-hivy-stream-token");
+
 pub async fn bearer_auth(
     State(state): State<ApiState>,
     request: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let path = request.uri().path();
+    let method = request.method().clone();
+    let path = request.uri().path().to_string();
     if path == "/healthz" {
         return Ok(next.run(request).await);
     }
-    if is_stream_get(request.method(), path) && stream_token_authorized(&state, request.uri()).await
+    if method == Method::OPTIONS {
+        return Ok(next.run(request).await);
+    }
+    let stream_token = stream_token_from_query(request.uri())
+        .or_else(|| stream_token_from_header(&request))
+        .map(ToString::to_string);
+    if is_stream_token_route(&method, &path)
+        && stream_token_authorized(&state, stream_token.as_deref()).await
     {
         return Ok(next.run(request).await);
     }
@@ -36,8 +46,9 @@ pub async fn bearer_auth(
     Ok(next.run(request).await)
 }
 
-fn is_stream_get(method: &Method, path: &str) -> bool {
-    *method == Method::GET && is_session_stream_path(path)
+fn is_stream_token_route(method: &Method, path: &str) -> bool {
+    (*method == Method::GET && is_session_stream_path(path))
+        || (*method == Method::POST && is_question_answer_path(path))
 }
 
 fn is_session_stream_path(path: &str) -> bool {
@@ -49,8 +60,17 @@ fn is_session_stream_path(path: &str) -> bool {
     )
 }
 
-async fn stream_token_authorized(state: &ApiState, uri: &http::Uri) -> bool {
-    let Some(provided) = stream_token_from_query(uri) else {
+fn is_question_answer_path(path: &str) -> bool {
+    let parts: Vec<&str> = path.trim_matches('/').split('/').collect();
+    matches!(
+        parts.as_slice(),
+        ["sessions", session_id, "questions", question_request_id, "answer"]
+            if !session_id.is_empty() && !question_request_id.is_empty()
+    )
+}
+
+async fn stream_token_authorized(state: &ApiState, provided: Option<&str>) -> bool {
+    let Some(provided) = provided else {
         return false;
     };
     let token = state.stream_token.read().await;
@@ -58,6 +78,14 @@ async fn stream_token_authorized(state: &ApiState, uri: &http::Uri) -> bool {
         return false;
     };
     constant_time_eq(provided.as_bytes(), expected.as_bytes())
+}
+
+fn stream_token_from_header(request: &Request<axum::body::Body>) -> Option<&str> {
+    request
+        .headers()
+        .get(STREAM_TOKEN_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
 }
 
 fn stream_token_from_query(uri: &http::Uri) -> Option<&str> {
@@ -80,4 +108,26 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         diff |= left ^ right;
     }
     diff == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stream_token_routes_are_limited_to_streams_and_question_answers() {
+        assert!(is_stream_token_route(
+            &Method::GET,
+            "/sessions/s1/streams/stream-1"
+        ));
+        assert!(is_stream_token_route(
+            &Method::POST,
+            "/sessions/s1/questions/question-request-1/answer"
+        ));
+        assert!(!is_stream_token_route(
+            &Method::POST,
+            "/sessions/s1/messages"
+        ));
+        assert!(!is_stream_token_route(&Method::GET, "/config"));
+    }
 }

@@ -1,0 +1,17 @@
+[Unit]
+Description=Hivy Microsandbox Runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile={{ microsandbox_runner_env_path }}
+ExecStart={{ microsandbox_binary_remote_path }} runner
+Restart=always
+RestartSec=3
+User=root
+LimitNOFILE=1048576
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target

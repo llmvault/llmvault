@@ -28,6 +28,10 @@ pub enum ToolSpec {
     SkillManage,
     #[serde(rename = "builtin.search_sessions")]
     SearchSessions,
+    #[serde(rename = "builtin.request_user_input")]
+    RequestUserInput,
+    #[serde(rename = "builtin.update_plan")]
+    UpdatePlan,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

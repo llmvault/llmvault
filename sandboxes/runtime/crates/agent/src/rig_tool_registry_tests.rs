@@ -2,9 +2,12 @@ use super::*;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::ToolSpec;
+use domain::{
+    QuestionAnswerPayload, QuestionAnswerValue, RequestUserInputPayload, ToolSpec,
+    UpdatePlanPayload, UpdatePlanResult,
+};
 use outbound::{OutboundChannel, OutboundError, OutboundRegistry};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -53,6 +56,16 @@ struct FakeCronRepo {
 #[derive(Default)]
 struct FakeSubagentTaskRepo {
     tasks: Mutex<HashMap<String, SubagentTask>>,
+}
+
+#[derive(Default)]
+struct FakeQuestionRequester {
+    requests: Mutex<Vec<RequestUserInputPayload>>,
+}
+
+#[derive(Default)]
+struct FakePlanUpdater {
+    updates: Mutex<Vec<UpdatePlanPayload>>,
 }
 
 #[async_trait]
@@ -271,6 +284,50 @@ impl SubagentTaskRepo for FakeSubagentTaskRepo {
     }
 }
 
+#[async_trait]
+impl QuestionRequester for FakeQuestionRequester {
+    async fn request_user_input(
+        &self,
+        _session_id: &SessionId,
+        request: RequestUserInputPayload,
+    ) -> anyhow::Result<(String, QuestionAnswerPayload)> {
+        self.requests.lock().expect("question lock").push(request);
+        Ok((
+            "question-request-test".to_string(),
+            QuestionAnswerPayload {
+                answers: BTreeMap::from([(
+                    "choice".to_string(),
+                    QuestionAnswerValue {
+                        answers: vec!["Yes".to_string()],
+                        other: None,
+                    },
+                )]),
+                user: Some("user-1".to_string()),
+                user_display_name: Some("Ada".to_string()),
+            },
+        ))
+    }
+}
+
+#[async_trait]
+impl PlanUpdater for FakePlanUpdater {
+    async fn update_plan(
+        &self,
+        _session_id: &SessionId,
+        payload: UpdatePlanPayload,
+    ) -> anyhow::Result<UpdatePlanResult> {
+        self.updates
+            .lock()
+            .expect("plan lock")
+            .push(payload.clone());
+        Ok(UpdatePlanResult {
+            ok: true,
+            explanation: payload.explanation,
+            plan: payload.plan,
+        })
+    }
+}
+
 struct SkillSyncChannel;
 
 #[async_trait]
@@ -323,6 +380,8 @@ fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dy
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
+        question_requester: None,
+        plan_updater: None,
         mcp_registry: None,
         workspace_root: workspace,
         outbound_emitter: Some(emitter),
@@ -400,6 +459,220 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
     assert_eq!(status["state"], "queued");
     assert_eq!(status["session_id"], format!("subagent-{job_id}").as_str());
     assert_eq!(status["stream_id"], "stream-1");
+}
+
+#[tokio::test]
+async fn request_user_input_tool_is_registered_and_returns_answer() {
+    let requester = Arc::new(FakeQuestionRequester::default());
+    let ctx = ToolContext {
+        cron_repo: None,
+        subagent_task_repo: None,
+        event_repo: None,
+        process_registry: None,
+        question_requester: Some(requester.clone()),
+        plan_updater: None,
+        mcp_registry: None,
+        workspace_root: temp_workspace(),
+        outbound_emitter: None,
+        agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
+            test_agent_definition(),
+        ))),
+        subagent_stream_creator: None,
+    };
+    let tool = build_agent_tools(
+        &[ToolSpec::RequestUserInput],
+        &SessionId::from("question-session"),
+        &ctx,
+    )
+    .into_iter()
+    .find(|tool| tool.definition().name == "request_user_input")
+    .expect("request_user_input tool");
+
+    let result = tool
+        .call(json!({
+            "questions": [{
+                "id": "choice",
+                "header": "Choice",
+                "question": "Pick one.",
+                "options": [
+                    {"label": "Yes", "description": "Proceed."},
+                    {"label": "No", "description": "Stop."}
+                ]
+            }]
+        }))
+        .await
+        .expect("request user input");
+
+    assert_eq!(result["question_request_id"], "question-request-test");
+    assert_eq!(result["answers"]["choice"]["answers"][0], "Yes");
+    let recorded = requester.requests.lock().expect("question lock");
+    assert_eq!(recorded.len(), 1);
+    assert_eq!(recorded[0].questions[0].id, "choice");
+}
+
+#[tokio::test]
+async fn request_user_input_tool_rejects_invalid_schema() {
+    let requester = Arc::new(FakeQuestionRequester::default());
+    let tool = request_user_input_tool(requester.clone(), SessionId::from("question-session"));
+
+    let error = tool
+        .call(json!({
+            "questions": [{
+                "id": "choice",
+                "header": "TooLongHeader",
+                "question": "Pick one.",
+                "options": [
+                    {"label": "Yes", "description": "Proceed."}
+                ]
+            }]
+        }))
+        .await
+        .expect_err("invalid schema must fail");
+
+    assert!(
+        error
+            .to_string()
+            .contains("invalid request_user_input arguments"),
+        "unexpected error: {error}"
+    );
+    assert!(requester.requests.lock().expect("question lock").is_empty());
+}
+
+#[tokio::test]
+async fn update_plan_tool_is_registered_and_returns_ack() {
+    let updater = Arc::new(FakePlanUpdater::default());
+    let ctx = ToolContext {
+        cron_repo: None,
+        subagent_task_repo: None,
+        event_repo: None,
+        process_registry: None,
+        question_requester: None,
+        plan_updater: Some(updater.clone()),
+        mcp_registry: None,
+        workspace_root: temp_workspace(),
+        outbound_emitter: None,
+        agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
+            test_agent_definition(),
+        ))),
+        subagent_stream_creator: None,
+    };
+    let tool = build_agent_tools(
+        &[ToolSpec::UpdatePlan],
+        &SessionId::from("plan-session"),
+        &ctx,
+    )
+    .into_iter()
+    .find(|tool| tool.definition().name == "update_plan")
+    .expect("update_plan tool");
+
+    let result = tool
+        .call(json!({
+            "explanation": "Working through runtime changes",
+            "plan": [
+                {"step": "Inspect code", "status": "completed"},
+                {"step": "Add tests", "status": "in_progress"},
+                {"step": "Run E2E", "status": "pending"}
+            ]
+        }))
+        .await
+        .expect("update plan");
+
+    assert_eq!(result["ok"], true);
+    assert_eq!(result["explanation"], "Working through runtime changes");
+    assert_eq!(result["plan"][1]["status"], "in_progress");
+    let recorded = updater.updates.lock().expect("plan lock");
+    assert_eq!(recorded.len(), 1);
+    assert_eq!(recorded[0].plan[1].step, "Add tests");
+}
+
+#[tokio::test]
+async fn update_plan_tool_rejects_invalid_status() {
+    let updater = Arc::new(FakePlanUpdater::default());
+    let tool = update_plan_tool(updater.clone(), SessionId::from("plan-session"));
+
+    let error = tool
+        .call(json!({
+            "plan": [{"step": "Inspect code", "status": "started"}]
+        }))
+        .await
+        .expect_err("invalid status must fail");
+
+    assert!(
+        error.to_string().contains("invalid update_plan arguments"),
+        "unexpected error: {error}"
+    );
+    assert!(updater.updates.lock().expect("plan lock").is_empty());
+}
+
+#[tokio::test]
+async fn update_plan_tool_rejects_duplicate_in_progress() {
+    let updater = Arc::new(FakePlanUpdater::default());
+    let tool = update_plan_tool(updater.clone(), SessionId::from("plan-session"));
+
+    let error = tool
+        .call(json!({
+            "plan": [
+                {"step": "Inspect code", "status": "in_progress"},
+                {"step": "Add tests", "status": "in_progress"}
+            ]
+        }))
+        .await
+        .expect_err("duplicate in_progress must fail");
+
+    assert!(
+        error.to_string().contains("at most one in_progress item"),
+        "unexpected error: {error}"
+    );
+    assert!(updater.updates.lock().expect("plan lock").is_empty());
+}
+
+#[tokio::test]
+async fn update_plan_tool_rejects_empty_steps() {
+    let updater = Arc::new(FakePlanUpdater::default());
+    let tool = update_plan_tool(updater.clone(), SessionId::from("plan-session"));
+
+    let error = tool
+        .call(json!({
+            "plan": [{"step": "   ", "status": "pending"}]
+        }))
+        .await
+        .expect_err("empty step must fail");
+
+    assert!(
+        error.to_string().contains("step must not be empty"),
+        "unexpected error: {error}"
+    );
+    assert!(updater.updates.lock().expect("plan lock").is_empty());
+}
+
+#[tokio::test]
+async fn update_plan_tool_is_not_registered_for_cron_sessions() {
+    let updater = Arc::new(FakePlanUpdater::default());
+    let ctx = ToolContext {
+        cron_repo: None,
+        subagent_task_repo: None,
+        event_repo: None,
+        process_registry: None,
+        question_requester: None,
+        plan_updater: Some(updater),
+        mcp_registry: None,
+        workspace_root: temp_workspace(),
+        outbound_emitter: None,
+        agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
+            test_agent_definition(),
+        ))),
+        subagent_stream_creator: None,
+    };
+
+    let tools = build_agent_tools(
+        &[ToolSpec::UpdatePlan],
+        &SessionId::from("wake-cron-session"),
+        &ctx,
+    );
+
+    assert!(tools
+        .iter()
+        .all(|tool| tool.definition().name != "update_plan"));
 }
 
 #[tokio::test]
