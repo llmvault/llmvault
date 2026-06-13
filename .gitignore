@@ -29,6 +29,7 @@ certs/
 
 # binary outputs (not the source in cmd/)
 /buildtemplates
+/msb
 /sandbox-exec
 /verify-devbox
 .next/
