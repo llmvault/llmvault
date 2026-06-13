@@ -1,14 +1,10 @@
 package tasks
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
@@ -16,10 +12,9 @@ import (
 )
 
 type compiledTriggerMessage struct {
-	Text           string
-	ResourceKey    string
-	ConversationID string
-	Raw            map[string]any
+	Text        string
+	ResourceKey string
+	Raw         map[string]any
 }
 
 func (h *AgentTriggerDispatchHandler) compileMessage(payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, webhookPayload map[string]any) compiledTriggerMessage {
@@ -46,8 +41,6 @@ func (h *AgentTriggerDispatchHandler) compileMessage(payload AgentTriggerDispatc
 	} else {
 		displayName = "HTTP trigger"
 	}
-	conversationID := stableTriggerConversationID(trigger.ID, resourceKey)
-
 	var b strings.Builder
 	b.WriteString("Trigger fired.\n\n")
 	if strings.TrimSpace(trigger.Instructions) != "" {
@@ -79,9 +72,8 @@ func (h *AgentTriggerDispatchHandler) compileMessage(payload AgentTriggerDispatc
 	}
 
 	return compiledTriggerMessage{
-		Text:           b.String(),
-		ResourceKey:    resourceKey,
-		ConversationID: conversationID,
+		Text:        b.String(),
+		ResourceKey: resourceKey,
 		Raw: map[string]any{
 			"source":       "trigger",
 			"trigger_id":   trigger.ID.String(),
@@ -159,11 +151,6 @@ func substituteTemplate(template string, refs map[string]string) (string, bool) 
 		i = close + 1
 	}
 	return out.String(), true
-}
-
-func stableTriggerConversationID(triggerID uuid.UUID, resourceKey string) string {
-	sum := sha256.Sum256([]byte(triggerID.String() + ":" + resourceKey))
-	return "trigger-" + hex.EncodeToString(sum[:])[:32]
 }
 
 func writeKV(b *strings.Builder, key, value string) {

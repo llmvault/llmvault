@@ -8,21 +8,21 @@ import (
 
 type Channel struct {
 	ID                   uuid.UUID   `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID                uuid.UUID   `gorm:"type:uuid;not null;index;uniqueIndex:idx_channels_org_name,priority:1;uniqueIndex:idx_channels_org_external_resource,priority:1,where:external_resource_key <> ''"`
+	OrgID                uuid.UUID   `gorm:"type:uuid;not null;index;uniqueIndex:idx_channels_org_source_name,priority:1,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:1,where:external_resource_key <> ''"`
 	Org                  Org         `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	Name                 string      `gorm:"type:text;not null;uniqueIndex:idx_channels_org_name,priority:2"`
+	Name                 string      `gorm:"type:text;not null;uniqueIndex:idx_channels_org_source_name,priority:6,where:archived_at IS NULL"`
 	Description          string      `gorm:"type:text;not null;default:''"`
 	Kind                 string      `gorm:"type:text;not null;default:'standard'"`
 	Visibility           string      `gorm:"type:text;not null;default:'public'"`
 	DefaultAgentID       uuid.UUID   `gorm:"type:uuid;not null;index"`
 	DefaultAgent         Agent       `gorm:"foreignKey:DefaultAgentID;constraint:OnDelete:RESTRICT"`
 	IsDefault            bool        `gorm:"not null;default:false;index"`
-	Origin               string      `gorm:"type:text;not null;default:'native';index"`
-	ExternalProvider     string      `gorm:"type:text;not null;default:'';uniqueIndex:idx_channels_org_external_resource,priority:2,where:external_resource_key <> ''"`
+	Origin               string      `gorm:"type:text;not null;default:'native';index;uniqueIndex:idx_channels_org_source_name,priority:2,where:archived_at IS NULL"`
+	ExternalProvider     string      `gorm:"type:text;not null;default:'';uniqueIndex:idx_channels_org_source_name,priority:3,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:2,where:external_resource_key <> ''"`
 	ExternalConnectionID *uuid.UUID  `gorm:"type:uuid;index"`
 	ExternalConnection   *Connection `gorm:"foreignKey:ExternalConnectionID;constraint:OnDelete:SET NULL"`
-	ExternalWorkspaceKey string      `gorm:"type:text;not null;default:'';uniqueIndex:idx_channels_org_external_resource,priority:3,where:external_resource_key <> ''"`
-	ExternalResourceType string      `gorm:"type:text;not null;default:'channel';uniqueIndex:idx_channels_org_external_resource,priority:4,where:external_resource_key <> ''"`
+	ExternalWorkspaceKey string      `gorm:"type:text;not null;default:'';uniqueIndex:idx_channels_org_source_name,priority:4,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:3,where:external_resource_key <> ''"`
+	ExternalResourceType string      `gorm:"type:text;not null;default:'channel';uniqueIndex:idx_channels_org_source_name,priority:5,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:4,where:external_resource_key <> ''"`
 	ExternalResourceKey  string      `gorm:"type:text;not null;default:'';uniqueIndex:idx_channels_org_external_resource,priority:5,where:external_resource_key <> ''"`
 	ExternalResourceName string      `gorm:"type:text;not null;default:''"`
 	ExternalResourceURL  string      `gorm:"type:text;not null;default:''"`

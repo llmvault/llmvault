@@ -3,23 +3,6 @@
 
 -- Agent runtime, schedules, triggers, and generation tables
 
-CREATE TABLE agent_session_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    agent_id uuid NOT NULL,
-    sandbox_id uuid NOT NULL,
-    agent_session_id uuid NOT NULL,
-    runtime_session_id character varying(255) NOT NULL,
-    event_id character varying(255) DEFAULT ''::character varying NOT NULL,
-    event_type character varying(128) NOT NULL,
-    source character varying(128) DEFAULT 'manual'::character varying NOT NULL,
-    sequence_number bigint DEFAULT 0 NOT NULL,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    event_at timestamp with time zone NOT NULL,
-    retained_at timestamp with time zone,
-    created_at timestamp with time zone
-);
-
 CREATE TABLE agent_sandbox_upgrades (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -80,25 +63,6 @@ CREATE TABLE agent_schedules (
     updated_at timestamp with time zone
 );
 
-CREATE TABLE agent_sessions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    agent_id uuid NOT NULL,
-    sandbox_id uuid NOT NULL,
-    runtime_conversation_id text NOT NULL,
-    source text DEFAULT ''::text NOT NULL,
-    source_id uuid,
-    source_resource_key text DEFAULT ''::text NOT NULL,
-    credential_id uuid,
-    token_id uuid,
-    status text DEFAULT 'active'::text NOT NULL,
-    name text,
-    integration_scopes jsonb DEFAULT '{}'::jsonb,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    ended_at timestamp with time zone
-);
-
 CREATE TABLE agent_skills (
     agent_id uuid NOT NULL,
     skill_id uuid NOT NULL,
@@ -114,8 +78,7 @@ CREATE TABLE agent_trigger_deliveries (
     delivery_id text NOT NULL,
     event_key text DEFAULT ''::text NOT NULL,
     resource_key text DEFAULT ''::text NOT NULL,
-    conversation_id uuid NOT NULL,
-    runtime_conversation_id text DEFAULT ''::text NOT NULL,
+    session_id uuid NOT NULL,
     runtime_session_id text DEFAULT ''::text NOT NULL,
     runtime_stream_id text DEFAULT ''::text NOT NULL,
     runtime_trace_id text DEFAULT ''::text NOT NULL,
@@ -227,9 +190,6 @@ CREATE TABLE hindsight_banks (
     updated_at timestamp with time zone
 );
 
-ALTER TABLE ONLY agent_session_events
-    ADD CONSTRAINT agent_session_events_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY agent_sandbox_upgrades
     ADD CONSTRAINT agent_sandbox_upgrades_pkey PRIMARY KEY (id);
 
@@ -238,9 +198,6 @@ ALTER TABLE ONLY agent_schedule_runs
 
 ALTER TABLE ONLY agent_schedules
     ADD CONSTRAINT agent_schedules_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY agent_sessions
-    ADD CONSTRAINT agent_sessions_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY agent_skills
     ADD CONSTRAINT agent_skills_pkey PRIMARY KEY (agent_id, skill_id);
@@ -262,25 +219,6 @@ ALTER TABLE ONLY generations
 
 ALTER TABLE ONLY hindsight_banks
     ADD CONSTRAINT hindsight_banks_pkey PRIMARY KEY (id);
-
-CREATE INDEX idx_agent_session_events_event_at ON agent_session_events USING btree (event_at);
-
-CREATE INDEX idx_agent_session_events_agent_session_id ON agent_session_events USING btree (agent_session_id);
-
-CREATE INDEX idx_agent_session_events_event_id ON agent_session_events USING btree (event_id);
-
-CREATE INDEX idx_agent_session_events_event_type ON agent_session_events USING btree (event_type);
-
-
-CREATE INDEX idx_agent_session_events_retained_at ON agent_session_events USING btree (retained_at);
-
-CREATE INDEX idx_agent_session_events_sandbox_id ON agent_session_events USING btree (sandbox_id);
-
-CREATE INDEX idx_agent_session_events_sequence_number ON agent_session_events USING btree (sequence_number);
-
-
-
-CREATE INDEX idx_agent_session_event_scope ON agent_session_events USING btree (org_id, agent_id, runtime_session_id);
 
 CREATE INDEX idx_agent_org_id ON agents USING btree (org_id);
 
@@ -324,31 +262,15 @@ CREATE INDEX idx_agent_schedules_sandbox_id ON agent_schedules USING btree (sand
 
 CREATE INDEX idx_agent_schedules_status ON agent_schedules USING btree (status);
 
-CREATE INDEX idx_agent_session_org_agent ON agent_sessions USING btree (org_id, agent_id);
-
-CREATE INDEX idx_agent_sessions_credential_id ON agent_sessions USING btree (credential_id);
-
-CREATE INDEX idx_agent_sessions_runtime_conversation_id ON agent_sessions USING btree (runtime_conversation_id);
-
-CREATE UNIQUE INDEX idx_agent_sessions_runtime_scope ON agent_sessions USING btree (org_id, agent_id, sandbox_id, runtime_conversation_id);
-
-CREATE INDEX idx_agent_sessions_source ON agent_sessions USING btree (source);
-
-CREATE INDEX idx_agent_sessions_source_id ON agent_sessions USING btree (source_id);
-
-CREATE INDEX idx_agent_sessions_source_resource_key ON agent_sessions USING btree (source_resource_key);
-
 CREATE INDEX idx_agent_trigger_deliveries_connection_id ON agent_trigger_deliveries USING btree (connection_id);
 
-CREATE INDEX idx_agent_trigger_deliveries_conversation_id ON agent_trigger_deliveries USING btree (conversation_id);
+CREATE INDEX idx_agent_trigger_deliveries_session_id ON agent_trigger_deliveries USING btree (session_id);
 
 CREATE INDEX idx_agent_trigger_deliveries_delivery_id ON agent_trigger_deliveries USING btree (delivery_id);
 
 CREATE INDEX idx_agent_trigger_deliveries_event_key ON agent_trigger_deliveries USING btree (event_key);
 
 CREATE INDEX idx_agent_trigger_deliveries_resource_key ON agent_trigger_deliveries USING btree (resource_key);
-
-CREATE INDEX idx_agent_trigger_deliveries_runtime_conversation_id ON agent_trigger_deliveries USING btree (runtime_conversation_id);
 
 CREATE INDEX idx_agent_trigger_deliveries_runtime_session_id ON agent_trigger_deliveries USING btree (runtime_session_id);
 

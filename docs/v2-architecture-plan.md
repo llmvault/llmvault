@@ -119,7 +119,7 @@ CREATE TABLE agents (
 CREATE TABLE channels (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id uuid NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-    name text NOT NULL,                      -- slug-ish, unique per org
+    name text NOT NULL,                      -- slug-ish, unique per org + source tuple
     description text NOT NULL DEFAULT '',
     kind text NOT NULL DEFAULT 'standard',   -- standard|personal (see §2.4)
     visibility text NOT NULL DEFAULT 'public', -- public: org-discoverable + joinable
@@ -140,8 +140,12 @@ CREATE TABLE channels (
     archived_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (org_id, name)
 );
+
+CREATE UNIQUE INDEX idx_channels_org_source_name
+    ON channels (org_id, origin, external_provider, external_workspace_key,
+                 external_resource_type, name)
+    WHERE archived_at IS NULL;
 
 CREATE UNIQUE INDEX idx_channels_org_external_resource
     ON channels (org_id, external_provider, external_workspace_key,
@@ -321,6 +325,8 @@ Notes:
 ### W3 — Channels
 
 Channels are **web-first**: a team that never connects Slack, Discord, Teams, or any other app gets the full experience — create channels, join public ones, organize sessions inside them. External linking is optional generic provider/resource metadata.
+
+Channel display names are unique per source tuple, not org-wide: native `#engineering`, Slack `#engineering`, and Discord `#engineering` can coexist because uniqueness includes `origin`, provider, workspace, and resource type.
 
 ```
 POST   /v1/channels                       create (name, description, visibility,

@@ -18,7 +18,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
-	"github.com/usehivy/hivy/internal/gateway"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/precontext"
@@ -29,7 +28,6 @@ type AgentOutboundWebhookHandler struct {
 	encKey        *crypto.SymmetricKey
 	enqueuer      enqueue.TaskEnqueuer
 	writer        *AgentEventWriter
-	gateway       *gateway.Service
 	preloadCache  precontext.Cache
 	now           func() time.Time
 	maxBytes      int64
@@ -60,16 +58,12 @@ func NewAgentOutboundWebhookHandler(db *gorm.DB, encKey *crypto.SymmetricKey, en
 func (h *AgentOutboundWebhookHandler) SetPreContextCache(cache precontext.Cache) {
 	h.preloadCache = cache
 	if h.writer != nil {
-		h.writer.SetAfterWrite(func(ctx context.Context, events []model.AgentSessionEvent) {
+		h.writer.SetAfterWrite(func(ctx context.Context, events []model.SessionEvent) {
 			for _, event := range events {
 				precontext.InvalidateSessions(ctx, cache, event.OrgID, event.AgentID)
 			}
 		})
 	}
-}
-
-func (h *AgentOutboundWebhookHandler) SetGatewayService(service *gateway.Service) {
-	h.gateway = service
 }
 
 func (h *AgentOutboundWebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {

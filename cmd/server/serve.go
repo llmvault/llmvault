@@ -17,14 +17,12 @@ import (
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/email"
 	"github.com/usehivy/hivy/internal/enqueue"
-	"github.com/usehivy/hivy/internal/gateway"
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
-	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -137,36 +135,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if err != nil {
 		return err
 	}
-	preContextCache := precontext.NewRedisCache(redisClient)
-	agentEventWriter := handler.NewAgentEventWriter(ctx, database, 20000)
-	agentOutboundWebhookHandler := handler.NewAgentOutboundWebhookHandler(database, sandboxEncKey, enqueuer, agentEventWriter)
-	agentOutboundWebhookHandler.SetPreContextCache(preContextCache)
-	var gatewayHTTPHandler *handler.GatewayHTTPHandler
-	var gatewayExternalHandler *handler.GatewayExternalHandler
-	var gatewayService *gateway.Service
-	if orchestrator != nil {
-		gatewayRuntime := gateway.NewOrchestratedRuntimeMessenger(database, orchestrator)
-		slackResponseSender := gateway.NewSlackNangoResponseSender(nangoClient)
-		gatewayService = gateway.NewService(database, gatewayRuntime, sandboxEncKey, gateway.NewFakeSlackAdapter(), gateway.NewHTTPAdapter(nil), gateway.NewSlackAdapter(gateway.WithSlackResponseSender(slackResponseSender)), gateway.NewExternalAdapter())
-		gatewayService.SetRuntimeImages(cfg.SandboxesRuntimeBaseImage)
-		gatewayService.SetPreContextBuilder(precontext.NewService(precontext.Config{
-			DB:         database,
-			Cache:      preContextCache,
-			Memory:     hindsightClient,
-			MemoryBank: hindsightBanks,
-			Searcher:   ragRuntime.qd,
-			Embedder:   ragRuntime.embedder,
-			Reranker:   ragRuntime.reranker,
-			Collection: cfg.QdrantCollection,
-		}))
-		gatewayService.SetSessionCreatedHook(func(ctx context.Context, session model.AgentSession, reason, sourceEvent string) {
-			enqueueGatewayAgentMemoryRetain(ctx, enqueuer, session, reason, sourceEvent)
-		})
-		agentOutboundWebhookHandler.SetGatewayService(gatewayService)
-		gatewayHTTPHandler = handler.NewGatewayHTTPHandler(gatewayService)
-		gatewayExternalHandler = handler.NewGatewayExternalHandler(database, gatewayService, sandboxEncKey, enqueuer, cfg.RuntimeControlPlaneBaseURL())
-	}
-	nangoWebhookHandler := handler.NewNangoWebhookHandler(database, cfg.NangoWebhooksSecret, sandboxEncKey, nangoClient, gatewayService, enqueuer)
+	agentOutboundWebhookHandler := handler.NewAgentOutboundWebhookHandler(database, sandboxEncKey, enqueuer)
+	nangoWebhookHandler := handler.NewNangoWebhookHandler(database, cfg.NangoWebhooksSecret, sandboxEncKey, nangoClient, enqueuer)
 
 	incomingWebhookHandler := handler.NewIncomingWebhookHandler(database, enqueuer)
 	httpTriggerHandler := handler.NewHTTPTriggerHandler(database, enqueuer)
@@ -208,6 +178,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)
 	dashboardHandler := handler.NewDashboardHandler(database, deps.Credits)
 	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
+	channelHandler := handler.NewChannelHandler(database)
+	sessionHandler := handler.NewSessionHandler(database)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -226,12 +198,12 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, agentOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, gatewayHTTPHandler, gatewayExternalHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestratorMissing)
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, agentOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestratorMissing)
 
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
 	systemTaskHandler := buildSystemTaskHandler(database, deps, redisClient)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, databaseIntegrationHandler, customDomainHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, systemTaskHandler, agentHandler, gatewayExternalHandler, orchestrator, auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, databaseIntegrationHandler, customDomainHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, systemTaskHandler, agentHandler, orchestrator, auditWriter)
 
 	var platformAdminEmails []string
 	if cfg.PlatformAdminEmails != "" {

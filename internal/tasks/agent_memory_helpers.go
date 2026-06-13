@@ -67,7 +67,7 @@ func agentMemoryRetainFields(payload AgentMemoryRetainPayload) map[string]any {
 	fields := map[string]any{
 		"agent_id":           payload.AgentID.String(),
 		"sandbox_id":         payload.SandboxID.String(),
-		"agent_session_id":   payload.AgentSessionID.String(),
+		"session_uuid":       payload.SessionUUID.String(),
 		"runtime_session_id": strings.TrimSpace(payload.SessionID),
 		"reason":             strings.TrimSpace(payload.Reason),
 		"source_event":       strings.TrimSpace(payload.SourceEvent),
@@ -80,7 +80,7 @@ func logAgentMemoryRetainSkip(ctx context.Context, fields map[string]any, reason
 	logging.FromContext(ctx).InfoContext(ctx, "agent memory retain skipped", fieldsToArgs(fields)...)
 }
 
-func countAgentMemoryCandidateEvents(events []model.AgentSessionEvent) int {
+func countAgentMemoryCandidateEvents(events []model.SessionEvent) int {
 	count := 0
 	for _, event := range events {
 		if event.EventType == "user.message.received" || event.EventType == "agent.message.sent" {

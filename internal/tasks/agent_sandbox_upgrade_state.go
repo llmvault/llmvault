@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -125,10 +126,10 @@ func (h *AgentSandboxUpgradeHandler) runSmokeTest(ctx context.Context, sb *model
 	if err := client.Readyz(ctx); err != nil {
 		return fmt.Errorf("smoke readyz: %w", err)
 	}
+	sessionID := uuid.NewString()
 	body, err := json.Marshal(map[string]any{
-		"text":            "upgrade smoke test",
-		"conversation_id": "upgrade-smoke-" + sb.ID.String(),
-		"user":            "hivy-control-plane",
+		"text": "upgrade smoke test",
+		"user": "hivy-control-plane",
 		"raw": map[string]any{
 			"upgrade_smoke": true,
 			"sandbox_id":    sb.ID.String(),
@@ -138,7 +139,7 @@ func (h *AgentSandboxUpgradeHandler) runSmokeTest(ctx context.Context, sb *model
 		return err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		strings.TrimRight(sb.RuntimeURL, "/")+"/gateway/http/messages", bytes.NewReader(body))
+		strings.TrimRight(sb.RuntimeURL, "/")+"/sessions/"+sessionID+"/messages", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -146,12 +147,12 @@ func (h *AgentSandboxUpgradeHandler) runSmokeTest(ctx context.Context, sb *model
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
 	if err != nil {
-		return fmt.Errorf("smoke http gateway: %w", err)
+		return fmt.Errorf("smoke session message: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("smoke http gateway: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
+		return fmt.Errorf("smoke session message: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
 	}
 	return nil
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func (h *AgentOutboundWebhookHandler) enqueueAgentMemoryRetain(ctx context.Context, sb *model.Sandbox, session *model.AgentSession, sessionID, reason, sourceEvent string) {
+func (h *AgentOutboundWebhookHandler) enqueueAgentMemoryRetain(ctx context.Context, sb *model.Sandbox, session *model.Session, sessionID, reason, sourceEvent string) {
 	if h.enqueuer == nil || sb == nil || session == nil || sb.AgentID == nil || sessionID == "" {
 		skipReason := agentMemoryRetainEnqueueSkipReason(h, sb, session, sessionID)
 		logging.FromContext(ctx).WarnContext(ctx, "agent memory retain enqueue skipped",
@@ -24,12 +24,12 @@ func (h *AgentOutboundWebhookHandler) enqueueAgentMemoryRetain(ctx context.Conte
 		return
 	}
 	payload := tasks.AgentMemoryRetainPayload{
-		AgentID:        *sb.AgentID,
-		SandboxID:      sb.ID,
-		AgentSessionID: session.ID,
-		SessionID:      sessionID,
-		Reason:         reason,
-		SourceEvent:    sourceEvent,
+		AgentID:     *sb.AgentID,
+		SandboxID:   sb.ID,
+		SessionUUID: session.ID,
+		SessionID:   sessionID,
+		Reason:      reason,
+		SourceEvent: sourceEvent,
 	}
 	duplicate, err := tasks.EnqueueAgentMemoryRetain(ctx, h.enqueuer, payload)
 	if err != nil {
@@ -39,7 +39,7 @@ func (h *AgentOutboundWebhookHandler) enqueueAgentMemoryRetain(ctx context.Conte
 			"org_id", firstUUIDString(sb.OrgID),
 			"agent_id", sb.AgentID.String(),
 			"sandbox_id", sb.ID.String(),
-			"agent_session_id", session.ID.String(),
+			"session_uuid", session.ID.String(),
 			"runtime_session_id", sessionID,
 			"source", session.Source,
 			"reason", reason,
@@ -50,7 +50,7 @@ func (h *AgentOutboundWebhookHandler) enqueueAgentMemoryRetain(ctx context.Conte
 	}
 }
 
-func agentMemoryRetainSentryFields(sb *model.Sandbox, session *model.AgentSession, sessionID, reason, sourceEvent string) map[string]any {
+func agentMemoryRetainSentryFields(sb *model.Sandbox, session *model.Session, sessionID, reason, sourceEvent string) map[string]any {
 	fields := map[string]any{
 		"runtime_session_id": sessionID,
 		"reason":             reason,
@@ -66,13 +66,13 @@ func agentMemoryRetainSentryFields(sb *model.Sandbox, session *model.AgentSessio
 		}
 	}
 	if session != nil {
-		fields["agent_session_id"] = session.ID.String()
+		fields["session_uuid"] = session.ID.String()
 		fields["source"] = session.Source
 	}
 	return fields
 }
 
-func agentMemoryRetainEnqueueSkipReason(h *AgentOutboundWebhookHandler, sb *model.Sandbox, session *model.AgentSession, sessionID string) string {
+func agentMemoryRetainEnqueueSkipReason(h *AgentOutboundWebhookHandler, sb *model.Sandbox, session *model.Session, sessionID string) string {
 	switch {
 	case h == nil || h.enqueuer == nil:
 		return "enqueuer_missing"

@@ -79,19 +79,9 @@ func (h *AgentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AgentHandler) agentHasActiveSessions(ctx context.Context, orgID, agentID uuid.UUID) (bool, error) {
-	var oldCount int64
-	if err := h.db.WithContext(ctx).
-		Model(&model.AgentSession{}).
-		Where("org_id = ? AND agent_id = ? AND status = ?", orgID, agentID, "active").
-		Count(&oldCount).Error; err != nil {
-		return false, err
-	}
-	if oldCount > 0 {
-		return true, nil
-	}
 	var newCount int64
 	if err := h.db.WithContext(ctx).
-		Table("sessions").
+		Model(&model.Session{}).
 		Where("org_id = ? AND agent_id = ? AND status = ?", orgID, agentID, "active").
 		Count(&newCount).Error; err != nil {
 		return false, err

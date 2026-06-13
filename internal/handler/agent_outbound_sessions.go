@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -21,44 +22,102 @@ import (
 // mirrors the index predicate so Postgres matches the partial index.
 func agentSessionEventOnConflict() clause.OnConflict {
 	return clause.OnConflict{
-		Columns:     []clause.Column{{Name: "sandbox_id"}, {Name: "event_id"}},
-		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("event_id <> ?", "")}},
+		Columns:     []clause.Column{{Name: "session_id"}, {Name: "event_id"}},
+		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("event_id IS NOT NULL")}},
 		DoNothing:   true,
 	}
 }
 
-func (h *AgentOutboundWebhookHandler) ensureAgentSession(ctx context.Context, sb *model.Sandbox, sessionID, source string, payload map[string]any) (*model.AgentSession, bool, error) {
+func (h *AgentOutboundWebhookHandler) ensureRuntimeSession(ctx context.Context, sb *model.Sandbox, runtimeSessionID, source string, payload map[string]any) (*model.Session, bool, error) {
 	if sb.OrgID == nil || sb.AgentID == nil {
 		return nil, false, fmt.Errorf("agent sandbox missing org_id or agent_id")
 	}
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return nil, false, fmt.Errorf("runtime session_id is required for agent session events")
+	runtimeSessionID = strings.TrimSpace(runtimeSessionID)
+	if runtimeSessionID == "" {
+		return nil, false, fmt.Errorf("runtime session_id is required for session events")
 	}
 	if source == "" {
 		source = agentEventSource(payload)
 	}
-	session := model.AgentSession{}
-	scope := model.AgentSession{
-		OrgID:                 *sb.OrgID,
-		AgentID:               *sb.AgentID,
-		SandboxID:             sb.ID,
-		RuntimeConversationID: sessionID,
+	sessionID := canonicalSessionUUID(sb.ID, runtimeSessionID)
+	var session model.Session
+	err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND agent_id = ?", sessionID, *sb.OrgID, *sb.AgentID).
+		First(&session).Error
+	if err == nil {
+		return &session, false, nil
 	}
-	attrs := model.AgentSession{
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, false, fmt.Errorf("load session: %w", err)
+	}
+	channelID, err := h.ensureRuntimeEventChannel(ctx, sb, source, payload)
+	if err != nil {
+		return nil, false, err
+	}
+	session = model.Session{
+		ID:                sessionID,
+		OrgID:             *sb.OrgID,
+		ChannelID:         channelID,
+		AgentID:           *sb.AgentID,
+		SandboxID:         &sb.ID,
 		Source:            source,
-		SourceResourceKey: agentSessionSourceResourceKey(payload, sessionID),
+		SourceResourceKey: sessionSourceResourceKey(payload, runtimeSessionID),
+		Name:              defaultString(stringValue(payload, "session_name"), "Runtime session"),
 		Status:            "active",
 		IntegrationScopes: model.JSON{},
 	}
-	result := h.db.WithContext(ctx).Where(&scope).Attrs(attrs).FirstOrCreate(&session)
-	if result.Error != nil {
-		return nil, false, fmt.Errorf("upsert agent session: %w", result.Error)
+	if err := h.db.WithContext(ctx).Create(&session).Error; err != nil {
+		return nil, false, fmt.Errorf("create session: %w", err)
 	}
-	return &session, result.RowsAffected > 0, nil
+	return &session, true, nil
 }
 
-func (h *AgentOutboundWebhookHandler) markAgentSessionEnded(ctx context.Context, sessionID uuid.UUID, at time.Time) {
+func (h *AgentOutboundWebhookHandler) ensureRuntimeEventChannel(ctx context.Context, sb *model.Sandbox, source string, payload map[string]any) (uuid.UUID, error) {
+	if raw := strings.TrimSpace(stringValue(payload, "channel_id")); raw != "" {
+		if id, err := uuid.Parse(raw); err == nil {
+			var count int64
+			if err := h.db.WithContext(ctx).Model(&model.Channel{}).
+				Where("id = ? AND org_id = ? AND archived_at IS NULL", id, *sb.OrgID).
+				Count(&count).Error; err != nil {
+				return uuid.Nil, fmt.Errorf("load event channel: %w", err)
+			}
+			if count > 0 {
+				return id, nil
+			}
+		}
+	}
+	name := "runtime-" + shortUUID(*sb.AgentID)
+	channel := model.Channel{}
+	scope := model.Channel{OrgID: *sb.OrgID, Origin: "native", Name: name}
+	attrs := model.Channel{
+		Description:      "Runtime-originated agent activity",
+		Kind:             "system",
+		Visibility:       "private",
+		DefaultAgentID:   *sb.AgentID,
+		ExternalMetadata: model.JSON{"source": source},
+	}
+	if err := h.db.WithContext(ctx).Where(&scope).Attrs(attrs).FirstOrCreate(&channel).Error; err != nil {
+		return uuid.Nil, fmt.Errorf("ensure runtime event channel: %w", err)
+	}
+	return channel.ID, nil
+}
+
+func canonicalSessionUUID(sandboxID uuid.UUID, runtimeSessionID string) uuid.UUID {
+	if id, err := uuid.Parse(strings.TrimSpace(runtimeSessionID)); err == nil {
+		return id
+	}
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("hivy:runtime-session:"+sandboxID.String()+":"+strings.TrimSpace(runtimeSessionID)))
+}
+
+func shortUUID(id uuid.UUID) string {
+	value := id.String()
+	if len(value) < 8 {
+		return value
+	}
+	return value[:8]
+}
+
+func (h *AgentOutboundWebhookHandler) markSessionEnded(ctx context.Context, sessionID uuid.UUID, at time.Time) {
 	if h == nil || h.db == nil || sessionID == uuid.Nil {
 		return
 	}
@@ -66,41 +125,39 @@ func (h *AgentOutboundWebhookHandler) markAgentSessionEnded(ctx context.Context,
 	if endedAt.IsZero() {
 		endedAt = h.now().UTC()
 	}
-	if err := h.db.WithContext(ctx).Model(&model.AgentSession{}).
+	if err := h.db.WithContext(ctx).Model(&model.Session{}).
 		Where("id = ?", sessionID).
 		Updates(map[string]any{"status": "ended", "ended_at": endedAt}).Error; err != nil {
-		logging.Capture(ctx, fmt.Errorf("agent outbound webhook: mark session ended: %w", err))
+		logging.Capture(ctx, fmt.Errorf("agent outbound webhook: mark runtime session ended: %w", err))
 	}
 }
 
-func agentSessionSourceResourceKey(payload map[string]any, fallback string) string {
+func sessionSourceResourceKey(payload map[string]any, fallback string) string {
 	return firstNonEmpty(
 		stringValue(payload, "source_resource_key"),
 		stringValue(payload, "thread_ts"),
 		stringValue(payload, "channel"),
-		stringValue(payload, "conversation_id"),
 		stringValue(payload, "chat_id"),
 		fallback,
 	)
 }
 
-func agentSessionEventFromOutbound(sb *model.Sandbox, event *agentOutboundEvent, payload map[string]any, agentSessionID uuid.UUID, sessionID string) (model.AgentSessionEvent, bool) {
+func sessionEventFromOutbound(sb *model.Sandbox, event *agentOutboundEvent, payload map[string]any, sessionID uuid.UUID, runtimeSessionID string) (model.SessionEvent, bool) {
 	if sb.OrgID == nil || sb.AgentID == nil {
-		return model.AgentSessionEvent{}, false
+		return model.SessionEvent{}, false
 	}
-	stored := model.AgentSessionEvent{
-		OrgID:          *sb.OrgID,
-		AgentID:        *sb.AgentID,
-		SandboxID:      sb.ID,
-		AgentSessionID: agentSessionID,
-		SessionID:      sessionID,
-		EventID:        agentSessionEventID(payload),
-		EventType:      event.EventType,
-		Source:         agentEventSource(payload),
-		Mode:           stringValueDefault(payload, "mode", "agent"),
-		SequenceNumber: int64Value(payload, "sequence"),
-		Payload:        model.RawJSON(event.Payload),
-		EventAt:        event.At.UTC(),
+	stored := model.SessionEvent{
+		OrgID:            *sb.OrgID,
+		AgentID:          *sb.AgentID,
+		SandboxID:        &sb.ID,
+		SessionID:        sessionID,
+		RuntimeSessionID: runtimeSessionID,
+		EventID:          sessionEventID(payload),
+		EventType:        event.EventType,
+		Source:           agentEventSource(payload),
+		SequenceNumber:   int64Value(payload, "sequence"),
+		Payload:          model.JSON(payload),
+		EventAt:          event.At.UTC(),
 	}
 	if stored.EventID == "" {
 		// The runtime stamps no stable event id and `sequence` collides across turns,
@@ -112,12 +169,12 @@ func agentSessionEventFromOutbound(sb *model.Sandbox, event *agentOutboundEvent,
 	return stored, true
 }
 
-func agentSessionEventID(payload map[string]any) string {
+func sessionEventID(payload map[string]any) string {
 	return firstNonEmpty(stringValue(payload, "event_id"), stringValue(payload, "id"))
 }
 
-func deriveSessionEventID(sandboxID uuid.UUID, event *agentOutboundEvent, sessionID string) string {
-	sum := sha256.Sum256(fmt.Appendf(nil, "%s|%s|%s|%d|%s",
+func deriveSessionEventID(sandboxID uuid.UUID, event *agentOutboundEvent, sessionID any) string {
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s|%v|%s|%d|%s",
 		sandboxID.String(),
 		sessionID,
 		event.EventType,

@@ -36,7 +36,9 @@ CREATE TABLE channel_members (
 ALTER TABLE ONLY channels ADD CONSTRAINT channels_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY channel_members ADD CONSTRAINT channel_members_pkey PRIMARY KEY (id);
 
-CREATE UNIQUE INDEX idx_channels_org_name ON channels USING btree (org_id, name);
+CREATE UNIQUE INDEX idx_channels_org_source_name
+    ON channels USING btree (org_id, origin, external_provider, external_workspace_key, external_resource_type, name)
+    WHERE archived_at IS NULL;
 CREATE UNIQUE INDEX idx_channels_org_external_resource ON channels USING btree (org_id, external_provider, external_workspace_key, external_resource_type, external_resource_key) WHERE external_resource_key <> '';
 CREATE INDEX idx_channels_default_agent_id ON channels USING btree (default_agent_id);
 CREATE INDEX idx_channels_is_default ON channels USING btree (is_default);

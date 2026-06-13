@@ -1,0 +1,51 @@
+package model
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type Session struct {
+	ID                    uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID                 uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Org                   Org        `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	ChannelID             uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Channel               Channel    `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
+	AgentID               uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Agent                 Agent      `gorm:"foreignKey:AgentID;constraint:OnDelete:RESTRICT"`
+	SandboxID             *uuid.UUID `gorm:"type:uuid;index"`
+	Sandbox               *Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:SET NULL"`
+	CreatedBy             *uuid.UUID `gorm:"type:uuid"`
+	Creator               *User      `gorm:"foreignKey:CreatedBy;constraint:OnDelete:SET NULL"`
+	Model                 string     `gorm:"type:text"`
+	AccessMode            string     `gorm:"type:text;not null;default:'full'"`
+	ReasoningEffort       string     `gorm:"type:text;not null;default:'high'"`
+	Source                string     `gorm:"type:text;not null;default:'web'"`
+	SourceID              *uuid.UUID `gorm:"type:uuid"`
+	SourceResourceKey     string     `gorm:"type:text"`
+	Name                  string     `gorm:"type:text;not null;default:''"`
+	Status                string     `gorm:"type:text;not null;default:'active'"`
+	IntegrationScopes     JSON       `gorm:"type:jsonb;default:'{}'"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	EndedAt               *time.Time
+}
+
+func (Session) TableName() string { return "sessions" }
+
+type SessionParticipant struct {
+	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	SessionID  uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_session_participants_session_user,priority:1"`
+	Session    Session    `gorm:"foreignKey:SessionID;constraint:OnDelete:CASCADE"`
+	UserID     uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_session_participants_session_user,priority:2;index"`
+	User       User       `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	Role       string     `gorm:"type:text;not null;default:'collaborator'"`
+	InvitedBy  *uuid.UUID `gorm:"type:uuid"`
+	Inviter    *User      `gorm:"foreignKey:InvitedBy;constraint:OnDelete:SET NULL"`
+	JoinedAt   *time.Time
+	LastSeenAt *time.Time
+	CreatedAt  time.Time
+}
+
+func (SessionParticipant) TableName() string { return "session_participants" }

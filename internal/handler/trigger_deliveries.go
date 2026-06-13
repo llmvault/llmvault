@@ -29,8 +29,7 @@ type triggerDeliveryResponse struct {
 	DeliveryID            string          `json:"delivery_id"`
 	EventKey              string          `json:"event_key"`
 	ResourceKey           string          `json:"resource_key"`
-	ConversationID        string          `json:"conversation_id"`
-	RuntimeConversationID string          `json:"runtime_conversation_id"`
+	SessionID             string          `json:"session_id"`
 	RuntimeSessionID      string          `json:"runtime_session_id"`
 	RuntimeStreamID       string          `json:"runtime_stream_id,omitempty"`
 	RuntimeTraceID        string          `json:"runtime_trace_id,omitempty"`
@@ -140,8 +139,7 @@ func triggerDeliveryToResponse(row model.AgentTriggerDelivery) triggerDeliveryRe
 		DeliveryID:            row.DeliveryID,
 		EventKey:              row.EventKey,
 		ResourceKey:           row.ResourceKey,
-		ConversationID:        row.ConversationID.String(),
-		RuntimeConversationID: row.RuntimeConversationID,
+		SessionID:             row.SessionID.String(),
 		RuntimeSessionID:      row.RuntimeSessionID,
 		RuntimeStreamID:       row.RuntimeStreamID,
 		RuntimeTraceID:        row.RuntimeTraceID,

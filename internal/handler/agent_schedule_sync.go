@@ -12,15 +12,13 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func syncAgentScheduleEvent(tx *gorm.DB, event model.AgentSessionEvent) error {
+func syncAgentScheduleEvent(tx *gorm.DB, event model.SessionEvent) error {
 	if !strings.HasPrefix(event.EventType, "schedule.") {
 		return nil
 	}
 	payload := map[string]any{}
 	if len(event.Payload) > 0 {
-		if err := json.Unmarshal(event.Payload, &payload); err != nil {
-			return fmt.Errorf("decode schedule payload: %w", err)
-		}
+		payload = map[string]any(event.Payload)
 	}
 	jobID := stringValue(payload, "job_id")
 	if jobID == "" {
@@ -40,7 +38,7 @@ func syncAgentScheduleEvent(tx *gorm.DB, event model.AgentSessionEvent) error {
 	return nil
 }
 
-func upsertAgentScheduleFromEvent(tx *gorm.DB, event model.AgentSessionEvent, payload map[string]any, jobID string) (*model.AgentSchedule, error) {
+func upsertAgentScheduleFromEvent(tx *gorm.DB, event model.SessionEvent, payload map[string]any, jobID string) (*model.AgentSchedule, error) {
 	status := scheduleStatusFromEvent(event.EventType, payload)
 	cancelledAt := (*time.Time)(nil)
 	if event.EventType == "schedule.cancelled" {
@@ -49,7 +47,7 @@ func upsertAgentScheduleFromEvent(tx *gorm.DB, event model.AgentSessionEvent, pa
 	schedule := model.AgentSchedule{
 		OrgID:            event.OrgID,
 		AgentID:          event.AgentID,
-		SandboxID:        &event.SandboxID,
+		SandboxID:        event.SandboxID,
 		RuntimeJobID:     jobID,
 		Status:           status,
 		Channel:          stringValue(payload, "channel"),
@@ -97,7 +95,7 @@ func upsertAgentScheduleFromEvent(tx *gorm.DB, event model.AgentSessionEvent, pa
 	return &schedule, nil
 }
 
-func upsertAgentScheduleRunFromEvent(tx *gorm.DB, event model.AgentSessionEvent, payload map[string]any, schedule *model.AgentSchedule, jobID string) error {
+func upsertAgentScheduleRunFromEvent(tx *gorm.DB, event model.SessionEvent, payload map[string]any, schedule *model.AgentSchedule, jobID string) error {
 	scheduledAt := timePtrFromPayload(payload, "scheduled_at")
 	runKey := stringValue(payload, "run_key")
 	if runKey == "" {
@@ -111,7 +109,7 @@ func upsertAgentScheduleRunFromEvent(tx *gorm.DB, event model.AgentSessionEvent,
 		OrgID:        event.OrgID,
 		AgentID:      event.AgentID,
 		ScheduleID:   schedule.ID,
-		SandboxID:    event.SandboxID,
+		SandboxID:    sessionEventSandboxID(event),
 		RuntimeJobID: jobID,
 		RunKey:       runKey,
 		Status:       runStatusFromEvent(event.EventType),
@@ -120,7 +118,7 @@ func upsertAgentScheduleRunFromEvent(tx *gorm.DB, event model.AgentSessionEvent,
 		CompletedAt:  timePtrFromPayload(payload, "completed_at"),
 		DurationMS:   int64PtrFromPayload(payload, "duration_ms"),
 		Error:        firstNonEmpty(stringValue(payload, "error"), stringValue(payload, "last_error")),
-		EventPayload: event.Payload,
+		EventPayload: rawScheduleEventPayload(event.Payload),
 	}
 	if run.StartedAt == nil && event.EventType == "schedule.run_started" {
 		run.StartedAt = &event.EventAt
@@ -145,6 +143,24 @@ func upsertAgentScheduleRunFromEvent(tx *gorm.DB, event model.AgentSessionEvent,
 			"updated_at":     time.Now(),
 		}),
 	}).Create(&run).Error
+}
+
+func sessionEventSandboxID(event model.SessionEvent) uuid.UUID {
+	if event.SandboxID == nil {
+		return uuid.Nil
+	}
+	return *event.SandboxID
+}
+
+func rawScheduleEventPayload(payload model.JSON) model.RawJSON {
+	if payload == nil {
+		return model.RawJSON("{}")
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return model.RawJSON("{}")
+	}
+	return model.RawJSON(encoded)
 }
 
 func scheduleStatusFromEvent(eventType string, payload map[string]any) string {
