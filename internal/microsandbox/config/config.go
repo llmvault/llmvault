@@ -9,6 +9,8 @@ import (
 
 type Config struct {
 	Environment string
+	LogLevel    string
+	LogFormat   string
 	Addr        string
 	DatabaseDSN string
 	SentryDSN   string
@@ -47,6 +49,8 @@ type Config struct {
 func Load() Config {
 	return Config{
 		Environment:               get("HIVY_MICROSANDBOX_ENVIRONMENT", "development"),
+		LogLevel:                  get("HIVY_MICROSANDBOX_LOG_LEVEL", "info"),
+		LogFormat:                 get("HIVY_MICROSANDBOX_LOG_FORMAT", "json"),
 		Addr:                      get("HIVY_MICROSANDBOX_ADDR", ":8080"),
 		DatabaseDSN:               os.Getenv("HIVY_MICROSANDBOX_DATABASE_DSN"),
 		SentryDSN:                 os.Getenv("HIVY_MICROSANDBOX_SENTRY_DSN"),
