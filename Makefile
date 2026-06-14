@@ -13,6 +13,7 @@ SANDBOX_RUNTIME_LINUX_AMD64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNT
 SANDBOX_RUNTIME_LINUX_ARM64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_ARM64_TARGET)
 SANDBOX_RUNTIME_IMAGE ?= hivy-sandboxes-runtime:runtime
 MICROSANDBOX_BINARY ?= bin/microsandbox
+MICROSANDBOX_RELEASE_GO_IMAGE ?= golang:1.25-bookworm
 GO_BIN ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /opt/homebrew/bin/go ]; then echo /opt/homebrew/bin/go; elif [ -x /usr/local/go/bin/go ]; then echo /usr/local/go/bin/go; else echo go; fi)
 DEV_COMPOSE_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight api worker proxy web
 DEV_INFRA_SERVICES ?= postgres redis nango qdrant minio minio-setup hindsight
@@ -180,12 +181,12 @@ microsandbox-test:
 	go test ./internal/microsandbox/... ./internal/sandbox/microsandbox ./internal/bootstrap
 
 microsandbox-release-linux-amd64:
-	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \
-		-o dist/microsandbox-linux-amd64 ./cmd/microsandbox
+	mkdir -p dist
+	docker run --rm --platform linux/amd64 -v "$(CURDIR)":/src -w /src $(MICROSANDBOX_RELEASE_GO_IMAGE) sh -lc 'export PATH=/usr/local/go/bin:$$PATH; go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o dist/microsandbox-linux-amd64 ./cmd/microsandbox'
 
 microsandbox-release-linux-arm64:
-	GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \
-		-o dist/microsandbox-linux-arm64 ./cmd/microsandbox
+	mkdir -p dist
+	docker run --rm --platform linux/arm64 -v "$(CURDIR)":/src -w /src $(MICROSANDBOX_RELEASE_GO_IMAGE) sh -lc 'export PATH=/usr/local/go/bin:$$PATH; go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o dist/microsandbox-linux-arm64 ./cmd/microsandbox'
 
 microsandbox-release-darwin-arm64:
 	GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" \

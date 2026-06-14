@@ -1,0 +1,11 @@
+{
+	email {{ runner_api_caddy_acme_email }}
+}
+
+{{ runner_api_domain }} {
+	tls {
+		dns vercel {env.VERCEL_AUTH_API_TOKEN}
+	}
+
+	reverse_proxy 127.0.0.1:{{ runner_api_port }}
+}

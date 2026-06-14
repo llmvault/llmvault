@@ -8,7 +8,7 @@ runner_preview_allowed_source: "{{ hostvars[groups['preview_proxy'][0]].preview_
 microsandbox_binary_local_path: "{{ playbook_dir }}/../../dist/microsandbox-linux-amd64"
 microsandbox_binary_remote_path: /usr/local/bin/microsandbox
 microsandbox_env_file: "{{ playbook_dir }}/../.env"
-microsandbox_runner_addr: ":{{ runner_api_port }}"
+microsandbox_runner_addr: "127.0.0.1:{{ runner_api_port }}"
 microsandbox_runner_env_path: /etc/hivy/microsandbox-runner.env
 microsandbox_runner_service_name: microsandbox-runner
 microsandbox_runner_backend: microsandbox

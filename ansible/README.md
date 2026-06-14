@@ -4,7 +4,7 @@ This Ansible project deploys bare-metal Microsandbox runners only. The Microsand
 
 ## Operator Setup
 
-From the repository root, build the Linux amd64 runner binary:
+From the repository root, build the Linux amd64 runner binary. This uses a Docker Linux builder because the Microsandbox Go SDK uses cgo/FFI and cannot be cross-compiled reliably from macOS:
 
 ```sh
 make microsandbox-release-linux-amd64
@@ -26,7 +26,8 @@ runners:
     runner1:
       ansible_host: 203.0.113.10
       runner_name: runner-1
-      runner_public_url: http://203.0.113.10:8081
+      runner_api_domain: runner-1.sandboxes.usehivy.com
+      runner_public_url: https://runner-1.sandboxes.usehivy.com
       runner_preview_base_url: http://10.80.1.2
 ```
 
@@ -47,6 +48,7 @@ Run phases from the `ansible/` directory:
 ```sh
 ansible-playbook playbooks/phase1-prepare.yml
 ansible-playbook playbooks/phase2-install.yml
+ansible-playbook playbooks/phase2b-runner-caddy.yml
 ansible-playbook playbooks/phase3-deploy.yml
 ansible-playbook playbooks/phase4-validate.yml
 ansible-playbook playbooks/phase5-caddy-proxy.yml
@@ -56,7 +58,9 @@ Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the offici
 
 Phase 2 copies `dist/microsandbox-linux-amd64` to `/usr/local/bin/microsandbox`.
 
-Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner.
+Phase 2b provisions Caddy on each runner for the HTTPS runner control API. It verifies that `runner_api_domain` has an A record pointing at the runner public IP before requesting a certificate with the Vercel DNS provider.
+
+Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner. The runner binds to `127.0.0.1:8081`; public control-plane traffic reaches it through runner-local Caddy over HTTPS.
 
 Phase 4 validates systemd, local health, and public runner health.
 
@@ -74,7 +78,7 @@ The control plane must accept runner registration at `/v1/runners/register`.
 
 ## Runner Network Ports
 
-Runner APIs are intentionally public for now and protected by `HIVY_MICROSANDBOX_RUNNER_API_TOKEN`. UFW opens SSH and the configured runner API port, then denies other inbound traffic.
+Runner APIs are exposed through HTTPS Caddy domains such as `runner-0.sandboxes.usehivy.com`. The runner process itself binds to `127.0.0.1:8081`; UFW does not expose `8081` publicly. UFW opens SSH, HTTP, and HTTPS, then denies other inbound traffic.
 
 Preview traffic is separate. Each runner publishes sandbox guest ports onto host ports in `30000-60999`, and UFW allows that range only from the Caddy private IP. With the default 5 preview ports per sandbox, that range supports 6,200 sandboxes per runner before host-port exhaustion.
 

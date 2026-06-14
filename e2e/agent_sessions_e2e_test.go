@@ -55,6 +55,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 
 	session := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
 		"This is the agent sessions E2E.",
+		"Before replying, call bash exactly once with this command: python3 -c 'import time; time.sleep(12); print(\"first-turn-tool-done\")'.",
 		"Reply with exactly " + firstMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created session id=%s queued=%t first_event=%s", session.Session.ID, session.Queued, eventType(session.Event))
@@ -63,20 +64,31 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	}
 
 	agentSessionsSendMessageStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, "I should be blocked before sharing", http.StatusForbidden)
-	firstResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, firstMarker)
-	t.Logf("first agent response observed event_id=%s type=%s", firstResponse.ID, firstResponse.EventType)
+	firstStreamAccess := waitForAgentSessionsStreamAccess(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, session.Event.ID)
+	t.Logf("first direct sandbox stream url=%s stream_id=%s event_id=%s", firstStreamAccess.DirectURL, firstStreamAccess.StreamID, firstStreamAccess.SessionEventID)
+	firstStream := agentSessionsStartDirectStream(t, ctx, firstStreamAccess.DirectURL, firstStreamAccess.StreamToken)
+	firstToolEvent := firstStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "tool_call" && strings.Contains(event.RawData, "bash")
+	})
+	t.Logf("first turn entered tool execution event=%s", firstToolEvent.RawData)
 	agentSessionsStreamAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, session.Event.ID, http.StatusForbidden)
 
 	detail := agentSessionsPutParticipant(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, memberAuth.User.ID)
 	assertAgentSessionsParticipant(t, detail, memberAuth.User.ID)
 
 	memberMessage := agentSessionsSendMessage(t, ctx, apiBase, memberToken, orgID, session.Session.ID, strings.Join([]string{
-		"I am now shared into this session.",
+		"I am now shared into this session while the first turn is still running.",
 		"Reply with exactly " + secondMarker + " and no other text.",
 	}, "\n"))
 	if !memberMessage.Queued || memberMessage.Event == nil || memberMessage.Event.SequenceNumber <= session.Event.SequenceNumber {
 		t.Fatalf("collaborator message was not queued after sharing: %+v", memberMessage)
 	}
+	agentSessionsStreamAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, memberMessage.Event.ID, http.StatusNotFound)
+
+	firstDirectEvents := firstStream.waitDone(t, ctx)
+	assertAgentSessionsDirectStream(t, firstDirectEvents, firstMarker)
+	firstResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, firstMarker)
+	t.Logf("first agent response observed event_id=%s type=%s", firstResponse.ID, firstResponse.EventType)
 	stream := waitForAgentSessionsStreamAccess(t, ctx, apiBase, memberToken, orgID, session.Session.ID, memberMessage.Event.ID)
 	t.Logf("direct sandbox stream url=%s stream_id=%s event_id=%s", stream.DirectURL, stream.StreamID, stream.SessionEventID)
 	directEvents := agentSessionsReadDirectStream(t, ctx, stream.DirectURL, stream.StreamToken)

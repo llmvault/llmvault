@@ -7,13 +7,13 @@
     - name: Validate runner service and health endpoints
       block:
         - name: Check systemd service is active
-          ansible.builtin.command: "systemctl is-active {{ microsandbox_runner_service_name }}"
+          ansible.builtin.command: "systemctl is-active {{ microsandbox_runner_service_name | default('microsandbox-runner') }}"
           register: microsandbox_service_status
           changed_when: false
 
         - name: Check local runner health
           ansible.builtin.uri:
-            url: "http://127.0.0.1:{{ runner_api_port }}/health"
+            url: "http://127.0.0.1:{{ runner_api_port | default(8081) }}/health"
             method: GET
             return_content: true
             status_code: 200
@@ -31,6 +31,15 @@
           become: false
           register: microsandbox_public_health
 
+        - name: Verify runner API port is not publicly reachable
+          ansible.builtin.wait_for:
+            host: "{{ ansible_host }}"
+            port: "{{ runner_api_port | default(8081) }}"
+            timeout: 3
+            state: stopped
+          delegate_to: localhost
+          become: false
+
         - name: Print validation result
           ansible.builtin.debug:
             msg:
@@ -40,7 +49,7 @@
 
       rescue:
         - name: Print runner journal tail
-          ansible.builtin.command: "journalctl -u {{ microsandbox_runner_service_name }} -n 120 --no-pager"
+          ansible.builtin.command: "journalctl -u {{ microsandbox_runner_service_name | default('microsandbox-runner') }} -n 120 --no-pager"
           register: microsandbox_runner_journal
           changed_when: false
           failed_when: false

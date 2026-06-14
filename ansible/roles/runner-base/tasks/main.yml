@@ -36,7 +36,7 @@
 - name: Install Microsandbox with official installer when missing
   ansible.builtin.shell: |
     set -euo pipefail
-    if command -v msb >/dev/null 2>&1; then
+    if command -v msb >/dev/null 2>&1 || [ -x /root/.microsandbox/bin/msb ]; then
       echo "present"
     else
       curl -fsSL https://get.microsandbox.dev | sh
@@ -46,6 +46,14 @@
     executable: /bin/bash
   register: microsandbox_install_result
   changed_when: "'installed' in microsandbox_install_result.stdout"
+
+- name: Install Microsandbox CLI symlink
+  ansible.builtin.file:
+    src: /root/.microsandbox/bin/msb
+    dest: /usr/local/bin/msb
+    state: link
+    owner: root
+    group: root
 
 - name: Verify Microsandbox CLI is available
   ansible.builtin.command: msb --version
@@ -65,10 +73,21 @@
   register: microsandbox_ufw_ssh
   changed_when: "'Rule added' in microsandbox_ufw_ssh.stdout"
 
-- name: Allow Microsandbox runner API through UFW
-  ansible.builtin.command: "ufw allow {{ runner_api_port }}/tcp"
-  register: microsandbox_ufw_api
-  changed_when: "'Rule added' in microsandbox_ufw_api.stdout"
+- name: Allow HTTP through UFW for runner Caddy
+  ansible.builtin.command: ufw allow 80/tcp
+  register: microsandbox_ufw_http
+  changed_when: "'Rule added' in microsandbox_ufw_http.stdout"
+
+- name: Allow HTTPS through UFW for runner Caddy
+  ansible.builtin.command: ufw allow 443/tcp
+  register: microsandbox_ufw_https
+  changed_when: "'Rule added' in microsandbox_ufw_https.stdout"
+
+- name: Remove legacy public Microsandbox runner API UFW rule
+  ansible.builtin.command: "ufw delete allow {{ runner_api_port }}/tcp"
+  register: microsandbox_ufw_api_delete
+  changed_when: "'Rule deleted' in microsandbox_ufw_api_delete.stdout"
+  failed_when: false
 
 - name: Allow preview host ports from Caddy private IP through UFW
   ansible.builtin.command: "ufw allow from {{ runner_preview_allowed_source }} to any port {{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }} proto tcp"

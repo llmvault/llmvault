@@ -16,6 +16,10 @@ CREATE TABLE sessions (
     source_resource_key text,
     name text DEFAULT ''::text NOT NULL,
     status text DEFAULT 'active'::text NOT NULL,
+    agent_turn_status text DEFAULT 'idle'::text NOT NULL,
+    agent_turn_id text DEFAULT ''::text NOT NULL,
+    agent_stream_id text DEFAULT ''::text NOT NULL,
+    agent_turn_started_at timestamp with time zone,
     integration_scopes jsonb,
     created_at timestamp with time zone,
     updated_at timestamp with time zone,
@@ -79,6 +83,7 @@ ALTER TABLE ONLY session_message_queue ADD CONSTRAINT session_message_queue_pkey
 CREATE INDEX idx_sessions_channel ON sessions USING btree (channel_id, created_at DESC);
 CREATE INDEX idx_sessions_agent ON sessions USING btree (org_id, agent_id, created_at DESC);
 CREATE INDEX idx_sessions_sandbox_id ON sessions USING btree (sandbox_id);
+CREATE INDEX idx_sessions_agent_turn_status ON sessions USING btree (agent_turn_status) WHERE agent_turn_status <> 'idle';
 CREATE UNIQUE INDEX idx_session_participants_session_user ON session_participants USING btree (session_id, user_id);
 CREATE INDEX idx_session_participants_user_id ON session_participants USING btree (user_id);
 CREATE UNIQUE INDEX idx_session_events_idem ON session_events USING btree (session_id, event_id) WHERE event_id IS NOT NULL;

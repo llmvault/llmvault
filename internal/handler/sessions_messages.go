@@ -71,7 +71,8 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session message"})
 		return
 	}
-	if err := h.enqueueSessionDelivery(r.Context(), session.ID); err != nil {
+	queued, err := h.dispatchOrQueueSessionDelivery(r.Context(), session.ID)
+	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
 		return
 	}
@@ -80,7 +81,7 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
 		Event:   ptrSessionEventResponse(eventToResponse(event)),
-		Queued:  true,
+		Queued:  queued,
 	})
 }
 

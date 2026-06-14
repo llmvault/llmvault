@@ -16,6 +16,8 @@ make microsandbox-release-linux-arm64
 make microsandbox-release-darwin-arm64
 ```
 
+The Linux release targets use Docker Linux builders because the Microsandbox Go SDK uses cgo/FFI. This avoids macOS cross-compilation failures.
+
 ## Control Plane
 
 Command:
@@ -85,9 +87,9 @@ HIVY_MICROSANDBOX_CONTROL_URL=https://msb.usehivy.com
 HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET=...
 HIVY_MICROSANDBOX_RUNNER_API_TOKEN=...
 HIVY_MICROSANDBOX_RUNNER_NAME=runner-1
-HIVY_MICROSANDBOX_RUNNER_PUBLIC_URL=http://135.181.238.109:8081
+HIVY_MICROSANDBOX_RUNNER_PUBLIC_URL=https://runner-1.sandboxes.usehivy.com
 HIVY_MICROSANDBOX_RUNNER_PREVIEW_BASE_URL=http://10.80.1.2
-HIVY_MICROSANDBOX_ADDR=:8081
+HIVY_MICROSANDBOX_ADDR=127.0.0.1:8081
 HIVY_MICROSANDBOX_RUNNER_TOTAL_CPU=32
 HIVY_MICROSANDBOX_RUNNER_TOTAL_MEMORY_MB=131072
 HIVY_MICROSANDBOX_RUNNER_TOTAL_DISK_GB=2000

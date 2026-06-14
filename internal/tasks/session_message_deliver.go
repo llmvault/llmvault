@@ -10,15 +10,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 const sessionMessageLease = 5 * time.Minute
+
+var (
+	ErrSessionTurnActive      = errors.New("session agent turn active")
+	ErrSessionRuntimeNotReady = errors.New("session runtime not ready")
+)
 
 func init() {
 	RegisterTaskBuilder(TypeSessionMessageDeliver, func(payload []byte) (*asynq.Task, []asynq.Option, error) {
@@ -65,14 +70,33 @@ func EnqueueSessionMessageDeliver(ctx context.Context, enq enqueue.TaskEnqueuer,
 }
 
 type SessionMessageDeliverHandler struct {
-	db           *gorm.DB
-	orchestrator *sandbox.Orchestrator
-	compileDeps  agentruntime.CompileDeps
-	enqueuer     enqueue.TaskEnqueuer
+	db                *gorm.DB
+	orchestrator      *sandbox.Orchestrator
+	compileDeps       agentruntime.CompileDeps
+	enqueuer          enqueue.TaskEnqueuer
+	allowProvisioning bool
+	leaseOwner        string
 }
 
 func NewSessionMessageDeliverHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps, enq enqueue.TaskEnqueuer) *SessionMessageDeliverHandler {
-	return &SessionMessageDeliverHandler{db: db, orchestrator: orchestrator, compileDeps: compileDeps, enqueuer: enq}
+	return &SessionMessageDeliverHandler{
+		db:                db,
+		orchestrator:      orchestrator,
+		compileDeps:       compileDeps,
+		enqueuer:          enq,
+		allowProvisioning: true,
+		leaseOwner:        "asynq",
+	}
+}
+
+func (h *SessionMessageDeliverHandler) WithoutProvisioning() *SessionMessageDeliverHandler {
+	if h == nil {
+		return nil
+	}
+	copy := *h
+	copy.allowProvisioning = false
+	copy.leaseOwner = "api"
+	return &copy
 }
 
 func (h *SessionMessageDeliverHandler) Handle(ctx context.Context, task *asynq.Task) error {
@@ -80,34 +104,46 @@ func (h *SessionMessageDeliverHandler) Handle(ctx context.Context, task *asynq.T
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("unmarshal payload: %w", err)
 	}
-	queue, err := h.claimNext(ctx, payload.SessionID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if _, err := h.DispatchNext(ctx, payload.SessionID); errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, ErrSessionTurnActive) {
 		return nil
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *SessionMessageDeliverHandler) DispatchNext(ctx context.Context, sessionID uuid.UUID) (*agentruntime.HTTPMessageResponse, error) {
+	queue, err := h.claimNext(ctx, sessionID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	delivery, err := h.deliverClaim(ctx, queue)
 	if err != nil {
 		_ = h.releaseClaim(ctx, queue.ID, err)
-		return err
+		_ = h.releaseSessionTurn(ctx, queue.SessionID)
+		return nil, err
 	}
-	if err := h.markDelivered(ctx, queue.ID, delivery); err != nil {
-		return err
+	if err := h.markDelivered(ctx, queue, delivery); err != nil {
+		return nil, err
 	}
-	if h.hasPending(ctx, payload.SessionID) {
-		if err := EnqueueSessionMessageDeliver(ctx, h.enqueuer, payload.SessionID); err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("enqueue next session message delivery: %w", err), map[string]any{
-				"session_id": payload.SessionID.String(),
-			})
-		}
-	}
-	return nil
+	return delivery, nil
 }
 
 func (h *SessionMessageDeliverHandler) claimNext(ctx context.Context, sessionID uuid.UUID) (*model.SessionMessageQueue, error) {
 	var claimed model.SessionMessageQueue
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var session model.Session
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", sessionID).
+			First(&session).Error; err != nil {
+			return fmt.Errorf("lock session for message delivery: %w", err)
+		}
+		if session.AgentTurnStatus == model.SessionAgentTurnActive {
+			return ErrSessionTurnActive
+		}
 		var row model.SessionMessageQueue
 		res := tx.Raw(`
 SELECT q.*
@@ -134,16 +170,26 @@ FOR UPDATE SKIP LOCKED`, sessionID).Scan(&row)
 		updates := map[string]any{
 			"status":        "processing",
 			"attempt_count": gorm.Expr("attempt_count + 1"),
-			"leased_by":     "asynq",
+			"leased_by":     h.leaseOwner,
 			"leased_until":  leaseUntil,
 			"last_error":    "",
 		}
 		if err := tx.Model(&model.SessionMessageQueue{}).Where("id = ?", row.ID).Updates(updates).Error; err != nil {
 			return fmt.Errorf("mark session message processing: %w", err)
 		}
+		if err := tx.Model(&model.Session{}).
+			Where("id = ?", sessionID).
+			Updates(map[string]any{
+				"agent_turn_status":     model.SessionAgentTurnActive,
+				"agent_turn_id":         "",
+				"agent_stream_id":       "",
+				"agent_turn_started_at": time.Now(),
+			}).Error; err != nil {
+			return fmt.Errorf("mark session agent turn active: %w", err)
+		}
 		claimed = row
 		claimed.Status = "processing"
-		claimed.LeasedBy = "asynq"
+		claimed.LeasedBy = h.leaseOwner
 		claimed.LeasedUntil = &leaseUntil
 		return nil
 	})
@@ -202,6 +248,9 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, 
 	}
 	sb, err := agentRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, *agent.OrgID, agent.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if !h.allowProvisioning {
+			return nil, nil, ErrSessionRuntimeNotReady
+		}
 		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, agent)
 		if prepErr != nil {
 			return nil, nil, fmt.Errorf("prepare agent runtime startup: %w", prepErr)
@@ -221,6 +270,9 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, 
 		return nil, nil, fmt.Errorf("get runtime client: %w", err)
 	}
 	if err := client.Readyz(ctx); err != nil {
+		if !h.allowProvisioning {
+			return nil, nil, ErrSessionRuntimeNotReady
+		}
 		if err := agentruntime.PushAgentRuntimeConfig(ctx, h.compileDeps, agent, sb); err != nil {
 			return nil, nil, fmt.Errorf("sync agent runtime: %w", err)
 		}

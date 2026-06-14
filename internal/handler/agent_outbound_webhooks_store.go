@@ -9,6 +9,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/precontext"
+	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
 // storeAndMaybeEnqueue persists the event and triggers follow-up work. It errors
@@ -95,6 +96,9 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 	}
 	if event.EventType == "session.completed" {
 		h.markSessionEnded(ctx, session.ID, event.At)
+	}
+	if event.EventType == runtimeevents.EventTurnCompleted || event.EventType == "agent.message.sent" {
+		h.completeSessionTurn(ctx, session, payload)
 	}
 	return nil
 }

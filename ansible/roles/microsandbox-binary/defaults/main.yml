@@ -1,0 +1,4 @@
+---
+microsandbox_binary_local_path: "{{ playbook_dir }}/../../dist/microsandbox-linux-amd64"
+microsandbox_binary_remote_path: /usr/local/bin/microsandbox
+microsandbox_runner_service_name: microsandbox-runner

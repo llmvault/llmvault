@@ -6,30 +6,39 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	SessionAgentTurnIdle   = "idle"
+	SessionAgentTurnActive = "active"
+)
+
 type Session struct {
-	ID                    uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID                 uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Org                   Org        `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
-	ChannelID             uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Channel               Channel    `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
-	AgentID               uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Agent                 Agent      `gorm:"foreignKey:AgentID;constraint:OnDelete:RESTRICT"`
-	SandboxID             *uuid.UUID `gorm:"type:uuid;index"`
-	Sandbox               *Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:SET NULL"`
-	CreatedBy             *uuid.UUID `gorm:"type:uuid"`
-	Creator               *User      `gorm:"foreignKey:CreatedBy;constraint:OnDelete:SET NULL"`
-	Model                 string     `gorm:"type:text"`
-	AccessMode            string     `gorm:"type:text;not null;default:'full'"`
-	ReasoningEffort       string     `gorm:"type:text;not null;default:'high'"`
-	Source                string     `gorm:"type:text;not null;default:'web'"`
-	SourceID              *uuid.UUID `gorm:"type:uuid"`
-	SourceResourceKey     string     `gorm:"type:text"`
-	Name                  string     `gorm:"type:text;not null;default:''"`
-	Status                string     `gorm:"type:text;not null;default:'active'"`
-	IntegrationScopes     JSON       `gorm:"type:jsonb;default:'{}'"`
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
-	EndedAt               *time.Time
+	ID                 uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID              uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Org                Org        `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	ChannelID          uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Channel            Channel    `gorm:"foreignKey:ChannelID;constraint:OnDelete:CASCADE"`
+	AgentID            uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Agent              Agent      `gorm:"foreignKey:AgentID;constraint:OnDelete:RESTRICT"`
+	SandboxID          *uuid.UUID `gorm:"type:uuid;index"`
+	Sandbox            *Sandbox   `gorm:"foreignKey:SandboxID;constraint:OnDelete:SET NULL"`
+	CreatedBy          *uuid.UUID `gorm:"type:uuid"`
+	Creator            *User      `gorm:"foreignKey:CreatedBy;constraint:OnDelete:SET NULL"`
+	Model              string     `gorm:"type:text"`
+	AccessMode         string     `gorm:"type:text;not null;default:'full'"`
+	ReasoningEffort    string     `gorm:"type:text;not null;default:'high'"`
+	Source             string     `gorm:"type:text;not null;default:'web'"`
+	SourceID           *uuid.UUID `gorm:"type:uuid"`
+	SourceResourceKey  string     `gorm:"type:text"`
+	Name               string     `gorm:"type:text;not null;default:''"`
+	Status             string     `gorm:"type:text;not null;default:'active'"`
+	AgentTurnStatus    string     `gorm:"type:text;not null;default:'idle'"`
+	AgentTurnID        string     `gorm:"type:text;not null;default:''"`
+	AgentStreamID      string     `gorm:"type:text;not null;default:''"`
+	AgentTurnStartedAt *time.Time
+	IntegrationScopes  JSON `gorm:"type:jsonb;default:'{}'"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	EndedAt            *time.Time
 }
 
 func (Session) TableName() string { return "sessions" }

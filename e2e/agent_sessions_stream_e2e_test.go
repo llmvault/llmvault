@@ -83,6 +83,18 @@ func agentSessionsTryStreamAccess(t *testing.T, ctx context.Context, baseURL, to
 
 func agentSessionsReadDirectStream(t *testing.T, ctx context.Context, directURL, streamToken string) []runtimeSSEEvent {
 	t.Helper()
+	stream := agentSessionsStartDirectStream(t, ctx, directURL, streamToken)
+	return stream.waitDone(t, ctx)
+}
+
+type agentSessionsLiveDirectStream struct {
+	events chan runtimeSSEEvent
+	done   chan []runtimeSSEEvent
+	errs   chan error
+}
+
+func agentSessionsStartDirectStream(t *testing.T, ctx context.Context, directURL, streamToken string) *agentSessionsLiveDirectStream {
+	t.Helper()
 	parsed, err := url.Parse(directURL)
 	if err != nil {
 		t.Fatalf("parse direct stream url: %v", err)
@@ -100,13 +112,67 @@ func agentSessionsReadDirectStream(t *testing.T, ctx context.Context, directURL,
 	if err != nil {
 		t.Fatalf("open direct sandbox stream: %v", err)
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
 		raw, _ := io.ReadAll(resp.Body)
 		t.Fatalf("direct sandbox stream status=%d body=%s", resp.StatusCode, raw)
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
+	stream := &agentSessionsLiveDirectStream{
+		events: make(chan runtimeSSEEvent, 256),
+		done:   make(chan []runtimeSSEEvent, 1),
+		errs:   make(chan error, 1),
+	}
+	go func() {
+		defer resp.Body.Close()
+		events, err := readAgentSessionsDirectStreamEvents(resp.Body, stream.events)
+		if err != nil {
+			stream.errs <- err
+			return
+		}
+		stream.done <- events
+	}()
+	return stream
+}
+
+func (s *agentSessionsLiveDirectStream) waitForEvent(t *testing.T, ctx context.Context, timeout time.Duration, want func(runtimeSSEEvent) bool) runtimeSSEEvent {
+	t.Helper()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for {
+		select {
+		case event := <-s.events:
+			if want(event) {
+				return event
+			}
+		case events := <-s.done:
+			t.Fatalf("direct stream completed before expected event; events=%s", summarizeRuntimeSSEEvents(events))
+		case err := <-s.errs:
+			t.Fatalf("direct stream failed before expected event: %v", err)
+		case <-ctx.Done():
+			t.Fatalf("direct stream context ended before expected event: %v", ctx.Err())
+		case <-timer.C:
+			t.Fatalf("timed out waiting for direct stream event")
+		}
+	}
+}
+
+func (s *agentSessionsLiveDirectStream) waitDone(t *testing.T, ctx context.Context) []runtimeSSEEvent {
+	t.Helper()
+	for {
+		select {
+		case events := <-s.done:
+			return events
+		case err := <-s.errs:
+			t.Fatalf("read direct sandbox stream: %v", err)
+		case <-ctx.Done():
+			t.Fatalf("direct stream context ended before done: %v", ctx.Err())
+		}
+	}
+}
+
+func readAgentSessionsDirectStreamEvents(body io.Reader, live chan<- runtimeSSEEvent) ([]runtimeSSEEvent, error) {
+	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 1024), 2*1024*1024)
 	var events []runtimeSSEEvent
 	var name string
@@ -123,6 +189,12 @@ func agentSessionsReadDirectStream(t *testing.T, ctx context.Context, directURL,
 			}
 		}
 		events = append(events, runtimeSSEEvent{Name: name, Payload: payload, RawData: raw})
+		if live != nil {
+			select {
+			case live <- events[len(events)-1]:
+			default:
+			}
+		}
 		done := name == "done"
 		name = ""
 		dataLines = nil
@@ -132,7 +204,7 @@ func agentSessionsReadDirectStream(t *testing.T, ctx context.Context, directURL,
 		line := scanner.Text()
 		if line == "" {
 			if flush() {
-				return events
+				return events, nil
 			}
 			continue
 		}
@@ -143,10 +215,10 @@ func agentSessionsReadDirectStream(t *testing.T, ctx context.Context, directURL,
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		t.Fatalf("read direct sandbox stream: %v", err)
+		return nil, err
 	}
 	flush()
-	return events
+	return events, nil
 }
 
 func assertAgentSessionsDirectStream(t *testing.T, events []runtimeSSEEvent, marker string) {
@@ -170,4 +242,12 @@ func assertAgentSessionsDirectStream(t *testing.T, events []runtimeSSEEvent, mar
 		t.Fatalf("direct stream missing marker %s events=%s final=%s", marker, strings.Join(names, ","), finalText.String())
 	}
 	t.Logf("direct sandbox stream events=%s", fmt.Sprint(names))
+}
+
+func summarizeRuntimeSSEEvents(events []runtimeSSEEvent) string {
+	names := make([]string, len(events))
+	for i, event := range events {
+		names[i] = event.Name
+	}
+	return strings.Join(names, ",")
 }

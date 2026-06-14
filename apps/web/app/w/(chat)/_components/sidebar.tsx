@@ -11,6 +11,7 @@ import { useWorkspace } from "./shell"
 
 export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   const { startNewChat } = useWorkspace()
+  const router = useRouter()
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -36,7 +37,11 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         <div className="flex flex-col gap-0.5">
           <NavRow icon="lucide:square-pen" label="New chat" onClick={startNewChat} />
           <NavRow icon="lucide:search" label="Search" />
-          <NavRow icon="lucide:toy-brick" label="Plugins" />
+          <NavRow
+            icon="lucide:toy-brick"
+            label="Plugins"
+            onClick={() => router.push("/w/plugins")}
+          />
           <NavRow icon="lucide:clock" label="Automations" />
         </div>
 
