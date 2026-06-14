@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
-import PaystackPop from "@paystack/inline-js"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { useAuth } from "@/lib/auth/auth-context"
@@ -41,6 +40,18 @@ interface UsePaystackPopHandlers {
   pendingSlug: string | null
   /** True iff any subscribe flow is in progress. */
   isPending: boolean
+}
+
+async function openPaystackTransaction(
+  accessCode: string,
+  handlers: {
+    onSuccess: (tx: { reference: string }) => void
+    onCancel?: () => void
+  },
+) {
+  const { default: PaystackPop } = await import("@paystack/inline-js")
+  const popup = new PaystackPop()
+  popup.resumeTransaction(accessCode, handlers)
 }
 
 export function usePaystackPop(
@@ -96,8 +107,7 @@ export function usePaystackPop(
               setPendingSlug(null)
               return
             }
-            const popup = new PaystackPop()
-            popup.resumeTransaction(data.access_code, {
+            void openPaystackTransaction(data.access_code, {
               onSuccess: () => {
                 verify.mutate(
                   {
@@ -140,6 +150,9 @@ export function usePaystackPop(
                 // Customer dismissed the popup without paying — silent.
                 setPendingSlug(null)
               },
+            }).catch((err) => {
+              toast.error(extractErrorMessage(err, "Could not open checkout"))
+              setPendingSlug(null)
             })
           },
           onError: (err) => {
@@ -158,10 +171,12 @@ export function usePaystackPop(
       onPaid: (reference: string) => void,
       onCancel?: () => void,
     ) => {
-      const popup = new PaystackPop()
-      popup.resumeTransaction(accessCode, {
+      void openPaystackTransaction(accessCode, {
         onSuccess: (tx: { reference: string }) => onPaid(tx.reference),
         onCancel: () => onCancel?.(),
+      }).catch((err) => {
+        toast.error(extractErrorMessage(err, "Could not open checkout"))
+        onCancel?.()
       })
     },
     [],
