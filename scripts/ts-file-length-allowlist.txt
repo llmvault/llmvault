@@ -6,23 +6,5 @@
 # Do NOT add new entries without explicit review — the default answer is
 # "split the file", not "allowlist it".
 
-# Marketing landing page — single large JSX composition, not a logic file.
-apps/web/app/(marketing)/page.tsx
-
-# Complex database connection wizard (many connection types in one form).
-apps/web/app/w/connections/_components/database-connection-dialog.tsx
-
-# Multi-step onboarding flow with tightly-coupled state.
-apps/web/app/onboarding/page.tsx
-
-# Skills management page — large due to rich editor UI state.
-apps/web/app/w/skills/page.tsx
-
 # Sidebar UI component copied/adapted from shadcn-ui; split in a focused refactor.
 apps/web/components/ui/sidebar.tsx
-
-# Connections list page with inline connection management state.
-apps/web/app/w/connections/page.tsx
-
-# Settings page — multiple settings panels composed inline.
-apps/web/app/w/settings/page.tsx
