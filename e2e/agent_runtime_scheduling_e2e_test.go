@@ -37,8 +37,8 @@ func TestAgentRuntimeSchedulingE2E(t *testing.T) {
 	}
 	scenario.controlPlane.waitForWebhookPayloadContaining(t, "schedule.run_started", "config-schedule-e2e")
 	scenario.controlPlane.waitForWebhookPayloadContaining(t, "schedule.run_completed", "config-schedule-e2e")
-	scenario.controlPlane.waitForWebhookPayloadContaining(t, "agent.message.sent", "CONFIG_SCHEDULE_DONE")
-	scenario.controlPlane.waitForWebhookPayloadContaining(t, "agent.message.sent", "WAKE_E2E_DONE")
+	scenario.controlPlane.waitForWebhookPayloadContaining(t, "final", "CONFIG_SCHEDULE_DONE")
+	scenario.controlPlane.waitForWebhookPayloadContaining(t, "final", "WAKE_E2E_DONE")
 	scenario.proxy.assertUsed(t)
 	scenario.controlPlane.waitForActivity(t)
 	trace.Logf("done", "scheduling runtime E2E completed")

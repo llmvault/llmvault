@@ -1,0 +1,17 @@
+{
+  "name": "postgres",
+  "description": "Query the connected PostgreSQL database through Hivy's read-only database proxy using HIVY_POSTGRES_URL and HIVY_POSTGRES_TOKEN. Credentials are never exposed to the runtime.",
+  "category": "Databases",
+  "root": "./SKILL.md",
+  "tags": [
+    "postgres",
+    "postgresql",
+    "database",
+    "sql"
+  ],
+  "required_environment_variables": [
+    "HIVY_POSTGRES_URL",
+    "HIVY_POSTGRES_TOKEN"
+  ],
+  "files": []
+}

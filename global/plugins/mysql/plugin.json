@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "mysql",
+  "name": "MySQL",
+  "description": "Explore and query your connected MySQL database in a read-only, workspace-safe way.",
+  "category": "Databases",
+  "icon": "simple-icons:mysql",
+  "icon_color": "#00758F",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "mysql",
+      "kind": "database"
+    }
+  ]
+}

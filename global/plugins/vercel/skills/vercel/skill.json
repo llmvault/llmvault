@@ -1,0 +1,17 @@
+{
+  "name": "vercel",
+  "description": "Deploy and manage projects, deployments, domains, environment variables, DNS records, Git integrations, logs, and rollbacks on Vercel through Hivy's pre-authenticated Vercel REST proxy using HIVY_VERCEL_API_URL and HIVY_VERCEL_API_KEY.",
+  "category": "Deployments",
+  "root": "./SKILL.md",
+  "tags": [
+    "vercel",
+    "deployments",
+    "domains",
+    "frontend"
+  ],
+  "required_environment_variables": [
+    "HIVY_VERCEL_API_URL",
+    "HIVY_VERCEL_API_KEY"
+  ],
+  "files": []
+}

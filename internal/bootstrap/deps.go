@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -72,6 +73,9 @@ func New(ctx context.Context) (*Deps, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("initializing sentry: %w", err)
 	}
+	if cfg.AdminEnabled && strings.TrimSpace(cfg.AdminSecret) == "" {
+		return nil, fmt.Errorf("HIVY_ADMIN_SECRET is required when HIVY_ADMIN_ENABLED is true")
+	}
 
 	database, err := db.New(ctx, cfg.DatabaseDSN())
 	if err != nil {
@@ -84,7 +88,7 @@ func New(ctx context.Context) (*Deps, error) {
 	if err := seedGlobalPlans(ctx, database); err != nil {
 		return nil, err
 	}
-	if err := seedGlobalSkills(ctx, database); err != nil {
+	if err := syncGlobalPlugins(ctx, database); err != nil {
 		return nil, err
 	}
 	logging.FromContext(ctx).InfoContext(ctx, "database ready")
@@ -150,10 +154,6 @@ func New(ctx context.Context) (*Deps, error) {
 
 	ctr := counter.New(redisClient, database)
 	logging.FromContext(ctx).InfoContext(ctx, "request counter ready")
-
-	if err := seedGlobalLLMCredentials(ctx, database, kms, cacheManager, ctr); err != nil {
-		return nil, err
-	}
 
 	signingKey := []byte(cfg.JWTSigningKey)
 

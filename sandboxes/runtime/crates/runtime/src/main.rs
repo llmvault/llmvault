@@ -133,6 +133,11 @@ async fn main() -> Result<()> {
     let registry = Arc::new(RwLock::new(registry));
     let stream_batcher = Arc::new(RwLock::new(None));
     let database_event_queue = DatabaseEventQueue::new(sqlite_store.writer());
+    let emitter = Arc::new(
+        OutboundEmitter::new(outbox_repo.clone(), registry.clone())
+            .with_stream_batcher(stream_batcher.clone())
+            .with_database_queue(database_event_queue.clone()),
+    );
     let outbound_reloader: Arc<dyn OutboundConfigReloader> = Arc::new(RegistryReloader {
         config: config.clone(),
         registry: registry.clone(),
@@ -150,11 +155,13 @@ async fn main() -> Result<()> {
     );
 
     let session_stream_broker = Arc::new(api::SessionStreamBroker::new());
-    let plan_manager = Arc::new(api::PlanManager::new(session_stream_broker.clone()));
-    let question_manager = Arc::new(api::QuestionManager::new(
-        question_request_repo.clone(),
-        session_stream_broker.clone(),
-    ));
+    let plan_manager = Arc::new(
+        api::PlanManager::new(session_stream_broker.clone()).with_outbound_emitter(emitter.clone()),
+    );
+    let question_manager = Arc::new(
+        api::QuestionManager::new(question_request_repo.clone(), session_stream_broker.clone())
+            .with_outbound_emitter(emitter.clone()),
+    );
     let (inbound_sink, mut inbound_events) = mpsc::channel::<InboundEvent>(256);
     let attachment_downloader: Arc<dyn handler::AttachmentDownloader> =
         Arc::new(handler::HttpAttachmentDownloader::new());
@@ -218,12 +225,6 @@ async fn main() -> Result<()> {
     );
     let _database_event_queue_handle = database_event_queue.clone().spawn();
 
-    let emitter = Arc::new(
-        OutboundEmitter::new(outbox_repo.clone(), registry.clone())
-            .with_stream_batcher(stream_batcher.clone())
-            .with_database_queue(database_event_queue.clone()),
-    );
-
     let rig_runner = RigAgentRunner::new(config.clone(), workspace_root.clone())
         .with_outbound_emitter(emitter.clone())
         .with_cron_repo(cron_repo.clone())
@@ -247,6 +248,7 @@ async fn main() -> Result<()> {
         config.clone(),
         inbound_sink.clone(),
         session_stream_broker.clone(),
+        emitter.clone(),
     );
     let _subagent_worker_handle = tokio::spawn(subagent_worker.run());
 

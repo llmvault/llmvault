@@ -4,19 +4,20 @@ mod composition;
 mod media;
 mod session;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use agent::{AgentEvent, AgentRunner, TurnInput};
 use anyhow::Result;
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use domain::{
     event_types, ConfigStore, InboundEvent, OutboundEvent, SessionId, SessionStatus,
     SubagentTaskState,
 };
 use futures::StreamExt;
 use outbound::OutboundEmitter;
-use serde_json::Value;
+use serde_json::{json, Value};
 use storage::{CronJobRepo, SessionRepo, SubagentTaskRepo};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -30,10 +31,15 @@ use crate::session_coordinator::{SessionCoordinator, Submission};
 
 const USER_RETRY_MESSAGE: &str =
     "Something went wrong while generating that response. Please retry. The Hivy team has been notified of this error.";
+const MAX_DURABLE_DELTA_TEXT_BYTES: usize = 128 * 1024;
+const MAX_DURABLE_DELTA_COUNT: u64 = 1500;
+const TOOL_SUMMARY_CHARS: usize = 2_000;
 
 #[derive(Clone, Debug)]
 pub struct StreamEventMetadata {
-    pub subagent: SubagentStreamMetadata,
+    pub trace_id: Option<String>,
+    pub turn_id: Option<String>,
+    pub subagent: Option<SubagentStreamMetadata>,
 }
 
 #[derive(Clone, Debug)]
@@ -59,7 +65,22 @@ pub trait TurnEventSink: Send + Sync + 'static {
     ) {
     }
 
-    async fn publish_done(&self, _stream_id: &str, _session_id: &SessionId) {}
+    async fn publish_turn_terminal(
+        &self,
+        _stream_id: &str,
+        _session_id: &SessionId,
+        _metadata: Option<&StreamEventMetadata>,
+        _error: Option<&str>,
+    ) {
+    }
+
+    async fn publish_done(
+        &self,
+        _stream_id: &str,
+        _session_id: &SessionId,
+        _metadata: Option<&StreamEventMetadata>,
+    ) {
+    }
 
     async fn publish_waiting(&self, _stream_id: &str, _session_id: &SessionId, _reason: &str) {}
 
@@ -139,13 +160,48 @@ impl TurnEventSink for api::SessionStreamBroker {
         .await;
     }
 
-    async fn publish_done(&self, stream_id: &str, session_id: &SessionId) {
+    async fn publish_turn_terminal(
+        &self,
+        stream_id: &str,
+        session_id: &SessionId,
+        metadata: Option<&StreamEventMetadata>,
+        error: Option<&str>,
+    ) {
+        let mut payload = serde_json::json!({
+            "session_id": session_id.as_str(),
+        });
+        if let Some(error) = error {
+            if let Some(map) = payload.as_object_mut() {
+                map.insert("error".to_string(), serde_json::json!(error));
+            }
+        }
+        self.publish(
+            stream_id,
+            if error.is_some() {
+                "turn_failed"
+            } else {
+                "turn_completed"
+            },
+            stream_payload(payload, metadata),
+        )
+        .await;
+    }
+
+    async fn publish_done(
+        &self,
+        stream_id: &str,
+        session_id: &SessionId,
+        metadata: Option<&StreamEventMetadata>,
+    ) {
         self.publish(
             stream_id,
             "done",
-            serde_json::json!({
-                "session_id": session_id.as_str(),
-            }),
+            stream_payload(
+                serde_json::json!({
+                    "session_id": session_id.as_str(),
+                }),
+                metadata,
+            ),
         )
         .await;
     }
@@ -230,6 +286,9 @@ impl TurnEventSink for api::SessionStreamBroker {
                 .await;
             }
             AgentEvent::RunEvent { event, payload } => {
+                if event == "turn_completed" {
+                    return;
+                }
                 self.publish(stream_id, event, stream_payload(payload.clone(), metadata))
                     .await;
             }
@@ -333,16 +392,26 @@ fn stream_payload(mut payload: Value, metadata: Option<&StreamEventMetadata>) ->
     let Some(map) = payload.as_object_mut() else {
         return payload;
     };
-    map.insert("scope".to_string(), serde_json::json!("subagent"));
-    map.insert(
-        "subagent".to_string(),
-        serde_json::json!({
-            "job_id": metadata.subagent.job_id.as_str(),
-            "agent_name": metadata.subagent.agent_name.as_str(),
-            "parent_session_id": metadata.subagent.parent_session_id.as_str(),
-            "child_session_id": metadata.subagent.child_session_id.as_str(),
-        }),
-    );
+    if let Some(trace_id) = metadata.trace_id.as_deref() {
+        map.entry("trace_id")
+            .or_insert_with(|| serde_json::json!(trace_id));
+    }
+    if let Some(turn_id) = metadata.turn_id.as_deref() {
+        map.entry("turn_id")
+            .or_insert_with(|| serde_json::json!(turn_id));
+    }
+    if let Some(subagent) = metadata.subagent.as_ref() {
+        map.insert("scope".to_string(), serde_json::json!("subagent"));
+        map.insert(
+            "subagent".to_string(),
+            serde_json::json!({
+                "job_id": subagent.job_id.as_str(),
+                "agent_name": subagent.agent_name.as_str(),
+                "parent_session_id": subagent.parent_session_id.as_str(),
+                "child_session_id": subagent.child_session_id.as_str(),
+            }),
+        );
+    }
     payload
 }
 
@@ -359,12 +428,14 @@ fn subagent_lifecycle_payload(
             "agent_name": agent_name,
         }),
         Some(&StreamEventMetadata {
-            subagent: SubagentStreamMetadata {
+            trace_id: None,
+            turn_id: None,
+            subagent: Some(SubagentStreamMetadata {
                 job_id: job_id.to_string(),
                 agent_name: agent_name.to_string(),
                 parent_session_id: parent_session_id.to_string(),
                 child_session_id: child_session_id.to_string(),
-            },
+            }),
         }),
     )
 }
@@ -387,13 +458,9 @@ pub async fn handle_inbound(
     if matches!(submission, Submission::Queued) {
         let event_source = inbound_event_source(&inbound);
         emit_user_message_received(&emitter, &inbound, event_source, true).await;
-        // This follow-up was queued behind an in-flight turn and will be merged
-        // into it. The merged turn streams its tokens to the ACTIVE turn's
-        // stream, not to this message's stream, so emitting a bare `done` here
-        // leaves the client (which opened a fresh stream for the follow-up and
-        // aborted the old one) showing nothing. Instead emit a `session_waiting`
-        // event so the stream stays open, and bridge the merged turn's terminal
-        // output back to it (see merge_queued_inbound + process_single_turn).
+        // Follow-ups share the stable session stream. Emit a live waiting event
+        // so subscribers can show that the message is queued behind the active
+        // turn without opening a second stream.
         if let Some(stream_id) = session_stream_id(&inbound) {
             turn_event_sink
                 .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
@@ -500,8 +567,9 @@ pub async fn handle_inbound(
             if follow_ups.is_empty() {
                 if !is_subagent_task_inbound(&current_inbound) {
                     if let Some(stream_id) = session_stream_id.as_deref() {
+                        let metadata = stream_event_metadata(&current_inbound);
                         turn_event_sink
-                            .publish_done(stream_id, &current_inbound.session_id)
+                            .publish_done(stream_id, &current_inbound.session_id, metadata.as_ref())
                             .await;
                     }
                 }
@@ -554,16 +622,7 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
         String::from("[Additional request(s) received while working on the previous task]\n");
     let mut attachments = Vec::new();
     let mut raw_events = Vec::new();
-    // Collect the stream ids of every queued follow-up so the merged turn's
-    // terminal output can be bridged back to the streams those clients are
-    // watching. Carry any already-bridged ids forward across repeated merges
-    // so nothing is dropped over multiple follow-ups.
-    let mut bridged_stream_ids: Vec<String> = bridged_stream_ids_from_raw(&current.raw);
-
     for (index, event) in queued.into_iter().enumerate() {
-        if let Some(id) = session_stream_id(&event) {
-            bridged_stream_ids.push(id);
-        }
         let number = index + 1;
         let source = inbound_event_source(&event);
         let display_name = event
@@ -612,53 +671,21 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
         "source": "queued_batch",
         "events": raw_events,
     });
-    // Preserve the running turn's primary stream ids (replacing merged.raw would
-    // otherwise drop them, so the merged turn would stop streaming entirely) and
-    // record the follow-ups' streams so terminal output can be bridged to them.
+    // Preserve the running session stream id. Follow-up requests in the same
+    // session use this same stable stream, so no terminal bridging is needed.
     if let Some(map) = raw.as_object_mut() {
         if let Some(id) = session_stream_id(current) {
             map.insert("session_stream_id".to_string(), Value::String(id));
         }
-        if !bridged_stream_ids.is_empty() {
-            map.insert(
-                "bridged_stream_ids".to_string(),
-                Value::Array(bridged_stream_ids.into_iter().map(Value::String).collect()),
-            );
+        if let Some(trace_id) = trace_id(current) {
+            map.insert("trace_id".to_string(), Value::String(trace_id));
+        }
+        if let Some(turn_id) = turn_id(current) {
+            map.insert("turn_id".to_string(), Value::String(turn_id));
         }
     }
     merged.raw = raw;
     merged
-}
-
-fn bridged_stream_ids_from_raw(raw: &Value) -> Vec<String> {
-    raw.get("bridged_stream_ids")
-        .and_then(Value::as_array)
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(ToString::to_string))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn bridged_stream_ids(inbound: &InboundEvent) -> Vec<String> {
-    bridged_stream_ids_from_raw(&inbound.raw)
-}
-
-/// Publish the merged turn's final answer plus a terminal `done` to every queued
-/// follow-up's stream so those clients render the response instead of hanging
-/// on a stream that was only told `session_waiting`.
-async fn bridge_terminal_to_streams(
-    sink: &dyn TurnEventSink,
-    stream_ids: &[String],
-    session_id: &SessionId,
-    final_text: &str,
-) {
-    for stream_id in stream_ids {
-        sink.publish_final(stream_id, session_id, final_text, None)
-            .await;
-        sink.publish_done(stream_id, session_id).await;
-    }
 }
 
 #[cfg(test)]
@@ -732,19 +759,16 @@ mod queue_tests {
     }
 
     #[test]
-    fn merged_turn_preserves_primary_stream_and_bridges_followup_streams() {
-        // Regression: a queued follow-up opens its own SSE stream and the client
-        // aborts the previous one. The merged turn must keep streaming to the
-        // running turn's primary stream AND record the follow-ups' stream ids so
-        // their terminal output can be bridged, instead of those clients hanging
-        // on a stream that only ever received a bare `done`.
+    fn merged_turn_preserves_stable_session_stream_and_turn_context() {
         let current = inbound(
             "C123-T1",
             "E1",
             "working",
             serde_json::json!({
                 "source": "session",
-                "session_stream_id": "stream-primary"
+                "session_stream_id": "stream-session",
+                "trace_id": "trace-1",
+                "turn_id": "turn-1"
             }),
         );
         let queued = vec![
@@ -754,7 +778,7 @@ mod queue_tests {
                 "follow-up",
                 serde_json::json!({
                     "source": "session",
-                    "session_stream_id": "stream-followup-1"
+                    "session_stream_id": "stream-session"
                 }),
             ),
             inbound(
@@ -763,36 +787,33 @@ mod queue_tests {
                 "another follow-up",
                 serde_json::json!({
                     "source": "session",
-                    "session_stream_id": "stream-followup-2"
+                    "session_stream_id": "stream-session"
                 }),
             ),
         ];
 
         let merged = merge_queued_inbound(&current, queued);
 
-        // Primary stream ids survive the merge (without this the merged turn
-        // would stop streaming entirely).
         assert_eq!(
             session_stream_id(&merged).as_deref(),
-            Some("stream-primary")
+            Some("stream-session")
         );
-
-        // Every follow-up's stream id is captured for bridging.
-        let bridged = super::bridged_stream_ids(&merged);
-        assert!(bridged.contains(&"stream-followup-1".to_string()));
-        assert!(bridged.contains(&"stream-followup-2".to_string()));
+        assert_eq!(trace_id(&merged).as_deref(), Some("trace-1"));
+        assert_eq!(turn_id(&merged).as_deref(), Some("turn-1"));
+        assert!(merged.raw.get("bridged_stream_ids").is_none());
     }
 
     #[test]
-    fn repeated_merges_accumulate_bridged_streams() {
-        // Multiple rounds of follow-ups must not drop earlier bridged stream ids.
+    fn repeated_merges_keep_the_same_stable_stream() {
         let current = inbound(
             "C123-T1",
             "E1",
             "working",
             serde_json::json!({
                 "source": "session",
-                "session_stream_id": "stream-primary"
+                "session_stream_id": "stream-session",
+                "trace_id": "trace-1",
+                "turn_id": "turn-1"
             }),
         );
         let first = merge_queued_inbound(
@@ -801,7 +822,7 @@ mod queue_tests {
                 "C123-T1",
                 "E2",
                 "follow-up 1",
-                serde_json::json!({"source": "session", "session_stream_id": "stream-a"}),
+                serde_json::json!({"source": "session", "session_stream_id": "stream-session"}),
             )],
         );
         let second = merge_queued_inbound(
@@ -810,18 +831,17 @@ mod queue_tests {
                 "C123-T1",
                 "E3",
                 "follow-up 2",
-                serde_json::json!({"source": "session", "session_stream_id": "stream-b"}),
+                serde_json::json!({"source": "session", "session_stream_id": "stream-session"}),
             )],
         );
 
-        let bridged = super::bridged_stream_ids(&second);
-        assert!(bridged.contains(&"stream-a".to_string()));
-        assert!(bridged.contains(&"stream-b".to_string()));
-        // The primary stream is still preserved after repeated merges.
         assert_eq!(
             session_stream_id(&second).as_deref(),
-            Some("stream-primary")
+            Some("stream-session")
         );
+        assert_eq!(trace_id(&second).as_deref(), Some("trace-1"));
+        assert_eq!(turn_id(&second).as_deref(), Some("turn-1"));
+        assert!(second.raw.get("bridged_stream_ids").is_none());
     }
 
     #[test]
@@ -952,6 +972,9 @@ async fn process_single_turn(
     if let Some(stream_id) = session_stream_id(inbound) {
         turn_input = turn_input.with_session_stream_id(stream_id);
     }
+    if let (Some(trace_id), Some(turn_id)) = (trace_id(inbound), turn_id(inbound)) {
+        turn_input = turn_input.with_turn_context(trace_id, turn_id);
+    }
     for context in &inbound.dynamic_context {
         turn_input = turn_input.with_dynamic_context(context.clone());
     }
@@ -966,6 +989,19 @@ async fn process_single_turn(
             .activate_session_stream(&session_id, stream_id)
             .await;
     }
+    emit_canonical_runtime_event(
+        emitter.as_ref(),
+        event_types::TURN_STARTED,
+        &session_id,
+        event_source,
+        0,
+        session_stream_id.as_deref(),
+        stream_metadata.as_ref(),
+        json!({
+            "input_text_len": inbound.text.len(),
+        }),
+    )
+    .await;
 
     let stream_result = runner
         .run_turn(&session_id, turn_input, inbound.agent_definition.clone())
@@ -987,11 +1023,11 @@ async fn process_single_turn(
             text: String::new(),
             final_message: None,
             error: Some(e.to_string()),
+            sequence: 0,
         },
     };
 
     let final_text = format_final_message(&outcome);
-    let reply_text_for_event = final_text.clone();
     if let Some(stream_id) = session_stream_id.as_deref() {
         turn_event_sink
             .publish_final(
@@ -1001,43 +1037,53 @@ async fn process_single_turn(
                 stream_metadata.as_ref(),
             )
             .await;
+        turn_event_sink
+            .publish_turn_terminal(
+                stream_id,
+                &session_id,
+                stream_metadata.as_ref(),
+                outcome.error.as_deref(),
+            )
+            .await;
     }
-    // Bridge the merged turn's answer to every queued follow-up's stream.
-    // Those clients opened fresh streams that were told `session_waiting`; emit
-    // the real answer plus a terminal `done` so they render the response instead
-    // of hanging.
-    bridge_terminal_to_streams(
-        turn_event_sink.as_ref(),
-        &bridged_stream_ids(inbound),
+    emit_canonical_runtime_event(
+        emitter.as_ref(),
+        event_types::FINAL,
         &session_id,
-        &final_text,
+        event_source,
+        outcome.sequence + 1,
+        session_stream_id.as_deref(),
+        stream_metadata.as_ref(),
+        json!({ "text": final_text }),
     )
     .await;
-
     if let Some(error_message) = outcome.error.as_ref() {
-        emitter
-            .emit(OutboundEvent::new(
-                event_types::ERROR_MODEL,
-                serde_json::json!({
-                    "session_id": session_id.as_str(),
-                    "source": event_source,
-                    "error": error_message,
-                }),
-            ))
-            .await;
+        emit_canonical_runtime_event(
+            emitter.as_ref(),
+            event_types::TURN_FAILED,
+            &session_id,
+            event_source,
+            outcome.sequence + 2,
+            session_stream_id.as_deref(),
+            stream_metadata.as_ref(),
+            json!({ "error": error_message }),
+        )
+        .await;
         let _ = session_repo
             .set_status(&session_id, SessionStatus::Errored)
             .await;
     } else {
-        let mut payload = serde_json::json!({
-            "session_id": session_id.as_str(),
-            "source": event_source,
-            "text": reply_text_for_event,
-        });
-        copy_inbound_metadata(&mut payload, inbound);
-        emitter
-            .emit(OutboundEvent::new(event_types::AGENT_MESSAGE_SENT, payload))
-            .await;
+        emit_canonical_runtime_event(
+            emitter.as_ref(),
+            event_types::TURN_COMPLETED,
+            &session_id,
+            event_source,
+            outcome.sequence + 2,
+            session_stream_id.as_deref(),
+            stream_metadata.as_ref(),
+            json!({}),
+        )
+        .await;
     }
     emitter.flush_database().await;
 
@@ -1077,6 +1123,22 @@ async fn process_single_turn(
                         subagent_error.unwrap_or("unknown"),
                     )
                     .await;
+                emit_canonical_runtime_event(
+                    emitter.as_ref(),
+                    event_types::SUBAGENT_ERRORED,
+                    &SessionId::from(parent_session_id),
+                    "subagent_task",
+                    outcome.sequence + 3,
+                    session_stream_id.as_deref(),
+                    stream_metadata.as_ref(),
+                    json!({
+                        "job_id": job_id,
+                        "agent_name": agent_name,
+                        "child_session_id": session_id.as_str(),
+                        "error": subagent_error.unwrap_or("unknown"),
+                    }),
+                )
+                .await;
             } else {
                 turn_event_sink
                     .publish_subagent_completed(
@@ -1087,6 +1149,22 @@ async fn process_single_turn(
                         session_id.as_str(),
                     )
                     .await;
+                emit_canonical_runtime_event(
+                    emitter.as_ref(),
+                    event_types::SUBAGENT_COMPLETED,
+                    &SessionId::from(parent_session_id),
+                    "subagent_task",
+                    outcome.sequence + 3,
+                    session_stream_id.as_deref(),
+                    stream_metadata.as_ref(),
+                    json!({
+                        "job_id": job_id,
+                        "agent_name": agent_name,
+                        "child_session_id": session_id.as_str(),
+                        "result": &result_text,
+                    }),
+                )
+                .await;
             }
 
             // Send notification to parent BEFORE marking job as completed.
@@ -1393,6 +1471,7 @@ fn is_subagent_task_inbound(inbound: &InboundEvent) -> bool {
         && inbound.raw.get("job_id").and_then(Value::as_str).is_some()
 }
 
+#[cfg(test)]
 fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
     let Some(map) = payload.as_object_mut() else {
         return;
@@ -1432,6 +1511,7 @@ pub(crate) struct StreamOutcome {
     pub text: String,
     pub final_message: Option<String>,
     pub error: Option<String>,
+    pub sequence: u64,
 }
 
 async fn consume_agent_stream(
@@ -1447,15 +1527,32 @@ async fn consume_agent_stream(
     let mut final_message: Option<String> = None;
     let mut error_message: Option<String> = None;
     let mut sequence: u64 = 0;
+    let mut durable = DurableAgentStream::default();
     while let Some(event) = stream.next().await {
         sequence += 1;
         let client_event = sanitize_agent_event_for_clients(&event, session_id, source, sequence);
         if let Some(stream_id) = stream_id.as_deref() {
-            event_sink
-                .publish_agent_event(stream_id, session_id, &client_event, metadata)
-                .await;
+            let publish_to_session_stream = !matches!(
+                &client_event,
+                AgentEvent::RunEvent { event, .. } if event == "turn_completed"
+            );
+            if publish_to_session_stream {
+                event_sink
+                    .publish_agent_event(stream_id, session_id, &client_event, metadata)
+                    .await;
+            }
         }
-        emit_agent_stream_event(emitter, session_id, source, sequence, &client_event).await;
+        durable
+            .record_event(
+                emitter,
+                session_id,
+                source,
+                sequence,
+                stream_id.as_deref(),
+                metadata,
+                &client_event,
+            )
+            .await;
         match event {
             AgentEvent::ThinkingChunk { .. } => {}
             AgentEvent::TokenChunk { text } => push_visible_delta(&mut accumulated, &text),
@@ -1471,6 +1568,9 @@ async fn consume_agent_stream(
             _ => {}
         }
     }
+    durable
+        .flush_all(emitter, session_id, source, stream_id.as_deref(), metadata)
+        .await;
     emitter
         .flush_streams_for_session_background(session_id.as_str())
         .await;
@@ -1478,6 +1578,7 @@ async fn consume_agent_stream(
         text: accumulated,
         final_message,
         error: error_message,
+        sequence,
     }
 }
 
@@ -1540,7 +1641,7 @@ fn sanitize_agent_event_for_clients(
                     session_id,
                     source,
                     sequence,
-                    "agent.tool.result",
+                    event_types::TOOL_RESULT,
                     error,
                 );
                 if let Some(map) = next.as_object_mut() {
@@ -1582,57 +1683,389 @@ fn capture_agent_internal_error(
     );
 }
 
-async fn emit_agent_stream_event(
+#[derive(Default)]
+struct DurableAgentStream {
+    pending_delta: Option<DurableDelta>,
+    tool_calls: HashMap<String, DurableToolCall>,
+}
+
+struct DurableDelta {
+    event_type: &'static str,
+    text: String,
+    sequence_start: u64,
+    sequence_end: u64,
+    delta_count: u64,
+    started_at: DateTime<Utc>,
+    ended_at: DateTime<Utc>,
+}
+
+struct DurableToolCall {
+    tool: String,
+    args_summary: String,
+    started_at: DateTime<Utc>,
+}
+
+impl DurableAgentStream {
+    async fn record_event(
+        &mut self,
+        emitter: &OutboundEmitter,
+        session_id: &SessionId,
+        source: &'static str,
+        sequence: u64,
+        stream_id: Option<&str>,
+        metadata: Option<&StreamEventMetadata>,
+        event: &AgentEvent,
+    ) {
+        match event {
+            AgentEvent::ThinkingChunk { text } => {
+                self.record_delta(
+                    emitter,
+                    session_id,
+                    source,
+                    sequence,
+                    stream_id,
+                    metadata,
+                    event_types::THINKING,
+                    text,
+                )
+                .await;
+            }
+            AgentEvent::TokenChunk { text } => {
+                self.record_delta(
+                    emitter,
+                    session_id,
+                    source,
+                    sequence,
+                    stream_id,
+                    metadata,
+                    event_types::TOKEN,
+                    text,
+                )
+                .await;
+            }
+            AgentEvent::ToolCall { id, tool, args } => {
+                self.tool_calls.insert(
+                    id.clone(),
+                    DurableToolCall {
+                        tool: tool.clone(),
+                        args_summary: summarize_json(args, TOOL_SUMMARY_CHARS),
+                        started_at: Utc::now(),
+                    },
+                );
+            }
+            AgentEvent::ToolResult { id, result } => {
+                self.flush_all(emitter, session_id, source, stream_id, metadata)
+                    .await;
+                let call = self.tool_calls.remove(id);
+                let error = result.get("error").and_then(Value::as_str).map(str::trim);
+                let status = if error.is_some_and(|value| !value.is_empty()) {
+                    "errored"
+                } else {
+                    "completed"
+                };
+                let mut payload = json!({
+                    "id": id,
+                    "tool": call
+                        .as_ref()
+                        .map(|call| call.tool.as_str())
+                        .unwrap_or("unknown"),
+                    "status": status,
+                });
+                if let Some(call) = call.as_ref() {
+                    if let Some(map) = payload.as_object_mut() {
+                        map.insert("args_summary".to_string(), json!(call.args_summary));
+                        map.insert(
+                            "duration_ms".to_string(),
+                            json!((Utc::now() - call.started_at).num_milliseconds()),
+                        );
+                    }
+                }
+                if status == "errored" {
+                    if let Some(map) = payload.as_object_mut() {
+                        map.insert(
+                            "error".to_string(),
+                            json!(error.unwrap_or("tool call failed")),
+                        );
+                    }
+                } else if let Some(map) = payload.as_object_mut() {
+                    map.insert(
+                        "result_summary".to_string(),
+                        json!(summarize_json(result, TOOL_SUMMARY_CHARS)),
+                    );
+                }
+                emit_canonical_runtime_event(
+                    emitter,
+                    event_types::TOOL_RESULT,
+                    session_id,
+                    source,
+                    sequence,
+                    stream_id,
+                    metadata,
+                    payload,
+                )
+                .await;
+            }
+            AgentEvent::RunEvent { event, payload } => {
+                if is_durable_run_event(event) {
+                    self.flush_all(emitter, session_id, source, stream_id, metadata)
+                        .await;
+                    emit_canonical_runtime_event(
+                        emitter,
+                        event,
+                        session_id,
+                        source,
+                        sequence,
+                        stream_id,
+                        metadata,
+                        payload.clone(),
+                    )
+                    .await;
+                }
+            }
+            AgentEvent::Error { message } => {
+                self.flush_all(emitter, session_id, source, stream_id, metadata)
+                    .await;
+                emit_canonical_runtime_event(
+                    emitter,
+                    event_types::ERROR,
+                    session_id,
+                    source,
+                    sequence,
+                    stream_id,
+                    metadata,
+                    json!({ "message": message }),
+                )
+                .await;
+            }
+            AgentEvent::FinalMessage { .. } => {}
+        }
+    }
+
+    async fn record_delta(
+        &mut self,
+        emitter: &OutboundEmitter,
+        session_id: &SessionId,
+        source: &'static str,
+        sequence: u64,
+        stream_id: Option<&str>,
+        metadata: Option<&StreamEventMetadata>,
+        event_type: &'static str,
+        text: &str,
+    ) {
+        if text.is_empty() {
+            return;
+        }
+        let must_flush = self.pending_delta.as_ref().is_some_and(|pending| {
+            pending.event_type != event_type
+                || sequence == 0
+                || sequence != pending.sequence_end + 1
+                || pending.delta_count >= MAX_DURABLE_DELTA_COUNT
+                || pending.text.len() + text.len() > MAX_DURABLE_DELTA_TEXT_BYTES
+        });
+        if must_flush {
+            self.flush_pending_delta(emitter, session_id, source, stream_id, metadata)
+                .await;
+        }
+        let now = Utc::now();
+        let pending = self.pending_delta.get_or_insert_with(|| DurableDelta {
+            event_type,
+            text: String::new(),
+            sequence_start: sequence,
+            sequence_end: sequence,
+            delta_count: 0,
+            started_at: now,
+            ended_at: now,
+        });
+        pending.sequence_end = sequence;
+        pending.delta_count += 1;
+        pending.text.push_str(text);
+        pending.ended_at = now;
+        if pending.delta_count >= MAX_DURABLE_DELTA_COUNT
+            || pending.text.len() >= MAX_DURABLE_DELTA_TEXT_BYTES
+        {
+            self.flush_pending_delta(emitter, session_id, source, stream_id, metadata)
+                .await;
+        }
+    }
+
+    async fn flush_all(
+        &mut self,
+        emitter: &OutboundEmitter,
+        session_id: &SessionId,
+        source: &'static str,
+        stream_id: Option<&str>,
+        metadata: Option<&StreamEventMetadata>,
+    ) {
+        self.flush_pending_delta(emitter, session_id, source, stream_id, metadata)
+            .await;
+    }
+
+    async fn flush_pending_delta(
+        &mut self,
+        emitter: &OutboundEmitter,
+        session_id: &SessionId,
+        source: &'static str,
+        stream_id: Option<&str>,
+        metadata: Option<&StreamEventMetadata>,
+    ) {
+        let Some(delta) = self.pending_delta.take() else {
+            return;
+        };
+        emit_canonical_runtime_event(
+            emitter,
+            delta.event_type,
+            session_id,
+            source,
+            delta.sequence_end,
+            stream_id,
+            metadata,
+            json!({
+                "text": delta.text,
+                "coalesced": true,
+                "delta_count": delta.delta_count,
+                "sequence_start": delta.sequence_start,
+                "sequence_end": delta.sequence_end,
+                "started_at": delta.started_at,
+                "ended_at": delta.ended_at,
+            }),
+        )
+        .await;
+    }
+}
+
+fn is_durable_run_event(event: &str) -> bool {
+    matches!(
+        event,
+        event_types::MODEL_USAGE
+            | event_types::QUESTION_REQUESTED
+            | event_types::QUESTION_ANSWERED
+            | event_types::PLAN_UPDATED
+            | event_types::SUBAGENT_STARTED
+            | event_types::SUBAGENT_COMPLETED
+            | event_types::SUBAGENT_ERRORED
+            | event_types::SESSION_WAITING
+            | event_types::ERROR
+    )
+}
+
+async fn emit_canonical_runtime_event(
     emitter: &OutboundEmitter,
+    event_type: &str,
     session_id: &SessionId,
     source: &'static str,
     sequence: u64,
-    event: &AgentEvent,
+    stream_id: Option<&str>,
+    metadata: Option<&StreamEventMetadata>,
+    payload: Value,
 ) {
-    let agent_event = serde_json::to_value(event).unwrap_or_else(|_| {
-        serde_json::json!({
-            "kind": "serialization_error",
-        })
-    });
-    let event_type = match event {
-        AgentEvent::ThinkingChunk { .. } => "agent.stream.thinking",
-        AgentEvent::TokenChunk { .. } => "agent.stream.token",
-        AgentEvent::ToolCall { .. } => "agent.tool.call",
-        AgentEvent::ToolResult { .. } => "agent.tool.result",
-        AgentEvent::RunEvent { event: name, .. } => {
-            let sanitized = name
-                .chars()
-                .map(|ch| match ch {
-                    'a'..='z' | '0'..='9' | '_' | '-' => ch,
-                    'A'..='Z' => ch.to_ascii_lowercase(),
-                    _ => '.',
-                })
-                .collect::<String>()
-                .replace('_', ".");
-            let event_type = format!("agent.run.{sanitized}");
-            let payload = serde_json::json!({
-                "session_id": session_id.as_str(),
-                "source": source,
-                "sequence": sequence,
-                "agent_event": agent_event,
-            });
-            emitter.emit(OutboundEvent::new(event_type, payload)).await;
-            return;
-        }
-        AgentEvent::FinalMessage { .. } => "agent.final_message",
-        AgentEvent::Error { .. } => "agent.error",
-    };
     emitter
         .emit(OutboundEvent::new(
             event_type,
-            serde_json::json!({
-                "session_id": session_id.as_str(),
-                "source": source,
-                "sequence": sequence,
-                "agent_event": agent_event,
-            }),
+            canonical_runtime_payload(
+                event_type, session_id, source, sequence, stream_id, metadata, payload,
+            ),
         ))
         .await;
+}
+
+fn canonical_runtime_payload(
+    event_type: &str,
+    session_id: &SessionId,
+    source: &'static str,
+    sequence: u64,
+    stream_id: Option<&str>,
+    metadata: Option<&StreamEventMetadata>,
+    payload: Value,
+) -> Value {
+    let mut payload = match payload {
+        Value::Object(map) => Value::Object(map),
+        value => json!({ "value": value }),
+    };
+    let Some(map) = payload.as_object_mut() else {
+        return payload;
+    };
+    map.insert("event_name".to_string(), json!(event_type));
+    map.insert("session_id".to_string(), json!(session_id.as_str()));
+    map.insert("source".to_string(), json!(source));
+    map.insert("sequence".to_string(), json!(sequence));
+    map.insert("occurred_at".to_string(), json!(Utc::now()));
+    if let Some(stream_id) = stream_id {
+        map.insert("stream_id".to_string(), json!(stream_id));
+    }
+    if let Some(metadata) = metadata {
+        if let Some(trace_id) = metadata.trace_id.as_ref() {
+            map.insert("trace_id".to_string(), json!(trace_id));
+        }
+        if let Some(turn_id) = metadata.turn_id.as_ref() {
+            map.insert("turn_id".to_string(), json!(turn_id));
+        }
+        if let Some(subagent) = metadata.subagent.as_ref() {
+            map.insert("scope".to_string(), json!("subagent"));
+            map.insert(
+                "subagent".to_string(),
+                json!({
+                    "job_id": subagent.job_id,
+                    "agent_name": subagent.agent_name,
+                    "parent_session_id": subagent.parent_session_id,
+                    "child_session_id": subagent.child_session_id,
+                }),
+            );
+        }
+    }
+    map.entry("scope".to_string())
+        .or_insert_with(|| json!("main"));
+    map.entry("event_id".to_string()).or_insert_with(|| {
+        json!(canonical_runtime_event_id(
+            session_id, metadata, event_type, sequence
+        ))
+    });
+    payload
+}
+
+fn canonical_runtime_event_id(
+    session_id: &SessionId,
+    metadata: Option<&StreamEventMetadata>,
+    event_type: &str,
+    sequence: u64,
+) -> String {
+    let turn = metadata
+        .and_then(|metadata| metadata.turn_id.as_deref())
+        .unwrap_or("session");
+    let scope = metadata
+        .and_then(|metadata| metadata.subagent.as_ref())
+        .map(|subagent| subagent.job_id.as_str())
+        .unwrap_or("main");
+    format!(
+        "evt_rt_{}_{}_{}_{}_{}",
+        event_id_part(session_id.as_str()),
+        event_id_part(turn),
+        event_id_part(scope),
+        sequence,
+        event_id_part(event_type)
+    )
+}
+
+fn event_id_part(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+fn summarize_json(value: &Value, max_chars: usize) -> String {
+    let raw = serde_json::to_string(value).unwrap_or_else(|_| "<unserializable>".to_string());
+    if raw.chars().count() <= max_chars {
+        return raw;
+    }
+    let mut summary = raw.chars().take(max_chars).collect::<String>();
+    summary.push_str("...");
+    summary
 }
 
 fn session_stream_id(inbound: &InboundEvent) -> Option<String> {
@@ -1643,11 +2076,39 @@ fn session_stream_id(inbound: &InboundEvent) -> Option<String> {
         .map(ToString::to_string)
 }
 
+fn trace_id(inbound: &InboundEvent) -> Option<String> {
+    inbound
+        .raw
+        .get("trace_id")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
+fn turn_id(inbound: &InboundEvent) -> Option<String> {
+    inbound
+        .raw
+        .get("turn_id")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
 fn stream_event_metadata(inbound: &InboundEvent) -> Option<StreamEventMetadata> {
+    let trace_id = trace_id(inbound);
+    let turn_id = turn_id(inbound);
     if !is_subagent_task_inbound(inbound) {
-        return None;
+        if trace_id.is_none() && turn_id.is_none() {
+            return None;
+        }
+        return Some(StreamEventMetadata {
+            trace_id,
+            turn_id,
+            subagent: None,
+        });
     }
-    let parent_session_id = inbound.raw.get("parent_session_id")?.as_str()?.to_string();
+    let Some(parent_session_id) = inbound.raw.get("parent_session_id").and_then(Value::as_str)
+    else {
+        return None;
+    };
     let job_id = inbound.raw.get("job_id")?.as_str()?.to_string();
     let agent_name = inbound
         .raw
@@ -1656,12 +2117,14 @@ fn stream_event_metadata(inbound: &InboundEvent) -> Option<StreamEventMetadata> 
         .unwrap_or("sub-agent")
         .to_string();
     Some(StreamEventMetadata {
-        subagent: SubagentStreamMetadata {
+        trace_id,
+        turn_id,
+        subagent: Some(SubagentStreamMetadata {
             job_id,
             agent_name,
-            parent_session_id,
+            parent_session_id: parent_session_id.to_string(),
             child_session_id: inbound.session_id.as_str().to_string(),
-        },
+        }),
     })
 }
 
@@ -1703,6 +2166,7 @@ mod tests {
             text: String::new(),
             final_message: None,
             error: None,
+            sequence: 0,
         });
 
         assert!(!text.contains("Sorry, something went wrong"));
@@ -1748,6 +2212,7 @@ mod tests {
             text: "Let me check the database.Going good!".to_string(),
             final_message: Some("Going good!".to_string()),
             error: None,
+            sequence: 0,
         });
 
         assert_eq!(text, "Going good!");
@@ -1759,6 +2224,7 @@ mod tests {
             text: "Streaming answer".to_string(),
             final_message: None,
             error: None,
+            sequence: 0,
         });
 
         assert_eq!(text, "Streaming answer");
@@ -1772,6 +2238,7 @@ mod tests {
             error: Some(
                 "error returned from database: attempt to write a readonly database".into(),
             ),
+            sequence: 0,
         });
 
         assert!(!text.contains("readonly database"));
@@ -1869,7 +2336,12 @@ mod stream_tests {
                 .push((stream_id.to_string(), "final".to_string()));
         }
 
-        async fn publish_done(&self, stream_id: &str, _session_id: &SessionId) {
+        async fn publish_done(
+            &self,
+            stream_id: &str,
+            _session_id: &SessionId,
+            _metadata: Option<&super::StreamEventMetadata>,
+        ) {
             self.events
                 .lock()
                 .expect("events lock")
@@ -1974,29 +2446,6 @@ mod stream_tests {
         assert!(events.contains(&("full-stream".to_string(), "thinking".to_string())));
         assert!(events.contains(&("full-stream".to_string(), "tool_call".to_string())));
         assert!(events.contains(&("full-stream".to_string(), "token".to_string())));
-    }
-
-    #[tokio::test]
-    async fn bridge_terminal_publishes_final_and_done_to_each_followup_stream() {
-        // Regression: the merged turn must deliver the real answer plus a
-        // terminal `done` to every queued follow-up's stream (which were only
-        // told `session_waiting`), not leave them hanging.
-        let sink = RecordingSink::default();
-        let session_id = SessionId::from("C123-T1");
-        let bridged = vec!["stream-a".to_string(), "stream-b".to_string()];
-
-        super::bridge_terminal_to_streams(&sink, &bridged, &session_id, "the answer").await;
-
-        let events = sink.events.lock().expect("events lock").clone();
-        assert_eq!(
-            events,
-            vec![
-                ("stream-a".to_string(), "final".to_string()),
-                ("stream-a".to_string(), "done".to_string()),
-                ("stream-b".to_string(), "final".to_string()),
-                ("stream-b".to_string(), "done".to_string()),
-            ]
-        );
     }
 }
 

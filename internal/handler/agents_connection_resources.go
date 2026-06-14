@@ -106,9 +106,6 @@ func (h *AgentHandler) UpdateConnectionResources(w http.ResponseWriter, r *http.
 		}
 		agent.Resources = next
 		normalized = next
-		if err := attachAgentRequiredSkillsForAgent(ctx, tx, org.ID, &agent); err != nil {
-			return fmt.Errorf("reconcile agent skills: %w", err)
-		}
 		return nil
 	})
 	if err != nil {

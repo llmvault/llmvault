@@ -125,6 +125,9 @@ func (h *AgentOutboundWebhookHandler) credentialProviderID(ctx context.Context, 
 }
 
 func runtimeModelUsagePayload(payload map[string]any) map[string]any {
+	if usage := mapValue(payload, "usage"); len(usage) > 0 {
+		return payload
+	}
 	agentEvent := mapValue(payload, "agent_event")
 	return mapValue(agentEvent, "payload")
 }

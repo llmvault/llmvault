@@ -132,6 +132,7 @@ services:
       HIVY_REDIS_ADDR: redis:6379
       HIVY_REDIS_PASSWORD: ${REDIS_PASSWORD}
       HIVY_FRONTEND_URL: https://${APP_DOMAIN}
+      HIVY_ADMIN_ENABLED: ${HIVY_ADMIN_ENABLED:-false}
       HIVY_ADMIN_SECRET: ${HIVY_ADMIN_SECRET:-}
       HIVY_MCP_BASE_URL: https://${MCP_DOMAIN}
       HIVY_NANGO_ENDPOINT: https://${NANGO_DOMAIN}
@@ -206,6 +207,7 @@ services:
     #   args:
     #     NEXT_PUBLIC_HIVY_API_URL: https://${API_DOMAIN}
     #     NEXT_PUBLIC_HIVY_CONNECTIONS_HOST: https://${NANGO_DOMAIN}
+    #     NEXT_PUBLIC_HIVY_ADMIN_ENABLED: ${NEXT_PUBLIC_HIVY_ADMIN_ENABLED:-false}
     restart: unless-stopped
     environment:
       NODE_ENV: production

@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -181,34 +180,6 @@ func RequireOrgAdminOrAPIKey(db *gorm.DB) func(http.Handler) http.Handler {
 				return
 			}
 			orgAdmin(next).ServeHTTP(w, r)
-		})
-	}
-}
-
-// RequirePlatformAdmin returns middleware that checks if the authenticated user's
-// email is in the platform admin allowlist.
-func RequirePlatformAdmin(adminEmails []string) func(http.Handler) http.Handler {
-	emailSet := make(map[string]bool, len(adminEmails))
-	for _, e := range adminEmails {
-		trimmed := strings.TrimSpace(e)
-		if trimmed != "" {
-			emailSet[trimmed] = true
-		}
-	}
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, ok := UserFromContext(r.Context())
-			if !ok {
-				slog.Warn("platform admin check: no user in context", "path", r.URL.Path)
-				writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
-				return
-			}
-			if !emailSet[user.Email] {
-				slog.Warn("platform admin check: email not in allowlist", "email", user.Email, "path", r.URL.Path)
-				writeJSON(w, http.StatusForbidden, map[string]string{"error": "platform admin access required"})
-				return
-			}
-			next.ServeHTTP(w, r)
 		})
 	}
 }

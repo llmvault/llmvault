@@ -24,6 +24,8 @@ pub struct TurnInput {
     pub prior_history: Vec<HistoryEntry>,
     pub dynamic_context: Vec<String>,
     pub session_stream_id: Option<String>,
+    pub trace_id: Option<String>,
+    pub turn_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +56,8 @@ impl TurnInput {
             prior_history: Vec::new(),
             dynamic_context: Vec::new(),
             session_stream_id: None,
+            trace_id: None,
+            turn_id: None,
         }
     }
 
@@ -82,6 +86,22 @@ impl TurnInput {
         let stream_id = stream_id.into();
         if !stream_id.trim().is_empty() {
             self.session_stream_id = Some(stream_id);
+        }
+        self
+    }
+
+    pub fn with_turn_context(
+        mut self,
+        trace_id: impl Into<String>,
+        turn_id: impl Into<String>,
+    ) -> Self {
+        let trace_id = trace_id.into();
+        let turn_id = turn_id.into();
+        if !trace_id.trim().is_empty() {
+            self.trace_id = Some(trace_id);
+        }
+        if !turn_id.trim().is_empty() {
+            self.turn_id = Some(turn_id);
         }
         self
     }

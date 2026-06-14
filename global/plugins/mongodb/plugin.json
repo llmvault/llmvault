@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "mongodb",
+  "name": "MongoDB",
+  "description": "Explore and query your connected MongoDB database in a read-only, workspace-safe way.",
+  "category": "Databases",
+  "icon": "simple-icons:mongodb",
+  "icon_color": "#13AA52",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "mongodb",
+      "kind": "database"
+    }
+  ]
+}

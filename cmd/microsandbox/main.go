@@ -66,6 +66,9 @@ func runControl(ctx context.Context, cfg config.Config) error {
 	if cfg.PreviewPasswordKey == "" {
 		return fmt.Errorf("HIVY_MICROSANDBOX_PREVIEW_PASSWORD_KEY is required")
 	}
+	if cfg.PreviewJWTSecret == "" {
+		return fmt.Errorf("HIVY_MICROSANDBOX_PREVIEW_JWT_SECRET is required")
+	}
 	database, err := db.Open(ctx, cfg.DatabaseDSN)
 	if err != nil {
 		return err

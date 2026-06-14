@@ -141,7 +141,7 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 	trace.Logf("assert", "stream event counts=%v", eventNames)
 	trace.Logf("assert", "stream tool counts=%v", tools)
 	trace.Logf("assert", "stream subagent lifecycle counts=%v", agents)
-	for _, want := range []string{"tool_call", "tool_result", "subagent_started", "subagent_completed", "final", "done"} {
+	for _, want := range []string{"tool_call", "tool_result", "subagent_started", "subagent_completed", "final", "turn_completed"} {
 		if eventNames[want] == 0 {
 			t.Fatalf("stream did not contain %s; names=%v events=%s", want, eventNames, summarizeEvents(events))
 		}
@@ -186,7 +186,7 @@ func assertRuntimeSessionFinal(t *testing.T, trace *agentRuntimeE2ETrace, events
 		}
 	}
 	trace.Logf("assert", "session stream event counts=%v", eventNames)
-	for _, want := range []string{"final", "done"} {
+	for _, want := range []string{"final", "turn_completed"} {
 		if eventNames[want] == 0 {
 			t.Fatalf("session stream missing %s; events=%s", want, summarizeEvents(events))
 		}

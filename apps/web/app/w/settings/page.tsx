@@ -1,5 +1,5 @@
-import { SettingsPage } from "../(chat)/_components/settings"
+import { redirect } from "next/navigation"
 
-export default function WorkspaceSettingsPage() {
-  return <SettingsPage />
+export default function SettingsIndexPage() {
+  redirect("/w/settings/general")
 }

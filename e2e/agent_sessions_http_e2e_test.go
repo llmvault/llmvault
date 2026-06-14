@@ -162,7 +162,7 @@ func waitForAgentSessionsResponse(t *testing.T, ctx context.Context, baseURL, to
 		for _, event := range events {
 			lastTypes = append(lastTypes, event.EventType)
 			raw, _ := json.Marshal(event.Payload)
-			if event.EventType == "agent.message.sent" && strings.Contains(string(raw), marker) {
+			if event.EventType == "final" && strings.Contains(string(raw), marker) {
 				return event
 			}
 		}

@@ -31,6 +31,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	memberEmail := "agent-sessions-member-" + runID + "@example.com"
 	firstMarker := "AGENT_SESSIONS_E2E_PASS_" + runID
 	secondMarker := "AGENT_SESSIONS_E2E_MULTI_PASS_" + runID
+	thinkingMarker := "AGENT_SESSIONS_E2E_THINKING_" + runID
 
 	t.Logf("registering owner=%s", ownerEmail)
 	ownerAuth := agentSessionsRegister(t, ctx, apiBase, ownerEmail, password, "Agent Sessions Owner "+runID)
@@ -56,7 +57,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	session := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
 		"This is the agent sessions E2E.",
 		"Before replying, call bash exactly once with this command: python3 -c 'import time; time.sleep(12); print(\"first-turn-tool-done\")'.",
-		"Reply with exactly " + firstMarker + " and no other text.",
+		"After the bash result, emit a hidden thinking segment exactly like <think>" + thinkingMarker + "</think>, then visible final reply exactly " + firstMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created session id=%s queued=%t first_event=%s", session.Session.ID, session.Queued, eventType(session.Event))
 	if !session.Queued || session.Session.ID == "" || session.Event == nil || session.Event.SequenceNumber != 1 {
@@ -78,25 +79,35 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 
 	memberMessage := agentSessionsSendMessage(t, ctx, apiBase, memberToken, orgID, session.Session.ID, strings.Join([]string{
 		"I am now shared into this session while the first turn is still running.",
-		"Reply with exactly " + secondMarker + " and no other text.",
+		"Emit a hidden thinking segment exactly like <think>" + thinkingMarker + "_SECOND</think>, then visible final reply exactly " + secondMarker + " and no other text.",
 	}, "\n"))
 	if !memberMessage.Queued || memberMessage.Event == nil || memberMessage.Event.SequenceNumber <= session.Event.SequenceNumber {
 		t.Fatalf("collaborator message was not queued after sharing: %+v", memberMessage)
 	}
-	agentSessionsStreamAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, memberMessage.Event.ID, http.StatusNotFound)
+	memberStreamAccess := waitForAgentSessionsStreamAccess(t, ctx, apiBase, memberToken, orgID, session.Session.ID, memberMessage.Event.ID)
+	if memberStreamAccess.DirectURL != firstStreamAccess.DirectURL {
+		t.Fatalf("member stream direct_url=%q want stable session stream %q", memberStreamAccess.DirectURL, firstStreamAccess.DirectURL)
+	}
+	if memberStreamAccess.StreamToken != firstStreamAccess.StreamToken {
+		t.Fatalf("member stream token differs from owner stream token")
+	}
 
-	firstDirectEvents := firstStream.waitDone(t, ctx)
-	assertAgentSessionsDirectStream(t, firstDirectEvents, firstMarker)
+	firstMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
+		return strings.Contains(event.RawData, firstMarker)
+	})
+	t.Logf("first turn marker observed on stable direct stream event=%s", firstMarkerEvent.RawData)
 	firstResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, firstMarker)
 	t.Logf("first agent response observed event_id=%s type=%s", firstResponse.ID, firstResponse.EventType)
-	stream := waitForAgentSessionsStreamAccess(t, ctx, apiBase, memberToken, orgID, session.Session.ID, memberMessage.Event.ID)
-	t.Logf("direct sandbox stream url=%s stream_id=%s event_id=%s", stream.DirectURL, stream.StreamID, stream.SessionEventID)
-	directEvents := agentSessionsReadDirectStream(t, ctx, stream.DirectURL, stream.StreamToken)
-	assertAgentSessionsDirectStream(t, directEvents, secondMarker)
+	secondMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
+		return strings.Contains(event.RawData, secondMarker)
+	})
+	t.Logf("second turn marker observed on same stable direct stream event=%s", secondMarkerEvent.RawData)
 
 	secondResponse := waitForAgentSessionsResponse(t, ctx, apiBase, memberToken, orgID, session.Session.ID, secondMarker)
 	t.Logf("collaborator agent response observed event_id=%s type=%s", secondResponse.ID, secondResponse.EventType)
-	assertAgentSessionsEventOrder(t, agentSessionsListEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID))
+	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
+	assertAgentSessionsEventOrder(t, events)
+	assertAgentSessionsCanonicalIngestion(t, events, session.Session.ID, firstStreamAccess.StreamID, thinkingMarker, firstMarker, secondMarker)
 
 	agents = agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
 	defaultAgent = findDefaultAgent(t, agents)

@@ -51,9 +51,6 @@ func (h *AgentHandler) EnsureServiceDiscoveryScheduleForConnection(ctx context.C
 	if err != nil {
 		return fmt.Errorf("ensure Hivy agent: %w", err)
 	}
-	if err := attachAgentRequiredSkillsForAgent(ctx, h.db, orgID, agent); err != nil {
-		return fmt.Errorf("attach agent required skills: %w", err)
-	}
 	if h.memoryBanks != nil {
 		if err := h.memoryBanks.EnsureOrgBank(ctx, orgID); err != nil {
 			logging.CaptureWithFields(ctx, fmt.Errorf("service discovery: ensure memory bank: %w", err), map[string]any{

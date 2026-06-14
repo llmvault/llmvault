@@ -70,7 +70,7 @@ func agentMemoryRetentionDigest(agentName string, events []model.SessionEvent) s
 			if shouldIncludeAgentMemoryMessage(text) {
 				lines = append(lines, fmt.Sprintf("Teammate %s: %s", speaker, text))
 			}
-		case "agent.message.sent":
+		case "final":
 			text := firstPayloadString(payload, "text", "message")
 			if shouldIncludeAgentMemoryMessage(text) {
 				lines = append(lines, fmt.Sprintf("Agent %s: %s", agentName, text))

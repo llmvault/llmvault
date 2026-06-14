@@ -1,0 +1,17 @@
+{
+  "name": "notion",
+  "description": "Read, search, create, edit, and organize Notion pages, blocks, data sources, databases, comments, files, users, icons, custom emojis, and markdown content through the Hivy-provided Notion API proxy for the agent's Notion profile using HIVY_NOTION_API_URL, HIVY_NOTION_TOKEN, curl, and jq; use Notion response URLs for human-facing links, never the proxy URL.",
+  "category": "Knowledge",
+  "root": "./SKILL.md",
+  "tags": [
+    "notion",
+    "docs",
+    "knowledge-base",
+    "content"
+  ],
+  "required_environment_variables": [
+    "HIVY_NOTION_API_URL",
+    "HIVY_NOTION_TOKEN"
+  ],
+  "files": []
+}

@@ -67,10 +67,6 @@ func (h *ConnectionHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "connection not found or already revoked"})
 		return
 	}
-	if err := h.afterConnectionRevoked(r, org.ID, conn.Integration.Provider); err != nil {
-		logging.FromContext(r.Context()).WarnContext(r.Context(), "post-revoke agent connection cleanup failed",
-			"error", err, "connection_id", conn.ID, "org_id", org.ID, "provider", conn.Integration.Provider)
-	}
 	h.disableServiceDiscoveryScheduleForConnection(r.Context(), org.ID, conn)
 
 	logging.FromContext(r.Context()).InfoContext(r.Context(), "connection revoked", "connection_id", conn.ID, "org_id", org.ID, "provider", conn.Integration.Provider)
@@ -88,43 +84,4 @@ func (h *ConnectionHandler) disableServiceDiscoveryScheduleForConnection(ctx con
 			"provider":      conn.Integration.Provider,
 		})
 	}
-}
-
-func (h *ConnectionHandler) afterConnectionRevoked(r *http.Request, orgID uuid.UUID, provider string) error {
-	agent, err := ensureHivyAgent(r.Context(), h.db, orgID)
-	if err != nil {
-		return err
-	}
-
-	revokedProviderSkills, err := loadPublishedGlobalSkillsByIntegrationIDs(r.Context(), h.db, []string{provider})
-	if err != nil {
-		return err
-	}
-	stillRequired, _, err := agentRequiredSkills(r.Context(), h.db, orgID)
-	if err != nil {
-		return err
-	}
-	for skillID, skill := range revokedProviderSkills {
-		if _, required := stillRequired[skillID]; required {
-			continue
-		}
-		if err := h.db.WithContext(r.Context()).
-			Where("agent_id = ? AND skill_id = ?", agent.ID, skill.ID).
-			Delete(&model.AgentSkill{}).Error; err != nil {
-			return err
-		}
-	}
-	if provider == "slack" {
-		providers, _, err := activeAgentConnectionProviders(r.Context(), h.db, orgID)
-		if err != nil {
-			return err
-		}
-		for _, activeProvider := range providers {
-			if activeProvider == "slack" {
-				return nil
-			}
-		}
-		return nil
-	}
-	return nil
 }

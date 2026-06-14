@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/agentprompts"
 	"github.com/usehivy/hivy/internal/agentruntime"
@@ -53,14 +52,7 @@ func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.
 }
 
 func createHivyAgentWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*model.Agent, error) {
-	agent, err := createHivyAgentTx(ctx, tx, orgID)
-	if err != nil {
-		return nil, err
-	}
-	if err := attachPublishedGlobalSkillsTx(ctx, tx, agent.ID, defaultAgentSkills); err != nil {
-		return nil, err
-	}
-	return agent, nil
+	return createHivyAgentTx(ctx, tx, orgID)
 }
 
 func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*model.Agent, error) {
@@ -104,33 +96,6 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 
 func ptrString(value string) *string {
 	return &value
-}
-
-func attachPublishedGlobalSkillsTx(ctx context.Context, tx *gorm.DB, agentID uuid.UUID, names []string) error {
-	required := make(map[string]bool, len(names))
-	for _, name := range names {
-		required[name] = true
-	}
-	skills, err := loadPublishedGlobalSkillsByName(ctx, tx, required)
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		skill, ok := skills[name]
-		if !ok {
-			logging.FromContext(ctx).WarnContext(ctx, "global skill not attached to Hivy", "skill_name", name, "agent_id", agentID)
-			continue
-		}
-		link := model.AgentSkill{AgentID: agentID, SkillID: skill.ID}
-		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&link).Error; err != nil {
-			return fmt.Errorf("attach global skill %q: %w", name, err)
-		}
-	}
-	return nil
-}
-
-func (h *AgentHandler) attachGlobalSkills(ctx context.Context, agentID uuid.UUID, names []string) {
-	attachPublishedGlobalSkills(ctx, h.db, agentID, names)
 }
 
 func (h *AgentHandler) rollbackAgent(ctx context.Context, orgID, agentID, companionAgentID uuid.UUID) {

@@ -341,10 +341,7 @@ impl OutboundChannel for SkillSyncChannel {
     }
 
     fn accepts(&self, event_type: &str) -> bool {
-        event_type == event_types::SKILL_SYNCED
-            || event_type.starts_with("schedule.")
-            || event_type == event_types::TOOL_INVOKED
-            || event_type == event_types::ERROR_TOOL
+        event_type == event_types::SKILL_SYNCED || event_type.starts_with("schedule.")
     }
 
     async fn deliver(&self, _event: &OutboundEvent) -> outbound::Result<()> {
@@ -850,7 +847,7 @@ async fn wake_jobs_do_not_emit_schedule_events() {
 }
 
 #[tokio::test]
-async fn tool_invoked_event_summarizes_args_and_never_ships_raw_values() {
+async fn tool_invoked_event_is_not_emitted_directly() {
     let outbox = Arc::new(FakeOutbox::default());
     let session = SessionId::from("http-conversation-1");
 
@@ -868,28 +865,14 @@ async fn tool_invoked_event_summarizes_args_and_never_ships_raw_values() {
     .await;
 
     let rows = outbox.rows.lock().expect("outbox lock");
-    assert_eq!(rows.len(), 1);
-    let (_, event_type, payload) = &rows[0];
-    assert_eq!(event_type, event_types::TOOL_INVOKED);
-    assert_eq!(payload["tool"], "http_request");
-    // The raw args field must be gone entirely.
-    assert!(payload.get("args").is_none());
-    // Keys are retained (non-sensitive, debug-useful)...
-    let keys = payload["args_summary"]["keys"]
-        .as_array()
-        .expect("summarized keys");
-    assert!(keys.iter().any(|k| k == "authorization"));
-    assert!(keys.iter().any(|k| k == "url"));
-    // ...but no value, anywhere in the serialized payload, leaks.
-    let serialized = payload.to_string();
-    assert!(!serialized.contains("super-secret-token"));
-    assert!(!serialized.contains("customer PII question"));
-    assert!(!serialized.contains("internal.example.com"));
-    assert_eq!(payload["args_summary"]["kind"], "object");
+    assert!(
+        rows.is_empty(),
+        "tool results are emitted from canonical agent stream events"
+    );
 }
 
 #[tokio::test]
-async fn tool_error_event_summarizes_args_and_never_ships_raw_values() {
+async fn tool_error_event_is_not_emitted_directly() {
     let outbox = Arc::new(FakeOutbox::default());
     let session = SessionId::from("http-conversation-1");
 
@@ -906,18 +889,8 @@ async fn tool_error_event_summarizes_args_and_never_ships_raw_values() {
     .await;
 
     let rows = outbox.rows.lock().expect("outbox lock");
-    assert_eq!(rows.len(), 1);
-    let (_, event_type, payload) = &rows[0];
-    assert_eq!(event_type, event_types::ERROR_TOOL);
-    assert_eq!(payload["tool"], "send_email");
-    assert_eq!(payload["error"], "smtp authentication failed");
-    assert!(payload.get("args").is_none());
-    let serialized = payload.to_string();
-    assert!(!serialized.contains("confidential acquisition terms"));
-    assert!(!serialized.contains("ceo@example.com"));
-    let keys = payload["args_summary"]["keys"]
-        .as_array()
-        .expect("summarized keys");
-    assert!(keys.iter().any(|k| k == "body"));
-    assert!(keys.iter().any(|k| k == "to"));
+    assert!(
+        rows.is_empty(),
+        "tool errors are emitted as canonical tool_result events"
+    );
 }

@@ -197,6 +197,24 @@ func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent
 	}
 }
 
+func (h *AgentHandler) markAgentSkillLocks(ctx context.Context, orgID uuid.UUID, agent *model.Agent, skills []agentSkillSummary) []agentSkillSummary {
+	if len(skills) == 0 {
+		return skills
+	}
+	locked, err := agentLockedSkillIDs(ctx, h.db, orgID, agent)
+	if err != nil || len(locked) == 0 {
+		return skills
+	}
+	for index := range skills {
+		id, err := uuid.Parse(skills[index].ID)
+		if err == nil && locked[id] {
+			skills[index].Locked = true
+			skills[index].Required = true
+		}
+	}
+	return skills
+}
+
 func agentSandboxUpgradeAvailable(summary *agentSandboxSummary, currentSnapshotID string) bool {
 	if summary == nil {
 		return false

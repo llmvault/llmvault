@@ -9,4 +9,19 @@ if [ -n "${HIVY_GIT_EMAIL:-}" ]; then
   git config --system user.email "$HIVY_GIT_EMAIL"
 fi
 
+if [ "${HIVY_RUNTIME_START_DOCKERD:-0}" = "1" ] && command -v dockerd >/dev/null 2>&1; then
+  mkdir -p /var/lib/docker /var/run
+  dockerd --host=unix:///var/run/docker.sock --data-root=/var/lib/docker >/tmp/dockerd.log 2>&1 &
+  for _ in $(seq 1 60); do
+    if docker info >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+  if ! docker info >/dev/null 2>&1; then
+    cat /tmp/dockerd.log >&2 || true
+    exit 1
+  fi
+fi
+
 exec "$@"

@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"crypto/rsa"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,8 +32,6 @@ type AuthHandler struct {
 	credits          *billing.CreditsService
 	memoryBanks      memoryBankProvisioner
 
-	platformAdminEmails map[string]bool
-
 	loginMu       sync.Mutex
 	loginAttempts map[string]*loginAttempt // keyed by email
 }
@@ -60,20 +57,6 @@ func NewAuthHandler(db *gorm.DB, privateKey *rsa.PrivateKey, signingKey []byte, 
 	}
 
 	return h
-}
-
-// SetPlatformAdminEmails records which emails are platform admins so that
-// /auth/me can return is_platform_admin without enabling admin-only login mode.
-func (h *AuthHandler) SetPlatformAdminEmails(emails []string) {
-	if h.platformAdminEmails == nil {
-		h.platformAdminEmails = make(map[string]bool, len(emails))
-	}
-	for _, e := range emails {
-		trimmed := strings.TrimSpace(e)
-		if trimmed != "" {
-			h.platformAdminEmails[trimmed] = true
-		}
-	}
 }
 
 // StartCleanup starts a background goroutine that evicts stale login attempts

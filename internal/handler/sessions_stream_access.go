@@ -37,12 +37,8 @@ func (h *SessionHandler) StreamAccess(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "runtime stream access is not configured"})
 		return
 	}
-	queue, ok := h.loadStreamQueue(w, r, session.ID)
+	queue, ok := h.loadStreamQueueMetadata(w, r, session.ID)
 	if !ok {
-		return
-	}
-	if strings.TrimSpace(queue.RuntimeStreamID) == "" || strings.TrimSpace(queue.RuntimeStreamURL) == "" {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "runtime stream is not available yet"})
 		return
 	}
 	if session.SandboxID == nil {
@@ -61,23 +57,24 @@ func (h *SessionHandler) StreamAccess(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "runtime stream access is not available"})
 		return
 	}
-	streamURL := strings.TrimSpace(queue.RuntimeStreamURL)
+	streamURL := "/sessions/" + session.ID.String() + "/stream"
+	streamID := firstNonEmptyString(strings.TrimSpace(session.AgentStreamID), strings.TrimSpace(queue.RuntimeStreamID))
+	turnID := firstNonEmptyString(strings.TrimSpace(session.AgentTurnID), strings.TrimSpace(queue.RuntimeTurnID))
 	writeJSON(w, http.StatusOK, sessionStreamAccessResponse{
 		SessionID:      session.ID.String(),
 		SessionEventID: queue.SessionEventID.String(),
 		SequenceNumber: queue.SequenceNumber,
-		StreamID:       strings.TrimSpace(queue.RuntimeStreamID),
+		StreamID:       streamID,
 		StreamURL:      streamURL,
 		DirectURL:      directRuntimeStreamURL(sb.RuntimeURL, streamURL),
 		StreamToken:    agentruntime.StreamTokenFromRuntimeSecret(runtimeSecret),
 		TraceID:        strings.TrimSpace(queue.RuntimeTraceID),
-		TurnID:         strings.TrimSpace(queue.RuntimeTurnID),
+		TurnID:         turnID,
 	})
 }
 
-func (h *SessionHandler) loadStreamQueue(w http.ResponseWriter, r *http.Request, sessionID uuid.UUID) (model.SessionMessageQueue, bool) {
-	query := h.db.WithContext(r.Context()).
-		Where("session_id = ? AND status = ?", sessionID, "delivered")
+func (h *SessionHandler) loadStreamQueueMetadata(w http.ResponseWriter, r *http.Request, sessionID uuid.UUID) (model.SessionMessageQueue, bool) {
+	query := h.db.WithContext(r.Context()).Where("session_id = ?", sessionID)
 	if rawEventID := strings.TrimSpace(r.URL.Query().Get("event_id")); rawEventID != "" {
 		eventID, err := uuid.Parse(rawEventID)
 		if err != nil {
@@ -86,13 +83,15 @@ func (h *SessionHandler) loadStreamQueue(w http.ResponseWriter, r *http.Request,
 		}
 		query = query.Where("session_event_id = ?", eventID)
 	} else {
-		query = query.Where("runtime_stream_id <> '' AND runtime_stream_url <> ''").
-			Order("sequence_number DESC")
+		query = query.Order("sequence_number DESC")
 	}
 	var queue model.SessionMessageQueue
 	if err := query.First(&queue).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeJSON(w, http.StatusNotFound, errorResponse{Error: "runtime stream is not available yet"})
+			if strings.TrimSpace(r.URL.Query().Get("event_id")) == "" {
+				return model.SessionMessageQueue{}, true
+			}
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "session event is not available"})
 			return model.SessionMessageQueue{}, false
 		}
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load runtime stream"})

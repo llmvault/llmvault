@@ -127,6 +127,8 @@ impl AgentRunner for RigAgentRunner {
         let runtime_env = self.config.runtime_env();
         let safety_config = snapshot.safety.clone();
         let session_stream_id = user_input.session_stream_id.clone();
+        let provided_trace_id = user_input.trace_id.clone();
+        let provided_turn_id = user_input.turn_id.clone();
         let ModelClientConfig {
             client,
             model_id,
@@ -190,12 +192,16 @@ impl AgentRunner for RigAgentRunner {
         let safety = SafetyHarness::new(safety_config);
         Ok(Box::pin(stream! {
             let mut final_text = String::new();
-            let turn_id = format!("turn-{}", chrono::Utc::now().timestamp_millis());
+            let turn_id = provided_turn_id
+                .clone()
+                .unwrap_or_else(|| format!("turn-{}", chrono::Utc::now().timestamp_millis()));
+            let trace_id = provided_trace_id.clone();
             yield AgentEvent::RunEvent {
                 event: "turn_started".to_string(),
                 payload: serde_json::json!({
                     "session_id": session_id.as_str(),
                     "turn_id": turn_id,
+                    "trace_id": trace_id,
                     "model": model_id,
                 }),
             };
@@ -1557,7 +1563,7 @@ fn capture_tool_error(
     );
     sentry::with_scope(
         |scope| {
-            scope.set_tag("runtime.agent_event", "agent.tool.error");
+            scope.set_tag("runtime.agent_event", "tool_result");
             scope.set_tag("runtime.session_id", session_id.as_str());
             scope.set_tag("runtime.tool_name", tool_name);
             if !channel.is_empty() {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
 // sessionEventOnConflict deduplicates inserts against the partial unique
@@ -186,17 +187,26 @@ func deriveSessionEventID(sandboxID uuid.UUID, event *agentOutboundEvent, sessio
 }
 
 func shouldStoreRuntimeSessionEvent(eventType string) bool {
-	switch {
-	case eventType == "session.created":
-		return false
-	case eventType == "tool.invoked":
-		return false
-	case eventType == "agent.final_message":
-		return false
-	case strings.HasPrefix(eventType, "agent.run."):
-		return false
-	default:
+	switch eventType {
+	case runtimeevents.EventTurnStarted,
+		runtimeevents.EventToken,
+		runtimeevents.EventThinking,
+		runtimeevents.EventToolResult,
+		runtimeevents.EventFinal,
+		runtimeevents.EventTurnCompleted,
+		runtimeevents.EventTurnFailed,
+		runtimeevents.EventQuestionRequested,
+		runtimeevents.EventQuestionAnswered,
+		runtimeevents.EventPlanUpdated,
+		runtimeevents.EventSubagentStarted,
+		runtimeevents.EventSubagentCompleted,
+		runtimeevents.EventSubagentErrored,
+		runtimeevents.EventModelUsage,
+		runtimeevents.EventError,
+		runtimeevents.EventSessionWaiting:
 		return true
+	default:
+		return false
 	}
 }
 

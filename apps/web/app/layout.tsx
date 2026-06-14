@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Bricolage_Grotesque } from "next/font/google"
 import "./hero.css"
+import { Toast } from "@heroui/react"
 import { QueryProvider } from "@/components/query-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
@@ -46,6 +47,7 @@ export default function RootLayout({
           <QueryProvider>
             <TooltipProvider>{children}</TooltipProvider>
             <Toaster position="top-center" />
+            <Toast.Provider placement="top" />
           </QueryProvider>
         </ThemeProviders>
       </body>

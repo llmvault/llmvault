@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"testing"
 )
 
@@ -54,6 +55,7 @@ type agentSessionsParticipant struct {
 type agentSessionsEvent struct {
 	ID             string         `json:"id"`
 	EventType      string         `json:"event_type"`
+	EventID        string         `json:"event_id"`
 	SequenceNumber int64          `json:"sequence_number"`
 	Payload        map[string]any `json:"payload"`
 }
@@ -114,4 +116,34 @@ func agentSessionsListEvents(t *testing.T, ctx context.Context, baseURL, token, 
 	}
 	agentSessionsJSON(t, ctx, http.MethodGet, baseURL+"/v1/sessions/"+sessionID+"/events?limit=100", token, orgID, nil, http.StatusOK, &out)
 	return out.Data
+}
+
+func agentSessionsListAllEvents(t *testing.T, ctx context.Context, baseURL, token, orgID, sessionID string) []agentSessionsEvent {
+	t.Helper()
+	var all []agentSessionsEvent
+	cursor := ""
+	for page := 0; page < 10; page++ {
+		query := url.Values{}
+		query.Set("limit", "100")
+		if cursor != "" {
+			query.Set("cursor", cursor)
+		}
+		var out struct {
+			Data       []agentSessionsEvent `json:"data"`
+			NextCursor *string              `json:"next_cursor"`
+			HasMore    bool                 `json:"has_more"`
+		}
+		endpoint := baseURL + "/v1/sessions/" + sessionID + "/events?" + query.Encode()
+		agentSessionsJSON(t, ctx, http.MethodGet, endpoint, token, orgID, nil, http.StatusOK, &out)
+		all = append(all, out.Data...)
+		if !out.HasMore {
+			return all
+		}
+		if out.NextCursor == nil || *out.NextCursor == "" {
+			t.Fatalf("events page has_more without next_cursor page=%d", page)
+		}
+		cursor = *out.NextCursor
+	}
+	t.Fatalf("session events exceeded pagination safety limit")
+	return all
 }

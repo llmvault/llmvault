@@ -41,7 +41,6 @@ interface AuthContextValue {
   addOrg: (org: Org) => void
   logout: () => Promise<void>
   isLoading: boolean
-  isPlatformAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -66,8 +65,6 @@ export function AuthProvider({
   const user = (data?.user as User) ?? null
   const orgs = (data?.orgs as Org[]) ?? []
   const plans = (plansQuery.data as Plan[] | undefined) ?? []
-  const isPlatformAdmin =
-    (data as Record<string, unknown>)?.is_platform_admin === true
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(() =>
     getOrgIdFromCookie()
@@ -129,7 +126,6 @@ export function AuthProvider({
         addOrg,
         logout,
         isLoading,
-        isPlatformAdmin,
       }}
     >
       {children}

@@ -206,8 +206,8 @@ impl DatabaseQueuedEvent {
     }
 }
 
-fn is_low_value_stream_event(event_type: &str) -> bool {
-    matches!(event_type, "agent.stream.thinking" | "agent.stream.token")
+fn is_low_value_stream_event(_event_type: &str) -> bool {
+    false
 }
 
 #[async_trait]
@@ -270,7 +270,7 @@ mod tests {
         for index in 0..DATABASE_BATCH_MAX_EVENTS {
             queue
                 .enqueue(&OutboundEvent::new(
-                    "agent.stream.token",
+                    "token",
                     json!({
                         "session_id": "http-1",
                         "sequence": index,

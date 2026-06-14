@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "linear",
+  "name": "Linear",
+  "description": "Plan and track work across Linear issues, projects, teams, comments, users, and workflow states.",
+  "category": "Project management",
+  "icon": "simple-icons:linear",
+  "icon_color": "#5E6AD2",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "linear",
+      "kind": "integration"
+    }
+  ]
+}

@@ -38,6 +38,7 @@ func setupV1Routes(
 	tokenHandler *handler.TokenHandler,
 	sandboxTemplateHandler *handler.SandboxTemplateHandler,
 	skillHandler *handler.SkillHandler,
+	pluginHandler *handler.PluginHandler,
 	databaseIntegrationHandler *handler.DatabaseIntegrationHandler,
 	customDomainHandler *handler.CustomDomainHandler,
 	ragSourceHandler *handler.RAGSourceHandler,
@@ -101,6 +102,12 @@ func setupV1Routes(
 			})
 
 			mountBillingRoutes(r, billingHandler, subscriptionHandler)
+			if pluginHandler != nil {
+				r.Get("/plugins", pluginHandler.List)
+				r.Get("/plugins/{slug}", pluginHandler.Get)
+				r.Post("/plugins/{slug}/install", pluginHandler.Install)
+				r.Delete("/plugins/{slug}/install", pluginHandler.Uninstall)
+			}
 			if slackChannelHandler != nil {
 				r.Get("/slack/channels", slackChannelHandler.ListChannels)
 				r.Post("/slack/channels/join", slackChannelHandler.JoinChannels)
@@ -182,25 +189,16 @@ func setupV1Routes(
 					r.Post("/{id}/build", sandboxTemplateHandler.TriggerBuild)
 					r.Post("/{id}/retry", sandboxTemplateHandler.RetryBuild)
 				})
-				r.Route("/skills", func(r chi.Router) {
-					r.Post("/", skillHandler.Create)
-					r.Get("/", skillHandler.List)
-					r.Get("/{id}", skillHandler.Get)
-					r.Patch("/{id}", skillHandler.Update)
-					r.Delete("/{id}", skillHandler.Delete)
-					r.Put("/{id}/content", skillHandler.UpdateContent)
-					r.Post("/{id}/hydrate", skillHandler.Hydrate)
-				})
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
 				if agentHandler != nil {
 					r.Get("/agents", agentHandler.List)
 					r.Get("/agents/models", agentHandler.ListModels)
 					r.Get("/agents/{id}", agentHandler.Get)
-					r.Route("/agents/{id}/skills", func(r chi.Router) {
-						r.Post("/", skillHandler.AttachToAgent)
-						r.Get("/", skillHandler.ListAgentSkills)
-						r.Delete("/{skillID}", skillHandler.DetachFromAgent)
-					})
+					if pluginHandler != nil {
+						r.Get("/agents/{id}/plugins", pluginHandler.ListAgentPlugins)
+						r.Post("/agents/{id}/plugins/{slug}", pluginHandler.EnableForAgent)
+						r.Delete("/agents/{id}/plugins/{slug}", pluginHandler.DisableForAgent)
+					}
 					r.Get("/agents/{id}/trigger-deliveries", triggerDeliveryHandler.List)
 					r.Get("/agents/{id}/trigger-deliveries/{deliveryID}", triggerDeliveryHandler.Get)
 					r.Group(func(r chi.Router) {

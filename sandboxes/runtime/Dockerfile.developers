@@ -46,6 +46,8 @@ RUN apt-get update \
     dirmngr \
     direnv \
     dnsutils \
+    docker-cli \
+    docker-compose \
     docker.io \
     exiftool \
     fd-find \
@@ -69,7 +71,9 @@ RUN apt-get update \
     gradle \
     graphicsmagick \
     gzip \
+    fuse-overlayfs \
     imagemagick \
+    iptables \
     iputils-ping \
     jo \
     jq \
@@ -224,7 +228,7 @@ COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
 
 RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
-  && mkdir -p /app/data /workspace \
+  && mkdir -p /app/data /workspace /var/lib/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
   && chmod +x /usr/local/bin/git-credential-hivy \
   && chmod +x /usr/local/bin/gh-wrapper \
@@ -239,6 +243,9 @@ ENV HIVY_RUNTIME_BIND_ADDR=0.0.0.0:7080
 ENV HIVY_SANDBOXES_RUNTIME_VERSION=${VERSION}
 ENV HIVY_SANDBOXES_RUNTIME_COMMIT=${COMMIT}
 ENV NO_BROWSER=1
+ENV DOCKER_HOST=unix:///var/run/docker.sock
+ENV DOCKER_BUILDKIT=1
+ENV COMPOSE_DOCKER_CLI_BUILD=1
 
 EXPOSE 7080
 

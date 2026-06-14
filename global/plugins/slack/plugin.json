@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "slack",
+  "name": "Slack",
+  "description": "Search conversations, summarize channels, draft replies, and keep up with work across your Slack workspace.",
+  "category": "Communication",
+  "icon": "simple-icons:slack",
+  "icon_color": "#4A154B",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "slack",
+      "kind": "integration"
+    }
+  ]
+}

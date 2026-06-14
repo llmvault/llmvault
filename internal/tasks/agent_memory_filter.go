@@ -41,7 +41,7 @@ func meaningfulAgentMemoryTranscript(transcript string, events []model.SessionEv
 		if event.EventType == "user.message.received" {
 			hasUser = true
 		}
-		if event.EventType == "agent.message.sent" || event.EventType == "session.completed" {
+		if event.EventType == "final" || event.EventType == "turn_completed" || event.EventType == "session.completed" {
 			hasCheckpoint = true
 		}
 	}

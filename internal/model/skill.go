@@ -11,6 +11,8 @@ import (
 // A skill with OrgID=nil is public; otherwise it is visible only to that org.
 type Skill struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	PluginID    *uuid.UUID `gorm:"type:uuid;index"`
+	Plugin      *Plugin    `gorm:"foreignKey:PluginID;constraint:OnDelete:CASCADE"`
 	OrgID       *uuid.UUID `gorm:"type:uuid;index"`
 	Org         *Org       `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
 	PublisherID *uuid.UUID `gorm:"type:uuid;index"`

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "slug": "drive",
+  "name": "Drive",
+  "description": "Save generated files, exports, screenshots, reports, and demo artifacts to a shared drive for later use.",
+  "category": "Files",
+  "icon": "lucide:folder-up",
+  "icon_color": "#2563EB",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true
+}

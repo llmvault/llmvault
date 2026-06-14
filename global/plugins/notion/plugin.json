@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "notion",
+  "name": "Notion",
+  "description": "Find, summarize, create, and update Notion pages and databases across your connected workspace.",
+  "category": "Knowledge",
+  "icon": "simple-icons:notion",
+  "icon_color": "#111111",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "notion",
+      "kind": "integration"
+    }
+  ]
+}

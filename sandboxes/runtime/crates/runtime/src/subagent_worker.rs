@@ -2,7 +2,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::Utc;
-use domain::{ConfigStore, InboundEvent, SessionId, SubagentTask, SubagentTaskState};
+use domain::{
+    event_types, ConfigStore, InboundEvent, OutboundEvent, SessionId, SubagentTask,
+    SubagentTaskState,
+};
+use outbound::OutboundEmitter;
 use storage::SubagentTaskRepo;
 use tokio::sync::mpsc;
 use tracing::{error, warn};
@@ -17,6 +21,7 @@ pub struct SubagentWorker {
     config: ConfigStore,
     inbound_sink: mpsc::Sender<InboundEvent>,
     event_sink: Arc<dyn TurnEventSink>,
+    emitter: Arc<OutboundEmitter>,
 }
 
 impl SubagentWorker {
@@ -25,12 +30,14 @@ impl SubagentWorker {
         config: ConfigStore,
         inbound_sink: mpsc::Sender<InboundEvent>,
         event_sink: Arc<dyn TurnEventSink>,
+        emitter: Arc<OutboundEmitter>,
     ) -> Self {
         Self {
             repo,
             config,
             inbound_sink,
             event_sink,
+            emitter,
         }
     }
 
@@ -71,6 +78,8 @@ impl SubagentWorker {
                 task.child_session_id.as_str(),
             )
             .await;
+        self.emit_subagent_lifecycle(event_types::SUBAGENT_STARTED, &task, None)
+            .await;
 
         let Some(agent_definition) = self.config.agent_registry().resolve(&task.agent_name) else {
             let error = format!("subagent '{}' not found", task.agent_name);
@@ -93,6 +102,8 @@ impl SubagentWorker {
                     task.child_session_id.as_str(),
                     &error,
                 )
+                .await;
+            self.emit_subagent_lifecycle(event_types::SUBAGENT_ERRORED, &task, Some(&error))
                 .await;
             return;
         };
@@ -144,6 +155,42 @@ impl SubagentWorker {
                     &message,
                 )
                 .await;
+            self.emit_subagent_lifecycle(event_types::SUBAGENT_ERRORED, &task, Some(&message))
+                .await;
         }
+    }
+
+    async fn emit_subagent_lifecycle(
+        &self,
+        event_type: &str,
+        task: &SubagentTask,
+        error: Option<&str>,
+    ) {
+        let mut payload = serde_json::json!({
+            "event_name": event_type,
+            "event_id": format!("evt_rt_{}_{}_{}", task.parent_session_id.as_str(), task.id, event_type),
+            "session_id": task.parent_session_id.as_str(),
+            "stream_id": &task.stream_id,
+            "sequence": 0,
+            "occurred_at": Utc::now(),
+            "scope": "subagent",
+            "subagent": {
+                "job_id": &task.id,
+                "agent_name": &task.agent_name,
+                "parent_session_id": task.parent_session_id.as_str(),
+                "child_session_id": task.child_session_id.as_str(),
+            },
+            "job_id": &task.id,
+            "agent_name": &task.agent_name,
+            "child_session_id": task.child_session_id.as_str(),
+        });
+        if let Some(error) = error {
+            if let Some(map) = payload.as_object_mut() {
+                map.insert("error".to_string(), serde_json::json!(error));
+            }
+        }
+        self.emitter
+            .emit(OutboundEvent::new(event_type, payload))
+            .await;
     }
 }

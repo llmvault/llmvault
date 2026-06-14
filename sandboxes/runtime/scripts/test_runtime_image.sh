@@ -86,6 +86,7 @@ fi
 
 "$DOCKER_BIN" run -d \
   "${run_args[@]+"${run_args[@]}"}" \
+  --privileged \
   --name "$NAME" \
   -p 17080:7080 \
   -e HIVY_RUNTIME_SECRET="$SECRET" \
@@ -148,6 +149,8 @@ curl -fsS \
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "$(git config --system credential.helper)" = "/usr/local/bin/git-credential-hivy"'
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "$(git config --system user.name)" = "Runtime Smoke"'
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "$(git config --system user.email)" = "runtime-smoke@usehivy.com"'
+"$DOCKER_BIN" exec "$NAME" docker info >/tmp/runtime-docker-info.txt
+"$DOCKER_BIN" exec "$NAME" docker compose version >/tmp/runtime-docker-compose-version.txt
 
 "$DOCKER_BIN" run -d \
   "${run_args[@]+"${run_args[@]}"}" \
