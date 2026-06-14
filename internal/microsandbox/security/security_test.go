@@ -1,6 +1,7 @@
 package security
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -15,6 +16,16 @@ func TestGeneratePreviewPasswordShape(t *testing.T) {
 		if part == "" || strings.ToLower(part) != part {
 			t.Fatalf("password part %q must be lowercase non-empty", part)
 		}
+	}
+}
+
+func TestShortIDShape(t *testing.T) {
+	id, err := ShortID("sbx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`^[a-z0-9]{8}$`).MatchString(id) {
+		t.Fatalf("ShortID = %q, want 8 lowercase DNS-safe characters", id)
 	}
 }
 

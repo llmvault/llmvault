@@ -45,12 +45,12 @@ func TestRecoverSandboxStateFromPortBindings(t *testing.T) {
 }
 
 func TestRecoverSandboxStateFallsBackToHivyName(t *testing.T) {
-	state, ok := recoverSandboxState("sbx_from_name", "stopped", `{"ports": {"49158": 3001}}`)
+	state, ok := recoverSandboxState("abc123xy", "stopped", `{"ports": {"49158": 3001}}`)
 	if !ok {
 		t.Fatal("expected sandbox state to recover from Hivy sandbox name")
 	}
-	if state.ID != "sbx_from_name" {
-		t.Fatalf("ID = %q, want sbx_from_name", state.ID)
+	if state.ID != "abc123xy" {
+		t.Fatalf("ID = %q, want abc123xy", state.ID)
 	}
 	if state.Status != "stopped" {
 		t.Fatalf("Status = %q, want stopped", state.Status)
@@ -68,8 +68,8 @@ func TestRecoverSandboxStateSkipsUnmanagedSandbox(t *testing.T) {
 }
 
 func TestHivyLabelsAddsRecoveryLabels(t *testing.T) {
-	labels := hivyLabels("sbx_label", map[string]string{"org_id": "org_1"})
-	if labels[hivyManagedLabel] != "true" || labels[sandboxIDLabel] != "sbx_label" || labels["org_id"] != "org_1" {
+	labels := hivyLabels("abc123xy", map[string]string{"org_id": "org_1"})
+	if labels[hivyManagedLabel] != "true" || labels[sandboxIDLabel] != "abc123xy" || labels["org_id"] != "org_1" {
 		t.Fatalf("labels = %#v", labels)
 	}
 }
@@ -85,10 +85,10 @@ func TestHivyLabelsDoesNotMarkNonSandboxBuildsAsSandboxes(t *testing.T) {
 }
 
 func TestVolumeNamesUseSeparateDockerDataVolume(t *testing.T) {
-	if got := workspaceVolumeName("sbx_test"); got != "hivy-sbx_test" {
+	if got := workspaceVolumeName("abc123xy"); got != "hivy-abc123xy" {
 		t.Fatalf("workspace volume = %q", got)
 	}
-	if got := dockerDataVolumeName("sbx_test"); got != "hivy-docker-sbx_test" {
+	if got := dockerDataVolumeName("abc123xy"); got != "hivy-docker-abc123xy" {
 		t.Fatalf("docker data volume = %q", got)
 	}
 }
@@ -106,8 +106,8 @@ func TestSandboxVolumeSizesReserveDockerDataInsideDiskBudget(t *testing.T) {
 }
 
 func TestDockerDataVolumeLabelsAreRecoverable(t *testing.T) {
-	labels := volumeLabels("sbx_docker", dockerDataVolumePurpose)
-	if labels[hivyManagedLabel] != "true" || labels[sandboxIDLabel] != "sbx_docker" || labels[volumePurposeLabel] != dockerDataVolumePurpose {
+	labels := volumeLabels("abc123xy", dockerDataVolumePurpose)
+	if labels[hivyManagedLabel] != "true" || labels[sandboxIDLabel] != "abc123xy" || labels[volumePurposeLabel] != dockerDataVolumePurpose {
 		t.Fatalf("labels = %#v", labels)
 	}
 }

@@ -110,10 +110,7 @@ RUN python3 -m pip install --break-system-packages --no-cache-dir \
     beautifulsoup4 \
     fpdf2 \
     lxml \
-    matplotlib \
-    numpy \
     openpyxl \
-    pandas \
     pillow \
     pypdf \
     python-docx \

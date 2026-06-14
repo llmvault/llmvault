@@ -9,9 +9,7 @@ ENV MISE_INSTALL_DIR=/usr/local/bin
 ENV MISE_DATA_DIR=/usr/local/share/mise
 ENV MISE_CONFIG_DIR=/usr/local/etc/mise
 ENV MISE_CACHE_DIR=/usr/local/cache/mise
-ENV PATH=/usr/local/share/mise/shims:/root/.cargo/bin:/usr/local/go/bin:${PATH}
-ENV RUSTUP_HOME=/root/.rustup
-ENV CARGO_HOME=/root/.cargo
+ENV PATH=/usr/local/share/mise/shims:/usr/local/go/bin:${PATH}
 
 ARG JUST_VERSION=1.38.0
 ARG RUBY_VERSION=3.3.8
@@ -19,9 +17,6 @@ ARG NODE_VERSION=lts
 ARG GO_VERSION=1.25.10
 ARG BUN_VERSION=latest
 ARG DENO_VERSION=latest
-ARG HELM_VERSION=latest
-ARG KUBECTL_VERSION=latest
-ARG KUSTOMIZE_VERSION=latest
 ARG VERSION=dev
 ARG COMMIT=unknown
 
@@ -40,7 +35,6 @@ RUN apt-get update \
     coreutils \
     curl \
     csvkit \
-    default-jdk \
     default-libmysqlclient-dev \
     default-mysql-client \
     dirmngr \
@@ -68,7 +62,6 @@ RUN apt-get update \
     git \
     git-lfs \
     gnupg2 \
-    gradle \
     graphicsmagick \
     gzip \
     fuse-overlayfs \
@@ -100,7 +93,6 @@ RUN apt-get update \
     libyaml-dev \
     lsof \
     make \
-    maven \
     mediainfo \
     netcat-openbsd \
     openssh-client \
@@ -164,9 +156,6 @@ RUN mise use -g node@${NODE_VERSION} \
   && mise use -g go@${GO_VERSION} \
   && mise use -g bun@${BUN_VERSION} \
   && mise use -g deno@${DENO_VERSION} \
-  && mise use -g helm@${HELM_VERSION} \
-  && mise use -g kubectl@${KUBECTL_VERSION} \
-  && mise use -g kustomize@${KUSTOMIZE_VERSION} \
   && npm config set fetch-retries 5 \
   && npm config set fetch-retry-mintimeout 20000 \
   && npm config set fetch-retry-maxtimeout 120000 \
@@ -179,19 +168,12 @@ RUN mise use -g node@${NODE_VERSION} \
   && npm cache clean --force
 
 RUN python3 -m pip install --break-system-packages --no-cache-dir \
-    awscli \
     beautifulsoup4 \
     black \
     fpdf2 \
     httpie \
-    ipython \
-    jupyterlab \
     lxml \
-    matplotlib \
-    mypy \
-    numpy \
     openpyxl \
-    pandas \
     pillow \
     pypdf \
     pytest \
@@ -201,15 +183,6 @@ RUN python3 -m pip install --break-system-packages --no-cache-dir \
     requests \
     ruff \
     uv
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile default --default-toolchain stable \
-  && . /root/.cargo/env \
-  && rustup component add clippy rustfmt \
-  && ln -sf /root/.cargo/bin/cargo /usr/local/bin/cargo \
-  && ln -sf /root/.cargo/bin/rustc /usr/local/bin/rustc \
-  && ln -sf /root/.cargo/bin/rustfmt /usr/local/bin/rustfmt \
-  && ln -sf /root/.cargo/bin/cargo-clippy /usr/local/bin/cargo-clippy \
-  && ln -sf /root/.cargo/bin/rustup /usr/local/bin/rustup
 
 RUN mise settings set ruby.compile false \
   && MISE_RUBY_COMPILE=false mise use -g ruby@${RUBY_VERSION} \
