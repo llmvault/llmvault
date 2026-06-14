@@ -10,6 +10,11 @@ import (
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
 )
 
+const (
+	mibPerGiB                = 1024
+	maxDiskGBForUint32Volume = ((1 << 32) - 1) / mibPerGiB
+)
+
 type persistedSandboxConfig struct {
 	Labels       map[string]string       `json:"labels"`
 	Ports        json.RawMessage         `json:"ports"`
@@ -131,10 +136,7 @@ func dockerDataVolumeName(sandboxID string) string {
 }
 
 func sandboxVolumeSizesMiB(diskGB int) (uint32, uint32) {
-	if diskGB <= 0 {
-		diskGB = defaultSandboxDiskGB
-	}
-	total := uint32(diskGB * 1024)
+	total := sandboxDiskMiB(diskGB)
 	dockerData := total / 4
 	if dockerData > maxDockerDataVolumeMiB {
 		dockerData = maxDockerDataVolumeMiB
@@ -146,6 +148,21 @@ func sandboxVolumeSizesMiB(diskGB int) (uint32, uint32) {
 		return total, 0
 	}
 	return total - dockerData, dockerData
+}
+
+func sandboxDiskMiB(diskGB int) uint32 {
+	if diskGB <= 0 {
+		diskGB = defaultSandboxDiskGB
+	}
+	if diskGB > maxDiskGBForUint32Volume {
+		diskGB = maxDiskGBForUint32Volume
+	}
+
+	var total uint32
+	for i := 0; i < diskGB; i++ {
+		total += mibPerGiB
+	}
+	return total
 }
 
 func ensureVolume(ctx context.Context, name string, opts ...microsandbox.VolumeOption) error {
