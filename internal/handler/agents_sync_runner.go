@@ -90,9 +90,6 @@ func (h *AgentHandler) SyncOrgHivyAgent(ctx context.Context, orgID uuid.UUID) er
 	if err != nil {
 		return fmt.Errorf("ensure Hivy agent: %w", err)
 	}
-	if err := attachAgentRequiredSkillsForAgent(ctx, h.db, orgID, agent); err != nil {
-		return fmt.Errorf("attach agent required skills: %w", err)
-	}
 	if h.memoryBanks != nil {
 		if err := h.memoryBanks.EnsureOrgBank(ctx, orgID); err != nil {
 			logging.CaptureWithFields(ctx, fmt.Errorf("sync org Hivy agent: ensure memory bank: %w", err), map[string]any{
@@ -123,11 +120,6 @@ func (h *AgentHandler) SyncAgent(ctx context.Context, agent *model.Agent) (*mode
 }
 
 func (h *AgentHandler) runAgentSync(ctx context.Context, agent *model.Agent, sb *model.Sandbox) (*agentruntime.SyncResponse, error) {
-	if agent != nil && agent.OrgID != nil {
-		if err := attachAgentRequiredSkillsForAgent(ctx, h.db, *agent.OrgID, agent); err != nil {
-			return nil, fmt.Errorf("reconcile agent skills: %w", err)
-		}
-	}
 	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt runtime secret: %w", err)

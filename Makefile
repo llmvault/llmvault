@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live local-up local-down local-reset local-status login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
+.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -569,28 +569,6 @@ ragtest-kb-search-live:
 	HIVY_QDRANT_HOST=$${HIVY_QDRANT_HOST:-localhost} \
 	HIVY_QDRANT_PORT=$${HIVY_QDRANT_PORT:-6334} \
 	go test ./internal/rag -run TestSearchKnowledgeBase_LiveSlackCollection -count=1 -v
-
-# --- Local test stack ---
-
-local-up:
-	@./scripts/local-up.sh
-
-local-down:
-	@./scripts/local-down.sh
-
-local-reset:
-	@./scripts/local-down.sh
-	@$(MAKE) -s local-up
-
-local-status:
-	@curl -s -o /dev/null -w "fake-nango (13004) %{http_code}\n" http://localhost:13004/providers.json || true
-	@curl -s -o /dev/null -w "backend    (18080) %{http_code}\n" http://localhost:18080/healthz || true
-	@curl -s -o /dev/null -w "frontend   (31112) %{http_code}\n" http://localhost:31112/ || true
-	@for f in /tmp/agent-test/*.pid; do \
-		[ -f "$$f" ] || continue; \
-		PID=$$(cat $$f); \
-		ps -p $$PID > /dev/null 2>&1 && echo "  alive: $$(basename $$f .pid) (pid $$PID)" || echo "  DEAD : $$(basename $$f .pid)"; \
-	done
 
 login-test:
 	@./scripts/login-test-session.sh

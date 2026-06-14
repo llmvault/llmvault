@@ -40,19 +40,17 @@ pub struct SessionStreamBroker {
     active_session_streams: Mutex<HashMap<String, String>>,
     observability: ObservabilityRecorder,
     counter: AtomicU64,
+    turn_counter: AtomicU64,
 }
 
 /// Maximum number of events retained for replay to late/reconnecting
 /// subscribers. The buffer is a ring: once full, the oldest event is evicted so
-/// the newest events — crucially the terminal `final`/`done` — are always
+/// the newest events — crucially the turn terminal events — are always
 /// replayable.
 const HISTORY_CAPACITY: usize = 512;
 
-/// How long a finished (`done`) stream's state is retained before it is evicted
-/// from the broker's maps. The grace window lets a reconnecting/late subscriber
-/// (Slack asynq task, Go proxy retry, browser reload) still replay the terminal
-/// `final`/`done` from history. After it, the per-stream state and its session
-/// mapping are reclaimed so the maps do not grow without bound.
+/// How long a finished legacy stream's state is retained before it is evicted
+/// from the broker's maps. Persistent session streams are not marked done.
 const STREAM_EVICTION_GRACE: Duration = Duration::from_secs(120);
 
 /// A published event paired with a monotonically increasing per-stream sequence
@@ -76,12 +74,13 @@ impl std::ops::Deref for SeqEvent {
 struct StreamState {
     sender: broadcast::Sender<SeqEvent>,
     history: VecDeque<SeqEvent>,
-    context: Option<StreamObservabilityContext>,
+    turn_contexts: HashMap<String, StreamObservabilityContext>,
     /// Next sequence number to assign to a published event.
     next_seq: u64,
     /// When the terminal `done` was published, after which the stream becomes
     /// eligible for eviction once `STREAM_EVICTION_GRACE` has elapsed.
     done_at: Option<Instant>,
+    persistent: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -122,6 +121,10 @@ impl SessionStreamBroker {
     }
 
     pub async fn create_stream(&self) -> String {
+        self.create_stream_with_persistence(false).await
+    }
+
+    async fn create_stream_with_persistence(&self, persistent: bool) -> String {
         let id = format!(
             "session-stream-{}-{}-{}",
             Utc::now().timestamp_millis(),
@@ -145,13 +148,25 @@ impl SessionStreamBroker {
             StreamState {
                 sender,
                 history: VecDeque::with_capacity(HISTORY_CAPACITY),
-                context: None,
+                turn_contexts: HashMap::new(),
                 next_seq: 0,
                 done_at: None,
+                persistent,
             },
         );
         drop(streams);
         id
+    }
+
+    pub async fn get_or_create_session_stream(&self, session_id: &str) -> String {
+        if let Some(stream_id) = self.session_streams.lock().await.get(session_id).cloned() {
+            if self.streams.lock().await.contains_key(&stream_id) {
+                return stream_id;
+            }
+        }
+        let stream_id = self.create_stream_with_persistence(true).await;
+        self.register_session(session_id, &stream_id).await;
+        stream_id
     }
 
     pub async fn start_turn(
@@ -161,9 +176,15 @@ impl SessionStreamBroker {
         text_len: usize,
     ) -> Option<(String, String)> {
         let now = Utc::now();
-        let trace_id = format!("trace-{stream_id}");
-        let turn_id = format!("turn-{stream_id}");
-        let run_id = format!("run-{stream_id}");
+        let suffix = format!(
+            "{}-{}-{}",
+            Utc::now().timestamp_millis(),
+            self.turn_counter.fetch_add(1, Ordering::Relaxed),
+            nanoid::nanoid!(16)
+        );
+        let trace_id = format!("trace-{suffix}");
+        let turn_id = format!("turn-{suffix}");
+        let run_id = format!("run-{suffix}");
         let context = StreamObservabilityContext {
             trace_id: trace_id.clone(),
             session_id: session_id.to_string(),
@@ -174,7 +195,7 @@ impl SessionStreamBroker {
 
         let mut streams = self.streams.lock().await;
         let state = streams.get_mut(stream_id)?;
-        state.context = Some(context.clone());
+        state.turn_contexts.insert(turn_id.clone(), context.clone());
         drop(streams);
 
         self.record_context_event(
@@ -194,31 +215,45 @@ impl SessionStreamBroker {
     }
 
     pub async fn publish(&self, stream_id: &str, event: impl Into<String>, payload: Value) {
-        let event = SessionStreamEvent {
-            event: event.into(),
-            payload,
-        };
+        let event_name = event.into();
         let mut context = None;
+        let mut recorded_event = None;
         let mut streams = self.streams.lock().await;
         if let Some(state) = streams.get_mut(stream_id) {
             let seq = state.next_seq;
             state.next_seq += 1;
+            let event = SessionStreamEvent {
+                event: event_name.clone(),
+                payload: stamp_stream_payload(payload, &event_name, stream_id, seq),
+            };
             let seq_event = SeqEvent {
                 seq,
                 inner: event.clone(),
             };
-            // Ring buffer: evict the oldest event when full so terminal events
-            // (final/done) at the tail are always retained for replay.
+            // Ring buffer: evict the oldest event when full so turn terminal
+            // events at the tail are always retained for replay.
             if state.history.len() == HISTORY_CAPACITY {
                 state.history.pop_front();
             }
             state.history.push_back(seq_event.clone());
-            if event.event == "done" && state.done_at.is_none() {
+            if event.event == "done" && !state.persistent && state.done_at.is_none() {
                 // Start the eviction grace window; the state lingers long enough
                 // for late subscribers to replay the terminal events.
                 state.done_at = Some(Instant::now());
             }
-            context = state.context.clone();
+            context = event
+                .payload
+                .get("turn_id")
+                .and_then(Value::as_str)
+                .and_then(|turn_id| state.turn_contexts.get(turn_id).cloned())
+                .or_else(|| {
+                    if state.turn_contexts.len() == 1 {
+                        state.turn_contexts.values().next().cloned()
+                    } else {
+                        None
+                    }
+                });
+            recorded_event = Some(event);
             let _ = state.sender.send(seq_event);
         }
         // Reclaim any streams whose grace window has now elapsed.
@@ -230,7 +265,7 @@ impl SessionStreamBroker {
         )
         .await;
         drop(streams);
-        if let Some(context) = context.as_ref() {
+        if let (Some(context), Some(event)) = (context.as_ref(), recorded_event.as_ref()) {
             self.record_stream_event(context, &event.event, &event.payload);
         }
     }
@@ -321,16 +356,20 @@ impl SessionStreamBroker {
         payload: &Value,
     ) {
         let event_type = match stream_event {
-            "turn_started" => ObservabilityEventType::TurnStarted,
+            // start_turn records the durable observability TurnStarted event;
+            // the stream frame is for live browser consumers.
+            "turn_started" => return,
             "thinking" | "token" => ObservabilityEventType::AssistantDelta,
             "tool_call" => ObservabilityEventType::ToolCall,
             "tool_result" => ObservabilityEventType::ToolResult,
             "model_usage" => ObservabilityEventType::ModelUsage,
             "turn_completed" | "final" => ObservabilityEventType::TurnCompleted,
             "done" => ObservabilityEventType::RunCompleted,
-            "model_request_failed" | "model_stream_failed" | "max_turns_exhausted" | "error" => {
-                ObservabilityEventType::Error
-            }
+            "turn_failed"
+            | "model_request_failed"
+            | "model_stream_failed"
+            | "max_turns_exhausted"
+            | "error" => ObservabilityEventType::Error,
             _ => return,
         };
 
@@ -378,6 +417,7 @@ impl SessionStreamBroker {
                 event.model = Some(parse_model_usage(payload));
             }
             "turn_completed"
+            | "turn_failed"
             | "final"
             | "done"
             | "error"
@@ -425,7 +465,30 @@ impl SessionStreamBroker {
     }
 }
 
-/// Reclaim per-stream state for streams whose terminal `done` was published more
+fn stamp_stream_payload(payload: Value, event_name: &str, stream_id: &str, sequence: u64) -> Value {
+    let mut payload = match payload {
+        Value::Object(map) => Value::Object(map),
+        value => json!({ "value": value }),
+    };
+    let Some(map) = payload.as_object_mut() else {
+        return payload;
+    };
+    map.entry("event_name".to_string())
+        .or_insert_with(|| json!(event_name));
+    map.entry("stream_id".to_string())
+        .or_insert_with(|| json!(stream_id));
+    map.entry("sequence".to_string())
+        .or_insert_with(|| json!(sequence));
+    map.entry("event_id".to_string())
+        .or_insert_with(|| json!(format!("evt_stream_{stream_id}_{sequence}")));
+    map.entry("occurred_at".to_string())
+        .or_insert_with(|| json!(Utc::now()));
+    map.entry("scope".to_string())
+        .or_insert_with(|| json!("main"));
+    payload
+}
+
+/// Reclaim legacy per-stream state whose terminal `done` was published more
 /// than `STREAM_EVICTION_GRACE` ago, and drop the session→stream mappings that
 /// still point at them. Without this the broker's `streams`/`session_streams`
 /// maps grow unbounded for the process lifetime. Called opportunistically from
@@ -499,15 +562,27 @@ impl SessionMessageState {
         session_id: SessionId,
         request: SessionMessageRequest,
     ) -> Result<SessionMessageResponse> {
-        let stream_id = self.broker.create_stream().await;
-        self.broker
-            .register_session(session_id.as_str(), &stream_id)
+        let stream_id = self
+            .broker
+            .get_or_create_session_stream(session_id.as_str())
             .await;
         let (trace_id, turn_id) = self
             .broker
             .start_turn(&stream_id, session_id.as_str(), request.text.len())
             .await
             .unwrap_or_else(|| (format!("trace-{stream_id}"), format!("turn-{stream_id}")));
+        self.broker
+            .publish(
+                &stream_id,
+                "turn_started",
+                json!({
+                    "session_id": session_id.as_str(),
+                    "trace_id": &trace_id,
+                    "turn_id": &turn_id,
+                    "input_text_len": request.text.len(),
+                }),
+            )
+            .await;
         let source = request
             .raw
             .get("source")
@@ -539,7 +614,7 @@ impl SessionMessageState {
         Ok(SessionMessageResponse {
             session_id: session_id.as_str().to_string(),
             stream_id: stream_id.clone(),
-            stream_url: format!("/sessions/{}/streams/{stream_id}", session_id.as_str()),
+            stream_url: format!("/sessions/{}/stream", session_id.as_str()),
             trace_id,
             turn_id,
         })
@@ -557,10 +632,12 @@ enum StreamFrame {
 /// Core of the SSE replay stream, decoupled from the `Sse`/`Event` wire types so
 /// the reconnect/resync behavior is unit-testable. Yields history first, then
 /// live events, and on `Lagged` emits a `Resync` frame followed by the exact
-/// missed range from history. Stops on `done`.
+/// missed range from history. Legacy stream-id subscribers stop on `done`;
+/// stable session stream subscribers keep listening across turn boundaries.
 fn replay_stream(
     broker: Arc<SessionStreamBroker>,
     stream_id: String,
+    stop_on_done: bool,
     history: Vec<SeqEvent>,
     mut receiver: broadcast::Receiver<SeqEvent>,
 ) -> impl futures::Stream<Item = StreamFrame> {
@@ -572,7 +649,7 @@ fn replay_stream(
             last_seq = Some(item.seq);
             let is_done = item.inner.event == "done";
             yield StreamFrame::Event(item.inner);
-            if is_done {
+            if stop_on_done && is_done {
                 return;
             }
         }
@@ -582,7 +659,7 @@ fn replay_stream(
                     last_seq = Some(item.seq);
                     let is_done = item.inner.event == "done";
                     yield StreamFrame::Event(item.inner);
-                    if is_done {
+                    if stop_on_done && is_done {
                         break;
                     }
                 }
@@ -609,7 +686,7 @@ fn replay_stream(
                         }
                         yield StreamFrame::Event(item.inner);
                     }
-                    if done {
+                    if stop_on_done && done {
                         break;
                     }
                     continue;
@@ -646,7 +723,7 @@ pub async fn stream_response(
         return None;
     }
     let (history, receiver) = broker.subscribe(&stream_id).await?;
-    let frames = replay_stream(broker, stream_id.clone(), history, receiver);
+    let frames = replay_stream(broker, stream_id.clone(), true, history, receiver);
     let output = stream! {
         use futures::StreamExt;
         futures::pin_mut!(frames);
@@ -660,6 +737,30 @@ pub async fn stream_response(
                 .interval(Duration::from_secs(15))
                 .text("keep-alive"),
         ),
+    )
+}
+
+pub async fn session_stream_response(
+    broker: Arc<SessionStreamBroker>,
+    session_id: String,
+) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
+    let stream_id = broker.get_or_create_session_stream(&session_id).await;
+    let (history, receiver) = broker
+        .subscribe(&stream_id)
+        .await
+        .expect("session stream was just created");
+    let frames = replay_stream(broker, stream_id.clone(), false, history, receiver);
+    let output = stream! {
+        use futures::StreamExt;
+        futures::pin_mut!(frames);
+        while let Some(frame) = frames.next().await {
+            yield Ok(stream_frame_to_sse(&stream_id, frame));
+        }
+    };
+    Sse::new(output).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keep-alive"),
     )
 }
 
@@ -677,6 +778,7 @@ fn default_session_user() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::StreamExt;
     use tokio::sync::mpsc;
 
     #[tokio::test]
@@ -704,13 +806,9 @@ mod tests {
             .expect("inject message");
 
         assert_eq!(response.session_id, "session-1");
-        assert!(response.trace_id.starts_with("trace-session-stream-"));
-        assert!(response.turn_id.starts_with("turn-session-stream-"));
-        assert!(response.stream_url.ends_with(&response.stream_id));
-        assert_eq!(
-            response.stream_url,
-            format!("/sessions/session-1/streams/{}", response.stream_id)
-        );
+        assert!(response.trace_id.starts_with("trace-"));
+        assert!(response.turn_id.starts_with("turn-"));
+        assert_eq!(response.stream_url, "/sessions/session-1/stream");
         assert_eq!(
             broker.stream_id_for_session("session-1").await,
             Some(response.stream_id.clone())
@@ -775,6 +873,88 @@ mod tests {
         let inbound = rx.recv().await.expect("inbound event");
         assert_eq!(inbound.session_id.as_str(), "web-session");
         assert_eq!(inbound.raw["source"], "web");
+    }
+
+    #[tokio::test]
+    async fn inject_message_reuses_stable_stream_for_session_turns() {
+        let (tx, mut rx) = mpsc::channel(2);
+        let sessions = SessionMessageState {
+            inbound_sink: tx,
+            broker: Arc::new(SessionStreamBroker::new()),
+        };
+
+        let first = sessions
+            .inject_message(
+                SessionId::from("session-stable"),
+                SessionMessageRequest {
+                    text: "first".to_string(),
+                    user: "user-1".to_string(),
+                    user_display_name: None,
+                    attachments: Vec::new(),
+                    dynamic_context: Vec::new(),
+                    raw: json!({"source": "session"}),
+                },
+            )
+            .await
+            .expect("first message");
+        let second = sessions
+            .inject_message(
+                SessionId::from("session-stable"),
+                SessionMessageRequest {
+                    text: "second".to_string(),
+                    user: "user-1".to_string(),
+                    user_display_name: None,
+                    attachments: Vec::new(),
+                    dynamic_context: Vec::new(),
+                    raw: json!({"source": "session"}),
+                },
+            )
+            .await
+            .expect("second message");
+
+        assert_eq!(first.stream_id, second.stream_id);
+        assert_eq!(first.stream_url, "/sessions/session-stable/stream");
+        assert_eq!(second.stream_url, first.stream_url);
+        assert_ne!(first.trace_id, second.trace_id);
+        assert_ne!(first.turn_id, second.turn_id);
+
+        let first_inbound = rx.recv().await.expect("first inbound");
+        let second_inbound = rx.recv().await.expect("second inbound");
+        assert_eq!(
+            first_inbound.raw["session_stream_id"],
+            second_inbound.raw["session_stream_id"]
+        );
+        assert_ne!(first_inbound.raw["turn_id"], second_inbound.raw["turn_id"]);
+    }
+
+    #[tokio::test]
+    async fn stable_session_stream_replay_does_not_stop_on_done() {
+        let broker = Arc::new(SessionStreamBroker::new());
+        let stream_id = broker.get_or_create_session_stream("session-stable").await;
+        let (history, receiver) = broker
+            .subscribe(&stream_id)
+            .await
+            .expect("stable stream exists");
+        let frames = replay_stream(broker.clone(), stream_id.clone(), false, history, receiver);
+        futures::pin_mut!(frames);
+
+        broker
+            .publish(&stream_id, "final", json!({"text": "first"}))
+            .await;
+        broker.publish(&stream_id, "done", json!({})).await;
+        broker
+            .publish(&stream_id, "final", json!({"text": "second"}))
+            .await;
+        broker.publish(&stream_id, "done", json!({})).await;
+
+        let mut names = Vec::new();
+        for _ in 0..4 {
+            let Some(StreamFrame::Event(event)) = frames.next().await else {
+                panic!("stable stream ended before replaying multiple turns");
+            };
+            names.push(event.event);
+        }
+        assert_eq!(names, vec!["final", "done", "final", "done"]);
     }
 
     #[tokio::test]
@@ -1003,7 +1183,7 @@ mod tests {
     async fn broker_records_observability_for_stream_events() {
         let broker = SessionStreamBroker::new();
         let stream_id = broker.create_stream().await;
-        let (trace_id, _) = broker
+        let (trace_id, turn_id) = broker
             .start_turn(&stream_id, "session-conversation", 5)
             .await
             .expect("turn context");
@@ -1012,7 +1192,12 @@ mod tests {
             .publish(
                 &stream_id,
                 "tool_call",
-                json!({"id": "call-1", "tool": "lookup", "args": {"q": "hello"}}),
+                json!({
+                    "turn_id": turn_id,
+                    "id": "call-1",
+                    "tool": "lookup",
+                    "args": {"q": "hello"}
+                }),
             )
             .await;
         broker
@@ -1020,6 +1205,7 @@ mod tests {
                 &stream_id,
                 "model_usage",
                 json!({
+                    "turn_id": turn_id,
                     "provider": "fake",
                     "model": "fake-model",
                     "usage": {
@@ -1031,13 +1217,17 @@ mod tests {
             )
             .await;
         broker
-            .publish(&stream_id, "final", json!({"text": "answer"}))
+            .publish(
+                &stream_id,
+                "final",
+                json!({"turn_id": turn_id, "text": "answer"}),
+            )
             .await;
         broker
             .publish(
                 &stream_id,
                 "done",
-                json!({"session_id": "session-conversation"}),
+                json!({"session_id": "session-conversation", "turn_id": turn_id}),
             )
             .await;
 
@@ -1123,7 +1313,7 @@ mod tests {
         broker.publish(&stream_id, "done", json!({})).await;
 
         // Drive the replay core directly so we can inspect the frame sequence.
-        let frames = replay_stream(broker.clone(), stream_id.clone(), history, receiver);
+        let frames = replay_stream(broker.clone(), stream_id.clone(), true, history, receiver);
         futures::pin_mut!(frames);
         let mut saw_resync = false;
         let mut replayed_tokens: Vec<String> = Vec::new();
@@ -1187,7 +1377,7 @@ mod tests {
         broker.publish(&stream_id, "done", json!({})).await;
 
         let (history, receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
-        let frames = replay_stream(broker.clone(), stream_id, history, receiver);
+        let frames = replay_stream(broker.clone(), stream_id, true, history, receiver);
         futures::pin_mut!(frames);
         let mut resyncs = 0;
         while let Some(frame) = frames.next().await {

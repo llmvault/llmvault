@@ -18,7 +18,7 @@ import (
 const agentEventBatchSize = 100
 
 // agentEventFlushRetries bounds drain re-attempts before giving up. A transient
-// Postgres blip must not silently drop session events (notably agent.message.sent).
+// Postgres blip must not silently drop session events (notably final).
 const agentEventFlushRetries = 5
 
 const (

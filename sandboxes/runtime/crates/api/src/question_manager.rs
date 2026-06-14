@@ -5,10 +5,12 @@ use agent::QuestionRequester;
 use async_trait::async_trait;
 use chrono::Utc;
 use domain::{
-    validate_question_answer, validate_request_user_input_payload, QuestionAnswerPayload,
-    QuestionRequest, QuestionRequestState, RequestUserInputPayload, SessionId,
+    event_types, validate_question_answer, validate_request_user_input_payload, OutboundEvent,
+    QuestionAnswerPayload, QuestionRequest, QuestionRequestState, RequestUserInputPayload,
+    SessionId,
 };
 use nanoid::nanoid;
+use outbound::OutboundEmitter;
 use serde::{Deserialize, Serialize};
 use storage::QuestionRequestRepo;
 use tokio::sync::{oneshot, Mutex};
@@ -42,6 +44,7 @@ type PendingSender = oneshot::Sender<QuestionAnswerPayload>;
 pub struct QuestionManager {
     repo: Arc<dyn QuestionRequestRepo>,
     broker: Arc<SessionStreamBroker>,
+    outbound: Option<Arc<OutboundEmitter>>,
     pending: Mutex<HashMap<String, PendingSender>>,
 }
 
@@ -50,8 +53,14 @@ impl QuestionManager {
         Self {
             repo,
             broker,
+            outbound: None,
             pending: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub fn with_outbound_emitter(mut self, outbound: Arc<OutboundEmitter>) -> Self {
+        self.outbound = Some(outbound);
+        self
     }
 
     pub async fn answer(
@@ -101,16 +110,16 @@ impl QuestionManager {
         request: &RequestUserInputPayload,
     ) {
         if let Some(stream_id) = self.broker.stream_id_for_session(session_id.as_str()).await {
+            let payload = serde_json::json!({
+                "session_id": session_id.as_str(),
+                "stream_id": &stream_id,
+                "question_request_id": question_request_id,
+                "questions": &request.questions,
+            });
             self.broker
-                .publish(
-                    &stream_id,
-                    "question_requested",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "question_request_id": question_request_id,
-                        "questions": &request.questions,
-                    }),
-                )
+                .publish(&stream_id, "question_requested", payload.clone())
+                .await;
+            self.emit_outbound(event_types::QUESTION_REQUESTED, payload)
                 .await;
         }
     }
@@ -122,20 +131,38 @@ impl QuestionManager {
         answer: &QuestionAnswerPayload,
     ) {
         if let Some(stream_id) = self.broker.stream_id_for_session(session_id.as_str()).await {
+            let payload = serde_json::json!({
+                "session_id": session_id.as_str(),
+                "stream_id": &stream_id,
+                "question_request_id": question_request_id,
+                "answers": &answer.answers,
+                "user": &answer.user,
+                "user_display_name": &answer.user_display_name,
+            });
             self.broker
-                .publish(
-                    &stream_id,
-                    "question_answered",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "question_request_id": question_request_id,
-                        "answers": &answer.answers,
-                        "user": &answer.user,
-                        "user_display_name": &answer.user_display_name,
-                    }),
-                )
+                .publish(&stream_id, "question_answered", payload.clone())
+                .await;
+            self.emit_outbound(event_types::QUESTION_ANSWERED, payload)
                 .await;
         }
+    }
+
+    async fn emit_outbound(&self, event_type: &str, mut payload: serde_json::Value) {
+        let Some(outbound) = self.outbound.as_ref() else {
+            return;
+        };
+        if let Some(map) = payload.as_object_mut() {
+            map.insert("event_name".to_string(), serde_json::json!(event_type));
+            map.entry("event_id".to_string())
+                .or_insert_with(|| serde_json::json!(format!("evt_rt_{}", nanoid!(16))));
+            map.entry("sequence".to_string())
+                .or_insert_with(|| serde_json::json!(0));
+            map.entry("occurred_at".to_string())
+                .or_insert_with(|| serde_json::json!(Utc::now()));
+            map.entry("scope".to_string())
+                .or_insert_with(|| serde_json::json!("main"));
+        }
+        outbound.emit(OutboundEvent::new(event_type, payload)).await;
     }
 }
 

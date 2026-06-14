@@ -800,18 +800,29 @@ fn question_answer_error_response(error: QuestionAnswerError) -> (StatusCode, St
 
 #[cfg_attr(feature = "openapi", utoipa::path(
     get,
-    path = "/sessions/{session_id}/streams/{stream_id}",
+    path = "/sessions/{session_id}/stream",
     params(
-        ("session_id" = String, Path, description = "Session identifier"),
-        ("stream_id" = String, Path, description = "Session stream identifier")
+        ("session_id" = String, Path, description = "Session identifier")
     ),
     responses(
         (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
-        (status = 404, description = "Stream not found"),
         (status = 503, description = "session API is not enabled")
     ),
     security(("bearer" = []))
 ))]
+pub async fn get_session_live_stream(
+    State(state): State<ApiState>,
+    Path(session_id): Path<String>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let Some(session_stream) = state.session_stream.as_ref() else {
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+    Ok(sse_stream_response(
+        crate::session_stream::session_stream_response(session_stream.broker.clone(), session_id)
+            .await,
+    ))
+}
+
 pub async fn get_session_stream(
     State(state): State<ApiState>,
     Path((session_id, stream_id)): Path<(String, String)>,

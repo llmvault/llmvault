@@ -86,3 +86,18 @@ func (h *IntegrationHandler) UpsertAdmin(w http.ResponseWriter, r *http.Request)
 		Definition: definition,
 	})
 }
+
+func (h *IntegrationHandler) DeleteAdmin(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "integration definition id required"})
+		return
+	}
+	definition, err := integrations.NewSeeder(h.db, h.nango, h.catalog).DeleteAdmin(r.Context(), id)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "admin integration delete failed", "error", err, "definition_id", id)
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, definition)
+}

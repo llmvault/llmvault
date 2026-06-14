@@ -46,7 +46,7 @@ require (
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/slack-go/slack v0.23.0
 	github.com/sourcegraph/conc v0.3.0
-	github.com/superradcompany/microsandbox/sdk/go v0.5.5
+	github.com/superradcompany/microsandbox/sdk/go v0.5.6
 	github.com/swaggo/swag v1.16.6
 	go.mongodb.org/mongo-driver/v2 v2.6.0
 	go.uber.org/goleak v1.3.0

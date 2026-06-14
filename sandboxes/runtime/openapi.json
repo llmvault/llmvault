@@ -481,26 +481,17 @@
         ]
       }
     },
-    "/sessions/{session_id}/streams/{stream_id}": {
+    "/sessions/{session_id}/stream": {
       "get": {
         "tags": [
           "crate::handlers"
         ],
-        "operationId": "get_session_stream",
+        "operationId": "get_session_live_stream",
         "parameters": [
           {
             "name": "session_id",
             "in": "path",
             "description": "Session identifier",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "stream_id",
-            "in": "path",
-            "description": "Session stream identifier",
             "required": true,
             "schema": {
               "type": "string"
@@ -513,9 +504,6 @@
             "content": {
               "text/event-stream": {}
             }
-          },
-          "404": {
-            "description": "Stream not found"
           },
           "503": {
             "description": "session API is not enabled"

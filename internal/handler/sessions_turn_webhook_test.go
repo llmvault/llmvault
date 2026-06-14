@@ -77,7 +77,7 @@ func TestIntegration_RuntimeTurnCompletedWebhookDrainsQueuedSessionMessage(t *te
 		"status":             "delivered",
 		"delivered_at":       time.Now(),
 		"runtime_stream_id":  "stream-1",
-		"runtime_stream_url": "/sessions/" + created.Session.ID + "/streams/stream-1",
+		"runtime_stream_url": "/sessions/" + created.Session.ID + "/stream",
 		"runtime_turn_id":    "turn-1",
 	}).Error; err != nil {
 		t.Fatalf("mark first queue delivered: %v", err)
@@ -86,12 +86,11 @@ func TestIntegration_RuntimeTurnCompletedWebhookDrainsQueuedSessionMessage(t *te
 	enq := &recordingEnqueuer{}
 	webhooks := handler.NewAgentOutboundWebhookHandler(h.db, sessionTestEncKey(t), enq)
 	body := signedRuntimeEventBody(t, runtimeSecret, map[string]any{
-		"event_type": "agent.message.sent",
+		"event_type": "turn_completed",
 		"payload": map[string]any{
 			"session_id": created.Session.ID,
 			"turn_id":    "turn-1",
-			"event_id":   "agent-message-sent-1",
-			"text":       "First turn done",
+			"event_id":   "turn-completed-1",
 		},
 		"at": time.Now().UTC().Format(time.RFC3339Nano),
 	})

@@ -24,10 +24,7 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 	}
 	sessionID := stringValue(payload, "session_id")
 	source := agentEventSource(payload)
-	if _, ok := payload["mode"]; !ok {
-		payload["mode"] = "agent"
-	}
-	if event.EventType == "agent.run.model.usage" {
+	if event.EventType == runtimeevents.EventModelUsage {
 		if err := h.recordRuntimeModelUsageGeneration(ctx, sb, event, payload); err != nil {
 			// Sole billing record for runtime LLM usage; surface the failure for a 5xx
 			// so the outbox retries (deterministic ID makes the retry idempotent).
@@ -91,13 +88,13 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 		}
 		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.AgentID)
 	}
-	if event.EventType == "agent.message.sent" {
-		h.enqueueAgentMemoryRetain(ctx, sb, session, sessionID, "agent_message_sent", "agent.message.sent")
+	if event.EventType == runtimeevents.EventFinal {
+		h.enqueueAgentMemoryRetain(ctx, sb, session, sessionID, "agent_final", runtimeevents.EventFinal)
 	}
 	if event.EventType == "session.completed" {
 		h.markSessionEnded(ctx, session.ID, event.At)
 	}
-	if event.EventType == runtimeevents.EventTurnCompleted || event.EventType == "agent.message.sent" {
+	if event.EventType == runtimeevents.EventTurnCompleted || event.EventType == runtimeevents.EventTurnFailed {
 		h.completeSessionTurn(ctx, session, payload)
 	}
 	return nil

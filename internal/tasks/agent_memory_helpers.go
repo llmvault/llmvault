@@ -83,7 +83,7 @@ func logAgentMemoryRetainSkip(ctx context.Context, fields map[string]any, reason
 func countAgentMemoryCandidateEvents(events []model.SessionEvent) int {
 	count := 0
 	for _, event := range events {
-		if event.EventType == "user.message.received" || event.EventType == "agent.message.sent" {
+		if event.EventType == "user.message.received" || event.EventType == "final" {
 			count++
 		}
 	}

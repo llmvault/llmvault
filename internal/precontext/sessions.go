@@ -29,7 +29,7 @@ func (s *Service) fetchSessionsSection(ctx context.Context, req Request) (string
 	}
 	var events []model.SessionEvent
 	if err := s.cfg.DB.WithContext(ctx).
-		Where("session_id IN ? AND event_type IN ?", ids, []string{"user.message.received", "agent.message.sent"}).
+		Where("session_id IN ? AND event_type IN ?", ids, []string{"user.message.received", "final"}).
 		Order("event_at ASC, created_at ASC").
 		Find(&events).Error; err != nil {
 		return "", fmt.Errorf("load recent session events: %w", err)
@@ -112,7 +112,7 @@ func latestUserAndModel(events []model.SessionEvent) (string, string) {
 		switch event.EventType {
 		case "user.message.received":
 			user = text
-		case "agent.message.sent":
+		case "final":
 			modelReply = text
 		}
 	}

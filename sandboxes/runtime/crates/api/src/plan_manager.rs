@@ -2,33 +2,66 @@ use std::sync::Arc;
 
 use agent::PlanUpdater;
 use async_trait::async_trait;
-use domain::{validate_update_plan_payload, SessionId, UpdatePlanPayload, UpdatePlanResult};
+use chrono::Utc;
+use domain::{
+    event_types, validate_update_plan_payload, OutboundEvent, SessionId, UpdatePlanPayload,
+    UpdatePlanResult,
+};
+use nanoid::nanoid;
+use outbound::OutboundEmitter;
 
 use crate::session_stream::SessionStreamBroker;
 
 pub struct PlanManager {
     broker: Arc<SessionStreamBroker>,
+    outbound: Option<Arc<OutboundEmitter>>,
 }
 
 impl PlanManager {
     pub fn new(broker: Arc<SessionStreamBroker>) -> Self {
-        Self { broker }
+        Self {
+            broker,
+            outbound: None,
+        }
+    }
+
+    pub fn with_outbound_emitter(mut self, outbound: Arc<OutboundEmitter>) -> Self {
+        self.outbound = Some(outbound);
+        self
     }
 
     async fn publish_updated(&self, session_id: &SessionId, payload: &UpdatePlanPayload) {
         if let Some(stream_id) = self.broker.stream_id_for_session(session_id.as_str()).await {
+            let stream_payload = serde_json::json!({
+                "session_id": session_id.as_str(),
+                "stream_id": &stream_id,
+                "explanation": &payload.explanation,
+                "plan": &payload.plan,
+            });
             self.broker
-                .publish(
-                    &stream_id,
-                    "plan_updated",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "explanation": &payload.explanation,
-                        "plan": &payload.plan,
-                    }),
-                )
+                .publish(&stream_id, "plan_updated", stream_payload.clone())
+                .await;
+            self.emit_outbound(event_types::PLAN_UPDATED, stream_payload)
                 .await;
         }
+    }
+
+    async fn emit_outbound(&self, event_type: &str, mut payload: serde_json::Value) {
+        let Some(outbound) = self.outbound.as_ref() else {
+            return;
+        };
+        if let Some(map) = payload.as_object_mut() {
+            map.insert("event_name".to_string(), serde_json::json!(event_type));
+            map.entry("event_id".to_string())
+                .or_insert_with(|| serde_json::json!(format!("evt_rt_{}", nanoid!(16))));
+            map.entry("sequence".to_string())
+                .or_insert_with(|| serde_json::json!(0));
+            map.entry("occurred_at".to_string())
+                .or_insert_with(|| serde_json::json!(Utc::now()));
+            map.entry("scope".to_string())
+                .or_insert_with(|| serde_json::json!("main"));
+        }
+        outbound.emit(OutboundEvent::new(event_type, payload)).await;
     }
 }
 

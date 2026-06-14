@@ -9,6 +9,5 @@ export function useCurrentUser() {
     ...query,
     user: query.data?.user ?? null,
     orgs: query.data?.orgs ?? [],
-    isPlatformAdmin: query.data?.is_platform_admin === true,
   }
 }

@@ -22,8 +22,6 @@ const (
 	agentStrategyPerSession = "per_session"
 )
 
-var defaultAgentSkills = []string{"drive"}
-
 type AgentHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator

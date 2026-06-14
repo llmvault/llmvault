@@ -212,7 +212,7 @@ mod tests {
 
         emitter
             .emit(OutboundEvent::new(
-                "agent.message.sent",
+                "final",
                 json!({"session_id": "http-1", "text": "done"}),
             ))
             .await;
@@ -238,7 +238,7 @@ mod tests {
                     secret_env: "WEBHOOK_SECRET".to_string(),
                     extra_headers: HashMap::new(),
                 },
-                event_filter: Some(vec!["agent.stream.*".to_string()]),
+                event_filter: Some(vec!["token".to_string(), "thinking".to_string()]),
             }],
             &HashMap::from([("WEBHOOK_SECRET".to_string(), "secret".to_string())]),
         )
@@ -249,7 +249,7 @@ mod tests {
 
         emitter
             .emit(OutboundEvent::new(
-                "agent.stream.token",
+                "token",
                 json!({
                     "session_id": "http-1",
                     "source": "http",
@@ -289,7 +289,7 @@ mod tests {
                     secret_env: "WEBHOOK_SECRET".to_string(),
                     extra_headers: HashMap::new(),
                 },
-                event_filter: Some(vec!["agent.stream.*".to_string()]),
+                event_filter: Some(vec!["token".to_string(), "thinking".to_string()]),
             }],
             &HashMap::from([("WEBHOOK_SECRET".to_string(), "secret".to_string())]),
         )
@@ -302,7 +302,7 @@ mod tests {
 
         emitter
             .emit(OutboundEvent::new(
-                "agent.stream.token",
+                "token",
                 json!({
                     "session_id": "http-1",
                     "source": "http",
@@ -315,7 +315,7 @@ mod tests {
         let result = tokio::time::timeout(
             Duration::from_millis(250),
             emitter.emit(OutboundEvent::new(
-                "agent.tool.call",
+                "tool_call",
                 json!({
                     "session_id": "http-1",
                     "source": "http",

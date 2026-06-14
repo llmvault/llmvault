@@ -63,14 +63,10 @@ func (s *Server) Routes() http.Handler {
 		r.Delete("/v1/sandboxes/{sandboxID}", s.deleteSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/exec", s.execSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}/logs", s.logsSandbox)
-		r.Post("/v1/preview-sessions", s.createPreviewSession)
 		r.Post("/v1/snapshots", s.createSnapshot)
 		r.Get("/v1/snapshots/{snapshotID}", s.getSnapshot)
 	})
 
-	r.Get("/preview/login", s.previewLoginForm)
-	r.Post("/preview/login", s.previewLoginPost)
-	r.Handle("/*", s.previewProxy())
 	return r
 }
 

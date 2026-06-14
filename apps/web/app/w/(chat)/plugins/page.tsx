@@ -1,239 +1,29 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Link from "next/link"
-import { toast } from "sonner"
+import NextLink from "next/link"
 import {
   Button,
   Input,
   Popover,
   Modal,
   Switch,
+  toast,
   useOverlayState,
 } from "@heroui/react"
 import type { UseOverlayStateReturn } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
-
-type PluginCategory =
-  | "All"
-  | "Featured"
-  | "Business & Operations"
-  | "Communication"
-  | "Creativity"
-  | "Data & Analytics"
-  | "Developer Tools"
-  | "Education & Research"
-  | "Finance"
-  | "Other"
-  | "Productivity"
-  | "Research"
-  | "Security"
-  | "Travel"
-
-interface Plugin {
-  id: string
-  name: string
-  description: string
-  category: PluginCategory
-  icon: string
-  iconColor: string
-  official?: boolean
-}
-
-const CATEGORIES: PluginCategory[] = [
-  "All",
-  "Featured",
-  "Business & Operations",
-  "Communication",
-  "Creativity",
-  "Data & Analytics",
-  "Developer Tools",
-  "Education & Research",
-  "Finance",
-  "Other",
-  "Productivity",
-  "Research",
-  "Security",
-  "Travel",
-]
-
-const SOURCES = [
-  { id: "curated", label: "Curated by Hivy" },
-  { id: "official", label: "hivy-official" },
-]
-
-const CONNECTED_APPS = [
-  { id: "notion", name: "Notion", color: "#000000", icon: "simple-icons:notion" },
-  { id: "linear", name: "Linear", color: "#5E6AD2", icon: "simple-icons:linear" },
-  { id: "slack", name: "Slack", color: "#4A154B", icon: "simple-icons:slack" },
-  { id: "github", name: "GitHub", color: "#181717", icon: "simple-icons:github" },
-  { id: "hubspot", name: "HubSpot", color: "#FF7A59", icon: "simple-icons:hubspot" },
-  { id: "salesforce", name: "Salesforce", color: "#00A1E0", icon: "simple-icons:salesforce" },
-  { id: "attio", name: "Attio", color: "#111111", icon: "lucide:database" },
-  { id: "pipedrive", name: "Pipedrive", color: "#008542", icon: "lucide:briefcase" },
-]
-
-const FEATURED_PLUGINS: Plugin[] = [
-  {
-    id: "product-design",
-    name: "Product Design",
-    description: "Explore and prototype ideas",
-    category: "Featured",
-    icon: "lucide:component",
-    iconColor: "#A855F7",
-  },
-  {
-    id: "creative-production",
-    name: "Creative Production",
-    description: "Create marketing visuals from a brief or product image.",
-    category: "Featured",
-    icon: "lucide:sparkles",
-    iconColor: "#8B5CF6",
-  },
-  {
-    id: "sales",
-    name: "Sales",
-    description: "Prepare sales work faster",
-    category: "Featured",
-    icon: "lucide:trending-up",
-    iconColor: "#F97316",
-  },
-  {
-    id: "investment-banking",
-    name: "Investment Banking",
-    description: "M&A, capital markets, LevFin, valuation, diligence, and pitch workflows",
-    category: "Featured",
-    icon: "lucide:landmark",
-    iconColor: "#10B981",
-  },
-  {
-    id: "public-equity",
-    name: "Public Equity Investing",
-    description: "Public equity PM research, long/short, earnings, ETF/index diligence, and memos",
-    category: "Featured",
-    icon: "lucide:bar-chart-3",
-    iconColor: "#22C55E",
-  },
-]
-
-const CATALOG_PLUGINS: Plugin[] = [
-  {
-    id: "attio",
-    name: "Attio",
-    description: "Attio connects Hivy directly to your CRM workspace, letting you manage customer relationships...",
-    category: "Business & Operations",
-    icon: "lucide:database",
-    iconColor: "#111111",
-  },
-  {
-    id: "carta-crm",
-    name: "Carta CRM",
-    description: "Carta CRM helps investment teams stay on top of deal flow by keeping deals, companies, and...",
-    category: "Business & Operations",
-    icon: "lucide:briefcase",
-    iconColor: "#4B5563",
-  },
-  {
-    id: "demandbase",
-    name: "Demandbase",
-    description: "Demandbase integration with Hivy gives sales, marketing, and GTM teams seamless access to...",
-    category: "Business & Operations",
-    icon: "lucide:target",
-    iconColor: "#1D4ED8",
-  },
-  {
-    id: "hubspot",
-    name: "HubSpot",
-    description: "Work with your HubSpot data to analyze patterns, create and update records, and manage your...",
-    category: "Business & Operations",
-    icon: "simple-icons:hubspot",
-    iconColor: "#FF7A59",
-  },
-  {
-    id: "pipedrive",
-    name: "Pipedrive",
-    description: "Connect to sync Pipedrive deals and contacts for use in Hivy.",
-    category: "Business & Operations",
-    icon: "lucide:chart-pie",
-    iconColor: "#008542",
-  },
-  {
-    id: "atlassian-jira",
-    name: "Atlassian Jira",
-    description: "Manage Jira issues, sprints, and projects without leaving Hivy.",
-    category: "Productivity",
-    icon: "simple-icons:jira",
-    iconColor: "#0052CC",
-  },
-  {
-    id: "box",
-    name: "Box",
-    description: "Search and summarize files stored in your Box account.",
-    category: "Productivity",
-    icon: "simple-icons:box",
-    iconColor: "#0061D5",
-  },
-  {
-    id: "brand24",
-    name: "Brand24",
-    description: "The Brand24 integration lets you monitor brand mentions and sentiment in real time.",
-    category: "Productivity",
-    icon: "lucide:radio",
-    iconColor: "#10B981",
-  },
-  {
-    id: "clickup",
-    name: "ClickUp",
-    description: "Turn Hivy chats into ClickUp tasks and keep projects moving.",
-    category: "Productivity",
-    icon: "simple-icons:clickup",
-    iconColor: "#7B68EE",
-  },
-  {
-    id: "latex",
-    name: "LaTeX",
-    description: "Compile LaTeX documents and render equations from your chats.",
-    category: "Research",
-    icon: "lucide:sigma",
-    iconColor: "#374151",
-  },
-  {
-    id: "codex-security",
-    name: "Codex Security",
-    description: "Security scanning for your codebase",
-    category: "Security",
-    icon: "lucide:shield-check",
-    iconColor: "#2563EB",
-  },
-  {
-    id: "finn",
-    name: "FINN",
-    description: "A FINN car subscription is a flexible way to stay mobile anytime - without long-term commitments...",
-    category: "Travel",
-    icon: "lucide:car",
-    iconColor: "#F59E0B",
-  },
-  {
-    id: "weather-promise",
-    name: "WeatherPromise",
-    description: "Protect your trip with WeatherPromise and get back the full cost if it rains more than promised...",
-    category: "Travel",
-    icon: "lucide:cloud-rain",
-    iconColor: "#F97316",
-  },
-]
-
-const ALL_PLUGINS = [...FEATURED_PLUGINS, ...CATALOG_PLUGINS]
-
-const SECTION_ORDER: PluginCategory[] = [
-  "Featured",
-  "Business & Operations",
-  "Productivity",
-  "Research",
-  "Security",
-  "Travel",
-]
+import {
+  ALL_PLUGINS,
+  CATEGORIES,
+  CONNECTED_APPS,
+  FEATURED_PLUGINS,
+  SECTION_ORDER,
+  SOURCES,
+  type Plugin,
+  type PluginCategory,
+} from "./_data"
 
 export default function PluginsPage() {
   const [query, setQuery] = useState("")
@@ -260,8 +50,7 @@ export default function PluginsPage() {
         plugin.name.toLowerCase().includes(normalizedQuery) ||
         plugin.description.toLowerCase().includes(normalizedQuery) ||
         plugin.category.toLowerCase().includes(normalizedQuery)
-      const matchesSource =
-        source === "curated" || plugin.official === true
+      const matchesSource = source === "curated" || plugin.official === true
 
       return matchesCategory && matchesQuery && matchesSource
     })
@@ -309,18 +98,18 @@ export default function PluginsPage() {
             aria-label="Plugins and skills"
             className="flex items-center gap-1"
           >
-            <Link
+            <NextLink
               href="/w/plugins"
-              className="rounded-lg bg-default px-3 py-1.5 text-sm font-medium text-foreground"
+              className="bg-default rounded-lg px-3 py-1.5 text-sm font-medium text-foreground"
             >
               Plugins
-            </Link>
-            <Link
+            </NextLink>
+            <NextLink
               href="/w/skills"
               className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               Skills
-            </Link>
+            </NextLink>
           </nav>
 
           <div>
@@ -397,7 +186,9 @@ export default function PluginsPage() {
             <div className="flex flex-col gap-8">
               {sectionEntries.map(([section, plugins]) => (
                 <section key={section} className="flex flex-col gap-3">
-                  <h2 className="text-sm font-medium text-foreground">{section}</h2>
+                  <h2 className="text-sm font-medium text-foreground">
+                    {section}
+                  </h2>
                   <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
                     {plugins.map((plugin) => (
                       <PluginRow
@@ -439,7 +230,10 @@ function CategorySelect({
         className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-card px-3 text-sm text-foreground transition-colors hover:bg-muted/20 sm:w-48"
       >
         <span>{value}</span>
-        <Icon icon="lucide:chevron-down" className="h-4 w-4 text-muted-foreground" />
+        <Icon
+          icon="lucide:chevron-down"
+          className="h-4 w-4 text-muted-foreground"
+        />
       </Popover.Trigger>
       <Popover.Content className="w-48 rounded-xl border border-border p-1.5">
         <Popover.Dialog className="flex max-h-72 w-full flex-col gap-0.5 overflow-y-auto p-0">
@@ -470,26 +264,25 @@ function CategorySelect({
   )
 }
 
-function PluginRow({
-  plugin,
-  onAdd,
-}: {
-  plugin: Plugin
-  onAdd: () => void
-}) {
+function PluginRow({ plugin, onAdd }: { plugin: Plugin; onAdd: () => void }) {
   return (
-    <div className="flex items-center gap-3 p-3 transition-colors hover:bg-muted/20">
-      <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
-        style={{ backgroundColor: plugin.iconColor }}
+    <div className="group flex items-center gap-3 p-3 transition-colors hover:bg-muted/20">
+      <NextLink
+        href={`/w/plugins/${plugin.id}`}
+        className="flex min-w-0 flex-1 items-center gap-3"
       >
-        <AppIcon icon={plugin.icon} color="#FFFFFF" size={16} />
-      </div>
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
+          style={{ backgroundColor: plugin.iconColor }}
+        >
+          <AppIcon icon={plugin.icon} color="#FFFFFF" size={16} />
+        </div>
 
-      <div className="min-w-0 flex-1">
-        <h3 className="text-sm font-medium text-foreground">{plugin.name}</h3>
-        <p className="text-sm text-muted-foreground">{plugin.description}</p>
-      </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium text-foreground">{plugin.name}</h3>
+          <p className="text-sm text-muted-foreground">{plugin.description}</p>
+        </div>
+      </NextLink>
 
       <Button
         variant="outline"
@@ -503,8 +296,22 @@ function PluginRow({
   )
 }
 
-function AppIcon({ icon, color, size = 20 }: { icon: string; color: string; size?: number }) {
-  return <Icon icon={icon} className="shrink-0" style={{ color, width: size, height: size }} />
+function AppIcon({
+  icon,
+  color,
+  size = 20,
+}: {
+  icon: string
+  color: string
+  size?: number
+}) {
+  return (
+    <Icon
+      icon={icon}
+      className="shrink-0"
+      style={{ color, width: size, height: size }}
+    />
+  )
 }
 
 function EmptyState({ query }: { query: string }) {
@@ -566,7 +373,10 @@ function ConnectModal({
                       <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
                     </div>
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background">
-                      <Icon icon="lucide:bot" className="h-8 w-8 text-foreground" />
+                      <Icon
+                        icon="lucide:bot"
+                        className="h-8 w-8 text-foreground"
+                      />
                     </div>
                   </div>
 
@@ -578,7 +388,9 @@ function ConnectModal({
                       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success text-background">
                         <Icon icon="lucide:check" className="h-2.5 w-2.5" />
                       </span>
-                      <span className="text-sm font-medium">Approved by your admin</span>
+                      <span className="text-sm font-medium">
+                        Approved by your admin
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -591,7 +403,8 @@ function ConnectModal({
                       </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
                         Allow Hivy to reference relevant chats and memories when
-                        sharing data with {plugin.name} for more helpful responses.
+                        sharing data with {plugin.name} for more helpful
+                        responses.
                       </p>
                     </div>
                     <Switch
@@ -608,10 +421,12 @@ function ConnectModal({
                   <hr className="my-4 border-border" />
 
                   <div className="text-left">
-                    <h3 className="text-base font-medium text-foreground">You&apos;re in control</h3>
+                    <h3 className="text-base font-medium text-foreground">
+                      You&apos;re in control
+                    </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Hivy always respects your training data preferences, and is
-                      limited to permissions you&apos;ve explicitly set.
+                      Hivy always respects your training data preferences, and
+                      is limited to permissions you&apos;ve explicitly set.
                     </p>
                   </div>
 
@@ -622,32 +437,43 @@ function ConnectModal({
                       Apps may introduce elevated risk
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Hivy is built to protect your data, but attackers may attempt to
-                      use Hivy to access your data in the app, or use the app to
-                      attempt to access your data in Hivy.
+                      Hivy is built to protect your data, but attackers may
+                      attempt to use Hivy to access your data in the app, or use
+                      the app to attempt to access your data in Hivy.
                     </p>
                   </div>
 
                   <hr className="my-4 border-border" />
 
                   <div className="text-left">
-                    <h3 className="text-base font-medium text-foreground">Data shared with this app</h3>
+                    <h3 className="text-base font-medium text-foreground">
+                      Data shared with this app
+                    </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      By adding this app, you allow it to access basic information
-                      typically shared when you visit a website, such as your IP address
-                      and approximate location{" "}
-                      <button type="button" className="underline hover:text-foreground">
+                      By adding this app, you allow it to access basic
+                      information typically shared when you visit a website,
+                      such as your IP address and approximate location{" "}
+                      <button
+                        type="button"
+                        className="underline hover:text-foreground"
+                      >
                         learn more
                       </button>
-                      , and a summary of your recent context and intent within Hivy.
-                      Our policies require that apps only access relevant content to
-                      respond to your requests. This data will be used as described in
-                      the app{" "}
-                      <button type="button" className="underline hover:text-foreground">
+                      , and a summary of your recent context and intent within
+                      Hivy. Our policies require that apps only access relevant
+                      content to respond to your requests. This data will be
+                      used as described in the app{" "}
+                      <button
+                        type="button"
+                        className="underline hover:text-foreground"
+                      >
                         Terms of Use
                       </button>{" "}
                       and{" "}
-                      <button type="button" className="underline hover:text-foreground">
+                      <button
+                        type="button"
+                        className="underline hover:text-foreground"
+                      >
                         Privacy
                       </button>
                       .

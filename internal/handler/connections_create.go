@@ -101,9 +101,6 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if err := attachAgentRequiredSkillsForAgent(r.Context(), tx, org.ID, agent); err != nil {
-			return err
-		}
 		conn.Integration = integ
 		if err := h.ensureGitHubAgentTriggers(r.Context(), tx, org.ID, conn, agent); err != nil {
 			return err

@@ -117,7 +117,7 @@ func TestConnectionHandler_CreateSlackEnsuresHivy(t *testing.T) {
 	}
 }
 
-func TestConnectionHandler_CreateAttachesIntegrationManagedSkill(t *testing.T) {
+func TestConnectionHandler_CreateDoesNotAttachLegacyIntegrationManagedSkill(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -160,12 +160,12 @@ func TestConnectionHandler_CreateAttachesIntegrationManagedSkill(t *testing.T) {
 		Count(&count).Error; err != nil {
 		t.Fatalf("count attached skill: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("integration-managed skill attachments = %d, want 1", count)
+	if count != 0 {
+		t.Fatalf("legacy integration-managed skill attachments = %d, want 0", count)
 	}
 }
 
-func TestSkillHandler_DetachRejectsActiveIntegrationManagedSkill(t *testing.T) {
+func TestSkillHandler_DetachAllowsLegacyIntegrationManagedSkill(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -213,8 +213,8 @@ func TestSkillHandler_DetachRejectsActiveIntegrationManagedSkill(t *testing.T) {
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusConflict {
-		t.Fatalf("expected 409, got %d: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 

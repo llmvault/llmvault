@@ -38,7 +38,7 @@ func TestIntegration_SessionsStreamAccessRequiresParticipantAndReturnsStreamToke
 		"status":             "delivered",
 		"delivered_at":       time.Now(),
 		"runtime_stream_id":  "stream-123",
-		"runtime_stream_url": "/sessions/" + created.Session.ID + "/streams/stream-123",
+		"runtime_stream_url": "/sessions/" + created.Session.ID + "/stream",
 		"runtime_trace_id":   "trace-123",
 		"runtime_turn_id":    "turn-123",
 	}).Error; err != nil {
@@ -79,7 +79,10 @@ func TestIntegration_SessionsStreamAccessRequiresParticipantAndReturnsStreamToke
 	if out.StreamID != "stream-123" || out.TraceID != "trace-123" || out.TurnID != "turn-123" {
 		t.Fatalf("bad runtime stream metadata: %+v", out)
 	}
-	if out.DirectURL != "http://203.0.113.10:7080/sessions/"+created.Session.ID+"/streams/stream-123" {
+	if out.StreamURL != "/sessions/"+created.Session.ID+"/stream" {
+		t.Fatalf("stream url=%q", out.StreamURL)
+	}
+	if out.DirectURL != "http://203.0.113.10:7080/sessions/"+created.Session.ID+"/stream" {
 		t.Fatalf("direct url=%q", out.DirectURL)
 	}
 	if want := agentruntime.StreamTokenFromRuntimeSecret(runtimeSecret); out.StreamToken != want {

@@ -58,8 +58,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		orgs = append(orgs, dto)
 	}
 
-	isPlatformAdmin := len(h.platformAdminEmails) > 0 && h.platformAdminEmails[user.Email]
-
 	writeJSON(w, http.StatusOK, meResponse{
 		User: userResponse{
 			ID:             user.ID.String(),
@@ -68,8 +66,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 			AvatarURL:      user.AvatarURL,
 			EmailConfirmed: user.EmailConfirmedAt != nil,
 		},
-		Orgs:            orgs,
-		IsPlatformAdmin: isPlatformAdmin,
+		Orgs: orgs,
 	})
 }
 

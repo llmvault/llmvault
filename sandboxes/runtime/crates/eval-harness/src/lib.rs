@@ -639,7 +639,7 @@ mod tests {
         assert_eq!(summary.passed, 1);
         let result = &summary.cases[0];
         assert!(result.passed, "{:?}", result.failures);
-        assert!(result.trace_id.starts_with("trace-session-stream-"));
+        assert!(result.trace_id.starts_with("trace-"));
         assert_eq!(result.summary.tool_call_count, 1);
         assert_eq!(result.summary.model_usage.total_tokens, 13);
         assert!(result.events.iter().all(|event| !event.trace_id.is_empty()

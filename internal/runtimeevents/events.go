@@ -1,6 +1,22 @@
 package runtimeevents
 
 const (
+	EventTurnStarted       = "turn_started"
+	EventToken             = "token"
+	EventThinking          = "thinking"
+	EventToolResult        = "tool_result"
+	EventFinal             = "final"
+	EventTurnFailed        = "turn_failed"
+	EventQuestionRequested = "question_requested"
+	EventQuestionAnswered  = "question_answered"
+	EventPlanUpdated       = "plan_updated"
+	EventSubagentStarted   = "subagent_started"
+	EventSubagentCompleted = "subagent_completed"
+	EventSubagentErrored   = "subagent_errored"
+	EventModelUsage        = "model_usage"
+	EventError             = "error"
+	EventSessionWaiting    = "session_waiting"
+
 	EventAgentError              = "agent_error"
 	EventConversationCreated     = "conversation_created"
 	EventConversationEnded       = "conversation_ended"
@@ -23,7 +39,7 @@ const (
 
 func IsTerminalEventType(eventType string) bool {
 	switch eventType {
-	case EventAgentError, EventConversationEnded, EventDone, EventTurnCompleted:
+	case EventAgentError, EventConversationEnded, EventDone, EventTurnCompleted, EventTurnFailed:
 		return true
 	default:
 		return false

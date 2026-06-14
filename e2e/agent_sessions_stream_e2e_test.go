@@ -83,7 +83,7 @@ func agentSessionsTryStreamAccess(t *testing.T, ctx context.Context, baseURL, to
 
 func agentSessionsReadDirectStream(t *testing.T, ctx context.Context, directURL, streamToken string) []runtimeSSEEvent {
 	t.Helper()
-	stream := agentSessionsStartDirectStream(t, ctx, directURL, streamToken)
+	stream := agentSessionsOpenDirectStream(t, ctx, directURL, streamToken, true)
 	return stream.waitDone(t, ctx)
 }
 
@@ -94,6 +94,11 @@ type agentSessionsLiveDirectStream struct {
 }
 
 func agentSessionsStartDirectStream(t *testing.T, ctx context.Context, directURL, streamToken string) *agentSessionsLiveDirectStream {
+	t.Helper()
+	return agentSessionsOpenDirectStream(t, ctx, directURL, streamToken, false)
+}
+
+func agentSessionsOpenDirectStream(t *testing.T, ctx context.Context, directURL, streamToken string, stopOnDone bool) *agentSessionsLiveDirectStream {
 	t.Helper()
 	parsed, err := url.Parse(directURL)
 	if err != nil {
@@ -125,7 +130,7 @@ func agentSessionsStartDirectStream(t *testing.T, ctx context.Context, directURL
 	}
 	go func() {
 		defer resp.Body.Close()
-		events, err := readAgentSessionsDirectStreamEvents(resp.Body, stream.events)
+		events, err := readAgentSessionsDirectStreamEvents(resp.Body, stream.events, stopOnDone)
 		if err != nil {
 			stream.errs <- err
 			return
@@ -171,7 +176,7 @@ func (s *agentSessionsLiveDirectStream) waitDone(t *testing.T, ctx context.Conte
 	}
 }
 
-func readAgentSessionsDirectStreamEvents(body io.Reader, live chan<- runtimeSSEEvent) ([]runtimeSSEEvent, error) {
+func readAgentSessionsDirectStreamEvents(body io.Reader, live chan<- runtimeSSEEvent, stopOnDone bool) ([]runtimeSSEEvent, error) {
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 1024), 2*1024*1024)
 	var events []runtimeSSEEvent
@@ -195,7 +200,7 @@ func readAgentSessionsDirectStreamEvents(body io.Reader, live chan<- runtimeSSEE
 			default:
 			}
 		}
-		done := name == "done"
+		done := stopOnDone && name == "done"
 		name = ""
 		dataLines = nil
 		return done

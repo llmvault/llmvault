@@ -5,9 +5,9 @@ description: Local Nango replacement for agent test runs. Use when modifying `in
 
 # fake-nango (slim)
 
-Drop-in Nango replacement, single Go binary, started by `make local-up` on :13004. Outbound webhooks ARE properly signed (backend verifies `X-Nango-Hmac-Sha256` in `internal/handler/nango_webhooks.go`). Inbound auth is faked — any bearer/HMAC/session passes.
+Drop-in Nango replacement, single Go binary. Outbound webhooks ARE properly signed (backend verifies `X-Nango-Hmac-Sha256` in `internal/handler/nango_webhooks.go`). Inbound auth is faked — any bearer/HMAC/session passes.
 
-Source: `cmd/fake-nango/`. Scenarios: `cmd/fake-nango/scenarios/*.yaml`. `local-up` wires `NANGO_ENDPOINT=http://localhost:13004`, `NANGO_SECRET_KEY=fake-nango-secret`, `NEXT_PUBLIC_CONNECTIONS_HOST=http://localhost:13004`. The fake's `-secret` flag must equal `NANGO_SECRET_KEY` or webhook verification fails.
+Source: `cmd/fake-nango/`. Scenarios: `cmd/fake-nango/scenarios/*.yaml`. Start it with a local address, set `NANGO_ENDPOINT` and `NEXT_PUBLIC_CONNECTIONS_HOST` to that address, and set `NANGO_SECRET_KEY` to the same value passed with `-secret` or webhook verification fails.
 
 ## Admin surface
 

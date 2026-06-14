@@ -17,17 +17,15 @@ type Config struct {
 	DatabaseDSN string
 	SentryDSN   string
 
-	APIToken            string
-	RunnerJoinSecret    string
-	RunnerAPIToken      string
-	PreviewBaseDomain   string
-	PreviewCookieDomain string
-	PreviewJWTSecret    string
-	PreviewPasswordKey  string
-	PreviewCookieTTL    time.Duration
-	PreviewCacheURL     string
-	PreviewCacheToken   string
-	PreviewCacheSync    time.Duration
+	APIToken           string
+	RunnerJoinSecret   string
+	RunnerAPIToken     string
+	PreviewBaseDomain  string
+	PreviewJWTSecret   string
+	PreviewPasswordKey string
+	PreviewCacheURL    string
+	PreviewCacheToken  string
+	PreviewCacheSync   time.Duration
 
 	HeartbeatInterval    time.Duration
 	RunnerUnhealthyAfter time.Duration
@@ -66,10 +64,8 @@ func Load() Config {
 		RunnerJoinSecret:            os.Getenv("HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET"),
 		RunnerAPIToken:              os.Getenv("HIVY_MICROSANDBOX_RUNNER_API_TOKEN"),
 		PreviewBaseDomain:           get("HIVY_MICROSANDBOX_PREVIEW_BASE_DOMAIN", "preview.usehivy.local"),
-		PreviewCookieDomain:         os.Getenv("HIVY_MICROSANDBOX_PREVIEW_COOKIE_DOMAIN"),
-		PreviewJWTSecret:            get("HIVY_MICROSANDBOX_PREVIEW_JWT_SECRET", "dev-preview-jwt-secret-change-me"),
+		PreviewJWTSecret:            os.Getenv("HIVY_MICROSANDBOX_PREVIEW_JWT_SECRET"),
 		PreviewPasswordKey:          os.Getenv("HIVY_MICROSANDBOX_PREVIEW_PASSWORD_KEY"),
-		PreviewCookieTTL:            duration("HIVY_MICROSANDBOX_PREVIEW_COOKIE_TTL", 30*24*time.Hour),
 		PreviewCacheURL:             strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_URL"), "/"),
 		PreviewCacheToken:           os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN"),
 		PreviewCacheSync:            duration("HIVY_MICROSANDBOX_PREVIEW_CACHE_SYNC_INTERVAL", time.Minute),

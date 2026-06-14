@@ -42,7 +42,7 @@ mod openapi {
             crate::handlers::readyz,
             crate::handlers::post_session_message,
             crate::handlers::post_question_answer,
-            crate::handlers::get_session_stream,
+            crate::handlers::get_session_live_stream,
             crate::observability_handlers::get_trace_events,
             crate::observability_handlers::get_trace_summary,
         ),
@@ -164,6 +164,10 @@ pub fn build_router(state: ApiState) -> Router {
             post(handlers::post_question_answer),
         )
         .route(
+            "/sessions/:session_id/stream",
+            get(handlers::get_session_live_stream),
+        )
+        .route(
             "/sessions/:session_id/streams/:stream_id",
             get(handlers::get_session_stream),
         )
@@ -242,7 +246,7 @@ mod openapi_tests {
             "/sessions/{session_id}".to_string(),
             "/sessions/{session_id}/messages".to_string(),
             "/sessions/{session_id}/questions/{question_request_id}/answer".to_string(),
-            "/sessions/{session_id}/streams/{stream_id}".to_string(),
+            "/sessions/{session_id}/stream".to_string(),
         ]);
 
         assert_eq!(actual, expected);

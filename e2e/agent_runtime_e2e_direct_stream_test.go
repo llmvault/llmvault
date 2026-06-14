@@ -49,7 +49,7 @@ func directRuntimeStreamURL(t *testing.T, baseURL, streamPath string) string {
 
 func assertDirectStreamDisabledBeforeConfig(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, baseURL string) {
 	t.Helper()
-	streamURL := directRuntimeStreamURL(t, baseURL, "/sessions/not-yet-configured/streams/not-yet-configured")
+	streamURL := directRuntimeStreamURL(t, baseURL, "/sessions/not-yet-configured/stream")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, streamURL, nil)
 	if err != nil {
 		t.Fatalf("new pre-config direct stream request: %v", err)

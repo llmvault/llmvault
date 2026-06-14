@@ -40,9 +40,9 @@ func sendAgentRuntimeMessage(t *testing.T, trace *agentRuntimeE2ETrace, ctx cont
 	if response.SessionID != sessionID {
 		t.Fatalf("message response session_id=%q want=%q body=%s", response.SessionID, sessionID, body)
 	}
-	wantStreamPrefix := fmt.Sprintf("/sessions/%s/streams/", sessionID)
-	if len(response.StreamURL) < len(wantStreamPrefix) || response.StreamURL[:len(wantStreamPrefix)] != wantStreamPrefix {
-		t.Fatalf("message response stream_url=%q want prefix=%q", response.StreamURL, wantStreamPrefix)
+	wantStreamURL := fmt.Sprintf("/sessions/%s/stream", sessionID)
+	if response.StreamURL != wantStreamURL {
+		t.Fatalf("message response stream_url=%q want=%q", response.StreamURL, wantStreamURL)
 	}
 	trace.Logf("session-api", "session_id=%s stream_id=%s trace_id=%s turn_id=%s stream_url=%s", response.SessionID, response.StreamID, response.TraceID, response.TurnID, response.StreamURL)
 	return response

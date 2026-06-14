@@ -109,9 +109,9 @@ type Config struct {
 
 	HindsightAPIURL string `env:"HIVY_HINDSIGHT_API_URL"` // e.g. http://hindsight.railway.internal:8888 — empty = memory disabled
 
-	// Platform admin (comma-separated email allowlist)
-	PlatformAdminEmails string `env:"HIVY_PLATFORM_ADMIN_EMAILS"`
-	AdminSecret         string `env:"HIVY_ADMIN_SECRET"`
+	// Browser setup/admin panel. When disabled, admin routes are not mounted.
+	AdminEnabled bool   `env:"HIVY_ADMIN_ENABLED" envDefault:"false"`
+	AdminSecret  string `env:"HIVY_ADMIN_SECRET"`
 
 	PreviewCNAMETarget string `env:"HIVY_PREVIEW_CNAME_TARGET" envDefault:"preview-proxy.usehivy.com"`
 	AcmeDNSAPIURL      string `env:"HIVY_ACME_DNS_API_URL"` // acme-dns registration API (e.g. https://acme-dns-api.daytona.usehivy.com)

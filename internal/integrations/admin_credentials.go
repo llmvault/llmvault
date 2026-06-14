@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/nango"
 )
 
@@ -25,6 +28,46 @@ func (s *Seeder) UpsertAdmin(ctx context.Context, id string, creds *nango.Creden
 		return state, s.adminDefinition(ctx, manifest), err
 	}
 	return "", AdminDefinition{}, fmt.Errorf("integration definition %q not found", id)
+}
+
+func (s *Seeder) DeleteAdmin(ctx context.Context, id string) (AdminDefinition, error) {
+	manifests, err := loadManifests("global/integrations")
+	if err != nil {
+		return AdminDefinition{}, err
+	}
+	if err := validateManifests(manifests); err != nil {
+		return AdminDefinition{}, err
+	}
+	for _, manifest := range manifests {
+		if manifest.ID != id {
+			continue
+		}
+		var existing model.Integration
+		err := s.db.WithContext(ctx).
+			Where("managed_by = ? AND managed_id = ?", managedBy, manifest.ID).
+			First(&existing).Error
+		if err == gorm.ErrRecordNotFound {
+			return s.adminDefinition(ctx, manifest), nil
+		}
+		if err != nil {
+			return AdminDefinition{}, fmt.Errorf("load integration %q: %w", id, err)
+		}
+		active, err := s.activeConnectionCount(ctx, existing.ID)
+		if err != nil {
+			return AdminDefinition{}, err
+		}
+		if active > 0 {
+			return AdminDefinition{}, fmt.Errorf("integration %q has %d active connection(s)", id, active)
+		}
+		if err := s.nango.DeleteIntegration(ctx, nangoKey(existing.UniqueKey)); err != nil && !isNotFound(err) {
+			return AdminDefinition{}, fmt.Errorf("delete Nango integration %s: %w", existing.UniqueKey, err)
+		}
+		if err := s.db.WithContext(ctx).Model(&existing).Update("deleted_at", nowPtr()).Error; err != nil {
+			return AdminDefinition{}, fmt.Errorf("soft-delete integration %q: %w", id, err)
+		}
+		return s.adminDefinition(ctx, manifest), nil
+	}
+	return AdminDefinition{}, fmt.Errorf("integration definition %q not found", id)
 }
 
 func (s *Seeder) syncOneWithCredentials(ctx context.Context, m Manifest, provided *nango.Credentials) (string, error) {

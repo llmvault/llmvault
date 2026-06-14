@@ -51,6 +51,11 @@ struct CoalescedStream {
     event_type: String,
     session_id: String,
     source: String,
+    stream_id: Option<String>,
+    trace_id: Option<String>,
+    turn_id: Option<String>,
+    scope: String,
+    subagent: Option<Value>,
     sequence_start: u64,
     sequence_end: u64,
     delta_count: u64,
@@ -126,10 +131,21 @@ impl StreamBatcher {
         {
             return Ok(false);
         }
+        let send_now = is_coalesced_stream_delta_event(&event);
         let mut state = self.state.lock().await;
-        state.add_stream_delta(event);
+        if send_now {
+            if let Some(session_id) = string_field(&event.payload, "session_id") {
+                state.finish_session(&session_id);
+            }
+            state.push_event(event);
+        } else {
+            state.add_stream_delta(event);
+        }
         let mut events = Vec::new();
-        if state.pending.len() >= MAX_BATCH_EVENTS || state.pending_bytes >= MAX_BATCH_BYTES {
+        if send_now
+            || state.pending.len() >= MAX_BATCH_EVENTS
+            || state.pending_bytes >= MAX_BATCH_BYTES
+        {
             state.finish_all();
             events = state.drain_pending();
         }
@@ -139,7 +155,7 @@ impl StreamBatcher {
     }
 
     pub async fn flush_before_event(&self, event: &OutboundEvent) -> Result<()> {
-        if is_stream_delta(&event.event_type) {
+        if is_stream_delta_event(event) {
             return Ok(());
         }
         if string_field(&event.payload, "session_id").is_none() {
@@ -154,9 +170,7 @@ impl StreamBatcher {
     }
 
     pub async fn flush_before_event_background(&self, event: &OutboundEvent) {
-        if is_stream_delta(&event.event_type)
-            || string_field(&event.payload, "session_id").is_none()
-        {
+        if is_stream_delta_event(event) || string_field(&event.payload, "session_id").is_none() {
             return;
         }
         let mut state = self.state.lock().await;
@@ -347,9 +361,15 @@ impl BatchState {
         };
         let text = event
             .payload
-            .get("agent_event")
-            .and_then(|v| v.get("text"))
+            .get("text")
             .and_then(Value::as_str)
+            .or_else(|| {
+                event
+                    .payload
+                    .get("agent_event")
+                    .and_then(|v| v.get("text"))
+                    .and_then(Value::as_str)
+            })
             .unwrap_or("");
         if text.is_empty() {
             self.push_event(event);
@@ -361,7 +381,17 @@ impl BatchState {
             .and_then(Value::as_u64)
             .unwrap_or(0);
         let source = string_field(&event.payload, "source").unwrap_or_else(|| "manual".to_string());
-        let key = format!("{}:{session_id}", event.event_type);
+        let stream_id = string_field(&event.payload, "stream_id");
+        let trace_id = string_field(&event.payload, "trace_id");
+        let turn_id = string_field(&event.payload, "turn_id");
+        let scope = string_field(&event.payload, "scope").unwrap_or_else(|| "main".to_string());
+        let subagent = event.payload.get("subagent").cloned();
+        let key = format!(
+            "{}:{}:{}:{session_id}",
+            event.event_type,
+            scope,
+            turn_id.as_deref().unwrap_or("")
+        );
         self.finish_other_session_streams(&session_id, &key);
         if self
             .coalescing
@@ -378,6 +408,11 @@ impl BatchState {
                     event_type: event.event_type.clone(),
                     session_id,
                     source,
+                    stream_id,
+                    trace_id,
+                    turn_id,
+                    scope,
+                    subagent,
                     sequence_start: sequence,
                     sequence_end: sequence,
                     delta_count: 0,
@@ -460,27 +495,44 @@ impl BatchState {
 
 impl CoalescedStream {
     fn into_event(self) -> OutboundEvent {
-        let kind = match self.event_type.as_str() {
-            "agent.stream.thinking" => "thinking_chunk",
-            "agent.stream.token" => "token_chunk",
-            _ => "stream_chunk",
-        };
+        let mut payload = json!({
+            "event_name": &self.event_type,
+            "session_id": &self.session_id,
+            "source": &self.source,
+            "sequence": self.sequence_end,
+            "event_id": format!(
+                "evt_rt_{}_{}_{}",
+                self.session_id,
+                self.event_type,
+                self.sequence_end
+            ),
+            "occurred_at": self.ended_at,
+            "coalesced": true,
+            "delta_count": self.delta_count,
+            "sequence_start": self.sequence_start,
+            "sequence_end": self.sequence_end,
+            "started_at": self.started_at,
+            "ended_at": self.ended_at,
+            "text": self.text,
+            "scope": self.scope,
+        });
+        if let Some(map) = payload.as_object_mut() {
+            if let Some(stream_id) = self.stream_id {
+                map.insert("stream_id".to_string(), json!(stream_id));
+            }
+            if let Some(trace_id) = self.trace_id {
+                map.insert("trace_id".to_string(), json!(trace_id));
+            }
+            if let Some(turn_id) = self.turn_id {
+                map.insert("turn_id".to_string(), json!(turn_id));
+            }
+            if let Some(subagent) = self.subagent {
+                map.insert("subagent".to_string(), subagent);
+            }
+        }
         OutboundEvent {
             event_type: self.event_type,
-            payload: json!({
-                "session_id": self.session_id,
-                "source": self.source,
-                "coalesced": true,
-                "delta_count": self.delta_count,
-                "sequence_start": self.sequence_start,
-                "sequence_end": self.sequence_end,
-                "started_at": self.started_at,
-                "ended_at": self.ended_at,
-                "agent_event": {
-                    "kind": kind,
-                    "text": self.text,
-                },
-            }),
+            payload,
             at: self.ended_at,
         }
     }
@@ -501,7 +553,25 @@ fn batch_url(url: &str) -> String {
 }
 
 fn is_stream_delta(event_type: &str) -> bool {
-    matches!(event_type, "agent.stream.token" | "agent.stream.thinking")
+    matches!(event_type, "token" | "thinking")
+}
+
+fn is_stream_delta_event(event: &OutboundEvent) -> bool {
+    is_stream_delta(&event.event_type)
+        && !event
+            .payload
+            .get("coalesced")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+}
+
+fn is_coalesced_stream_delta_event(event: &OutboundEvent) -> bool {
+    is_stream_delta(&event.event_type)
+        && event
+            .payload
+            .get("coalesced")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
 }
 
 fn string_field(value: &Value, key: &str) -> Option<String> {
@@ -523,7 +593,7 @@ mod tests {
         let mut state = BatchState::default();
         for sequence in 1..=1500 {
             state.add_stream_delta(OutboundEvent::new(
-                "agent.stream.token",
+                "token",
                 json!({
                     "session_id": "http-thread-1",
                     "source": "http",
@@ -535,15 +605,12 @@ mod tests {
         state.finish_all();
         assert_eq!(state.pending.len(), 1);
         let event = &state.pending[0];
-        assert_eq!(event.event_type, "agent.stream.token");
+        assert_eq!(event.event_type, "token");
         assert_eq!(event.payload["coalesced"], true);
         assert_eq!(event.payload["delta_count"], 1500);
         assert_eq!(event.payload["sequence_start"], 1);
         assert_eq!(event.payload["sequence_end"], 1500);
-        assert_eq!(
-            event.payload["agent_event"]["text"].as_str().unwrap().len(),
-            1500
-        );
+        assert_eq!(event.payload["text"].as_str().unwrap().len(), 1500);
     }
 
     #[test]
@@ -551,7 +618,7 @@ mod tests {
         let mut state = BatchState::default();
         for session in ["a", "b"] {
             state.add_stream_delta(OutboundEvent::new(
-                "agent.stream.thinking",
+                "thinking",
                 json!({
                     "session_id": session,
                     "source": "http",
@@ -576,7 +643,7 @@ mod tests {
     fn flushes_stream_span_before_non_stream_event() {
         let mut state = BatchState::default();
         state.add_stream_delta(OutboundEvent::new(
-            "agent.stream.thinking",
+            "thinking",
             json!({
                 "session_id": "http-thread-1",
                 "source": "http",
@@ -585,7 +652,7 @@ mod tests {
             }),
         ));
         state.finish_streams_before_event(&OutboundEvent::new(
-            "agent.tool.call",
+            "tool_call",
             json!({
                 "session_id": "http-thread-1",
                 "source": "http",
@@ -595,7 +662,7 @@ mod tests {
         ));
 
         assert_eq!(state.pending.len(), 1);
-        assert_eq!(state.pending[0].event_type, "agent.stream.thinking");
+        assert_eq!(state.pending[0].event_type, "thinking");
         assert_eq!(state.pending[0].payload["sequence_start"], 3);
         assert_eq!(state.pending[0].payload["sequence_end"], 3);
         assert!(state.coalescing.is_empty());
@@ -605,10 +672,10 @@ mod tests {
     fn splits_stream_spans_on_kind_change_and_sequence_gap() {
         let mut state = BatchState::default();
         for (event_type, sequence, text) in [
-            ("agent.stream.thinking", 3, "think-a"),
-            ("agent.stream.thinking", 4, "think-b"),
-            ("agent.stream.token", 5, "token-a"),
-            ("agent.stream.token", 8, "token-b"),
+            ("thinking", 3, "think-a"),
+            ("thinking", 4, "think-b"),
+            ("token", 5, "token-a"),
+            ("token", 8, "token-b"),
         ] {
             state.add_stream_delta(OutboundEvent::new(
                 event_type,
@@ -623,13 +690,13 @@ mod tests {
         state.finish_all();
 
         assert_eq!(state.pending.len(), 3);
-        assert_eq!(state.pending[0].event_type, "agent.stream.thinking");
+        assert_eq!(state.pending[0].event_type, "thinking");
         assert_eq!(state.pending[0].payload["sequence_start"], 3);
         assert_eq!(state.pending[0].payload["sequence_end"], 4);
-        assert_eq!(state.pending[1].event_type, "agent.stream.token");
+        assert_eq!(state.pending[1].event_type, "token");
         assert_eq!(state.pending[1].payload["sequence_start"], 5);
         assert_eq!(state.pending[1].payload["sequence_end"], 5);
-        assert_eq!(state.pending[2].event_type, "agent.stream.token");
+        assert_eq!(state.pending[2].event_type, "token");
         assert_eq!(state.pending[2].payload["sequence_start"], 8);
         assert_eq!(state.pending[2].payload["sequence_end"], 8);
     }
@@ -686,7 +753,7 @@ mod tests {
 
     fn token_event(sequence: u64, text: &str) -> OutboundEvent {
         OutboundEvent::new(
-            "agent.stream.token",
+            "token",
             json!({
                 "session_id": "http-1",
                 "source": "http",
@@ -793,17 +860,17 @@ mod tests {
         let http = HttpClient::new();
         let sinks = vec![
             BatchWebhookSink {
-                event_filter: Some(vec!["agent.stream.thinking".to_string()]),
+                event_filter: Some(vec!["thinking".to_string()]),
                 ..test_sink("thinking-failing", &batch_url(&failing_url))
             },
             BatchWebhookSink {
-                event_filter: Some(vec!["agent.stream.token".to_string()]),
+                event_filter: Some(vec!["token".to_string()]),
                 ..test_sink("token-ok", &batch_url(&ok_url))
             },
         ];
         let events = vec![
             OutboundEvent::new(
-                "agent.stream.thinking",
+                "thinking",
                 json!({"session_id": "http-1", "agent_event": {"text": "t"}}),
             ),
             token_event(1, "tok"),

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "glitchtip",
+  "name": "GlitchTip",
+  "description": "Investigate errors, events, monitors, logs, releases, and project health from GlitchTip.",
+  "category": "Monitoring",
+  "icon": "lucide:bug",
+  "icon_color": "#DC2626",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "glitchtip",
+      "kind": "integration"
+    }
+  ]
+}

@@ -67,9 +67,8 @@ type planDTO struct {
 }
 
 type meResponse struct {
-	User            userResponse   `json:"user"`
-	Orgs            []orgMemberDTO `json:"orgs"`
-	IsPlatformAdmin bool           `json:"is_platform_admin"`
+	User userResponse   `json:"user"`
+	Orgs []orgMemberDTO `json:"orgs"`
 }
 
 type statusResponse struct {

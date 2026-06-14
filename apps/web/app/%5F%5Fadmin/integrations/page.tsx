@@ -1,5 +1,10 @@
-import { AdminIntegrationsClient } from "./integrations-admin-client"
+import { notFound } from "next/navigation"
+import { AdminClient } from "../admin-client"
 
 export default function AdminIntegrationsPage() {
-  return <AdminIntegrationsClient />
+  if (process.env.NEXT_PUBLIC_HIVY_ADMIN_ENABLED !== "true") {
+    notFound()
+  }
+
+  return <AdminClient />
 }

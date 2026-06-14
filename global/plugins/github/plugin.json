@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "slug": "github",
+  "name": "GitHub",
+  "description": "Manage repositories, branches, pull requests, reviews, issues, labels, and releases with your connected GitHub workspace.",
+  "category": "Engineering",
+  "icon": "simple-icons:github",
+  "icon_color": "#181717",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "github-app",
+      "kind": "integration"
+    },
+    {
+      "provider": "github-app-code-reviews",
+      "kind": "integration",
+      "required": false
+    }
+  ]
+}

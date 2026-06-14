@@ -64,7 +64,7 @@ Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runn
 
 Phase 4 validates systemd, local health, and public runner health.
 
-Phase 5 provisions the Hetzner Cloud Caddy preview proxy host. It installs Caddy, enables UFW with SSH/HTTP/HTTPS, starts the service, and serves a bootstrap `/health` endpoint. Wildcard preview routing is enabled later after the control-plane route endpoint and DNS challenge credentials are available.
+Phase 5 provisions the Hetzner Cloud Caddy preview proxy host. It installs Redis, installs the local preview-cache service, installs Caddy with the Vercel DNS provider, enables UFW with SSH/HTTP/HTTPS, and serves wildcard preview routes for `*.preview.usehivy.com`.
 
 ## Railway Requirements
 
@@ -134,3 +134,17 @@ X-Microsandbox-Upstream: 10.80.1.2:43122
 ```
 
 Route payloads store upstreams as full URLs. The lookup service returns only `host:port` because Caddy's dynamic `reverse_proxy` upstream expects a dial address. Caddy preserves the original request path and query without a rewrite.
+
+## Flagship E2E
+
+After the control plane, preview proxy, and at least one runner are deployed, run the canonical Vite preview lifecycle test from the repository root:
+
+```sh
+export HIVY_MICROSANDBOX_CONTROL_URL=https://msb.usehivy.com
+export HIVY_MICROSANDBOX_API_TOKEN=...
+export HIVY_MICROSANDBOX_E2E_PREVIEW_RESOLVE_IP=46.62.169.26 # optional when DNS is already fresh
+
+scripts/microsandbox/e2e-vite-preview.py --size medium
+```
+
+The script creates a sandbox, installs and starts Vite on port `5173`, waits for preview `200`, sleeps the sandbox and waits for `503`, wakes it and waits for `200`, then deletes it and waits for `404`.

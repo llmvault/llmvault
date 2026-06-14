@@ -43,13 +43,26 @@ pub enum OutboundChannelKind {
 }
 
 pub mod event_types {
+    pub const TURN_STARTED: &str = "turn_started";
+    pub const TOKEN: &str = "token";
+    pub const THINKING: &str = "thinking";
+    pub const TOOL_RESULT: &str = "tool_result";
+    pub const FINAL: &str = "final";
+    pub const TURN_COMPLETED: &str = "turn_completed";
+    pub const TURN_FAILED: &str = "turn_failed";
+    pub const QUESTION_REQUESTED: &str = "question_requested";
+    pub const QUESTION_ANSWERED: &str = "question_answered";
+    pub const PLAN_UPDATED: &str = "plan_updated";
+    pub const SUBAGENT_STARTED: &str = "subagent_started";
+    pub const SUBAGENT_COMPLETED: &str = "subagent_completed";
+    pub const SUBAGENT_ERRORED: &str = "subagent_errored";
+    pub const MODEL_USAGE: &str = "model_usage";
+    pub const ERROR: &str = "error";
+    pub const SESSION_WAITING: &str = "session_waiting";
+
     pub const USER_MESSAGE_RECEIVED: &str = "user.message.received";
     pub const SESSION_CREATED: &str = "session.created";
     pub const SESSION_COMPLETED: &str = "session.completed";
-    pub const TOOL_INVOKED: &str = "tool.invoked";
-    pub const AGENT_MESSAGE_SENT: &str = "agent.message.sent";
-    pub const ERROR_TOOL: &str = "error.tool";
-    pub const ERROR_MODEL: &str = "error.model";
     pub const CONFIG_APPLIED: &str = "config.applied";
     pub const SKILL_SYNCED: &str = "skill.synced";
     pub const SCHEDULE_CREATED: &str = "schedule.created";

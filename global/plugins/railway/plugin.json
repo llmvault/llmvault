@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "railway",
+  "name": "Railway",
+  "description": "Manage Railway projects, services, environments, variables, domains, volumes, and databases.",
+  "category": "Infrastructure",
+  "icon": "simple-icons:railway",
+  "icon_color": "#6B46C1",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "railway",
+      "kind": "integration"
+    }
+  ]
+}

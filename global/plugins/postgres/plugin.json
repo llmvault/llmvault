@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "postgres",
+  "name": "Postgres",
+  "description": "Explore and query your connected PostgreSQL database in a read-only, workspace-safe way.",
+  "category": "Databases",
+  "icon": "simple-icons:postgresql",
+  "icon_color": "#336791",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "postgres",
+      "kind": "database"
+    }
+  ]
+}

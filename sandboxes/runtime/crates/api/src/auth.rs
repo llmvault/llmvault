@@ -55,6 +55,9 @@ fn is_session_stream_path(path: &str) -> bool {
     let parts: Vec<&str> = path.trim_matches('/').split('/').collect();
     matches!(
         parts.as_slice(),
+        ["sessions", session_id, "stream"] if !session_id.is_empty()
+    ) || matches!(
+        parts.as_slice(),
         ["sessions", session_id, "streams", stream_id]
             if !session_id.is_empty() && !stream_id.is_empty()
     )
@@ -120,6 +123,7 @@ mod tests {
             &Method::GET,
             "/sessions/s1/streams/stream-1"
         ));
+        assert!(is_stream_token_route(&Method::GET, "/sessions/s1/stream"));
         assert!(is_stream_token_route(
             &Method::POST,
             "/sessions/s1/questions/question-request-1/answer"

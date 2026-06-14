@@ -119,25 +119,77 @@ WantedBy=multi-user.target
 
 Runner production install is native binary plus systemd. Docker images are optional and not the primary deployment path.
 
-## Hivy API Provider Config
+## Runtime Image Docker Support
 
-Set the Hivy API/worker to use the control plane through the existing sandbox provider abstraction:
+All agent runtime images are expected to support Docker-in-Microsandbox by default:
+
+- `docker info` must connect to an in-sandbox Docker daemon.
+- `docker compose version` must work.
+- Docker data must be stored on the dedicated `/var/lib/docker` mount, not on the sandbox root filesystem.
+
+The runtime Dockerfiles install Docker engine, Docker CLI, and Compose v2. The runtime entrypoint starts `dockerd` before starting `hivy-sandboxes-runtime` and fails startup if Docker cannot become ready.
+
+The runner creates two named volumes for every sandbox:
+
+- `/workspace`: user workspace data.
+- `/var/lib/docker`: disk-backed Docker data volume, following the Microsandbox Docker recipe's guidance to avoid Docker storage on the overlay-backed root filesystem.
+
+The Docker data volume is carved out of the requested sandbox disk budget and capped at 20 GiB. For example, a 40 GiB sandbox gets a 30 GiB workspace volume and a 10 GiB Docker data volume.
+
+After building the runtime image, run:
 
 ```sh
-HIVY_SANDBOX_PROVIDER_ID=microsandbox
-HIVY_MICROSANDBOX_CONTROL_URL=https://msb.usehivy.com
-HIVY_MICROSANDBOX_CONTROL_API_TOKEN=...
-HIVY_SANDBOXES_RUNTIME_BASE_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime:latest
+make sandbox-runtime-image-test
 ```
 
-Agent runtime traffic uses signed runtime endpoint URLs from the control plane. Browser previews keep the password/JWT cookie flow.
+That smoke test verifies the runtime API and checks `docker info` plus `docker compose version` inside the image. The live Microsandbox E2E should additionally run `docker run` and `docker compose up` inside a real sandbox after the image is published.
 
-## Caddy
+## Preview Routing
 
-Use `hosting/caddy/microsandbox.Caddyfile` for wildcard preview routing. The wildcard host shape is:
+Preview traffic does not go through the Railway control plane and does not go through the runner API. The deployed hot path is:
+
+```text
+browser
+  -> preview Caddy VPS
+  -> local preview-cache service
+  -> Redis route cache
+  -> runner private IP + published sandbox host port
+  -> sandbox guest port
+```
+
+The wildcard host shape is:
 
 ```text
 {port}-{sandbox_id}.preview.usehivy.com
 ```
 
-Caddy forwards wildcard preview requests to the control plane, which resolves the sandbox runner and proxies to the runner API.
+The control plane remains the source of truth. It pushes route payloads to the Caddy VPS preview-cache service after sandbox create/start/stop/delete and periodically bulk-syncs routes from the database. Route payloads store full upstream URLs:
+
+```json
+{
+  "sandbox_id": "sbx_123",
+  "status": "running",
+  "upstreams": {
+    "3000": "http://10.80.1.2:30000",
+    "5173": "http://10.80.1.2:30001"
+  }
+}
+```
+
+The preview-cache lookup endpoint returns `X-Microsandbox-Upstream: 10.80.1.2:30001` to Caddy. Caddy preserves the original request path and query and proxies directly to that private upstream.
+
+Browser preview password/JWT enforcement is not implemented in the direct Caddy route path yet. Keep preview domains operationally private or treat them as bearer-by-URL until that auth layer is added.
+
+## Flagship E2E
+
+Run the canonical Vite preview lifecycle test from the repository root:
+
+```sh
+export HIVY_MICROSANDBOX_CONTROL_URL=https://msb.usehivy.com
+export HIVY_MICROSANDBOX_API_TOKEN=...
+export HIVY_MICROSANDBOX_E2E_PREVIEW_RESOLVE_IP=46.62.169.26 # optional when DNS is already fresh
+
+scripts/microsandbox/e2e-vite-preview.py --size medium
+```
+
+The script creates a sandbox, installs a Vite React app, waits for preview `200`, sleeps the sandbox and waits for preview `503`, wakes it and waits for preview `200`, then deletes it and waits for preview `404`.

@@ -212,7 +212,7 @@ func assertQuestionRuntimeEvents(t *testing.T, trace *agentRuntimeE2ETrace, even
 		}
 	}
 	trace.Logf("assert", "question stream event counts=%v", counts)
-	for _, want := range []string{"question_requested", "question_answered", "tool_call", "tool_result", "final", "done"} {
+	for _, want := range []string{"question_requested", "question_answered", "tool_call", "tool_result", "final", "turn_completed"} {
 		if counts[want] == 0 {
 			t.Fatalf("question stream missing %s; events=%s", want, summarizeEvents(events))
 		}

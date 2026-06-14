@@ -214,7 +214,7 @@ func TestConnectionHandler_Revoke_NangoFailure(t *testing.T) {
 	}
 }
 
-func TestConnectionHandler_RevokeDetachesIntegrationManagedSkillWhenLastConnectionEnds(t *testing.T) {
+func TestConnectionHandler_RevokeDoesNotDetachLegacyIntegrationManagedSkill(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -264,8 +264,8 @@ func TestConnectionHandler_RevokeDetachesIntegrationManagedSkillWhenLastConnecti
 		Count(&count).Error; err != nil {
 		t.Fatalf("count attached skill: %v", err)
 	}
-	if count != 0 {
-		t.Fatalf("integration-managed skill attachments = %d, want 0", count)
+	if count != 1 {
+		t.Fatalf("legacy integration-managed skill attachments = %d, want 1", count)
 	}
 }
 

@@ -2218,8 +2218,8 @@ type ClientInterface interface {
 
 	PostQuestionAnswer(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetSessionStream request
-	GetSessionStream(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetSessionLiveStream request
+	GetSessionLiveStream(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2402,8 +2402,8 @@ func (c *Client) PostQuestionAnswer(ctx context.Context, sessionId string, quest
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetSessionStream(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSessionStreamRequest(c.Server, sessionId, streamId)
+func (c *Client) GetSessionLiveStream(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSessionLiveStreamRequest(c.Server, sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -2880,8 +2880,8 @@ func NewPostQuestionAnswerRequestWithBody(server string, sessionId string, quest
 	return req, nil
 }
 
-// NewGetSessionStreamRequest generates requests for GetSessionStream
-func NewGetSessionStreamRequest(server string, sessionId string, streamId string) (*http.Request, error) {
+// NewGetSessionLiveStreamRequest generates requests for GetSessionLiveStream
+func NewGetSessionLiveStreamRequest(server string, sessionId string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2891,19 +2891,12 @@ func NewGetSessionStreamRequest(server string, sessionId string, streamId string
 		return nil, err
 	}
 
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "stream_id", streamId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/sessions/%s/streams/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/sessions/%s/stream", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3005,8 +2998,8 @@ type ClientWithResponsesInterface interface {
 
 	PostQuestionAnswerWithResponse(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*PostQuestionAnswerResp, error)
 
-	// GetSessionStreamWithResponse request
-	GetSessionStreamWithResponse(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*GetSessionStreamResp, error)
+	// GetSessionLiveStreamWithResponse request
+	GetSessionLiveStreamWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetSessionLiveStreamResp, error)
 }
 
 type GetConfigResp struct {
@@ -3338,13 +3331,13 @@ func (r PostQuestionAnswerResp) ContentType() string {
 	return ""
 }
 
-type GetSessionStreamResp struct {
+type GetSessionLiveStreamResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 }
 
 // Status returns HTTPResponse.Status
-func (r GetSessionStreamResp) Status() string {
+func (r GetSessionLiveStreamResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3352,7 +3345,7 @@ func (r GetSessionStreamResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetSessionStreamResp) StatusCode() int {
+func (r GetSessionLiveStreamResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3360,7 +3353,7 @@ func (r GetSessionStreamResp) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetSessionStreamResp) ContentType() string {
+func (r GetSessionLiveStreamResp) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3498,13 +3491,13 @@ func (c *ClientWithResponses) PostQuestionAnswerWithResponse(ctx context.Context
 	return ParsePostQuestionAnswerResp(rsp)
 }
 
-// GetSessionStreamWithResponse request returning *GetSessionStreamResp
-func (c *ClientWithResponses) GetSessionStreamWithResponse(ctx context.Context, sessionId string, streamId string, reqEditors ...RequestEditorFn) (*GetSessionStreamResp, error) {
-	rsp, err := c.GetSessionStream(ctx, sessionId, streamId, reqEditors...)
+// GetSessionLiveStreamWithResponse request returning *GetSessionLiveStreamResp
+func (c *ClientWithResponses) GetSessionLiveStreamWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetSessionLiveStreamResp, error) {
+	rsp, err := c.GetSessionLiveStream(ctx, sessionId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetSessionStreamResp(rsp)
+	return ParseGetSessionLiveStreamResp(rsp)
 }
 
 // ParseGetConfigResp parses an HTTP response from a GetConfigWithResponse call
@@ -3783,15 +3776,15 @@ func ParsePostQuestionAnswerResp(rsp *http.Response) (*PostQuestionAnswerResp, e
 	return response, nil
 }
 
-// ParseGetSessionStreamResp parses an HTTP response from a GetSessionStreamWithResponse call
-func ParseGetSessionStreamResp(rsp *http.Response) (*GetSessionStreamResp, error) {
+// ParseGetSessionLiveStreamResp parses an HTTP response from a GetSessionLiveStreamWithResponse call
+func ParseGetSessionLiveStreamResp(rsp *http.Response) (*GetSessionLiveStreamResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetSessionStreamResp{
+	response := &GetSessionLiveStreamResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

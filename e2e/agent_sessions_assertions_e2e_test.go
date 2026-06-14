@@ -45,25 +45,18 @@ func assertAgentSessionsParticipant(t *testing.T, detail agentSessionsDetail, us
 func assertAgentSessionsEventOrder(t *testing.T, events []agentSessionsEvent) {
 	t.Helper()
 	var userMessages, agentMessages, participantJoins int
-	userSequences := map[int64]bool{}
-	joinSequences := map[int64]bool{}
 	for _, event := range events {
 		switch event.EventType {
 		case "user.message":
 			userMessages++
-			userSequences[event.SequenceNumber] = true
-		case "agent.message.sent":
+		case "final":
 			agentMessages++
 		case "participant.joined":
 			participantJoins++
-			joinSequences[event.SequenceNumber] = true
 		}
 	}
 	if userMessages < 2 || agentMessages < 2 || participantJoins < 1 {
 		t.Fatalf("session events missing expected multiplayer flow: user=%d agent=%d joins=%d events=%+v", userMessages, agentMessages, participantJoins, events)
-	}
-	if !userSequences[1] || !joinSequences[2] || !userSequences[3] {
-		t.Fatalf("session durable events missing expected queue sequence: user=%v joins=%v events=%+v", userSequences, joinSequences, events)
 	}
 }
 

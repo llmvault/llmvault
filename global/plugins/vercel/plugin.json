@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "vercel",
+  "name": "Vercel",
+  "description": "Manage Vercel projects, deployments, domains, environment variables, logs, and rollbacks.",
+  "category": "Deployments",
+  "icon": "simple-icons:vercel",
+  "icon_color": "#000000",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "vercel",
+      "kind": "integration"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "slug": "bugsink",
+  "name": "Bugsink",
+  "description": "Investigate application errors, stack traces, releases, and affected users from Bugsink without leaving Hivy.",
+  "category": "Monitoring",
+  "icon": "lucide:bug",
+  "icon_color": "#0F766E",
+  "developer": "Hivy",
+  "plugin_version": "1",
+  "enabled": true,
+  "required_connections": [
+    {
+      "provider": "bugsink",
+      "kind": "integration"
+    }
+  ]
+}

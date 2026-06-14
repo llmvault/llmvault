@@ -83,3 +83,31 @@ func TestHivyLabelsDoesNotMarkNonSandboxBuildsAsSandboxes(t *testing.T) {
 		t.Fatalf("non-sandbox build should not get sandbox_id label: %#v", labels)
 	}
 }
+
+func TestVolumeNamesUseSeparateDockerDataVolume(t *testing.T) {
+	if got := workspaceVolumeName("sbx_test"); got != "hivy-sbx_test" {
+		t.Fatalf("workspace volume = %q", got)
+	}
+	if got := dockerDataVolumeName("sbx_test"); got != "hivy-docker-sbx_test" {
+		t.Fatalf("docker data volume = %q", got)
+	}
+}
+
+func TestSandboxVolumeSizesReserveDockerDataInsideDiskBudget(t *testing.T) {
+	workspace, dockerData := sandboxVolumeSizesMiB(40)
+	if workspace != 30*1024 || dockerData != 10*1024 {
+		t.Fatalf("40GB split = workspace %d docker %d, want 30720/10240", workspace, dockerData)
+	}
+
+	workspace, dockerData = sandboxVolumeSizesMiB(160)
+	if workspace != 140*1024 || dockerData != maxDockerDataVolumeMiB {
+		t.Fatalf("160GB split = workspace %d docker %d, want 143360/%d", workspace, dockerData, maxDockerDataVolumeMiB)
+	}
+}
+
+func TestDockerDataVolumeLabelsAreRecoverable(t *testing.T) {
+	labels := volumeLabels("sbx_docker", dockerDataVolumePurpose)
+	if labels[hivyManagedLabel] != "true" || labels[sandboxIDLabel] != "sbx_docker" || labels[volumePurposeLabel] != dockerDataVolumePurpose {
+		t.Fatalf("labels = %#v", labels)
+	}
+}
