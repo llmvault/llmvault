@@ -59,18 +59,23 @@ type SandboxPort struct {
 }
 
 type Snapshot struct {
-	ID           string `gorm:"primaryKey"`
-	OrgID        string `gorm:"not null;index"`
-	RunnerID     string `gorm:"not null;index"`
-	Name         string `gorm:"not null"`
-	BaseImageRef string `gorm:"not null"`
-	Status       string `gorm:"not null;index"`
-	ArtifactURL  string `gorm:"type:text;not null;default:''"`
-	CommandsJSON string `gorm:"type:text;not null;default:'[]'"`
-	Logs         string `gorm:"type:text;not null;default:''"`
-	ErrorMessage string `gorm:"type:text;not null;default:''"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                  string `gorm:"primaryKey"`
+	OrgID               string `gorm:"not null;index"`
+	RunnerID            string `gorm:"not null;index"`
+	Name                string `gorm:"not null"`
+	BaseImageRef        string `gorm:"not null"`
+	Status              string `gorm:"not null;index"`
+	ArtifactURL         string `gorm:"type:text;not null;default:''"`
+	ArtifactDigest      string `gorm:"type:text;not null;default:''"`
+	ArtifactSizeBytes   int64  `gorm:"not null;default:0"`
+	ArtifactMediaType   string `gorm:"type:text;not null;default:''"`
+	SnapshotDigest      string `gorm:"type:text;not null;default:''"`
+	ImageManifestDigest string `gorm:"type:text;not null;default:''"`
+	CommandsJSON        string `gorm:"type:text;not null;default:'[]'"`
+	Logs                string `gorm:"type:text;not null;default:''"`
+	ErrorMessage        string `gorm:"type:text;not null;default:''"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type Event struct {

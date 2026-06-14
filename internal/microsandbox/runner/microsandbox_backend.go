@@ -158,6 +158,13 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
 		return nil, err
 	}
+	if req.SnapshotID != "" {
+		if err := m.ensureSnapshotAvailable(ctx, req); err != nil {
+			_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
+			_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), dockerVolName)
+			return nil, err
+		}
+	}
 	opts := []microsandbox.SandboxOption{
 		microsandbox.WithCPUs(uint8(req.CPU)),
 		microsandbox.WithMemory(uint32(req.MemoryMB)),

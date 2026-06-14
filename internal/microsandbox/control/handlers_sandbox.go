@@ -46,8 +46,8 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid request body"})
 		return
 	}
-	if req.OrgID == "" || req.ImageRef == "" {
-		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and image_ref are required"})
+	if req.OrgID == "" || (req.ImageRef == "" && req.SnapshotID == "") {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and image_ref or snapshot_id are required"})
 		return
 	}
 	size := resolveSize(req)
@@ -80,6 +80,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "snapshot is not ready"})
 			return
 		}
+		req.ImageRef = snapshot.BaseImageRef
 	}
 	metadata, _ := json.Marshal(req.Metadata)
 
@@ -95,7 +96,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		var selected model.Runner
 		var err error
 		if req.SnapshotID != "" {
-			selected, err = selectRunnerByIDForUpdate(tx, snapshot.RunnerID, size)
+			selected, err = selectRunnerForSnapshotSandbox(tx, snapshot, size)
 		} else {
 			selected, err = selectRunnerForUpdate(tx, size)
 		}
@@ -121,7 +122,9 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	var createResp runnerCreateSandboxResponse
 	err = s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes", runnerCreateSandboxRequest{
 		ID: sb.ID, Name: sb.Name, ImageRef: sb.ImageRef, SnapshotID: sb.SnapshotID,
-		CPU: sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB, Env: req.Env,
+		SnapshotArtifactURL: snapshot.ArtifactURL, SnapshotArtifactDigest: snapshot.ArtifactDigest,
+		SnapshotImageDigest: snapshot.ImageManifestDigest,
+		CPU:                 sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB, Env: req.Env,
 		PreviewPorts: req.PreviewPorts,
 		Labels:       map[string]string{"org_id": sb.OrgID, "sandbox_id": sb.ID},
 	}, &createResp)
