@@ -19,6 +19,8 @@ import (
 type createSnapshotRequest struct {
 	OrgID        string            `json:"org_id"`
 	Name         string            `json:"name"`
+	Alias        string            `json:"alias"`
+	Global       bool              `json:"global"`
 	BaseImageRef string            `json:"base_image_ref"`
 	Size         string            `json:"size"`
 	CPU          int               `json:"cpu"`
@@ -44,6 +46,23 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 	if err := httpx.Decode(r, &req); err != nil || req.OrgID == "" || req.BaseImageRef == "" {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and base_image_ref are required"})
 		return
+	}
+	req.Alias = normalizeSnapshotAlias(req.Alias)
+	if err := validateSnapshotAlias(req.Alias); err != nil {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: err.Error()})
+		return
+	}
+	if req.Alias != "" {
+		var existing model.Snapshot
+		err := s.db.WithContext(r.Context()).First(&existing, "alias = ? OR id = ?", req.Alias, req.Alias).Error
+		if err == nil {
+			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "snapshot alias already exists"})
+			return
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to check snapshot alias"})
+			return
+		}
 	}
 	id, err := security.ShortID("snp")
 	if err != nil {
@@ -76,7 +95,7 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 		}
 		return tx.Create(&model.Snapshot{
 			ID: id, OrgID: req.OrgID, RunnerID: runner.ID, Name: req.Name,
-			BaseImageRef: req.BaseImageRef, Status: model.SnapshotStatusBuilding,
+			Alias: req.Alias, Global: req.Global, BaseImageRef: req.BaseImageRef, Status: model.SnapshotStatusBuilding,
 			CommandsJSON: string(commands),
 		}).Error
 	})
@@ -115,8 +134,8 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSnapshot(w http.ResponseWriter, r *http.Request) {
-	var snapshot model.Snapshot
-	if err := s.db.First(&snapshot, "id = ?", chi.URLParam(r, "snapshotID")).Error; err != nil {
+	snapshot, err := s.loadSnapshotByRef(r.Context(), chi.URLParam(r, "snapshotID"))
+	if err != nil {
 		httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "snapshot not found"})
 		return
 	}
@@ -124,8 +143,8 @@ func (s *Server) getSnapshot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
-	var snapshot model.Snapshot
-	if err := s.db.WithContext(r.Context()).First(&snapshot, "id = ?", chi.URLParam(r, "snapshotID")).Error; err != nil {
+	snapshot, err := s.loadSnapshotByRef(r.Context(), chi.URLParam(r, "snapshotID"))
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "snapshot not found"})
 			return
