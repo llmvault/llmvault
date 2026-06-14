@@ -2,7 +2,6 @@ package control
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -64,15 +63,13 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	var snapshot model.Snapshot
 	if req.SnapshotID != "" {
-		if err := s.db.WithContext(r.Context()).First(&snapshot, "id = ?", req.SnapshotID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "snapshot not found"})
-				return
-			}
-			httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to load snapshot"})
+		var err error
+		snapshot, err = s.loadSnapshotByRef(r.Context(), req.SnapshotID)
+		if err != nil {
+			httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "snapshot not found"})
 			return
 		}
-		if snapshot.OrgID != req.OrgID {
+		if !snapshotUsableByOrg(snapshot, req.OrgID) {
 			httpx.JSON(w, http.StatusForbidden, api.ErrorResponse{Error: "snapshot does not belong to org"})
 			return
 		}
@@ -80,6 +77,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "snapshot is not ready"})
 			return
 		}
+		req.SnapshotID = snapshot.ID
 		req.ImageRef = snapshot.BaseImageRef
 	}
 	metadata, _ := json.Marshal(req.Metadata)

@@ -63,6 +63,8 @@ type Snapshot struct {
 	OrgID               string `gorm:"not null;index"`
 	RunnerID            string `gorm:"not null;index"`
 	Name                string `gorm:"not null"`
+	Alias               string `gorm:"type:text;not null;default:''"`
+	Global              bool   `gorm:"not null;default:false;index"`
 	BaseImageRef        string `gorm:"not null"`
 	Status              string `gorm:"not null;index"`
 	ArtifactURL         string `gorm:"type:text;not null;default:''"`

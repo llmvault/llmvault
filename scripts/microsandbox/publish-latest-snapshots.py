@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument("--size", default=os.environ.get("HIVY_MICROSANDBOX_SNAPSHOT_SIZE", DEFAULT_SIZE))
     parser.add_argument("--runtime-only", action="store_true", help="publish only the default runtime image snapshot")
     parser.add_argument("--developers-only", action="store_true", help="publish only the developers image snapshot")
+    parser.add_argument("--org-scoped", action="store_true", help="do not mark published snapshots as global")
     parser.add_argument("--skip-verify", action="store_true", help="create snapshots without booting a verification sandbox")
     parser.add_argument(
         "--keep-unverified",
@@ -106,6 +107,14 @@ class ControlPlane:
 
     def create_snapshot(self, body):
         return self.request("POST", "/v1/snapshots", body, expected=(201,), timeout=self.timeout_seconds)
+
+    def get_snapshot(self, snapshot_ref):
+        try:
+            return self.request("GET", f"/v1/snapshots/{snapshot_ref}", expected=(200,), timeout=120)
+        except RuntimeError as exc:
+            if " returned 404:" in str(exc):
+                return {}
+            raise
 
     def delete_snapshot(self, snapshot_id):
         return self.request("DELETE", f"/v1/snapshots/{snapshot_id}", expected=(200, 404), timeout=120)
@@ -257,9 +266,34 @@ def verify_snapshot(control, org_id, kind, image, size, snapshot_id, marker):
 def publish_one(control, args, tag, kind, image):
     marker = f"snapshot-publish-{kind}-{int(time.time())}-{short_suffix()}"
     name = image_slug(kind, tag, args.size)
+    existing = control.get_snapshot(name)
+    if existing:
+        existing_id = pick(existing, "id", "ID")
+        existing_image = pick(existing, "base_image_ref", "BaseImageRef")
+        existing_status = pick(existing, "status", "Status")
+        if existing_image != image:
+            raise RuntimeError(f"snapshot alias {name} already points to {existing_image}, not {image}")
+        if existing_status != "ready":
+            raise RuntimeError(f"snapshot alias {name} exists but is {existing_status}, not ready")
+        result = snapshot_result(args, kind, name, existing, image, reused=True, snapshot_seconds=0)
+        print(f"reusing existing {kind} snapshot {existing_id} for alias {name}", flush=True)
+        if not args.skip_verify:
+            verification = verify_snapshot(control, args.org_id, kind, image, args.size, existing_id, marker="")
+            result["verified"] = True
+            result["verification"] = verification
+            print(
+                f"verified existing {kind} snapshot {existing_id}: "
+                f"sandbox create {verification['sandbox_create_seconds']:.1f}s, "
+                f"exec verify {verification['exec_verify_seconds']:.1f}s",
+                flush=True,
+            )
+        return result
+
     body = {
         "org_id": args.org_id,
         "name": name,
+        "alias": name,
+        "global": not args.org_scoped,
         "base_image_ref": image,
         "size": args.size,
         "commands": snapshot_commands(kind, image, tag, args.size, marker),
@@ -272,23 +306,7 @@ def publish_one(control, args, tag, kind, image):
     snapshot_id = pick(snapshot, "id", "ID")
     if not snapshot_id:
         raise RuntimeError(f"snapshot response missing id: {snapshot}")
-    result = {
-        "kind": kind,
-        "name": name,
-        "snapshot_id": snapshot_id,
-        "org_id": args.org_id,
-        "image_ref": image,
-        "size": args.size,
-        "status": pick(snapshot, "Status", "status"),
-        "artifact_size_bytes": pick(snapshot, "ArtifactSizeBytes", "artifact_size_bytes", default=0),
-        "artifact_url": pick(snapshot, "ArtifactURL", "artifact_url", default=""),
-        "artifact_digest": pick(snapshot, "ArtifactDigest", "artifact_digest", default=""),
-        "snapshot_digest": pick(snapshot, "SnapshotDigest", "snapshot_digest", default=""),
-        "image_manifest_digest": pick(snapshot, "ImageManifestDigest", "image_manifest_digest", default=""),
-        "snapshot_seconds": round(snapshot_elapsed, 3),
-        "verified": False,
-        "verification": None,
-    }
+    result = snapshot_result(args, kind, name, snapshot, image, reused=False, snapshot_seconds=round(snapshot_elapsed, 3))
     print(f"created {kind} snapshot {snapshot_id} in {snapshot_elapsed:.1f}s", flush=True)
     if args.skip_verify:
         return result
@@ -311,6 +329,29 @@ def publish_one(control, args, tag, kind, image):
                 print(f"cleanup warning: delete unverified snapshot {snapshot_id}: {exc}", file=sys.stderr)
         raise
     return result
+
+
+def snapshot_result(args, kind, name, snapshot, image, reused, snapshot_seconds):
+    return {
+        "kind": kind,
+        "name": name,
+        "alias": pick(snapshot, "Alias", "alias", default=name),
+        "global": bool(pick(snapshot, "Global", "global", default=not args.org_scoped)),
+        "snapshot_id": pick(snapshot, "id", "ID"),
+        "org_id": pick(snapshot, "OrgID", "org_id", default=args.org_id),
+        "image_ref": image,
+        "size": args.size,
+        "status": pick(snapshot, "Status", "status"),
+        "artifact_size_bytes": pick(snapshot, "ArtifactSizeBytes", "artifact_size_bytes", default=0),
+        "artifact_url": pick(snapshot, "ArtifactURL", "artifact_url", default=""),
+        "artifact_digest": pick(snapshot, "ArtifactDigest", "artifact_digest", default=""),
+        "snapshot_digest": pick(snapshot, "SnapshotDigest", "snapshot_digest", default=""),
+        "image_manifest_digest": pick(snapshot, "ImageManifestDigest", "image_manifest_digest", default=""),
+        "snapshot_seconds": snapshot_seconds,
+        "reused": reused,
+        "verified": False,
+        "verification": None,
+    }
 
 
 def default_output_path(tag):
