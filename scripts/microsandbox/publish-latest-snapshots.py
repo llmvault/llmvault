@@ -172,7 +172,7 @@ def pick(payload, *keys, default=None):
 
 def image_slug(kind, tag, size):
     clean_tag = tag.replace(".", "-").replace(":", "-").replace("/", "-")
-    return f"hivy-sandboxes-runtime{'-developers' if kind == 'developers' else ''}-{clean_tag}-{size}-v1"
+    return f"hivy-sandboxes-runtime{'-developers' if kind == 'developers' else ''}-{clean_tag}-{size}"
 
 
 def snapshot_commands(kind, image, tag, size, marker):
