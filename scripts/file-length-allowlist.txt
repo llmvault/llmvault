@@ -8,7 +8,3 @@
 
 # Code generated from the curated model catalog snapshot.
 internal/registry/models.go
-
-# Existing long integration handler tests predating the file-length check.
-internal/handler/connections_create_test.go
-internal/handler/connections_revoke_test.go
