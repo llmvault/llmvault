@@ -2,27 +2,24 @@
 
 import * as React from "react"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Button, Chip, Spinner, toast } from "@heroui/react"
 import { Logo } from "@/components/logo"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { localPart } from "@/lib/email"
-import { toast } from "sonner"
 
 function CenterCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-background">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-6">
+        <div className="mb-6 flex justify-center">
           <Logo />
         </div>
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">{children}</div>
+        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+          {children}
+        </div>
       </div>
     </div>
   )
@@ -40,7 +37,7 @@ function AcceptInviteContents() {
     "get",
     "/v1/invites/{token}",
     { params: { path: { token } } },
-    { enabled: token.length > 0, retry: false },
+    { enabled: token.length > 0, retry: false }
   )
 
   // Current auth status — no retry, errors are treated as "logged out".
@@ -62,13 +59,16 @@ function AcceptInviteContents() {
   const signupHref = `/auth/signup?next=${encodeURIComponent(returnPath)}`
 
   const queryClient = useQueryClient()
-  const setActiveOrgAndRedirect = useCallback((orgID?: string, fallback = "/w") => {
-    if (orgID) {
-      document.cookie = `hivy_active_org=${encodeURIComponent(orgID)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-    }
-    queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
-    setTimeout(() => router.replace(fallback), 1500)
-  }, [router, queryClient])
+  const setActiveOrgAndRedirect = useCallback(
+    (orgID?: string, fallback = "/w") => {
+      if (orgID) {
+        document.cookie = `hivy_active_org=${encodeURIComponent(orgID)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+      }
+      queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+      setTimeout(() => router.replace(fallback), 1500)
+    },
+    [router, queryClient]
+  )
 
   const handleAccept = useCallback(() => {
     acceptMutation.mutate(
@@ -79,9 +79,9 @@ function AcceptInviteContents() {
           setActiveOrgAndRedirect(resp?.org_id)
         },
         onError: (error) => {
-          toast.error(extractErrorMessage(error, "Failed to accept invitation"))
+          toast.danger(extractErrorMessage(error, "Failed to accept invitation"))
         },
-      },
+      }
     )
   }, [acceptMutation, token, setActiveOrgAndRedirect])
 
@@ -93,9 +93,9 @@ function AcceptInviteContents() {
           setDeclined(true)
         },
         onError: (error) => {
-          toast.error(extractErrorMessage(error, "Failed to decline invitation"))
+          toast.danger(extractErrorMessage(error, "Failed to decline invitation"))
         },
-      },
+      }
     )
   }, [declineMutation, token])
 
@@ -106,7 +106,7 @@ function AcceptInviteContents() {
         onSettled: () => {
           router.replace(`/auth/login?next=${encodeURIComponent(returnPath)}`)
         },
-      },
+      }
     )
   }, [logoutMutation, router, returnPath])
 
@@ -130,9 +130,9 @@ function AcceptInviteContents() {
         },
         onError: (error) => {
           autoAcceptStarted.current = false
-          toast.error(extractErrorMessage(error, "Failed to accept invitation"))
+          toast.danger(extractErrorMessage(error, "Failed to accept invitation"))
         },
-      },
+      }
     )
   }, [
     acceptMutation,
@@ -153,13 +153,13 @@ function AcceptInviteContents() {
     return (
       <CenterCard>
         <h1 className="text-lg font-semibold text-foreground">Invalid link</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-muted">
           This invitation link is missing its token.
         </p>
         <div className="mt-6">
-          <Link href="/auth/login" className={buttonVariants({ className: "w-full" })}>
+          <Button fullWidth onPress={() => router.push("/auth/login")}>
             Go to sign in
-          </Link>
+          </Button>
         </div>
       </CenterCard>
     )
@@ -169,8 +169,8 @@ function AcceptInviteContents() {
     return (
       <CenterCard>
         <div className="flex flex-col items-center py-10">
-          <HugeiconsIcon icon={Loading03Icon} size={24} className="animate-spin text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">Loading invitation…</p>
+          <Spinner size="sm" />
+          <p className="mt-3 text-sm text-muted">Loading invitation…</p>
         </div>
       </CenterCard>
     )
@@ -179,14 +179,17 @@ function AcceptInviteContents() {
   if (previewQuery.isError || !previewQuery.data) {
     return (
       <CenterCard>
-        <h1 className="text-lg font-semibold text-foreground">Invitation unavailable</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This invitation is no longer valid. It may have expired, been revoked, or already been used.
+        <h1 className="text-lg font-semibold text-foreground">
+          Invitation unavailable
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          This invitation is no longer valid. It may have expired, been revoked,
+          or already been used.
         </p>
         <div className="mt-6">
-          <Link href="/auth/login" className={buttonVariants({ className: "w-full" })}>
+          <Button fullWidth onPress={() => router.push("/auth/login")}>
             Back to sign in
-          </Link>
+          </Button>
         </div>
       </CenterCard>
     )
@@ -195,14 +198,16 @@ function AcceptInviteContents() {
   if (declined) {
     return (
       <CenterCard>
-        <h1 className="text-lg font-semibold text-foreground">Invitation declined</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <h1 className="text-lg font-semibold text-foreground">
+          Invitation declined
+        </h1>
+        <p className="mt-2 text-sm text-muted">
           You&apos;ve declined the invitation to {orgName}.
         </p>
         <div className="mt-6">
-          <Link href="/w" className={buttonVariants({ className: "w-full" })}>
+          <Button fullWidth onPress={() => router.push("/w")}>
             Go to workspace
-          </Link>
+          </Button>
         </div>
       </CenterCard>
     )
@@ -211,8 +216,10 @@ function AcceptInviteContents() {
   if (accepted) {
     return (
       <CenterCard>
-        <h1 className="text-lg font-semibold text-foreground">Welcome to {accepted.orgName || orgName}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <h1 className="text-lg font-semibold text-foreground">
+          Welcome to {accepted.orgName || orgName}
+        </h1>
+        <p className="mt-2 text-sm text-muted">
           You&apos;re now a member. Redirecting you to the workspace…
         </p>
       </CenterCard>
@@ -226,19 +233,25 @@ function AcceptInviteContents() {
         <h1 className="text-lg font-semibold text-foreground">
           {invite?.inviter_name ?? "Someone"} invited you to {orgName}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Sent to <span className="font-medium text-foreground">{inviteEmail}</span> — role{" "}
-          <Badge variant="secondary" className="text-[10px]">{invite?.role}</Badge>
+        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+          Sent to{" "}
+          <span className="font-medium text-foreground">{inviteEmail}</span> ·
+          role
+          <Chip size="sm">{invite?.role}</Chip>
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <Link href={signinHref} className={buttonVariants({ className: "w-full" })}>
+          <Button fullWidth onPress={() => router.push(signinHref)}>
             Sign in to accept
-          </Link>
-          <Link href={signupHref} className={buttonVariants({ variant: "outline", className: "w-full" })}>
+          </Button>
+          <Button
+            variant="outline"
+            fullWidth
+            onPress={() => router.push(signupHref)}
+          >
             Create account
-          </Link>
+          </Button>
         </div>
-        <p className="mt-4 text-[11px] text-muted-foreground text-center">
+        <p className="mt-4 text-center text-[11px] text-muted">
           After signing in, you&apos;ll come back here to accept the invitation.
         </p>
       </CenterCard>
@@ -250,16 +263,22 @@ function AcceptInviteContents() {
     return (
       <CenterCard>
         <h1 className="text-lg font-semibold text-foreground">Wrong account</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This invite was sent to <span className="font-medium text-foreground">{inviteEmail}</span>.
-          You&apos;re signed in as <span className="font-medium text-foreground">{me.user.email}</span>.
+        <p className="mt-2 text-sm text-muted">
+          This invite was sent to{" "}
+          <span className="font-medium text-foreground">{inviteEmail}</span>.
+          You&apos;re signed in as{" "}
+          <span className="font-medium text-foreground">{me.user.email}</span>.
         </p>
         <div className="mt-6">
           <Button
-            className="w-full"
-            onClick={handleLogoutAndGoToAuth}
-            loading={logoutMutation.isPending}
+            fullWidth
+            isPending={logoutMutation.isPending}
+            isDisabled={logoutMutation.isPending}
+            onPress={handleLogoutAndGoToAuth}
           >
+            {logoutMutation.isPending ? (
+              <Spinner color="current" size="sm" />
+            ) : null}
             Sign out and sign in as {localPart(inviteEmail)}
           </Button>
         </div>
@@ -268,31 +287,36 @@ function AcceptInviteContents() {
   }
 
   // Logged in, matching email
+  const actionsBusy = acceptMutation.isPending || declineMutation.isPending
   return (
     <CenterCard>
-      <h1 className="text-lg font-semibold text-foreground">
-        Join {orgName}
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {invite?.inviter_name ?? "An admin"} invited you to {orgName} as{" "}
-        <Badge variant="secondary" className="text-[10px]">{invite?.role}</Badge>
+      <h1 className="text-lg font-semibold text-foreground">Join {orgName}</h1>
+      <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+        {invite?.inviter_name ?? "An admin"} invited you to {orgName} as
+        <Chip size="sm">{invite?.role}</Chip>
       </p>
       <div className="mt-6 flex flex-col gap-2">
         <Button
-          className="w-full"
-          onClick={handleAccept}
-          loading={acceptMutation.isPending}
-          disabled={acceptMutation.isPending || declineMutation.isPending}
+          fullWidth
+          isPending={acceptMutation.isPending}
+          isDisabled={actionsBusy}
+          onPress={handleAccept}
         >
+          {acceptMutation.isPending ? (
+            <Spinner color="current" size="sm" />
+          ) : null}
           Join {orgName}
         </Button>
         <Button
           variant="outline"
-          className="w-full"
-          onClick={handleDecline}
-          loading={declineMutation.isPending}
-          disabled={acceptMutation.isPending || declineMutation.isPending}
+          fullWidth
+          isPending={declineMutation.isPending}
+          isDisabled={actionsBusy}
+          onPress={handleDecline}
         >
+          {declineMutation.isPending ? (
+            <Spinner color="current" size="sm" />
+          ) : null}
           Decline
         </Button>
       </div>
@@ -306,7 +330,7 @@ export default function AcceptInvitePage() {
       fallback={
         <CenterCard>
           <div className="flex justify-center py-10">
-            <HugeiconsIcon icon={Loading03Icon} size={24} className="animate-spin text-muted-foreground" />
+            <Spinner size="sm" />
           </div>
         </CenterCard>
       }
