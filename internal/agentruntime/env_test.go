@@ -15,6 +15,7 @@ func TestAgentEnvCatalogGolden(t *testing.T) {
 	}
 	want := []string{
 		AgentEnvRuntimeSecret,
+		AgentEnvStreamToken,
 		AgentEnvProxyAPIKey,
 		AgentEnvAgentModel,
 		AgentEnvAgentBaseURL,

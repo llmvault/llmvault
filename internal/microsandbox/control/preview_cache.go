@@ -170,7 +170,7 @@ func (s *Server) deletePreviewRoute(ctx context.Context, sandboxID string) {
 	slog.Info("preview route deleted", "sandbox_id", sandboxID)
 }
 
-func (s *Server) watchPreviewRoutes() {
+func (s *Server) watchPreviewRoutes(ctx context.Context) {
 	if s.cfg.PreviewCacheSync <= 0 {
 		slog.Warn("preview route periodic sync disabled because interval is not positive", "interval", s.cfg.PreviewCacheSync)
 		return
@@ -178,8 +178,12 @@ func (s *Server) watchPreviewRoutes() {
 	ticker := time.NewTicker(s.cfg.PreviewCacheSync)
 	defer ticker.Stop()
 	for {
-		s.bulkSyncPreviewRoutes(context.Background())
-		<-ticker.C
+		s.bulkSyncPreviewRoutes(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 

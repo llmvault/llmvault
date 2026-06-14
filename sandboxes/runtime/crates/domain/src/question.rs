@@ -153,7 +153,7 @@ pub fn validate_question_answer(
             if value
                 .other
                 .as_deref()
-                .is_none_or(|other| other.trim().is_empty())
+                .map_or(true, |other| other.trim().is_empty())
             {
                 return Err(format!(
                     "question {} Other answer requires free-form text",

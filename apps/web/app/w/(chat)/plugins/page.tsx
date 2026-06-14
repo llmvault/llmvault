@@ -104,12 +104,6 @@ export default function PluginsPage() {
             >
               Plugins
             </NextLink>
-            <NextLink
-              href="/w/skills"
-              className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Skills
-            </NextLink>
           </nav>
 
           <div>

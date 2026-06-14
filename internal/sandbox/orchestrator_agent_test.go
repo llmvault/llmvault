@@ -51,12 +51,12 @@ func TestCreateAgentSandbox_ClonesSelectedGitHubProfileRepositories(t *testing.T
 	if len(commands) != 3 {
 		t.Fatalf("commands = %#v, want mkdir plus two repository clone commands", commands)
 	}
-	if commands[0] != "mkdir -p '/workspace/repos'" {
+	if commands[0] != "mkdir -p '/home/daytona/repos'" {
 		t.Fatalf("mkdir command = %q, want quoted agent repo dir", commands[0])
 	}
 	wantFragments := []string{
-		"git clone --depth=1 'https://github.com/octo-org/api.git' '/workspace/repos/api'",
-		"git clone --depth=1 'https://github.com/octo-org/web.git' '/workspace/repos/web'",
+		"git clone --depth=1 'https://github.com/octo-org/api.git' '/home/daytona/repos/api'",
+		"git clone --depth=1 'https://github.com/octo-org/web.git' '/home/daytona/repos/web'",
 	}
 	for i, fragment := range wantFragments {
 		if !strings.Contains(commands[i+1], fragment) {
