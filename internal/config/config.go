@@ -83,7 +83,7 @@ type Config struct {
 	SandboxEncryptionKey              string `env:"HIVY_SANDBOX_ENCRYPTION_KEY"` // base64-encoded 32-byte key for encrypting sandbox secrets
 	SandboxProviderID                 string `env:"HIVY_SANDBOX_PROVIDER_ID"`    // empty disables sandbox orchestration
 	SandboxDockerHost                 string `env:"HIVY_SANDBOX_DOCKER_HOST"`
-	SandboxDockerPublicHost           string `env:"HIVY_SANDBOX_DOCKER_PUBLIC_HOST"`
+	SandboxDockerRuntimeOrigin        string `env:"HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN"`
 	SandboxDockerContainerLabelPrefix string `env:"HIVY_SANDBOX_DOCKER_CONTAINER_LABEL_PREFIX" envDefault:"hivy"`
 	MicrosandboxControlURL            string `env:"HIVY_MICROSANDBOX_CONTROL_URL"`
 	MicrosandboxControlAPIToken       string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`

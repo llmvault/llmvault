@@ -121,6 +121,8 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			NewAgentProxyTokenRefreshHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 	}
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil {
+		mux.HandleFunc(TypeSessionMessageDeliver,
+			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
 		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)

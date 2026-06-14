@@ -13,21 +13,20 @@ var Sizes = map[string]Size{
 	"xlarge": {CPU: 8, MemoryMB: 16384, DiskGB: 160},
 }
 
+const (
+	DefaultPreviewHostPortRangeStart = 30000
+	DefaultPreviewHostPortRangeEnd   = 60999
+)
+
 func DefaultPreviewPorts() []int {
-	return []int{
-		3000, 3001, 3002, 3003, 3004,
-		3333,
-		4000, 4001,
-		4173, 4200, 4321,
-		5000, 5001,
-		5173, 5174,
-		6006,
-		7000, 7070, 7080,
-		8000, 8001,
-		8080, 8081, 8082, 8088,
-		8100, 8501, 8787,
-		9000, 9001,
+	return []int{3000, 5173, 7080, 8000, 8080}
+}
+
+func PreviewPortCapacity(start, end, portsPerSandbox int) int {
+	if start <= 0 || end < start || portsPerSandbox <= 0 {
+		return 0
 	}
+	return ((end - start) + 1) / portsPerSandbox
 }
 
 type ErrorResponse struct {

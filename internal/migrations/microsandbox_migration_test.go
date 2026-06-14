@@ -1,26 +1,29 @@
 package migrations
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
 )
 
-func TestMicrosandboxFleetMigrationIsEmbedded(t *testing.T) {
-	raw, err := migrationFS.ReadFile("sql/000035_microsandbox_fleet.sql")
-	if err != nil {
-		t.Fatalf("read microsandbox migration: %v", err)
-	}
-	migration := string(raw)
-	for _, table := range []string{
-		"microsandbox_runners",
-		"microsandbox_sandboxes",
-		"microsandbox_sandbox_ports",
-		"microsandbox_org_preview_secrets",
-		"microsandbox_snapshots",
-		"microsandbox_events",
-	} {
-		if !strings.Contains(migration, "CREATE TABLE IF NOT EXISTS "+table) {
-			t.Fatalf("migration does not create %s", table)
+func TestMicrosandboxFleetMigrationIsNotEmbeddedInMainApp(t *testing.T) {
+	err := fs.WalkDir(migrationFS, "sql", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
+		if d.IsDir() || !strings.HasSuffix(path, ".sql") {
+			return nil
+		}
+		raw, err := migrationFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(raw), "CREATE TABLE IF NOT EXISTS microsandbox_") {
+			t.Fatalf("main app migration %s creates microsandbox fleet tables; use internal/microsandbox/migrations instead", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk main app migrations: %v", err)
 	}
 }

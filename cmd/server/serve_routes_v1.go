@@ -130,6 +130,7 @@ func setupV1Routes(
 					r.Patch("/sessions/{id}", sessionHandler.Update)
 					r.Post("/sessions/{id}/messages", sessionHandler.SendMessage)
 					r.Get("/sessions/{id}/events", sessionHandler.ListEvents)
+					r.Get("/sessions/{id}/stream-access", sessionHandler.StreamAccess)
 					r.Put("/sessions/{id}/participants/{userID}", sessionHandler.PutParticipant)
 					r.Delete("/sessions/{id}/participants/{userID}", sessionHandler.DeleteParticipant)
 				})

@@ -23,6 +23,7 @@ type MicrosandboxBackend struct {
 	ports     map[string]map[int]int
 	sandboxes map[string]sandboxState
 	store     *storage.SnapshotStore
+	allocator *portAllocator
 }
 
 type sandboxState struct {
@@ -46,10 +47,15 @@ func NewMicrosandboxBackend(ctx context.Context, cfg config.Config) (*Microsandb
 	if err != nil {
 		return nil, fmt.Errorf("snapshot store: %w", err)
 	}
+	allocator, err := newPortAllocator(cfg.RunnerPreviewPortRangeStart, cfg.RunnerPreviewPortRangeEnd)
+	if err != nil {
+		return nil, err
+	}
 	return &MicrosandboxBackend{
 		ports:     map[string]map[int]int{},
 		sandboxes: map[string]sandboxState{},
 		store:     store,
+		allocator: allocator,
 	}, nil
 }
 
@@ -61,6 +67,7 @@ func (m *MicrosandboxBackend) Reconcile(ctx context.Context) (*ReconcileReport, 
 
 	recoveredSandboxes := make(map[string]sandboxState)
 	recoveredPorts := make(map[string]map[int]int)
+	recoveredHostPorts := []int{}
 	report := &ReconcileReport{}
 	for _, handle := range handles {
 		state, ok := recoverSandboxState(handle.Name(), string(handle.Status()), handle.ConfigJSON())
@@ -71,6 +78,9 @@ func (m *MicrosandboxBackend) Reconcile(ctx context.Context) (*ReconcileReport, 
 		recoveredSandboxes[state.ID] = state
 		if len(state.Ports) > 0 {
 			recoveredPorts[state.ID] = cloneIntMap(state.Ports)
+			for _, hostPort := range state.Ports {
+				recoveredHostPorts = append(recoveredHostPorts, hostPort)
+			}
 			report.Ports += len(state.Ports)
 		}
 		report.Sandboxes++
@@ -80,6 +90,7 @@ func (m *MicrosandboxBackend) Reconcile(ctx context.Context) (*ReconcileReport, 
 	m.sandboxes = recoveredSandboxes
 	m.ports = recoveredPorts
 	m.mu.Unlock()
+	m.allocator.resetWith(recoveredHostPorts)
 
 	return report, nil
 }
@@ -104,13 +115,22 @@ func (m *MicrosandboxBackend) Status(ctx context.Context) (map[string]any, error
 }
 
 func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*CreateSandboxResponse, error) {
-	hostToGuest := map[uint16]uint16{}
-	bindings := make([]PortBinding, 0, len(req.PreviewPorts))
-	for _, guest := range req.PreviewPorts {
-		host, err := freePort()
-		if err != nil {
-			return nil, err
+	previewPorts := uniquePorts(req.PreviewPorts)
+	hostPorts, err := m.allocator.reserve(len(previewPorts))
+	if err != nil {
+		return nil, err
+	}
+	releaseReserved := true
+	defer func() {
+		if releaseReserved {
+			m.allocator.release(hostPorts)
 		}
+	}()
+
+	hostToGuest := map[uint16]uint16{}
+	bindings := make([]PortBinding, 0, len(previewPorts))
+	for i, guest := range previewPorts {
+		host := hostPorts[i]
 		hostToGuest[uint16(host)] = uint16(guest)
 		bindings = append(bindings, PortBinding{GuestPort: guest, HostPort: host})
 	}
@@ -156,6 +176,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		Ports:  cloneIntMap(m.ports[req.ID]),
 	}
 	m.mu.Unlock()
+	releaseReserved = false
 	return &CreateSandboxResponse{ID: req.ID, Ports: bindings}, nil
 }
 
@@ -191,9 +212,11 @@ func (m *MicrosandboxBackend) DeleteSandbox(ctx context.Context, sandboxID strin
 	}
 	_ = microsandbox.RemoveVolume(ctx, "hivy-"+sandboxID)
 	m.mu.Lock()
+	released := mapValues(m.ports[sandboxID])
 	delete(m.ports, sandboxID)
 	delete(m.sandboxes, sandboxID)
 	m.mu.Unlock()
+	m.allocator.release(released)
 	return nil
 }
 
@@ -418,6 +441,30 @@ func cloneIntMap(in map[int]int) map[int]int {
 	out := make(map[int]int, len(in))
 	for k, v := range in {
 		out[k] = v
+	}
+	return out
+}
+
+func mapValues(in map[int]int) []int {
+	out := make([]int, 0, len(in))
+	for _, v := range in {
+		out = append(out, v)
+	}
+	return out
+}
+
+func uniquePorts(in []int) []int {
+	out := make([]int, 0, len(in))
+	seen := map[int]struct{}{}
+	for _, port := range in {
+		if port <= 0 || port > 65535 {
+			continue
+		}
+		if _, ok := seen[port]; ok {
+			continue
+		}
+		seen[port] = struct{}{}
+		out = append(out, port)
 	}
 	return out
 }

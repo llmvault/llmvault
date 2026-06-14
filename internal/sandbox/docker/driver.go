@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/docker/docker/client"
@@ -12,14 +13,14 @@ import (
 
 type Config struct {
 	Host                 string
-	PublicHost           string
+	RuntimeOrigin        string
 	ContainerLabelPrefix string
 }
 
 type Driver struct {
-	cli         *client.Client
-	publicHost  string
-	labelPrefix string
+	cli           *client.Client
+	runtimeOrigin string
+	labelPrefix   string
 }
 
 func NewDriver(cfg Config) (*Driver, error) {
@@ -35,18 +36,22 @@ func NewDriver(cfg Config) (*Driver, error) {
 	if labelPrefix == "" {
 		labelPrefix = "hivy"
 	}
+	runtimeOrigin, err := normalizeRuntimeOrigin(cfg.RuntimeOrigin)
+	if err != nil {
+		return nil, err
+	}
 	return &Driver{
-		cli:         cli,
-		publicHost:  strings.TrimSpace(cfg.PublicHost),
-		labelPrefix: labelPrefix,
+		cli:           cli,
+		runtimeOrigin: runtimeOrigin,
+		labelPrefix:   labelPrefix,
 	}, nil
 }
 
 func (d *Driver) ID() string { return sandbox.ProviderDocker }
 
 func (d *Driver) Validate(ctx context.Context) error {
-	if d.publicHost == "" {
-		return fmt.Errorf("HIVY_SANDBOX_DOCKER_PUBLIC_HOST is required for docker sandbox provider")
+	if d.runtimeOrigin == "" {
+		return fmt.Errorf("HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN is required for docker sandbox provider")
 	}
 	if _, err := d.cli.Ping(ctx); err != nil {
 		return fmt.Errorf("ping docker daemon: %w", err)
@@ -69,4 +74,25 @@ func (d *Driver) labels(input map[string]string) map[string]string {
 		labels[d.labelPrefix+"."+key] = value
 	}
 	return labels
+}
+
+func normalizeRuntimeOrigin(raw string) (string, error) {
+	origin := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if origin == "" {
+		return "", nil
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN must be an absolute origin")
+	}
+	if parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN must not include path, query, or fragment")
+	}
+	if parsed.Port() != "" {
+		return "", fmt.Errorf("HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN must not include a port; Docker published-port mode appends the sandbox port")
+	}
+	if strings.EqualFold(parsed.Hostname(), "host.docker.internal") {
+		return "", fmt.Errorf("HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN must be reachable by both browsers and containers, not host.docker.internal")
+	}
+	return origin, nil
 }

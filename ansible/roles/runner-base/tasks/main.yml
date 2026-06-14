@@ -70,6 +70,11 @@
   register: microsandbox_ufw_api
   changed_when: "'Rule added' in microsandbox_ufw_api.stdout"
 
+- name: Allow preview host ports from Caddy private IP through UFW
+  ansible.builtin.command: "ufw allow from {{ runner_preview_allowed_source }} to any port {{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }} proto tcp"
+  register: microsandbox_ufw_preview
+  changed_when: "'Rule added' in microsandbox_ufw_preview.stdout"
+
 - name: Deny inbound traffic by default
   ansible.builtin.command: ufw default deny incoming
   register: microsandbox_ufw_incoming

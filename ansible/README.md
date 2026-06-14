@@ -27,6 +27,7 @@ runners:
       ansible_host: 203.0.113.10
       runner_name: runner-1
       runner_public_url: http://203.0.113.10:8081
+      runner_preview_base_url: http://10.80.1.2
 ```
 
 Update the `preview_proxy` host when provisioning the Caddy preview proxy:
@@ -71,9 +72,11 @@ Configure the Railway-hosted Microsandbox control plane separately. The runners 
 
 The control plane must accept runner registration at `/v1/runners/register`.
 
-## Public Runner API
+## Runner Network Ports
 
 Runner APIs are intentionally public for now and protected by `HIVY_MICROSANDBOX_RUNNER_API_TOKEN`. UFW opens SSH and the configured runner API port, then denies other inbound traffic.
+
+Preview traffic is separate. Each runner publishes sandbox guest ports onto host ports in `30000-60999`, and UFW allows that range only from the Caddy private IP. With the default 5 preview ports per sandbox, that range supports 6,200 sandboxes per runner before host-port exhaustion.
 
 ## Preview Proxy
 
@@ -93,7 +96,7 @@ Control-plane route push API, exposed through Caddy:
 curl -X PUT http://46.62.169.26/_microsandbox/preview-cache/v1/routes/sbx_123 \
   -H "Authorization: Bearer $HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN" \
   -H "Content-Type: application/json" \
-  --data '{"runner_private_url":"http://10.80.1.2:8081","ports":[3000,5173],"status":"running"}'
+  --data '{"sandbox_id":"sbx_123","status":"running","upstreams":{"3000":"http://10.80.1.2:43122","5173":"http://10.80.1.2:45173"}}'
 ```
 
 Bulk push:
@@ -102,7 +105,7 @@ Bulk push:
 curl -X POST http://46.62.169.26/_microsandbox/preview-cache/v1/routes/bulk \
   -H "Authorization: Bearer $HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN" \
   -H "Content-Type: application/json" \
-  --data '{"routes":[{"sandbox_id":"sbx_123","runner_private_url":"http://10.80.1.2:8081","ports":[3000],"status":"running"}]}'
+  --data '{"routes":[{"sandbox_id":"sbx_123","status":"running","upstreams":{"3000":"http://10.80.1.2:43122"}}]}'
 ```
 
 Delete:
@@ -123,8 +126,8 @@ X-Forwarded-Uri: /path?x=1
 It returns:
 
 ```text
-X-Microsandbox-Upstream: http://10.80.1.2:8081
-X-Microsandbox-Rewrite-URI: /proxy/sbx_123/3000/path?x=1
+X-Microsandbox-Upstream: http://10.80.1.2:43122
+X-Microsandbox-Rewrite-URI: /path?x=1
 ```
 
 Until HTTPS is enabled for the preview proxy, do not send production push tokens over the public HTTP endpoint.

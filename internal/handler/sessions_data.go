@@ -2,12 +2,14 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 type sessionStats struct {
@@ -151,4 +153,14 @@ func eventToResponse(event model.SessionEvent) sessionEventResponse {
 		Payload:        event.Payload,
 		EventAt:        formatRuntimeTime(event.EventAt),
 	}
+}
+
+func (h *SessionHandler) enqueueSessionDelivery(ctx context.Context, sessionID uuid.UUID) error {
+	if h == nil || h.enqueuer == nil {
+		return nil
+	}
+	if err := tasks.EnqueueSessionMessageDeliver(ctx, h.enqueuer, sessionID); err != nil {
+		return fmt.Errorf("enqueue session message delivery: %w", err)
+	}
+	return nil
 }

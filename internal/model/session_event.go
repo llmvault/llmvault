@@ -32,21 +32,25 @@ type SessionEvent struct {
 func (SessionEvent) TableName() string { return "session_events" }
 
 type SessionMessageQueue struct {
-	ID             uuid.UUID    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID          uuid.UUID    `gorm:"type:uuid;not null;index"`
-	SessionID      uuid.UUID    `gorm:"type:uuid;not null;uniqueIndex:idx_session_message_queue_sequence,priority:1;uniqueIndex:idx_session_message_queue_session_event,priority:1"`
-	Session        Session      `gorm:"foreignKey:SessionID;constraint:OnDelete:CASCADE"`
-	SessionEventID uuid.UUID    `gorm:"type:uuid;not null;uniqueIndex:idx_session_message_queue_session_event,priority:2"`
-	SessionEvent   SessionEvent `gorm:"foreignKey:SessionEventID;constraint:OnDelete:CASCADE"`
-	SequenceNumber int64        `gorm:"not null;uniqueIndex:idx_session_message_queue_sequence,priority:2"`
-	Status         string       `gorm:"type:text;not null;default:'pending'"`
-	AttemptCount   int          `gorm:"not null;default:0"`
-	LeasedBy       string       `gorm:"type:text"`
-	LeasedUntil    *time.Time
-	DeliveredAt    *time.Time
-	LastError      string `gorm:"type:text;not null;default:''"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID               uuid.UUID    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID            uuid.UUID    `gorm:"type:uuid;not null;index"`
+	SessionID        uuid.UUID    `gorm:"type:uuid;not null;uniqueIndex:idx_session_message_queue_sequence,priority:1;uniqueIndex:idx_session_message_queue_session_event,priority:1"`
+	Session          Session      `gorm:"foreignKey:SessionID;constraint:OnDelete:CASCADE"`
+	SessionEventID   uuid.UUID    `gorm:"type:uuid;not null;uniqueIndex:idx_session_message_queue_session_event,priority:2"`
+	SessionEvent     SessionEvent `gorm:"foreignKey:SessionEventID;constraint:OnDelete:CASCADE"`
+	SequenceNumber   int64        `gorm:"not null;uniqueIndex:idx_session_message_queue_sequence,priority:2"`
+	Status           string       `gorm:"type:text;not null;default:'pending'"`
+	AttemptCount     int          `gorm:"not null;default:0"`
+	LeasedBy         string       `gorm:"type:text"`
+	LeasedUntil      *time.Time
+	DeliveredAt      *time.Time
+	LastError        string `gorm:"type:text;not null;default:''"`
+	RuntimeStreamID  string `gorm:"type:text;not null;default:''"`
+	RuntimeStreamURL string `gorm:"type:text;not null;default:''"`
+	RuntimeTraceID   string `gorm:"type:text;not null;default:''"`
+	RuntimeTurnID    string `gorm:"type:text;not null;default:''"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 func (SessionMessageQueue) TableName() string { return "session_message_queue" }

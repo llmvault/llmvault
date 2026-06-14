@@ -82,6 +82,10 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 		return
 	}
+	if err := h.enqueueSessionDelivery(r.Context(), session.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
+		return
+	}
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusCreated, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),

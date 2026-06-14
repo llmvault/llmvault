@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,10 +25,9 @@ type PreviewCacheClient struct {
 }
 
 type previewCacheRoute struct {
-	SandboxID        string `json:"sandbox_id"`
-	RunnerPrivateURL string `json:"runner_private_url"`
-	Ports            []int  `json:"ports"`
-	Status           string `json:"status"`
+	SandboxID string            `json:"sandbox_id"`
+	Status    string            `json:"status"`
+	Upstreams map[string]string `json:"upstreams"`
 }
 
 func NewPreviewCacheClient(cfg config.Config) *PreviewCacheClient {
@@ -93,29 +95,48 @@ func (c *PreviewCacheClient) do(ctx context.Context, method, path string, in, ou
 	return nil
 }
 
-func previewCacheRouteFor(sb model.Sandbox, runner model.Runner, ports []model.SandboxPort) previewCacheRoute {
-	return previewCacheRoute{
-		SandboxID:        sb.ID,
-		RunnerPrivateURL: runner.APIURL,
-		Ports:            previewCachePorts(ports),
-		Status:           sb.Status,
+func previewCacheRouteFor(sb model.Sandbox, runner model.Runner, ports []model.SandboxPort) (previewCacheRoute, error) {
+	if strings.TrimSpace(runner.PreviewBaseURL) == "" {
+		return previewCacheRoute{}, fmt.Errorf("runner %s has no preview_base_url", runner.ID)
 	}
+	upstreams := make(map[string]string, len(ports))
+	for _, port := range ports {
+		if port.GuestPort <= 0 || port.HostPort <= 0 {
+			continue
+		}
+		upstream, err := previewUpstream(runner.PreviewBaseURL, port.HostPort)
+		if err != nil {
+			return previewCacheRoute{}, err
+		}
+		upstreams[strconv.Itoa(port.GuestPort)] = upstream
+	}
+	if len(upstreams) == 0 {
+		return previewCacheRoute{}, fmt.Errorf("sandbox %s has no direct preview upstreams", sb.ID)
+	}
+	return previewCacheRoute{SandboxID: sb.ID, Status: sb.Status, Upstreams: upstreams}, nil
 }
 
-func previewCachePorts(ports []model.SandboxPort) []int {
-	out := make([]int, 0, len(ports))
-	seen := map[int]struct{}{}
-	for _, port := range ports {
-		if port.GuestPort <= 0 {
-			continue
-		}
-		if _, ok := seen[port.GuestPort]; ok {
-			continue
-		}
-		seen[port.GuestPort] = struct{}{}
-		out = append(out, port.GuestPort)
+func previewUpstream(baseURL string, hostPort int) (string, error) {
+	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
+	if baseURL == "" {
+		return "", fmt.Errorf("preview base url is required")
 	}
-	return out
+	if !strings.Contains(baseURL, "://") {
+		baseURL = "http://" + baseURL
+	}
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("preview base url has no host: %s", baseURL)
+	}
+	parsed.Host = net.JoinHostPort(host, strconv.Itoa(hostPort))
+	parsed.Path = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
 func (s *Server) syncPreviewRoute(ctx context.Context, sb model.Sandbox, runner model.Runner, ports []model.SandboxPort) {
@@ -126,7 +147,12 @@ func (s *Server) syncPreviewRoute(ctx context.Context, sb model.Sandbox, runner 
 		slog.Warn("preview route sync skipped because sandbox has no ports", "sandbox_id", sb.ID)
 		return
 	}
-	if err := s.previewCache.UpsertRoute(ctx, previewCacheRouteFor(sb, runner, ports)); err != nil {
+	route, err := previewCacheRouteFor(sb, runner, ports)
+	if err != nil {
+		slog.Error("preview route build failed", "sandbox_id", sb.ID, "runner_id", runner.ID, "error", err)
+		return
+	}
+	if err := s.previewCache.UpsertRoute(ctx, route); err != nil {
 		slog.Error("preview route sync failed", "sandbox_id", sb.ID, "error", err)
 		return
 	}
@@ -181,7 +207,12 @@ func (s *Server) bulkSyncPreviewRoutes(ctx context.Context) {
 		if len(ports) == 0 {
 			continue
 		}
-		routes = append(routes, previewCacheRouteFor(sb, runner, ports))
+		route, err := previewCacheRouteFor(sb, runner, ports)
+		if err != nil {
+			slog.Warn("preview route bulk sync skipped sandbox", "sandbox_id", sb.ID, "runner_id", runner.ID, "error", err)
+			continue
+		}
+		routes = append(routes, route)
 	}
 	if len(routes) == 0 {
 		return

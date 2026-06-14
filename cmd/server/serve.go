@@ -179,7 +179,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	dashboardHandler := handler.NewDashboardHandler(database, deps.Credits)
 	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
 	channelHandler := handler.NewChannelHandler(database)
-	sessionHandler := handler.NewSessionHandler(database)
+	sessionHandler := handler.NewSessionHandler(database, enqueuer).WithRuntimeStreamKey(sandboxEncKey)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)

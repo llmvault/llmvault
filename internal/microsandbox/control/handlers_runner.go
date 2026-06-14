@@ -15,10 +15,11 @@ import (
 )
 
 type registerRunnerRequest struct {
-	Name     string         `json:"name"`
-	APIURL   string         `json:"api_url"`
-	Capacity runnerCapacity `json:"capacity"`
-	Metadata map[string]any `json:"metadata"`
+	Name           string         `json:"name"`
+	APIURL         string         `json:"api_url"`
+	PreviewBaseURL string         `json:"preview_base_url"`
+	Capacity       runnerCapacity `json:"capacity"`
+	Metadata       map[string]any `json:"metadata"`
 }
 
 type runnerCapacity struct {
@@ -34,7 +35,7 @@ func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req registerRunnerRequest
-	if err := httpx.Decode(r, &req); err != nil || req.Name == "" || req.APIURL == "" {
+	if err := httpx.Decode(r, &req); err != nil || req.Name == "" || req.APIURL == "" || req.PreviewBaseURL == "" {
 		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid runner registration"})
 		return
 	}
@@ -55,7 +56,7 @@ func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
 		cpuOvercommit = 1.5
 	}
 	runner := model.Runner{
-		ID: id, Name: req.Name, APIURL: req.APIURL, AuthTokenHash: security.HashToken(token),
+		ID: id, Name: req.Name, APIURL: req.APIURL, PreviewBaseURL: req.PreviewBaseURL, AuthTokenHash: security.HashToken(token),
 		Status: model.RunnerStatusHealthy, TotalCPU: req.Capacity.CPU, TotalMemoryMB: req.Capacity.MemoryMB,
 		TotalDiskGB: req.Capacity.DiskGB, CPUOvercommit: cpuOvercommit, LastHeartbeatAt: &now,
 	}
@@ -64,7 +65,7 @@ func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
 		runner.ReservedMemoryMB = existing.ReservedMemoryMB
 		runner.ReservedDiskGB = existing.ReservedDiskGB
 		if err := s.db.Model(&existing).Updates(map[string]any{
-			"api_url": req.APIURL, "auth_token_hash": runner.AuthTokenHash, "status": runner.Status,
+			"api_url": req.APIURL, "preview_base_url": req.PreviewBaseURL, "auth_token_hash": runner.AuthTokenHash, "status": runner.Status,
 			"total_cpu": runner.TotalCPU, "total_memory_mb": runner.TotalMemoryMB, "total_disk_gb": runner.TotalDiskGB,
 			"cpu_overcommit": runner.CPUOvercommit, "last_heartbeat_at": now,
 		}).Error; err != nil {

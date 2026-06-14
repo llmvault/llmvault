@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"sync"
 )
@@ -12,10 +11,11 @@ import (
 type MockBackend struct {
 	mu        sync.Mutex
 	sandboxes map[string]*CreateSandboxResponse
+	allocator *portAllocator
 }
 
 func NewMockBackend() *MockBackend {
-	return &MockBackend{sandboxes: map[string]*CreateSandboxResponse{}}
+	return &MockBackend{sandboxes: map[string]*CreateSandboxResponse{}, allocator: newDefaultPortAllocator()}
 }
 
 func (m *MockBackend) Reconcile(context.Context) (*ReconcileReport, error) {
@@ -37,13 +37,14 @@ func (m *MockBackend) Status(context.Context) (map[string]any, error) {
 func (m *MockBackend) CreateSandbox(_ context.Context, req CreateSandboxRequest) (*CreateSandboxResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ports := make([]PortBinding, 0, len(req.PreviewPorts))
-	for _, p := range req.PreviewPorts {
-		hostPort, err := freePort()
-		if err != nil {
-			return nil, err
-		}
-		ports = append(ports, PortBinding{GuestPort: p, HostPort: hostPort})
+	previewPorts := uniquePorts(req.PreviewPorts)
+	hostPorts, err := m.allocator.reserve(len(previewPorts))
+	if err != nil {
+		return nil, err
+	}
+	ports := make([]PortBinding, 0, len(previewPorts))
+	for i, p := range previewPorts {
+		ports = append(ports, PortBinding{GuestPort: p, HostPort: hostPorts[i]})
 	}
 	resp := &CreateSandboxResponse{ID: req.ID, Ports: ports}
 	m.sandboxes[req.ID] = resp
@@ -55,6 +56,13 @@ func (m *MockBackend) StopSandbox(context.Context, string) error  { return nil }
 func (m *MockBackend) DeleteSandbox(_ context.Context, sandboxID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if sandbox := m.sandboxes[sandboxID]; sandbox != nil {
+		hostPorts := make([]int, 0, len(sandbox.Ports))
+		for _, port := range sandbox.Ports {
+			hostPorts = append(hostPorts, port.HostPort)
+		}
+		m.allocator.release(hostPorts)
+	}
 	delete(m.sandboxes, sandboxID)
 	return nil
 }
@@ -76,15 +84,6 @@ func (m *MockBackend) ProxyURL(_ context.Context, sandboxID string, guestPort in
 
 func (m *MockBackend) CreateSnapshot(_ context.Context, req CreateSnapshotRequest) (*CreateSnapshotResponse, error) {
 	return &CreateSnapshotResponse{ID: req.ID, ArtifactURL: "mock://" + req.ID, Logs: "mock snapshot built\n"}, nil
-}
-
-func freePort() (int, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer ln.Close()
-	return ln.Addr().(*net.TCPAddr).Port, nil
 }
 
 var _ = http.MethodGet
