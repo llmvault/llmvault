@@ -203,7 +203,13 @@ func assertRuntimeSessionFinal(t *testing.T, trace *agentRuntimeE2ETrace, events
 func traceRuntimeSSEEvent(trace *agentRuntimeE2ETrace, label string, index int, event runtimeSSEEvent) {
 	tool, _ := event.Payload["tool"].(string)
 	agent, _ := event.Payload["agent_name"].(string)
-	trace.Logf("sse", "%s event #%d name=%s tool=%s agent=%s", label, index, event.Name, tool, agent)
+	scope, _ := event.Payload["scope"].(string)
+	if agent == "" {
+		if subagent := payloadMap(event.Payload["subagent"]); subagent != nil {
+			agent, _ = subagent["agent_name"].(string)
+		}
+	}
+	trace.Logf("sse", "%s event #%d name=%s scope=%s tool=%s agent=%s", label, index, event.Name, scope, tool, agent)
 	if event.RawData != "" {
 		trace.Body("sse", fmt.Sprintf("%s event #%d %s payload", label, index, event.Name), []byte(event.RawData))
 	}

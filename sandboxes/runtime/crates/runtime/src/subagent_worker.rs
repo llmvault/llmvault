@@ -62,24 +62,13 @@ impl SubagentWorker {
             }
         }
 
-        let stream_url = task
-            .stream_id
-            .as_ref()
-            .map(|stream_id| {
-                format!(
-                    "/sessions/{}/streams/{}",
-                    task.child_session_id.as_str(),
-                    stream_id
-                )
-            })
-            .unwrap_or_default();
-
         self.event_sink
             .publish_subagent_started(
                 task.parent_session_id.as_str(),
+                task.stream_id.as_deref(),
                 &task.id,
                 &task.agent_name,
-                &stream_url,
+                task.child_session_id.as_str(),
             )
             .await;
 
@@ -98,8 +87,10 @@ impl SubagentWorker {
             self.event_sink
                 .publish_subagent_errored(
                     task.parent_session_id.as_str(),
+                    task.stream_id.as_deref(),
                     &task.id,
                     &task.agent_name,
+                    task.child_session_id.as_str(),
                     &error,
                 )
                 .await;
@@ -120,6 +111,8 @@ impl SubagentWorker {
                 "job_id": task.id.clone(),
                 "agent_name": task.agent_name.clone(),
                 "parent_session_id": task.parent_session_id.as_str(),
+                "child_session_id": task.child_session_id.as_str(),
+                "stream_scope": "subagent",
                 "subagent_task_goal": task.goal.clone(),
                 "session_stream_id": task.stream_id.clone(),
             }),
@@ -144,8 +137,10 @@ impl SubagentWorker {
             self.event_sink
                 .publish_subagent_errored(
                     task.parent_session_id.as_str(),
+                    task.stream_id.as_deref(),
                     &task.id,
                     &task.agent_name,
+                    task.child_session_id.as_str(),
                     &message,
                 )
                 .await;

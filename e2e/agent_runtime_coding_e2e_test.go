@@ -108,15 +108,15 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 
 	messageResponse := sendAgentRuntimeMessage(t, trace, ctx, runtimeBaseURL, runtimeSecret, agentRuntimeCodingRequest())
 
-	subagentStreams := newSubagentStreamMonitor(trace, ctx, runtimeBaseURL, runtimeSecret)
 	directSessionStream := readDirectRuntimeSSEAsync(
 		trace,
 		ctx,
 		directRuntimeStreamURL(t, runtimeBaseURL, messageResponse.StreamURL),
 	)
-	events := readRuntimeSSE(t, trace, ctx, runtimeBaseURL+messageResponse.StreamURL, runtimeSecret, subagentStreams.observeParentEvent)
+	events := readRuntimeSSE(t, trace, ctx, runtimeBaseURL+messageResponse.StreamURL, runtimeSecret, nil)
 	directSessionEvents := directSessionStream.wait(t)
-	subagentStreams.assert(t)
+	assertRuntimeSharedSubagentStream(t, trace, "bearer parent stream", events)
+	assertRuntimeSharedSubagentStream(t, trace, "direct browser stream", directSessionEvents)
 	assertRuntimeE2EEvents(t, trace, events)
 	assertRuntimeSessionFinal(t, trace, directSessionEvents, []string{"E2E_PASS", agentRuntimeE2EToken})
 	assertAgentRuntimePostRunAPIs(t, trace, ctx, runtimeBaseURL, runtimeSecret, messageResponse.SessionID, messageResponse.TraceID, workspaceRoot)

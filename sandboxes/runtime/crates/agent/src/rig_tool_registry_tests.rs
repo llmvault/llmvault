@@ -388,7 +388,7 @@ fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dy
         agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
             test_agent_definition(),
         ))),
-        subagent_stream_creator: None,
+        session_stream_id: None,
     };
     build_agent_tools(
         &[ToolSpec::SkillManage],
@@ -407,16 +407,6 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
     let helper = test_agent_definition();
     parent.sub_agents.insert("helper".to_string(), helper);
     let registry = Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(parent)));
-    let stream_creator: SubagentStreamCreator = Arc::new(|session_id| {
-        let session_id = session_id.to_string();
-        Box::pin(async move {
-            (
-                "stream-1".to_string(),
-                format!("/sessions/{session_id}/streams/stream-1"),
-            )
-        })
-    });
-
     let task_tool = subagent_task_tool(
         repo.clone(),
         SessionId::from("parent-session"),
@@ -424,7 +414,7 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
         SubagentTaskConfig {
             agents: vec!["helper".to_string()],
         },
-        Some(stream_creator),
+        Some("parent-stream-1".to_string()),
     );
     let created = task_tool
         .call(json!({"agent": "helper", "goal": "Return HELPER_OK"}))
@@ -433,10 +423,8 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
     let job_id = created["job_id"].as_str().expect("job id");
     assert_eq!(created["state"], "queued");
     assert_eq!(created["session_id"], format!("subagent-{job_id}").as_str());
-    assert_eq!(
-        created["stream_url"],
-        format!("/sessions/subagent-{job_id}/streams/stream-1").as_str()
-    );
+    assert!(created.get("stream_url").is_none());
+    assert!(created.get("stream_id").is_none());
 
     let task = repo
         .get(job_id)
@@ -447,7 +435,7 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
     assert_eq!(task.child_session_id.as_str(), format!("subagent-{job_id}"));
     assert_eq!(task.agent_name, "helper");
     assert_eq!(task.goal, "Return HELPER_OK");
-    assert_eq!(task.stream_id.as_deref(), Some("stream-1"));
+    assert_eq!(task.stream_id.as_deref(), Some("parent-stream-1"));
     assert_eq!(task.state, SubagentTaskState::Queued);
 
     let status_tool = check_subagent_task_status_tool(repo);
@@ -458,7 +446,6 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
     assert_eq!(status["job_id"], job_id);
     assert_eq!(status["state"], "queued");
     assert_eq!(status["session_id"], format!("subagent-{job_id}").as_str());
-    assert_eq!(status["stream_id"], "stream-1");
 }
 
 #[tokio::test]
@@ -477,7 +464,7 @@ async fn request_user_input_tool_is_registered_and_returns_answer() {
         agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
             test_agent_definition(),
         ))),
-        subagent_stream_creator: None,
+        session_stream_id: None,
     };
     let tool = build_agent_tools(
         &[ToolSpec::RequestUserInput],
@@ -554,7 +541,7 @@ async fn update_plan_tool_is_registered_and_returns_ack() {
         agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
             test_agent_definition(),
         ))),
-        subagent_stream_creator: None,
+        session_stream_id: None,
     };
     let tool = build_agent_tools(
         &[ToolSpec::UpdatePlan],
@@ -661,7 +648,7 @@ async fn update_plan_tool_is_not_registered_for_cron_sessions() {
         agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
             test_agent_definition(),
         ))),
-        subagent_stream_creator: None,
+        session_stream_id: None,
     };
 
     let tools = build_agent_tools(

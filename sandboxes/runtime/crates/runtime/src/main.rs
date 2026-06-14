@@ -224,18 +224,6 @@ async fn main() -> Result<()> {
             .with_database_queue(database_event_queue.clone()),
     );
 
-    let broker_for_streams = session_stream_broker.clone();
-    let subagent_stream_creator: agent::rig_tool_registry::SubagentStreamCreator =
-        Arc::new(move |session_id: &str| {
-            let broker = broker_for_streams.clone();
-            let session_id = session_id.to_string();
-            Box::pin(async move {
-                let stream_id = broker.create_stream().await;
-                broker.register_session(&session_id, &stream_id).await;
-                let stream_url = format!("/sessions/{}/streams/{}", session_id, stream_id);
-                (stream_id, stream_url)
-            })
-        });
     let rig_runner = RigAgentRunner::new(config.clone(), workspace_root.clone())
         .with_outbound_emitter(emitter.clone())
         .with_cron_repo(cron_repo.clone())
@@ -243,8 +231,7 @@ async fn main() -> Result<()> {
         .with_plan_updater(plan_manager.clone())
         .with_question_requester(question_manager.clone())
         .with_event_repo(event_repo.clone())
-        .with_mcp_registry(mcp_registry.clone())
-        .with_subagent_stream_creator(subagent_stream_creator);
+        .with_mcp_registry(mcp_registry.clone());
     let agent_runner: Arc<dyn AgentRunner> = Arc::new(rig_runner);
 
     let coordinator = Arc::new(SessionCoordinator::new());

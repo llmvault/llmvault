@@ -23,6 +23,7 @@ pub struct TurnInput {
     pub images: Vec<ImageInput>,
     pub prior_history: Vec<HistoryEntry>,
     pub dynamic_context: Vec<String>,
+    pub session_stream_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +53,7 @@ impl TurnInput {
             images: Vec::new(),
             prior_history: Vec::new(),
             dynamic_context: Vec::new(),
+            session_stream_id: None,
         }
     }
 
@@ -72,6 +74,14 @@ impl TurnInput {
         let context = context.into();
         if !context.trim().is_empty() {
             self.dynamic_context.push(context);
+        }
+        self
+    }
+
+    pub fn with_session_stream_id(mut self, stream_id: impl Into<String>) -> Self {
+        let stream_id = stream_id.into();
+        if !stream_id.trim().is_empty() {
+            self.session_stream_id = Some(stream_id);
         }
         self
     }
