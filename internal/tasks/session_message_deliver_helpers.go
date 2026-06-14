@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
@@ -51,7 +52,7 @@ func stringSlice(value any) []string {
 	return out
 }
 
-func (h *SessionMessageDeliverHandler) markDelivered(ctx context.Context, queueID uuid.UUID, delivery *agentruntime.HTTPMessageResponse) error {
+func (h *SessionMessageDeliverHandler) markDelivered(ctx context.Context, queue *model.SessionMessageQueue, delivery *agentruntime.HTTPMessageResponse) error {
 	now := time.Now()
 	updates := map[string]any{
 		"status":       "delivered",
@@ -66,13 +67,27 @@ func (h *SessionMessageDeliverHandler) markDelivered(ctx context.Context, queueI
 		updates["runtime_trace_id"] = strings.TrimSpace(delivery.TraceID)
 		updates["runtime_turn_id"] = strings.TrimSpace(delivery.TurnID)
 	}
-	err := h.db.WithContext(ctx).Model(&model.SessionMessageQueue{}).
-		Where("id = ?", queueID).
-		Updates(updates).Error
-	if err != nil {
-		return fmt.Errorf("mark session message delivered: %w", err)
-	}
-	return nil
+	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.SessionMessageQueue{}).
+			Where("id = ?", queue.ID).
+			Updates(updates).Error; err != nil {
+			return fmt.Errorf("mark session message delivered: %w", err)
+		}
+		sessionUpdates := map[string]any{
+			"agent_turn_status": model.SessionAgentTurnActive,
+		}
+		if delivery != nil {
+			sessionUpdates["agent_turn_id"] = strings.TrimSpace(delivery.TurnID)
+			sessionUpdates["agent_stream_id"] = strings.TrimSpace(delivery.StreamID)
+		}
+		if err := tx.Model(&model.Session{}).
+			Where("id = ?", queue.SessionID).
+			Updates(sessionUpdates).Error; err != nil {
+			return fmt.Errorf("record session active turn: %w", err)
+		}
+		return nil
+	})
+	return err
 }
 
 func (h *SessionMessageDeliverHandler) releaseClaim(ctx context.Context, queueID uuid.UUID, cause error) error {
@@ -90,6 +105,17 @@ func (h *SessionMessageDeliverHandler) releaseClaim(ctx context.Context, queueID
 			"leased_by":    "",
 			"leased_until": nil,
 			"last_error":   msg,
+		}).Error
+}
+
+func (h *SessionMessageDeliverHandler) releaseSessionTurn(ctx context.Context, sessionID uuid.UUID) error {
+	return h.db.WithContext(ctx).Model(&model.Session{}).
+		Where("id = ?", sessionID).
+		Updates(map[string]any{
+			"agent_turn_status":     model.SessionAgentTurnIdle,
+			"agent_turn_id":         "",
+			"agent_stream_id":       "",
+			"agent_turn_started_at": nil,
 		}).Error
 }
 

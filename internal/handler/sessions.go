@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -9,16 +11,21 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 type SessionHandler struct {
 	db            *gorm.DB
 	enqueuer      enqueue.TaskEnqueuer
 	runtimeEncKey *crypto.SymmetricKey
+	orchestrator  *sandbox.Orchestrator
+	compileDeps   agentruntime.CompileDeps
 }
 
 func formatRuntimeTime(t time.Time) string {
@@ -69,6 +76,26 @@ func NewSessionHandler(db *gorm.DB, enqueuers ...enqueue.TaskEnqueuer) *SessionH
 func (h *SessionHandler) WithRuntimeStreamKey(key *crypto.SymmetricKey) *SessionHandler {
 	h.runtimeEncKey = key
 	return h
+}
+
+func (h *SessionHandler) WithRuntimeDelivery(orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps) *SessionHandler {
+	h.orchestrator = orchestrator
+	h.compileDeps = compileDeps
+	return h
+}
+
+func (h *SessionHandler) dispatchOrQueueSessionDelivery(ctx context.Context, sessionID uuid.UUID) (bool, error) {
+	if h.orchestrator != nil && h.compileDeps.EncKey != nil {
+		dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer).WithoutProvisioning()
+		if _, err := dispatcher.DispatchNext(ctx, sessionID); err == nil {
+			return false, nil
+		} else if errors.Is(err, tasks.ErrSessionTurnActive) {
+			return true, nil
+		} else if !errors.Is(err, tasks.ErrSessionRuntimeNotReady) && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return true, h.enqueueSessionDelivery(ctx, sessionID)
+		}
+	}
+	return true, h.enqueueSessionDelivery(ctx, sessionID)
 }
 
 type createSessionRequest struct {

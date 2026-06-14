@@ -1,0 +1,204 @@
+---
+- name: Assert runner API domain is configured
+  ansible.builtin.assert:
+    that:
+      - runner_api_domain is defined
+      - runner_api_domain | trim | length > 0
+      - runner_public_url is defined
+      - runner_public_url | trim == 'https://' ~ (runner_api_domain | trim)
+    fail_msg: "Each runner must define runner_api_domain and runner_public_url=https://<runner_api_domain>."
+
+- name: Assert runner Caddy OS is Ubuntu amd64
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == "Ubuntu"
+      - ansible_facts.architecture == "x86_64"
+    fail_msg: "The runner Caddy role currently targets Ubuntu on linux/amd64."
+
+- name: Install Caddy repository prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - debian-archive-keyring
+      - debian-keyring
+      - dnsutils
+      - gnupg
+      - golang-go
+      - ufw
+    state: present
+    update_cache: true
+
+- name: Verify runner API DNS A record points to this host from runner
+  ansible.builtin.command: "dig +short A {{ runner_api_domain }}"
+  register: runner_api_dns_a
+  changed_when: false
+
+- name: Require runner API DNS A record
+  ansible.builtin.assert:
+    that:
+      - ansible_host in (runner_api_dns_a.stdout_lines | map('trim') | list)
+    fail_msg: "DNS A record for {{ runner_api_domain }} must include {{ ansible_host }} before requesting a certificate. Current A records from runner: {{ runner_api_dns_a.stdout_lines | default([]) }}"
+
+- name: Check local ansible .env exists for Caddy DNS credentials
+  ansible.builtin.stat:
+    path: "{{ runner_api_caddy_env_file }}"
+  delegate_to: localhost
+  become: false
+  register: runner_api_caddy_env_file_stat
+
+- name: Require ansible .env for Caddy DNS credentials
+  ansible.builtin.assert:
+    that:
+      - runner_api_caddy_env_file_stat.stat.exists
+      - runner_api_caddy_env_file_stat.stat.isreg
+    fail_msg: "Create ansible/.env from ansible/.env.example and set VERCEL_AUTH_API_TOKEN before deploying runner Caddy."
+
+- name: Read ansible .env for Caddy DNS credentials
+  ansible.builtin.set_fact:
+    runner_api_caddy_env_lines: "{{ lookup('ansible.builtin.file', runner_api_caddy_env_file).splitlines() }}"
+  no_log: true
+
+- name: Parse ansible .env for Caddy DNS credentials
+  ansible.builtin.set_fact:
+    runner_api_caddy_env: "{{ runner_api_caddy_env | default({}) | combine({(item.split('=', 1)[0] | trim): (item.split('=', 1)[1] | trim | regex_replace('^\"(.*)\"$', '\\1') | regex_replace(\"^'(.*)'$\", '\\1'))}) }}"
+  loop: "{{ runner_api_caddy_env_lines }}"
+  when: item is match('^\\s*[A-Za-z_][A-Za-z0-9_]*=')
+  no_log: true
+
+- name: Require Caddy DNS provider env values
+  ansible.builtin.assert:
+    that:
+      - runner_api_caddy_env[item] is defined
+      - runner_api_caddy_env[item] | string | trim | length > 0
+    fail_msg: "Required value {{ item }} is missing from ansible/.env."
+  loop: "{{ runner_api_caddy_required_env }}"
+  no_log: true
+
+- name: Install Caddy apt key
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  args:
+    executable: /bin/bash
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Install Caddy apt source
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
+    dest: /etc/apt/sources.list.d/caddy-stable.list
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    state: present
+    update_cache: true
+
+- name: Install xcaddy
+  ansible.builtin.command: go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+  environment:
+    GOBIN: /usr/local/bin
+  args:
+    creates: /usr/local/bin/xcaddy
+
+- name: Check installed Caddy modules
+  ansible.builtin.command: "{{ runner_api_caddy_custom_binary }} list-modules"
+  register: runner_api_caddy_modules
+  changed_when: false
+  failed_when: false
+
+- name: Build Caddy with Vercel DNS module
+  ansible.builtin.command: "/usr/local/bin/xcaddy build {{ runner_api_caddy_version }} --with {{ runner_api_caddy_module }} --output {{ runner_api_caddy_custom_binary }}"
+  when: runner_api_caddy_modules.rc != 0 or 'dns.providers.vercel' not in runner_api_caddy_modules.stdout
+  notify: Reload runner caddy
+
+- name: Ensure Caddy custom binary is executable
+  ansible.builtin.file:
+    path: "{{ runner_api_caddy_custom_binary }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install Caddy systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/caddy.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure Caddy environment file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/caddy.service.d/10-hivy-runner-api-env.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart={{ runner_api_caddy_custom_binary }} run --config {{ runner_api_caddy_config_path }}
+      ExecReload=
+      ExecReload={{ runner_api_caddy_custom_binary }} reload --config {{ runner_api_caddy_config_path }} --force
+      Environment=VERCEL_AUTH_API_TOKEN={{ runner_api_caddy_env.VERCEL_AUTH_API_TOKEN }}
+  no_log: true
+
+- name: Render runner API Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ runner_api_caddy_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload runner caddy
+
+- name: Validate Caddyfile
+  ansible.builtin.command: "{{ runner_api_caddy_custom_binary }} validate --config {{ runner_api_caddy_config_path }}"
+  environment:
+    VERCEL_AUTH_API_TOKEN: "{{ runner_api_caddy_env.VERCEL_AUTH_API_TOKEN }}"
+  changed_when: false
+
+- name: Allow HTTP through UFW for runner Caddy
+  ansible.builtin.command: ufw allow 80/tcp
+  register: runner_api_caddy_ufw_http
+  changed_when: "'Rule added' in runner_api_caddy_ufw_http.stdout"
+
+- name: Allow HTTPS through UFW for runner Caddy
+  ansible.builtin.command: ufw allow 443/tcp
+  register: runner_api_caddy_ufw_https
+  changed_when: "'Rule added' in runner_api_caddy_ufw_https.stdout"
+
+- name: Remove legacy public Microsandbox runner API UFW rule
+  ansible.builtin.command: "ufw delete allow {{ runner_api_port }}/tcp"
+  register: runner_api_caddy_ufw_api_delete
+  changed_when: "'Rule deleted' in runner_api_caddy_ufw_api_delete.stdout"
+  failed_when: false
+
+- name: Enable and start Caddy
+  ansible.builtin.systemd:
+    name: "{{ runner_api_caddy_service_name }}"
+    enabled: true
+    state: restarted
+    daemon_reload: true
+
+- name: Check runner API Caddy public health
+  ansible.builtin.uri:
+    url: "https://{{ runner_api_domain }}/health"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 502
+    timeout: 30
+  register: runner_api_caddy_public_health
+  retries: 12
+  delay: 5
+  until: runner_api_caddy_public_health.status in [200, 502]
+
+- name: Print runner API Caddy provisioning result
+  ansible.builtin.debug:
+    msg:
+      - "Runner API Caddy is installed for {{ runner_api_domain }}."
+      - "Public health status: {{ runner_api_caddy_public_health.status }}"

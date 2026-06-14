@@ -64,6 +64,7 @@ func (h *AgentOutboundWebhookHandler) ensureRuntimeSession(ctx context.Context, 
 		SourceResourceKey: sessionSourceResourceKey(payload, runtimeSessionID),
 		Name:              defaultString(stringValue(payload, "session_name"), "Runtime session"),
 		Status:            "active",
+		AgentTurnStatus:   model.SessionAgentTurnIdle,
 		IntegrationScopes: model.JSON{},
 	}
 	if err := h.db.WithContext(ctx).Create(&session).Error; err != nil {
