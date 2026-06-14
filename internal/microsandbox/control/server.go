@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
@@ -29,9 +31,13 @@ func NewServer(db *gorm.DB, cfg config.Config) *Server {
 		client:       NewRunnerClient(cfg.RunnerAPIToken),
 		previewCache: NewPreviewCacheClient(cfg),
 	}
-	go s.watchRunners()
+	goroutine.Go(context.Background(), func(ctx context.Context) {
+		s.watchRunners(ctx)
+	})
 	if s.previewCache != nil {
-		go s.watchPreviewRoutes()
+		goroutine.Go(context.Background(), func(ctx context.Context) {
+			s.watchPreviewRoutes(ctx)
+		})
 	}
 	return s
 }
@@ -80,18 +86,23 @@ func (s *Server) requireAPI(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) watchRunners() {
+func (s *Server) watchRunners(ctx context.Context) {
 	ticker := time.NewTicker(s.cfg.RunnerCheckInterval)
 	defer ticker.Stop()
-	for range ticker.C {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 		cutoff := time.Now().Add(-s.cfg.RunnerUnhealthyAfter)
 		var runners []model.Runner
-		if err := s.db.Where("last_heartbeat_at IS NULL OR last_heartbeat_at < ?", cutoff).Find(&runners).Error; err != nil {
+		if err := s.db.WithContext(ctx).Where("last_heartbeat_at IS NULL OR last_heartbeat_at < ?", cutoff).Find(&runners).Error; err != nil {
 			slog.Error("runner health query failed", "error", err)
 			continue
 		}
 		for _, runner := range runners {
-			s.db.Model(&runner).Update("status", model.RunnerStatusUnhealthy)
+			s.db.WithContext(ctx).Model(&runner).Update("status", model.RunnerStatusUnhealthy)
 			err := &runnerUnhealthyError{RunnerID: runner.ID, Name: runner.Name, LastHeartbeatAt: runner.LastHeartbeatAt}
 			sentry.CaptureException(err)
 			slog.Error("runner heartbeat overdue", "runner_id", runner.ID, "name", runner.Name, "last_heartbeat_at", runner.LastHeartbeatAt)

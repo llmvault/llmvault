@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { Button } from "@heroui/react"
 import { YourPlanSection } from "./_components/your-plan-section"
 import { CreditsUsageSection } from "./_components/credits-usage-section"
@@ -9,15 +8,7 @@ export default function BillingSettingsPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">Usage &amp; billing</h1>
         <p className="text-sm text-muted">
-          To view invoices, change your payment method, and take other actions,
-          visit{" "}
-          <Link
-            href="/w/credits"
-            className="text-accent underline-offset-2 hover:underline"
-          >
-            settings
-          </Link>{" "}
-          on web.
+          Manage your plan, credit balance, and usage for this workspace.
         </p>
       </div>
 
@@ -61,14 +52,14 @@ export default function BillingSettingsPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Cancel plan</h2>
         <p className="text-sm text-muted">
-          Your subscription is managed through Hivy. Go to{" "}
-          <Link
-            href="/w/credits"
+          Need to cancel your subscription? Contact{" "}
+          <a
+            href="mailto:hello@usehivy.com"
             className="text-accent underline-offset-2 hover:underline"
           >
-            billing
-          </Link>{" "}
-          to cancel your plan.
+            support
+          </a>{" "}
+          and we&apos;ll take care of it.
         </p>
       </section>
     </div>

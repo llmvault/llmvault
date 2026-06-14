@@ -989,14 +989,17 @@ async fn process_single_turn(
             .activate_session_stream(&session_id, stream_id)
             .await;
     }
+    let event_context = DurableEventContext {
+        emitter: emitter.as_ref(),
+        session_id: &session_id,
+        source: event_source,
+        stream_id: session_stream_id.as_deref(),
+        metadata: stream_metadata.as_ref(),
+    };
     emit_canonical_runtime_event(
-        emitter.as_ref(),
+        &event_context,
         event_types::TURN_STARTED,
-        &session_id,
-        event_source,
         0,
-        session_stream_id.as_deref(),
-        stream_metadata.as_ref(),
         json!({
             "input_text_len": inbound.text.len(),
         }),
@@ -1047,25 +1050,17 @@ async fn process_single_turn(
             .await;
     }
     emit_canonical_runtime_event(
-        emitter.as_ref(),
+        &event_context,
         event_types::FINAL,
-        &session_id,
-        event_source,
         outcome.sequence + 1,
-        session_stream_id.as_deref(),
-        stream_metadata.as_ref(),
         json!({ "text": final_text }),
     )
     .await;
     if let Some(error_message) = outcome.error.as_ref() {
         emit_canonical_runtime_event(
-            emitter.as_ref(),
+            &event_context,
             event_types::TURN_FAILED,
-            &session_id,
-            event_source,
             outcome.sequence + 2,
-            session_stream_id.as_deref(),
-            stream_metadata.as_ref(),
             json!({ "error": error_message }),
         )
         .await;
@@ -1074,13 +1069,9 @@ async fn process_single_turn(
             .await;
     } else {
         emit_canonical_runtime_event(
-            emitter.as_ref(),
+            &event_context,
             event_types::TURN_COMPLETED,
-            &session_id,
-            event_source,
             outcome.sequence + 2,
-            session_stream_id.as_deref(),
-            stream_metadata.as_ref(),
             json!({}),
         )
         .await;
@@ -1112,6 +1103,14 @@ async fn process_single_turn(
                 .get("agent_name")
                 .and_then(Value::as_str)
                 .unwrap_or("sub-agent");
+            let parent_session = SessionId::from(parent_session_id);
+            let parent_event_context = DurableEventContext {
+                emitter: emitter.as_ref(),
+                session_id: &parent_session,
+                source: "subagent_task",
+                stream_id: session_stream_id.as_deref(),
+                metadata: stream_metadata.as_ref(),
+            };
             if subagent_error.is_some() {
                 turn_event_sink
                     .publish_subagent_errored(
@@ -1124,13 +1123,9 @@ async fn process_single_turn(
                     )
                     .await;
                 emit_canonical_runtime_event(
-                    emitter.as_ref(),
+                    &parent_event_context,
                     event_types::SUBAGENT_ERRORED,
-                    &SessionId::from(parent_session_id),
-                    "subagent_task",
                     outcome.sequence + 3,
-                    session_stream_id.as_deref(),
-                    stream_metadata.as_ref(),
                     json!({
                         "job_id": job_id,
                         "agent_name": agent_name,
@@ -1150,13 +1145,9 @@ async fn process_single_turn(
                     )
                     .await;
                 emit_canonical_runtime_event(
-                    emitter.as_ref(),
+                    &parent_event_context,
                     event_types::SUBAGENT_COMPLETED,
-                    &SessionId::from(parent_session_id),
-                    "subagent_task",
                     outcome.sequence + 3,
-                    session_stream_id.as_deref(),
-                    stream_metadata.as_ref(),
                     json!({
                         "job_id": job_id,
                         "agent_name": agent_name,
@@ -1528,6 +1519,13 @@ async fn consume_agent_stream(
     let mut error_message: Option<String> = None;
     let mut sequence: u64 = 0;
     let mut durable = DurableAgentStream::default();
+    let event_context = DurableEventContext {
+        emitter,
+        session_id,
+        source,
+        stream_id: stream_id.as_deref(),
+        metadata,
+    };
     while let Some(event) = stream.next().await {
         sequence += 1;
         let client_event = sanitize_agent_event_for_clients(&event, session_id, source, sequence);
@@ -1543,15 +1541,7 @@ async fn consume_agent_stream(
             }
         }
         durable
-            .record_event(
-                emitter,
-                session_id,
-                source,
-                sequence,
-                stream_id.as_deref(),
-                metadata,
-                &client_event,
-            )
+            .record_event(&event_context, sequence, &client_event)
             .await;
         match event {
             AgentEvent::ThinkingChunk { .. } => {}
@@ -1568,9 +1558,7 @@ async fn consume_agent_stream(
             _ => {}
         }
     }
-    durable
-        .flush_all(emitter, session_id, source, stream_id.as_deref(), metadata)
-        .await;
+    durable.flush_all(&event_context).await;
     emitter
         .flush_streams_for_session_background(session_id.as_str())
         .await;
@@ -1689,6 +1677,14 @@ struct DurableAgentStream {
     tool_calls: HashMap<String, DurableToolCall>,
 }
 
+struct DurableEventContext<'a> {
+    emitter: &'a OutboundEmitter,
+    session_id: &'a SessionId,
+    source: &'static str,
+    stream_id: Option<&'a str>,
+    metadata: Option<&'a StreamEventMetadata>,
+}
+
 struct DurableDelta {
     event_type: &'static str,
     text: String,
@@ -1708,40 +1704,18 @@ struct DurableToolCall {
 impl DurableAgentStream {
     async fn record_event(
         &mut self,
-        emitter: &OutboundEmitter,
-        session_id: &SessionId,
-        source: &'static str,
+        context: &DurableEventContext<'_>,
         sequence: u64,
-        stream_id: Option<&str>,
-        metadata: Option<&StreamEventMetadata>,
         event: &AgentEvent,
     ) {
         match event {
             AgentEvent::ThinkingChunk { text } => {
-                self.record_delta(
-                    emitter,
-                    session_id,
-                    source,
-                    sequence,
-                    stream_id,
-                    metadata,
-                    event_types::THINKING,
-                    text,
-                )
-                .await;
+                self.record_delta(context, sequence, event_types::THINKING, text)
+                    .await;
             }
             AgentEvent::TokenChunk { text } => {
-                self.record_delta(
-                    emitter,
-                    session_id,
-                    source,
-                    sequence,
-                    stream_id,
-                    metadata,
-                    event_types::TOKEN,
-                    text,
-                )
-                .await;
+                self.record_delta(context, sequence, event_types::TOKEN, text)
+                    .await;
             }
             AgentEvent::ToolCall { id, tool, args } => {
                 self.tool_calls.insert(
@@ -1754,8 +1728,7 @@ impl DurableAgentStream {
                 );
             }
             AgentEvent::ToolResult { id, result } => {
-                self.flush_all(emitter, session_id, source, stream_id, metadata)
-                    .await;
+                self.flush_all(context).await;
                 let call = self.tool_calls.remove(id);
                 let error = result.get("error").and_then(Value::as_str).map(str::trim);
                 let status = if error.is_some_and(|value| !value.is_empty()) {
@@ -1793,46 +1766,21 @@ impl DurableAgentStream {
                         json!(summarize_json(result, TOOL_SUMMARY_CHARS)),
                     );
                 }
-                emit_canonical_runtime_event(
-                    emitter,
-                    event_types::TOOL_RESULT,
-                    session_id,
-                    source,
-                    sequence,
-                    stream_id,
-                    metadata,
-                    payload,
-                )
-                .await;
+                emit_canonical_runtime_event(context, event_types::TOOL_RESULT, sequence, payload)
+                    .await;
             }
             AgentEvent::RunEvent { event, payload } => {
                 if is_durable_run_event(event) {
-                    self.flush_all(emitter, session_id, source, stream_id, metadata)
-                        .await;
-                    emit_canonical_runtime_event(
-                        emitter,
-                        event,
-                        session_id,
-                        source,
-                        sequence,
-                        stream_id,
-                        metadata,
-                        payload.clone(),
-                    )
-                    .await;
+                    self.flush_all(context).await;
+                    emit_canonical_runtime_event(context, event, sequence, payload.clone()).await;
                 }
             }
             AgentEvent::Error { message } => {
-                self.flush_all(emitter, session_id, source, stream_id, metadata)
-                    .await;
+                self.flush_all(context).await;
                 emit_canonical_runtime_event(
-                    emitter,
+                    context,
                     event_types::ERROR,
-                    session_id,
-                    source,
                     sequence,
-                    stream_id,
-                    metadata,
                     json!({ "message": message }),
                 )
                 .await;
@@ -1843,12 +1791,8 @@ impl DurableAgentStream {
 
     async fn record_delta(
         &mut self,
-        emitter: &OutboundEmitter,
-        session_id: &SessionId,
-        source: &'static str,
+        context: &DurableEventContext<'_>,
         sequence: u64,
-        stream_id: Option<&str>,
-        metadata: Option<&StreamEventMetadata>,
         event_type: &'static str,
         text: &str,
     ) {
@@ -1863,8 +1807,7 @@ impl DurableAgentStream {
                 || pending.text.len() + text.len() > MAX_DURABLE_DELTA_TEXT_BYTES
         });
         if must_flush {
-            self.flush_pending_delta(emitter, session_id, source, stream_id, metadata)
-                .await;
+            self.flush_pending_delta(context).await;
         }
         let now = Utc::now();
         let pending = self.pending_delta.get_or_insert_with(|| DurableDelta {
@@ -1883,42 +1826,22 @@ impl DurableAgentStream {
         if pending.delta_count >= MAX_DURABLE_DELTA_COUNT
             || pending.text.len() >= MAX_DURABLE_DELTA_TEXT_BYTES
         {
-            self.flush_pending_delta(emitter, session_id, source, stream_id, metadata)
-                .await;
+            self.flush_pending_delta(context).await;
         }
     }
 
-    async fn flush_all(
-        &mut self,
-        emitter: &OutboundEmitter,
-        session_id: &SessionId,
-        source: &'static str,
-        stream_id: Option<&str>,
-        metadata: Option<&StreamEventMetadata>,
-    ) {
-        self.flush_pending_delta(emitter, session_id, source, stream_id, metadata)
-            .await;
+    async fn flush_all(&mut self, context: &DurableEventContext<'_>) {
+        self.flush_pending_delta(context).await;
     }
 
-    async fn flush_pending_delta(
-        &mut self,
-        emitter: &OutboundEmitter,
-        session_id: &SessionId,
-        source: &'static str,
-        stream_id: Option<&str>,
-        metadata: Option<&StreamEventMetadata>,
-    ) {
+    async fn flush_pending_delta(&mut self, context: &DurableEventContext<'_>) {
         let Some(delta) = self.pending_delta.take() else {
             return;
         };
         emit_canonical_runtime_event(
-            emitter,
+            context,
             delta.event_type,
-            session_id,
-            source,
             delta.sequence_end,
-            stream_id,
-            metadata,
             json!({
                 "text": delta.text,
                 "coalesced": true,
@@ -1949,20 +1872,23 @@ fn is_durable_run_event(event: &str) -> bool {
 }
 
 async fn emit_canonical_runtime_event(
-    emitter: &OutboundEmitter,
+    context: &DurableEventContext<'_>,
     event_type: &str,
-    session_id: &SessionId,
-    source: &'static str,
     sequence: u64,
-    stream_id: Option<&str>,
-    metadata: Option<&StreamEventMetadata>,
     payload: Value,
 ) {
-    emitter
+    context
+        .emitter
         .emit(OutboundEvent::new(
             event_type,
             canonical_runtime_payload(
-                event_type, session_id, source, sequence, stream_id, metadata, payload,
+                event_type,
+                context.session_id,
+                context.source,
+                sequence,
+                context.stream_id,
+                context.metadata,
+                payload,
             ),
         ))
         .await;
@@ -2105,10 +2031,10 @@ fn stream_event_metadata(inbound: &InboundEvent) -> Option<StreamEventMetadata> 
             subagent: None,
         });
     }
-    let Some(parent_session_id) = inbound.raw.get("parent_session_id").and_then(Value::as_str)
-    else {
-        return None;
-    };
+    let parent_session_id = inbound
+        .raw
+        .get("parent_session_id")
+        .and_then(Value::as_str)?;
     let job_id = inbound.raw.get("job_id")?.as_str()?.to_string();
     let agent_name = inbound
         .raw
