@@ -8,9 +8,10 @@ import {
   Input,
   Popover,
   Modal,
-  Badge,
   Switch,
+  useOverlayState,
 } from "@heroui/react"
+import type { UseOverlayStateReturn } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
@@ -239,6 +240,12 @@ export default function PluginsPage() {
   const [category, setCategory] = useState<PluginCategory>("All")
   const [source, setSource] = useState("curated")
   const [selectedPlugin, setSelectedPlugin] = useState<Plugin | null>(null)
+  const modalState = useOverlayState({
+    isOpen: selectedPlugin !== null,
+    onOpenChange: (next) => {
+      if (!next) setSelectedPlugin(null)
+    },
+  })
 
   const filteredPlugins = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -291,7 +298,7 @@ export default function PluginsPage() {
   function handleConnect() {
     if (!selectedPlugin) return
     toast.success(`${selectedPlugin.name} plugin added`)
-    setSelectedPlugin(null)
+    modalState.close()
   }
 
   return (
@@ -375,10 +382,10 @@ export default function PluginsPage() {
               {CONNECTED_APPS.map((app) => (
                 <div
                   key={app.id}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-card ring-1 ring-border transition-colors hover:bg-muted/40"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-card ring-1 ring-border transition-colors hover:bg-muted/40"
                   title={app.name}
                 >
-                  <AppIcon icon={app.icon} color={app.color} size={16} />
+                  <AppIcon icon={app.icon} color={app.color} size={14} />
                 </div>
               ))}
             </div>
@@ -409,7 +416,7 @@ export default function PluginsPage() {
 
       <ConnectModal
         plugin={selectedPlugin}
-        onClose={() => setSelectedPlugin(null)}
+        state={modalState}
         onConnect={handleConnect}
       />
     </div>
@@ -518,55 +525,68 @@ function EmptyState({ query }: { query: string }) {
 
 function ConnectModal({
   plugin,
-  onClose,
+  state,
   onConnect,
 }: {
   plugin: Plugin | null
-  onClose: () => void
+  state: UseOverlayStateReturn
   onConnect: () => void
 }) {
   const [referenceMemory, setReferenceMemory] = useState(true)
-  const open = plugin !== null
 
   return (
-    <Modal isOpen={open} onOpenChange={(next) => !next && onClose()}>
+    <Modal.Root state={state}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog className="w-full max-w-md rounded-2xl border border-border bg-background p-0 shadow-xl outline-none">
+          <Modal.Dialog className="relative w-full max-w-md rounded-3xl border border-border bg-background p-0 shadow-xl outline-none">
             {plugin ? (
-              <div className="flex flex-col gap-5 p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-6 p-6">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  onPress={state.close}
+                  aria-label="Close"
+                  className="absolute top-4 right-4"
+                >
+                  <Icon icon="lucide:x" className="h-4 w-4" />
+                </Button>
+
+                <div className="flex flex-col items-center gap-4 pt-2 text-center">
+                  <div className="flex items-center gap-4">
                     <div
-                      className="flex h-10 w-10 items-center justify-center rounded-lg text-white"
+                      className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
                       style={{ backgroundColor: plugin.iconColor }}
                     >
-                      <AppIcon icon={plugin.icon} color="#FFFFFF" size={18} />
+                      <AppIcon icon={plugin.icon} color="#FFFFFF" size={32} />
                     </div>
-                    <Icon icon="lucide:arrow-right" className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground text-background">
-                      <Icon icon="lucide:bot" className="h-5 w-5" />
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                    </div>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background">
+                      <Icon icon="lucide:bot" className="h-8 w-8 text-foreground" />
                     </div>
                   </div>
-                  <Button variant="ghost" isIconOnly onPress={onClose} aria-label="Close">
-                    <Icon icon="lucide:x" className="h-4 w-4" />
-                  </Button>
+
+                  <div className="flex flex-col items-center gap-2">
+                    <h2 className="text-2xl font-semibold text-foreground">
+                      Connect {plugin.name}
+                    </h2>
+                    <div className="flex items-center gap-1.5 text-success">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success text-background">
+                        <Icon icon="lucide:check" className="h-2.5 w-2.5" />
+                      </span>
+                      <span className="text-sm font-medium">Approved by your admin</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="text-center">
-                  <h2 className="text-xl font-semibold text-foreground">
-                    Connect {plugin.name}
-                  </h2>
-                  <Badge color="success" variant="soft" className="mt-2">
-                    <Icon icon="lucide:check" className="mr-1 h-3 w-3" />
-                    Approved by your admin
-                  </Badge>
-                </div>
-
-                <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
+                <div className="rounded-2xl border border-border bg-card p-5">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-foreground">
+                    <div className="text-left">
+                      <h3 className="text-base font-medium text-foreground">
                         Reference memories and chats
                       </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
@@ -584,45 +604,69 @@ function ConnectModal({
                       </Switch.Control>
                     </Switch>
                   </div>
-                </div>
 
-                <div className="flex flex-col gap-4 text-sm text-muted-foreground">
-                  <div>
-                    <h3 className="font-medium text-foreground">You&apos;re in control</h3>
-                    <p className="mt-1">
+                  <hr className="my-4 border-border" />
+
+                  <div className="text-left">
+                    <h3 className="text-base font-medium text-foreground">You&apos;re in control</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       Hivy always respects your training data preferences, and is
                       limited to permissions you&apos;ve explicitly set.
                     </p>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-foreground">
+
+                  <hr className="my-4 border-border" />
+
+                  <div className="text-left">
+                    <h3 className="text-base font-medium text-foreground">
                       Apps may introduce elevated risk
                     </h3>
-                    <p className="mt-1">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       Hivy is built to protect your data, but attackers may attempt to
                       use Hivy to access your data in the app, or use the app to
                       attempt to access your data in Hivy.
                     </p>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-foreground">Data shared with this app</h3>
-                    <p className="mt-1">
+
+                  <hr className="my-4 border-border" />
+
+                  <div className="text-left">
+                    <h3 className="text-base font-medium text-foreground">Data shared with this app</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       By adding this app, you allow it to access basic information
                       typically shared when you visit a website, such as your IP address
-                      and approximate location, and a summary of your recent context
-                      and intent within Hivy.
+                      and approximate location{" "}
+                      <button type="button" className="underline hover:text-foreground">
+                        learn more
+                      </button>
+                      , and a summary of your recent context and intent within Hivy.
+                      Our policies require that apps only access relevant content to
+                      respond to your requests. This data will be used as described in
+                      the app{" "}
+                      <button type="button" className="underline hover:text-foreground">
+                        Terms of Use
+                      </button>{" "}
+                      and{" "}
+                      <button type="button" className="underline hover:text-foreground">
+                        Privacy
+                      </button>
+                      .
                     </p>
                   </div>
                 </div>
 
-                <Button fullWidth className="rounded-full" onPress={onConnect}>
+                <Button
+                  fullWidth
+                  className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+                  onPress={onConnect}
+                >
                   Continue to {plugin.name}
                   <Icon icon="lucide:arrow-up-right" className="ml-1 h-4 w-4" />
                 </Button>
 
                 <button
                   type="button"
-                  className="text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-center text-sm text-muted-foreground underline transition-colors hover:text-foreground"
                 >
                   Advanced settings (opens hivy.com)
                 </button>
@@ -631,6 +675,6 @@ function ConnectModal({
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
-    </Modal>
+    </Modal.Root>
   )
 }

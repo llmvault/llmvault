@@ -20,15 +20,13 @@
             timeout: 10
           register: microsandbox_local_health
 
-        - name: Check public runner health from Ansible controller
+        - name: Check HTTPS runner health from runner
           ansible.builtin.uri:
             url: "{{ runner_public_url | trim | regex_replace('/+$', '') }}/health"
             method: GET
             return_content: true
             status_code: 200
             timeout: 15
-          delegate_to: localhost
-          become: false
           register: microsandbox_public_health
 
         - name: Verify runner API port is not publicly reachable

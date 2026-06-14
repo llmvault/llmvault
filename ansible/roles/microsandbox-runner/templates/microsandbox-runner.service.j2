@@ -9,6 +9,7 @@ EnvironmentFile={{ microsandbox_runner_env_path }}
 ExecStart={{ microsandbox_binary_remote_path }} runner
 Restart=always
 RestartSec=3
+KillMode=process
 User=root
 LimitNOFILE=1048576
 TasksMax=infinity

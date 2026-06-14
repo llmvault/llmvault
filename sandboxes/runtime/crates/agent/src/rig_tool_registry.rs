@@ -21,11 +21,6 @@ use tools::{JsonTool, ProcessRegistry, ToolDefinition};
 
 use crate::{PlanUpdater, QuestionRequester};
 
-/// Type alias for a function that creates an SSE stream for a subagent task session.
-/// Returns (stream_id, stream_url).
-pub type SubagentStreamCreator =
-    Arc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = (String, String)> + Send>> + Send + Sync>;
-
 pub type ToolFuture = Pin<Box<dyn Future<Output = Result<Value>> + Send>>;
 
 pub struct DynamicTool {
@@ -67,7 +62,7 @@ pub struct ToolContext {
     pub workspace_root: PathBuf,
     pub outbound_emitter: Option<Arc<OutboundEmitter>>,
     pub agent_registry: Arc<AgentDefinitionRegistry>,
-    pub subagent_stream_creator: Option<SubagentStreamCreator>,
+    pub session_stream_id: Option<String>,
 }
 
 pub fn build_agent_tools(
@@ -129,7 +124,7 @@ pub fn build_agent_tools(
                             session_id.clone(),
                             ctx.agent_registry.clone(),
                             config.clone(),
-                            ctx.subagent_stream_creator.clone(),
+                            ctx.session_stream_id.clone(),
                         ));
                     }
                 }
@@ -730,7 +725,7 @@ fn subagent_task_tool(
     session_id: SessionId,
     agent_registry: Arc<AgentDefinitionRegistry>,
     config: SubagentTaskConfig,
-    stream_creator: Option<SubagentStreamCreator>,
+    session_stream_id: Option<String>,
 ) -> Arc<dyn JsonTool> {
     let agent_desc = build_agent_list_description(&agent_registry, &config.agents);
     let agent_names: Vec<String> = if config.agents.is_empty() {
@@ -767,7 +762,7 @@ fn subagent_task_tool(
             let agent_registry = agent_registry.clone();
             let agent_names = agent_names_clone.clone();
             let config_agents = config_agents.clone();
-            let stream_creator = stream_creator.clone();
+            let session_stream_id = session_stream_id.clone();
             Box::pin(async move {
                 let goal = args
                     .get("goal")
@@ -799,24 +794,13 @@ fn subagent_task_tool(
                 let id = format!("subagent-task-{}", now.timestamp_millis());
                 let child_session_id = SessionId::from(format!("subagent-{}", id));
 
-                // Create an SSE stream for the subagent task session.
-                let (stream_id, stream_url) = if let Some(ref creator) = stream_creator {
-                    creator(child_session_id.as_str()).await
-                } else {
-                    (String::new(), String::new())
-                };
-
                 let task = SubagentTask {
                     id: id.clone(),
                     parent_session_id: session_id.clone(),
                     child_session_id: child_session_id.clone(),
                     agent_name: agent_name.clone(),
                     goal,
-                    stream_id: if stream_id.is_empty() {
-                        None
-                    } else {
-                        Some(stream_id.clone())
-                    },
+                    stream_id: session_stream_id.clone(),
                     state: SubagentTaskState::Queued,
                     result: None,
                     error: None,
@@ -830,8 +814,6 @@ fn subagent_task_tool(
                     "job_id": id,
                     "state": "queued",
                     "session_id": child_session_id.as_str(),
-                    "stream_id": task.stream_id,
-                    "stream_url": if stream_url.is_empty() { Value::Null } else { Value::String(stream_url) },
                     "message": format!(
                         "The subagent is now working. You will be automatically notified once the subagent is done working. If you need to check on its progress, call check_subagent_task_status with job id {}.",
                         id
@@ -867,7 +849,6 @@ fn check_subagent_task_status_tool(repo: Arc<dyn SubagentTaskRepo>) -> Arc<dyn J
                     "error": task.error,
                     "result": task.result,
                     "session_id": task.child_session_id.as_str(),
-                    "stream_id": task.stream_id,
                     "system_reminder": "Subagent tasks run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
                 });
                 if matches!(

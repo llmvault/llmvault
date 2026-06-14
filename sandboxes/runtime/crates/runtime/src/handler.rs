@@ -31,13 +31,33 @@ use crate::session_coordinator::{SessionCoordinator, Submission};
 const USER_RETRY_MESSAGE: &str =
     "Something went wrong while generating that response. Please retry. The Hivy team has been notified of this error.";
 
+#[derive(Clone, Debug)]
+pub struct StreamEventMetadata {
+    pub subagent: SubagentStreamMetadata,
+}
+
+#[derive(Clone, Debug)]
+pub struct SubagentStreamMetadata {
+    pub job_id: String,
+    pub agent_name: String,
+    pub parent_session_id: String,
+    pub child_session_id: String,
+}
+
 #[async_trait]
 pub trait TurnEventSink: Send + Sync + 'static {
     async fn activate_session_stream(&self, _session_id: &SessionId, _stream_id: &str) {}
 
     async fn clear_active_session_stream(&self, _session_id: &SessionId, _stream_id: &str) {}
 
-    async fn publish_final(&self, _stream_id: &str, _session_id: &SessionId, _text: &str) {}
+    async fn publish_final(
+        &self,
+        _stream_id: &str,
+        _session_id: &SessionId,
+        _text: &str,
+        _metadata: Option<&StreamEventMetadata>,
+    ) {
+    }
 
     async fn publish_done(&self, _stream_id: &str, _session_id: &SessionId) {}
 
@@ -48,15 +68,17 @@ pub trait TurnEventSink: Send + Sync + 'static {
         stream_id: &str,
         session_id: &SessionId,
         event: &AgentEvent,
+        metadata: Option<&StreamEventMetadata>,
     );
 
     /// Emit on the PARENT stream when a subagent task starts.
     async fn publish_subagent_started(
         &self,
         _parent_session_id: &str,
+        _parent_stream_id: Option<&str>,
         _job_id: &str,
         _agent_name: &str,
-        _stream_url: &str,
+        _child_session_id: &str,
     ) {
     }
 
@@ -64,8 +86,10 @@ pub trait TurnEventSink: Send + Sync + 'static {
     async fn publish_subagent_completed(
         &self,
         _parent_session_id: &str,
+        _parent_stream_id: Option<&str>,
         _job_id: &str,
         _agent_name: &str,
+        _child_session_id: &str,
     ) {
     }
 
@@ -73,8 +97,10 @@ pub trait TurnEventSink: Send + Sync + 'static {
     async fn publish_subagent_errored(
         &self,
         _parent_session_id: &str,
+        _parent_stream_id: Option<&str>,
         _job_id: &str,
         _agent_name: &str,
+        _child_session_id: &str,
         _error: &str,
     ) {
     }
@@ -92,14 +118,23 @@ impl TurnEventSink for api::SessionStreamBroker {
             .await;
     }
 
-    async fn publish_final(&self, stream_id: &str, session_id: &SessionId, text: &str) {
+    async fn publish_final(
+        &self,
+        stream_id: &str,
+        session_id: &SessionId,
+        text: &str,
+        metadata: Option<&StreamEventMetadata>,
+    ) {
         self.publish(
             stream_id,
             "final",
-            serde_json::json!({
+            stream_payload(
+                serde_json::json!({
                 "session_id": session_id.as_str(),
                 "text": text,
-            }),
+                }),
+                metadata,
+            ),
         )
         .await;
     }
@@ -132,16 +167,20 @@ impl TurnEventSink for api::SessionStreamBroker {
         stream_id: &str,
         session_id: &SessionId,
         event: &AgentEvent,
+        metadata: Option<&StreamEventMetadata>,
     ) {
         match event {
             AgentEvent::ThinkingChunk { text } => {
                 self.publish(
                     stream_id,
                     "thinking",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "text": text,
-                    }),
+                    stream_payload(
+                        serde_json::json!({
+                            "session_id": session_id.as_str(),
+                            "text": text,
+                        }),
+                        metadata,
+                    ),
                 )
                 .await;
             }
@@ -149,10 +188,13 @@ impl TurnEventSink for api::SessionStreamBroker {
                 self.publish(
                     stream_id,
                     "token",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "text": text,
-                    }),
+                    stream_payload(
+                        serde_json::json!({
+                            "session_id": session_id.as_str(),
+                            "text": text,
+                        }),
+                        metadata,
+                    ),
                 )
                 .await;
             }
@@ -160,12 +202,15 @@ impl TurnEventSink for api::SessionStreamBroker {
                 self.publish(
                     stream_id,
                     "tool_call",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "id": id,
-                        "tool": tool,
-                        "args": args,
-                    }),
+                    stream_payload(
+                        serde_json::json!({
+                            "session_id": session_id.as_str(),
+                            "id": id,
+                            "tool": tool,
+                            "args": args,
+                        }),
+                        metadata,
+                    ),
                 )
                 .await;
             }
@@ -173,25 +218,32 @@ impl TurnEventSink for api::SessionStreamBroker {
                 self.publish(
                     stream_id,
                     "tool_result",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "id": id,
-                        "result": result,
-                    }),
+                    stream_payload(
+                        serde_json::json!({
+                            "session_id": session_id.as_str(),
+                            "id": id,
+                            "result": result,
+                        }),
+                        metadata,
+                    ),
                 )
                 .await;
             }
             AgentEvent::RunEvent { event, payload } => {
-                self.publish(stream_id, event, payload.clone()).await;
+                self.publish(stream_id, event, stream_payload(payload.clone(), metadata))
+                    .await;
             }
             AgentEvent::Error { message } => {
                 self.publish(
                     stream_id,
                     "error",
-                    serde_json::json!({
-                        "session_id": session_id.as_str(),
-                        "message": message,
-                    }),
+                    stream_payload(
+                        serde_json::json!({
+                            "session_id": session_id.as_str(),
+                            "message": message,
+                        }),
+                        metadata,
+                    ),
                 )
                 .await;
             }
@@ -202,19 +254,20 @@ impl TurnEventSink for api::SessionStreamBroker {
     async fn publish_subagent_started(
         &self,
         parent_session_id: &str,
+        parent_stream_id: Option<&str>,
         job_id: &str,
         agent_name: &str,
-        stream_url: &str,
+        child_session_id: &str,
     ) {
-        if let Some(parent_stream_id) = self.stream_id_for_session(parent_session_id).await {
+        let parent_stream_id = match parent_stream_id {
+            Some(stream_id) => Some(stream_id.to_string()),
+            None => self.stream_id_for_session(parent_session_id).await,
+        };
+        if let Some(parent_stream_id) = parent_stream_id {
             self.publish(
                 &parent_stream_id,
                 "subagent_started",
-                serde_json::json!({
-                    "job_id": job_id,
-                    "agent_name": agent_name,
-                    "stream_url": stream_url,
-                }),
+                subagent_lifecycle_payload(parent_session_id, job_id, agent_name, child_session_id),
             )
             .await;
         }
@@ -223,17 +276,20 @@ impl TurnEventSink for api::SessionStreamBroker {
     async fn publish_subagent_completed(
         &self,
         parent_session_id: &str,
+        parent_stream_id: Option<&str>,
         job_id: &str,
         agent_name: &str,
+        child_session_id: &str,
     ) {
-        if let Some(parent_stream_id) = self.stream_id_for_session(parent_session_id).await {
+        let parent_stream_id = match parent_stream_id {
+            Some(stream_id) => Some(stream_id.to_string()),
+            None => self.stream_id_for_session(parent_session_id).await,
+        };
+        if let Some(parent_stream_id) = parent_stream_id {
             self.publish(
                 &parent_stream_id,
                 "subagent_completed",
-                serde_json::json!({
-                    "job_id": job_id,
-                    "agent_name": agent_name,
-                }),
+                subagent_lifecycle_payload(parent_session_id, job_id, agent_name, child_session_id),
             )
             .await;
         }
@@ -242,23 +298,75 @@ impl TurnEventSink for api::SessionStreamBroker {
     async fn publish_subagent_errored(
         &self,
         parent_session_id: &str,
+        parent_stream_id: Option<&str>,
         job_id: &str,
         agent_name: &str,
+        child_session_id: &str,
         error: &str,
     ) {
-        if let Some(parent_stream_id) = self.stream_id_for_session(parent_session_id).await {
-            self.publish(
-                &parent_stream_id,
-                "subagent_errored",
-                serde_json::json!({
-                    "job_id": job_id,
-                    "agent_name": agent_name,
-                    "error": error,
-                }),
-            )
+        let parent_stream_id = match parent_stream_id {
+            Some(stream_id) => Some(stream_id.to_string()),
+            None => self.stream_id_for_session(parent_session_id).await,
+        };
+        if let Some(parent_stream_id) = parent_stream_id {
+            self.publish(&parent_stream_id, "subagent_errored", {
+                let mut payload = subagent_lifecycle_payload(
+                    parent_session_id,
+                    job_id,
+                    agent_name,
+                    child_session_id,
+                );
+                if let Some(map) = payload.as_object_mut() {
+                    map.insert("error".to_string(), serde_json::json!(error));
+                }
+                payload
+            })
             .await;
         }
     }
+}
+
+fn stream_payload(mut payload: Value, metadata: Option<&StreamEventMetadata>) -> Value {
+    let Some(metadata) = metadata else {
+        return payload;
+    };
+    let Some(map) = payload.as_object_mut() else {
+        return payload;
+    };
+    map.insert("scope".to_string(), serde_json::json!("subagent"));
+    map.insert(
+        "subagent".to_string(),
+        serde_json::json!({
+            "job_id": metadata.subagent.job_id.as_str(),
+            "agent_name": metadata.subagent.agent_name.as_str(),
+            "parent_session_id": metadata.subagent.parent_session_id.as_str(),
+            "child_session_id": metadata.subagent.child_session_id.as_str(),
+        }),
+    );
+    payload
+}
+
+fn subagent_lifecycle_payload(
+    parent_session_id: &str,
+    job_id: &str,
+    agent_name: &str,
+    child_session_id: &str,
+) -> Value {
+    stream_payload(
+        serde_json::json!({
+            "session_id": parent_session_id,
+            "job_id": job_id,
+            "agent_name": agent_name,
+        }),
+        Some(&StreamEventMetadata {
+            subagent: SubagentStreamMetadata {
+                job_id: job_id.to_string(),
+                agent_name: agent_name.to_string(),
+                parent_session_id: parent_session_id.to_string(),
+                child_session_id: child_session_id.to_string(),
+            },
+        }),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -390,10 +498,12 @@ pub async fn handle_inbound(
 
             let follow_ups = coordinator.finish_turn(&current_inbound.session_id);
             if follow_ups.is_empty() {
-                if let Some(stream_id) = session_stream_id.as_deref() {
-                    turn_event_sink
-                        .publish_done(stream_id, &current_inbound.session_id)
-                        .await;
+                if !is_subagent_task_inbound(&current_inbound) {
+                    if let Some(stream_id) = session_stream_id.as_deref() {
+                        turn_event_sink
+                            .publish_done(stream_id, &current_inbound.session_id)
+                            .await;
+                    }
                 }
                 break 'turns;
             }
@@ -545,7 +655,8 @@ async fn bridge_terminal_to_streams(
     final_text: &str,
 ) {
     for stream_id in stream_ids {
-        sink.publish_final(stream_id, session_id, final_text).await;
+        sink.publish_final(stream_id, session_id, final_text, None)
+            .await;
         sink.publish_done(stream_id, session_id).await;
     }
 }
@@ -838,6 +949,9 @@ async fn process_single_turn(
 
     let DownloadResults { images, .. } = media;
     let mut turn_input = TurnInput::text(annotated_text);
+    if let Some(stream_id) = session_stream_id(inbound) {
+        turn_input = turn_input.with_session_stream_id(stream_id);
+    }
     for context in &inbound.dynamic_context {
         turn_input = turn_input.with_dynamic_context(context.clone());
     }
@@ -846,6 +960,7 @@ async fn process_single_turn(
     }
 
     let session_stream_id = session_stream_id(inbound);
+    let stream_metadata = stream_event_metadata(inbound);
     if let Some(stream_id) = session_stream_id.as_deref() {
         turn_event_sink
             .activate_session_stream(&session_id, stream_id)
@@ -864,6 +979,7 @@ async fn process_single_turn(
                 &emitter,
                 event_source,
                 turn_event_sink.as_ref(),
+                stream_metadata.as_ref(),
             )
             .await
         }
@@ -878,7 +994,12 @@ async fn process_single_turn(
     let reply_text_for_event = final_text.clone();
     if let Some(stream_id) = session_stream_id.as_deref() {
         turn_event_sink
-            .publish_final(stream_id, &session_id, &final_text)
+            .publish_final(
+                stream_id,
+                &session_id,
+                &final_text,
+                stream_metadata.as_ref(),
+            )
             .await;
     }
     // Bridge the merged turn's answer to every queued follow-up's stream.
@@ -940,12 +1061,6 @@ async fn process_single_turn(
             } else {
                 outcome.text.clone()
             };
-            // Publish done on the subagent task's own SSE stream.
-            if let Some(stream_id) = session_stream_id.as_deref() {
-                turn_event_sink.publish_done(stream_id, &session_id).await;
-            }
-
-            // Emit subagent lifecycle event on the parent's SSE stream
             let agent_name = inbound
                 .raw
                 .get("agent_name")
@@ -955,14 +1070,22 @@ async fn process_single_turn(
                 turn_event_sink
                     .publish_subagent_errored(
                         parent_session_id,
+                        session_stream_id.as_deref(),
                         job_id,
                         agent_name,
+                        session_id.as_str(),
                         subagent_error.unwrap_or("unknown"),
                     )
                     .await;
             } else {
                 turn_event_sink
-                    .publish_subagent_completed(parent_session_id, job_id, agent_name)
+                    .publish_subagent_completed(
+                        parent_session_id,
+                        session_stream_id.as_deref(),
+                        job_id,
+                        agent_name,
+                        session_id.as_str(),
+                    )
                     .await;
             }
 
@@ -1250,6 +1373,7 @@ fn inbound_event_source(inbound: &InboundEvent) -> &'static str {
         "cron" => "cron",
         "wake" => "wake",
         "web" => "web",
+        "subagent_task" => "subagent_task",
         "subagent_task_result" => "subagent_task_result",
         _ => "session",
     }
@@ -1286,6 +1410,8 @@ fn copy_inbound_metadata(payload: &mut Value, inbound: &InboundEvent) {
         "job_id",
         "agent_name",
         "parent_session_id",
+        "child_session_id",
+        "stream_scope",
         "subagent_task_goal",
     ] {
         if let Some(value) = inbound.raw.get(key) {
@@ -1315,6 +1441,7 @@ async fn consume_agent_stream(
     emitter: &OutboundEmitter,
     source: &'static str,
     event_sink: &dyn TurnEventSink,
+    metadata: Option<&StreamEventMetadata>,
 ) -> StreamOutcome {
     let mut accumulated = String::new();
     let mut final_message: Option<String> = None;
@@ -1325,7 +1452,7 @@ async fn consume_agent_stream(
         let client_event = sanitize_agent_event_for_clients(&event, session_id, source, sequence);
         if let Some(stream_id) = stream_id.as_deref() {
             event_sink
-                .publish_agent_event(stream_id, session_id, &client_event)
+                .publish_agent_event(stream_id, session_id, &client_event, metadata)
                 .await;
         }
         emit_agent_stream_event(emitter, session_id, source, sequence, &client_event).await;
@@ -1514,6 +1641,28 @@ fn session_stream_id(inbound: &InboundEvent) -> Option<String> {
         .get("session_stream_id")
         .and_then(serde_json::Value::as_str)
         .map(ToString::to_string)
+}
+
+fn stream_event_metadata(inbound: &InboundEvent) -> Option<StreamEventMetadata> {
+    if !is_subagent_task_inbound(inbound) {
+        return None;
+    }
+    let parent_session_id = inbound.raw.get("parent_session_id")?.as_str()?.to_string();
+    let job_id = inbound.raw.get("job_id")?.as_str()?.to_string();
+    let agent_name = inbound
+        .raw
+        .get("agent_name")
+        .and_then(Value::as_str)
+        .unwrap_or("sub-agent")
+        .to_string();
+    Some(StreamEventMetadata {
+        subagent: SubagentStreamMetadata {
+            job_id,
+            agent_name,
+            parent_session_id,
+            child_session_id: inbound.session_id.as_str().to_string(),
+        },
+    })
 }
 
 fn format_final_message(outcome: &StreamOutcome) -> String {
@@ -1707,7 +1856,13 @@ mod stream_tests {
 
     #[async_trait]
     impl TurnEventSink for RecordingSink {
-        async fn publish_final(&self, stream_id: &str, _session_id: &SessionId, _text: &str) {
+        async fn publish_final(
+            &self,
+            stream_id: &str,
+            _session_id: &SessionId,
+            _text: &str,
+            _metadata: Option<&super::StreamEventMetadata>,
+        ) {
             self.events
                 .lock()
                 .expect("events lock")
@@ -1726,6 +1881,7 @@ mod stream_tests {
             stream_id: &str,
             _session_id: &SessionId,
             event: &AgentEvent,
+            _metadata: Option<&super::StreamEventMetadata>,
         ) {
             let name = match event {
                 AgentEvent::ThinkingChunk { .. } => "thinking",
@@ -1809,6 +1965,7 @@ mod stream_tests {
             &emitter,
             "session",
             &sink,
+            None,
         )
         .await;
 

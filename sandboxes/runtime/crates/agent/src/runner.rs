@@ -53,7 +53,6 @@ pub struct RigAgentRunner {
     plan_updater: Option<Arc<dyn PlanUpdater>>,
     event_repo: Option<Arc<dyn storage::EventRepo>>,
     mcp_registry: Option<Arc<McpRegistry>>,
-    subagent_stream_creator: Option<crate::rig_tool_registry::SubagentStreamCreator>,
     safety: SafetyHarness,
 }
 
@@ -69,7 +68,6 @@ impl RigAgentRunner {
             plan_updater: None,
             event_repo: None,
             mcp_registry: None,
-            subagent_stream_creator: None,
             safety: SafetyHarness::new(SafetyConfig::default()),
         }
     }
@@ -109,14 +107,6 @@ impl RigAgentRunner {
         self
     }
 
-    pub fn with_subagent_stream_creator(
-        mut self,
-        creator: crate::rig_tool_registry::SubagentStreamCreator,
-    ) -> Self {
-        self.subagent_stream_creator = Some(creator);
-        self
-    }
-
     pub fn with_safety_config(mut self, config: SafetyConfig) -> Self {
         self.safety = SafetyHarness::new(config);
         self
@@ -136,6 +126,7 @@ impl AgentRunner for RigAgentRunner {
         let model_config = pick_model_for_turn(&snapshot, &user_input);
         let runtime_env = self.config.runtime_env();
         let safety_config = snapshot.safety.clone();
+        let session_stream_id = user_input.session_stream_id.clone();
         let ModelClientConfig {
             client,
             model_id,
@@ -186,7 +177,7 @@ impl AgentRunner for RigAgentRunner {
                 workspace_root: tool_context.workspace_root.clone(),
                 outbound_emitter: self.outbound_emitter.clone(),
                 agent_registry: self.config.agent_registry(),
-                subagent_stream_creator: self.subagent_stream_creator.clone(),
+                session_stream_id,
             },
             mcp_registry.clone(),
         );

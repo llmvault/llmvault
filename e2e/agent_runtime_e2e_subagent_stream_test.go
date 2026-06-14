@@ -1,87 +1,97 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 )
 
-type subagentStreamMonitor struct {
-	trace   *agentRuntimeE2ETrace
-	ctx     context.Context
-	baseURL string
-	token   string
-	wg      sync.WaitGroup
-	mu      sync.Mutex
-	streams map[string][]runtimeSSEEvent
-	errors  []string
-}
-
-func newSubagentStreamMonitor(trace *agentRuntimeE2ETrace, ctx context.Context, baseURL, token string) *subagentStreamMonitor {
-	return &subagentStreamMonitor{trace: trace, ctx: ctx, baseURL: baseURL, token: token, streams: map[string][]runtimeSSEEvent{}}
-}
-
-func (m *subagentStreamMonitor) observeParentEvent(event runtimeSSEEvent) {
-	if event.Name != "subagent_started" {
-		return
-	}
-	agent, _ := event.Payload["agent_name"].(string)
-	streamURL, _ := event.Payload["stream_url"].(string)
-	if agent == "" || streamURL == "" {
-		m.recordError("subagent_started missing agent_name or stream_url: %s", event.RawData)
-		return
-	}
-	m.mu.Lock()
-	if _, exists := m.streams[agent]; exists {
-		m.mu.Unlock()
-		return
-	}
-	m.streams[agent] = nil
-	m.mu.Unlock()
-
-	m.wg.Add(1)
-	go func() {
-		defer m.wg.Done()
-		events, err := readRuntimeSSEClient(m.ctx, m.trace, "subagent-"+agent, m.baseURL+streamURL, m.token, nil)
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		if err != nil {
-			m.errors = append(m.errors, fmt.Sprintf("%s: %v", agent, err))
-			return
-		}
-		m.streams[agent] = events
-	}()
-}
-
-func (m *subagentStreamMonitor) assert(t *testing.T) {
+func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace, label string, events []runtimeSSEEvent) {
 	t.Helper()
-	m.wg.Wait()
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if len(m.errors) > 0 {
-		t.Fatalf("subagent stream subscriptions failed: %s", strings.Join(m.errors, "; "))
+	started := map[string]int{}
+	completed := map[string]int{}
+	scopedFinals := map[string]int{}
+	scopedEvents := map[string]int{}
+	doneCount := 0
+
+	for _, event := range events {
+		if event.Name == "done" {
+			doneCount++
+		}
+		scope, _ := event.Payload["scope"].(string)
+		subagent := payloadMap(event.Payload["subagent"])
+		agent, _ := subagent["agent_name"].(string)
+		if event.Name == "subagent_started" {
+			if _, exists := event.Payload["stream_url"]; exists {
+				t.Fatalf("%s subagent_started exposed child stream_url: %s", label, event.RawData)
+			}
+			assertSubagentMarker(t, label, event, agent)
+			started[agent]++
+		}
+		if event.Name == "subagent_completed" {
+			assertSubagentMarker(t, label, event, agent)
+			completed[agent]++
+		}
+		if scope == "subagent" {
+			assertSubagentMarker(t, label, event, agent)
+			if event.Name == "done" {
+				t.Fatalf("%s subagent emitted terminal done on shared stream: %s", label, event.RawData)
+			}
+			scopedEvents[agent]++
+			if event.Name == "final" {
+				scopedFinals[agent]++
+			}
+		}
+	}
+
+	if doneCount != 1 {
+		t.Fatalf("%s shared stream done count=%d want=1 events=%s", label, doneCount, summarizeEvents(events))
 	}
 	for _, agent := range []string{"planner", "qa", "reviewer"} {
-		events, ok := m.streams[agent]
-		if !ok {
-			t.Fatalf("subagent stream was not discovered for %s; streams=%v", agent, streamKeys(m.streams))
+		if started[agent] == 0 {
+			t.Fatalf("%s missing subagent_started for %s; started=%v events=%s", label, agent, started, summarizeEvents(events))
 		}
-		if len(events) == 0 {
-			t.Fatalf("subagent stream for %s produced no events", agent)
+		if completed[agent] == 0 {
+			t.Fatalf("%s missing subagent_completed for %s; completed=%v events=%s", label, agent, completed, summarizeEvents(events))
 		}
-		if countEvents(events, "done") == 0 {
-			t.Fatalf("subagent stream for %s did not complete with done; events=%s", agent, summarizeEvents(events))
+		if scopedEvents[agent] == 0 {
+			t.Fatalf("%s missing scoped live events for %s; scoped=%v events=%s", label, agent, scopedEvents, summarizeEvents(events))
+		}
+		if scopedFinals[agent] == 0 {
+			t.Fatalf("%s missing scoped final event for %s; finals=%v events=%s", label, agent, scopedFinals, summarizeEvents(events))
 		}
 	}
-	m.trace.Logf("assert", "subagent stream subscriptions passed streams=%v", streamKeys(m.streams))
+	trace.Logf("assert", "%s shared subagent stream passed started=%v completed=%v scoped=%v finals=%v", label, started, completed, scopedEvents, scopedFinals)
 }
 
-func (m *subagentStreamMonitor) recordError(format string, args ...any) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.errors = append(m.errors, fmt.Sprintf(format, args...))
+func assertSubagentMarker(t *testing.T, label string, event runtimeSSEEvent, agent string) {
+	t.Helper()
+	if event.Payload["scope"] != "subagent" {
+		t.Fatalf("%s %s missing subagent scope marker: %s", label, event.Name, event.RawData)
+	}
+	subagent := payloadMap(event.Payload["subagent"])
+	if agent == "" {
+		t.Fatalf("%s %s missing subagent.agent_name: %s", label, event.Name, event.RawData)
+	}
+	for _, key := range []string{"job_id", "parent_session_id", "child_session_id"} {
+		if value, _ := subagent[key].(string); strings.TrimSpace(value) == "" {
+			t.Fatalf("%s %s missing subagent.%s: %s", label, event.Name, key, event.RawData)
+		}
+	}
+	child, _ := subagent["child_session_id"].(string)
+	if !strings.HasPrefix(child, "subagent-subagent-task-") {
+		t.Fatalf("%s %s child_session_id=%q does not look like a subagent task session", label, event.Name, child)
+	}
+}
+
+func payloadMap(value any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	if mapped, ok := value.(map[string]any); ok {
+		return mapped
+	}
+	return map[string]any{"_invalid": fmt.Sprint(value)}
 }
 
 func countEvents(events []runtimeSSEEvent, name string) int {
@@ -92,12 +102,4 @@ func countEvents(events []runtimeSSEEvent, name string) int {
 		}
 	}
 	return count
-}
-
-func streamKeys(streams map[string][]runtimeSSEEvent) []string {
-	keys := make([]string, 0, len(streams))
-	for key := range streams {
-		keys = append(keys, key)
-	}
-	return keys
 }

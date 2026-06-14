@@ -130,8 +130,7 @@ X-Forwarded-Uri: /path?x=1
 It returns:
 
 ```text
-X-Microsandbox-Upstream: http://10.80.1.2:43122
-X-Microsandbox-Rewrite-URI: /path?x=1
+X-Microsandbox-Upstream: 10.80.1.2:43122
 ```
 
-Until HTTPS is enabled for the preview proxy, do not send production push tokens over the public HTTP endpoint.
+Route payloads store upstreams as full URLs. The lookup service returns only `host:port` because Caddy's dynamic `reverse_proxy` upstream expects a dial address. Caddy preserves the original request path and query without a rewrite.

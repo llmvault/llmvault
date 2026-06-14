@@ -127,12 +127,17 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		}
 	}()
 
-	hostToGuest := map[uint16]uint16{}
 	bindings := make([]PortBinding, 0, len(previewPorts))
+	msbBindings := make([]microsandbox.PortBinding, 0, len(previewPorts))
 	for i, guest := range previewPorts {
 		host := hostPorts[i]
-		hostToGuest[uint16(host)] = uint16(guest)
 		bindings = append(bindings, PortBinding{GuestPort: guest, HostPort: host})
+		msbBindings = append(msbBindings, microsandbox.PortBinding{
+			Bind:      "0.0.0.0",
+			HostPort:  uint16(host),
+			GuestPort: uint16(guest),
+			Protocol:  microsandbox.PortProtocolTCP,
+		})
 	}
 
 	volName := "hivy-" + req.ID
@@ -145,7 +150,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		microsandbox.WithMemory(uint32(req.MemoryMB)),
 		microsandbox.WithEnv(req.Env),
 		microsandbox.WithLabels(hivyLabels(req.ID, req.Labels)),
-		microsandbox.WithPorts(hostToGuest),
+		microsandbox.WithPortBindings(msbBindings...),
 		microsandbox.WithDetached(),
 		microsandbox.WithMounts(map[string]microsandbox.MountConfig{
 			"/workspace": microsandbox.Mount.Named(volName, microsandbox.MountOptions{}),

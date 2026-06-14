@@ -129,7 +129,6 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/v1/lookup":
             host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
-            original_uri = self.headers.get("X-Forwarded-Uri") or "/"
             port, sandbox_id = parse_preview_host(host)
             if not sandbox_id:
                 response(self, 404, {"error": "invalid preview host"})
@@ -146,10 +145,11 @@ class Handler(BaseHTTPRequestHandler):
             if not upstream:
                 response(self, 404, {"error": "port not previewable"})
                 return
-            rewrite = original_uri if original_uri.startswith("/") else "/" + original_uri
+            parsed_upstream = urlparse(upstream)
+            if parsed_upstream.scheme in ("http", "https") and parsed_upstream.netloc:
+                upstream = parsed_upstream.netloc
             self.send_response(204)
             self.send_header("X-Microsandbox-Upstream", upstream)
-            self.send_header("X-Microsandbox-Rewrite-URI", rewrite)
             self.end_headers()
             return
 
