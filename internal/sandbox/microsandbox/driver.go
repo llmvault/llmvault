@@ -162,9 +162,13 @@ func (d *Driver) BuildTemplateWithLogs(ctx context.Context, opts sandbox.Templat
 	if baseImage == "" {
 		return "", fmt.Errorf("microsandbox: base image is required")
 	}
+	orgID := strings.TrimSpace(opts.OrgID)
+	if orgID == "" {
+		orgID = "system"
+	}
 	var out snapshotResponse
 	if err := d.post(ctx, "/v1/snapshots", map[string]any{
-		"org_id":         "system",
+		"org_id":         orgID,
 		"name":           opts.Name,
 		"base_image_ref": baseImage,
 		"commands":       opts.BuildCommands,
@@ -193,7 +197,9 @@ func (d *Driver) GetTemplateLogs(ctx context.Context, externalID string) (string
 	return out.Logs, nil
 }
 
-func (d *Driver) DeleteTemplate(context.Context, string) error { return nil }
+func (d *Driver) DeleteTemplate(ctx context.Context, externalID string) error {
+	return d.do(ctx, http.MethodDelete, "/v1/snapshots/"+externalID, nil, nil)
+}
 
 func (d *Driver) SetAutoStop(context.Context, string, int) error { return nil }
 

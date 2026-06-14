@@ -17,6 +17,7 @@ type Backend interface {
 	Proxy(ctx context.Context, sandboxID string, guestPort int, w io.Writer, r io.Reader) error
 	ProxyURL(ctx context.Context, sandboxID string, guestPort int) (string, error)
 	CreateSnapshot(ctx context.Context, req CreateSnapshotRequest) (*CreateSnapshotResponse, error)
+	DeleteSnapshot(ctx context.Context, snapshotID string) error
 }
 
 type ReconcileReport struct {

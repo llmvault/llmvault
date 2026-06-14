@@ -58,12 +58,6 @@ ALTER TABLE ONLY agent_schedules
 ALTER TABLE ONLY agent_schedules
     ADD CONSTRAINT fk_agent_schedules_sandbox FOREIGN KEY (sandbox_id) REFERENCES sandboxes(id) ON DELETE SET NULL;
 
-ALTER TABLE ONLY agent_skills
-    ADD CONSTRAINT fk_agent_skills_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY agent_skills
-    ADD CONSTRAINT fk_agent_skills_skill FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE;
-
 ALTER TABLE ONLY agent_trigger_deliveries
     ADD CONSTRAINT fk_agent_trigger_deliveries_connection FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE SET NULL;
 
@@ -237,15 +231,6 @@ ALTER TABLE ONLY session_message_queue
     ADD CONSTRAINT fk_session_message_queue_session FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE;
 ALTER TABLE ONLY session_message_queue
     ADD CONSTRAINT fk_session_message_queue_event FOREIGN KEY (session_event_id) REFERENCES session_events(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY artifacts
-    ADD CONSTRAINT fk_artifacts_org FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE;
-ALTER TABLE ONLY artifacts
-    ADD CONSTRAINT fk_artifacts_session FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL;
-ALTER TABLE ONLY artifacts
-    ADD CONSTRAINT fk_artifacts_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL;
-ALTER TABLE ONLY artifacts
-    ADD CONSTRAINT fk_artifacts_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 -- +goose Down
 -- +goose StatementBegin

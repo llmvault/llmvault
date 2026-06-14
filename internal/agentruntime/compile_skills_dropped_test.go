@@ -39,13 +39,18 @@ func TestBuildSkills_AttachedSkillWithBadBundleFailsCompile(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 
+	plugin := model.Plugin{ID: uuid.New(), Slug: "attached-bad-" + uuid.NewString(), Name: "Attached Bad", Status: model.PluginStatusActive}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
 	skill := compileTestSkill("attached-bad-"+uuid.NewString(), "Attached Bad", &org.ID)
+	skill.PluginID = &plugin.ID
 	skill.Bundle = model.RawJSON(badBundle)
 	if err := db.Create(&skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
-		t.Fatalf("attach skill: %v", err)
+	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("install plugin: %v", err)
 	}
 
 	_, err := buildSkills(context.Background(), db, agent.ID)

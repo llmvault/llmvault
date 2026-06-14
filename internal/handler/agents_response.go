@@ -53,7 +53,6 @@ type agentResponse struct {
 	Instructions          string                 `json:"instructions"`
 	AvatarURL             *string                `json:"avatar_url,omitempty"`
 	Icon                  string                 `json:"icon"`
-	Placeholder           string                 `json:"placeholder"`
 	IsDefault             bool                   `json:"is_default"`
 	SandboxStrategy       string                 `json:"sandbox_strategy"`
 	SandboxTemplateID     *string                `json:"sandbox_template_id,omitempty"`
@@ -102,7 +101,6 @@ func toAgentResponse(a model.Agent) agentResponse {
 		Instructions:        instructions,
 		AvatarURL:           &avatarURL,
 		Icon:                a.Icon,
-		Placeholder:         a.Placeholder,
 		IsDefault:           a.IsDefault,
 		SandboxStrategy:     strategy,
 		Model:               a.Model,

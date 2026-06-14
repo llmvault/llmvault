@@ -25,6 +25,7 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
   {
     label: "Workspace",
     items: [
+      { id: "agents", label: "Agents", icon: "lucide:bot" },
       { id: "team", label: "Team members", icon: "lucide:users" },
     ],
   },

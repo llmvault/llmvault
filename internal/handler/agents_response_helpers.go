@@ -94,44 +94,54 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 	return result
 }
 
-// loadAgentSkills batch-loads attached skill summaries for one or more agents.
+// loadAgentSkills batch-loads skill summaries for one or more agents. Skills are
+// inherited from the plugins installed on each agent.
 func (h *AgentHandler) loadAgentSkills(agentIDs ...uuid.UUID) map[uuid.UUID][]agentSkillSummary {
 	if len(agentIDs) == 0 {
 		return nil
 	}
-	var links []model.AgentSkill
-	if err := h.db.Where("agent_id IN ?", agentIDs).Find(&links).Error; err != nil {
+	var installs []model.AgentPluginInstall
+	if err := h.db.Where("agent_id IN ?", agentIDs).Find(&installs).Error; err != nil {
 		return nil
 	}
-	if len(links) == 0 {
+	if len(installs) == 0 {
 		return nil
 	}
-	skillIDs := make([]uuid.UUID, len(links))
-	for index, link := range links {
-		skillIDs[index] = link.SkillID
+	pluginIDSet := make(map[uuid.UUID]bool)
+	agentPlugins := make(map[uuid.UUID][]uuid.UUID, len(agentIDs))
+	for _, install := range installs {
+		pluginIDSet[install.PluginID] = true
+		agentPlugins[install.AgentID] = append(agentPlugins[install.AgentID], install.PluginID)
+	}
+	pluginIDs := make([]uuid.UUID, 0, len(pluginIDSet))
+	for id := range pluginIDSet {
+		pluginIDs = append(pluginIDs, id)
 	}
 	var skills []model.Skill
-	if err := h.db.Select("id, name, description, source_type").
-		Where("id IN ? AND hidden = false AND status = ?", skillIDs, model.SkillStatusPublished).
+	if err := h.db.Select("id, name, description, source_type, plugin_id").
+		Where("plugin_id IN ? AND hidden = false AND status = ?", pluginIDs, model.SkillStatusPublished).
 		Find(&skills).Error; err != nil {
 		return nil
 	}
-	skillByID := make(map[uuid.UUID]model.Skill, len(skills))
+	skillsByPlugin := make(map[uuid.UUID][]model.Skill, len(pluginIDs))
 	for _, skill := range skills {
-		skillByID[skill.ID] = skill
-	}
-	result := make(map[uuid.UUID][]agentSkillSummary, len(agentIDs))
-	for _, link := range links {
-		skill, ok := skillByID[link.SkillID]
-		if !ok {
+		if skill.PluginID == nil {
 			continue
 		}
-		result[link.AgentID] = append(result[link.AgentID], agentSkillSummary{
-			ID:          skill.ID.String(),
-			Name:        skill.Name,
-			Description: skill.Description,
-			SourceType:  skill.SourceType,
-		})
+		skillsByPlugin[*skill.PluginID] = append(skillsByPlugin[*skill.PluginID], skill)
+	}
+	result := make(map[uuid.UUID][]agentSkillSummary, len(agentIDs))
+	for agentID, plugins := range agentPlugins {
+		for _, pluginID := range plugins {
+			for _, skill := range skillsByPlugin[pluginID] {
+				result[agentID] = append(result[agentID], agentSkillSummary{
+					ID:          skill.ID.String(),
+					Name:        skill.Name,
+					Description: skill.Description,
+					SourceType:  skill.SourceType,
+				})
+			}
+		}
 	}
 	return result
 }

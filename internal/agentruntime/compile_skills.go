@@ -30,26 +30,27 @@ func buildSkillsWithDefaultNames(ctx context.Context, db *gorm.DB, agentID uuid.
 	if db == nil {
 		return []SkillSpec{}, nil
 	}
-	var links []model.AgentSkill
-	if err := db.WithContext(ctx).Where("agent_id = ?", agentID).Find(&links).Error; err != nil {
+	// An agent inherits its skills from the plugins installed on it: every
+	// published skill owned by one of those plugins.
+	var pluginIDs []uuid.UUID
+	if err := db.WithContext(ctx).Model(&model.AgentPluginInstall{}).
+		Where("agent_id = ?", agentID).Pluck("plugin_id", &pluginIDs).Error; err != nil {
 		return nil, err
 	}
 	defaultNames = normalizeSkillNames(defaultNames)
-	if len(links) == 0 && len(defaultNames) == 0 {
+	if len(pluginIDs) == 0 && len(defaultNames) == 0 {
 		return []SkillSpec{}, nil
 	}
-	ids := make([]uuid.UUID, 0, len(links))
-	attached := make(map[uuid.UUID]bool, len(links))
-	for _, link := range links {
-		ids = append(ids, link.SkillID)
-		attached[link.SkillID] = true
-	}
+	attached := make(map[uuid.UUID]bool)
 	var skills []model.Skill
-	if len(ids) > 0 {
+	if len(pluginIDs) > 0 {
 		if err := db.WithContext(ctx).
-			Where("id IN ? AND status = ?", ids, model.SkillStatusPublished).
+			Where("plugin_id IN ? AND status = ?", pluginIDs, model.SkillStatusPublished).
 			Find(&skills).Error; err != nil {
 			return nil, err
+		}
+		for _, skill := range skills {
+			attached[skill.ID] = true
 		}
 	}
 	if len(defaultNames) > 0 {

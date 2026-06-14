@@ -20,6 +20,13 @@ func (o *Orchestrator) resolveBuildOpts(tmpl *model.SandboxTemplate, templateNam
 		Name:          templateName,
 		BuildCommands: cmds,
 		BaseImage:     strings.TrimSpace(o.cfg.SandboxesRuntimeBaseImage),
+		OrgID:         "system",
+	}
+	if tmpl.OrgID != nil {
+		opts.OrgID = tmpl.OrgID.String()
+	}
+	if tmpl.BaseImageRef != nil && strings.TrimSpace(*tmpl.BaseImageRef) != "" {
+		opts.BaseImage = strings.TrimSpace(*tmpl.BaseImageRef)
 	}
 
 	if sz, ok := model.TemplateSizes[tmpl.Size]; ok {

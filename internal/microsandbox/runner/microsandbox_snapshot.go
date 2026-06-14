@@ -68,3 +68,7 @@ func (m *MicrosandboxBackend) CreateSnapshot(ctx context.Context, req CreateSnap
 	}
 	return &CreateSnapshotResponse{ID: req.ID, ArtifactURL: artifactURL, Logs: logs.String()}, nil
 }
+
+func (m *MicrosandboxBackend) DeleteSnapshot(ctx context.Context, snapshotID string) error {
+	return microsandbox.Snapshot.Remove(ctx, snapshotID, true)
+}

@@ -423,8 +423,6 @@ definitions:
         type: string
       permissions:
         $ref: '#/definitions/JSON'
-      placeholder:
-        type: string
       resources:
         $ref: '#/definitions/JSON'
       sandbox:
@@ -472,8 +470,6 @@ definitions:
         type: string
       permissions:
         $ref: '#/definitions/JSON'
-      placeholder:
-        type: string
       resources:
         $ref: '#/definitions/JSON'
       sandbox_strategy:
@@ -530,8 +526,6 @@ definitions:
         type: string
       permissions:
         $ref: '#/definitions/JSON'
-      placeholder:
-        type: string
       resources:
         $ref: '#/definitions/JSON'
       sandbox_strategy:
@@ -1030,36 +1024,6 @@ definitions:
       remaining:
         type: integer
     type: object
-  createDomainRequest:
-    properties:
-      domain:
-        type: string
-    type: object
-  createDomainResponse:
-    properties:
-      acme_dns_subdomain:
-        type: string
-      cname_target:
-        type: string
-      created_at:
-        type: string
-      dns_records:
-        items:
-          $ref: '#/definitions/dnsRecord'
-        type: array
-      domain:
-        type: string
-      id:
-        type: string
-      org_id:
-        type: string
-      updated_at:
-        type: string
-      verified:
-        type: boolean
-      verified_at:
-        type: string
-    type: object
   createOrgEnvironmentVariableRequest:
     properties:
       name:
@@ -1276,15 +1240,6 @@ definitions:
         type: string
       schema_snapshot: {}
       updated_at:
-        type: string
-    type: object
-  dnsRecord:
-    properties:
-      name:
-        type: string
-      type:
-        type: string
-      value:
         type: string
     type: object
   errorRate:
@@ -1514,8 +1469,6 @@ definitions:
     type: object
   meResponse:
     properties:
-      is_platform_admin:
-        type: boolean
       orgs:
         items:
           $ref: '#/definitions/orgMemberDTO'
@@ -2542,6 +2495,27 @@ definitions:
       updated_at:
         type: string
     type: object
+  sessionStreamAccessResponse:
+    properties:
+      direct_url:
+        type: string
+      sequence_number:
+        type: integer
+      session_event_id:
+        type: string
+      session_id:
+        type: string
+      stream_id:
+        type: string
+      stream_token:
+        type: string
+      stream_url:
+        type: string
+      trace_id:
+        type: string
+      turn_id:
+        type: string
+    type: object
   sessionSummary:
     properties:
       created_at:
@@ -3121,13 +3095,6 @@ definitions:
         type: string
       name:
         type: string
-    type: object
-  verifyDomainResponse:
-    properties:
-      message:
-        type: string
-      verified:
-        type: boolean
     type: object
   verifyRequest:
     properties:
@@ -5852,114 +5819,6 @@ paths:
       summary: Get a credential
       tags:
       - credentials
-  /v1/custom-domains:
-    get:
-      description: Returns all custom preview domains for the current organization.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/createDomainResponse'
-            type: array
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List custom domains
-      tags:
-      - custom-domains
-    post:
-      consumes:
-      - application/json
-      description: Register a new custom preview domain for the current organization.
-        Returns DNS records to create.
-      parameters:
-      - description: Domain to add
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/createDomainRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/createDomainResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Add a custom domain
-      tags:
-      - custom-domains
-  /v1/custom-domains/{id}:
-    delete:
-      description: Remove a custom preview domain and its TLS configuration.
-      parameters:
-      - description: Domain ID
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete a custom domain
-      tags:
-      - custom-domains
-  /v1/custom-domains/{id}/verify:
-    post:
-      description: Checks that both DNS CNAME records are correctly configured and
-        triggers wildcard TLS provisioning.
-      parameters:
-      - description: Domain ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/verifyDomainResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Verify a custom domain
-      tags:
-      - custom-domains
   /v1/dashboard:
     get:
       description: Returns Hivy dashboard metrics for the current organization.
@@ -8070,6 +7929,52 @@ paths:
       security:
       - BearerAuth: []
       summary: Add a session participant
+      tags:
+      - sessions
+  /v1/sessions/{id}/stream-access:
+    get:
+      description: Returns browser-direct sandbox stream details for a delivered queued
+        session message.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Session event ID
+        in: query
+        name: event_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sessionStreamAccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get direct session stream access
       tags:
       - sessions
   /v1/skills:

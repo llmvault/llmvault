@@ -52,6 +52,7 @@ type SandboxInfo struct {
 // TemplateBuildRequest configures a provider template/image build.
 type TemplateBuildRequest struct {
 	Name          string   // provider template name
+	OrgID         string   // owning org ID; "system" only for platform templates
 	BuildCommands []string // commands to run on the base image
 	BaseImage     string   // base image to build on top of
 	CPU           int      // CPU cores (0 = provider default)

@@ -87,6 +87,14 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, resp)
 }
 
+func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
+	if err := s.backend.DeleteSnapshot(r.Context(), chi.URLParam(r, "snapshotID")); err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func (s *Server) proxySandbox() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sandboxID := chi.URLParam(r, "sandboxID")

@@ -18,7 +18,6 @@ type agentMutationRequest struct {
 	Instructions      *string          `json:"instructions,omitempty"`
 	AvatarURL         *string          `json:"avatar_url,omitempty"`
 	Icon              *string          `json:"icon,omitempty"`
-	Placeholder       *string          `json:"placeholder,omitempty"`
 	SandboxStrategy   *string          `json:"sandbox_strategy,omitempty"`
 	SandboxTemplateID *string          `json:"sandbox_template_id,omitempty"`
 	Model             *string          `json:"model,omitempty"`
@@ -95,13 +94,16 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sandboxTools, ok := normalizeSandboxToolsForRequest(w, req.SandboxTools)
-	if !ok {
-		return
+	// Every agent is created with the full toolset enabled. Tool selection is
+	// not exposed at creation time, so requested permissions and sandbox tools
+	// are ignored in favour of the canonical "all enabled" defaults.
+	permissions := model.JSON{}
+	for _, id := range model.BuiltInToolIDs() {
+		permissions[id] = true
 	}
-	permissions, ok := normalizePermissionsForRequest(w, req.Permissions)
-	if !ok {
-		return
+	sandboxTools := make([]string, 0, len(model.ValidSandboxTools))
+	for _, tool := range model.ValidSandboxTools {
+		sandboxTools = append(sandboxTools, tool.ID)
 	}
 
 	desc := cleanStringPtr(req.Description)
@@ -114,7 +116,6 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Instructions:      &instructions,
 		AvatarURL:         optionalStringPtr(avatarURL),
 		Icon:              cleanStringPtr(req.Icon),
-		Placeholder:       cleanStringPtr(req.Placeholder),
 		IsDefault:         false,
 		SandboxStrategy:   strategy,
 		SandboxTemplateID: sandboxTemplateID,
