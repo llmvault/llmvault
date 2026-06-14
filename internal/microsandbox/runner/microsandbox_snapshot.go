@@ -10,6 +10,8 @@ import (
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
 )
 
+const snapshotExportDir = "/var/lib/hivy/microsandbox-snapshots"
+
 func (m *MicrosandboxBackend) CreateSnapshot(ctx context.Context, req CreateSnapshotRequest) (*CreateSnapshotResponse, error) {
 	sbReq := CreateSandboxRequest{
 		ID: req.ID, Name: req.Name, ImageRef: req.BaseImageRef, CPU: req.CPU,
@@ -50,11 +52,13 @@ func (m *MicrosandboxBackend) CreateSnapshot(ctx context.Context, req CreateSnap
 	if _, err := snapshot.Verify(ctx); err != nil {
 		return nil, err
 	}
-	exportDir := filepath.Join(os.TempDir(), "microsandbox-snapshots")
-	if err := os.MkdirAll(exportDir, 0o755); err != nil {
+	if err := os.MkdirAll(snapshotExportDir, 0o755); err != nil {
 		return nil, err
 	}
-	exportPath := filepath.Join(exportDir, req.ID+".tar")
+	exportPath := filepath.Join(snapshotExportDir, req.ID+".tar")
+	defer func() {
+		_ = os.Remove(exportPath)
+	}()
 	if err := microsandbox.Snapshot.Export(ctx, snapshot.Path(), exportPath, microsandbox.SnapshotExportOptions{
 		WithParents: true,
 		WithImage:   true,
