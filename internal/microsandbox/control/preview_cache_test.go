@@ -48,8 +48,12 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 
 	routeCh := make(chan previewCacheRoute, 1)
 	cache := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/v1/routes/sbx_") {
+		if !strings.HasPrefix(r.URL.Path, "/v1/routes/") {
 			t.Fatalf("cache path = %s, want /v1/routes/{sandbox}", r.URL.Path)
+		}
+		sandboxID := strings.TrimPrefix(r.URL.Path, "/v1/routes/")
+		if len(sandboxID) != 8 {
+			t.Fatalf("cache route sandbox id = %q, want 8 characters", sandboxID)
 		}
 		if r.Method != http.MethodPut {
 			t.Fatalf("cache method = %s, want PUT", r.Method)
@@ -134,7 +138,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 
 func TestPreviewCacheRouteBuildsDirectUpstreams(t *testing.T) {
 	route, err := previewCacheRouteFor(
-		model.Sandbox{ID: "sbx_123", Status: model.SandboxStatusRunning},
+		model.Sandbox{ID: "abc123xy", Status: model.SandboxStatusRunning},
 		model.Runner{ID: "runner-1", PreviewBaseURL: "http://10.80.1.2"},
 		[]model.SandboxPort{
 			{GuestPort: 3000, HostPort: 43122},

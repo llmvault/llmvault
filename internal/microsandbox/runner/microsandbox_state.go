@@ -174,7 +174,18 @@ func ensureVolume(ctx context.Context, name string, opts ...microsandbox.VolumeO
 }
 
 func isHivySandboxName(name string) bool {
-	return strings.HasPrefix(name, "sbx_")
+	if strings.HasPrefix(name, "sbx-") || strings.HasPrefix(name, "sbx_") {
+		return true
+	}
+	if len(name) != 8 {
+		return false
+	}
+	for _, ch := range name {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func cloneStringMap(in map[string]string) map[string]string {

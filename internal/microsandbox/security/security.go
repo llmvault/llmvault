@@ -98,10 +98,15 @@ func ConstantTimeStringEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-func ShortID(prefix string) (string, error) {
-	token, err := RandomToken(9)
-	if err != nil {
+func ShortID(_ string) (string, error) {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	token := make([]byte, 8)
+	random := make([]byte, len(token))
+	if _, err := rand.Read(random); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s_%s", prefix, strings.ToLower(token[:12])), nil
+	for i, b := range random {
+		token[i] = alphabet[int(b)%len(alphabet)]
+	}
+	return string(token), nil
 }
