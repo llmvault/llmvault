@@ -11,7 +11,7 @@ import urllib.request
 
 
 EXPECTED_CONTROL_URL = "https://msb.usehivy.com"
-IMAGE_TAG = os.environ.get("HIVY_MICROSANDBOX_LIVE_E2E_IMAGE_TAG", "v3.1.14")
+IMAGE_TAG = os.environ.get("HIVY_MICROSANDBOX_LIVE_E2E_IMAGE_TAG", "v3.1.18-amd64")
 IMAGES = [
     ("runtime", f"ghcr.io/usehivy/hivy-sandboxes-runtime:{IMAGE_TAG}"),
     ("developers", f"ghcr.io/usehivy/hivy-sandboxes-runtime-developers:{IMAGE_TAG}"),

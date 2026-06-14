@@ -12,6 +12,7 @@ import (
 )
 
 const liveE2EControlURL = "https://msb.usehivy.com"
+const defaultLiveE2EImageTag = "v3.1.18-amd64"
 
 func TestLiveProviderSnapshotE2E(t *testing.T) {
 	if os.Getenv("HIVY_MICROSANDBOX_LIVE_E2E") != "1" {
@@ -26,12 +27,17 @@ func TestLiveProviderSnapshotE2E(t *testing.T) {
 		t.Fatal("HIVY_MICROSANDBOX_API_TOKEN is required")
 	}
 
+	imageTag := strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_LIVE_E2E_IMAGE_TAG"))
+	if imageTag == "" {
+		imageTag = defaultLiveE2EImageTag
+	}
+
 	images := []struct {
 		name string
 		ref  string
 	}{
-		{name: "runtime", ref: "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.10"},
-		{name: "developers", ref: "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:v3.1.10"},
+		{name: "runtime", ref: "ghcr.io/usehivy/hivy-sandboxes-runtime:" + imageTag},
+		{name: "developers", ref: "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:" + imageTag},
 	}
 	for _, image := range images {
 		t.Run(image.name, func(t *testing.T) {
