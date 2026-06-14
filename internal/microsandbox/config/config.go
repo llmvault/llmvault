@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/usehivy/hivy/internal/microsandbox/api"
 )
 
 type Config struct {
@@ -28,7 +26,6 @@ type Config struct {
 	PreviewCacheURL     string
 	PreviewCacheToken   string
 	PreviewCacheSync    time.Duration
-	DefaultPreviewPorts []int
 
 	HeartbeatInterval    time.Duration
 	RunnerUnhealthyAfter time.Duration
@@ -71,7 +68,6 @@ func Load() Config {
 		PreviewCacheURL:           strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_URL"), "/"),
 		PreviewCacheToken:         os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN"),
 		PreviewCacheSync:          duration("HIVY_MICROSANDBOX_PREVIEW_CACHE_SYNC_INTERVAL", time.Minute),
-		DefaultPreviewPorts:       ports("HIVY_MICROSANDBOX_DEFAULT_PREVIEW_PORTS", api.DefaultPreviewPorts()),
 		HeartbeatInterval:         duration("HIVY_MICROSANDBOX_HEARTBEAT_INTERVAL", time.Minute),
 		RunnerUnhealthyAfter:      duration("HIVY_MICROSANDBOX_RUNNER_UNHEALTHY_AFTER", 3*time.Minute),
 		RunnerCheckInterval:       duration("HIVY_MICROSANDBOX_RUNNER_CHECK_INTERVAL", 5*time.Minute),
@@ -142,28 +138,4 @@ func boolean(key string, fallback bool) bool {
 		return fallback
 	}
 	return value == "1" || value == "true" || value == "yes"
-}
-
-func ports(key string, fallback []int) []int {
-	value := strings.TrimSpace(os.Getenv(key))
-	if value == "" {
-		return append([]int(nil), fallback...)
-	}
-	seen := map[int]struct{}{}
-	out := []int{}
-	for _, part := range strings.Split(value, ",") {
-		port, err := strconv.Atoi(strings.TrimSpace(part))
-		if err != nil || port <= 0 || port > 65535 {
-			continue
-		}
-		if _, ok := seen[port]; ok {
-			continue
-		}
-		seen[port] = struct{}{}
-		out = append(out, port)
-	}
-	if len(out) == 0 {
-		return append([]int(nil), fallback...)
-	}
-	return out
 }

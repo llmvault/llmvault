@@ -36,10 +36,9 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	defer server.Close()
 
 	driver, err := NewDriver(Config{
-		ControlURL:          server.URL,
-		APIToken:            "test-token",
-		DefaultPreviewPorts: []int{3000, 7080},
-		RuntimeImage:        "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
+		ControlURL:   server.URL,
+		APIToken:     "test-token",
+		RuntimeImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
 	})
 	if err != nil {
 		t.Fatalf("NewDriver: %v", err)
@@ -65,6 +64,13 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	}
 	if createReq["image_ref"] != "ghcr.io/usehivy/hivy-sandboxes-runtime:latest" {
 		t.Fatalf("image_ref = %v", createReq["image_ref"])
+	}
+	previewPorts, ok := createReq["preview_ports"].([]any)
+	if !ok {
+		t.Fatalf("preview_ports = %T, want array", createReq["preview_ports"])
+	}
+	if len(previewPorts) != 30 {
+		t.Fatalf("preview_ports length = %d, want 30", len(previewPorts))
 	}
 
 	endpoint, err := driver.GetEndpoint(context.Background(), "sbx_test", 0)

@@ -59,11 +59,10 @@ func newSandboxProvider(cfg *config.Config) (sandbox.Provider, error) {
 			return nil, fmt.Errorf("%w: HIVY_MICROSANDBOX_CONTROL_API_TOKEN is empty", errSandboxProviderNotConfigured)
 		}
 		return microsandboxprovider.NewDriver(microsandboxprovider.Config{
-			ControlURL:          cfg.MicrosandboxControlURL,
-			APIToken:            cfg.MicrosandboxControlAPIToken,
-			DefaultPreviewPorts: cfg.MicrosandboxDefaultPreviewPorts,
-			RuntimePort:         sandbox.AgentSandboxPort,
-			RuntimeImage:        cfg.SandboxesRuntimeBaseImage,
+			ControlURL:   cfg.MicrosandboxControlURL,
+			APIToken:     cfg.MicrosandboxControlAPIToken,
+			RuntimePort:  sandbox.AgentSandboxPort,
+			RuntimeImage: cfg.SandboxesRuntimeBaseImage,
 		})
 	default:
 		return nil, fmt.Errorf("unsupported HIVY_SANDBOX_PROVIDER_ID %q", providerID)

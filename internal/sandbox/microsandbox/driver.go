@@ -17,11 +17,10 @@ import (
 const defaultRuntimeEndpointTTLSeconds = 3600
 
 type Config struct {
-	ControlURL          string
-	APIToken            string
-	DefaultPreviewPorts []int
-	RuntimePort         int
-	RuntimeImage        string
+	ControlURL   string
+	APIToken     string
+	RuntimePort  int
+	RuntimeImage string
 }
 
 type Driver struct {
@@ -34,10 +33,6 @@ type Driver struct {
 }
 
 func NewDriver(cfg Config) (*Driver, error) {
-	ports := append([]int(nil), cfg.DefaultPreviewPorts...)
-	if len(ports) == 0 {
-		ports = msbapi.DefaultPreviewPorts()
-	}
 	runtimePort := cfg.RuntimePort
 	if runtimePort == 0 {
 		runtimePort = sandbox.AgentSandboxPort
@@ -45,7 +40,7 @@ func NewDriver(cfg Config) (*Driver, error) {
 	return &Driver{
 		controlURL:          strings.TrimRight(strings.TrimSpace(cfg.ControlURL), "/"),
 		apiToken:            strings.TrimSpace(cfg.APIToken),
-		defaultPreviewPorts: ports,
+		defaultPreviewPorts: msbapi.DefaultPreviewPorts(),
 		runtimePort:         runtimePort,
 		runtimeImage:        strings.TrimSpace(cfg.RuntimeImage),
 		http:                &http.Client{Timeout: 2 * time.Minute},

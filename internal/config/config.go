@@ -87,7 +87,6 @@ type Config struct {
 	SandboxDockerContainerLabelPrefix string `env:"HIVY_SANDBOX_DOCKER_CONTAINER_LABEL_PREFIX" envDefault:"hivy"`
 	MicrosandboxControlURL            string `env:"HIVY_MICROSANDBOX_CONTROL_URL"`
 	MicrosandboxControlAPIToken       string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`
-	MicrosandboxDefaultPreviewPorts   []int  `env:"HIVY_MICROSANDBOX_DEFAULT_PREVIEW_PORTS" envSeparator:","`
 
 	RailwayAPIToken          string `env:"HIVY_RAILWAY_API_TOKEN"`
 	RailwayProjectID         string `env:"HIVY_RAILWAY_PROJECT_ID"`
