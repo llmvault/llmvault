@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -35,7 +36,7 @@ type Driver struct {
 func NewDriver(cfg Config) (*Driver, error) {
 	ports := append([]int(nil), cfg.DefaultPreviewPorts...)
 	if len(ports) == 0 {
-		ports = []int{3000, 3001, 5173, 7080, 8000, 8080}
+		ports = msbapi.DefaultPreviewPorts()
 	}
 	runtimePort := cfg.RuntimePort
 	if runtimePort == 0 {
