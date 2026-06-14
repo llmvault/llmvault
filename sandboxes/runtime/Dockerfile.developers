@@ -29,89 +29,46 @@ RUN apt-get update \
     bash \
     build-essential \
     ca-certificates \
-    chromium \
     cmake \
-    composer \
     coreutils \
     curl \
-    csvkit \
     default-libmysqlclient-dev \
-    default-mysql-client \
     dirmngr \
     direnv \
     dnsutils \
-    docker-cli \
-    docker-compose \
-    docker.io \
-    exiftool \
     fd-find \
-    ffmpeg \
     file \
     findutils \
-    firefox-esr \
     fish \
-    fontconfig \
-    fonts-dejavu \
-    fonts-liberation \
-    fonts-noto \
-    fonts-noto-color-emoji \
     g++ \
     gcc \
     gh \
-    ghostscript \
     git \
     git-lfs \
     gnupg2 \
-    graphicsmagick \
     gzip \
-    fuse-overlayfs \
-    imagemagick \
-    iptables \
     iputils-ping \
     jo \
     jq \
     less \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libgbm1 \
     libgdbm-dev \
     libgmp-dev \
-    libgtk-3-0 \
     libffi-dev \
     libicu-dev \
     libncurses-dev \
-    libnss3 \
     libpq-dev \
     libreadline-dev \
     libssl-dev \
     libsqlite3-dev \
-    libvips-tools \
     libxml2-dev \
     libxslt1-dev \
     libyaml-dev \
     lsof \
     make \
-    mediainfo \
     netcat-openbsd \
     openssh-client \
     openssl \
-    pandoc \
-    php-bcmath \
-    php-cli \
-    php-curl \
-    php-gd \
-    php-intl \
-    php-mbstring \
-    php-mysql \
-    php-pgsql \
-    php-sqlite3 \
-    php-xml \
-    php-zip \
     pkg-config \
-    poppler-utils \
-    postgresql-client \
     procps \
     psmisc \
     python3 \
@@ -125,10 +82,8 @@ RUN apt-get update \
     shfmt \
     shared-mime-info \
     socat \
-    sox \
     sqlite3 \
     tar \
-    tesseract-ocr \
     tini \
     tmux \
     tree \
@@ -143,6 +98,68 @@ RUN apt-get update \
     zlib1g-dev \
     zsh \
     zstd \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    chromium \
+    firefox-esr \
+    fontconfig \
+    fonts-dejavu \
+    fonts-liberation \
+    fonts-noto \
+    fonts-noto-color-emoji \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnss3 \
+    xvfb \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    csvkit \
+    exiftool \
+    ffmpeg \
+    ghostscript \
+    graphicsmagick \
+    imagemagick \
+    libvips-tools \
+    mediainfo \
+    pandoc \
+    poppler-utils \
+    sox \
+    tesseract-ocr \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    composer \
+    default-mysql-client \
+    php-bcmath \
+    php-cli \
+    php-curl \
+    php-gd \
+    php-intl \
+    php-mbstring \
+    php-mysql \
+    php-pgsql \
+    php-sqlite3 \
+    php-xml \
+    php-zip \
+    postgresql-client \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    docker-cli \
+    docker-compose \
+    docker.io \
+    fuse-overlayfs \
+    iptables \
   && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/fdfind /usr/local/bin/fd \
