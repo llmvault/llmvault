@@ -13,6 +13,7 @@ import (
 
 	"github.com/getsentry/sentry-go"
 
+	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/control"
 	"github.com/usehivy/hivy/internal/microsandbox/db"
@@ -82,7 +83,9 @@ func runRunner(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	go app.RegisterAndHeartbeat(ctx)
+	goroutine.Go(ctx, func(ctx context.Context) {
+		app.RegisterAndHeartbeat(ctx)
+	})
 	return serve(ctx, cfg.Addr, app.Routes())
 }
 
@@ -93,10 +96,10 @@ func serve(ctx context.Context, addr string, h http.Handler) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errCh := make(chan error, 1)
-	go func() {
+	goroutine.Go(ctx, func(context.Context) {
 		slog.Info("server listening", "addr", addr)
 		errCh <- srv.ListenAndServe()
-	}()
+	})
 	select {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

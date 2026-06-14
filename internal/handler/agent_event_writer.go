@@ -52,7 +52,9 @@ func NewAgentEventWriter(ctx context.Context, db *gorm.DB, bufferSize int, flush
 		flushInterval: interval,
 	}
 	w.wg.Add(1)
-	go w.drain(ctx)
+	goroutine.Go(ctx, func(ctx context.Context) {
+		w.drain(ctx)
+	})
 	return w
 }
 

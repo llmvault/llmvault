@@ -20,19 +20,6 @@ func ApplyMigrations(t testing.TB, db *gorm.DB) {
 	if err != nil {
 		t.Fatalf("get sql db: %v", err)
 	}
-	if current, ok := currentMigrationVersion(t.Context(), sqlDB); ok && current >= latestMigrationVersion {
-		if missing, err := missingMigratedTables(t.Context(), sqlDB); err == nil && len(missing) == 0 {
-			return
-		} else {
-			if err != nil {
-				t.Logf("test database schema reset required after migration check failed: %v", err)
-			} else {
-				t.Logf("test database schema reset required; missing baseline tables: %s", strings.Join(missing, ", "))
-			}
-			resetTestSchema(t, sqlDB)
-		}
-	}
-
 	unlock, err := lockMigrationSetup(t.Context(), sqlDB)
 	if err != nil {
 		t.Fatalf("lock migration setup: %v", err)
@@ -40,8 +27,14 @@ func ApplyMigrations(t testing.TB, db *gorm.DB) {
 	defer unlock(t.Context())
 
 	if current, ok := currentMigrationVersion(t.Context(), sqlDB); ok && current >= latestMigrationVersion {
-		if missing, err := missingMigratedTables(t.Context(), sqlDB); err == nil && len(missing) == 0 {
+		missing, err := missingMigratedTables(t.Context(), sqlDB)
+		if err == nil && len(missing) == 0 {
 			return
+		}
+		if err != nil {
+			t.Logf("test database schema reset required after migration check failed: %v", err)
+		} else {
+			t.Logf("test database schema reset required; missing baseline tables: %s", strings.Join(missing, ", "))
 		}
 		resetTestSchema(t, sqlDB)
 	}
@@ -197,6 +190,7 @@ var migratedTables = []string{
 	"drive_assets",
 	"email_verifications",
 	"agent_assets",
+	"agent_plugin_installs",
 	"agent_sandbox_upgrades",
 	"agent_schedule_runs",
 	"agent_schedules",
@@ -208,19 +202,16 @@ var migratedTables = []string{
 	"generations",
 	"hindsight_banks",
 	"integrations",
-	"microsandbox_events",
-	"microsandbox_org_preview_secrets",
-	"microsandbox_runners",
-	"microsandbox_sandbox_ports",
-	"microsandbox_sandboxes",
-	"microsandbox_snapshots",
 	"oauth_accounts",
 	"oauth_exchange_tokens",
+	"org_plugin_installs",
 	"org_invites",
 	"org_memberships",
 	"orgs",
 	"otp_codes",
 	"password_resets",
+	"plugin_integrations",
+	"plugins",
 	"plans",
 	"rag_embedding_models",
 	"rag_external_identities",
