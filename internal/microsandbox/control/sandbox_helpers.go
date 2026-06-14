@@ -86,6 +86,13 @@ func selectRunnerByIDForUpdate(tx *gorm.DB, runnerID string, size api.Size) (mod
 	return runner, nil
 }
 
+func selectRunnerForSnapshotSandbox(tx *gorm.DB, snapshot model.Snapshot, size api.Size) (model.Runner, error) {
+	if snapshot.ArtifactURL == "" {
+		return selectRunnerByIDForUpdate(tx, snapshot.RunnerID, size)
+	}
+	return selectRunnerForUpdate(tx, size)
+}
+
 func runnerHasCapacity(runner model.Runner, size api.Size) bool {
 	cpuLimit := int(float64(runner.TotalCPU) * runner.CPUOvercommit)
 	return runner.ReservedCPU+size.CPU <= cpuLimit &&
@@ -125,16 +132,19 @@ func max(a, b int) int {
 }
 
 type runnerCreateSandboxRequest struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	ImageRef     string            `json:"image_ref"`
-	SnapshotID   string            `json:"snapshot_id"`
-	CPU          int               `json:"cpu"`
-	MemoryMB     int               `json:"memory_mb"`
-	DiskGB       int               `json:"disk_gb"`
-	Env          map[string]string `json:"env"`
-	Labels       map[string]string `json:"labels"`
-	PreviewPorts []int             `json:"preview_ports"`
+	ID                     string            `json:"id"`
+	Name                   string            `json:"name"`
+	ImageRef               string            `json:"image_ref"`
+	SnapshotID             string            `json:"snapshot_id"`
+	SnapshotArtifactURL    string            `json:"snapshot_artifact_url"`
+	SnapshotArtifactDigest string            `json:"snapshot_artifact_digest"`
+	SnapshotImageDigest    string            `json:"snapshot_image_digest"`
+	CPU                    int               `json:"cpu"`
+	MemoryMB               int               `json:"memory_mb"`
+	DiskGB                 int               `json:"disk_gb"`
+	Env                    map[string]string `json:"env"`
+	Labels                 map[string]string `json:"labels"`
+	PreviewPorts           []int             `json:"preview_ports"`
 }
 
 type runnerCreateSandboxResponse struct {

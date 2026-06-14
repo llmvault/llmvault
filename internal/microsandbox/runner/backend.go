@@ -27,16 +27,19 @@ type ReconcileReport struct {
 }
 
 type CreateSandboxRequest struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	ImageRef     string            `json:"image_ref"`
-	SnapshotID   string            `json:"snapshot_id"`
-	CPU          int               `json:"cpu"`
-	MemoryMB     int               `json:"memory_mb"`
-	DiskGB       int               `json:"disk_gb"`
-	Env          map[string]string `json:"env"`
-	Labels       map[string]string `json:"labels"`
-	PreviewPorts []int             `json:"preview_ports"`
+	ID                     string            `json:"id"`
+	Name                   string            `json:"name"`
+	ImageRef               string            `json:"image_ref"`
+	SnapshotID             string            `json:"snapshot_id"`
+	SnapshotArtifactURL    string            `json:"snapshot_artifact_url"`
+	SnapshotArtifactDigest string            `json:"snapshot_artifact_digest"`
+	SnapshotImageDigest    string            `json:"snapshot_image_digest"`
+	CPU                    int               `json:"cpu"`
+	MemoryMB               int               `json:"memory_mb"`
+	DiskGB                 int               `json:"disk_gb"`
+	Env                    map[string]string `json:"env"`
+	Labels                 map[string]string `json:"labels"`
+	PreviewPorts           []int             `json:"preview_ports"`
 }
 
 type CreateSandboxResponse struct {
@@ -67,7 +70,12 @@ type CreateSnapshotRequest struct {
 }
 
 type CreateSnapshotResponse struct {
-	ID          string `json:"id"`
-	ArtifactURL string `json:"artifact_url"`
-	Logs        string `json:"logs"`
+	ID                  string `json:"id"`
+	ArtifactURL         string `json:"artifact_url"`
+	ArtifactDigest      string `json:"artifact_digest"`
+	ArtifactSizeBytes   int64  `json:"artifact_size_bytes"`
+	ArtifactMediaType   string `json:"artifact_media_type"`
+	SnapshotDigest      string `json:"snapshot_digest"`
+	ImageManifestDigest string `json:"image_manifest_digest"`
+	Logs                string `json:"logs"`
 }

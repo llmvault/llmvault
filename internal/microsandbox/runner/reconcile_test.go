@@ -111,3 +111,18 @@ func TestDockerDataVolumeLabelsAreRecoverable(t *testing.T) {
 		t.Fatalf("labels = %#v", labels)
 	}
 }
+
+func TestPinnedImageRefUsesDigestWithoutLosingRegistryPort(t *testing.T) {
+	digest := "sha256:123456"
+	cases := map[string]string{
+		"ghcr.io/usehivy/runtime:v1":     "ghcr.io/usehivy/runtime@" + digest,
+		"localhost:5000/team/runtime:v1": "localhost:5000/team/runtime@" + digest,
+		"ubuntu":                         "ubuntu@" + digest,
+		"ubuntu@sha256:old":              "ubuntu@sha256:old",
+	}
+	for input, want := range cases {
+		if got := pinnedImageRef(input, digest); got != want {
+			t.Fatalf("pinnedImageRef(%q) = %q, want %q", input, got, want)
+		}
+	}
+}

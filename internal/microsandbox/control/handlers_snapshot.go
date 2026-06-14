@@ -3,6 +3,7 @@ package control
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
 	"github.com/usehivy/hivy/internal/microsandbox/security"
+	"github.com/usehivy/hivy/internal/microsandbox/storage"
 )
 
 type createSnapshotRequest struct {
@@ -24,6 +26,17 @@ type createSnapshotRequest struct {
 	DiskGB       int               `json:"disk_gb"`
 	Commands     []string          `json:"commands"`
 	Env          map[string]string `json:"env"`
+}
+
+type runnerCreateSnapshotResponse struct {
+	ID                  string `json:"id"`
+	ArtifactURL         string `json:"artifact_url"`
+	ArtifactDigest      string `json:"artifact_digest"`
+	ArtifactSizeBytes   int64  `json:"artifact_size_bytes"`
+	ArtifactMediaType   string `json:"artifact_media_type"`
+	SnapshotDigest      string `json:"snapshot_digest"`
+	ImageManifestDigest string `json:"image_manifest_digest"`
+	Logs                string `json:"logs"`
 }
 
 func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
@@ -72,15 +85,13 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var out map[string]any
+	var out runnerCreateSnapshotResponse
 	callErr := s.client.Post(r.Context(), runner.APIURL, "/v1/snapshots", map[string]any{
 		"id": id, "name": req.Name, "base_image_ref": req.BaseImageRef, "commands": req.Commands,
 		"env": req.Env, "cpu": size.CPU, "memory_mb": size.MemoryMB, "disk_gb": size.DiskGB,
 	}, &out)
 	status := model.SnapshotStatusReady
 	errMsg := ""
-	artifactURL, _ := out["artifact_url"].(string)
-	logs, _ := out["logs"].(string)
 	if callErr != nil {
 		status = model.SnapshotStatusError
 		errMsg = callErr.Error()
@@ -88,7 +99,10 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 	_ = s.db.Transaction(func(tx *gorm.DB) error {
 		_ = releaseRunner(tx, &runner, size)
 		return tx.Model(&model.Snapshot{}).Where("id = ?", id).Updates(map[string]any{
-			"status": status, "artifact_url": artifactURL, "logs": logs, "error_message": errMsg,
+			"status": status, "artifact_url": out.ArtifactURL, "artifact_digest": out.ArtifactDigest,
+			"artifact_size_bytes": out.ArtifactSizeBytes, "artifact_media_type": out.ArtifactMediaType,
+			"snapshot_digest": out.SnapshotDigest, "image_manifest_digest": out.ImageManifestDigest,
+			"logs": out.Logs, "error_message": errMsg,
 		}).Error
 	})
 	if callErr != nil {
@@ -127,6 +141,16 @@ func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
 	if err := s.client.Delete(r.Context(), runner.APIURL, "/v1/snapshots/"+snapshot.ID); err != nil {
 		httpx.JSON(w, http.StatusBadGateway, api.ErrorResponse{Error: err.Error()})
 		return
+	}
+	if snapshot.ArtifactURL != "" {
+		store, err := storage.NewSnapshotStore(r.Context(), s.cfg)
+		if err != nil {
+			slog.Error("snapshot artifact store init failed", "snapshot_id", snapshot.ID, "error", err)
+		} else if store != nil {
+			if err := store.Delete(r.Context(), snapshot.ArtifactURL); err != nil {
+				slog.Error("snapshot artifact delete failed", "snapshot_id", snapshot.ID, "artifact_url", snapshot.ArtifactURL, "error", err)
+			}
+		}
 	}
 	if err := s.db.WithContext(r.Context()).Delete(&snapshot).Error; err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to delete snapshot"})

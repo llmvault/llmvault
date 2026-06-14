@@ -52,25 +52,36 @@ func (m *MicrosandboxBackend) CreateSnapshot(ctx context.Context, req CreateSnap
 	if _, err := snapshot.Verify(ctx); err != nil {
 		return nil, err
 	}
+	resp := &CreateSnapshotResponse{
+		ID:                  req.ID,
+		Logs:                logs.String(),
+		SnapshotDigest:      snapshot.Digest(),
+		ImageManifestDigest: snapshot.ImageManifestDigest(),
+	}
+	if m.store == nil {
+		return resp, nil
+	}
 	if err := os.MkdirAll(snapshotExportDir, 0o755); err != nil {
 		return nil, err
 	}
-	exportPath := filepath.Join(snapshotExportDir, req.ID+".tar")
+	exportPath := filepath.Join(snapshotExportDir, req.ID+".tar.zst")
 	defer func() {
 		_ = os.Remove(exportPath)
 	}()
 	if err := microsandbox.Snapshot.Export(ctx, snapshot.Path(), exportPath, microsandbox.SnapshotExportOptions{
-		WithParents: true,
-		WithImage:   true,
-		PlainTar:    true,
+		PlainTar: false,
 	}); err != nil {
 		return nil, err
 	}
-	artifactURL, err := m.store.Upload(ctx, exportPath, req.ID)
+	artifact, err := m.store.Upload(ctx, exportPath, req.ID)
 	if err != nil {
 		return nil, err
 	}
-	return &CreateSnapshotResponse{ID: req.ID, ArtifactURL: artifactURL, Logs: logs.String()}, nil
+	resp.ArtifactURL = artifact.URL
+	resp.ArtifactDigest = artifact.Digest
+	resp.ArtifactSizeBytes = artifact.SizeBytes
+	resp.ArtifactMediaType = artifact.ContentType
+	return resp, nil
 }
 
 func (m *MicrosandboxBackend) DeleteSnapshot(ctx context.Context, snapshotID string) error {
