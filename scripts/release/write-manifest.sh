@@ -33,16 +33,16 @@ cat >"${out}" <<EOF
   },
   "snapshots": {
     "sandboxesRuntime": {
-      "small": "hivy-sandboxes-runtime-${RELEASE_DASHED}-small-v1",
-      "medium": "hivy-sandboxes-runtime-${RELEASE_DASHED}-medium-v1",
-      "large": "hivy-sandboxes-runtime-${RELEASE_DASHED}-large-v1",
-      "xlarge": "hivy-sandboxes-runtime-${RELEASE_DASHED}-xlarge-v1"
+      "small": "hivy-sandboxes-runtime-${RELEASE_DASHED}-small",
+      "medium": "hivy-sandboxes-runtime-${RELEASE_DASHED}-medium",
+      "large": "hivy-sandboxes-runtime-${RELEASE_DASHED}-large",
+      "xlarge": "hivy-sandboxes-runtime-${RELEASE_DASHED}-xlarge"
     },
     "sandboxesRuntimeDevelopers": {
-      "small": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-small-v1",
-      "medium": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-medium-v1",
-      "large": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-large-v1",
-      "xlarge": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-xlarge-v1"
+      "small": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-small",
+      "medium": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-medium",
+      "large": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-large",
+      "xlarge": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-xlarge"
     }
   }
 }

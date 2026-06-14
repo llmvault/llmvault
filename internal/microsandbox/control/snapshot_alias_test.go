@@ -15,7 +15,7 @@ import (
 )
 
 func TestValidateSnapshotAlias(t *testing.T) {
-	valid := []string{"runtime", "runtime-latest", "hivy-runtime-v3-1-18-amd64-medium-v1", "a1-b2"}
+	valid := []string{"runtime", "runtime-latest", "hivy-runtime-v3-1-18-amd64-medium", "a1-b2"}
 	for _, alias := range valid {
 		if err := validateSnapshotAlias(alias); err != nil {
 			t.Fatalf("validateSnapshotAlias(%q): %v", alias, err)
