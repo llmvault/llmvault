@@ -62,11 +62,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		req.Name = id
 	}
 	if len(req.PreviewPorts) == 0 {
-		defaultPorts := s.cfg.DefaultPreviewPorts
-		if len(defaultPorts) == 0 {
-			defaultPorts = api.DefaultPreviewPorts()
-		}
-		req.PreviewPorts = append([]int(nil), defaultPorts...)
+		req.PreviewPorts = api.DefaultPreviewPorts()
 	}
 	metadata, _ := json.Marshal(req.Metadata)
 

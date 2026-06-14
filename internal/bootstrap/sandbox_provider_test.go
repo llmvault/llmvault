@@ -39,11 +39,10 @@ func TestNewSandboxProviderDaytonaWithoutCredentialsDisablesSandbox(t *testing.T
 
 func TestNewSandboxProviderCreatesMicrosandboxWhenConfigured(t *testing.T) {
 	provider, err := newSandboxProvider(&config.Config{
-		SandboxProviderID:               sandbox.ProviderMicrosandbox,
-		MicrosandboxControlURL:          "http://127.0.0.1:8080",
-		MicrosandboxControlAPIToken:     "test-token",
-		MicrosandboxDefaultPreviewPorts: []int{3000, 7080},
-		SandboxesRuntimeBaseImage:       "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
+		SandboxProviderID:           sandbox.ProviderMicrosandbox,
+		MicrosandboxControlURL:      "http://127.0.0.1:8080",
+		MicrosandboxControlAPIToken: "test-token",
+		SandboxesRuntimeBaseImage:   "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
 	})
 	if err != nil {
 		t.Fatalf("newSandboxProvider: %v", err)

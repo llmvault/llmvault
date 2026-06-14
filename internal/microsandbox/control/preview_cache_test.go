@@ -11,6 +11,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
 )
@@ -78,13 +79,12 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 	}
 
 	cfg := config.Config{
-		APIToken:            "api-token",
-		RunnerAPIToken:      runnerToken,
-		PreviewPasswordKey:  "preview-password-key",
-		PreviewBaseDomain:   "preview.test",
-		PreviewCacheURL:     cache.URL,
-		PreviewCacheToken:   cacheToken,
-		DefaultPreviewPorts: []int{3000, 5173, 8080},
+		APIToken:           "api-token",
+		RunnerAPIToken:     runnerToken,
+		PreviewPasswordKey: "preview-password-key",
+		PreviewBaseDomain:  "preview.test",
+		PreviewCacheURL:    cache.URL,
+		PreviewCacheToken:  cacheToken,
 	}
 	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken), previewCache: NewPreviewCacheClient(cfg)}
 
@@ -101,7 +101,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create status = %d body = %s", rec.Code, rec.Body.String())
 	}
-	if got, want := runnerPreviewPorts, []int{3000, 5173, 8080}; !equalInts(got, want) {
+	if got, want := runnerPreviewPorts, api.DefaultPreviewPorts(); !equalInts(got, want) {
 		t.Fatalf("runner preview ports = %v, want %v", got, want)
 	}
 
