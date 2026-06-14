@@ -117,11 +117,6 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["icon"] = value
 		agent.Icon = value
 	}
-	if req.Placeholder != nil {
-		value := cleanStringPtr(req.Placeholder)
-		updates["placeholder"] = value
-		agent.Placeholder = value
-	}
 	if req.SandboxStrategy != nil {
 		strategy := cleanStringPtr(req.SandboxStrategy)
 		if !isValidAgentSandboxStrategy(strategy) {

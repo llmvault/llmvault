@@ -86,4 +86,6 @@ func (m *MockBackend) CreateSnapshot(_ context.Context, req CreateSnapshotReques
 	return &CreateSnapshotResponse{ID: req.ID, ArtifactURL: "mock://" + req.ID, Logs: "mock snapshot built\n"}, nil
 }
 
+func (m *MockBackend) DeleteSnapshot(context.Context, string) error { return nil }
+
 var _ = http.MethodGet

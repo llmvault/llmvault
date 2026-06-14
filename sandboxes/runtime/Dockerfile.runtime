@@ -22,45 +22,25 @@ RUN apt-get update \
     cmake \
     coreutils \
     curl \
-    csvkit \
     direnv \
     dnsutils \
-    docker-cli \
-    docker-compose \
-    docker.io \
-    exiftool \
     fd-find \
-    ffmpeg \
     file \
     findutils \
-    fontconfig \
-    fonts-dejavu \
-    fonts-liberation \
-    fonts-noto \
-    fonts-noto-color-emoji \
     gh \
     git \
     git-lfs \
-    ghostscript \
-    graphicsmagick \
     gzip \
-    fuse-overlayfs \
-    imagemagick \
-    iptables \
     iputils-ping \
     jq \
     less \
     libsqlite3-dev \
-    libvips-tools \
     libyaml-dev \
     lsof \
     make \
-    mediainfo \
     netcat-openbsd \
     openssh-client \
-    pandoc \
     pkg-config \
-    poppler-utils \
     procps \
     psmisc \
     python3 \
@@ -88,12 +68,45 @@ RUN apt-get update \
     zstd \
   && ln -s /usr/bin/fdfind /usr/local/bin/fd \
   && git lfs install --system \
-  && curl -fsSL https://mise.run | sh \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    csvkit \
+    exiftool \
+    ffmpeg \
+    fontconfig \
+    fonts-dejavu \
+    fonts-liberation \
+    fonts-noto \
+    fonts-noto-color-emoji \
+    ghostscript \
+    graphicsmagick \
+    imagemagick \
+    libvips-tools \
+    mediainfo \
+    pandoc \
+    poppler-utils \
+    sox \
+    tesseract-ocr \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    docker-cli \
+    docker-compose \
+    docker.io \
+    fuse-overlayfs \
+    iptables \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://mise.run | sh \
   && mv /root/.local/bin/mise /usr/local/bin/mise \
   && mise use -g just@${JUST_VERSION} \
   && mise use -g node@lts \
-  && npm install -g pnpm@10 \
-  && python3 -m pip install --break-system-packages --no-cache-dir \
+  && npm install -g pnpm@10
+
+RUN python3 -m pip install --break-system-packages --no-cache-dir \
     beautifulsoup4 \
     fpdf2 \
     lxml \
@@ -108,8 +121,7 @@ RUN apt-get update \
     reportlab \
     requests \
     uv \
-  && printf '%s\n' 'if [ -n "${BASH_VERSION:-}" ]; then' '  eval "$(mise activate bash)"' 'fi' >/etc/profile.d/mise.sh \
-  && rm -rf /var/lib/apt/lists/*
+  && printf '%s\n' 'if [ -n "${BASH_VERSION:-}" ]; then' '  eval "$(mise activate bash)"' 'fi' >/etc/profile.d/mise.sh
 
 WORKDIR /app
 

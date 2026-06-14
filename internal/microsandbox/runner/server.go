@@ -60,6 +60,7 @@ func (s *Server) Routes() http.Handler {
 		r.Post("/v1/sandboxes/{sandboxID}/exec", s.execSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}/logs", s.logsSandbox)
 		r.Post("/v1/snapshots", s.createSnapshot)
+		r.Delete("/v1/snapshots/{snapshotID}", s.deleteSnapshot)
 		r.Handle("/proxy/{sandboxID}/{port}/*", s.proxySandbox())
 	})
 	return r

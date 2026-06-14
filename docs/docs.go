@@ -4122,175 +4122,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/custom-domains": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns all custom preview domains for the current organization.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "custom-domains"
-                ],
-                "summary": "List custom domains",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/createDomainResponse"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Register a new custom preview domain for the current organization. Returns DNS records to create.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "custom-domains"
-                ],
-                "summary": "Add a custom domain",
-                "parameters": [
-                    {
-                        "description": "Domain to add",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/createDomainRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/createDomainResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/custom-domains/{id}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Remove a custom preview domain and its TLS configuration.",
-                "tags": [
-                    "custom-domains"
-                ],
-                "summary": "Delete a custom domain",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Domain ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/custom-domains/{id}/verify": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Checks that both DNS CNAME records are correctly configured and triggers wildcard TLS provisioning.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "custom-domains"
-                ],
-                "summary": "Verify a custom domain",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Domain ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/verifyDomainResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/dashboard": {
             "get": {
                 "security": [
@@ -7547,6 +7378,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/sessions/{id}/stream-access": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns browser-direct sandbox stream details for a delivered queued session message.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Get direct session stream access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Session event ID",
+                        "name": "event_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sessionStreamAccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/skills": {
             "get": {
                 "security": [
@@ -9020,9 +8921,6 @@ const docTemplate = `{
                 "permissions": {
                     "$ref": "#/definitions/JSON"
                 },
-                "placeholder": {
-                    "type": "string"
-                },
                 "resources": {
                     "$ref": "#/definitions/JSON"
                 },
@@ -9093,9 +8991,6 @@ const docTemplate = `{
                 },
                 "permissions": {
                     "$ref": "#/definitions/JSON"
-                },
-                "placeholder": {
-                    "type": "string"
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
@@ -9181,9 +9076,6 @@ const docTemplate = `{
                 },
                 "permissions": {
                     "$ref": "#/definitions/JSON"
-                },
-                "placeholder": {
-                    "type": "string"
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
@@ -9941,52 +9833,6 @@ const docTemplate = `{
                 }
             }
         },
-        "createDomainRequest": {
-            "type": "object",
-            "properties": {
-                "domain": {
-                    "type": "string"
-                }
-            }
-        },
-        "createDomainResponse": {
-            "type": "object",
-            "properties": {
-                "acme_dns_subdomain": {
-                    "type": "string"
-                },
-                "cname_target": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "dns_records": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dnsRecord"
-                    }
-                },
-                "domain": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "org_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "verified": {
-                    "type": "boolean"
-                },
-                "verified_at": {
-                    "type": "string"
-                }
-            }
-        },
         "createOrgEnvironmentVariableRequest": {
             "type": "object",
             "properties": {
@@ -10317,20 +10163,6 @@ const docTemplate = `{
                 },
                 "schema_snapshot": {},
                 "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "dnsRecord": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "value": {
                     "type": "string"
                 }
             }
@@ -10685,9 +10517,6 @@ const docTemplate = `{
         "meResponse": {
             "type": "object",
             "properties": {
-                "is_platform_admin": {
-                    "type": "boolean"
-                },
                 "orgs": {
                     "type": "array",
                     "items": {
@@ -12259,6 +12088,38 @@ const docTemplate = `{
                 }
             }
         },
+        "sessionStreamAccessResponse": {
+            "type": "object",
+            "properties": {
+                "direct_url": {
+                    "type": "string"
+                },
+                "sequence_number": {
+                    "type": "integer"
+                },
+                "session_event_id": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "stream_id": {
+                    "type": "string"
+                },
+                "stream_token": {
+                    "type": "string"
+                },
+                "stream_url": {
+                    "type": "string"
+                },
+                "trace_id": {
+                    "type": "string"
+                },
+                "turn_id": {
+                    "type": "string"
+                }
+            }
+        },
         "sessionSummary": {
             "type": "object",
             "properties": {
@@ -13143,17 +13004,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                }
-            }
-        },
-        "verifyDomainResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "verified": {
-                    "type": "boolean"
                 }
             }
         },

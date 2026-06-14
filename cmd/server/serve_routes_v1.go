@@ -40,7 +40,6 @@ func setupV1Routes(
 	skillHandler *handler.SkillHandler,
 	pluginHandler *handler.PluginHandler,
 	databaseIntegrationHandler *handler.DatabaseIntegrationHandler,
-	customDomainHandler *handler.CustomDomainHandler,
 	ragSourceHandler *handler.RAGSourceHandler,
 	ragSearchHandler *handler.RAGSearchHandler,
 	uploadsHandler *handler.UploadsHandler,
@@ -254,14 +253,6 @@ func setupV1Routes(
 					})
 				})
 			}
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAPIKeyScopeOrJWT("all"))
-				r.Post("/custom-domains", customDomainHandler.Create)
-				r.Get("/custom-domains", customDomainHandler.List)
-				r.Post("/custom-domains/{id}/verify", customDomainHandler.Verify)
-				r.Delete("/custom-domains/{id}", customDomainHandler.Delete)
-			})
 
 			if uploadsHandler != nil {
 				r.Route("/uploads", func(r chi.Router) {

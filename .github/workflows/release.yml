@@ -107,11 +107,6 @@ jobs:
             target: x86_64-unknown-linux-gnu
             platform: linux/amd64
             make_target: sandbox-runtime-linux-build-amd64
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            platform: linux/arm64
-            make_target: sandbox-runtime-linux-build-arm64
     steps:
       - uses: actions/checkout@v6
         with:
@@ -208,17 +203,14 @@ jobs:
           for image in "$runtime" "$developers"; do
             docker buildx imagetools create \
               -t "${image}:${{ needs.prepare.outputs.tag }}" \
-              "${image}:${{ needs.prepare.outputs.tag }}-amd64" \
-              "${image}:${{ needs.prepare.outputs.tag }}-arm64"
+              "${image}:${{ needs.prepare.outputs.tag }}-amd64"
             docker buildx imagetools create \
               -t "${image}:${{ needs.prepare.outputs.version }}" \
-              "${image}:${{ needs.prepare.outputs.version }}-amd64" \
-              "${image}:${{ needs.prepare.outputs.version }}-arm64"
+              "${image}:${{ needs.prepare.outputs.version }}-amd64"
             if [[ "${{ needs.prepare.outputs.prerelease }}" != "true" ]]; then
               docker buildx imagetools create \
                 -t "${image}:latest" \
-                "${image}:${{ needs.prepare.outputs.tag }}-amd64" \
-                "${image}:${{ needs.prepare.outputs.tag }}-arm64"
+                "${image}:${{ needs.prepare.outputs.tag }}-amd64"
             fi
           done
 

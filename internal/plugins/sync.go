@@ -274,9 +274,6 @@ func syncPluginSkills(ctx context.Context, tx *gorm.DB, plugin model.Plugin, loa
 			}
 			result.SkillsUpdated++
 		}
-		if err := attachSkillToEnabledAgents(ctx, tx, plugin.ID, skill.ID); err != nil {
-			return err
-		}
 	}
 
 	var existing []model.Skill
@@ -289,9 +286,6 @@ func syncPluginSkills(ctx context.Context, tx *gorm.DB, plugin model.Plugin, loa
 		}
 		if err := tx.Model(&skill).Update("status", model.SkillStatusArchived).Error; err != nil {
 			return fmt.Errorf("archive removed skill %q: %w", skill.Slug, err)
-		}
-		if err := tx.Where("skill_id = ?", skill.ID).Delete(&model.AgentSkill{}).Error; err != nil {
-			return fmt.Errorf("detach removed skill %q: %w", skill.Slug, err)
 		}
 		result.SkillsArchived++
 	}

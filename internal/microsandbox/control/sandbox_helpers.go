@@ -54,10 +54,10 @@ func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {
 	var bestFree int
 	for i := range runners {
 		r := &runners[i]
-		cpuLimit := int(float64(r.TotalCPU) * r.CPUOvercommit)
-		if r.ReservedCPU+size.CPU > cpuLimit || r.ReservedMemoryMB+size.MemoryMB > r.TotalMemoryMB || r.ReservedDiskGB+size.DiskGB > r.TotalDiskGB {
+		if !runnerHasCapacity(*r, size) {
 			continue
 		}
+		cpuLimit := int(float64(r.TotalCPU) * r.CPUOvercommit)
 		free := (cpuLimit - r.ReservedCPU - size.CPU) + ((r.TotalMemoryMB - r.ReservedMemoryMB - size.MemoryMB) / 1024)
 		if best == nil || free < bestFree {
 			best = r
@@ -68,6 +68,29 @@ func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {
 		return model.Runner{}, fmt.Errorf("no runner has enough capacity")
 	}
 	return *best, nil
+}
+
+func selectRunnerByIDForUpdate(tx *gorm.DB, runnerID string, size api.Size) (model.Runner, error) {
+	var runner model.Runner
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ? AND status = ? AND drain = ?", runnerID, model.RunnerStatusHealthy, false).
+		First(&runner).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.Runner{}, fmt.Errorf("snapshot runner is unavailable")
+		}
+		return model.Runner{}, err
+	}
+	if !runnerHasCapacity(runner, size) {
+		return model.Runner{}, fmt.Errorf("snapshot runner has insufficient capacity")
+	}
+	return runner, nil
+}
+
+func runnerHasCapacity(runner model.Runner, size api.Size) bool {
+	cpuLimit := int(float64(runner.TotalCPU) * runner.CPUOvercommit)
+	return runner.ReservedCPU+size.CPU <= cpuLimit &&
+		runner.ReservedMemoryMB+size.MemoryMB <= runner.TotalMemoryMB &&
+		runner.ReservedDiskGB+size.DiskGB <= runner.TotalDiskGB
 }
 
 func reserveRunner(tx *gorm.DB, runner *model.Runner, size api.Size) error {

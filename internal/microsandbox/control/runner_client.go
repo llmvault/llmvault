@@ -24,6 +24,14 @@ func NewRunnerClient(token string) *RunnerClient {
 }
 
 func (c *RunnerClient) Post(ctx context.Context, baseURL, path string, in, out any) error {
+	return c.do(ctx, http.MethodPost, baseURL, path, in, out)
+}
+
+func (c *RunnerClient) Delete(ctx context.Context, baseURL, path string) error {
+	return c.do(ctx, http.MethodDelete, baseURL, path, nil, nil)
+}
+
+func (c *RunnerClient) do(ctx context.Context, method, baseURL, path string, in, out any) error {
 	var body io.Reader
 	if in != nil {
 		raw, err := json.Marshal(in)
@@ -32,12 +40,14 @@ func (c *RunnerClient) Post(ctx context.Context, baseURL, path string, in, out a
 		}
 		body = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(baseURL, "/")+path, body)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Content-Type", "application/json")
+	if in != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err

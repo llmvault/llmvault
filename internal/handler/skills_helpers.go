@@ -130,12 +130,3 @@ func writeSkillLookupError(w http.ResponseWriter, err error) {
 	}
 	writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "lookup failed"})
 }
-
-func toAgentSkillResponse(link model.AgentSkill, skill model.Skill) agentSkillResponse {
-	resp := agentSkillResponse{
-		SkillID:   link.SkillID.String(),
-		CreatedAt: link.CreatedAt,
-		Skill:     toSkillResponse(skill),
-	}
-	return resp
-}

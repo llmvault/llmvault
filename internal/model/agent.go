@@ -16,7 +16,6 @@ type Agent struct {
 	AvatarURL           *string          `gorm:"type:text"`
 	Category            *string          `gorm:"-"`
 	Icon                string           `gorm:"type:text;not null;default:''"`
-	Placeholder         string           `gorm:"type:text;not null;default:''"`
 	IsDefault           bool             `gorm:"not null;default:false;index"`
 	SandboxStrategy     string           `gorm:"type:text;not null;default:'per_session'"`
 	WorkspaceSnapshotID *uuid.UUID       `gorm:"type:uuid"`

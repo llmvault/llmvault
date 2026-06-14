@@ -16,18 +16,8 @@ func enablePluginForAgent(ctx context.Context, tx *gorm.DB, orgID, agentID, plug
 	if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&install).Error; err != nil {
 		return fmt.Errorf("enable plugin for agent: %w", err)
 	}
-	var skills []model.Skill
-	if err := tx.WithContext(ctx).
-		Where("plugin_id = ? AND status = ?", pluginID, model.SkillStatusPublished).
-		Find(&skills).Error; err != nil {
-		return fmt.Errorf("load plugin skills: %w", err)
-	}
-	for _, skill := range skills {
-		link := model.AgentSkill{AgentID: agentID, SkillID: skill.ID}
-		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&link).Error; err != nil {
-			return fmt.Errorf("attach plugin skill: %w", err)
-		}
-	}
+	// Skills are inherited dynamically from the plugin at runtime, so there is
+	// nothing to materialize here beyond the plugin install itself.
 	return refreshPluginSkillInstallCounts(ctx, tx, pluginID)
 }
 
@@ -50,33 +40,16 @@ func disablePluginForAgent(ctx context.Context, tx *gorm.DB, orgID, agentID, plu
 		Delete(&model.AgentPluginInstall{}).Error; err != nil {
 		return err
 	}
-	var skillIDs []uuid.UUID
-	if err := tx.WithContext(ctx).Model(&model.Skill{}).
-		Where("plugin_id = ?", pluginID).
-		Pluck("id", &skillIDs).Error; err != nil {
-		return err
-	}
-	if len(skillIDs) > 0 {
-		if err := tx.WithContext(ctx).
-			Where("agent_id = ? AND skill_id IN ?", agentID, skillIDs).
-			Delete(&model.AgentSkill{}).Error; err != nil {
-			return err
-		}
-	}
 	return refreshPluginSkillInstallCounts(ctx, tx, pluginID)
 }
 
+// refreshPluginSkillInstallCounts sets each of the plugin's skills' install_count
+// to the number of agents that have the plugin installed (skills are inherited
+// through plugin installs, so per-skill counts mirror the plugin's reach).
 func refreshPluginSkillInstallCounts(ctx context.Context, tx *gorm.DB, pluginID uuid.UUID) error {
-	var skills []model.Skill
-	if err := tx.WithContext(ctx).Where("plugin_id = ?", pluginID).Find(&skills).Error; err != nil {
-		return err
-	}
-	for _, skill := range skills {
-		if err := tx.WithContext(ctx).Model(&model.Skill{}).
-			Where("id = ?", skill.ID).
-			UpdateColumn("install_count", gorm.Expr("(SELECT COUNT(*) FROM agent_skills WHERE skill_id = ?)", skill.ID)).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+	return tx.WithContext(ctx).Model(&model.Skill{}).
+		Where("plugin_id = ?", pluginID).
+		UpdateColumn("install_count", gorm.Expr(
+			"(SELECT COUNT(*) FROM agent_plugin_installs WHERE plugin_id = ?)", pluginID,
+		)).Error
 }

@@ -63,11 +63,6 @@ CREATE TABLE agent_schedules (
     updated_at timestamp with time zone
 );
 
-CREATE TABLE agent_skills (
-    agent_id uuid NOT NULL,
-    skill_id uuid NOT NULL,
-    created_at timestamp with time zone
-);
 
 CREATE TABLE agent_trigger_deliveries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -137,19 +132,6 @@ CREATE TABLE agents (
     updated_at timestamp with time zone
 );
 
-CREATE TABLE failed_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    trigger_id uuid NOT NULL,
-    event_type text NOT NULL,
-    payload jsonb NOT NULL,
-    error text NOT NULL,
-    attempt_count bigint NOT NULL,
-    failed_at timestamp with time zone NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    retried_at timestamp with time zone,
-    retried_task_id text
-);
 
 CREATE TABLE generations (
     id text NOT NULL,
@@ -199,8 +181,6 @@ ALTER TABLE ONLY agent_schedule_runs
 ALTER TABLE ONLY agent_schedules
     ADD CONSTRAINT agent_schedules_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY agent_skills
-    ADD CONSTRAINT agent_skills_pkey PRIMARY KEY (agent_id, skill_id);
 
 ALTER TABLE ONLY agent_trigger_deliveries
     ADD CONSTRAINT agent_trigger_deliveries_pkey PRIMARY KEY (id);
@@ -210,9 +190,6 @@ ALTER TABLE ONLY agent_triggers
 
 ALTER TABLE ONLY agents
     ADD CONSTRAINT agents_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY failed_events
-    ADD CONSTRAINT failed_events_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY generations
     ADD CONSTRAINT generations_pkey PRIMARY KEY (id);
@@ -286,15 +263,6 @@ CREATE INDEX idx_agent_triggers_trigger_type ON agent_triggers USING btree (trig
 
 CREATE INDEX idx_agents_credential_id ON agents USING btree (credential_id);
 
-CREATE INDEX idx_failed_events_event_type ON failed_events USING btree (event_type);
-
-CREATE INDEX idx_failed_events_failed_at ON failed_events USING btree (failed_at);
-
-CREATE INDEX idx_failed_events_org_id ON failed_events USING btree (org_id);
-
-CREATE INDEX idx_failed_events_status ON failed_events USING btree (status);
-
-CREATE INDEX idx_failed_events_trigger_id ON failed_events USING btree (trigger_id);
 
 CREATE INDEX idx_gen_org_created ON generations USING btree (org_id, created_at);
 

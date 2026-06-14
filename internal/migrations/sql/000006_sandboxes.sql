@@ -3,21 +3,6 @@
 
 -- Sandbox, upload, and asset tables
 
-CREATE TABLE custom_domains (
-    id uuid NOT NULL,
-    org_id uuid NOT NULL,
-    domain character varying(255) NOT NULL,
-    verified boolean DEFAULT false,
-    verified_at timestamp with time zone,
-    cname_target character varying(255) NOT NULL,
-    acme_dns_subdomain character varying(255),
-    acme_dns_username character varying(255),
-    acme_dns_password character varying(255),
-    acme_dns_server_url character varying(255),
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
-);
-
 CREATE TABLE drive_assets (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
@@ -93,9 +78,6 @@ CREATE TABLE sandboxes (
     updated_at timestamp with time zone
 );
 
-ALTER TABLE ONLY custom_domains
-    ADD CONSTRAINT custom_domains_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY drive_assets
     ADD CONSTRAINT drive_assets_pkey PRIMARY KEY (id);
 
@@ -108,9 +90,6 @@ ALTER TABLE ONLY sandbox_templates
 ALTER TABLE ONLY sandboxes
     ADD CONSTRAINT sandboxes_pkey PRIMARY KEY (id);
 
-CREATE UNIQUE INDEX idx_custom_domains_domain ON custom_domains USING btree (domain);
-
-CREATE INDEX idx_custom_domains_org_id ON custom_domains USING btree (org_id);
 
 CREATE INDEX idx_drive_asset_agent ON drive_assets USING btree (agent_id);
 

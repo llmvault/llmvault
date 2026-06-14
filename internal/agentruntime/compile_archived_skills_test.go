@@ -34,16 +34,22 @@ func TestCompile_IgnoresArchivedAttachedSkills(t *testing.T) {
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
+	plugin := model.Plugin{ID: uuid.New(), Slug: "drive-" + uuid.NewString(), Name: "Drive", Status: model.PluginStatusActive}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
 	active := compileTestSkill("drive-"+uuid.NewString(), "Drive", nil)
 	archived := compileTestSkill("asset-uploads-"+uuid.NewString(), "asset-uploads", nil)
+	active.PluginID = &plugin.ID
+	archived.PluginID = &plugin.ID
 	archived.Status = model.SkillStatusArchived
 	for _, skill := range []model.Skill{active, archived} {
 		if err := db.Create(&skill).Error; err != nil {
 			t.Fatalf("create skill %s: %v", skill.Slug, err)
 		}
-		if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
-			t.Fatalf("attach skill %s: %v", skill.Slug, err)
-		}
+	}
+	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("install plugin: %v", err)
 	}
 
 	def, err := Compile(context.Background(), CompileDeps{DB: db, Cfg: &config.Config{}}, &agent)

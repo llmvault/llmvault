@@ -2,6 +2,7 @@ package control
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -61,6 +62,25 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	if len(req.PreviewPorts) == 0 {
 		req.PreviewPorts = api.DefaultPreviewPorts()
 	}
+	var snapshot model.Snapshot
+	if req.SnapshotID != "" {
+		if err := s.db.WithContext(r.Context()).First(&snapshot, "id = ?", req.SnapshotID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "snapshot not found"})
+				return
+			}
+			httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to load snapshot"})
+			return
+		}
+		if snapshot.OrgID != req.OrgID {
+			httpx.JSON(w, http.StatusForbidden, api.ErrorResponse{Error: "snapshot does not belong to org"})
+			return
+		}
+		if snapshot.Status != model.SnapshotStatusReady {
+			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "snapshot is not ready"})
+			return
+		}
+	}
 	metadata, _ := json.Marshal(req.Metadata)
 
 	password, err := s.ensureOrgPassword(r.Context(), req.OrgID, req.PreviewPassword)
@@ -72,7 +92,13 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	var sb model.Sandbox
 	var runner model.Runner
 	err = s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		selected, err := selectRunnerForUpdate(tx, size)
+		var selected model.Runner
+		var err error
+		if req.SnapshotID != "" {
+			selected, err = selectRunnerByIDForUpdate(tx, snapshot.RunnerID, size)
+		} else {
+			selected, err = selectRunnerForUpdate(tx, size)
+		}
 		if err != nil {
 			return err
 		}

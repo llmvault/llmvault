@@ -160,9 +160,14 @@ func TestCompile_SerializesSkillOptionalArraysAsEmptyArrays(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 	desc := "Upload generated artifacts."
+	plugin := model.Plugin{ID: uuid.New(), Slug: "drive-" + uuid.NewString(), Name: "Drive", Status: model.PluginStatusActive}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
 	skill := model.Skill{
 		ID:          uuid.New(),
 		OrgID:       &org.ID,
+		PluginID:    &plugin.ID,
 		Slug:        "drive",
 		Name:        "Drive",
 		Description: &desc,
@@ -174,8 +179,8 @@ func TestCompile_SerializesSkillOptionalArraysAsEmptyArrays(t *testing.T) {
 	if err := db.Create(&skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
-		t.Fatalf("attach skill: %v", err)
+	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("install plugin: %v", err)
 	}
 
 	def, err := Compile(context.Background(), CompileDeps{DB: db, Cfg: &config.Config{}}, &agent)
@@ -225,9 +230,14 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 	desc := "Upload generated artifacts."
+	plugin := model.Plugin{ID: uuid.New(), Slug: "drive-" + uuid.NewString(), Name: "Drive", Status: model.PluginStatusActive}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
 	skill := model.Skill{
 		ID:          uuid.New(),
 		OrgID:       &org.ID,
+		PluginID:    &plugin.ID,
 		Slug:        "drive",
 		Name:        "Drive",
 		Description: &desc,
@@ -244,8 +254,8 @@ func TestCompile_PreservesSkillRequiredEnvironmentVariables(t *testing.T) {
 	if err := db.Create(&skill).Error; err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
-	if err := db.Create(&model.AgentSkill{AgentID: agent.ID, SkillID: skill.ID}).Error; err != nil {
-		t.Fatalf("attach skill: %v", err)
+	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("install plugin: %v", err)
 	}
 
 	def, err := Compile(context.Background(), CompileDeps{DB: db, Cfg: &config.Config{}}, &agent)

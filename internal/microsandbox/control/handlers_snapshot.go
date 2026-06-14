@@ -2,6 +2,7 @@ package control
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -79,6 +80,7 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 	status := model.SnapshotStatusReady
 	errMsg := ""
 	artifactURL, _ := out["artifact_url"].(string)
+	logs, _ := out["logs"].(string)
 	if callErr != nil {
 		status = model.SnapshotStatusError
 		errMsg = callErr.Error()
@@ -86,7 +88,7 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 	_ = s.db.Transaction(func(tx *gorm.DB) error {
 		_ = releaseRunner(tx, &runner, size)
 		return tx.Model(&model.Snapshot{}).Where("id = ?", id).Updates(map[string]any{
-			"status": status, "artifact_url": artifactURL, "error_message": errMsg,
+			"status": status, "artifact_url": artifactURL, "logs": logs, "error_message": errMsg,
 		}).Error
 	})
 	if callErr != nil {
@@ -105,4 +107,30 @@ func (s *Server) getSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, snapshot)
+}
+
+func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
+	var snapshot model.Snapshot
+	if err := s.db.WithContext(r.Context()).First(&snapshot, "id = ?", chi.URLParam(r, "snapshotID")).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "snapshot not found"})
+			return
+		}
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to load snapshot"})
+		return
+	}
+	var runner model.Runner
+	if err := s.db.WithContext(r.Context()).First(&runner, "id = ?", snapshot.RunnerID).Error; err != nil {
+		httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "runner not found"})
+		return
+	}
+	if err := s.client.Delete(r.Context(), runner.APIURL, "/v1/snapshots/"+snapshot.ID); err != nil {
+		httpx.JSON(w, http.StatusBadGateway, api.ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := s.db.WithContext(r.Context()).Delete(&snapshot).Error; err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to delete snapshot"})
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
