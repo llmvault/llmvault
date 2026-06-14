@@ -29,5 +29,5 @@ func (d *Driver) GetEndpoint(ctx context.Context, externalID string, port int) (
 	if len(bindings) == 0 || strings.TrimSpace(bindings[0].HostPort) == "" {
 		return "", fmt.Errorf("docker container %s has no host binding for port %d", externalID, port)
 	}
-	return fmt.Sprintf("http://%s:%s", d.publicHost, bindings[0].HostPort), nil
+	return fmt.Sprintf("%s:%s", d.runtimeOrigin, bindings[0].HostPort), nil
 }

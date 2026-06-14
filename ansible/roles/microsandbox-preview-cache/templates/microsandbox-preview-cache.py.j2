@@ -65,16 +65,22 @@ def normalize_route(raw, sandbox_id=None):
     if sandbox_id:
         route["sandbox_id"] = sandbox_id
     sid = str(route.get("sandbox_id", "")).strip()
-    upstream = str(route.get("runner_private_url") or route.get("upstream") or "").strip().rstrip("/")
     if not sid:
         raise ValueError("sandbox_id is required")
-    if not upstream:
-        raise ValueError("runner_private_url is required")
-    if not upstream.startswith("http://") and not upstream.startswith("https://"):
-        upstream = "http://" + upstream
+    upstreams = route.get("upstreams") or {}
+    normalized_upstreams = {}
+    for guest_port, upstream in upstreams.items():
+        key = str(int(guest_port))
+        value = str(upstream).strip().rstrip("/")
+        if not value:
+            continue
+        if not value.startswith("http://") and not value.startswith("https://"):
+            value = "http://" + value
+        normalized_upstreams[key] = value
+    if not normalized_upstreams:
+        raise ValueError("upstreams is required")
     route["sandbox_id"] = sid
-    route["runner_private_url"] = upstream
-    route["ports"] = [int(p) for p in route.get("ports", [])]
+    route["upstreams"] = normalized_upstreams
     route["status"] = str(route.get("status") or "running")
     route["updated_at"] = int(time.time())
     return route
@@ -136,13 +142,13 @@ class Handler(BaseHTTPRequestHandler):
             if route.get("status") not in ("running", "ready", ""):
                 response(self, 503, {"error": "sandbox is not running"})
                 return
-            ports = route.get("ports") or []
-            if ports and port not in [int(p) for p in ports]:
+            upstream = (route.get("upstreams") or {}).get(str(port))
+            if not upstream:
                 response(self, 404, {"error": "port not previewable"})
                 return
-            rewrite = "/proxy/%s/%d%s" % (sandbox_id, port, original_uri if original_uri.startswith("/") else "/" + original_uri)
+            rewrite = original_uri if original_uri.startswith("/") else "/" + original_uri
             self.send_response(204)
-            self.send_header("X-Microsandbox-Upstream", route["runner_private_url"])
+            self.send_header("X-Microsandbox-Upstream", upstream)
             self.send_header("X-Microsandbox-Rewrite-URI", rewrite)
             self.end_headers()
             return

@@ -6,7 +6,9 @@
       - runner_name | trim | length > 0
       - runner_public_url is defined
       - runner_public_url | trim | length > 0
-    fail_msg: "Each runner host must define runner_name and runner_public_url."
+      - runner_preview_base_url is defined
+      - runner_preview_base_url | trim | length > 0
+    fail_msg: "Each runner host must define runner_name, runner_public_url, and runner_preview_base_url."
 
 - name: Check installed Microsandbox runner binary exists
   ansible.builtin.stat:

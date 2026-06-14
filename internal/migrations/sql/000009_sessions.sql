@@ -63,6 +63,10 @@ CREATE TABLE session_message_queue (
     leased_until timestamp with time zone,
     delivered_at timestamp with time zone,
     last_error text DEFAULT ''::text NOT NULL,
+    runtime_stream_id text DEFAULT ''::text NOT NULL,
+    runtime_stream_url text DEFAULT ''::text NOT NULL,
+    runtime_trace_id text DEFAULT ''::text NOT NULL,
+    runtime_turn_id text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone,
     updated_at timestamp with time zone
 );

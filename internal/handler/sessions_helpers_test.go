@@ -1,12 +1,14 @@
 package handler_test
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -52,7 +54,7 @@ type sessionEventOut struct {
 func newSessionHarness(t *testing.T) *sessionHarness {
 	t.Helper()
 	db := connectTestDB(t)
-	h := handler.NewSessionHandler(db)
+	h := handler.NewSessionHandler(db).WithRuntimeStreamKey(sessionTestEncKey(t))
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(middleware.ResolveOrgFromHeader(db))
@@ -64,6 +66,7 @@ func newSessionHarness(t *testing.T) *sessionHarness {
 		r.Patch("/sessions/{id}", h.Update)
 		r.Post("/sessions/{id}/messages", h.SendMessage)
 		r.Get("/sessions/{id}/events", h.ListEvents)
+		r.Get("/sessions/{id}/stream-access", h.StreamAccess)
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)
 	})
@@ -132,4 +135,13 @@ func seedSessionAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 		t.Fatalf("create agent: %v", err)
 	}
 	return agent
+}
+
+func sessionTestEncKey(t *testing.T) *crypto.SymmetricKey {
+	t.Helper()
+	key, err := crypto.NewSymmetricKey(base64.StdEncoding.EncodeToString(make([]byte, 32)))
+	if err != nil {
+		t.Fatalf("create session test enc key: %v", err)
+	}
+	return key
 }

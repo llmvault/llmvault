@@ -105,12 +105,13 @@ func (s *Server) RegisterAndHeartbeat(ctx context.Context) {
 }
 
 func (s *Server) register(ctx context.Context) error {
-	if s.cfg.ControlURL == "" || s.cfg.RunnerJoinSecret == "" || s.cfg.RunnerPublicURL == "" {
-		return fmt.Errorf("HIVY_MICROSANDBOX_CONTROL_URL, HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET, and HIVY_MICROSANDBOX_RUNNER_PUBLIC_URL are required")
+	if s.cfg.ControlURL == "" || s.cfg.RunnerJoinSecret == "" || s.cfg.RunnerPublicURL == "" || s.cfg.RunnerPreviewBaseURL == "" {
+		return fmt.Errorf("HIVY_MICROSANDBOX_CONTROL_URL, HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET, HIVY_MICROSANDBOX_RUNNER_PUBLIC_URL, and HIVY_MICROSANDBOX_RUNNER_PREVIEW_BASE_URL are required")
 	}
 	body := map[string]any{
-		"name":    s.cfg.RunnerName,
-		"api_url": s.cfg.RunnerPublicURL,
+		"name":             s.cfg.RunnerName,
+		"api_url":          s.cfg.RunnerPublicURL,
+		"preview_base_url": s.cfg.RunnerPreviewBaseURL,
 		"capacity": map[string]any{
 			"cpu": s.cfg.RunnerTotalCPU, "memory_mb": s.cfg.RunnerTotalMemoryMB,
 			"disk_gb": s.cfg.RunnerTotalDiskGB, "cpu_overcommit": s.cfg.RunnerCPUOvercommit,

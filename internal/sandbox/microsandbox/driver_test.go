@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -69,8 +70,8 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if !ok {
 		t.Fatalf("preview_ports = %T, want array", createReq["preview_ports"])
 	}
-	if len(previewPorts) != 30 {
-		t.Fatalf("preview_ports length = %d, want 30", len(previewPorts))
+	if len(previewPorts) != len(msbapi.DefaultPreviewPorts()) {
+		t.Fatalf("preview_ports length = %d, want %d", len(previewPorts), len(msbapi.DefaultPreviewPorts()))
 	}
 
 	endpoint, err := driver.GetEndpoint(context.Background(), "sbx_test", 0)

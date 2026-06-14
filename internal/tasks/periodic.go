@@ -126,7 +126,7 @@ func sandboxPeriodicTasksConfigured(cfg *config.Config) bool {
 	}
 	switch strings.TrimSpace(cfg.SandboxProviderID) {
 	case sandbox.ProviderDocker:
-		return strings.TrimSpace(cfg.SandboxDockerPublicHost) != ""
+		return strings.TrimSpace(cfg.SandboxDockerRuntimeOrigin) != ""
 	case sandbox.ProviderDaytona:
 		return strings.TrimSpace(cfg.DaytonaAPIKey) != ""
 	case sandbox.ProviderRailway:

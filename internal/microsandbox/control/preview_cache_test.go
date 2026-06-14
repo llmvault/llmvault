@@ -38,6 +38,8 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 			"ports": []map[string]int{
 				{"guest_port": 3000, "host_port": 43000},
 				{"guest_port": 5173, "host_port": 45173},
+				{"guest_port": 7080, "host_port": 47080},
+				{"guest_port": 8000, "host_port": 48000},
 				{"guest_port": 8080, "host_port": 48080},
 			},
 		})
@@ -72,7 +74,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := db.Create(&model.Runner{
-		ID: "runner-1", Name: "runner-1", APIURL: runner.URL, AuthTokenHash: []byte("hash"),
+		ID: "runner-1", Name: "runner-1", APIURL: runner.URL, PreviewBaseURL: "http://10.80.1.2", AuthTokenHash: []byte("hash"),
 		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 200, CPUOvercommit: 1.5,
 	}).Error; err != nil {
 		t.Fatal(err)
@@ -107,17 +109,43 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 
 	select {
 	case route := <-routeCh:
-		if route.RunnerPrivateURL != runner.URL {
-			t.Fatalf("route runner url = %q, want %q", route.RunnerPrivateURL, runner.URL)
-		}
 		if route.Status != model.SandboxStatusRunning {
 			t.Fatalf("route status = %q, want running", route.Status)
 		}
-		if !equalInts(route.Ports, []int{3000, 5173, 8080}) {
-			t.Fatalf("route ports = %v", route.Ports)
+		want := map[string]string{
+			"3000": "http://10.80.1.2:43000",
+			"5173": "http://10.80.1.2:45173",
+			"7080": "http://10.80.1.2:47080",
+			"8000": "http://10.80.1.2:48000",
+			"8080": "http://10.80.1.2:48080",
+		}
+		if len(route.Upstreams) != len(want) {
+			t.Fatalf("route upstreams = %#v", route.Upstreams)
+		}
+		for port, upstream := range want {
+			if route.Upstreams[port] != upstream {
+				t.Fatalf("route upstream %s = %q, want %q", port, route.Upstreams[port], upstream)
+			}
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for preview cache route")
+	}
+}
+
+func TestPreviewCacheRouteBuildsDirectUpstreams(t *testing.T) {
+	route, err := previewCacheRouteFor(
+		model.Sandbox{ID: "sbx_123", Status: model.SandboxStatusRunning},
+		model.Runner{ID: "runner-1", PreviewBaseURL: "http://10.80.1.2"},
+		[]model.SandboxPort{
+			{GuestPort: 3000, HostPort: 43122},
+			{GuestPort: 5173, HostPort: 45173},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if route.Upstreams["3000"] != "http://10.80.1.2:43122" || route.Upstreams["5173"] != "http://10.80.1.2:45173" {
+		t.Fatalf("upstreams = %#v", route.Upstreams)
 	}
 }
 

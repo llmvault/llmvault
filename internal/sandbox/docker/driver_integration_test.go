@@ -30,7 +30,7 @@ func runIntegrationTests(m *testing.M) int {
 	defer cancel()
 
 	driver, err := NewDriver(Config{
-		PublicHost:           "127.0.0.1",
+		RuntimeOrigin:        "http://127.0.0.1",
 		ContainerLabelPrefix: integrationLabelPrefix,
 	})
 	if err != nil {
@@ -158,7 +158,7 @@ func newIntegrationDriver(t *testing.T, ctx context.Context) *Driver {
 	t.Helper()
 
 	driver, err := NewDriver(Config{
-		PublicHost:           "127.0.0.1",
+		RuntimeOrigin:        "http://127.0.0.1",
 		ContainerLabelPrefix: integrationLabelPrefix,
 	})
 	if err != nil {

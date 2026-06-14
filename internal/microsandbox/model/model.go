@@ -6,6 +6,7 @@ type Runner struct {
 	ID               string  `gorm:"primaryKey"`
 	Name             string  `gorm:"not null;uniqueIndex"`
 	APIURL           string  `gorm:"not null"`
+	PreviewBaseURL   string  `gorm:"not null;default:''"`
 	AuthTokenHash    []byte  `gorm:"not null"`
 	Status           string  `gorm:"not null;index"`
 	Drain            bool    `gorm:"not null;default:false"`

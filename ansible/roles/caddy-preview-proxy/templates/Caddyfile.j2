@@ -26,7 +26,6 @@
 		rewrite * {http.request.header.X-Microsandbox-Rewrite-URI}
 
 		reverse_proxy {http.request.header.X-Microsandbox-Upstream} {
-			header_up Authorization "Bearer {$HIVY_MICROSANDBOX_RUNNER_API_TOKEN}"
 			header_up X-Hivy-Preview-Host {host}
 			flush_interval -1
 		}

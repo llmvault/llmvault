@@ -15,6 +15,7 @@ const (
 	TypeSkillHydrate              = "skill:hydrate"
 	TypeAgentTriggerDispatch      = "agent_trigger:dispatch"
 	TypeAgentTriggerStoreDelivery = "agent_trigger:store_delivery"
+	TypeSessionMessageDeliver     = "session:message_deliver"
 	TypeSessionName               = "session:name"
 	TypeAgentMemoryRetain         = "agent:memory_retain"
 	TypeAgentMemoryRefresh        = "agent:memory_refresh"

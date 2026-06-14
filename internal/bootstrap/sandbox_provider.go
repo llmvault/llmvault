@@ -32,12 +32,12 @@ func newSandboxProvider(cfg *config.Config) (sandbox.Provider, error) {
 			Target: cfg.DaytonaTarget,
 		})
 	case sandbox.ProviderDocker:
-		if strings.TrimSpace(cfg.SandboxDockerPublicHost) == "" {
-			return nil, fmt.Errorf("%w: HIVY_SANDBOX_DOCKER_PUBLIC_HOST is empty", errSandboxProviderNotConfigured)
+		if strings.TrimSpace(cfg.SandboxDockerRuntimeOrigin) == "" {
+			return nil, fmt.Errorf("%w: HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN is empty", errSandboxProviderNotConfigured)
 		}
 		return dockerprovider.NewDriver(dockerprovider.Config{
 			Host:                 cfg.SandboxDockerHost,
-			PublicHost:           cfg.SandboxDockerPublicHost,
+			RuntimeOrigin:        cfg.SandboxDockerRuntimeOrigin,
 			ContainerLabelPrefix: cfg.SandboxDockerContainerLabelPrefix,
 		})
 	case sandbox.ProviderRailway:

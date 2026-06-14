@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-bridge-client generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live seed-test local-up local-down local-reset local-status login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
+.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live local-up local-down local-reset local-status login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -21,9 +21,16 @@ NANGO_SECRET_SQL = SELECT secret_key FROM nango._nango_environments WHERE name='
 TEST_DATABASE_URL ?= postgres://hivy:localdev@localhost:$(or $(HIVY_COMPOSE_POSTGRES_PORT),5433)/hivy_test?sslmode=disable
 TEST_REDIS_ADDR ?= localhost:$(or $(HIVY_COMPOSE_REDIS_PORT),16279)
 TEST_ENV = DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_REDIS_ADDR="$(TEST_REDIS_ADDR)"
+AGENT_SESSIONS_E2E_API_BASE_URL ?= http://localhost:$(or $(HIVY_COMPOSE_API_PORT),8080)
+AGENT_SESSIONS_E2E_WORKER_BASE_URL ?= http://localhost:$(or $(HIVY_COMPOSE_WORKER_HEALTH_PORT),8090)
 HANDLER_TEST_SHARDS ?= 8
 HANDLER_TEST_TIMEOUT ?= 5m
 AGENT_RUNTIME_E2E_TIMEOUT ?= 5m
+AGENT_SESSIONS_E2E_TIMEOUT ?= 5m
+AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE ?= 1
+ifeq ($(AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE),1)
+TEST_AGENT_SESSIONS_E2E_DEPS := sandbox-runtime-image
+endif
 SHARD_INDEX ?= 0
 SHARD_TOTAL ?= 1
 RACE ?= 0
@@ -196,6 +203,12 @@ test-e2e:
 # Optional: set HIVY_AGENT_RUNTIME_E2E_IMAGE=<tag> to reuse a prebuilt image.
 test-agent-runtime-e2e:
 	$(TEST_ENV) HIVY_AGENT_RUNTIME_E2E=1 HIVY_AGENT_RUNTIME_E2E_TRACE_COMPACT=1 $(GO_BIN) test ./e2e -run 'TestAgentRuntime.*E2E' -count=1 -timeout=$(AGENT_RUNTIME_E2E_TIMEOUT) -v
+
+# Run the production-shape agent sessions E2E against a live compose stack.
+# This registers a real org, uses the default #general channel, and requires
+# the worker to provision a Docker-backed agent sandbox and persist a response.
+test-agent-sessions-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
+	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run TestAgentSessionsDefaultGeneralChannelE2E -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v
 
 # Run internal/handler tests split across stable parallel shards.
 test-handler-sharded:

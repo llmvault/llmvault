@@ -9,12 +9,16 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 type SessionHandler struct {
-	db *gorm.DB
+	db            *gorm.DB
+	enqueuer      enqueue.TaskEnqueuer
+	runtimeEncKey *crypto.SymmetricKey
 }
 
 func formatRuntimeTime(t time.Time) string {
@@ -54,8 +58,17 @@ func webSessionName(text string) string {
 	return strings.TrimSpace(text[:max])
 }
 
-func NewSessionHandler(db *gorm.DB) *SessionHandler {
-	return &SessionHandler{db: db}
+func NewSessionHandler(db *gorm.DB, enqueuers ...enqueue.TaskEnqueuer) *SessionHandler {
+	var enq enqueue.TaskEnqueuer
+	if len(enqueuers) > 0 {
+		enq = enqueuers[0]
+	}
+	return &SessionHandler{db: db, enqueuer: enq}
+}
+
+func (h *SessionHandler) WithRuntimeStreamKey(key *crypto.SymmetricKey) *SessionHandler {
+	h.runtimeEncKey = key
+	return h
 }
 
 type createSessionRequest struct {
@@ -138,6 +151,18 @@ type sessionEventResponse struct {
 	SequenceNumber int64      `json:"sequence_number"`
 	Payload        model.JSON `json:"payload"`
 	EventAt        string     `json:"event_at"`
+}
+
+type sessionStreamAccessResponse struct {
+	SessionID      string `json:"session_id"`
+	SessionEventID string `json:"session_event_id"`
+	SequenceNumber int64  `json:"sequence_number"`
+	StreamID       string `json:"stream_id"`
+	StreamURL      string `json:"stream_url"`
+	DirectURL      string `json:"direct_url"`
+	StreamToken    string `json:"stream_token"`
+	TraceID        string `json:"trace_id"`
+	TurnID         string `json:"turn_id"`
 }
 
 func sessionIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

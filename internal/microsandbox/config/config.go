@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/usehivy/hivy/internal/microsandbox/api"
 )
 
 type Config struct {
@@ -31,14 +33,17 @@ type Config struct {
 	RunnerUnhealthyAfter time.Duration
 	RunnerCheckInterval  time.Duration
 
-	ControlURL          string
-	RunnerName          string
-	RunnerPublicURL     string
-	RunnerBackend       string
-	RunnerTotalCPU      int
-	RunnerTotalMemoryMB int
-	RunnerTotalDiskGB   int
-	RunnerCPUOvercommit float64
+	ControlURL                  string
+	RunnerName                  string
+	RunnerPublicURL             string
+	RunnerPreviewBaseURL        string
+	RunnerBackend               string
+	RunnerTotalCPU              int
+	RunnerTotalMemoryMB         int
+	RunnerTotalDiskGB           int
+	RunnerCPUOvercommit         float64
+	RunnerPreviewPortRangeStart int
+	RunnerPreviewPortRangeEnd   int
 
 	SnapshotS3Bucket          string
 	SnapshotS3Region          string
@@ -51,41 +56,44 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		Environment:               get("HIVY_MICROSANDBOX_ENVIRONMENT", "development"),
-		LogLevel:                  get("HIVY_MICROSANDBOX_LOG_LEVEL", "info"),
-		LogFormat:                 get("HIVY_MICROSANDBOX_LOG_FORMAT", "json"),
-		Addr:                      get("HIVY_MICROSANDBOX_ADDR", ":8080"),
-		DatabaseDSN:               os.Getenv("HIVY_MICROSANDBOX_DATABASE_DSN"),
-		SentryDSN:                 os.Getenv("HIVY_MICROSANDBOX_SENTRY_DSN"),
-		APIToken:                  os.Getenv("HIVY_MICROSANDBOX_API_TOKEN"),
-		RunnerJoinSecret:          os.Getenv("HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET"),
-		RunnerAPIToken:            os.Getenv("HIVY_MICROSANDBOX_RUNNER_API_TOKEN"),
-		PreviewBaseDomain:         get("HIVY_MICROSANDBOX_PREVIEW_BASE_DOMAIN", "preview.usehivy.local"),
-		PreviewCookieDomain:       os.Getenv("HIVY_MICROSANDBOX_PREVIEW_COOKIE_DOMAIN"),
-		PreviewJWTSecret:          get("HIVY_MICROSANDBOX_PREVIEW_JWT_SECRET", "dev-preview-jwt-secret-change-me"),
-		PreviewPasswordKey:        os.Getenv("HIVY_MICROSANDBOX_PREVIEW_PASSWORD_KEY"),
-		PreviewCookieTTL:          duration("HIVY_MICROSANDBOX_PREVIEW_COOKIE_TTL", 30*24*time.Hour),
-		PreviewCacheURL:           strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_URL"), "/"),
-		PreviewCacheToken:         os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN"),
-		PreviewCacheSync:          duration("HIVY_MICROSANDBOX_PREVIEW_CACHE_SYNC_INTERVAL", time.Minute),
-		HeartbeatInterval:         duration("HIVY_MICROSANDBOX_HEARTBEAT_INTERVAL", time.Minute),
-		RunnerUnhealthyAfter:      duration("HIVY_MICROSANDBOX_RUNNER_UNHEALTHY_AFTER", 3*time.Minute),
-		RunnerCheckInterval:       duration("HIVY_MICROSANDBOX_RUNNER_CHECK_INTERVAL", 5*time.Minute),
-		ControlURL:                strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_CONTROL_URL"), "/"),
-		RunnerName:                get("HIVY_MICROSANDBOX_RUNNER_NAME", "runner-local"),
-		RunnerPublicURL:           strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_RUNNER_PUBLIC_URL"), "/"),
-		RunnerBackend:             get("HIVY_MICROSANDBOX_RUNNER_BACKEND", "microsandbox"),
-		RunnerTotalCPU:            integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_CPU", 4),
-		RunnerTotalMemoryMB:       integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_MEMORY_MB", 8192),
-		RunnerTotalDiskGB:         integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_DISK_GB", 200),
-		RunnerCPUOvercommit:       float("HIVY_MICROSANDBOX_RUNNER_CPU_OVERCOMMIT", 1.5),
-		SnapshotS3Bucket:          os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_BUCKET"),
-		SnapshotS3Region:          get("HIVY_MICROSANDBOX_SNAPSHOT_S3_REGION", "us-east-1"),
-		SnapshotS3Endpoint:        os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_ENDPOINT"),
-		SnapshotS3AccessKeyID:     os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_ACCESS_KEY_ID"),
-		SnapshotS3SecretAccessKey: os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_SECRET_ACCESS_KEY"),
-		SnapshotS3Prefix:          get("HIVY_MICROSANDBOX_SNAPSHOT_S3_PREFIX", "snapshots"),
-		SnapshotS3PathStyle:       boolean("HIVY_MICROSANDBOX_SNAPSHOT_S3_PATH_STYLE", true),
+		Environment:                 get("HIVY_MICROSANDBOX_ENVIRONMENT", "development"),
+		LogLevel:                    get("HIVY_MICROSANDBOX_LOG_LEVEL", "info"),
+		LogFormat:                   get("HIVY_MICROSANDBOX_LOG_FORMAT", "json"),
+		Addr:                        get("HIVY_MICROSANDBOX_ADDR", ":8080"),
+		DatabaseDSN:                 os.Getenv("HIVY_MICROSANDBOX_DATABASE_DSN"),
+		SentryDSN:                   os.Getenv("HIVY_MICROSANDBOX_SENTRY_DSN"),
+		APIToken:                    os.Getenv("HIVY_MICROSANDBOX_API_TOKEN"),
+		RunnerJoinSecret:            os.Getenv("HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET"),
+		RunnerAPIToken:              os.Getenv("HIVY_MICROSANDBOX_RUNNER_API_TOKEN"),
+		PreviewBaseDomain:           get("HIVY_MICROSANDBOX_PREVIEW_BASE_DOMAIN", "preview.usehivy.local"),
+		PreviewCookieDomain:         os.Getenv("HIVY_MICROSANDBOX_PREVIEW_COOKIE_DOMAIN"),
+		PreviewJWTSecret:            get("HIVY_MICROSANDBOX_PREVIEW_JWT_SECRET", "dev-preview-jwt-secret-change-me"),
+		PreviewPasswordKey:          os.Getenv("HIVY_MICROSANDBOX_PREVIEW_PASSWORD_KEY"),
+		PreviewCookieTTL:            duration("HIVY_MICROSANDBOX_PREVIEW_COOKIE_TTL", 30*24*time.Hour),
+		PreviewCacheURL:             strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_URL"), "/"),
+		PreviewCacheToken:           os.Getenv("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN"),
+		PreviewCacheSync:            duration("HIVY_MICROSANDBOX_PREVIEW_CACHE_SYNC_INTERVAL", time.Minute),
+		HeartbeatInterval:           duration("HIVY_MICROSANDBOX_HEARTBEAT_INTERVAL", time.Minute),
+		RunnerUnhealthyAfter:        duration("HIVY_MICROSANDBOX_RUNNER_UNHEALTHY_AFTER", 3*time.Minute),
+		RunnerCheckInterval:         duration("HIVY_MICROSANDBOX_RUNNER_CHECK_INTERVAL", 5*time.Minute),
+		ControlURL:                  strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_CONTROL_URL"), "/"),
+		RunnerName:                  get("HIVY_MICROSANDBOX_RUNNER_NAME", "runner-local"),
+		RunnerPublicURL:             strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_RUNNER_PUBLIC_URL"), "/"),
+		RunnerPreviewBaseURL:        strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_RUNNER_PREVIEW_BASE_URL"), "/"),
+		RunnerBackend:               get("HIVY_MICROSANDBOX_RUNNER_BACKEND", "microsandbox"),
+		RunnerTotalCPU:              integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_CPU", 4),
+		RunnerTotalMemoryMB:         integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_MEMORY_MB", 8192),
+		RunnerTotalDiskGB:           integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_DISK_GB", 200),
+		RunnerCPUOvercommit:         float("HIVY_MICROSANDBOX_RUNNER_CPU_OVERCOMMIT", 1.5),
+		RunnerPreviewPortRangeStart: integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_START", api.DefaultPreviewHostPortRangeStart),
+		RunnerPreviewPortRangeEnd:   integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_END", api.DefaultPreviewHostPortRangeEnd),
+		SnapshotS3Bucket:            os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_BUCKET"),
+		SnapshotS3Region:            get("HIVY_MICROSANDBOX_SNAPSHOT_S3_REGION", "us-east-1"),
+		SnapshotS3Endpoint:          os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_ENDPOINT"),
+		SnapshotS3AccessKeyID:       os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_ACCESS_KEY_ID"),
+		SnapshotS3SecretAccessKey:   os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_SECRET_ACCESS_KEY"),
+		SnapshotS3Prefix:            get("HIVY_MICROSANDBOX_SNAPSHOT_S3_PREFIX", "snapshots"),
+		SnapshotS3PathStyle:         boolean("HIVY_MICROSANDBOX_SNAPSHOT_S3_PATH_STYLE", true),
 	}
 }
 
