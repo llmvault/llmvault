@@ -16,18 +16,23 @@ import (
 )
 
 type Server struct {
-	db     *gorm.DB
-	cfg    config.Config
-	client *RunnerClient
+	db           *gorm.DB
+	cfg          config.Config
+	client       *RunnerClient
+	previewCache *PreviewCacheClient
 }
 
 func NewServer(db *gorm.DB, cfg config.Config) *Server {
 	s := &Server{
-		db:     db,
-		cfg:    cfg,
-		client: NewRunnerClient(cfg.RunnerAPIToken),
+		db:           db,
+		cfg:          cfg,
+		client:       NewRunnerClient(cfg.RunnerAPIToken),
+		previewCache: NewPreviewCacheClient(cfg),
 	}
 	go s.watchRunners()
+	if s.previewCache != nil {
+		go s.watchPreviewRoutes()
+	}
 	return s
 }
 
