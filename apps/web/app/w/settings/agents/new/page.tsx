@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   Avatar,
@@ -34,17 +34,18 @@ export default function NewAgentPage() {
   const router = useRouter()
 
   const modelsQuery = $api.useQuery("get", "/v1/agents/models")
-  const templatesQuery = $api.useQuery(
-    "get",
-    "/v1/sandbox-templates",
-    { params: { query: { limit: 100 } } }
-  )
+  const templatesQuery = $api.useQuery("get", "/v1/sandbox-templates", {
+    params: { query: { limit: 100 } },
+  })
   const createAgent = $api.useMutation("post", "/v1/agents")
 
-  const models = (modelsQuery.data ?? []) as ModelSummary[]
-  const templates =
-    ((templatesQuery.data as { data?: SandboxTemplate[] } | undefined)?.data ??
-      []) as SandboxTemplate[]
+  const models = useMemo(
+    () => (modelsQuery.data ?? []) as ModelSummary[],
+    [modelsQuery.data]
+  )
+  const templates = ((
+    templatesQuery.data as { data?: SandboxTemplate[] } | undefined
+  )?.data ?? []) as SandboxTemplate[]
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -56,12 +57,11 @@ export default function NewAgentPage() {
   const [templateId, setTemplateId] = useState(TEMPLATE_NONE)
   const [submitting, setSubmitting] = useState(false)
 
-  // Default the model once the list loads (so the Select shows a real value).
-  useEffect(() => {
-    if (model || models.length === 0) return
-    const preferred = models.find((m) => m.id === DEFAULT_MODEL)
-    setModel(preferred?.id ?? models[0]?.id ?? "")
-  }, [model, models])
+  const defaultModelID = useMemo(() => {
+    if (models.length === 0) return ""
+    return models.find((m) => m.id === DEFAULT_MODEL)?.id ?? models[0]?.id ?? ""
+  }, [models])
+  const selectedModel = model || defaultModelID
 
   async function handleCreate() {
     if (!name.trim()) {
@@ -74,7 +74,7 @@ export default function NewAgentPage() {
         body: {
           name: name.trim(),
           description: description.trim() || undefined,
-          model: model || undefined,
+          model: selectedModel || undefined,
           instructions: instructions.trim() || undefined,
           sandbox_strategy: sandboxStrategy,
           sandbox_template_id:
@@ -109,7 +109,7 @@ export default function NewAgentPage() {
             type="button"
             aria-label="Back to agents"
             onClick={() => router.push("/w/settings/agents")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-default hover:text-foreground"
+            className="hover:bg-default flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:text-foreground"
           >
             <Icon icon="lucide:arrow-left" className="h-4.5 w-4.5" />
           </button>
@@ -173,7 +173,7 @@ export default function NewAgentPage() {
         <Field label="Model">
           <FieldSelect
             ariaLabel="Model"
-            value={model}
+            value={selectedModel}
             onChange={setModel}
             options={modelOptions}
             loading={modelsQuery.isLoading}
@@ -319,7 +319,7 @@ function Segmented({
   onChange: (value: string) => void
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+    <div className="bg-surface inline-flex items-center gap-1 rounded-xl border border-border p-1">
       {options.map((option) => (
         <button
           key={option.value}
