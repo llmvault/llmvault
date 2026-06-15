@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/email"
 	"github.com/usehivy/hivy/internal/enqueue"
@@ -64,6 +65,7 @@ func newEmailConfirmationHarness(t *testing.T) *emailConfirmationHarness {
 
 	r := chi.NewRouter()
 	r.Post("/auth/register", authHandler.Register)
+	r.Post("/auth/login", authHandler.Login)
 	r.Post("/auth/confirm-email", authHandler.ConfirmEmail)
 	r.Post("/auth/resend-confirmation", authHandler.ResendConfirmation)
 
@@ -192,5 +194,72 @@ func TestResendConfirmation_SendsSixDigitCode(t *testing.T) {
 	code := h.sender.messages[0].Variables["code"]
 	if len(code) != 6 {
 		t.Fatalf("code length: got %q, want 6 digits", code)
+	}
+}
+
+func TestLogin_UnconfirmedUserSendsConfirmationCode(t *testing.T) {
+	h := newEmailConfirmationHarness(t)
+	testEmail := "login-unconfirmed@test.usehivy.com"
+	h.cleanupEmail(t, testEmail)
+
+	hash, err := auth.HashPassword("password123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	user := model.User{
+		Email:        testEmail,
+		Name:         "Login Unconfirmed",
+		PasswordHash: hash,
+	}
+	if err := h.db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	org := model.Org{Name: "login-unconfirmed-" + testEmail}
+	if err := h.db.Create(&org).Error; err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	if err := h.db.Create(&model.OrgMembership{
+		UserID: user.ID,
+		OrgID:  org.ID,
+		Role:   "owner",
+	}).Error; err != nil {
+		t.Fatalf("create membership: %v", err)
+	}
+
+	rr := h.doRequest(t, http.MethodPost, "/auth/login", map[string]string{
+		"email":    testEmail,
+		"password": "password123",
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("login: got %d body=%s, want 200", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		User struct {
+			EmailConfirmed bool `json:"email_confirmed"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode login response: %v", err)
+	}
+	if resp.User.EmailConfirmed {
+		t.Fatal("login response should report email_confirmed=false")
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		var count int64
+		if err := h.db.Model(&model.OTPCode{}).
+			Where("email = ? AND used_at IS NULL", testEmail).
+			Count(&count).Error; err != nil {
+			t.Fatalf("count confirmation codes: %v", err)
+		}
+		if count > 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("expected login to send a confirmation code")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
