@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/enqueue"
 )
 
 // oauthProfile holds the normalised user info fetched from an OAuth provider.
@@ -44,6 +45,7 @@ type OAuthHandler struct {
 	credits      *billing.CreditsService
 	memoryBanks  memoryBankProvisioner
 	agentSyncer  OrgAgentSyncer
+	enqueuer     enqueue.TaskEnqueuer
 	githubConfig *oauth2.Config
 	googleConfig *oauth2.Config
 	xConfig      *oauth2.Config
@@ -55,6 +57,10 @@ func (h *OAuthHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
 
 func (h *OAuthHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
 	h.agentSyncer = syncer
+}
+
+func (h *OAuthHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {
+	h.enqueuer = enq
 }
 
 // NewOAuthHandler creates an OAuthHandler. If a provider's client ID or secret

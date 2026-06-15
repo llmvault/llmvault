@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { toast } from "sonner"
+import { toast } from "@heroui/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Image01Icon,
@@ -63,10 +63,10 @@ export function ImagePicker({
       onChange?.(result.publicUrl)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed"
-      toast.error(`Couldn't upload image — ${message}`, {
-        action: {
-          label: "Retry",
-          onClick: () => {
+      toast.danger(`Couldn't upload image — ${message}`, {
+        actionProps: {
+          children: "Retry",
+          onPress: () => {
             void handleFile(file)
           },
         },

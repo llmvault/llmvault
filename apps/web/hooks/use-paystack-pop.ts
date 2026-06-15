@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@heroui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
@@ -66,15 +66,15 @@ export function usePaystackPop(
   const subscribe = useCallback(
     (plan: Plan) => {
       if (!plan.slug) {
-        toast.error("Plan is missing a slug")
+        toast.danger("Plan is missing a slug")
         return
       }
       if (!user?.email) {
-        toast.error("Please sign in again before subscribing")
+        toast.danger("Please sign in again before subscribing")
         return
       }
       if (!plan.currency) {
-        toast.error("Plan is missing a currency")
+        toast.danger("Plan is missing a currency")
         return
       }
 
@@ -97,13 +97,13 @@ export function usePaystackPop(
         {
           onSuccess: (data) => {
             if (!data.access_code) {
-              toast.error("Provider did not return an access code")
+              toast.danger("Provider did not return an access code")
               setPendingSlug(null)
               return
             }
             const reference = data.reference
             if (!reference) {
-              toast.error("Provider did not return a reference")
+              toast.danger("Provider did not return a reference")
               setPendingSlug(null)
               return
             }
@@ -121,7 +121,7 @@ export function usePaystackPop(
                       if (resp.status === "active") {
                         toast.success(`Subscribed to ${plan.name ?? plan.slug}`)
                       } else {
-                        toast.message(
+                        toast.info(
                           "Payment received. Your subscription will activate momentarily.",
                         )
                       }
@@ -135,7 +135,7 @@ export function usePaystackPop(
                       setPendingSlug(null)
                     },
                     onError: (err) => {
-                      toast.error(
+                      toast.danger(
                         extractErrorMessage(
                           err,
                           "Could not confirm subscription. Refresh in a moment.",
@@ -151,12 +151,14 @@ export function usePaystackPop(
                 setPendingSlug(null)
               },
             }).catch((err) => {
-              toast.error(extractErrorMessage(err, "Could not open checkout"))
+              toast.danger(
+                extractErrorMessage(err, "Could not open checkout")
+              )
               setPendingSlug(null)
             })
           },
           onError: (err) => {
-            toast.error(extractErrorMessage(err, "Could not start checkout"))
+            toast.danger(extractErrorMessage(err, "Could not start checkout"))
             setPendingSlug(null)
           },
         },
@@ -175,7 +177,7 @@ export function usePaystackPop(
         onSuccess: (tx: { reference: string }) => onPaid(tx.reference),
         onCancel: () => onCancel?.(),
       }).catch((err) => {
-        toast.error(extractErrorMessage(err, "Could not open checkout"))
+        toast.danger(extractErrorMessage(err, "Could not open checkout"))
         onCancel?.()
       })
     },

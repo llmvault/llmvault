@@ -1,18 +1,15 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
+import { ListBox, Select } from "@heroui/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  ArrowRight01Icon,
-  Tick02Icon,
   Loading03Icon,
   FlashIcon,
   Clock01Icon,
   AiBrain01Icon,
   AiImageIcon,
 } from "@hugeicons/core-free-icons"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import type { components } from "@/lib/api/schema"
 
@@ -27,7 +24,6 @@ interface ModelComboboxProps {
 }
 
 export function ModelCombobox({ models, value, onSelect, loading, disabled }: ModelComboboxProps) {
-  const [open, setOpen] = useState(false)
   const selected = value ?? ""
 
   const sorted = useMemo(
@@ -43,83 +39,77 @@ export function ModelCombobox({ models, value, onSelect, loading, disabled }: Mo
 
   return (
     <div className="flex flex-col gap-2">
-      <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              disabled={disabled}
-              className="flex w-full items-center justify-between gap-3 rounded-md h-14 border border-input bg-input/50 px-3 py-2 text-sm transition-colors hover:bg-input/70 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="flex flex-1 min-w-0 flex-col items-start gap-0.5">
-                {selectedModel ? (
-                  <>
-                    <span className="truncate font-medium text-foreground">{selectedModel.name || selectedModel.id}</span>
-                    {selectedModel.description ? (
-                      <span className="truncate text-xs text-muted-foreground">{selectedModel.description}</span>
-                    ) : null}
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">{loading ? "Loading models..." : "Select a model..."}</span>
-                )}
-              </div>
-              {selectedModel ? <ModelBadges model={selectedModel} /> : null}
-              {loading ? (
-                <HugeiconsIcon icon={Loading03Icon} size={14} className="text-muted-foreground animate-spin" />
-              ) : (
-                <HugeiconsIcon
-                  icon={ArrowRight01Icon}
-                  size={14}
-                  className={`text-muted-foreground/40 transition-transform ${open ? "rotate-90" : ""}`}
-                />
-              )}
-            </button>
-          }
-        />
-        <PopoverContent className="w-(--anchor-width) p-0" align="start">
-          <Command
-            filter={(value, search) => {
-              const haystack = value.toLowerCase()
-              return haystack.includes(search.toLowerCase()) ? 1 : 0
-            }}
-          >
-            <CommandInput placeholder="Search models..." />
-            <CommandList className="max-h-105">
-              <CommandEmpty>No models found.</CommandEmpty>
-              <CommandGroup>
-                {sorted.map((model) => {
-                  const id = model.id ?? ""
-                  const name = model.name || id
-                  return (
-                    <CommandItem
-                      key={id}
-                      value={`${id} ${name} ${model.family ?? ""} ${model.description ?? ""}`}
-                      onSelect={() => {
-                        onSelect?.(id)
-                        setOpen(false)
-                      }}
-                      className="items-start gap-2 py-2"
-                    >
-                      <div className="flex flex-1 min-w-0 flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="flex-1 truncate font-medium text-sm text-foreground">{name}</span>
-                          <ModelBadges model={model} />
-                        </div>
-                        {model.description ? (
-                          <span className="text-xs text-muted-foreground">{model.description}</span>
-                        ) : null}
+      <Select
+        aria-label="Model"
+        selectedKey={selected || null}
+        onSelectionChange={(key) => {
+          if (key !== null) onSelect?.(String(key))
+        }}
+        isDisabled={disabled}
+        className="w-full"
+      >
+        <Select.Trigger className="h-14 w-full justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+            {selectedModel ? (
+              <>
+                <span className="truncate font-medium text-foreground">
+                  {selectedModel.name || selectedModel.id}
+                </span>
+                {selectedModel.description ? (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {selectedModel.description}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <span className="text-muted-foreground">
+                {loading ? "Loading models..." : "Select a model..."}
+              </span>
+            )}
+          </div>
+          {selectedModel ? <ModelBadges model={selectedModel} /> : null}
+          {loading ? (
+            <HugeiconsIcon
+              icon={Loading03Icon}
+              size={14}
+              className="shrink-0 animate-spin text-muted-foreground"
+            />
+          ) : (
+            <Select.Indicator />
+          )}
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            {sorted.map((model) => {
+              const id = model.id ?? ""
+              const name = model.name || id
+              return (
+                <ListBox.Item
+                  key={id}
+                  id={id}
+                  textValue={`${id} ${name} ${model.family ?? ""} ${model.description ?? ""}`}
+                >
+                  <div className="flex min-w-0 flex-1 items-start gap-2 py-1">
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 truncate text-sm font-medium text-foreground">
+                          {name}
+                        </span>
+                        <ModelBadges model={model} />
                       </div>
-                      {selected === id && (
-                        <HugeiconsIcon icon={Tick02Icon} size={14} className="ml-auto mt-1 shrink-0 text-primary" />
-                      )}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                      {model.description ? (
+                        <span className="text-xs text-muted-foreground">
+                          {model.description}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </ListBox.Item>
+              )
+            })}
+          </ListBox>
+        </Select.Popover>
+      </Select>
 
       <ModelBadgeLegend />
     </div>

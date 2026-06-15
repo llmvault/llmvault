@@ -82,10 +82,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create account"})
 		return
 	}
-	ensureOrgMemoryBank(r.Context(), h.memoryBanks, org.ID, "auth_register")
-	if err := provisionOrgHivyAgent(r.Context(), h.agentSyncer, org.ID); err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to provision Hivy agent sandbox during registration", "org_id", org.ID, "error", err)
-	}
+	enqueueOrgHivyAgentProvision(r.Context(), h.enqueuer, org.ID, "auth_register")
 
 	if h.autoConfirmEmail {
 

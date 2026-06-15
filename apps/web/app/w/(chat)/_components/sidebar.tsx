@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, Popover, Typography } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { useAuth } from "@/lib/auth/auth-context"
 import { projects, type SidebarProject } from "../_lib/static-data"
 import { DEFAULT_AGENT_ID } from "../_lib/agents"
 import { useWorkspace } from "./shell"
@@ -71,11 +72,19 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
 
 function AccountMenu() {
   const [open, setOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const router = useRouter()
+  const { user, activeOrg, logout } = useAuth()
 
   const go = (path?: string) => {
     setOpen(false)
     if (path) router.push(path)
+  }
+
+  const handleLogout = async () => {
+    setOpen(false)
+    setLoggingOut(true)
+    await logout()
   }
 
   return (
@@ -92,11 +101,11 @@ function AccountMenu() {
           <div className="flex flex-col gap-1 px-2.5 pb-2 pt-1.5">
             <div className="flex items-center gap-2 text-sm text-muted">
               <Icon icon="lucide:circle-user" className="h-4 w-4 shrink-0" />
-              <span className="truncate">bahdcoder@gmail.com</span>
+              <span className="truncate">{user?.email ?? "Signed in"}</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted">
               <Icon icon="lucide:settings" className="h-4 w-4 shrink-0" />
-              <span className="truncate">Personal account</span>
+              <span className="truncate">{activeOrg?.name ?? "Workspace"}</span>
             </div>
           </div>
           <div className="mx-1 border-t border-border" />
@@ -125,8 +134,9 @@ function AccountMenu() {
           />
           <AccountItem
             icon="lucide:log-out"
-            label="Log out"
-            onPress={() => go()}
+            label={loggingOut ? "Logging out..." : "Log out"}
+            disabled={loggingOut}
+            onPress={handleLogout}
           />
         </Popover.Dialog>
       </Popover.Content>
@@ -139,19 +149,22 @@ function AccountItem({
   label,
   shortcut,
   chevron,
+  disabled,
   onPress,
 }: {
   icon: string
   label: string
   shortcut?: string
   chevron?: boolean
-  onPress: () => void
+  disabled?: boolean
+  onPress: () => void | Promise<void>
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onPress}
-      className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default"
+      className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default disabled:cursor-progress disabled:opacity-60"
     >
       <Icon icon={icon} className="h-4 w-4 shrink-0 text-muted" />
       <span className="min-w-0 flex-1 truncate">{label}</span>

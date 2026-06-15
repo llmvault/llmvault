@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -27,6 +28,7 @@ type oauthTestHarness struct {
 	db      *gorm.DB
 	handler *handler.OAuthHandler
 	router  *chi.Mux
+	enq     *enqueue.MockClient
 }
 
 func newOAuthHarness(t *testing.T) *oauthTestHarness {
@@ -39,6 +41,7 @@ func newOAuthHarness(t *testing.T) *oauthTestHarness {
 		t.Fatalf("generate RSA key: %v", err)
 	}
 	signingKey := []byte("test-signing-key-for-refresh-tokens")
+	enq := &enqueue.MockClient{}
 
 	h := handler.NewOAuthHandler(
 		db, pk, signingKey,
@@ -51,6 +54,7 @@ func newOAuthHarness(t *testing.T) *oauthTestHarness {
 		billing.NewCreditsService(db),
 	)
 	h.SetAgentSyncer(&stubOrgAgentSyncer{})
+	h.SetEnqueuer(enq)
 
 	r := chi.NewRouter()
 	r.Route("/oauth", func(r chi.Router) {
@@ -63,7 +67,7 @@ func newOAuthHarness(t *testing.T) *oauthTestHarness {
 		r.Post("/exchange", h.Exchange)
 	})
 
-	return &oauthTestHarness{db: db, handler: h, router: r}
+	return &oauthTestHarness{db: db, handler: h, router: r, enq: enq}
 }
 
 // newOAuthHarnessWithProviders creates a harness with dummy provider creds so
@@ -78,6 +82,7 @@ func newOAuthHarnessWithProviders(t *testing.T) *oauthTestHarness {
 		t.Fatalf("generate RSA key: %v", err)
 	}
 	signingKey := []byte("test-signing-key-for-refresh-tokens")
+	enq := &enqueue.MockClient{}
 
 	h := handler.NewOAuthHandler(
 		db, pk, signingKey,
@@ -90,6 +95,7 @@ func newOAuthHarnessWithProviders(t *testing.T) *oauthTestHarness {
 		billing.NewCreditsService(db),
 	)
 	h.SetAgentSyncer(&stubOrgAgentSyncer{})
+	h.SetEnqueuer(enq)
 
 	r := chi.NewRouter()
 	r.Route("/oauth", func(r chi.Router) {
@@ -102,7 +108,7 @@ func newOAuthHarnessWithProviders(t *testing.T) *oauthTestHarness {
 		r.Post("/exchange", h.Exchange)
 	})
 
-	return &oauthTestHarness{db: db, handler: h, router: r}
+	return &oauthTestHarness{db: db, handler: h, router: r, enq: enq}
 }
 
 func (h *oauthTestHarness) doRequest(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {

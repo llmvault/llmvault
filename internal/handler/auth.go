@@ -10,6 +10,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/email"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
 )
 
@@ -32,6 +33,7 @@ type AuthHandler struct {
 	credits          *billing.CreditsService
 	memoryBanks      memoryBankProvisioner
 	agentSyncer      OrgAgentSyncer
+	enqueuer         enqueue.TaskEnqueuer
 
 	loginMu       sync.Mutex
 	loginAttempts map[string]*loginAttempt // keyed by email
@@ -43,6 +45,10 @@ func (h *AuthHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
 
 func (h *AuthHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
 	h.agentSyncer = syncer
+}
+
+func (h *AuthHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {
+	h.enqueuer = enq
 }
 
 func NewAuthHandler(db *gorm.DB, privateKey *rsa.PrivateKey, signingKey []byte, issuer, audience string, accessTTL, refreshTTL time.Duration, emailSender email.Sender, frontendURL string, autoConfirmEmail bool, credits *billing.CreditsService) *AuthHandler {
