@@ -21,7 +21,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 	const cacheToken = "cache-token"
 
 	var runnerPreviewPorts []int
-	var runnerEntrypoint []string
+	var runnerInit *sandboxInitConfig
 	runner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/sandboxes" {
 			t.Fatalf("runner path = %s, want /v1/sandboxes", r.URL.Path)
@@ -34,7 +34,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 			t.Fatal(err)
 		}
 		runnerPreviewPorts = req.PreviewPorts
-		runnerEntrypoint = req.Entrypoint
+		runnerInit = req.Init
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id": req.ID,
 			"ports": []map[string]int{
@@ -101,7 +101,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 		"name":"cache-test",
 		"image_ref":"ghcr.io/usehivy/runtime:test",
 		"size":"small",
-		"entrypoint":["/usr/local/bin/hivy-runtime-entrypoint","/usr/local/bin/hivy-sandboxes-runtime"]
+		"init":{"cmd":"/usr/local/bin/hivy-runtime-entrypoint","args":["/usr/local/bin/hivy-sandboxes-runtime"]}
 	}`))
 	req.Header.Set("Authorization", "Bearer api-token")
 	req.Header.Set("Content-Type", "application/json")
@@ -113,8 +113,14 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 	if got, want := runnerPreviewPorts, api.DefaultPreviewPorts(); !equalInts(got, want) {
 		t.Fatalf("runner preview ports = %v, want %v", got, want)
 	}
-	if got, want := runnerEntrypoint, []string{"/usr/local/bin/hivy-runtime-entrypoint", "/usr/local/bin/hivy-sandboxes-runtime"}; !equalStrings(got, want) {
-		t.Fatalf("runner entrypoint = %v, want %v", got, want)
+	if runnerInit == nil {
+		t.Fatal("runner init is nil")
+	}
+	if runnerInit.Cmd != "/usr/local/bin/hivy-runtime-entrypoint" {
+		t.Fatalf("runner init cmd = %q", runnerInit.Cmd)
+	}
+	if got, want := runnerInit.Args, []string{"/usr/local/bin/hivy-sandboxes-runtime"}; !equalStrings(got, want) {
+		t.Fatalf("runner init args = %v, want %v", got, want)
 	}
 
 	select {

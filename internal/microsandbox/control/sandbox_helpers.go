@@ -132,20 +132,26 @@ func max(a, b int) int {
 }
 
 type runnerCreateSandboxRequest struct {
-	ID                     string            `json:"id"`
-	Name                   string            `json:"name"`
-	ImageRef               string            `json:"image_ref"`
-	SnapshotID             string            `json:"snapshot_id"`
-	SnapshotArtifactURL    string            `json:"snapshot_artifact_url"`
-	SnapshotArtifactDigest string            `json:"snapshot_artifact_digest"`
-	SnapshotImageDigest    string            `json:"snapshot_image_digest"`
-	CPU                    int               `json:"cpu"`
-	MemoryMB               int               `json:"memory_mb"`
-	DiskGB                 int               `json:"disk_gb"`
-	Env                    map[string]string `json:"env"`
-	Labels                 map[string]string `json:"labels"`
-	PreviewPorts           []int             `json:"preview_ports"`
-	Entrypoint             []string          `json:"entrypoint"`
+	ID                     string             `json:"id"`
+	Name                   string             `json:"name"`
+	ImageRef               string             `json:"image_ref"`
+	SnapshotID             string             `json:"snapshot_id"`
+	SnapshotArtifactURL    string             `json:"snapshot_artifact_url"`
+	SnapshotArtifactDigest string             `json:"snapshot_artifact_digest"`
+	SnapshotImageDigest    string             `json:"snapshot_image_digest"`
+	CPU                    int                `json:"cpu"`
+	MemoryMB               int                `json:"memory_mb"`
+	DiskGB                 int                `json:"disk_gb"`
+	Env                    map[string]string  `json:"env"`
+	Labels                 map[string]string  `json:"labels"`
+	PreviewPorts           []int              `json:"preview_ports"`
+	Init                   *sandboxInitConfig `json:"init"`
+}
+
+type sandboxInitConfig struct {
+	Cmd  string            `json:"cmd"`
+	Args []string          `json:"args"`
+	Env  map[string]string `json:"env,omitempty"`
 }
 
 type runnerCreateSandboxResponse struct {
