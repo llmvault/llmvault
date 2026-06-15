@@ -29,7 +29,7 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&runtimeReq); err != nil {
 				t.Fatalf("decode runtime request: %v", err)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]string{"url": "https://7080-sbx_test.preview.test?rt=signed"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"url": "https://7080-sbx_test.preview.test"})
 		default:
 			http.NotFound(w, r)
 		}
@@ -81,14 +81,14 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetEndpoint: %v", err)
 	}
-	if endpoint != "https://7080-sbx_test.preview.test?rt=signed" {
+	if endpoint != "https://7080-sbx_test.preview.test" {
 		t.Fatalf("endpoint = %q", endpoint)
 	}
 	if runtimeReq["port"] != float64(sandbox.AgentSandboxPort) {
 		t.Fatalf("runtime port = %v, want %d", runtimeReq["port"], sandbox.AgentSandboxPort)
 	}
-	if runtimeReq["ttl_seconds"] != float64(defaultRuntimeEndpointTTLSeconds) {
-		t.Fatalf("runtime ttl = %v, want %d", runtimeReq["ttl_seconds"], defaultRuntimeEndpointTTLSeconds)
+	if _, ok := runtimeReq["ttl_seconds"]; ok {
+		t.Fatalf("runtime endpoint request must not send ttl_seconds: %#v", runtimeReq)
 	}
 }
 

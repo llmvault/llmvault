@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -179,8 +178,7 @@ func (s *Server) getSandbox(w http.ResponseWriter, r *http.Request) {
 }
 
 type runtimeEndpointRequest struct {
-	Port       int `json:"port"`
-	TTLSeconds int `json:"ttl_seconds"`
+	Port int `json:"port"`
 }
 
 func (s *Server) createRuntimeEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -194,16 +192,7 @@ func (s *Server) createRuntimeEndpoint(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "sandbox not found"})
 		return
 	}
-	ttl := time.Hour
-	if req.TTLSeconds > 0 {
-		ttl = time.Duration(req.TTLSeconds) * time.Second
-	}
-	token, err := s.signRuntimeToken(sb.ID, req.Port, ttl)
-	if err != nil {
-		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to sign runtime endpoint"})
-		return
-	}
-	runtimeURL := fmt.Sprintf("https://%d-%s.%s?rt=%s", req.Port, sb.ID, s.cfg.PreviewBaseDomain, url.QueryEscape(token))
+	runtimeURL := fmt.Sprintf("https://%d-%s.%s", req.Port, sb.ID, s.cfg.PreviewBaseDomain)
 	httpx.JSON(w, http.StatusOK, map[string]string{"url": runtimeURL})
 }
 

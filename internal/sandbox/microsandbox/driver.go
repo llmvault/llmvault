@@ -14,8 +14,6 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-const defaultRuntimeEndpointTTLSeconds = 3600
-
 type Config struct {
 	ControlURL   string
 	APIToken     string
@@ -143,8 +141,7 @@ func (d *Driver) GetEndpoint(ctx context.Context, externalID string, port int) (
 		URL string `json:"url"`
 	}
 	if err := d.post(ctx, "/v1/sandboxes/"+externalID+"/runtime-endpoints", map[string]any{
-		"port":        port,
-		"ttl_seconds": defaultRuntimeEndpointTTLSeconds,
+		"port": port,
 	}, &out); err != nil {
 		return "", err
 	}
