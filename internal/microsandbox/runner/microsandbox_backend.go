@@ -195,6 +195,10 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		_ = m.DeleteSandbox(context.WithoutCancel(ctx), req.ID)
 		return nil, err
 	}
+	if err := m.ensureAgentRuntime(ctx, req.ID); err != nil {
+		_ = m.DeleteSandbox(context.WithoutCancel(ctx), req.ID)
+		return nil, err
+	}
 	m.mu.Lock()
 	m.ports[req.ID] = map[int]int{}
 	for _, binding := range bindings {
@@ -221,6 +225,9 @@ func (m *MicrosandboxBackend) StartSandbox(ctx context.Context, sandboxID string
 		return err
 	}
 	if err := m.ensureDockerDaemon(ctx, sandboxID); err != nil {
+		return err
+	}
+	if err := m.ensureAgentRuntime(ctx, sandboxID); err != nil {
 		return err
 	}
 	m.setSandboxStatus(sandboxID, "running")
