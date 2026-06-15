@@ -182,6 +182,9 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	} else {
 		opts = append(opts, microsandbox.WithImage(req.ImageRef))
 	}
+	if len(req.Entrypoint) > 0 {
+		opts = append(opts, microsandbox.WithEntrypoint(req.Entrypoint...))
+	}
 	sb, err := microsandbox.CreateSandbox(ctx, req.ID, opts...)
 	if err != nil {
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
@@ -192,10 +195,6 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		return nil, err
 	}
 	if err := m.ensureDockerDaemon(ctx, req.ID); err != nil {
-		_ = m.DeleteSandbox(context.WithoutCancel(ctx), req.ID)
-		return nil, err
-	}
-	if err := m.ensureAgentRuntime(ctx, req.ID); err != nil {
 		_ = m.DeleteSandbox(context.WithoutCancel(ctx), req.ID)
 		return nil, err
 	}
@@ -225,9 +224,6 @@ func (m *MicrosandboxBackend) StartSandbox(ctx context.Context, sandboxID string
 		return err
 	}
 	if err := m.ensureDockerDaemon(ctx, sandboxID); err != nil {
-		return err
-	}
-	if err := m.ensureAgentRuntime(ctx, sandboxID); err != nil {
 		return err
 	}
 	m.setSandboxStatus(sandboxID, "running")
