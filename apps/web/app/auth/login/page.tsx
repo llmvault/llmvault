@@ -17,13 +17,23 @@ import {
   OAuthButtons,
   PlaceholderLogo,
 } from "../_components/shared"
+import { EmailConfirmationForm } from "../_components/email-confirmation-form"
 
 function LoginPageContent() {
   const searchParams = useSearchParams()
   const nextPath = safeAuthRedirect(searchParams.get("next"))
   const nextQuery =
     nextPath === "/w" ? "" : `?next=${encodeURIComponent(nextPath)}`
-  const { login, isPending } = usePasswordLogin(nextPath)
+  const {
+    login,
+    confirmEmail,
+    resendConfirmation,
+    changeEmail,
+    emailToConfirm,
+    isPending,
+    isConfirming,
+    isResending,
+  } = usePasswordLogin(nextPath)
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -43,65 +53,86 @@ function LoginPageContent() {
           <PlaceholderLogo />
           <div className="text-center">
             <Typography.Heading level={2} className="text-center">
-              Sign in to hivy
+              {emailToConfirm ? "Confirm your email" : "Sign in to hivy"}
             </Typography.Heading>
-            <Typography.Paragraph size="sm" color="muted" className="mt-1.5 text-center">
-              Welcome back. Sign in to manage your AI coworkers.
+            <Typography.Paragraph
+              size="sm"
+              color="muted"
+              className="mt-1.5 text-center"
+            >
+              {emailToConfirm
+                ? "Confirm your email to continue to your workspace."
+                : "Welcome back. Sign in to manage your AI coworkers."}
             </Typography.Paragraph>
           </div>
         </div>
 
         <div className="flex flex-col gap-6">
-          <OAuthButtons nextPath={nextPath} />
-          <AuthDivider />
-          <form onSubmit={onSubmit} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Work email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@company.com"
-                disabled={isPending}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                placeholder="Enter your password"
-                disabled={isPending}
-              />
-            </div>
-            <Button
-              type="submit"
-              size="lg"
-              fullWidth
-              isPending={isPending}
-              isDisabled={isPending}
-            >
-              {({ isPending }) => (
-                <>
-                  {isPending ? <Spinner color="current" size="sm" /> : null}
-                  {isPending ? "Signing in..." : "Sign in"}
-                </>
-              )}
-            </Button>
-          </form>
-          <div className="text-center">
-            <Typography.Paragraph size="sm" color="muted">
-              Don&apos;t have an account?{" "}
-              <NextLink href={`/auth/signup${nextQuery}`} className="link">
-                Sign up
-              </NextLink>
-            </Typography.Paragraph>
-          </div>
+          {emailToConfirm ? (
+            <EmailConfirmationForm
+              email={emailToConfirm}
+              isConfirming={isConfirming}
+              isResending={isResending}
+              onConfirm={(code) =>
+                confirmEmail({ email: emailToConfirm, code })
+              }
+              onResend={resendConfirmation}
+              onChangeEmail={changeEmail}
+            />
+          ) : (
+            <>
+              <OAuthButtons nextPath={nextPath} />
+              <AuthDivider />
+              <form onSubmit={onSubmit} className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="email">Work email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder="you@company.com"
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    placeholder="Enter your password"
+                    disabled={isPending}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="lg"
+                  fullWidth
+                  isPending={isPending}
+                  isDisabled={isPending}
+                >
+                  {({ isPending }) => (
+                    <>
+                      {isPending ? <Spinner color="current" size="sm" /> : null}
+                      {isPending ? "Signing in..." : "Sign in"}
+                    </>
+                  )}
+                </Button>
+              </form>
+              <div className="text-center">
+                <Typography.Paragraph size="sm" color="muted">
+                  Don&apos;t have an account?{" "}
+                  <NextLink href={`/auth/signup${nextQuery}`} className="link">
+                    Sign up
+                  </NextLink>
+                </Typography.Paragraph>
+              </div>
+            </>
+          )}
         </div>
 
         <AuthFooter />
@@ -112,7 +143,13 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<AuthCard><PlaceholderLogo /></AuthCard>}>
+    <Suspense
+      fallback={
+        <AuthCard>
+          <PlaceholderLogo />
+        </AuthCard>
+      }
+    >
       <LoginPageContent />
     </Suspense>
   )

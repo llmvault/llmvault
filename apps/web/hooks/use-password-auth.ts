@@ -52,7 +52,10 @@ function deriveNameFromEmail(email: string) {
 export function usePasswordLogin(nextPath = "/w") {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const [emailToConfirm, setEmailToConfirm] = useState<string | null>(null)
   const mutation = $api.useMutation("post", "/auth/login")
+  const confirmMutation = $api.useMutation("post", "/auth/confirm-email")
+  const resendMutation = $api.useMutation("post", "/auth/resend-confirmation")
   const redirectTo = safeAuthRedirect(nextPath)
 
   const login = useCallback(
@@ -68,8 +71,13 @@ export function usePasswordLogin(nextPath = "/w") {
       mutation.mutate(
         { body },
         {
-          onSuccess: () => {
+          onSuccess: (response) => {
             queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+            if (response?.user?.email_confirmed === false) {
+              setEmailToConfirm(normalizedEmail)
+              toast.success("Check your email for a 6-digit confirmation code")
+              return
+            }
             router.replace(redirectTo)
           },
           onError: (error) => {
@@ -81,9 +89,68 @@ export function usePasswordLogin(nextPath = "/w") {
     [mutation, queryClient, redirectTo, router]
   )
 
+  const confirmEmail = useCallback(
+    ({ email, code }: ConfirmEmailInput) => {
+      const normalizedEmail = normalizeEmail(email)
+      const trimmedCode = code.trim()
+      if (!normalizedEmail || !trimmedCode) return
+
+      const body: ConfirmEmailRequest = {
+        email: normalizedEmail,
+        code: trimmedCode,
+      }
+
+      confirmMutation.mutate(
+        { body },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["get", "/auth/me"] })
+            router.replace(redirectTo)
+          },
+          onError: (error) => {
+            toast.danger(extractErrorMessage(error, "Invalid or expired code"))
+          },
+        }
+      )
+    },
+    [confirmMutation, queryClient, redirectTo, router]
+  )
+
+  const resendConfirmation = useCallback(() => {
+    if (!emailToConfirm) return
+
+    const body: ResendConfirmationRequest = {
+      email: emailToConfirm,
+    }
+
+    resendMutation.mutate(
+      { body },
+      {
+        onSuccess: () => {
+          toast.success("A new confirmation code has been sent")
+        },
+        onError: (error) => {
+          toast.danger(
+            extractErrorMessage(error, "Could not resend confirmation code")
+          )
+        },
+      }
+    )
+  }, [emailToConfirm, resendMutation])
+
+  const changeEmail = useCallback(() => {
+    setEmailToConfirm(null)
+  }, [])
+
   return {
     login,
+    confirmEmail,
+    resendConfirmation,
+    changeEmail,
+    emailToConfirm,
     isPending: mutation.isPending,
+    isConfirming: confirmMutation.isPending,
+    isResending: resendMutation.isPending,
   }
 }
 
@@ -120,9 +187,7 @@ export function usePasswordSignup(nextPath = "/w") {
             toast.success("Check your email for a 6-digit confirmation code")
           },
           onError: (error) => {
-            toast.danger(
-              extractErrorMessage(error, "Could not create account")
-            )
+            toast.danger(extractErrorMessage(error, "Could not create account"))
           },
         }
       )
