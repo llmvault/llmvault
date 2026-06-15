@@ -27,6 +27,7 @@ type createSandboxRequest struct {
 	DiskGB          int               `json:"disk_gb"`
 	PreviewPorts    []int             `json:"preview_ports"`
 	PreviewPassword string            `json:"preview_password"`
+	Entrypoint      []string          `json:"entrypoint"`
 	Env             map[string]string `json:"env"`
 	Metadata        map[string]any    `json:"metadata"`
 }
@@ -123,6 +124,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		SnapshotImageDigest: snapshot.ImageManifestDigest,
 		CPU:                 sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB, Env: req.Env,
 		PreviewPorts: req.PreviewPorts,
+		Entrypoint:   req.Entrypoint,
 		Labels:       map[string]string{"org_id": sb.OrgID, "sandbox_id": sb.ID},
 	}, &createResp)
 	if err != nil {

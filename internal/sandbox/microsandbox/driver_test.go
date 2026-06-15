@@ -76,6 +76,18 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if len(previewPorts) != len(msbapi.DefaultPreviewPorts()) {
 		t.Fatalf("preview_ports length = %d, want %d", len(previewPorts), len(msbapi.DefaultPreviewPorts()))
 	}
+	entrypoint, ok := createReq["entrypoint"].([]any)
+	if !ok {
+		t.Fatalf("entrypoint = %T, want array", createReq["entrypoint"])
+	}
+	if len(entrypoint) != len(agentRuntimeEntrypoint) {
+		t.Fatalf("entrypoint length = %d, want %d", len(entrypoint), len(agentRuntimeEntrypoint))
+	}
+	for i, want := range agentRuntimeEntrypoint {
+		if entrypoint[i] != want {
+			t.Fatalf("entrypoint[%d] = %v, want %s", i, entrypoint[i], want)
+		}
+	}
 
 	endpoint, err := driver.GetEndpoint(context.Background(), "sbx_test", 0)
 	if err != nil {

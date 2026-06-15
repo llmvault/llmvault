@@ -30,6 +30,11 @@ type Driver struct {
 	http                *http.Client
 }
 
+var agentRuntimeEntrypoint = []string{
+	"/usr/local/bin/hivy-runtime-entrypoint",
+	"/usr/local/bin/hivy-sandboxes-runtime",
+}
+
 func NewDriver(cfg Config) (*Driver, error) {
 	runtimePort := cfg.RuntimePort
 	if runtimePort == 0 {
@@ -101,6 +106,7 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		"env":           opts.EnvVars,
 		"metadata":      opts.Labels,
 		"preview_ports": d.defaultPreviewPorts,
+		"entrypoint":    agentRuntimeEntrypoint,
 	}
 	var out createSandboxResponse
 	if err := d.post(ctx, "/v1/sandboxes", body, &out); err != nil {

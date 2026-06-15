@@ -145,6 +145,7 @@ type runnerCreateSandboxRequest struct {
 	Env                    map[string]string `json:"env"`
 	Labels                 map[string]string `json:"labels"`
 	PreviewPorts           []int             `json:"preview_ports"`
+	Entrypoint             []string          `json:"entrypoint"`
 }
 
 type runnerCreateSandboxResponse struct {
