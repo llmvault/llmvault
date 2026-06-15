@@ -849,7 +849,7 @@ mod tests {
         assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
         assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));
 
-        // CR-CR (legacy Mac line endings, allowed by the SSE grammar)
+        // CR-CR (classic Mac line endings, allowed by the SSE grammar)
         let mut buf = "data: a\r\rdata: b\r\r".to_string();
         assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: a"));
         assert_eq!(take_sse_event(&mut buf).as_deref(), Some("data: b"));

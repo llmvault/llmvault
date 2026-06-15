@@ -43,6 +43,7 @@ type OAuthHandler struct {
 	secure       bool // true when cookies should be Secure (HTTPS)
 	credits      *billing.CreditsService
 	memoryBanks  memoryBankProvisioner
+	agentSyncer  OrgAgentSyncer
 	githubConfig *oauth2.Config
 	googleConfig *oauth2.Config
 	xConfig      *oauth2.Config
@@ -50,6 +51,10 @@ type OAuthHandler struct {
 
 func (h *OAuthHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
 	h.memoryBanks = banks
+}
+
+func (h *OAuthHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
+	h.agentSyncer = syncer
 }
 
 // NewOAuthHandler creates an OAuthHandler. If a provider's client ID or secret

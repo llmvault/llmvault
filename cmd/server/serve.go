@@ -152,6 +152,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			agentHandler.SetEnqueuer(enqueuer)
 		}
 		orgHandler.SetAgentSyncer(agentHandler)
+		authHandler.SetAgentSyncer(agentHandler)
+		oauthHandler.SetAgentSyncer(agentHandler)
 		connectionHandler.SetServiceDiscoveryManager(agentHandler)
 	}
 	var driveHandler *handler.DriveHandler

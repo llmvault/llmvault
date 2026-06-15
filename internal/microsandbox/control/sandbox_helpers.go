@@ -35,12 +35,12 @@ func resolveSize(req createSandboxRequest) api.Size {
 		return api.Size{CPU: max(req.CPU, 1), MemoryMB: max(req.MemoryMB, 2048), DiskGB: max(req.DiskGB, 40)}
 	}
 	if req.Size == "" {
-		req.Size = "small"
+		req.Size = api.DefaultSize
 	}
 	if size, ok := api.Sizes[req.Size]; ok {
 		return size
 	}
-	return api.Sizes["small"]
+	return api.Sizes[api.DefaultSize]
 }
 
 func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {

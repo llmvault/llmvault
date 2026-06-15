@@ -896,7 +896,7 @@ mod queue_tests {
 
     #[test]
     fn subagent_task_inbound_requires_explicit_subagent_task_kind() {
-        let legacy_wake = inbound(
+        let plain_wake = inbound(
             "C123-T1",
             "wake-1",
             "Check subagent task status",
@@ -918,7 +918,7 @@ mod queue_tests {
             }),
         );
 
-        assert!(!is_subagent_task_inbound(&legacy_wake));
+        assert!(!is_subagent_task_inbound(&plain_wake));
         assert!(is_subagent_task_inbound(&subagent_task));
     }
 }

@@ -128,10 +128,10 @@ func TestMoveAgentAsset_ByPublicURL(t *testing.T) {
 	}
 }
 
-func TestMoveAgentAsset_ByLegacyDirectPublicURL(t *testing.T) {
+func TestMoveAgentAsset_ByDirectPublicURL(t *testing.T) {
 	h := newStreamHarness(t)
-	h.seedAgentAsset(t, "tmp", "legacy.txt", "hi")
-	publicURL := fmt.Sprintf("%s/pub/e/%s/tmp/legacy.txt", h.publicBase, h.agentID)
+	h.seedAgentAsset(t, "tmp", "old.txt", "hi")
+	publicURL := fmt.Sprintf("%s/pub/e/%s/tmp/old.txt", h.publicBase, h.agentID)
 
 	body := fmt.Sprintf(`{"asset":%q,"new_path":"archive"}`, publicURL)
 	rr := h.post(t,

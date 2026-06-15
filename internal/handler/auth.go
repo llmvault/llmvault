@@ -31,6 +31,7 @@ type AuthHandler struct {
 	autoConfirmEmail bool
 	credits          *billing.CreditsService
 	memoryBanks      memoryBankProvisioner
+	agentSyncer      OrgAgentSyncer
 
 	loginMu       sync.Mutex
 	loginAttempts map[string]*loginAttempt // keyed by email
@@ -38,6 +39,10 @@ type AuthHandler struct {
 
 func (h *AuthHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
 	h.memoryBanks = banks
+}
+
+func (h *AuthHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
+	h.agentSyncer = syncer
 }
 
 func NewAuthHandler(db *gorm.DB, privateKey *rsa.PrivateKey, signingKey []byte, issuer, audience string, accessTTL, refreshTTL time.Duration, emailSender email.Sender, frontendURL string, autoConfirmEmail bool, credits *billing.CreditsService) *AuthHandler {

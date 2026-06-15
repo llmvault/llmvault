@@ -14,6 +14,7 @@ var Sizes = map[string]Size{
 }
 
 const (
+	DefaultSize                      = "small"
 	DefaultPreviewHostPortRangeStart = 30000
 	DefaultPreviewHostPortRangeEnd   = 60999
 )

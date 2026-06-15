@@ -59,7 +59,7 @@ func (s *webhookSender) send(ctx context.Context, dst string, body any, provider
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Nango-Signature", legacySignature(s.secret, raw))
+	req.Header.Set("X-Nango-Signature", sha256Signature(s.secret, raw))
 	req.Header.Set("X-Nango-Hmac-Sha256", hmacSignature(s.secret, raw))
 
 	resp, err := s.client.Do(req)
@@ -71,7 +71,7 @@ func (s *webhookSender) send(ctx context.Context, dst string, body any, provider
 	slog.Info("webhook delivered", "target", dst, "status", resp.StatusCode)
 }
 
-func legacySignature(secret string, body []byte) string {
+func sha256Signature(secret string, body []byte) string {
 	h := sha256.New()
 	h.Write([]byte(secret))
 	h.Write(body)

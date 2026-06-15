@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import concurrent.futures
 import datetime as dt
 import json
 import os
@@ -15,9 +16,10 @@ from pathlib import Path
 
 DEFAULT_CONTROL_URL = "https://msb.usehivy.com"
 DEFAULT_ORG_ID = "org_system"
-DEFAULT_SIZE = "medium"
+DEFAULT_SIZES = "small,medium,large"
 DEFAULT_ARCH_SUFFIX = "amd64"
 DEFAULT_TIMEOUT_SECONDS = 1800
+DEFAULT_CONCURRENCY = 3
 
 GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/usehivy/hivy/releases/latest"
 RUNTIME_IMAGE = "ghcr.io/usehivy/hivy-sandboxes-runtime"
@@ -33,7 +35,13 @@ def parse_args():
     parser.add_argument("--org-id", default=os.environ.get("HIVY_MICROSANDBOX_SNAPSHOT_ORG_ID", DEFAULT_ORG_ID))
     parser.add_argument("--tag", default=os.environ.get("HIVY_MICROSANDBOX_IMAGE_TAG", ""))
     parser.add_argument("--arch-suffix", default=os.environ.get("HIVY_MICROSANDBOX_IMAGE_ARCH_SUFFIX", DEFAULT_ARCH_SUFFIX))
-    parser.add_argument("--size", default=os.environ.get("HIVY_MICROSANDBOX_SNAPSHOT_SIZE", DEFAULT_SIZE))
+    parser.add_argument(
+        "--size",
+        default="",
+        help="publish one size only; overrides --sizes",
+    )
+    parser.add_argument("--sizes", default=DEFAULT_SIZES, help="comma-separated sizes to publish")
+    parser.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY, help="parallel snapshot publish jobs")
     parser.add_argument("--runtime-only", action="store_true", help="publish only the default runtime image snapshot")
     parser.add_argument("--developers-only", action="store_true", help="publish only the developers image snapshot")
     parser.add_argument("--org-scoped", action="store_true", help="do not mark published snapshots as global")
@@ -163,6 +171,21 @@ def image_matrix(tag, runtime_only, developers_only):
     return images
 
 
+def size_matrix(size, sizes):
+    if size.strip():
+        raw_sizes = [size]
+    else:
+        raw_sizes = sizes.split(",")
+    out = []
+    for item in raw_sizes:
+        clean = item.strip()
+        if clean:
+            out.append(clean)
+    if not out:
+        raise SystemExit("at least one snapshot size is required")
+    return out
+
+
 def pick(payload, *keys, default=None):
     for key in keys:
         if key in payload:
@@ -263,9 +286,9 @@ def verify_snapshot(control, org_id, kind, image, size, snapshot_id, marker):
                 print(f"cleanup warning: delete verification sandbox {sandbox_id}: {exc}", file=sys.stderr)
 
 
-def publish_one(control, args, tag, kind, image):
+def publish_one(control, args, tag, kind, image, size):
     marker = f"snapshot-publish-{kind}-{int(time.time())}-{short_suffix()}"
-    name = image_slug(kind, tag, args.size)
+    name = image_slug(kind, tag, size)
     existing = control.get_snapshot(name)
     if existing:
         existing_id = pick(existing, "id", "ID")
@@ -275,10 +298,10 @@ def publish_one(control, args, tag, kind, image):
             raise RuntimeError(f"snapshot alias {name} already points to {existing_image}, not {image}")
         if existing_status != "ready":
             raise RuntimeError(f"snapshot alias {name} exists but is {existing_status}, not ready")
-        result = snapshot_result(args, kind, name, existing, image, reused=True, snapshot_seconds=0)
-        print(f"reusing existing {kind} snapshot {existing_id} for alias {name}", flush=True)
+        result = snapshot_result(args, kind, name, existing, image, size, reused=True, snapshot_seconds=0)
+        print(f"reusing existing {kind} {size} snapshot {existing_id} for alias {name}", flush=True)
         if not args.skip_verify:
-            verification = verify_snapshot(control, args.org_id, kind, image, args.size, existing_id, marker="")
+            verification = verify_snapshot(control, args.org_id, kind, image, size, existing_id, marker="")
             result["verified"] = True
             result["verification"] = verification
             print(
@@ -295,23 +318,23 @@ def publish_one(control, args, tag, kind, image):
         "alias": name,
         "global": not args.org_scoped,
         "base_image_ref": image,
-        "size": args.size,
-        "commands": snapshot_commands(kind, image, tag, args.size, marker),
+        "size": size,
+        "commands": snapshot_commands(kind, image, tag, size, marker),
         "env": {"HIVY_MICROSANDBOX_SNAPSHOT_MARKER": marker},
     }
-    print(f"publishing {kind} snapshot: image={image} size={args.size} name={name}", flush=True)
+    print(f"publishing {kind} snapshot: image={image} size={size} name={name}", flush=True)
     started = time.monotonic()
     snapshot = control.create_snapshot(body)
     snapshot_elapsed = time.monotonic() - started
     snapshot_id = pick(snapshot, "id", "ID")
     if not snapshot_id:
         raise RuntimeError(f"snapshot response missing id: {snapshot}")
-    result = snapshot_result(args, kind, name, snapshot, image, reused=False, snapshot_seconds=round(snapshot_elapsed, 3))
+    result = snapshot_result(args, kind, name, snapshot, image, size, reused=False, snapshot_seconds=round(snapshot_elapsed, 3))
     print(f"created {kind} snapshot {snapshot_id} in {snapshot_elapsed:.1f}s", flush=True)
     if args.skip_verify:
         return result
     try:
-        verification = verify_snapshot(control, args.org_id, kind, image, args.size, snapshot_id, marker)
+        verification = verify_snapshot(control, args.org_id, kind, image, size, snapshot_id, marker)
         result["verified"] = True
         result["verification"] = verification
         print(
@@ -331,7 +354,7 @@ def publish_one(control, args, tag, kind, image):
     return result
 
 
-def snapshot_result(args, kind, name, snapshot, image, reused, snapshot_seconds):
+def snapshot_result(args, kind, name, snapshot, image, size, reused, snapshot_seconds):
     return {
         "kind": kind,
         "name": name,
@@ -340,7 +363,7 @@ def snapshot_result(args, kind, name, snapshot, image, reused, snapshot_seconds)
         "snapshot_id": pick(snapshot, "id", "ID"),
         "org_id": pick(snapshot, "OrgID", "org_id", default=args.org_id),
         "image_ref": image,
-        "size": args.size,
+        "size": size,
         "status": pick(snapshot, "Status", "status"),
         "artifact_size_bytes": pick(snapshot, "ArtifactSizeBytes", "artifact_size_bytes", default=0),
         "artifact_url": pick(snapshot, "ArtifactURL", "artifact_url", default=""),
@@ -365,18 +388,28 @@ def main():
         raise SystemExit("HIVY_MICROSANDBOX_API_TOKEN or --api-token is required")
     tag = resolve_latest_tag(args.tag, args.arch_suffix)
     images = image_matrix(tag, args.runtime_only, args.developers_only)
+    sizes = size_matrix(args.size, args.sizes)
     control = ControlPlane(args.control_url, args.api_token.strip(), args.timeout_seconds)
     manifest = {
         "created_at": utc_now(),
         "control_url": args.control_url.rstrip("/"),
         "org_id": args.org_id,
         "image_tag": tag,
-        "size": args.size,
+        "sizes": sizes,
         "snapshots": [],
     }
     total_start = time.monotonic()
-    for kind, image in images:
-        manifest["snapshots"].append(publish_one(control, args, tag, kind, image))
+    jobs = [(kind, image, size) for size in sizes for kind, image in images]
+    results = [None] * len(jobs)
+    max_workers = max(1, min(args.concurrency, len(jobs)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(publish_one, control, args, tag, kind, image, size): idx
+            for idx, (kind, image, size) in enumerate(jobs)
+        }
+        for future in concurrent.futures.as_completed(futures):
+            results[futures[future]] = future.result()
+    manifest["snapshots"] = results
     manifest["total_seconds"] = round(time.monotonic() - total_start, 3)
     output = Path(args.output) if args.output else default_output_path(tag)
     output.parent.mkdir(parents=True, exist_ok=True)

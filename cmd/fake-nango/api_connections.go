@@ -12,7 +12,7 @@ func mountConnections(r chi.Router, st *store) {
 	r.Get("/connections/{id}", readConnection(st))
 	r.Delete("/connections/{id}", deleteConnectionH(st))
 
-	// legacy aliases — still served by real Nango.
+	// older aliases — still served by real Nango.
 	r.Post("/connection", createConnection(st))
 	r.Get("/connection/{id}", readConnection(st))
 	r.Delete("/connection/{id}", deleteConnectionH(st))

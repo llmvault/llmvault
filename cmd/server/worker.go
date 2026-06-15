@@ -20,6 +20,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/precontext"
+	"github.com/usehivy/hivy/internal/sandbox"
 	// Blank import populates interfaces.Registry via init().
 	_ "github.com/usehivy/hivy/internal/rag/connectors"
 	ragscheduler "github.com/usehivy/hivy/internal/rag/scheduler"
@@ -107,7 +108,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	}
 	if deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.AgentCompile.EncKey != nil && workerDeps.AgentCompile.KMS != nil && cfg.AgentSandboxAutoUpgrade {
 		if err := tasks.EnqueueAgentSandboxAutoUpgrade(ctx, enqueuer, tasks.AgentSandboxAutoUpgradePayload{
-			RuntimeImage: cfg.SandboxesRuntimeBaseImage,
+			RuntimeImage: sandbox.AgentRuntimeTemplateRef(cfg),
 			Limit:        cfg.AgentSandboxAutoUpgradeLimit,
 		}); err != nil {
 			slog.Error("enqueue agent sandbox auto-upgrade sweep", "error", err)

@@ -66,6 +66,9 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if createReq["image_ref"] != "ghcr.io/usehivy/hivy-sandboxes-runtime:latest" {
 		t.Fatalf("image_ref = %v", createReq["image_ref"])
 	}
+	if createReq["size"] != msbapi.DefaultSize {
+		t.Fatalf("size = %v, want %s", createReq["size"], msbapi.DefaultSize)
+	}
 	previewPorts, ok := createReq["preview_ports"].([]any)
 	if !ok {
 		t.Fatalf("preview_ports = %T, want array", createReq["preview_ports"])

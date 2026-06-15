@@ -147,7 +147,7 @@ func TestSlackProxy_RejectsNonSlackWebAPIPath(t *testing.T) {
 	}
 }
 
-func TestSlackProxy_RejectsLegacyAPIPrefixPath(t *testing.T) {
+func TestSlackProxy_RejectsAPIPrefixPath(t *testing.T) {
 	nangoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("nango should not be called for invalid slack path")
 	})

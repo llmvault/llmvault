@@ -55,7 +55,7 @@ func TestCORS_ProductionFailsClosedWhenOriginsEmpty(t *testing.T) {
 	}
 }
 
-// Non-production deployments without HIVY_CORS_ORIGINS still get the legacy wildcard behaviour.
+// Non-production deployments without HIVY_CORS_ORIGINS still get the wildcard fallback behaviour.
 func TestCORS_NonProductionAllowsAllWhenOriginsEmpty(t *testing.T) {
 	handler := CORS([]string{}, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

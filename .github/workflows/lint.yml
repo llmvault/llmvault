@@ -166,7 +166,7 @@ jobs:
       - name: Install gitleaks
         # Pinned prebuilt binary from the official release.
         # `go install` doesn't work because the Go module path is still the
-        # legacy github.com/zricethezav/gitleaks/v8; the prebuilt binary
+        # older github.com/zricethezav/gitleaks/v8; the prebuilt binary
         # sidesteps that quirk and is faster to install too.
         env:
           GITLEAKS_VERSION: "8.30.1"

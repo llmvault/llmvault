@@ -73,10 +73,9 @@ Sandbox cardinality, by agent `sandbox_strategy`:
 | 000008 | channels | `channels`, `channel_members` |
 | 000009 | sessions | `sessions`, `session_participants`, `session_events`, `session_message_queue` |
 | 000010 | skills | `skills` |
-| 000011 | artifacts | `artifacts`, `drive_assets`, `agent_assets` |
-| 000012 | rag | all 11 `rag_*` tables (unchanged) |
-| 000013 | cross-domain FKs | all foreign keys |
-| 000014 | channel source uniqueness | source-aware channel uniqueness |
+| 000011 | rag | all 11 `rag_*` tables (unchanged) |
+| 000012 | cross-domain FKs | all foreign keys |
+| 000013 | channel source uniqueness | source-aware channel uniqueness |
 
 **Deleted from the old schema:** old employee/specialist runtime tables and fields, old external route/delivery/event tables, old employee session/event tables, `orgs.onboarded`, and `conversation_assets`. Late-history patch migrations are folded into the baseline definitions.
 
@@ -499,7 +498,7 @@ No data migration, but dependencies force an order. Each stage = one or a few PR
 1. **Reset & rename** (W1): migrations baseline, rename sweep, specialist deletion, org bootstrap, zero-onboarding backend. *Big-bang mechanical commit; everything still works as a single-agent product.*
 2. **Agents + channels** (W2, W3): CRUD APIs + bootstrap defaults. Frontend F1 + channel sidebar (F2) behind the existing UI.
 3. **Sessions v2 + per-session sandboxes** (W4, W9): new session API on channels/participants; workspace snapshot build + fork-per-session; old session endpoints deleted; `(console)/sessions` temporarily repointed or frozen. W9 lands here because everything downstream (realtime, handoff, live artifact views) assumes the session↔sandbox binding.
-4. **Realtime** (W5): ingestion-side streaming, Redis fanout, `/live`, presence. Riskiest workstream alongside W9 — build it before the new UI ships so the UI never wires to the legacy per-requester stream.
+4. **Realtime** (W5): ingestion-side streaming, Redis fanout, `/live`, presence. Riskiest workstream alongside W9 — build it before the new UI ships so the UI never wires to the older per-requester stream.
 5. **New /w goes real** (F2–F4 + W7 live views): conversation, composer, channel home, right panel, multi-user. Delete static data files. Zero-onboarding frontend (W8) flips on here — signup lands in a fully working `/w`.
 6. **External ingestion + handoff** (W6, W10) + persisted artifacts (W7b) + console consolidation (F5). Handoff lands with Slack/external channels because that's where triage matters; web users pick agents explicitly.
 

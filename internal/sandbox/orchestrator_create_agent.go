@@ -39,7 +39,7 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		return nil, fmt.Errorf("encrypting runtime secret: %w", err)
 	}
 
-	snapshotID := o.cfg.SandboxesRuntimeBaseImage
+	snapshotID := AgentRuntimeTemplateRef(o.cfg)
 	sb := model.Sandbox{
 		OrgID:                  &orgID,
 		AgentID:                &agent.ID,

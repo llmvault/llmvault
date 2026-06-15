@@ -49,7 +49,7 @@ pub struct SessionStreamBroker {
 /// replayable.
 const HISTORY_CAPACITY: usize = 512;
 
-/// How long a finished legacy stream's state is retained before it is evicted
+/// How long a finished stream's state is retained before it is evicted
 /// from the broker's maps. Persistent session streams are not marked done.
 const STREAM_EVICTION_GRACE: Duration = Duration::from_secs(120);
 
@@ -488,7 +488,7 @@ fn stamp_stream_payload(payload: Value, event_name: &str, stream_id: &str, seque
     payload
 }
 
-/// Reclaim legacy per-stream state whose terminal `done` was published more
+/// Reclaim per-stream state whose terminal `done` was published more
 /// than `STREAM_EVICTION_GRACE` ago, and drop the session→stream mappings that
 /// still point at them. Without this the broker's `streams`/`session_streams`
 /// maps grow unbounded for the process lifetime. Called opportunistically from
@@ -632,7 +632,7 @@ enum StreamFrame {
 /// Core of the SSE replay stream, decoupled from the `Sse`/`Event` wire types so
 /// the reconnect/resync behavior is unit-testable. Yields history first, then
 /// live events, and on `Lagged` emits a `Resync` frame followed by the exact
-/// missed range from history. Legacy stream-id subscribers stop on `done`;
+/// missed range from history. Stream-id subscribers stop on `done`;
 /// stable session stream subscribers keep listening across turn boundaries.
 fn replay_stream(
     broker: Arc<SessionStreamBroker>,

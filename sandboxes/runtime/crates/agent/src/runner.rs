@@ -1126,7 +1126,7 @@ mod tests {
     }
 
     #[test]
-    fn cacheable_prompt_uses_control_plane_segments_and_ignores_legacy_fields() {
+    fn cacheable_prompt_uses_control_plane_segments_and_ignores_deprecated_fields() {
         let prompt = render_cacheable_system_prompt(&test_definition());
 
         assert!(prompt.contains("Runtime-owned base prompt from control plane."));
@@ -1138,7 +1138,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dynamic_prompt_contains_control_plane_runtime_context_not_legacy_fragments() {
+    async fn dynamic_prompt_contains_control_plane_runtime_context_not_deprecated_fragments() {
         let definition = test_definition();
         let prompt = render_dynamic_system_prompt(
             &definition,
