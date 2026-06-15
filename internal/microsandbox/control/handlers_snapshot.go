@@ -72,7 +72,7 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" {
 		req.Name = id
 	}
-	size := api.Sizes["small"]
+	size := api.Sizes[api.DefaultSize]
 	if req.Size != "" {
 		if picked, ok := api.Sizes[req.Size]; ok {
 			size = picked

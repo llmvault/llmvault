@@ -14,6 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
 type agentSandboxSummary struct {
@@ -182,7 +183,7 @@ func (h *AgentHandler) currentAgentSandboxSnapshotID() string {
 	if h == nil || h.compileDeps.Cfg == nil {
 		return ""
 	}
-	return h.compileDeps.Cfg.SandboxesRuntimeBaseImage
+	return sandboxpkg.AgentRuntimeTemplateRef(h.compileDeps.Cfg)
 }
 
 func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) agentListItem {
@@ -228,7 +229,7 @@ func agentSandboxUpgradeAvailable(summary *agentSandboxSummary, currentSnapshotI
 func (h *AgentHandler) loadMainAgentRuntimeSandboxSummaries(ctx context.Context, orgID uuid.UUID, agentIDs []uuid.UUID) map[uuid.UUID]*agentSandboxSummary {
 	agentImage := ""
 	if h != nil && h.compileDeps.Cfg != nil {
-		agentImage = h.compileDeps.Cfg.SandboxesRuntimeBaseImage
+		agentImage = sandboxpkg.AgentRuntimeTemplateRef(h.compileDeps.Cfg)
 	}
 	return loadMainAgentRuntimeSandboxPerAgent(
 		ctx,

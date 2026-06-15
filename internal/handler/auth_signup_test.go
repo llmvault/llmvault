@@ -64,6 +64,7 @@ func seedSignupUser(t *testing.T, db *gorm.DB) *model.User {
 func cleanupOrgAndLedger(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
 	t.Helper()
 	t.Cleanup(func() {
+		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.Channel{})
 		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.Agent{})
 		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.CreditLedgerEntry{})
 		db.Unscoped().Where("org_id = ?", orgID).Delete(&model.OrgMembership{})

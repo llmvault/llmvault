@@ -70,7 +70,7 @@ func (h *MCPHandler) StreamableHTTPHandler() http.Handler {
 	})
 }
 
-// SSEHandler returns an HTTP handler for the legacy MCP SSE transport.
+// SSEHandler returns an HTTP handler for the MCP SSE transport.
 func (h *MCPHandler) SSEHandler() http.Handler {
 	return mcp.NewSSEHandler(h.serverFactory, nil)
 }

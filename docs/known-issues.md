@@ -184,7 +184,7 @@ requires `HIVY_API_URL`.
 
 `internal/rag/embedder/seed.go:SeedRegistry` upserts the curated model catalog
 into `rag_embedding_models`, but no server or worker boot path calls it. The
-table exists (via migration `000012_rag.sql`) but stays empty.
+table exists (via migration `000011_rag.sql`) but stays empty.
 
 **Fix:** Call `embedder.SeedRegistry(db)` in the RAG boot sequence (e.g. in
 `cmd/server/serve_rag.go` or `cmd/server/worker_rag.go`), or remove the table
@@ -290,8 +290,8 @@ campaigns. Brief citations are included so readers can trace the fix.
 | 22 | Revoked profiles feed agent runtime state | `internal/agentruntime/bugsink.go:45` and `compile_mcp.go:37` filter `revoked_at IS NULL` |
 | 23 | Deleting agents leaves external sandboxes running | No DELETE /agents/{id} route exists; lifecycle managed via archive + sandbox cleanup task |
 | 25 | Git author env overrides bypass GitHub identity | Git identity resolution goes through `setGitIdentityEnvVars`; user env is not expected to override runtime git config (no shell escaping issue found) |
-| 26 | Legacy sandbox-drive resolves agent via wrong join | `internal/handler/sandbox_drive.go:83` now queries `WHERE sandbox_id = ?` (sandbox → agent) |
-| 30 | RAG tables missing from migration path | Migration `000012_rag.sql` embedded in `internal/migrations/sql/`; included in standard goose run |
+| 26 | Sandbox-drive resolves agent via wrong join | `internal/handler/sandbox_drive.go:83` now queries `WHERE sandbox_id = ?` (sandbox → agent) |
+| 30 | RAG tables missing from migration path | Migration `000011_rag.sql` embedded in `internal/migrations/sql/`; included in standard goose run |
 | 32 | RAG mutations not admin-gated | `cmd/server/serve_routes_v1.go:238` — `RequireOrgAdmin` applied to RAG mutation group |
 | 35 | Agent category expansion | No category validation on POST /agents; all category strings accepted; decision deferred |
 | 36 | Non-Slack agent startup profile | Slack-only is explicit v1 contract; `compile.go` and `agents_sync_runner.go` document this |

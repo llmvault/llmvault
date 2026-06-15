@@ -49,6 +49,7 @@ func newOTPHarness(t *testing.T) *otpTestHarness {
 		true, // autoConfirmEmail
 		billing.NewCreditsService(db),
 	)
+	authHandler.SetAgentSyncer(&stubOrgAgentSyncer{})
 
 	r := chi.NewRouter()
 	r.Post("/auth/otp/request", authHandler.OTPRequest)

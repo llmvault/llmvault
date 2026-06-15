@@ -40,9 +40,9 @@ func ApplyMigrations(t testing.TB, db *gorm.DB) {
 	}
 	if _, err := migrations.Up(t.Context(), sqlDB); err == nil {
 		return
-	} else if stampLegacyInitialSchema(t, sqlDB, err) {
+	} else if stampInitialSchema(t, sqlDB, err) {
 		if _, retryErr := migrations.Up(t.Context(), sqlDB); retryErr != nil {
-			t.Fatalf("apply migrations after legacy schema stamp: %v", retryErr)
+			t.Fatalf("apply migrations after baseline schema stamp: %v", retryErr)
 		} else {
 			return
 		}
@@ -105,7 +105,7 @@ func lockMigrationSetup(ctx context.Context, db *sql.DB) (func(context.Context),
 	}, nil
 }
 
-func stampLegacyInitialSchema(t testing.TB, db *sql.DB, migrationErr error) bool {
+func stampInitialSchema(t testing.TB, db *sql.DB, migrationErr error) bool {
 	t.Helper()
 	if !strings.Contains(migrationErr.Error(), "already exists") && !strings.Contains(migrationErr.Error(), "SQLSTATE 42P07") {
 		return false
@@ -121,9 +121,9 @@ func stampLegacyInitialSchema(t testing.TB, db *sql.DB, migrationErr error) bool
 
 	if missing, err := missingMigratedTables(t.Context(), db); err != nil || len(missing) > 0 {
 		if err != nil {
-			t.Logf("legacy schema check failed: %v", err)
+			t.Logf("baseline schema check failed: %v", err)
 		} else {
-			t.Logf("legacy schema check failed; missing tables: %s", strings.Join(missing, ", "))
+			t.Logf("baseline schema check failed; missing tables: %s", strings.Join(missing, ", "))
 		}
 		return false
 	}
@@ -136,7 +136,7 @@ func stampLegacyInitialSchema(t testing.TB, db *sql.DB, migrationErr error) bool
 					SELECT 1 FROM goose_db_version WHERE version_id = $1 AND is_applied
 				)
 			`, version); err != nil {
-			t.Fatalf("stamp legacy migration version %d: %v", version, err)
+			t.Fatalf("stamp baseline migration version %d: %v", version, err)
 		}
 	}
 	return true

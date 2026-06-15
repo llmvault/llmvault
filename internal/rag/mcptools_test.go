@@ -91,7 +91,7 @@ func TestGroupKnowledgeHitsBySource(t *testing.T) {
 	}
 }
 
-func TestGroupKnowledgeHitsBySourceFallsBackForLegacyPayload(t *testing.T) {
+func TestGroupKnowledgeHitsBySourceFallsBackForOlderPayload(t *testing.T) {
 	groups := groupKnowledgeHitsBySource([]qdrant.Hit{
 		{
 			ID:    "chunk-1",

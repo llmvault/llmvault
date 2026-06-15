@@ -42,7 +42,7 @@ func PrefixUserEmail(email string) string {
 //
 // NOTE: Hivy does not port Onyx's EE UserGroup table. This helper
 // is still ported verbatim because indexing code paths that compute
-// ACLs may encounter legacy group rows during migration and because
+// ACLs may encounter older group rows during migration and because
 // the helper is cheap to keep in sync.
 func PrefixUserGroup(name string) string {
 	return "group:" + name

@@ -6,7 +6,7 @@ import (
 )
 
 // CORS allows cross-origin requests from the given origins. An empty allowedOrigins fails closed
-// in production (no headers) and falls back to the legacy wildcard in non-production.
+// in production (no headers) and falls back to the wildcard fallback in non-production.
 func CORS(allowedOrigins []string, isProduction bool) func(http.Handler) http.Handler {
 	allowAll := len(allowedOrigins) == 0 && !isProduction
 

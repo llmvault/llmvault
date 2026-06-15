@@ -148,6 +148,9 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 		return nil, err
 	}
 	ensureOrgMemoryBank(ctx, h.memoryBanks, createdOrgID, "oauth_signup")
+	if err := provisionOrgHivyAgent(ctx, h.agentSyncer, createdOrgID); err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "failed to provision Hivy agent sandbox during OAuth signup", "org_id", createdOrgID, "error", err)
+	}
 
 	return &user, nil
 }

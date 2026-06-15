@@ -171,7 +171,7 @@ func TestObsScopes_RetainItemCarriesObservationScopes(t *testing.T) {
 
 func TestObsScopes_RetainItemWithoutScopesOmitsField(t *testing.T) {
 	// Verifies the json:"omitempty" tag — RetainItem callers without per-agent
-	// scoping (e.g. legacy test fixtures) shouldn't emit a null field.
+	// scoping (e.g. older test fixtures) shouldn't emit a null field.
 	body, err := json.Marshal(RetainItem{Content: "x"})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)

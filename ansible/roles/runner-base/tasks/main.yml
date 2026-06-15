@@ -83,7 +83,7 @@
   register: microsandbox_ufw_https
   changed_when: "'Rule added' in microsandbox_ufw_https.stdout"
 
-- name: Remove legacy public Microsandbox runner API UFW rule
+- name: Remove old public Microsandbox runner API UFW rule
   ansible.builtin.command: "ufw delete allow {{ runner_api_port }}/tcp"
   register: microsandbox_ufw_api_delete
   changed_when: "'Rule deleted' in microsandbox_ufw_api_delete.stdout"
