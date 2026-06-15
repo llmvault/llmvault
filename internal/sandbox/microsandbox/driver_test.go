@@ -76,17 +76,19 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if len(previewPorts) != len(msbapi.DefaultPreviewPorts()) {
 		t.Fatalf("preview_ports length = %d, want %d", len(previewPorts), len(msbapi.DefaultPreviewPorts()))
 	}
-	entrypoint, ok := createReq["entrypoint"].([]any)
+	init, ok := createReq["init"].(map[string]any)
 	if !ok {
-		t.Fatalf("entrypoint = %T, want array", createReq["entrypoint"])
+		t.Fatalf("init = %T, want object", createReq["init"])
 	}
-	if len(entrypoint) != len(agentRuntimeEntrypoint) {
-		t.Fatalf("entrypoint length = %d, want %d", len(entrypoint), len(agentRuntimeEntrypoint))
+	if init["cmd"] != "/usr/local/bin/hivy-runtime-entrypoint" {
+		t.Fatalf("init cmd = %v", init["cmd"])
 	}
-	for i, want := range agentRuntimeEntrypoint {
-		if entrypoint[i] != want {
-			t.Fatalf("entrypoint[%d] = %v, want %s", i, entrypoint[i], want)
-		}
+	args, ok := init["args"].([]any)
+	if !ok {
+		t.Fatalf("init args = %T, want array", init["args"])
+	}
+	if len(args) != 1 || args[0] != "/usr/local/bin/hivy-sandboxes-runtime" {
+		t.Fatalf("init args = %v", args)
 	}
 
 	endpoint, err := driver.GetEndpoint(context.Background(), "sbx_test", 0)
