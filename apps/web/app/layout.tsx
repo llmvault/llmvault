@@ -3,8 +3,6 @@ import { Bricolage_Grotesque } from "next/font/google"
 import "./hero.css"
 import { Toast } from "@heroui/react"
 import { QueryProvider } from "@/components/query-provider"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { Toaster } from "@/components/ui/sonner"
 import { ThemeProviders } from "@/components/theme-providers"
 
 // Applies the saved theme preset before first paint to avoid a flash.
@@ -45,8 +43,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: PRESET_NO_FLASH }} />
         <ThemeProviders>
           <QueryProvider>
-            <TooltipProvider>{children}</TooltipProvider>
-            <Toaster position="top-center" />
+            {children}
             <Toast.Provider placement="top" />
           </QueryProvider>
         </ThemeProviders>

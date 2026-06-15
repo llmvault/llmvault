@@ -154,10 +154,7 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logging.FromContext(r.Context()).InfoContext(r.Context(), "user created via OTP", "user_id", user.ID, "email", user.Email)
-		ensureOrgMemoryBank(r.Context(), h.memoryBanks, org.ID, "auth_otp")
-		if err := provisionOrgHivyAgent(r.Context(), h.agentSyncer, org.ID); err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to provision Hivy agent sandbox during OTP signup", "org_id", org.ID, "error", err)
-		}
+		enqueueOrgHivyAgentProvision(r.Context(), h.enqueuer, org.ID, "auth_otp")
 		h.issueTokensAndRespond(r.Context(), w, http.StatusCreated, user, org.ID.String(), "owner")
 		return
 	}

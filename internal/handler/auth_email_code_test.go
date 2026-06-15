@@ -16,6 +16,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/email"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -37,6 +38,7 @@ type emailConfirmationHarness struct {
 	db     *gorm.DB
 	router *chi.Mux
 	sender *captureTemplateSender
+	enq    *enqueue.MockClient
 }
 
 func newEmailConfirmationHarness(t *testing.T) *emailConfirmationHarness {
@@ -47,6 +49,7 @@ func newEmailConfirmationHarness(t *testing.T) *emailConfirmationHarness {
 		t.Fatalf("generate RSA key: %v", err)
 	}
 	sender := &captureTemplateSender{}
+	enq := &enqueue.MockClient{}
 	authHandler := handler.NewAuthHandler(
 		db, pk, []byte("test-signing-key-for-refresh-tokens"),
 		"hivy-test", "http://localhost:8080",
@@ -57,13 +60,14 @@ func newEmailConfirmationHarness(t *testing.T) *emailConfirmationHarness {
 		billing.NewCreditsService(db),
 	)
 	authHandler.SetAgentSyncer(&stubOrgAgentSyncer{})
+	authHandler.SetEnqueuer(enq)
 
 	r := chi.NewRouter()
 	r.Post("/auth/register", authHandler.Register)
 	r.Post("/auth/confirm-email", authHandler.ConfirmEmail)
 	r.Post("/auth/resend-confirmation", authHandler.ResendConfirmation)
 
-	return &emailConfirmationHarness{db: db, router: r, sender: sender}
+	return &emailConfirmationHarness{db: db, router: r, sender: sender, enq: enq}
 }
 
 func (h *emailConfirmationHarness) doRequest(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {
@@ -115,6 +119,11 @@ func TestEmailPasswordSignup_SendsAndConfirmsSixDigitCode(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("register: got %d body=%s, want 201", rr.Code, rr.Body.String())
 	}
+	orgID := assertOrgProvisionTaskEnqueued(t, h.enq)
+	t.Cleanup(func() {
+		h.db.Where("org_id = ?", orgID).Delete(&model.Channel{})
+		h.db.Where("org_id = ?", orgID).Delete(&model.Agent{})
+	})
 
 	if len(h.sender.messages) != 1 {
 		t.Fatalf("sent emails: got %d, want 1", len(h.sender.messages))

@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import type { components } from "@/lib/api/schema"
@@ -73,7 +73,7 @@ export function usePasswordLogin(nextPath = "/w") {
             router.replace(redirectTo)
           },
           onError: (error) => {
-            toast.error(extractErrorMessage(error, "Could not sign in"))
+            toast.danger(extractErrorMessage(error, "Could not sign in"))
           },
         }
       )
@@ -120,7 +120,9 @@ export function usePasswordSignup(nextPath = "/w") {
             toast.success("Check your email for a 6-digit confirmation code")
           },
           onError: (error) => {
-            toast.error(extractErrorMessage(error, "Could not create account"))
+            toast.danger(
+              extractErrorMessage(error, "Could not create account")
+            )
           },
         }
       )
@@ -147,7 +149,7 @@ export function usePasswordSignup(nextPath = "/w") {
             router.replace(redirectTo)
           },
           onError: (error) => {
-            toast.error(extractErrorMessage(error, "Invalid or expired code"))
+            toast.danger(extractErrorMessage(error, "Invalid or expired code"))
           },
         }
       )
@@ -169,7 +171,7 @@ export function usePasswordSignup(nextPath = "/w") {
           toast.success("A new confirmation code has been sent")
         },
         onError: (error) => {
-          toast.error(
+          toast.danger(
             extractErrorMessage(error, "Could not resend confirmation code")
           )
         },

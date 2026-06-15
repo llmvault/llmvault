@@ -110,6 +110,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		cfg.AuthIssuer, cfg.AuthAudience, cfg.AuthAccessTokenTTL, cfg.AuthRefreshTokenTTL,
 		emailSender, cfg.FrontendURL, cfg.AutoConfirmEmail, deps.Credits)
 	authHandler.SetMemoryProvisioner(hindsightBanks)
+	authHandler.SetEnqueuer(enqueuer)
 	authHandler.StartCleanup(ctx)
 	oauthHandler := handler.NewOAuthHandler(database, rsaKey, signingKey,
 		cfg.AuthIssuer, cfg.AuthAudience, cfg.AuthAccessTokenTTL, cfg.AuthRefreshTokenTTL,
@@ -119,6 +120,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		cfg.OAuthXClientID, cfg.OAuthXClientSecret,
 		deps.Credits)
 	oauthHandler.SetMemoryProvisioner(hindsightBanks)
+	oauthHandler.SetEnqueuer(enqueuer)
 	apiKeyHandler := handler.NewAPIKeyHandler(database, apiKeyCache, cacheManager)
 	usageHandler := handler.NewUsageHandler(database)
 	auditHandler := handler.NewAuditHandler(database)

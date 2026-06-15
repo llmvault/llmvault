@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@heroui/react"
 import {
   adminDataQueryKey,
   createSystemCredential,
@@ -51,7 +51,7 @@ export function AdminClient() {
 
   useEffect(() => {
     if (adminQuery.error) {
-      toast.error(errorMessage(adminQuery.error, "Failed to load admin data"))
+      toast.danger(errorMessage(adminQuery.error, "Failed to load admin data"))
     }
   }, [adminQuery.error])
 
@@ -66,7 +66,7 @@ export function AdminClient() {
       })
     },
     onError: (error) => {
-      toast.error(errorMessage(error, "Failed to save credential"))
+      toast.danger(errorMessage(error, "Failed to save credential"))
     },
   })
 
@@ -79,7 +79,7 @@ export function AdminClient() {
       })
     },
     onError: (error) => {
-      toast.error(errorMessage(error, "Failed to revoke credential"))
+      toast.danger(errorMessage(error, "Failed to revoke credential"))
     },
   })
 

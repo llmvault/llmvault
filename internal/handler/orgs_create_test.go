@@ -3,7 +3,6 @@ package handler_test
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -42,7 +41,7 @@ func (h *orgUpdateHarness) doCreate(t *testing.T, userID uuid.UUID, body any) *h
 	return rr
 }
 
-func TestOrgCreate_ProvisionsHivyAgentSandbox(t *testing.T) {
+func TestOrgCreate_EnqueuesHivyAgentProvision(t *testing.T) {
 	h := newOrgUpdateHarness(t)
 	user := h.createUser(t)
 	syncer := &stubOrgAgentSyncer{}
@@ -53,30 +52,29 @@ func TestOrgCreate_ProvisionsHivyAgentSandbox(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status: got %d body=%s, want 201", rr.Code, rr.Body.String())
 	}
-	if syncer.calls != 1 {
-		t.Fatalf("sync calls = %d, want 1", syncer.calls)
+	orgID := assertOrgProvisionTaskEnqueued(t, h.enqueuer)
+	if syncer.calls != 0 {
+		t.Fatalf("sync calls = %d, want 0 because provisioning is async", syncer.calls)
 	}
-	if syncer.orgID == uuid.Nil {
-		t.Fatal("sync org id should be set")
-	}
-	cleanupCreatedOrg(t, h, syncer.orgID)
+	cleanupCreatedOrg(t, h, orgID)
 }
 
-func TestOrgCreate_ContinuesAfterProvisioningError(t *testing.T) {
+func TestOrgCreate_DoesNotRunProvisioningInline(t *testing.T) {
 	h := newOrgUpdateHarness(t)
 	user := h.createUser(t)
-	syncer := &stubOrgAgentSyncer{err: errors.New("runner unavailable")}
+	syncer := &stubOrgAgentSyncer{}
 	h.orgHandler.SetAgentSyncer(syncer)
 
-	rr := h.doCreate(t, user.ID, map[string]any{"name": "Provision Fails"})
+	rr := h.doCreate(t, user.ID, map[string]any{"name": "Provision Async"})
 
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("status: got %d body=%s, want 201", rr.Code, rr.Body.String())
 	}
-	if syncer.calls != 3 {
-		t.Fatalf("sync calls = %d, want 3 retries", syncer.calls)
+	if syncer.calls != 0 {
+		t.Fatalf("sync calls = %d, want 0", syncer.calls)
 	}
-	cleanupCreatedOrg(t, h, syncer.orgID)
+	orgID := assertOrgProvisionTaskEnqueued(t, h.enqueuer)
+	cleanupCreatedOrg(t, h, orgID)
 }
 
 func cleanupCreatedOrg(t *testing.T, h *orgUpdateHarness, orgID uuid.UUID) {

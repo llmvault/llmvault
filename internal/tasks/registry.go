@@ -36,6 +36,7 @@ type WorkerDeps struct {
 	Hindsight         *hindsight.Client       // nil if Hindsight not configured
 	PreContextCache   precontext.Cache        // nil disables agent pre-context cache invalidation
 	AgentCompile      agentruntime.CompileDeps
+	OrgAgentSyncer    OrgHivyAgentSyncer
 	S3Client          *storage.S3Client
 
 	Rag          *ragtasks.Deps
@@ -121,6 +122,10 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 			NewAgentProxyTokenRefreshHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 	}
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil {
+		if deps.OrgAgentSyncer != nil {
+			mux.HandleFunc(TypeOrgHivyAgentProvision,
+				NewOrgHivyAgentProvisionHandler(deps.OrgAgentSyncer).Handle)
+		}
 		mux.HandleFunc(TypeSessionMessageDeliver,
 			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)

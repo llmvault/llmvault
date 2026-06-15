@@ -1,3 +1,4 @@
+import { AuthProvider } from "@/lib/auth/auth-context"
 import { WorkspaceShell } from "./_components/shell"
 
 export default function WorkspaceLayout({
@@ -5,5 +6,9 @@ export default function WorkspaceLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <WorkspaceShell>{children}</WorkspaceShell>
+  return (
+    <AuthProvider>
+      <WorkspaceShell>{children}</WorkspaceShell>
+    </AuthProvider>
+  )
 }

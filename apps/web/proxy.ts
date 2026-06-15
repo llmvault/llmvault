@@ -7,12 +7,14 @@ const AUTH_ROUTES = new Set([
 ])
 
 export function proxy(req: NextRequest) {
-  const hasSession = req.cookies.has(SESSION_COOKIE)
   const { pathname } = req.nextUrl
+  const hasSession = req.cookies.has(SESSION_COOKIE)
 
   // Protected routes: require a session.
   if ((pathname === "/w" || pathname.startsWith("/w/")) && !hasSession) {
-    return NextResponse.redirect(new URL("/auth/login", req.url))
+    const loginURL = new URL("/auth/login", req.url)
+    loginURL.searchParams.set("next", pathname + req.nextUrl.search)
+    return NextResponse.redirect(loginURL)
   }
 
   if (AUTH_ROUTES.has(pathname) && hasSession) {

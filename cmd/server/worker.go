@@ -17,6 +17,8 @@ import (
 	"github.com/usehivy/hivy/internal/email"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
+	"github.com/usehivy/hivy/internal/handler"
+	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/precontext"
@@ -59,6 +61,24 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 
 	preContextCache := precontext.NewRedisCache(deps.Redis)
 	ragDeps := buildRagDeps(ctx, cfg, deps.DB, deps.NangoClient, deps.SpiderClient, deps.KMS, preContextCache)
+	agentCompile := agentruntime.CompileDeps{
+		DB:         deps.DB,
+		Picker:     credentials.NewPickerWithRegistry(deps.DB, deps.Registry),
+		KMS:        deps.KMS,
+		EncKey:     deps.SandboxEncKey,
+		SigningKey: deps.SigningKey,
+		Cfg:        cfg,
+		Hindsight:  deps.HindsightClient,
+	}
+	var orgAgentSyncer tasks.OrgHivyAgentSyncer
+	if deps.Orchestrator != nil && agentCompile.EncKey != nil {
+		agentHandler := handler.NewAgentHandler(deps.DB, deps.Orchestrator, agentCompile, deps.Registry)
+		agentHandler.SetEnqueuer(enqueuer)
+		if deps.HindsightClient != nil {
+			agentHandler.SetMemoryProvisioner(hindsight.NewBankProvisioner(deps.DB, deps.HindsightClient))
+		}
+		orgAgentSyncer = agentHandler
+	}
 
 	workerDeps := &tasks.WorkerDeps{
 		DB:           deps.DB,
@@ -88,18 +108,11 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		Enqueuer:        enqueuer,
 		Hindsight:       deps.HindsightClient,
 		PreContextCache: preContextCache,
+		OrgAgentSyncer:  orgAgentSyncer,
 		S3Client:        deps.S3Client,
-		AgentCompile: agentruntime.CompileDeps{
-			DB:         deps.DB,
-			Picker:     credentials.NewPickerWithRegistry(deps.DB, deps.Registry),
-			KMS:        deps.KMS,
-			EncKey:     deps.SandboxEncKey,
-			SigningKey: deps.SigningKey,
-			Cfg:        cfg,
-			Hindsight:  deps.HindsightClient,
-		},
-		Rag:          ragDeps,
-		RagScheduler: ragSched,
+		AgentCompile:    agentCompile,
+		Rag:             ragDeps,
+		RagScheduler:    ragSched,
 	}
 	if deps.Orchestrator != nil && workerDeps.AgentCompile.EncKey != nil {
 		deps.Orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {

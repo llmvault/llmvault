@@ -24,6 +24,7 @@ const (
 	TypeAgentSandboxUpgrade       = "agent:sandbox_upgrade"
 	TypeAgentSandboxAutoUpgrade   = "agent:sandbox_auto_upgrade"
 	TypeAgentSandboxRetire        = "agent:sandbox_retire"
+	TypeOrgHivyAgentProvision     = "org:hivy_agent_provision"
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"
 

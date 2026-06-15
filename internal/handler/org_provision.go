@@ -3,46 +3,27 @@ package handler
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
-var orgAgentProvisionRetryDelays = []time.Duration{
-	0,
-	500 * time.Millisecond,
-	2 * time.Second,
-}
-
-func provisionOrgHivyAgent(ctx context.Context, syncer OrgAgentSyncer, orgID uuid.UUID) error {
-	if syncer == nil {
-		return fmt.Errorf("agent sandbox sync not configured")
+func enqueueOrgHivyAgentProvision(ctx context.Context, enq enqueue.TaskEnqueuer, orgID uuid.UUID, stage string) {
+	if enq == nil {
+		logging.FromContext(ctx).WarnContext(ctx, "Hivy agent sandbox provision skipped; queue not configured",
+			"org_id", orgID, "stage", stage)
+		return
 	}
-	var lastErr error
-	for attempt, delay := range orgAgentProvisionRetryDelays {
-		if delay > 0 {
-			timer := time.NewTimer(delay)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return ctx.Err()
-			case <-timer.C:
-			}
-		}
-		if err := syncer.SyncOrgHivyAgent(ctx, orgID); err != nil {
-			lastErr = err
-			logging.FromContext(ctx).WarnContext(ctx, "Hivy agent sandbox provision attempt failed",
-				"org_id", orgID, "attempt", attempt+1, "error", err)
-			continue
-		}
-		return nil
+	if err := tasks.EnqueueOrgHivyAgentProvision(ctx, enq, orgID); err != nil {
+		err = fmt.Errorf("enqueue Hivy agent sandbox provision: %w", err)
+		logging.FromContext(ctx).ErrorContext(ctx, "failed to enqueue Hivy agent sandbox provision",
+			"org_id", orgID, "stage", stage, "error", err)
+		logging.CaptureWithFields(ctx, err, map[string]any{
+			"org_id": orgID.String(),
+			"stage":  stage,
+		})
 	}
-	err := fmt.Errorf("provision Hivy agent sandbox: %w", lastErr)
-	logging.CaptureWithFields(ctx, err, map[string]any{
-		"org_id":   orgID.String(),
-		"attempts": len(orgAgentProvisionRetryDelays),
-	})
-	return err
 }

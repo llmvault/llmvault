@@ -16,6 +16,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/email"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -27,6 +28,7 @@ import (
 type otpTestHarness struct {
 	db     *gorm.DB
 	router *chi.Mux
+	enq    *enqueue.MockClient
 }
 
 func newOTPHarness(t *testing.T) *otpTestHarness {
@@ -39,6 +41,7 @@ func newOTPHarness(t *testing.T) *otpTestHarness {
 		t.Fatalf("generate RSA key: %v", err)
 	}
 	signingKey := []byte("test-signing-key-for-refresh-tokens")
+	enq := &enqueue.MockClient{}
 
 	authHandler := handler.NewAuthHandler(
 		db, pk, signingKey,
@@ -50,12 +53,13 @@ func newOTPHarness(t *testing.T) *otpTestHarness {
 		billing.NewCreditsService(db),
 	)
 	authHandler.SetAgentSyncer(&stubOrgAgentSyncer{})
+	authHandler.SetEnqueuer(enq)
 
 	r := chi.NewRouter()
 	r.Post("/auth/otp/request", authHandler.OTPRequest)
 	r.Post("/auth/otp/verify", authHandler.OTPVerify)
 
-	return &otpTestHarness{db: db, router: r}
+	return &otpTestHarness{db: db, router: r, enq: enq}
 }
 
 func (h *otpTestHarness) doRequest(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {

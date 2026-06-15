@@ -162,10 +162,7 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create organization"})
 		return
 	}
-	ensureOrgMemoryBank(r.Context(), h.memoryBanks, org.ID, "org_create")
-	if err := provisionOrgHivyAgent(r.Context(), h.agentSyncer, org.ID); err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to provision Hivy agent sandbox during org create", "org_id", org.ID, "error", err)
-	}
+	enqueueOrgHivyAgentProvision(r.Context(), h.enq, org.ID, "org_create")
 
 	writeJSON(w, http.StatusCreated, h.buildOrgResponse(org))
 }
