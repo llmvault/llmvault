@@ -55,13 +55,12 @@ func newHTTPTriggerHarness(t *testing.T) *httpTriggerHarness {
 		t.Fatalf("create org: %v", err)
 	}
 	if err := database.Create(&model.Agent{
-		ID:           agentID,
-		OrgID:        &orgID,
-		Name:         "Agent",
-		SystemPrompt: "You are an agent.",
-		Model:        "test-model",
-		IsManaged:    true,
-		Status:       "active",
+		ID:        agentID,
+		OrgID:     &orgID,
+		Name:      "Agent",
+		Model:     "test-model",
+		IsManaged: true,
+		Status:    "active",
 	}).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}

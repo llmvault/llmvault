@@ -58,6 +58,9 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if ok := h.validateSessionModel(w, r, org.ID, &agent, req.Model); !ok {
+		return
+	}
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
 	var event model.SessionEvent
 	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
@@ -99,6 +102,27 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Event:   ptrSessionEventResponse(eventToResponse(event)),
 		Queued:  queued,
 	})
+}
+
+func (h *SessionHandler) validateSessionModel(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, agent *model.Agent, requested string) bool {
+	modelID := strings.TrimSpace(requested)
+	if modelID == "" {
+		modelID = strings.TrimSpace(agent.Model)
+	}
+	if modelID == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "agent model is not configured"})
+		return false
+	}
+	if !agentAllowsModel(agent, modelID) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model is not enabled for this agent"})
+		return false
+	}
+	agentHandler := AgentHandler{db: h.db}
+	if err := agentHandler.validateAgentSelectableModel(r.Context(), orgID, modelID); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return false
+	}
+	return true
 }
 
 func (h *SessionHandler) loadUsableChannel(w http.ResponseWriter, r *http.Request, orgID uuid.UUID, raw string) (model.Channel, bool) {

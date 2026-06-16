@@ -13,98 +13,54 @@ import (
 
 func TestBuildPromptSections_UsesTypedFields(t *testing.T) {
 	orgID := uuid.New()
-	description := managedAgentDescription
+	description := "Coordinates engineering outcomes."
 	agent := &model.Agent{
-		ID:             uuid.New(),
-		OrgID:          &orgID,
-		Name:           "Aria",
-		Description:    &description,
-		SystemPrompt:   "raw system prompt must not be forwarded",
-		IdentityPrompt: "Own engineering outcomes with evidence.",
+		ID:           uuid.New(),
+		OrgID:        &orgID,
+		Name:         "Aria",
+		Description:  &description,
+		Instructions: ptrString("Own engineering outcomes with evidence."),
 	}
 
 	fragments := buildPromptSections(context.Background(), nil, agent, description)
 
-	if !strings.Contains(fragments.Identity.Content, managedAgentName) {
-		t.Fatalf("identity fragment should include agent name: %#v", fragments.Identity)
+	if !strings.Contains(fragments.Base, "You are Aria, a real teammate") {
+		t.Fatalf("base identity should include agent name: %#v", fragments.Base)
 	}
-	if !strings.Contains(fragments.Identity.Content, description) {
-		t.Fatalf("identity fragment should include description: %#v", fragments.Identity)
+	if !strings.Contains(fragments.Base, description) {
+		t.Fatalf("base identity should include description: %#v", fragments.Base)
 	}
-	if strings.Contains(fragments.Identity.Content, "Name:") || strings.Contains(fragments.Identity.Content, "Role description:") {
-		t.Fatalf("identity fragment must not use key/value style: %#v", fragments.Identity)
+	if strings.Contains(fragments.Base, "Name:") || strings.Contains(fragments.Base, "Role description:") {
+		t.Fatalf("base identity must not use key/value style: %#v", fragments.Base)
 	}
-	if strings.Contains(fragments.Identity.Content, agent.SystemPrompt) {
-		t.Fatalf("typed fragments must not include raw system prompt")
+	if strings.Contains(fragments.Base, "Own engineering outcomes") {
+		t.Fatalf("base identity should not include user instructions")
 	}
-	if strings.Contains(fragments.Identity.Content, agent.IdentityPrompt) {
-		t.Fatalf("identity fragment should not include user-editable identity prompt")
-	}
-}
-
-func TestBuildPromptSections_UpgradesDefaultManagedIdentityPrompt(t *testing.T) {
-	orgID := uuid.New()
-	description := "Coordinates engineering work."
-	category := "engineering"
-	for _, tc := range []struct {
-		name           string
-		identityPrompt string
-	}{
-		{name: "blank", identityPrompt: ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			agent := &model.Agent{
-				ID:             uuid.New(),
-				OrgID:          &orgID,
-				Name:           "Higu",
-				Description:    &description,
-				Category:       &category,
-				IdentityPrompt: tc.identityPrompt,
-			}
-
-			fragments := buildPromptSections(context.Background(), nil, agent, description)
-
-			if !strings.Contains(fragments.Identity.Content, "Communication contract") {
-				t.Fatalf("identity fragment missing current communication contract: %#v", fragments.Identity)
-			}
-			if !strings.Contains(fragments.Identity.Content, "Voice:") {
-				t.Fatalf("identity fragment missing voice guidance: %#v", fragments.Identity)
-			}
-			if !strings.Contains(fragments.Identity.Content, "Use light Gen Z-style phrasing when it fits naturally") {
-				t.Fatalf("identity fragment missing Gen Z voice guidance: %#v", fragments.Identity)
-			}
-		})
+	if fragments.Instructions.Content != "Own engineering outcomes with evidence." {
+		t.Fatalf("instructions = %#v", fragments.Instructions)
 	}
 }
 
-func TestBuildPromptSections_PreservesCustomIdentityPrompt(t *testing.T) {
-	orgID := uuid.New()
-	description := "Coordinates engineering work."
-	custom := "Use the team's incident voice."
+func TestBuildPromptSections_UsesCatalogInstructions(t *testing.T) {
+	instructions := "Use the team's incident voice."
 	agent := &model.Agent{
-		ID:             uuid.New(),
-		OrgID:          &orgID,
-		Name:           "Higu",
-		Description:    &description,
-		IdentityPrompt: custom,
+		ID: uuid.New(),
+		AgentCatalog: &model.AgentCatalog{
+			Instructions: instructions,
+		},
 	}
-
-	fragments := buildPromptSections(context.Background(), nil, agent, description)
-
-	if strings.Contains(fragments.Identity.Content, custom) {
-		t.Fatalf("identity fragment should ignore custom identity prompt: %#v", fragments.Identity)
-	}
-	if !strings.Contains(fragments.Identity.Content, "Communication contract") {
-		t.Fatalf("identity fragment should use backend-owned default: %#v", fragments.Identity)
+	fragments := buildPromptSections(context.Background(), nil, agent, "")
+	if fragments.Instructions.Content != instructions {
+		t.Fatalf("instructions = %#v", fragments.Instructions)
 	}
 }
 
 func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	fragments := PromptSections{
-		Identity: PromptSection{
-			Title:   "Your identity",
-			Tag:     "agent_identity",
-			Content: "You are the managed agent.",
+		Instructions: PromptSection{
+			Title:   "Instructions",
+			Tag:     "instructions",
+			Content: "Handle production changes carefully.",
 		},
 		Company: PromptSection{
 			Title:   "About the company",
@@ -146,9 +102,9 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	if got := requireDynamicContextSegmentType(t, dynamic[0]); got != "dynamic_context" {
 		t.Fatalf("first dynamic segment = %q", got)
 	}
-	identityContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
-	if !strings.Contains(identityContent, "<agent_identity>\nYou are the managed agent.\n</agent_identity>") {
-		t.Fatalf("identity segment is not XML wrapped: %q", identityContent)
+	instructionsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
+	if !strings.Contains(instructionsContent, "<instructions>\nHandle production changes carefully.\n</instructions>") {
+		t.Fatalf("instructions segment is not XML wrapped: %q", instructionsContent)
 	}
 	companyContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[2]).Content)
 	if !strings.Contains(companyContent, "<company>\nCompany name: ExampleCo\n</company>") {

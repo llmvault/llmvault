@@ -1,14 +1,13 @@
 // Package credentials is the single place that decides which Credential an
-// agent's LLM calls should use.
+// LLM calls should use.
 //
 // There are two kinds of credentials in the system:
 //
-//   - BYOK credentials: owned by a customer org, created via the user-facing
-//     API, referenced by agent.credential_id.
+//   - Org credentials: owned by a customer org, created via the user-facing API.
 //   - System credentials (org_id = NULL): owned by the platform, created via
-//     admin-only endpoints, used by any agent whose credential_id is nil.
+//     admin-only endpoints.
 //
-// Every credential-resolution call site routes through Resolve. That way the
-// "agent.credential_id = nil means use platform keys" rule lives in exactly
-// one file, and tests can swap the Picker for a fake.
+// Agent runtime credential-resolution routes through ResolveForModel. The user
+// picks a canonical model; the backend finds the first active org credential
+// that supports it, then falls back to the first active system credential.
 package credentials

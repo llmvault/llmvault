@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/agentprompts"
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/registry"
 )
 
 func ensureHivyAgent(ctx context.Context, db *gorm.DB, orgID uuid.UUID) (*model.Agent, error) {
@@ -56,26 +56,46 @@ func createHivyAgentWithDefaultsTx(ctx context.Context, tx *gorm.DB, orgID uuid.
 }
 
 func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*model.Agent, error) {
-	choice, err := pickAgentCredential(tx)
+	catalog, hasCatalog, err := loadDefaultAgentCatalog(ctx, tx)
 	if err != nil {
-		logging.FromContext(ctx).WarnContext(ctx, "no provider credential available for Hivy agent", "error", err, "org_id", orgID)
-		choice = &agentProviderChoice{model: agentruntime.DefaultAgentModel}
+		return nil, err
+	}
+	modelID := agentruntime.DefaultAgentModel
+	if hasCatalog && strings.TrimSpace(catalog.Model) != "" {
+		modelID = strings.TrimSpace(catalog.Model)
+	}
+	if err := registry.Global().ValidateCanonicalModel(modelID); err != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "default Hivy catalog model is not canonical", "error", err, "org_id", orgID, "model", modelID)
+		modelID = agentruntime.DefaultAgentModel
 	}
 
+	name := hivyAgentName
 	desc := hivyAgentDescription
+	avatarURL := hivyAgentAvatarURL
+	strategy := agentStrategyAlwaysOn
+	var catalogID *uuid.UUID
+	if hasCatalog {
+		catalogID = &catalog.ID
+		name = catalog.Name
+		desc = catalog.Description
+		if strings.TrimSpace(catalog.AvatarURL) != "" {
+			avatarURL = catalog.AvatarURL
+		}
+		if isValidAgentSandboxStrategy(catalog.SandboxStrategy) {
+			strategy = catalog.SandboxStrategy
+		}
+	}
 	agent := model.Agent{
 		OrgID:           &orgID,
-		Name:            hivyAgentName,
+		AgentCatalogID:  catalogID,
+		Name:            name,
 		Description:     &desc,
-		AvatarURL:       ptrString(hivyAgentAvatarURL),
+		AvatarURL:       ptrString(avatarURL),
 		IsDefault:       true,
-		SandboxStrategy: agentStrategyAlwaysOn,
-		SystemPrompt:    "",
-		IdentityPrompt:  agentprompts.EngineeringIdentityPrompt,
-		Model:           choice.model,
-		Harness:         agentHarness,
+		SandboxStrategy: strategy,
+		Model:           modelID,
+		AvailableModels: normalizeAgentAvailableModels(modelID, nil),
 		Status:          "active",
-		SharedMemory:    true,
 		Tools:           model.JSON{},
 		McpServers:      model.RawJSON("[]"),
 		Skills:          model.JSON{},
@@ -84,14 +104,35 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		RuntimeConfig:   model.JSON{},
 		Permissions:     model.JSON{},
 	}
-	if choice.cred != nil {
-		agent.CredentialID = &choice.cred.ID
-	}
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return nil, fmt.Errorf("create Hivy agent: %w", err)
 	}
 
 	return &agent, nil
+}
+
+func loadDefaultAgentCatalog(ctx context.Context, tx *gorm.DB) (model.AgentCatalog, bool, error) {
+	var catalog model.AgentCatalog
+	err := tx.WithContext(ctx).
+		Where("slug = ? AND status = ?", "hivy", model.AgentCatalogStatusActive).
+		First(&catalog).Error
+	if err == nil {
+		return catalog, true, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.AgentCatalog{}, false, fmt.Errorf("load default agent catalog: %w", err)
+	}
+	err = tx.WithContext(ctx).
+		Where("is_default = ? AND status = ?", true, model.AgentCatalogStatusActive).
+		Order("created_at ASC").
+		First(&catalog).Error
+	if err == nil {
+		return catalog, true, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.AgentCatalog{}, false, nil
+	}
+	return model.AgentCatalog{}, false, fmt.Errorf("load default agent catalog: %w", err)
 }
 
 func ptrString(value string) *string {

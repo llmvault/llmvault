@@ -25,26 +25,21 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	}
 	t.Cleanup(func() { db.Where("id = ?", org.ID).Delete(&model.Org{}) })
 	description := "Coordinates platform engineering work."
-	category := "engineering"
 	instructions := "Use production telemetry before recommending a rollback."
 	agent := model.Agent{
-		ID:                        uuid.New(),
-		OrgID:                     &org.ID,
-		Name:                      "Aria",
-		Description:               &description,
-		Instructions:              &instructions,
-		Category:                  &category,
-		SystemPrompt:              "raw system prompt must not be forwarded",
-		IdentityPrompt:            "Act like the Platform team's coordinator.",
-		PromptOperatingPrinciples: "Prefer focused implementation work.",
-		Model:                     DefaultAgentModel,
-		Tools:                     model.JSON{},
-		McpServers:                model.RawJSON("[]"),
-		Skills:                    model.JSON{},
-		Integrations:              model.JSON{},
-		Resources:                 model.JSON{},
-		RuntimeConfig:             model.JSON{},
-		Permissions:               model.JSON{},
+		ID:            uuid.New(),
+		OrgID:         &org.ID,
+		Name:          "Aria",
+		Description:   &description,
+		Instructions:  &instructions,
+		Model:         DefaultAgentModel,
+		Tools:         model.JSON{},
+		McpServers:    model.RawJSON("[]"),
+		Skills:        model.JSON{},
+		Integrations:  model.JSON{},
+		Resources:     model.JSON{},
+		RuntimeConfig: model.JSON{},
+		Permissions:   model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -61,40 +56,30 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	if !strings.Contains(string(body), `"system_prompt"`) {
 		t.Fatalf("agent config must include system_prompt: %s", string(body))
 	}
-	if strings.Contains(string(body), "raw system prompt must not be forwarded") {
-		t.Fatalf("agent config forwarded raw agent system prompt: %s", string(body))
-	}
 	if strings.Contains(string(body), `"prompt_fragments"`) {
 		t.Fatalf("agent config included prompt_fragments: %s", string(body))
 	}
 	assertRuntimeSystemPromptPayloadShape(t, body)
 	cacheable := requireCacheableSegments(t, def.SystemPrompt)
 	dynamic := requireDynamicSegments(t, def.SystemPrompt)
-	if len(cacheable) < 4 {
-		t.Fatalf("expected base, identity, instructions, and company prompt segments: %#v", cacheable)
+	if len(cacheable) < 3 {
+		t.Fatalf("expected base, instructions, and company prompt segments: %#v", cacheable)
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
 	if !strings.Contains(requirePromptString(t, base.Content), "Your job is to drive real team work forward.") {
 		t.Fatalf("base system prompt missing from first cacheable segment: %#v", cacheable[0])
 	}
-	identity := requireStaticPromptSegment(t, cacheable[1])
-	if requirePromptString(t, identity.Title) != "Your identity" {
-		t.Fatalf("identity title = %q", requirePromptString(t, identity.Title))
+	if !strings.Contains(requirePromptString(t, base.Content), "You are Aria, a real teammate") {
+		t.Fatalf("base identity missing agent sentence: %q", requirePromptString(t, base.Content))
 	}
-	if !strings.Contains(requirePromptString(t, identity.Content), "You are a "+orgName+" agent.") {
-		t.Fatalf("identity content missing company sentence: %q", requirePromptString(t, identity.Content))
-	}
-	if !strings.Contains(requirePromptString(t, identity.Content), "<agent_identity>") {
-		t.Fatalf("identity content is not XML wrapped: %q", requirePromptString(t, identity.Content))
-	}
-	instructionsSegment := requireStaticPromptSegment(t, cacheable[2])
-	if requirePromptString(t, instructionsSegment.Title) != "Agent instructions" {
+	instructionsSegment := requireStaticPromptSegment(t, cacheable[1])
+	if requirePromptString(t, instructionsSegment.Title) != "Instructions" {
 		t.Fatalf("instructions title = %q", requirePromptString(t, instructionsSegment.Title))
 	}
-	if !strings.Contains(requirePromptString(t, instructionsSegment.Content), "<agent_instructions>\n"+instructions+"\n</agent_instructions>") {
+	if !strings.Contains(requirePromptString(t, instructionsSegment.Content), "<instructions>\n"+instructions+"\n</instructions>") {
 		t.Fatalf("instructions content = %q", requirePromptString(t, instructionsSegment.Content))
 	}
-	company := requireStaticPromptSegment(t, cacheable[3])
+	company := requireStaticPromptSegment(t, cacheable[2])
 	if requirePromptString(t, company.Title) != "About the company" {
 		t.Fatalf("company title = %q", requirePromptString(t, company.Title))
 	}

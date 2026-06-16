@@ -140,15 +140,25 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 	}
 	if req.Model != nil {
 		modelID := cleanStringPtr(req.Model)
-		credID, err := h.credentialIDForAgentModel(ctx, modelID)
-		if err != nil {
+		if err := h.validateAgentSelectableModel(ctx, *agent.OrgID, modelID); err != nil {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 			return false
 		}
 		updates["model"] = modelID
-		updates["credential_id"] = credID
 		agent.Model = modelID
-		agent.CredentialID = credID
+	}
+	if req.AvailableModels != nil {
+		value := normalizeAgentAvailableModels(agent.Model, req.AvailableModels)
+		if err := h.validateAgentAvailableModels(ctx, *agent.OrgID, value); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return false
+		}
+		updates["available_models"] = value
+		agent.AvailableModels = value
+	}
+	if !agentAllowsModel(agent, agent.Model) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model must be included in available_models"})
+		return false
 	}
 	if req.Tools != nil {
 		value := normalizeJSONPtr(req.Tools)

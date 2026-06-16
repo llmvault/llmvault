@@ -38,7 +38,7 @@ func createSelectorOrg(t *testing.T, db *gorm.DB) model.Org {
 
 func createSelectorAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 	t.Helper()
-	emp := model.Agent{OrgID: &orgID, Name: "emp-" + uuid.NewString()[:8], SystemPrompt: "x", Model: "gpt-4o"}
+	emp := model.Agent{OrgID: &orgID, Name: "emp-" + uuid.NewString()[:8], Model: "gpt-4o"}
 	if err := db.Create(&emp).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}

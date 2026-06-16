@@ -220,6 +220,9 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 		First(&agent).Error; err != nil {
 		return nil, fmt.Errorf("load session agent: %w", err)
 	}
+	if session.Model != "" {
+		agent.Model = session.Model
+	}
 	sb, client, err := h.ensureRuntimeClient(ctx, &agent)
 	if err != nil {
 		return nil, err
@@ -230,6 +233,13 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 			Update("sandbox_id", sb.ID).Error; err != nil {
 			return nil, fmt.Errorf("attach session sandbox: %w", err)
 		}
+	}
+	if err := agentruntime.PushAgentRuntimeConfig(ctx, h.compileDeps, &agent, sb); err != nil {
+		return nil, fmt.Errorf("sync session model runtime: %w", err)
+	}
+	client, err = h.orchestrator.GetRuntimeClient(ctx, sb)
+	if err != nil {
+		return nil, fmt.Errorf("get synced session runtime client: %w", err)
 	}
 	msg := runtimeMessageFromEvent(session.ID, event)
 	resp, err := client.PostHTTPMessage(ctx, msg)

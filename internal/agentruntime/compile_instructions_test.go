@@ -11,7 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestBuildAgentSystemPrompt_IncludesAgentInstructionsAsCacheableSegment(t *testing.T) {
+func TestBuildAgentSystemPrompt_IncludesInstructionsAsCacheableSegment(t *testing.T) {
 	orgID := uuid.New()
 	description := "Coordinates incident response."
 	instructions := "Always confirm production impact before proposing mitigation."
@@ -36,15 +36,15 @@ func TestBuildAgentSystemPrompt_IncludesAgentInstructionsAsCacheableSegment(t *t
 			title = *static.Title
 		}
 		content := requirePromptString(t, static.Content)
-		if title == "Agent instructions" {
+		if title == "Instructions" {
 			found = true
-			if content != "<agent_instructions>\n"+instructions+"\n</agent_instructions>" {
-				t.Fatalf("agent instruction content = %q, want %q", content, instructions)
+			if content != "<instructions>\n"+instructions+"\n</instructions>" {
+				t.Fatalf("instruction content = %q, want %q", content, instructions)
 			}
 		}
 	}
 	if !found {
-		t.Fatalf("cacheable prompt missing Agent instructions segment")
+		t.Fatalf("cacheable prompt missing Instructions segment")
 	}
 	for _, segment := range dynamic {
 		raw := fmt.Sprintf("%#v", segment)

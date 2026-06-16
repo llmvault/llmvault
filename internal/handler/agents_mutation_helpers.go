@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,21 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 )
-
-func (h *AgentHandler) credentialIDForAgentModel(ctx context.Context, modelID string) (*uuid.UUID, error) {
-	modelID = strings.TrimSpace(modelID)
-	if err := h.validateAgentSelectableModel(ctx, modelID); err != nil {
-		return nil, err
-	}
-	cred, err := pickActiveSystemCredentialForModel(ctx, h.db, h.agentModelRegistry(), modelID)
-	if err != nil {
-		return nil, err
-	}
-	return &cred.ID, nil
-}
 
 func agentIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	agentID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -32,6 +21,52 @@ func agentIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool
 		return uuid.Nil, false
 	}
 	return agentID, true
+}
+
+func normalizeAgentAvailableModels(defaultModel string, requested *[]string) pq.StringArray {
+	defaultModel = strings.TrimSpace(defaultModel)
+	seen := map[string]bool{}
+	out := make([]string, 0)
+	if requested != nil {
+		for _, modelID := range *requested {
+			modelID = strings.TrimSpace(modelID)
+			if modelID == "" || seen[modelID] {
+				continue
+			}
+			seen[modelID] = true
+			out = append(out, modelID)
+		}
+	}
+	if len(out) == 0 {
+		if defaultModel == "" {
+			defaultModel = agentruntime.DefaultAgentModel
+		}
+		out = append(out, defaultModel)
+	}
+	return pq.StringArray(out)
+}
+
+func agentAllowsModel(agent *model.Agent, modelID string) bool {
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		return false
+	}
+	for _, allowed := range agent.AvailableModels {
+		if strings.TrimSpace(allowed) == modelID {
+			return true
+		}
+	}
+	return len(agent.AvailableModels) == 0 && strings.TrimSpace(agent.Model) == modelID
+}
+
+func containsString(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	for _, value := range values {
+		if strings.TrimSpace(value) == target {
+			return true
+		}
+	}
+	return false
 }
 
 func cleanStringPtr(value *string) string {

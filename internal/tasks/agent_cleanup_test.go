@@ -35,11 +35,10 @@ func createAgent(t *testing.T, db *gorm.DB) model.Agent {
 	}
 
 	agent := model.Agent{
-		OrgID:        &orgID,
-		Name:         "cleanup-agent-" + uuid.New().String()[:8],
-		SystemPrompt: "test",
-		Model:        "test-model",
-		Status:       "active",
+		OrgID:  &orgID,
+		Name:   "cleanup-agent-" + uuid.New().String()[:8],
+		Model:  "test-model",
+		Status: "active",
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

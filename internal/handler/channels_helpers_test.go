@@ -101,7 +101,6 @@ func (h *channelHarness) seed(t *testing.T) channelFixture {
 		Permissions:     model.JSON{},
 		Resources:       model.JSON{},
 		Status:          "active",
-		Harness:         "agent-sandbox",
 	}
 	if err := h.db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

@@ -101,16 +101,3 @@ func TestDefaultCompanyPromptUsesSentences(t *testing.T) {
 		}
 	}
 }
-
-func TestAgentIdentityOpeningUsesSentences(t *testing.T) {
-	got := agentIdentityOpening("Ari", model.Org{Name: "ExampleCo"}, true, "Coordinates engineering work.")
-
-	if want := "You are Ari, a real teammate embedded inside ExampleCo. Your role is described this way: Coordinates engineering work."; got != want {
-		t.Fatalf("identity opening = %q, want %q", got, want)
-	}
-	for _, oldStyle := range []string{"Name:", "Role description:"} {
-		if strings.Contains(got, oldStyle) {
-			t.Fatalf("identity opening still uses key/value style %q: %q", oldStyle, got)
-		}
-	}
-}

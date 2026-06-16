@@ -21,6 +21,7 @@ type agentMutationRequest struct {
 	SandboxStrategy   *string          `json:"sandbox_strategy,omitempty"`
 	SandboxTemplateID *string          `json:"sandbox_template_id,omitempty"`
 	Model             *string          `json:"model,omitempty"`
+	AvailableModels   *[]string        `json:"available_models,omitempty"`
 	Tools             *model.JSON      `json:"tools,omitempty"`
 	McpServers        *json.RawMessage `json:"mcp_servers,omitempty"`
 	Skills            *model.JSON      `json:"skills,omitempty"`
@@ -72,8 +73,16 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if modelID == "" {
 		modelID = agentruntime.DefaultAgentModel
 	}
-	credID, err := h.credentialIDForAgentModel(ctx, modelID)
-	if err != nil {
+	availableModels := normalizeAgentAvailableModels(modelID, req.AvailableModels)
+	if err := h.validateAgentAvailableModels(ctx, org.ID, availableModels); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if !containsString(availableModels, modelID) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model must be included in available_models"})
+		return
+	}
+	if err := h.validateAgentSelectableModel(ctx, org.ID, modelID); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
@@ -119,17 +128,15 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		IsDefault:         false,
 		SandboxStrategy:   strategy,
 		SandboxTemplateID: sandboxTemplateID,
-		CredentialID:      credID,
 		Model:             modelID,
+		AvailableModels:   availableModels,
 		Tools:             normalizeJSONPtr(req.Tools),
 		McpServers:        mcpServers,
 		Skills:            normalizeJSONPtr(req.Skills),
 		Permissions:       permissions,
 		Resources:         normalizeJSONPtr(req.Resources),
 		SandboxTools:      pq.StringArray(sandboxTools),
-		Harness:           agentHarness,
 		Status:            "active",
-		SharedMemory:      true,
 	}
 	if err := h.db.WithContext(ctx).Create(&agent).Error; err != nil {
 		if isDuplicateKeyError(err) {

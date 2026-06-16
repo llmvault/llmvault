@@ -178,6 +178,7 @@ WHERE table_schema = current_schema()
 
 var migratedTables = []string{
 	"api_keys",
+	"agent_catalog",
 	"audit_log",
 	"channel_members",
 	"channels",
@@ -237,4 +238,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 19
+const latestMigrationVersion = 21
