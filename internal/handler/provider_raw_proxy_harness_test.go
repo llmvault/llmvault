@@ -72,6 +72,7 @@ func newRawProviderProxyHarness(t *testing.T, provider string, nangoHandler http
 	if err := db.Create(&connection).Error; err != nil {
 		t.Fatalf("create connection: %v", err)
 	}
+	installTestPluginAccess(t, db, org.ID, agent.ID, provider)
 
 	t.Cleanup(func() {
 		db.Where("id = ?", connection.ID).Delete(&model.Connection{})

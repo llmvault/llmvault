@@ -94,7 +94,7 @@ func (h *AgentHandler) UpdateConnectionResources(w http.ResponseWriter, r *http.
 			First(&conn).Error; err != nil {
 			return err
 		}
-		resources, err := h.normalizeConnectionResources(conn.Integration.Provider, req.Resources)
+		resources, err := normalizeConnectionResources(conn.Integration.Provider, req.Resources)
 		if err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func (h *AgentHandler) UpdateConnectionResources(w http.ResponseWriter, r *http.
 	})
 }
 
-func (h *AgentHandler) normalizeConnectionResources(provider string, input map[string][]agentConnectionResourceSelection) (model.JSON, error) {
+func normalizeConnectionResources(provider string, input map[string][]agentConnectionResourceSelection) (model.JSON, error) {
 	out := model.JSON{}
 	if len(input) == 0 {
 		return out, nil

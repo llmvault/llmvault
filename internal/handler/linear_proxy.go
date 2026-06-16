@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -193,20 +194,11 @@ func (h *LinearProxyHandler) resolveLinearConnection(ctx context.Context, agent 
 	if agent.OrgID == nil {
 		return model.Connection{}, "", gorm.ErrRecordNotFound
 	}
-
-	var conn model.Connection
-	if err := h.db.WithContext(ctx).
-		Preload("Integration").
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", *agent.OrgID, linearProvider).
-		Order("connections.created_at ASC").
-		First(&conn).Error; err != nil {
+	result, err := connectionaccess.ResolveAgentProvider(ctx, h.db, *agent.OrgID, agent.ID, linearProvider)
+	if err != nil {
 		return model.Connection{}, "", err
 	}
-	if conn.NangoConnectionID == "" {
-		return model.Connection{}, "", fmt.Errorf("linear connection missing nango connection id")
-	}
-	return conn, nangoProviderConfigKey(conn.Integration.UniqueKey), nil
+	return result.Connection, result.ProviderConfigKey, nil
 }
 
 func (h *LinearProxyHandler) captureProxyFailure(ctx context.Context, eventCtx linearProxyContext, status int, reason string) {

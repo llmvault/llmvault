@@ -3,10 +3,21 @@
   "slug": "railway",
   "name": "Railway",
   "description": "Manage Railway projects, services, environments, variables, domains, volumes, and databases.",
-  "category": "Infrastructure",
+  "category": "Developer Tools",
   "icon": "simple-icons:railway",
   "icon_color": "#6B46C1",
   "developer": "Hivy",
+  "official": true,
+  "capabilities": ["Read", "Write"],
+  "examples": [
+    "List the services in this Railway project",
+    "Show me recent Railway deploy failures",
+    "Update an environment variable in Railway"
+  ],
+  "links": {
+    "website": "https://railway.com/"
+  },
+  "long_description": "Use the Railway plugin to inspect projects, services, deployments, environments, variables, domains, volumes, and databases in your connected Railway workspace.",
   "plugin_version": "1",
   "enabled": true,
   "required_connections": [

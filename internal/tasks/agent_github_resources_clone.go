@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -88,14 +89,15 @@ func (h *AgentGitHubResourcesCloneHandler) run(ctx context.Context, payload Agen
 		}
 		return fmt.Errorf("load agent: %w", err)
 	}
-	var conn model.Connection
-	if err := h.db.WithContext(ctx).Preload("Integration").
-		Where("id = ? AND org_id = ? AND revoked_at IS NULL", payload.ConnectionID, payload.OrgID).
-		First(&conn).Error; err != nil {
+	access, err := connectionaccess.ResolveAgentConnection(ctx, h.db, payload.OrgID, payload.AgentID, payload.ConnectionID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
-		return fmt.Errorf("load github connection: %w", err)
+		return fmt.Errorf("resolve github connection access: %w", err)
+	}
+	if !connectionaccess.IsGitHubProvider(access.Connection.Integration.Provider) {
+		return nil
 	}
 	sb, err := agentRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, payload.OrgID, payload.AgentID)
 	if err != nil {

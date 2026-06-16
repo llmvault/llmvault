@@ -76,7 +76,7 @@ func TestConnectionHandler_Create_Success(t *testing.T) {
 	}
 }
 
-func TestConnectionHandler_CreateSlackEnsuresHivy(t *testing.T) {
+func TestConnectionHandler_CreateSlackDoesNotCreateAgentSideEffects(t *testing.T) {
 	db := connectTestDB(t)
 	t.Cleanup(func() {
 		db.Where("1=1").Delete(&model.Connection{})
@@ -108,12 +108,20 @@ func TestConnectionHandler_CreateSlackEnsuresHivy(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var agent model.Agent
-	if err := db.Where("org_id = ? AND status <> ?", org.ID, "archived").First(&agent).Error; err != nil {
-		t.Fatalf("load Hivy agent: %v", err)
+	var agentCount int64
+	if err := db.Model(&model.Agent{}).Where("org_id = ? AND status <> ?", org.ID, "archived").Count(&agentCount).Error; err != nil {
+		t.Fatalf("count agents: %v", err)
 	}
-	if agent.ID == uuid.Nil {
-		t.Fatal("Hivy agent was not created")
+	if agentCount != 0 {
+		t.Fatalf("expected connection creation to avoid agent side effects, got %d agents", agentCount)
+	}
+
+	var triggerCount int64
+	if err := db.Model(&model.AgentTrigger{}).Where("org_id = ?", org.ID).Count(&triggerCount).Error; err != nil {
+		t.Fatalf("count triggers: %v", err)
+	}
+	if triggerCount != 0 {
+		t.Fatalf("expected connection creation to avoid trigger side effects, got %d triggers", triggerCount)
 	}
 }
 

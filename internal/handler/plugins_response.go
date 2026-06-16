@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	pluginmeta "github.com/usehivy/hivy/internal/plugins"
 )
 
 type pluginResponse struct {
@@ -19,9 +22,16 @@ type pluginResponse struct {
 	Name                string                        `json:"name"`
 	Description         string                        `json:"description"`
 	Category            string                        `json:"category"`
+	DetailCategory      string                        `json:"detail_category"`
 	Icon                string                        `json:"icon"`
 	IconColor           string                        `json:"icon_color"`
 	Developer           string                        `json:"developer"`
+	Official            bool                          `json:"official"`
+	Featured            bool                          `json:"featured"`
+	Capabilities        []string                      `json:"capabilities"`
+	Examples            []string                      `json:"examples"`
+	Links               *pluginLinksResponse          `json:"links,omitempty"`
+	LongDescription     string                        `json:"long_description"`
 	Version             string                        `json:"version"`
 	Status              string                        `json:"status"`
 	Skills              []pluginSkillResponse         `json:"skills"`
@@ -46,6 +56,17 @@ type pluginConnectionRequirement struct {
 	Provider string `json:"provider"`
 	Kind     string `json:"kind"`
 	Required bool   `json:"required"`
+}
+
+type pluginLinksResponse struct {
+	Website string `json:"website,omitempty"`
+	Privacy string `json:"privacy,omitempty"`
+	Terms   string `json:"terms,omitempty"`
+}
+
+type pluginInstallConflictResponse struct {
+	Error               string                        `json:"error"`
+	MissingRequirements []pluginConnectionRequirement `json:"missing_requirements"`
 }
 
 func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, plugin model.Plugin) (pluginResponse, error) {
@@ -78,15 +99,23 @@ func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, p
 	if err != nil {
 		return pluginResponse{}, err
 	}
+	presentation := pluginPresentationMetadata(plugin)
 	return pluginResponse{
 		ID:                  plugin.ID.String(),
 		Slug:                plugin.Slug,
 		Name:                plugin.Name,
 		Description:         plugin.Description,
 		Category:            plugin.Category,
+		DetailCategory:      presentation.DetailCategory,
 		Icon:                plugin.Icon,
 		IconColor:           plugin.IconColor,
 		Developer:           plugin.Developer,
+		Official:            presentation.Official,
+		Featured:            presentation.Featured,
+		Capabilities:        presentation.Capabilities,
+		Examples:            presentation.Examples,
+		Links:               presentation.Links,
+		LongDescription:     presentation.LongDescription,
 		Version:             plugin.Version,
 		Status:              plugin.Status,
 		Skills:              toPluginSkillResponses(skills),
@@ -97,6 +126,80 @@ func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, p
 		CreatedAt:           plugin.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           plugin.UpdatedAt.Format(time.RFC3339),
 	}, nil
+}
+
+type pluginPresentation struct {
+	DetailCategory  string
+	Official        bool
+	Featured        bool
+	Capabilities    []string
+	Examples        []string
+	Links           *pluginLinksResponse
+	LongDescription string
+}
+
+func pluginPresentationMetadata(plugin model.Plugin) pluginPresentation {
+	developer := strings.TrimSpace(plugin.Developer)
+	if developer == "" {
+		developer = "Hivy"
+	}
+	out := pluginPresentation{
+		DetailCategory:  plugin.Category,
+		Official:        strings.EqualFold(developer, "Hivy"),
+		Featured:        false,
+		Capabilities:    []string{"Read"},
+		Examples:        []string{},
+		LongDescription: plugin.Description,
+	}
+
+	if len(plugin.Manifest) == 0 {
+		return out
+	}
+
+	var manifest pluginmeta.Manifest
+	if err := json.Unmarshal(plugin.Manifest, &manifest); err != nil {
+		return out
+	}
+
+	if value := strings.TrimSpace(manifest.DetailCategory); value != "" {
+		out.DetailCategory = value
+	}
+	if manifest.Official != nil {
+		out.Official = *manifest.Official
+	}
+	if manifest.Featured != nil {
+		out.Featured = *manifest.Featured
+	}
+	if capabilities := normalizePluginStrings(manifest.Capabilities); len(capabilities) > 0 {
+		out.Capabilities = capabilities
+	}
+	if examples := normalizePluginStrings(manifest.Examples); len(examples) > 0 {
+		out.Examples = examples
+	}
+	if manifest.Links != nil {
+		links := &pluginLinksResponse{
+			Website: strings.TrimSpace(manifest.Links.Website),
+			Privacy: strings.TrimSpace(manifest.Links.Privacy),
+			Terms:   strings.TrimSpace(manifest.Links.Terms),
+		}
+		if links.Website != "" || links.Privacy != "" || links.Terms != "" {
+			out.Links = links
+		}
+	}
+	if value := strings.TrimSpace(manifest.LongDescription); value != "" {
+		out.LongDescription = value
+	}
+	return out
+}
+
+func normalizePluginStrings(items []string) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func toPluginSkillResponses(skills []model.Skill) []pluginSkillResponse {

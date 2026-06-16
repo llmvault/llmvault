@@ -91,6 +91,7 @@ caching.txt
 refactor.txt
 spider.txt
 fixes-todo.txt
+dump.rdb
 
 # Scratch/triage files inside nested packages.
 sandboxes/runtime/db-todos.txt

@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/counter"
-	"github.com/usehivy/hivy/internal/mcp"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -34,13 +34,13 @@ func NewTokenHandler(db *gorm.DB, signingKey []byte, cm *cache.Manager, ctr *cou
 }
 
 type mintTokenRequest struct {
-	CredentialID   string           `json:"credential_id"`
-	TTL            string           `json:"ttl"` // e.g. "1h", "24h"
-	Remaining      *int64           `json:"remaining,omitempty"`
-	RefillAmount   *int64           `json:"refill_amount,omitempty"`
-	RefillInterval *string          `json:"refill_interval,omitempty"`
-	Scopes         []mcp.TokenScope `json:"scopes,omitempty"`
-	Meta           model.JSON       `json:"meta,omitempty"`
+	CredentialID   string          `json:"credential_id"`
+	TTL            string          `json:"ttl"` // e.g. "1h", "24h"
+	Remaining      *int64          `json:"remaining,omitempty"`
+	RefillAmount   *int64          `json:"refill_amount,omitempty"`
+	RefillInterval *string         `json:"refill_interval,omitempty"`
+	Scopes         json.RawMessage `json:"scopes,omitempty"`
+	Meta           model.JSON      `json:"meta,omitempty"`
 }
 
 type mintTokenResponse struct {

@@ -3,10 +3,21 @@
   "slug": "vercel",
   "name": "Vercel",
   "description": "Manage Vercel projects, deployments, domains, environment variables, logs, and rollbacks.",
-  "category": "Deployments",
+  "category": "Developer Tools",
   "icon": "simple-icons:vercel",
   "icon_color": "#000000",
   "developer": "Hivy",
+  "official": true,
+  "capabilities": ["Read", "Write"],
+  "examples": [
+    "Show me the latest failed Vercel deployments",
+    "List domains for this Vercel project",
+    "Inspect the environment variables configured in Vercel"
+  ],
+  "links": {
+    "website": "https://vercel.com/"
+  },
+  "long_description": "Use the Vercel plugin to inspect projects, deployments, domains, environment variables, logs, and rollbacks in your connected Vercel workspace.",
   "plugin_version": "1",
   "enabled": true,
   "required_connections": [

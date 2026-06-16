@@ -21,6 +21,15 @@ func NewPluginHandler(db *gorm.DB) *PluginHandler {
 	return &PluginHandler{db: db}
 }
 
+// @Summary List plugins
+// @Description Returns active plugins for the current organization, including install state, requirements, and presentation metadata for the plugins catalog.
+// @Tags plugins
+// @Produce json
+// @Success 200 {array} pluginResponse
+// @Failure 401 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/plugins [get]
 func (h *PluginHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -44,6 +53,17 @@ func (h *PluginHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// @Summary Get plugin
+// @Description Returns one active plugin by slug for the current organization, including install state, requirements, and presentation metadata.
+// @Tags plugins
+// @Produce json
+// @Param slug path string true "Plugin slug"
+// @Success 200 {object} pluginResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/plugins/{slug} [get]
 func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -62,6 +82,18 @@ func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// @Summary Install plugin
+// @Description Installs a plugin for the current organization and enables it for the default Hivy agent when requirements are satisfied.
+// @Tags plugins
+// @Produce json
+// @Param slug path string true "Plugin slug"
+// @Success 201 {object} pluginResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} pluginInstallConflictResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/plugins/{slug}/install [post]
 func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -126,6 +158,17 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, resp)
 }
 
+// @Summary Uninstall plugin
+// @Description Uninstalls a plugin for the current organization and removes it from enabled agents.
+// @Tags plugins
+// @Produce json
+// @Param slug path string true "Plugin slug"
+// @Success 200 {object} statusResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/plugins/{slug}/install [delete]
 func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {

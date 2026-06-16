@@ -3,10 +3,21 @@
   "slug": "linear",
   "name": "Linear",
   "description": "Plan and track work across Linear issues, projects, teams, comments, users, and workflow states.",
-  "category": "Project management",
+  "category": "Productivity",
   "icon": "simple-icons:linear",
   "icon_color": "#5E6AD2",
   "developer": "Hivy",
+  "official": true,
+  "capabilities": ["Read", "Write"],
+  "examples": [
+    "Show me issues blocked this sprint",
+    "Create a Linear issue from this bug report",
+    "Summarize work in progress for the engineering team"
+  ],
+  "links": {
+    "website": "https://linear.app/"
+  },
+  "long_description": "Use the Linear plugin to search issues, projects, comments, teams, and workflow states, and to create or update work items in your connected Linear workspace.",
   "plugin_version": "1",
   "enabled": true,
   "required_connections": [

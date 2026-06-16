@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -167,20 +168,14 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GitCredentialsHandler) resolveGitHubTokenConnection(ctx context.Context, orgID uuid.UUID, agent model.Agent) (gitHubTokenConnection, error) {
-	var conn model.Connection
-	if err := h.db.WithContext(ctx).
-		Preload("Integration").
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider LIKE ?", orgID, "github%").
-		Order("connections.created_at ASC").
-		First(&conn).Error; err != nil {
+	result, err := connectionaccess.ResolveAgentProviderAny(ctx, h.db, orgID, agent.ID, "github-app", "github-app-oauth", "github", "github-pat")
+	if err != nil {
 		return gitHubTokenConnection{}, err
 	}
-	providerConfigKey := nangoProviderConfigKey(conn.Integration.UniqueKey)
 	return gitHubTokenConnection{
-		conn:              conn,
-		providerConfigKey: providerConfigKey,
-		cacheKey:          gitTokenCacheKey{agentID: agent.ID, providerConfigKey: providerConfigKey, nangoConnectionID: conn.NangoConnectionID},
+		conn:              result.Connection,
+		providerConfigKey: result.ProviderConfigKey,
+		cacheKey:          gitTokenCacheKey{agentID: agent.ID, providerConfigKey: result.ProviderConfigKey, nangoConnectionID: result.Connection.NangoConnectionID},
 	}, nil
 }
 
