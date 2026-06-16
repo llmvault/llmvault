@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentsandbox"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -86,6 +87,11 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
 		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		if err := h.enqueueSessionName(r.Context(), session.ID); err != nil {
+			logging.FromContext(r.Context()).WarnContext(r.Context(), "enqueue session name task failed", "session_id", session.ID, "error", err)
+		}
 	}
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusCreated, sessionMutationResponse{

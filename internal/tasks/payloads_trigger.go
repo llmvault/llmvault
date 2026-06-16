@@ -46,11 +46,11 @@ type SessionNamePayload struct {
 	SessionID uuid.UUID `json:"session_id"`
 }
 
-// NewSessionNameTask creates a task that generates a title for a
-// session by calling the cheapest model available to the session's
-// credential provider. Bulk queue — this is nice-to-have UX, not critical
+// NewSessionNameTask creates a task that generates an auto-name for a
+// session using the platform OpenRouter credential and the canonical
+// gpt-4o-mini route. Bulk queue — this is nice-to-have UX, not critical
 // path. MaxRetry is 3: transient provider failures are common and the
-// handler is idempotent (refuses to overwrite an already-set name).
+// handler is idempotent once the session has been auto-named.
 // Options are returned separately (see WebhookForwardPayload's NewWebhookForwardTask).
 func NewSessionNameTask(sessionID uuid.UUID) (*asynq.Task, []asynq.Option, error) {
 	encoded, err := json.Marshal(SessionNamePayload{SessionID: sessionID})

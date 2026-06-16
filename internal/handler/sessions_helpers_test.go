@@ -9,14 +9,16 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 type sessionHarness struct {
-	db     *gorm.DB
-	router *chi.Mux
+	db       *gorm.DB
+	router   *chi.Mux
+	enqueuer *enqueue.MockClient
 }
 
 type sessionFixture struct {
@@ -54,7 +56,8 @@ type sessionEventOut struct {
 func newSessionHarness(t *testing.T) *sessionHarness {
 	t.Helper()
 	db := connectTestDB(t)
-	h := handler.NewSessionHandler(db).WithRuntimeStreamKey(sessionTestEncKey(t))
+	enq := &enqueue.MockClient{}
+	h := handler.NewSessionHandler(db, enq).WithRuntimeStreamKey(sessionTestEncKey(t))
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(middleware.ResolveOrgFromHeader(db))
@@ -70,7 +73,7 @@ func newSessionHarness(t *testing.T) *sessionHarness {
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)
 	})
-	return &sessionHarness{db: db, router: r}
+	return &sessionHarness{db: db, router: r, enqueuer: enq}
 }
 
 func (h *sessionHarness) seed(t *testing.T) sessionFixture {
