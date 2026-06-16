@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github",
   "name": "GitHub",
-  "description": "Manage repositories, branches, pull requests, reviews, issues, labels, and releases with your connected GitHub workspace.",
+  "description": "Manage GitHub repos, pull requests, issues, and releases.",
   "category": "Developer Tools",
   "icon": "simple-icons:github",
   "icon_color": "#181717",

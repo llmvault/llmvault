@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "vercel",
   "name": "Vercel",
-  "description": "Manage Vercel projects, deployments, domains, environment variables, logs, and rollbacks.",
+  "description": "Manage Vercel projects, deployments, domains, logs, and rollbacks.",
   "category": "Developer Tools",
   "icon": "simple-icons:vercel",
   "icon_color": "#000000",

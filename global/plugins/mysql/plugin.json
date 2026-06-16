@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "mysql",
   "name": "MySQL",
-  "description": "Explore and query your connected MySQL database in a read-only, workspace-safe way.",
+  "description": "Explore and query connected MySQL databases safely.",
   "category": "Data & Analytics",
   "icon": "simple-icons:mysql",
   "icon_color": "#00758F",

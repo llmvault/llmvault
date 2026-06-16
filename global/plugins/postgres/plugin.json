@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "postgres",
   "name": "Postgres",
-  "description": "Explore and query your connected PostgreSQL database in a read-only, workspace-safe way.",
+  "description": "Explore and query connected PostgreSQL databases safely.",
   "category": "Data & Analytics",
   "icon": "simple-icons:postgresql",
   "icon_color": "#336791",

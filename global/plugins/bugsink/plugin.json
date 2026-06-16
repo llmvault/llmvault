@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "bugsink",
   "name": "Bugsink",
-  "description": "Investigate application errors, stack traces, releases, and affected users from Bugsink without leaving Hivy.",
+  "description": "Investigate Bugsink errors, releases, and affected users.",
   "category": "Developer Tools",
   "icon": "lucide:bug",
   "icon_color": "#0F766E",
