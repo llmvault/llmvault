@@ -8,6 +8,7 @@ manifest="${1:?usage: update-railway-runtime-config.sh <release-manifest.json>}"
 
 environment="${RAILWAY_ENVIRONMENT}"
 services="${RAILWAY_SERVICES}"
+runtime_arch_suffix="${HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX:-amd64}"
 wait_seconds="${RAILWAY_DEPLOY_WAIT_SECONDS:-900}"
 poll_seconds="${RAILWAY_DEPLOY_POLL_SECONDS:-10}"
 railway_attempts=3
@@ -71,6 +72,10 @@ railway_with_retry() {
 }
 
 sandboxes_runtime_base_image="$(jq -r '.runtimeConfig.HIVY_SANDBOXES_RUNTIME_BASE_IMAGE' "${manifest}")"
+
+if [[ -n "${runtime_arch_suffix}" && "${sandboxes_runtime_base_image}" != *"-${runtime_arch_suffix}" ]]; then
+  sandboxes_runtime_base_image="${sandboxes_runtime_base_image}-${runtime_arch_suffix}"
+fi
 
 for value in \
   "${sandboxes_runtime_base_image}"
