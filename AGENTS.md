@@ -76,13 +76,19 @@ When adding a migration, update `latestMigrationVersion` in `internal/testdb/mig
 
 ## Tests
 
+There are three broad test modes in this repository:
+
+- Plain Go tests that run against local process fixtures.
+- Compose-backed tests that expect the `make up` stack to already be running.
+- Sandbox/runtime tests that build or use the sandbox runtime image and create real Docker containers.
+
 Run the full Go suite:
 
 ```sh
 go test ./...
 ```
 
-Some packages exercise Docker-backed behavior, so keep Docker running. For focused backend checks, run package-level tests such as:
+Some packages exercise Docker-backed behavior, so keep Docker running. For focused backend checks, prefer package-level tests while iterating:
 
 ```sh
 go test ./internal/connectionaccess ./internal/handler ./internal/tasks ./internal/sandbox ./internal/mcpserver ./internal/token
@@ -93,3 +99,52 @@ Frontend tests are run separately with:
 ```sh
 make ci-test-web
 ```
+
+Before running any E2E target, start the local stack:
+
+```sh
+cp .env.example .env
+make up
+```
+
+The generic E2E target runs the `e2e` package against the live local API:
+
+```sh
+make test-e2e
+```
+
+Docker sandbox provider tests exercise the local Docker provider directly:
+
+```sh
+make test-sandbox-docker
+```
+
+The flagship agent-session E2E is the strongest local confidence test for the runtime path:
+
+```sh
+make test-agent-sessions-e2e
+```
+
+That target:
+
+- builds the Linux sandbox runtime binary,
+- builds the `hivy-sandboxes-runtime:runtime` Docker image,
+- calls the local API and worker from the running Compose stack,
+- provisions real Docker-backed agent sandbox containers,
+- opens the direct sandbox SSE stream,
+- verifies live runtime events such as `tool_call`,
+- verifies participant sharing, final responses, and canonical event ingestion.
+
+After the runtime image has already been built, use this faster form:
+
+```sh
+AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE=0 make test-agent-sessions-e2e
+```
+
+This test makes a real model request through the local proxy. `.env.example` intentionally does not include a real provider key, so a fresh database must have a valid system OpenRouter credential before this test can complete. `make up` should still work without that credential; the credential is only required for live LLM E2E behavior.
+
+For local Compose, keep these networking rules in mind:
+
+- Browser-facing sandbox runtime URLs use `HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN=http://127.0.0.1`.
+- Sandbox-to-control-plane URLs inside Compose use `host.docker.internal` defaults for API webhooks, MCP, proxy, and presigned MinIO URLs.
+- Docker-backed runtime containers need enough startup time for the embedded Docker daemon and runtime control server before the agent is ready.

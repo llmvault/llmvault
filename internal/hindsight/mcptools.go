@@ -38,37 +38,12 @@ func AddMemoryTools(server *mcp.Server, agent *model.Agent, client *Client, db *
 		return
 	}
 	bankID := OrgBankID(*agent.OrgID)
-	memoryTags := baseMemoryTags(agent, "manual")
-	tagGroups := recallTagGroups(agent)
 	banks := NewBankProvisioner(db, client)
 
-	addRecallTool(server, client, db, bankID, tagGroups)
-	addRetainTool(server, agent, client, banks, bankID, memoryTags)
+	addRecallTool(server, agent, client, db, bankID)
+	addRetainTool(server, agent, client, db, banks, bankID, refresh)
 	addForgetTool(server, agent, client, db, bankID, refresh)
-	addReflectTool(server, client, db, bankID, tagGroups)
-}
-
-func baseMemoryTags(agent *model.Agent, source string) []string {
-	if agent == nil || agent.OrgID == nil {
-		return nil
-	}
-	if source == "" {
-		source = "manual"
-	}
-	tags := []string{
-		"company:" + agent.OrgID.String(),
-		"source:" + source,
-		"visibility:company",
-	}
-	return tags
-}
-
-func recallTagGroups(agent *model.Agent) []any {
-	if agent == nil || agent.OrgID == nil {
-		return nil
-	}
-	tags := []string{"company:" + agent.OrgID.String()}
-	return []any{map[string]any{"tags": tags, "match": "all_strict"}}
+	addReflectTool(server, agent, client, db, bankID)
 }
 
 func toolError(msg string) *mcp.CallToolResult {

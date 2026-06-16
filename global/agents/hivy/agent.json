@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "slug": "hivy",
+  "name": "Hivy",
+  "description": "Hivy is the organization's managed AI agent.",
+  "category": "General",
+  "avatar_url": "/assets/hivy-avatar.png",
+  "developer": "Hivy",
+  "official": true,
+  "agent_version": "1",
+  "enabled": true,
+  "default": true,
+  "runtime": {
+    "sandbox_strategy": "always_on",
+    "model": "deepseek-v4-flash",
+    "multimodal_model": "gemini-3-flash-preview",
+    "harness": "agent-sandbox",
+    "shared_memory": true,
+    "tools": {},
+    "mcp_servers": [],
+    "skills": {},
+    "resources": {},
+    "runtime_config": {},
+    "permissions": {}
+  },
+  "prompt": {
+    "instructions": "./prompts/instructions.md"
+  },
+  "plugins": {
+    "required": [],
+    "recommended": []
+  }
+}

@@ -3,40 +3,7 @@ package hindsight
 import (
 	"strings"
 	"testing"
-
-	"github.com/google/uuid"
-
-	"github.com/usehivy/hivy/internal/model"
 )
-
-func TestBaseMemoryTags(t *testing.T) {
-	orgID := uuid.New()
-	agentID := uuid.New()
-	agent := &model.Agent{
-		ID:    agentID,
-		OrgID: &orgID,
-	}
-
-	tags := baseMemoryTags(agent, "manual")
-	want := map[string]bool{
-		"company:" + orgID.String(): false,
-		"source:manual":             false,
-		"visibility:company":        false,
-	}
-	for _, tag := range tags {
-		if tag == "agent:"+agentID.String() {
-			t.Fatalf("memory tags must not include agent-private scoping: %#v", tags)
-		}
-		if _, ok := want[tag]; ok {
-			want[tag] = true
-		}
-	}
-	for tag, seen := range want {
-		if !seen {
-			t.Fatalf("missing tag %s in %#v", tag, tags)
-		}
-	}
-}
 
 func TestMemoryRetainResponseExplainsBackgroundProcessing(t *testing.T) {
 	resp := memoryRetainResponse("org-test", "manual-agent-doc", &RetainResponse{
@@ -54,31 +21,5 @@ func TestMemoryRetainResponseExplainsBackgroundProcessing(t *testing.T) {
 	}
 	if !strings.Contains(resp.Message, "memory_recall") {
 		t.Fatalf("message does not explain delayed recall visibility: %q", resp.Message)
-	}
-}
-
-func TestMemoryRetainMetadataTagsReplaceSourceAndSanitize(t *testing.T) {
-	tags := upsertMemoryTag([]string{"company:org", "source:manual"}, "source", "service discovery")
-	tags = upsertMemoryTag(tags, "provider", "Railway")
-	tags = upsertMemoryTag(tags, "resource_type", "Service/API")
-
-	want := map[string]bool{
-		"company:org":               false,
-		"source:service-discovery":  false,
-		"provider:railway":          false,
-		"resource_type:service-api": false,
-	}
-	for _, tag := range tags {
-		if tag == "source:manual" {
-			t.Fatalf("source tag should be replaced: %#v", tags)
-		}
-		if _, ok := want[tag]; ok {
-			want[tag] = true
-		}
-	}
-	for tag, seen := range want {
-		if !seen {
-			t.Fatalf("missing tag %s in %#v", tag, tags)
-		}
 	}
 }

@@ -31,6 +31,9 @@ func TestBuildPromptSections_UsesTypedFields(t *testing.T) {
 	if !strings.Contains(fragments.Identity.Content, description) {
 		t.Fatalf("identity fragment should include description: %#v", fragments.Identity)
 	}
+	if strings.Contains(fragments.Identity.Content, "Name:") || strings.Contains(fragments.Identity.Content, "Role description:") {
+		t.Fatalf("identity fragment must not use key/value style: %#v", fragments.Identity)
+	}
 	if strings.Contains(fragments.Identity.Content, agent.SystemPrompt) {
 		t.Fatalf("typed fragments must not include raw system prompt")
 	}
@@ -100,10 +103,12 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	fragments := PromptSections{
 		Identity: PromptSection{
 			Title:   "Your identity",
+			Tag:     "agent_identity",
 			Content: "You are the managed agent.",
 		},
 		Company: PromptSection{
 			Title:   "About the company",
+			Tag:     "company",
 			Content: "Company name: ExampleCo",
 		},
 	}
@@ -118,13 +123,15 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	base := requireStaticPromptSegment(t, cacheable[0])
 	baseContent := requirePromptString(t, base.Content)
 	for _, want := range []string{
-		"Your job is to drive real team work forward.",
+		"<identity>",
+		"<environment>",
+		"<operation_rules>",
 		"Use native tool calls whenever they materially improve",
 		"Only batch calls that are independent of each other.",
-		"Use Preloaded Context first.",
+		"<knowledge_and_memory>",
 		"Use search_sessions only when the user needs older or deeper conversation history",
 		"Trust supplied memories unless corrected or contradicted.",
-		"Use search_knowledge_base for specific business",
+		"Use the search knowledge base for specific business",
 		"Memories, knowledge base snippets, and past sessions are valid evidence",
 		"Do not call retrieval tools for greetings",
 	} {
@@ -133,11 +140,19 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 		}
 	}
 	baseText := requirePromptString(t, base.Content)
-	if !strings.Contains(baseText, "Your job is to drive real team work forward.") {
+	if !strings.Contains(baseText, "You are a core member of the team.") {
 		t.Fatalf("base prompt missing agent contract: %#v", base)
 	}
 	if got := requireDynamicContextSegmentType(t, dynamic[0]); got != "dynamic_context" {
 		t.Fatalf("first dynamic segment = %q", got)
+	}
+	identityContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
+	if !strings.Contains(identityContent, "<agent_identity>\nYou are the managed agent.\n</agent_identity>") {
+		t.Fatalf("identity segment is not XML wrapped: %q", identityContent)
+	}
+	companyContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[2]).Content)
+	if !strings.Contains(companyContent, "<company>\nCompany name: ExampleCo\n</company>") {
+		t.Fatalf("company segment is not XML wrapped: %q", companyContent)
 	}
 	dynamicContext := requireDynamicContextSegment(t, dynamic[0])
 	dynamicPreamble := requirePromptString(t, dynamicContext.Config.Preamble)

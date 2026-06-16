@@ -155,7 +155,7 @@ func (h *SandboxTemplateHandler) Create(w http.ResponseWriter, r *http.Request) 
 		name, ok := model.TemplateSizeForResources(*req.VCPU, *req.MemoryGB, *req.DiskGB)
 		if !ok {
 			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "vcpu/memory_gb/disk_gb must match a supported size: small (1/2/10), medium (2/4/20), large (4/8/40), xlarge (8/16/80)",
+				"error": "vcpu/memory_gb/disk_gb must match a supported size: small (1/2/10), medium (2/4/20), large (4/8/40), xlarge (8/16/60)",
 			})
 			return
 		}

@@ -38,7 +38,7 @@ func TestBuildAgentSystemPrompt_IncludesAgentInstructionsAsCacheableSegment(t *t
 		content := requirePromptString(t, static.Content)
 		if title == "Agent instructions" {
 			found = true
-			if content != instructions {
+			if content != "<agent_instructions>\n"+instructions+"\n</agent_instructions>" {
 				t.Fatalf("agent instruction content = %q, want %q", content, instructions)
 			}
 		}

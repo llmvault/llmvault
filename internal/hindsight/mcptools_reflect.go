@@ -6,9 +6,11 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
-func addReflectTool(server *mcp.Server, client *Client, db *gorm.DB, bankID string, tagGroups []any) {
+func addReflectTool(server *mcp.Server, agent *model.Agent, client *Client, db *gorm.DB, bankID string) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "memory_reflect",
@@ -28,13 +30,15 @@ Reflect is slower than recall (1-3 seconds) but produces deeper, more nuanced an
 						"type":        "string",
 						"description": "The question to reason about. Frame as a question that requires analysis, not just lookup. Examples: 'What are this user's top priorities based on our past interactions?', 'How has the team's approach to testing evolved?', 'What patterns do I see in the problems this user brings to me?'",
 					},
+					"tags": memoryTagsSchema(false),
 				},
-				"required": []string{"query"},
+				"required": []string{"query", "tags"},
 			},
 		},
 		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			var params struct {
-				Query string `json:"query"`
+				Query string         `json:"query"`
+				Tags  MemoryTagInput `json:"tags"`
 			}
 			if req.Params.Arguments != nil {
 				_ = json.Unmarshal(req.Params.Arguments, &params)
@@ -45,10 +49,14 @@ Reflect is slower than recall (1-3 seconds) but produces deeper, more nuanced an
 			if err := RequireBank(ctx, db, bankID); err != nil {
 				return toolError("memory reflect failed: " + err.Error()), nil
 			}
+			validated, err := ValidateRecallTags(ctx, db, agent, params.Tags)
+			if err != nil {
+				return toolError(err.Error()), nil
+			}
 
 			result, err := client.Reflect(ctx, bankID, &ReflectRequest{
 				Query:     params.Query,
-				TagGroups: tagGroups,
+				TagGroups: MemoryTagGroups(validated.FilterTags),
 			})
 			if err != nil {
 				return toolError("memory reflect failed: " + err.Error()), nil

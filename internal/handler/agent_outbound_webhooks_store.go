@@ -45,7 +45,6 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 		}
 		if createdSession {
 			precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.AgentID)
-			h.enqueueAgentMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
 		}
 		return nil
 	}
@@ -59,7 +58,6 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 	}
 	if createdSession {
 		precontext.InvalidateSessions(ctx, h.preloadCache, session.OrgID, session.AgentID)
-		h.enqueueAgentMemoryRetain(ctx, sb, session, sessionID, "session_created", "session.created")
 	}
 	stored, ok := sessionEventFromOutbound(sb, event, payload, session.ID, sessionID)
 	if !ok {
@@ -87,9 +85,6 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 			return fmt.Errorf("store session event: %w", err)
 		}
 		precontext.InvalidateSessions(ctx, h.preloadCache, stored.OrgID, stored.AgentID)
-	}
-	if event.EventType == runtimeevents.EventFinal {
-		h.enqueueAgentMemoryRetain(ctx, sb, session, sessionID, "agent_final", runtimeevents.EventFinal)
 	}
 	if event.EventType == "session.completed" {
 		h.markSessionEnded(ctx, session.ID, event.At)

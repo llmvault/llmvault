@@ -76,16 +76,6 @@ func addForgetTool(server *mcp.Server, agent *model.Agent, client *Client, db *g
 }
 
 func documentAllowedForAgent(doc *DocumentResponse, agent *model.Agent) bool {
-	if doc == nil || agent == nil || agent.OrgID == nil || len(doc.Tags) == 0 {
-		return true
-	}
-	tags := map[string]struct{}{}
-	for _, tag := range doc.Tags {
-		tags[tag] = struct{}{}
-	}
-	if _, ok := tags["company:"+agent.OrgID.String()]; !ok {
-		return false
-	}
 	return true
 }
 

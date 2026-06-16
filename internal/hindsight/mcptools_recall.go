@@ -6,9 +6,11 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
-func addRecallTool(server *mcp.Server, client *Client, db *gorm.DB, bankID string, tagGroups []any) {
+func addRecallTool(server *mcp.Server, agent *model.Agent, client *Client, db *gorm.DB, bankID string) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "memory_recall",
@@ -34,14 +36,16 @@ Do NOT recall and retain in the same turn — retained memories are not immediat
 						"enum":        []string{"low", "mid", "high"},
 						"description": "Search depth. Use 'low' for quick fact checks (50-100ms). Use 'mid' (default) for most queries — balances speed and thoroughness. Use 'high' only for complex questions requiring deep cross-referencing across many memories (300-500ms).",
 					},
+					"tags": memoryTagsSchema(false),
 				},
-				"required": []string{"query"},
+				"required": []string{"query", "tags"},
 			},
 		},
 		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			var params struct {
-				Query  string `json:"query"`
-				Budget string `json:"budget"`
+				Query  string         `json:"query"`
+				Budget string         `json:"budget"`
+				Tags   MemoryTagInput `json:"tags"`
 			}
 			if req.Params.Arguments != nil {
 				_ = json.Unmarshal(req.Params.Arguments, &params)
@@ -56,11 +60,15 @@ Do NOT recall and retain in the same turn — retained memories are not immediat
 			if err := RequireBank(ctx, db, bankID); err != nil {
 				return toolError("memory recall failed: " + err.Error()), nil
 			}
+			validated, err := ValidateRecallTags(ctx, db, agent, params.Tags)
+			if err != nil {
+				return toolError(err.Error()), nil
+			}
 
 			result, err := client.Recall(ctx, bankID, &RecallRequest{
 				Query:     params.Query,
 				Budget:    budget,
-				TagGroups: tagGroups,
+				TagGroups: MemoryTagGroups(validated.FilterTags),
 			})
 			if err != nil {
 				return toolError("memory recall failed: " + err.Error()), nil

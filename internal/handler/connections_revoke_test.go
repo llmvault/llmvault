@@ -212,4 +212,3 @@ func TestConnectionHandler_Revoke_NangoFailure(t *testing.T) {
 		t.Fatal("expected revoked_at to be set despite Nango failure")
 	}
 }
-

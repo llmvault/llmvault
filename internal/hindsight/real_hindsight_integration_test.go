@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -125,7 +126,7 @@ func TestRealHindsightForgetDocument(t *testing.T) {
 		t.Fatalf("Retain: %v", err)
 	}
 	agent := &model.Agent{ID: uuid.New(), OrgID: &orgID}
-	result := callRealMemoryTool(t, ctx, agent, client, "memory_forget", map[string]any{
+	result := callRealMemoryTool(t, ctx, agent, client, nil, "memory_forget", map[string]any{
 		"document_id": documentID,
 		"reason":      "real Hindsight integration test cleanup",
 	})
@@ -169,14 +170,19 @@ func TestRealHindsightMemoryRetainToolReturnsDocumentID(t *testing.T) {
 	orgID := uuid.New()
 	agentID := uuid.New()
 	bankID := OrgBankID(orgID)
+	db := realMemoryToolDB(t, orgID, agentID)
 	if err := client.ConfigureBank(ctx, bankID, DefaultMemoryConfig().ToBankConfigUpdate()); err != nil {
 		t.Fatalf("ConfigureBank: %v", err)
 	}
 
-	result := callRealMemoryTool(t, ctx, &model.Agent{ID: agentID, OrgID: &orgID}, client, "memory_retain", map[string]any{
-		"content":     "Integration test memory_retain document ID marker " + uuid.NewString(),
-		"context":     "Real Hindsight integration test",
-		"memory_type": "preference",
+	result := callRealMemoryTool(t, ctx, &model.Agent{ID: agentID, OrgID: &orgID}, client, db, "memory_retain", map[string]any{
+		"content": "Integration test memory_retain document ID marker " + uuid.NewString(),
+		"context": "Real Hindsight integration test",
+		"tags": map[string]any{
+			"scope":       "provider",
+			"provider":    "github-app",
+			"memory_type": "preference",
+		},
 	})
 	if result.IsError {
 		t.Fatalf("memory_retain returned error: %s", realToolText(t, result))
@@ -196,11 +202,11 @@ func toJSONForTest(v any) string {
 	return string(b)
 }
 
-func callRealMemoryTool(t *testing.T, ctx context.Context, agent *model.Agent, client *Client, name string, args map[string]any) *mcp.CallToolResult {
+func callRealMemoryTool(t *testing.T, ctx context.Context, agent *model.Agent, client *Client, db *gorm.DB, name string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	server := mcp.NewServer(&mcp.Implementation{Name: "real-memory-test", Version: "v1"}, nil)
-	AddMemoryTools(server, agent, client, nil, nil)
+	AddMemoryTools(server, agent, client, db, nil)
 	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
 		t.Fatalf("server connect: %v", err)
 	}
@@ -214,6 +220,51 @@ func callRealMemoryTool(t *testing.T, ctx context.Context, agent *model.Agent, c
 		t.Fatalf("call tool %s: %v", name, err)
 	}
 	return result
+}
+
+func realMemoryToolDB(t *testing.T, orgID, agentID uuid.UUID) *gorm.DB {
+	t.Helper()
+	db := openHindsightBankTestDB(t)
+	userID := uuid.New()
+	integrationID := uuid.New()
+	connectionID := uuid.New()
+	if err := db.Create(&model.Org{ID: orgID, Name: "real-memory-tool-" + uuid.NewString()[:8], Active: true}).Error; err != nil {
+		t.Fatalf("insert org: %v", err)
+	}
+	if err := db.Create(&model.User{ID: userID, Email: "real-memory-tool-" + uuid.NewString()[:8] + "@example.com"}).Error; err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	if err := db.Create(&model.Integration{
+		ID:          integrationID,
+		UniqueKey:   "github-app-" + uuid.NewString()[:8],
+		Provider:    "github-app",
+		DisplayName: "GitHub",
+	}).Error; err != nil {
+		t.Fatalf("insert integration: %v", err)
+	}
+	if err := db.Create(&model.Connection{
+		ID:                connectionID,
+		OrgID:             orgID,
+		UserID:            userID,
+		IntegrationID:     integrationID,
+		NangoConnectionID: "github-conn",
+		Meta:              model.JSON{"resources": map[string]any{}},
+	}).Error; err != nil {
+		t.Fatalf("insert connection: %v", err)
+	}
+	description := ""
+	if err := db.Create(&model.Agent{
+		ID:          agentID,
+		OrgID:       &orgID,
+		Name:        "real-memory-tool-agent-" + uuid.NewString()[:8],
+		Description: &description,
+		Model:       "test-model",
+		Status:      "active",
+		Resources:   model.JSON{},
+	}).Error; err != nil {
+		t.Fatalf("insert agent: %v", err)
+	}
+	return db
 }
 
 func decodeRealToolJSON(t *testing.T, result *mcp.CallToolResult, out any) {

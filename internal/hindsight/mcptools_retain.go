@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -22,7 +23,7 @@ type memoryRetainToolResponse struct {
 	DocumentID  string `json:"document_id"`
 }
 
-func addRetainTool(server *mcp.Server, agent *model.Agent, client *Client, banks *BankProvisioner, bankID string, memoryTags []string) {
+func addRetainTool(server *mcp.Server, agent *model.Agent, client *Client, db *gorm.DB, banks *BankProvisioner, bankID string, refresh MemoryRefreshFunc) {
 	server.AddTool(
 		&mcp.Tool{
 			Name: "memory_retain",
@@ -53,49 +54,35 @@ Write the content as a clear, specific factual statement. Bad: "User talked abou
 						"type":        "string",
 						"description": "Describe the nature and source of this information. This significantly improves how the memory is indexed and retrieved. Examples: 'Technical architecture discussion', 'User preference stated during product setup', 'Decision from Q2 planning meeting'. Do NOT use generic values like 'conversation' or 'chat'.",
 					},
-					"memory_type": map[string]any{
-						"type":        "string",
-						"enum":        SupportedMemoryTypes,
-						"description": "Durable memory category. Use the closest category for the fact being retained.",
-					},
+					"tags": memoryTagsSchema(true),
 					"provider": map[string]any{
 						"type":        "string",
-						"description": "Optional integration provider for service-discovery memories, for example railway, vercel, slack, notion, or linear.",
-					},
-					"source": map[string]any{
-						"type":        "string",
-						"description": "Optional memory source. Use service_discovery for system-managed integration discovery jobs.",
-					},
-					"resource_type": map[string]any{
-						"type":        "string",
-						"description": "Optional type of discovered resource, for example project, service, channel, database, page, team, workflow_state, or user.",
-					},
-					"resource_id": map[string]any{
-						"type":        "string",
-						"description": "Optional provider-side resource ID for the fact being retained.",
+						"description": "Deprecated. Use tags.provider instead.",
 					},
 				},
-				"required": []string{"content"},
+				"required": []string{"content", "tags"},
 			},
 		},
 		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			var params struct {
-				Content      string `json:"content"`
-				Context      string `json:"context"`
-				Type         string `json:"memory_type"`
-				Provider     string `json:"provider"`
-				Source       string `json:"source"`
-				ResourceType string `json:"resource_type"`
-				ResourceID   string `json:"resource_id"`
+				Content string         `json:"content"`
+				Context string         `json:"context"`
+				Tags    MemoryTagInput `json:"tags"`
 			}
+			var raw map[string]any
 			if req.Params.Arguments != nil {
+				_ = json.Unmarshal(req.Params.Arguments, &raw)
 				_ = json.Unmarshal(req.Params.Arguments, &params)
 			}
 			if params.Content == "" {
 				return toolError("content is required"), nil
 			}
-			if params.Type != "" && !IsSupportedMemoryType(params.Type) {
-				return toolError("unsupported memory_type: " + params.Type), nil
+			if hasLegacyMemoryTagFields(raw) {
+				return toolError("legacy memory tag fields are no longer accepted; pass scope/provider/resource_type/resource_id/memory_type inside the required tags object"), nil
+			}
+			validated, err := ValidateRetainTags(ctx, db, agent, params.Tags)
+			if err != nil {
+				return toolError(err.Error()), nil
 			}
 			if banks != nil && agent != nil && agent.OrgID != nil {
 				if err := banks.EnsureOrgBank(ctx, *agent.OrgID); err != nil {
@@ -103,31 +90,24 @@ Write the content as a clear, specific factual statement. Bad: "User talked abou
 				}
 			}
 
-			tags := append([]string{}, memoryTags...)
-			tags = upsertMemoryTag(tags, "source", params.Source)
-			tags = upsertMemoryTag(tags, "provider", params.Provider)
-			tags = upsertMemoryTag(tags, "resource_type", params.ResourceType)
-			if params.Type != "" {
-				tags = upsertMemoryTag(tags, "memory_type", params.Type)
-			}
 			documentID := "manual:" + agent.ID.String() + ":" + uuid.NewString()
-			metadata := map[string]string{"agent_id": agent.ID.String(), "document_id": documentID}
-			addMetadataValue(metadata, "provider", params.Provider)
-			addMetadataValue(metadata, "source", params.Source)
-			addMetadataValue(metadata, "resource_type", params.ResourceType)
-			addMetadataValue(metadata, "resource_id", params.ResourceID)
+			metadata := memoryMetadata(agent, documentID, validated.Input)
 			result, err := client.Retain(ctx, bankID, &RetainRequest{
 				Items: []RetainItem{{
-					Content:    params.Content,
-					Context:    params.Context,
-					DocumentID: documentID,
-					Tags:       tags,
-					Metadata:   metadata,
+					Content:           params.Content,
+					Context:           params.Context,
+					DocumentID:        documentID,
+					Tags:              validated.RetainTags,
+					Metadata:          metadata,
+					ObservationScopes: memoryObservationScopes(validated.Input),
 				}},
 				Async: true,
 			})
 			if err != nil {
 				return toolError("memory retain failed: " + err.Error()), nil
+			}
+			if refresh != nil {
+				refresh(ctx, agent)
 			}
 
 			return toolJSON(memoryRetainResponse(bankID, documentID, result))

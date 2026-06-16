@@ -198,12 +198,12 @@ func memoryEntityLabels() []map[string]any {
 			"values":      memoryTypeEntityValues(),
 		},
 		{
-			"key":         "visibility",
-			"description": "Whether the memory is company-wide.",
+			"key":         "scope",
+			"description": "Whether the memory is provider-wide or scoped to a specific provider resource.",
 			"type":        "value",
 			"tag":         true,
 			"optional":    false,
-			"values":      entityValues([]string{"company"}),
+			"values":      entityValues([]string{"provider", "resource"}),
 		},
 	}
 }

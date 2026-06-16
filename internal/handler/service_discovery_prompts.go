@@ -40,7 +40,7 @@ Connection context:
 
 Use only the Hivy-provided skill and proxy environment variables for this provider. Do not use raw credentials or external accounts directly.
 Persist durable discoveries with memory_retain. Use concise, factual memories. Prefer many focused memories over one huge dump when facts are independently useful.
-Tag or describe retained memories with provider="%s", source="service_discovery", and the resource type when the memory tool supports that metadata.
+Use memory_retain with the required structured tags object. Use provider scope for provider-wide facts: {"scope":"provider","provider":"%s","memory_type":"technical_context"}. Use resource scope when a fact is about a specific provider resource and include resource_type/resource_id.
 Before retaining new facts, recall recent memories for this provider and update, replace, or avoid duplicating stale facts.
 Never retain secrets, access tokens, private credentials, raw API payloads, or full unbounded lists.
 If the provider is disconnected or unavailable, retain nothing and finish with a short explanation.
