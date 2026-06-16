@@ -6,24 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 )
-
-var agentAllowedModelIDs = []string{
-	"deepseek-v4-flash",
-	"step-3.7-flash",
-	"ling-2.6-1t",
-	"mimo-v2.5-pro",
-}
 
 type updateAgentModelRequest struct {
 	Model string `json:"model"`
@@ -36,7 +31,7 @@ type updateAgentModelResponse struct {
 
 // ListModels handles GET /v1/agents/models.
 // @Summary List agent-selectable models
-// @Description Returns the OpenRouter-backed model allowlist supported for Hivy agents.
+// @Description Returns canonical models backed by active org or system credentials.
 // @Tags agents
 // @Produce json
 // @Success 200 {array} modelSummary
@@ -44,7 +39,12 @@ type updateAgentModelResponse struct {
 // @Security BearerAuth
 // @Router /v1/agents/models [get]
 func (h *AgentHandler) ListModels(w http.ResponseWriter, r *http.Request) {
-	models, err := h.agentModelSummaries(r.Context())
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	models, err := h.agentModelSummaries(r.Context(), org.ID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent models"})
 		return
@@ -92,10 +92,6 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	modelID := strings.TrimSpace(req.Model)
-	if err := h.validateAgentSelectableModel(ctx, modelID); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-		return
-	}
 
 	var agent model.Agent
 	if err := h.db.WithContext(ctx).
@@ -109,6 +105,10 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
 		return
 	}
+	if err := h.validateAgentDefaultModel(ctx, org.ID, &agent, modelID); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
 
 	if upgrade, ok, err := activeAgentSandboxUpgrade(ctx, h.db, org.ID, agentID); err != nil {
 		log.ErrorContext(ctx, "load active agent sandbox upgrade for model update", "error", err, "agent_id", agentID)
@@ -119,26 +119,16 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cred, err := pickActiveSystemCredentialForModel(ctx, h.db, h.agentModelRegistry(), modelID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-		return
-	}
-
-	if agent.Model != modelID || agent.CredentialID == nil || *agent.CredentialID != cred.ID {
+	if agent.Model != modelID {
 		if err := h.db.WithContext(ctx).
 			Model(&model.Agent{}).
 			Where("id = ? AND org_id = ?", agent.ID, org.ID).
-			Updates(map[string]any{
-				"model":         modelID,
-				"credential_id": cred.ID,
-			}).Error; err != nil {
+			Update("model", modelID).Error; err != nil {
 			log.ErrorContext(ctx, "update agent model", "error", err, "agent_id", agent.ID, "org_id", org.ID)
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to update agent model"})
 			return
 		}
 		agent.Model = modelID
-		agent.CredentialID = &cred.ID
 	}
 
 	sb, syncResp, err := h.SyncAgent(ctx, &agent)
@@ -171,30 +161,24 @@ func (h *AgentHandler) agentModelRegistry() *registry.Registry {
 	return registry.Global()
 }
 
-func (h *AgentHandler) agentModelSummaries(ctx context.Context) ([]modelSummary, error) {
+func (h *AgentHandler) agentModelSummaries(ctx context.Context, orgID uuid.UUID) ([]modelSummary, error) {
 	if h == nil || h.db == nil {
 		return []modelSummary{}, nil
 	}
-	hasOpenRouter, err := hasActiveSystemCredentialForProvider(ctx, h.db, "openrouter")
+	providerIDs, err := h.credentialBackedProviderIDs(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
-	if !hasOpenRouter {
-		return []modelSummary{}, nil
-	}
 
 	reg := h.agentModelRegistry()
-	out := make([]modelSummary, 0, len(agentAllowedModelIDs))
-	for _, id := range agentAllowedModelIDs {
-		route, ok := reg.ResolveModel("openrouter", id)
-		if !ok {
-			continue
-		}
-		mdl := route.Model
+	canonical := reg.CanonicalModelsForProviders(providerIDs)
+	out := make([]modelSummary, 0, len(canonical))
+	for _, routed := range canonical {
+		mdl := routed.Model
 		out = append(out, modelSummary{
-			ID:               id,
+			ID:               mdl.ID,
 			Name:             mdl.Name,
-			ProviderIDs:      []string{"openrouter"},
+			ProviderIDs:      routed.ProviderIDs,
 			Family:           mdl.Family,
 			Reasoning:        mdl.Reasoning,
 			ToolCall:         mdl.ToolCall,
@@ -213,32 +197,35 @@ func (h *AgentHandler) agentModelSummaries(ctx context.Context) ([]modelSummary,
 	return out, nil
 }
 
-func (h *AgentHandler) validateAgentSelectableModel(ctx context.Context, modelID string) error {
+func (h *AgentHandler) validateAgentSelectableModel(ctx context.Context, orgID uuid.UUID, modelID string) error {
 	if modelID == "" {
 		return fmt.Errorf("model is required")
 	}
-	if !isAgentAllowedModelID(modelID) {
-		return fmt.Errorf("model %q is not available for agents", modelID)
-	}
-	models, err := h.agentModelSummaries(ctx)
-	if err != nil {
-		return fmt.Errorf("load agent model allowlist: %w", err)
-	}
-	for _, mdl := range models {
-		if mdl.ID == modelID {
-			return nil
-		}
-	}
-	return fmt.Errorf("model %q is not backed by an active OpenRouter system credential", modelID)
+	_, err := credentials.ResolveForModel(ctx, h.db, h.agentModelRegistry(), orgID, modelID)
+	return err
 }
 
-func isAgentAllowedModelID(modelID string) bool {
-	for _, allowed := range agentAllowedModelIDs {
-		if modelID == allowed {
-			return true
+func (h *AgentHandler) validateAgentAvailableModels(ctx context.Context, orgID uuid.UUID, models []string) error {
+	if len(models) == 0 {
+		return fmt.Errorf("available_models must include at least one model")
+	}
+	for _, modelID := range models {
+		if err := h.validateAgentSelectableModel(ctx, orgID, strings.TrimSpace(modelID)); err != nil {
+			return err
 		}
 	}
-	return false
+	return nil
+}
+
+func (h *AgentHandler) validateAgentDefaultModel(ctx context.Context, orgID uuid.UUID, agent *model.Agent, modelID string) error {
+	modelID = strings.TrimSpace(modelID)
+	if err := h.validateAgentSelectableModel(ctx, orgID, modelID); err != nil {
+		return err
+	}
+	if !agentAllowsModel(agent, modelID) {
+		return fmt.Errorf("model %q is not enabled for this agent", modelID)
+	}
+	return nil
 }
 
 func sandboxLogID(sb *model.Sandbox) string {
@@ -248,42 +235,24 @@ func sandboxLogID(sb *model.Sandbox) string {
 	return sb.ID.String()
 }
 
-func hasActiveSystemCredentialForProvider(ctx context.Context, db *gorm.DB, providerID string) (bool, error) {
-	var count int64
-	if err := db.WithContext(ctx).
-		Model(&model.Credential{}).
-		Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", providerID).
-		Count(&count).Error; err != nil {
-		return false, fmt.Errorf("count active system credentials: %w", err)
-	}
-	return count > 0, nil
-}
-
-func pickActiveSystemCredentialForModel(ctx context.Context, db *gorm.DB, reg *registry.Registry, modelID string) (*model.Credential, error) {
-	modelID = strings.TrimSpace(modelID)
-	if modelID == "" {
-		return nil, fmt.Errorf("model is required")
-	}
-	if reg == nil {
-		reg = registry.Global()
-	}
-
-	if err := reg.ValidateCanonicalModel(modelID); err != nil {
-		return nil, err
-	}
-
+func (h *AgentHandler) credentialBackedProviderIDs(ctx context.Context, orgID uuid.UUID) ([]string, error) {
 	var creds []model.Credential
-	if err := db.WithContext(ctx).
-		Where("org_id IS NULL AND revoked_at IS NULL").
+	if err := h.db.WithContext(ctx).
+		Where("revoked_at IS NULL AND (org_id = ? OR org_id IS NULL)", orgID).
 		Order("created_at ASC").
 		Find(&creds).Error; err != nil {
-		return nil, fmt.Errorf("list active system credentials: %w", err)
+		return nil, fmt.Errorf("list active credentials: %w", err)
 	}
-
+	seen := map[string]bool{}
+	out := make([]string, 0, len(creds))
 	for i := range creds {
-		if _, ok := reg.ResolveModel(creds[i].ProviderID, modelID); ok {
-			return &creds[i], nil
+		providerID := strings.TrimSpace(creds[i].ProviderID)
+		if providerID == "" || seen[providerID] {
+			continue
 		}
+		seen[providerID] = true
+		out = append(out, providerID)
 	}
-	return nil, fmt.Errorf("model %q is not backed by an active system credential", modelID)
+	sort.Strings(out)
+	return out, nil
 }

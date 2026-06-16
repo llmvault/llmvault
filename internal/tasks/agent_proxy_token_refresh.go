@@ -38,7 +38,7 @@ func ScheduleAgentProxyTokenRefresh(ctx context.Context, db *gorm.DB, enqueuer e
 	if db == nil || enqueuer == nil || agent == nil || agent.OrgID == nil || sb == nil || sb.ID == uuid.Nil {
 		return nil
 	}
-	if agent.ID == uuid.Nil || agent.Harness != "agent-sandbox" {
+	if agent.ID == uuid.Nil {
 		return nil
 	}
 	if sb.AgentID == nil || *sb.AgentID != agent.ID {

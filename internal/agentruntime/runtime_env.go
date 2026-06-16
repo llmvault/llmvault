@@ -89,7 +89,11 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 		env[AgentEnvDBPath] = runtimeDBPath
 		env[AgentEnvRuntimeBindAddr] = fmt.Sprintf("0.0.0.0:%d", runtimePort)
 	}
-	env[AgentEnvAgentModel] = DefaultAgentModel
+	modelID := strings.TrimSpace(agent.Model)
+	if modelID == "" {
+		modelID = DefaultAgentModel
+	}
+	env[AgentEnvAgentModel] = modelID
 	env[AgentEnvAgentAPIKeyEnv] = ProxyAPIKeyEnv
 	env[AgentEnvAgentMultimodalModel] = DefaultAgentMultimodalModel
 	env[AgentEnvAgentMultimodalAPIKeyEnv] = ProxyAPIKeyEnv

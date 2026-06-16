@@ -132,7 +132,6 @@ func seedSessionAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 		Permissions:     model.JSON{},
 		Resources:       model.JSON{},
 		Status:          "active",
-		Harness:         "agent-sandbox",
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

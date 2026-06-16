@@ -60,13 +60,12 @@ func newSQLiteBackupHarnessWithStreamer(t *testing.T, maxBytes int64, isAgent bo
 
 	agentID := uuid.New()
 	agent := model.Agent{
-		ID:           agentID,
-		OrgID:        &orgID,
-		Name:         fmt.Sprintf("agent-%s", uuid.New().String()[:8]),
-		Status:       "active",
-		Model:        "deepseek-v4-flash",
-		IsManaged:    isAgent,
-		SystemPrompt: "",
+		ID:        agentID,
+		OrgID:     &orgID,
+		Name:      fmt.Sprintf("agent-%s", uuid.New().String()[:8]),
+		Status:    "active",
+		Model:     "deepseek-v4-flash",
+		IsManaged: isAgent,
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

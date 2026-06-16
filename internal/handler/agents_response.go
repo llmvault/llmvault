@@ -46,6 +46,20 @@ type agentSkillSummary struct {
 	Required    bool    `json:"required,omitempty"`
 }
 
+type agentCatalogSummary struct {
+	ID                 string   `json:"id"`
+	Slug               string   `json:"slug"`
+	Name               string   `json:"name"`
+	Description        string   `json:"description"`
+	Category           string   `json:"category"`
+	AvatarURL          string   `json:"avatar_url"`
+	Developer          string   `json:"developer"`
+	Official           bool     `json:"official"`
+	IsDefault          bool     `json:"is_default"`
+	RequiredPlugins    []string `json:"required_plugins"`
+	RecommendedPlugins []string `json:"recommended_plugins"`
+}
+
 type agentResponse struct {
 	ID                    string                 `json:"id"`
 	Name                  string                 `json:"name"`
@@ -57,6 +71,7 @@ type agentResponse struct {
 	SandboxStrategy       string                 `json:"sandbox_strategy"`
 	SandboxTemplateID     *string                `json:"sandbox_template_id,omitempty"`
 	Model                 string                 `json:"model"`
+	AvailableModels       []string               `json:"available_models"`
 	Tools                 model.JSON             `json:"tools"`
 	McpServers            json.RawMessage        `json:"mcp_servers"`
 	Skills                model.JSON             `json:"skills"`
@@ -66,6 +81,7 @@ type agentResponse struct {
 	LastMemoryRefreshedAt *string                `json:"last_memory_refreshed_at,omitempty"`
 	MemoryRefreshStatus   string                 `json:"memory_refresh_status,omitempty"`
 	MemoryRefreshError    string                 `json:"memory_refresh_error,omitempty"`
+	Catalog               *agentCatalogSummary   `json:"catalog,omitempty"`
 	Resources             model.JSON             `json:"resources"`
 	Triggers              []agentTriggerResponse `json:"triggers"`
 	AttachedSkills        []agentSkillSummary    `json:"attached_skills"`
@@ -104,6 +120,7 @@ func toAgentResponse(a model.Agent) agentResponse {
 		IsDefault:           a.IsDefault,
 		SandboxStrategy:     strategy,
 		Model:               a.Model,
+		AvailableModels:     append([]string(nil), a.AvailableModels...),
 		Tools:               nonNilJSON(a.Tools),
 		McpServers:          mcpServers,
 		Skills:              nonNilJSON(a.Skills),
@@ -124,7 +141,26 @@ func toAgentResponse(a model.Agent) agentResponse {
 		s := a.SandboxTemplateID.String()
 		resp.SandboxTemplateID = &s
 	}
+	if a.AgentCatalog != nil {
+		resp.Catalog = toAgentCatalogSummary(*a.AgentCatalog)
+	}
 	return resp
+}
+
+func toAgentCatalogSummary(c model.AgentCatalog) *agentCatalogSummary {
+	return &agentCatalogSummary{
+		ID:                 c.ID.String(),
+		Slug:               c.Slug,
+		Name:               c.Name,
+		Description:        c.Description,
+		Category:           c.Category,
+		AvatarURL:          c.AvatarURL,
+		Developer:          c.Developer,
+		Official:           c.Official,
+		IsDefault:          c.IsDefault,
+		RequiredPlugins:    append([]string(nil), c.RequiredPlugins...),
+		RecommendedPlugins: append([]string(nil), c.RecommendedPlugins...),
+	}
 }
 
 func fallbackAgentName(a model.Agent) string {

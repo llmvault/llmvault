@@ -91,6 +91,9 @@ func New(ctx context.Context) (*Deps, error) {
 	if err := syncGlobalPlugins(ctx, database); err != nil {
 		return nil, err
 	}
+	if err := syncGlobalAgents(ctx, database); err != nil {
+		return nil, err
+	}
 	logging.FromContext(ctx).InfoContext(ctx, "database ready")
 
 	var kms *crypto.KeyWrapper

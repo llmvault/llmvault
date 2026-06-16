@@ -8,17 +8,14 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/agentprompts"
 	"github.com/usehivy/hivy/internal/model"
 	runtimeapi "github.com/usehivy/hivy/internal/sandboxruntime"
 )
 
 type PromptSections struct {
-	Base                string
-	Identity            PromptSection
-	AgentInstructions   PromptSection
-	Company             PromptSection
-	OperatingPrinciples PromptSection
+	Base         string
+	Instructions PromptSection
+	Company      PromptSection
 }
 
 type PromptSection struct {
@@ -43,21 +40,9 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 		}
 	}
 
-	fragments := PromptSections{
-		Base: renderBaseSystemPrompt(ctx, db, agent, org, hasOrg, description),
-		Identity: PromptSection{
-			Title: "Your identity",
-			Tag:   "agent_identity",
-			Content: strings.TrimSpace(strings.Join([]string{
-				agentIdentityOpening(agentDisplayName(agent), org, hasOrg, description),
-				agentIdentityPrompt(agent),
-			}, "\n")),
-		},
-	}
-	if agent != nil && agent.Instructions != nil {
-		if instructions := strings.TrimSpace(*agent.Instructions); instructions != "" {
-			fragments.AgentInstructions = PromptSection{Title: "Agent instructions", Tag: "agent_instructions", Content: instructions}
-		}
+	fragments := PromptSections{Base: renderBaseSystemPrompt(ctx, db, agent, org, hasOrg, description)}
+	if instructions := effectiveAgentInstructions(ctx, db, agent); instructions != "" {
+		fragments.Instructions = PromptSection{Title: "Instructions", Tag: "instructions", Content: instructions}
 	}
 	if hasOrg {
 		companyContent := strings.TrimSpace(org.PromptCompany)
@@ -80,10 +65,8 @@ func buildAgentSystemPrompt(fragments PromptSections) SystemPromptConfig {
 		staticPromptSegment("", basePrompt),
 	}
 	for _, fragment := range []PromptSection{
-		fragments.Identity,
-		fragments.AgentInstructions,
+		fragments.Instructions,
 		fragments.Company,
-		fragments.OperatingPrinciples,
 	} {
 		if strings.TrimSpace(fragment.Content) == "" {
 			continue
@@ -209,28 +192,6 @@ func agentDisplayName(agent *model.Agent) string {
 		return strings.TrimSpace(agent.Name)
 	}
 	return managedAgentName
-}
-
-func agentIdentityOpening(agentName string, org model.Org, hasOrg bool, description string) string {
-	companyName := "this company"
-	if hasOrg && strings.TrimSpace(org.Name) != "" {
-		companyName = strings.TrimSpace(org.Name)
-	}
-	opening := fmt.Sprintf("You are %s, a real teammate embedded inside %s.", agentName, companyName)
-	if description = strings.TrimSpace(description); description != "" {
-		opening += " Your role is described this way: " + ensureSentence(description)
-	}
-	return opening
-}
-
-func agentIdentityPrompt(agent *model.Agent) string {
-	return agentprompts.EngineeringIdentityPrompt
-}
-
-func isDefaultManagedAgentIdentityPrompt(prompt string) bool {
-	prompt = strings.TrimSpace(prompt)
-	return prompt == "" ||
-		prompt == strings.TrimSpace(agentprompts.EngineeringIdentityPrompt)
 }
 
 func defaultCompanyPrompt(org model.Org) string {

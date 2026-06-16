@@ -60,7 +60,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := h.db.WithContext(r.Context()).
-		Preload("Credential").
+		Preload("AgentCatalog").
 		Where("agents.org_id = ?", org.ID)
 
 	if status := r.URL.Query().Get("status"); status != "" {
@@ -141,7 +141,7 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	var agent model.Agent
 	if err := h.db.WithContext(r.Context()).
-		Preload("Credential").
+		Preload("AgentCatalog").
 		Where("agents.id = ? AND agents.org_id = ? AND agents.status <> ?", agentID, org.ID, "archived").
 		First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

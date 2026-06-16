@@ -139,7 +139,11 @@ func mintProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, s
 	if len(deps.SigningKey) == 0 {
 		return nil, fmt.Errorf("agent runtime proxy token: signing key is required")
 	}
-	cred, err := credentials.Resolve(ctx, deps.DB, deps.Picker, agent)
+	modelID := strings.TrimSpace(agent.Model)
+	if modelID == "" {
+		modelID = DefaultAgentModel
+	}
+	cred, err := credentials.ResolveForModel(ctx, deps.DB, nil, *agent.OrgID, modelID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve credential: %w", err)
 	}

@@ -11,6 +11,8 @@ type Agent struct {
 	ID                  uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID               *uuid.UUID       `gorm:"type:uuid;not null;index:idx_agent_org_id;uniqueIndex:idx_agents_org_name,priority:1"`
 	Org                 *Org             `gorm:"foreignKey:OrgID;constraint:OnDelete:CASCADE"`
+	AgentCatalogID      *uuid.UUID       `gorm:"type:uuid;index"`
+	AgentCatalog        *AgentCatalog    `gorm:"foreignKey:AgentCatalogID;constraint:OnDelete:SET NULL"`
 	Name                string           `gorm:"type:text;not null;uniqueIndex:idx_agents_org_name,priority:2"`
 	Description         *string          `gorm:"type:text;not null;default:''"`
 	AvatarURL           *string          `gorm:"type:text"`
@@ -19,24 +21,19 @@ type Agent struct {
 	IsDefault           bool             `gorm:"not null;default:false;index"`
 	SandboxStrategy     string           `gorm:"type:text;not null;default:'per_session'"`
 	WorkspaceSnapshotID *uuid.UUID       `gorm:"type:uuid"`
-	CredentialID        *uuid.UUID       `gorm:"type:uuid;index"`
-	Credential          *Credential      `gorm:"foreignKey:CredentialID;constraint:OnDelete:SET NULL"`
 	SandboxTemplateID   *uuid.UUID       `gorm:"type:uuid"`
 	SandboxTemplate     *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
 
-	SystemPrompt              string  `gorm:"-"`
-	IdentityPrompt            string  `gorm:"-"`
-	PromptOperatingPrinciples string  `gorm:"-"`
-	Instructions              *string `gorm:"type:text"`
-	Model                     string  `gorm:"not null"`
-	Tools                     JSON    `gorm:"type:jsonb;not null;default:'{}'"`
-	McpServers                RawJSON `gorm:"type:jsonb;not null;default:'[]'"`
-	Skills                    JSON    `gorm:"type:jsonb;not null;default:'{}'"`
-	Integrations              JSON    `gorm:"-"`
-	RuntimeConfig             JSON    `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
-	Permissions               JSON    `gorm:"type:jsonb;not null;default:'{}'"`
-	Resources                 JSON    `gorm:"type:jsonb;not null;default:'{}'"`
-	SharedMemory              bool    `gorm:"not null;default:true"`
+	Instructions    *string        `gorm:"type:text"`
+	Model           string         `gorm:"not null"`
+	AvailableModels pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
+	Tools           JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	McpServers      RawJSON        `gorm:"type:jsonb;not null;default:'[]'"`
+	Skills          JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	Integrations    JSON           `gorm:"-"`
+	RuntimeConfig   JSON           `gorm:"column:runtime_config;type:jsonb;not null;default:'{}'"`
+	Permissions     JSON           `gorm:"type:jsonb;not null;default:'{}'"`
+	Resources       JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 
 	SandboxTools     pq.StringArray `gorm:"type:text[];default:'{}'"` // enabled sandbox tools (e.g. "chrome")
 	SetupCommands    pq.StringArray `gorm:"type:text[];default:'{}'"` // shell commands run during sandbox creation
@@ -53,7 +50,6 @@ type Agent struct {
 
 	LastProxyTokenRefreshedAt *time.Time `gorm:"type:timestamptz"`
 
-	Harness   string `gorm:"type:varchar(32);not null;default:''"` // "claude" or "open_code"
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

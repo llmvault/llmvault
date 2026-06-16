@@ -103,16 +103,15 @@ func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Agent {
 		t.Fatalf("create credential: %v", err)
 	}
 	agent := model.Agent{
-		OrgID:        &org.ID,
-		CredentialID: &cred.ID,
-		Name:         "Hivy",
-		Model:        DefaultAgentModel,
-		Status:       "active",
-		Tools:        model.JSON{},
-		McpServers:   model.RawJSON("[]"),
-		Skills:       model.JSON{},
-		Resources:    model.JSON{},
-		Permissions:  model.JSON{},
+		OrgID:       &org.ID,
+		Name:        "Hivy",
+		Model:       DefaultAgentModel,
+		Status:      "active",
+		Tools:       model.JSON{},
+		McpServers:  model.RawJSON("[]"),
+		Skills:      model.JSON{},
+		Resources:   model.JSON{},
+		Permissions: model.JSON{},
 	}
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)

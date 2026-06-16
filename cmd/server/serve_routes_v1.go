@@ -191,6 +191,7 @@ func setupV1Routes(
 				triggerDeliveryHandler := handler.NewTriggerDeliveryHandler(database)
 				if agentHandler != nil {
 					r.Get("/agents", agentHandler.List)
+					r.Get("/agents/catalog", agentHandler.ListCatalog)
 					r.Get("/agents/models", agentHandler.ListModels)
 					r.Get("/agents/{id}", agentHandler.Get)
 					if pluginHandler != nil {
@@ -203,6 +204,8 @@ func setupV1Routes(
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireOrgAdmin(database))
 						r.Post("/agents", agentHandler.Create)
+						r.Post("/agents/catalog/{slug}/install", agentHandler.InstallCatalog)
+						r.Delete("/agents/catalog/{slug}/install", agentHandler.UninstallCatalog)
 						r.Patch("/agents/{id}", agentHandler.Update)
 						r.Delete("/agents/{id}", agentHandler.Archive)
 						r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
