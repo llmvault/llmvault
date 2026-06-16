@@ -416,7 +416,7 @@ Two distinct things ship under "artifacts":
 | Review | turn edits | Runtime already reports edits; ingestion (W5) persists `agent.edits` events with unified diffs in payload; Review view renders the latest accumulated diff set. "Undo" = runtime revert endpoint (stretch). |
 | Side chat | second conversation | A child session: same channel + agent, `metadata.parent_session_id`, hidden from sidebar lists. Cheap — sessions are free. |
 
-**(b) Persisted artifacts** (`artifacts` table) — durable outputs: canvas documents (`content` jsonb), generated apps (S3 bundle + `preview_url`, served via existing custom-domain/CDN machinery), drive documents (S3, existing `drive_assets` path), browser captures (screenshot S3 key). Agents create them through new Hivy-MCP tools (`artifact_create/update`) added to the compiled runtime config; humans browse them per-session (right panel) and org-wide (Drive page). `attachments` conversation blocks reference artifact IDs.
+**(b) Persisted artifacts** (`artifacts` table) — durable outputs: canvas documents (`content` jsonb), generated apps (S3 bundle + `preview_url`, served via existing custom-domain/CDN machinery), drive documents, browser captures (screenshot S3 key). Agents create them through new Hivy-MCP tools (`artifact_create/update`) added to the compiled runtime config; humans browse them per-session (right panel) and org-wide (Drive page). `attachments` conversation blocks reference artifact IDs.
 
 V1 ships: Review, Terminal, Files, Browser (live views) + Drive-backed documents and browser captures. Canvas and Apps land as fast-follows on the same `artifacts` substrate.
 

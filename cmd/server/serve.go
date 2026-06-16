@@ -158,10 +158,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		oauthHandler.SetAgentSyncer(agentHandler)
 		connectionHandler.SetServiceDiscoveryManager(agentHandler)
 	}
-	var driveHandler *handler.DriveHandler
-	if deps.S3Client != nil {
-		driveHandler = handler.NewDriveHandler(database, deps.S3Client)
-	}
 	var sqliteBackupHandler *handler.AgentSQLiteBackupHandler
 	if deps.S3Client != nil && sandboxEncKey != nil {
 		sqliteBackupHandler = handler.NewAgentSQLiteBackupHandler(
@@ -208,7 +204,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, systemTaskHandler, agentHandler, orchestrator, auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, integrationHandler, connectionHandler, credHandler)
-	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, driveHandler, sandboxEncKey, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)
+	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
