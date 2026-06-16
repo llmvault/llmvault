@@ -63,10 +63,6 @@ func setAgentEnvVars(envVars map[string]string, agent *model.Agent, cfg *config.
 	agentruntime.ApplyControlPlaneRuntimeEnv(envVars, cfg, agent, envVars[agentruntime.AgentEnvRuntimeSecret], agentruntime.ControlPlaneRuntimeEnvOptions{})
 }
 
-func setDriveEndpoint(envVars map[string]string, sandboxID uuid.UUID, cfg *config.Config) {
-	envVars["HIVY_DRIVE_ENDPOINT"] = fmt.Sprintf("%s/internal/sandbox-drive/%s", cfg.RuntimeControlPlaneBaseURL(), sandboxID)
-}
-
 // setAssetsUploadURL exposes the session-asset endpoint base. The
 // runtime appends the per-session id and the agent's chosen
 // "<folder>/<filename>" tail so the final PUT URL is:

@@ -186,7 +186,6 @@ var migratedTables = []string{
 	"credentials",
 	"credit_ledger_entries",
 	"database_connections",
-	"drive_assets",
 	"email_verifications",
 	"agent_assets",
 	"agent_plugin_installs",

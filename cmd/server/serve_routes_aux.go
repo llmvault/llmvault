@@ -11,7 +11,6 @@ import (
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/counter"
-	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -25,8 +24,6 @@ func setupProxyAndAuxRoutes(
 	signingKey []byte,
 	database *gorm.DB,
 	proxyHandler http.Handler,
-	driveHandler *handler.DriveHandler,
-	sandboxEncKey *crypto.SymmetricKey,
 	auditWriter *middleware.AuditWriter,
 	generationWriter *middleware.GenerationWriter,
 	ctr *counter.Counter,
@@ -52,26 +49,6 @@ func setupProxyAndAuxRoutes(
 		r.Use(middleware.Generation(generationWriter, database))
 		r.Handle("/*", proxyHandler)
 	})
-
-	if driveHandler != nil {
-		r.Route("/v1/drive", func(r chi.Router) {
-			r.Use(middleware.TokenAuth(signingKey, database))
-			r.Post("/assets", driveHandler.Upload)
-			r.Get("/assets", driveHandler.List)
-			r.Get("/assets/{assetID}", driveHandler.Get)
-			r.Delete("/assets/{assetID}", driveHandler.Delete)
-		})
-	}
-
-	if deps.S3Client != nil && sandboxEncKey != nil {
-		sandboxDriveHandler := handler.NewSandboxDriveHandler(database, deps.S3Client, sandboxEncKey)
-		r.Route("/internal/sandbox-drive/{sandboxID}", func(r chi.Router) {
-			r.Post("/assets", sandboxDriveHandler.Upload)
-			r.Get("/assets", sandboxDriveHandler.List)
-			r.Get("/assets/{assetID}", sandboxDriveHandler.Get)
-			r.Delete("/assets/{assetID}", sandboxDriveHandler.Delete)
-		})
-	}
 
 	if deps.SpiderClient != nil {
 		spiderHandler := handler.NewSpiderHandler(deps.SpiderClient, deps.ToolUsageWriter, database)
