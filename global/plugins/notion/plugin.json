@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "notion",
   "name": "Notion",
-  "description": "Find, summarize, create, and update Notion pages and databases across your connected workspace.",
+  "description": "Find, summarize, create, and update Notion workspace pages.",
   "category": "Productivity",
   "icon": "simple-icons:notion",
   "icon_color": "#111111",

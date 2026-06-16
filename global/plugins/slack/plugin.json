@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "slack",
   "name": "Slack",
-  "description": "Search conversations, summarize channels, draft replies, and keep up with work across your Slack workspace.",
+  "description": "Search Slack, summarize channels, and draft replies.",
   "category": "Communication",
   "icon": "simple-icons:slack",
   "icon_color": "#4A154B",

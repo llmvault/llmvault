@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "glitchtip",
   "name": "GlitchTip",
-  "description": "Investigate errors, events, monitors, logs, releases, and project health from GlitchTip.",
+  "description": "Investigate GlitchTip errors, events, logs, and project health.",
   "category": "Developer Tools",
   "icon": "lucide:bug",
   "icon_color": "#DC2626",

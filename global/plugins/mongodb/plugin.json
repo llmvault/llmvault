@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "mongodb",
   "name": "MongoDB",
-  "description": "Explore and query your connected MongoDB database in a read-only, workspace-safe way.",
+  "description": "Explore and query connected MongoDB databases safely.",
   "category": "Data & Analytics",
   "icon": "simple-icons:mongodb",
   "icon_color": "#13AA52",

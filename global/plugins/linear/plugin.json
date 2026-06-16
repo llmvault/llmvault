@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "linear",
   "name": "Linear",
-  "description": "Plan and track work across Linear issues, projects, teams, comments, users, and workflow states.",
+  "description": "Plan and track Linear issues, projects, and teams.",
   "category": "Productivity",
   "icon": "simple-icons:linear",
   "icon_color": "#5E6AD2",

@@ -1,35 +1,62 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Image from "next/image"
 import NextLink from "next/link"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   Button,
   Input,
   Popover,
   Modal,
+  Spinner,
   Switch,
   toast,
   useOverlayState,
 } from "@heroui/react"
 import type { UseOverlayStateReturn } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { $api } from "@/lib/api/hooks"
+import { extractErrorMessage } from "@/lib/api/error"
+import { integrationLogoURL } from "@/components/integration-logo"
 import { cn } from "@/lib/utils"
 import {
-  ALL_PLUGINS,
-  CATEGORIES,
-  CONNECTED_APPS,
-  FEATURED_PLUGINS,
-  SECTION_ORDER,
-  SOURCES,
-  type Plugin,
+  type ApiPlugin,
+  PLUGINS_QUERY_KEY,
+  pluginCanInstall,
+  pluginCategories,
+  pluginCategory,
+  pluginDescription,
+  pluginIcon,
+  pluginIconColor,
+  pluginLogoProvider,
+  pluginMatchesCategory,
+  pluginMatchesQuery,
+  pluginName,
+  pluginSlug,
   type PluginCategory,
-} from "@/app/w/(chat)/plugins/_data"
+} from "@/app/w/(chat)/plugins/_lib"
 
 export default function PluginsPage() {
+  const queryClient = useQueryClient()
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<PluginCategory>("All")
-  const [source, setSource] = useState("curated")
-  const [selectedPlugin, setSelectedPlugin] = useState<Plugin | null>(null)
+  const [selectedPlugin, setSelectedPlugin] = useState<ApiPlugin | null>(null)
+  const pluginsQuery = $api.useQuery("get", "/v1/plugins")
+  const installPlugin = $api.useMutation("post", "/v1/plugins/{slug}/install")
+  const uninstallPlugin = $api.useMutation(
+    "delete",
+    "/v1/plugins/{slug}/install"
+  )
+  const plugins = useMemo(
+    () => (pluginsQuery.data ?? []) as ApiPlugin[],
+    [pluginsQuery.data]
+  )
+  const categories = useMemo(() => pluginCategories(plugins), [plugins])
+  const connectedPlugins = useMemo(
+    () => plugins.filter((plugin) => plugin.installed),
+    [plugins]
+  )
   const modalState = useOverlayState({
     isOpen: selectedPlugin !== null,
     onOpenChange: (next) => {
@@ -38,56 +65,79 @@ export default function PluginsPage() {
   })
 
   const filteredPlugins = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-
-    return ALL_PLUGINS.filter((plugin) => {
-      const matchesCategory =
-        category === "All" ||
-        plugin.category === category ||
-        (category === "Featured" && FEATURED_PLUGINS.includes(plugin))
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        plugin.name.toLowerCase().includes(normalizedQuery) ||
-        plugin.description.toLowerCase().includes(normalizedQuery) ||
-        plugin.category.toLowerCase().includes(normalizedQuery)
-      const matchesSource = source === "curated" || plugin.official === true
-
-      return matchesCategory && matchesQuery && matchesSource
-    })
-  }, [category, query, source])
+    return plugins.filter(
+      (plugin) =>
+        pluginMatchesCategory(plugin, category) &&
+        pluginMatchesQuery(plugin, query)
+    )
+  }, [category, plugins, query])
 
   const groupedPlugins = useMemo(() => {
     if (category !== "All") {
       return { [category]: filteredPlugins }
     }
 
-    const groups: Record<string, Plugin[]> = {}
+    const groups: Record<string, ApiPlugin[]> = {}
     for (const plugin of filteredPlugins) {
-      const section = plugin.category
+      const section = pluginCategory(plugin)
       if (!groups[section]) groups[section] = []
       groups[section].push(plugin)
     }
 
-    const ordered: Record<string, Plugin[]> = {}
-    for (const section of SECTION_ORDER) {
+    const ordered: Record<string, ApiPlugin[]> = {}
+    for (const section of categories.filter(
+      (item) => item !== "All" && item !== "Featured"
+    )) {
       if (groups[section]) ordered[section] = groups[section]
     }
     for (const section of Object.keys(groups)) {
       if (!ordered[section]) ordered[section] = groups[section]
     }
     return ordered
-  }, [category, filteredPlugins])
+  }, [categories, category, filteredPlugins])
 
   const sectionEntries = Object.entries(groupedPlugins)
 
-  function handleAdd(plugin: Plugin) {
+  function handleAdd(plugin: ApiPlugin) {
+    if (plugin.installed) {
+      handleUninstall(plugin)
+      return
+    }
     setSelectedPlugin(plugin)
   }
 
   function handleConnect() {
     if (!selectedPlugin) return
-    toast.success(`${selectedPlugin.name} plugin added`)
-    modalState.close()
+    const slug = pluginSlug(selectedPlugin)
+    if (!slug) return
+    installPlugin.mutate(
+      { params: { path: { slug } } },
+      {
+        onSuccess: () => {
+          toast.success(`${pluginName(selectedPlugin)} plugin added`)
+          queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
+          modalState.close()
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not add plugin")),
+      }
+    )
+  }
+
+  function handleUninstall(plugin: ApiPlugin) {
+    const slug = pluginSlug(plugin)
+    if (!slug) return
+    uninstallPlugin.mutate(
+      { params: { path: { slug } } },
+      {
+        onSuccess: () => {
+          toast.success(`${pluginName(plugin)} plugin removed`)
+          queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
+        },
+        onError: (error) =>
+          toast.danger(extractErrorMessage(error, "Could not remove plugin")),
+      }
+    )
   }
 
   return (
@@ -127,54 +177,46 @@ export default function PluginsPage() {
               />
             </div>
 
-            <CategorySelect value={category} onChange={setCategory} />
+            <CategorySelect
+              categories={categories}
+              value={category}
+              onChange={setCategory}
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {SOURCES.map((item) => {
-              const active = source === item.id
-              return (
+          {connectedPlugins.length > 0 ? (
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-medium text-foreground">
+                  Connected
+                </h2>
                 <button
-                  key={item.id}
                   type="button"
-                  onClick={() => setSource(item.id)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-sm transition-colors",
-                    active
-                      ? "border-border bg-card font-medium text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  {item.label}
+                  Manage
                 </button>
-              )
-            })}
-          </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {connectedPlugins.map((plugin) => (
+                  <div
+                    key={pluginSlug(plugin)}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted/40",
+                      pluginLogoProvider(plugin) ? "bg-white" : "bg-card"
+                    )}
+                    title={pluginName(plugin)}
+                  >
+                    <PluginLogo plugin={plugin} size={20} iconSize={14} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-foreground">Connected</h2>
-              <button
-                type="button"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Manage
-              </button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {CONNECTED_APPS.map((app) => (
-                <div
-                  key={app.id}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-card ring-1 ring-border transition-colors hover:bg-muted/40"
-                  title={app.name}
-                >
-                  <AppIcon icon={app.icon} color={app.color} size={14} />
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {sectionEntries.length === 0 ? (
+          {pluginsQuery.isLoading ? (
+            <PluginListSkeleton />
+          ) : sectionEntries.length === 0 ? (
             <EmptyState query={query} />
           ) : (
             <div className="flex flex-col gap-8">
@@ -183,12 +225,15 @@ export default function PluginsPage() {
                   <h2 className="text-sm font-medium text-foreground">
                     {section}
                   </h2>
-                  <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+                  <div className="flex flex-col bg-card">
                     {plugins.map((plugin) => (
                       <PluginRow
-                        key={plugin.id}
+                        key={pluginSlug(plugin)}
                         plugin={plugin}
                         onAdd={() => handleAdd(plugin)}
+                        busy={
+                          installPlugin.isPending || uninstallPlugin.isPending
+                        }
                       />
                     ))}
                   </div>
@@ -203,15 +248,18 @@ export default function PluginsPage() {
         plugin={selectedPlugin}
         state={modalState}
         onConnect={handleConnect}
+        isPending={installPlugin.isPending}
       />
     </div>
   )
 }
 
 function CategorySelect({
+  categories,
   value,
   onChange,
 }: {
+  categories: PluginCategory[]
   value: PluginCategory
   onChange: (category: PluginCategory) => void
 }) {
@@ -221,7 +269,7 @@ function CategorySelect({
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Popover.Trigger
         aria-label={`Category: ${value}`}
-        className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-card px-3 text-sm text-foreground transition-colors hover:bg-muted/20 sm:w-48"
+        className="flex h-10 w-full items-center justify-between rounded-md bg-card px-3 text-sm text-foreground transition-colors hover:bg-muted/20 sm:w-48"
       >
         <span>{value}</span>
         <Icon
@@ -229,9 +277,9 @@ function CategorySelect({
           className="h-4 w-4 text-muted-foreground"
         />
       </Popover.Trigger>
-      <Popover.Content className="w-48 rounded-xl border border-border p-1.5">
+      <Popover.Content className="w-48 rounded-xl p-1.5">
         <Popover.Dialog className="flex max-h-72 w-full flex-col gap-0.5 overflow-y-auto p-0">
-          {CATEGORIES.map((item) => (
+          {categories.map((item) => (
             <button
               key={item}
               type="button"
@@ -258,34 +306,61 @@ function CategorySelect({
   )
 }
 
-function PluginRow({ plugin, onAdd }: { plugin: Plugin; onAdd: () => void }) {
+function PluginRow({
+  plugin,
+  onAdd,
+  busy,
+}: {
+  plugin: ApiPlugin
+  onAdd: () => void
+  busy: boolean
+}) {
+  const canInstall = plugin.installed || pluginCanInstall(plugin)
   return (
-    <div className="group flex items-center gap-3 p-3 transition-colors hover:bg-muted/20">
-      <NextLink
-        href={`/w/plugins/${plugin.id}`}
-        className="flex min-w-0 flex-1 items-center gap-3"
-      >
-        <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
-          style={{ backgroundColor: plugin.iconColor }}
-        >
-          <AppIcon icon={plugin.icon} color="#FFFFFF" size={16} />
-        </div>
+    <div className="group -mx-3 py-1.5">
+      <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default">
+        <div className="flex items-center gap-3">
+          <NextLink
+            href={`/w/plugins/${pluginSlug(plugin)}`}
+            className="flex min-w-0 flex-1 items-center gap-3"
+          >
+            <div
+              className={pluginLogoFrameClass(
+                plugin,
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              )}
+              style={pluginLogoFrameStyle(plugin)}
+            >
+              <PluginLogo
+                plugin={plugin}
+                size={27}
+                iconSize={18}
+                forceIconWhite
+              />
+            </div>
 
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-medium text-foreground">{plugin.name}</h3>
-          <p className="text-sm text-muted-foreground">{plugin.description}</p>
-        </div>
-      </NextLink>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-medium text-foreground">
+                {pluginName(plugin)}
+              </h3>
+              <p className="truncate text-sm text-muted-foreground">
+                {pluginDescription(plugin)}
+              </p>
+            </div>
+          </NextLink>
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="shrink-0 rounded-full"
-        onPress={onAdd}
-      >
-        Add
-      </Button>
+          <Button
+            variant="tertiary"
+            size="sm"
+            className="shrink-0 rounded-full"
+            isDisabled={busy || !canInstall}
+            onPress={onAdd}
+          >
+            {busy ? <Spinner color="current" size="sm" /> : null}
+            {plugin.installed ? "Remove" : "Add"}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -308,9 +383,51 @@ function AppIcon({
   )
 }
 
+function PluginLogo({
+  plugin,
+  size,
+  iconSize = size,
+  forceIconWhite = false,
+}: {
+  plugin: ApiPlugin
+  size: number
+  iconSize?: number
+  forceIconWhite?: boolean
+}) {
+  const provider = pluginLogoProvider(plugin)
+  if (provider) {
+    return (
+      <Image
+        src={integrationLogoURL(provider)}
+        alt={provider}
+        width={size}
+        height={size}
+        className="shrink-0 object-contain"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  return (
+    <AppIcon
+      icon={pluginIcon(plugin)}
+      color={forceIconWhite ? "#FFFFFF" : pluginIconColor(plugin)}
+      size={iconSize}
+    />
+  )
+}
+
+function pluginLogoFrameClass(plugin: ApiPlugin, className: string): string {
+  return cn(className, pluginLogoProvider(plugin) ? "bg-white" : "text-white")
+}
+
+function pluginLogoFrameStyle(plugin: ApiPlugin) {
+  if (pluginLogoProvider(plugin)) return undefined
+  return { backgroundColor: pluginIconColor(plugin) }
+}
+
 function EmptyState({ query }: { query: string }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-border bg-card px-6 text-center">
+    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
       <Icon icon="lucide:plug" className="h-7 w-7 text-muted-foreground" />
       <p className="mt-3 text-sm font-medium text-foreground">
         {query ? "No matching plugins" : "No plugins available"}
@@ -324,22 +441,42 @@ function EmptyState({ query }: { query: string }) {
   )
 }
 
+function PluginListSkeleton() {
+  return (
+    <div className="flex flex-col rounded-xl bg-card">
+      {[0, 1, 2, 3].map((index) => (
+        <div key={index} className="flex items-center gap-3 p-3">
+          <div className="bg-default h-8 w-8 shrink-0 animate-pulse rounded-lg" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="bg-default h-3.5 w-28 animate-pulse rounded" />
+            <div className="bg-default h-3 w-64 max-w-full animate-pulse rounded" />
+          </div>
+          <div className="bg-default h-8 w-16 shrink-0 animate-pulse rounded-full" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ConnectModal({
   plugin,
   state,
   onConnect,
+  isPending,
 }: {
-  plugin: Plugin | null
+  plugin: ApiPlugin | null
   state: UseOverlayStateReturn
   onConnect: () => void
+  isPending: boolean
 }) {
   const [referenceMemory, setReferenceMemory] = useState(true)
+  const canInstall = plugin ? pluginCanInstall(plugin) : false
 
   return (
     <Modal.Root state={state}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog className="relative w-full max-w-md rounded-3xl border border-border bg-background p-0 shadow-xl outline-none">
+          <Modal.Dialog className="relative w-full max-w-md rounded-3xl bg-background p-0 shadow-xl outline-none">
             {plugin ? (
               <div className="flex flex-col gap-6 p-6">
                 <Button
@@ -356,17 +493,25 @@ function ConnectModal({
                 <div className="flex flex-col items-center gap-4 pt-2 text-center">
                   <div className="flex items-center gap-4">
                     <div
-                      className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
-                      style={{ backgroundColor: plugin.iconColor }}
+                      className={pluginLogoFrameClass(
+                        plugin,
+                        "flex h-16 w-16 items-center justify-center rounded-2xl"
+                      )}
+                      style={pluginLogoFrameStyle(plugin)}
                     >
-                      <AppIcon icon={plugin.icon} color="#FFFFFF" size={32} />
+                      <PluginLogo
+                        plugin={plugin}
+                        size={44}
+                        iconSize={32}
+                        forceIconWhite
+                      />
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
                       <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
                       <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
                     </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-background">
                       <Icon
                         icon="lucide:bot"
                         className="h-8 w-8 text-foreground"
@@ -376,7 +521,7 @@ function ConnectModal({
 
                   <div className="flex flex-col items-center gap-2">
                     <h2 className="text-2xl font-semibold text-foreground">
-                      Connect {plugin.name}
+                      Connect {pluginName(plugin)}
                     </h2>
                     <div className="flex items-center gap-1.5 text-success">
                       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success text-background">
@@ -389,7 +534,7 @@ function ConnectModal({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="rounded-2xl bg-card p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="text-left">
                       <h3 className="text-base font-medium text-foreground">
@@ -397,7 +542,7 @@ function ConnectModal({
                       </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
                         Allow Hivy to reference relevant chats and memories when
-                        sharing data with {plugin.name} for more helpful
+                        sharing data with {pluginName(plugin)} for more helpful
                         responses.
                       </p>
                     </div>
@@ -412,7 +557,7 @@ function ConnectModal({
                     </Switch>
                   </div>
 
-                  <hr className="my-4 border-border" />
+                  <hr className="my-4 opacity-0" />
 
                   <div className="text-left">
                     <h3 className="text-base font-medium text-foreground">
@@ -424,7 +569,7 @@ function ConnectModal({
                     </p>
                   </div>
 
-                  <hr className="my-4 border-border" />
+                  <hr className="my-4 opacity-0" />
 
                   <div className="text-left">
                     <h3 className="text-base font-medium text-foreground">
@@ -437,7 +582,7 @@ function ConnectModal({
                     </p>
                   </div>
 
-                  <hr className="my-4 border-border" />
+                  <hr className="my-4 opacity-0" />
 
                   <div className="text-left">
                     <h3 className="text-base font-medium text-foreground">
@@ -479,8 +624,10 @@ function ConnectModal({
                   fullWidth
                   className="rounded-full bg-foreground text-background hover:bg-foreground/90"
                   onPress={onConnect}
+                  isDisabled={isPending || !canInstall}
                 >
-                  Continue to {plugin.name}
+                  {isPending ? <Spinner color="current" size="sm" /> : null}
+                  Continue to {pluginName(plugin)}
                   <Icon icon="lucide:arrow-up-right" className="ml-1 h-4 w-4" />
                 </Button>
 

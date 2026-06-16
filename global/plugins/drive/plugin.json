@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "drive",
   "name": "Drive",
-  "description": "Save generated files, exports, screenshots, reports, and demo artifacts to a shared drive for later use.",
+  "description": "Save generated files and reports to shared drive.",
   "category": "Productivity",
   "icon": "lucide:folder-up",
   "icon_color": "#2563EB",
