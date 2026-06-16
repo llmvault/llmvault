@@ -30,7 +30,12 @@ func TestAgentRuntimeUpdatePlanE2E(t *testing.T) {
 		"raw": map[string]any{"source": "direct-browser-update-plan-e2e"},
 	})
 
-	events := readDirectRuntimeSSEAsync(trace, ctx, directRuntimeStreamURL(t, scenario.baseURL, response.StreamURL)).wait(t)
+	events := readDirectRuntimeSSEAsync(
+		trace,
+		ctx,
+		directRuntimeStreamURL(t, scenario.baseURL, response.StreamURL),
+		directRuntimeJWT(t, scenario.runtimeSecret, sessionID, scenario.sandboxID, "stream:read"),
+	).wait(t)
 	assertToolCalls(t, events, "update_plan")
 	assertUpdatePlanRuntimeEvents(t, trace, events, sessionID)
 	assertRuntimeSessionFinal(t, trace, events, []string{"UPDATE_PLAN_E2E_PASS"})

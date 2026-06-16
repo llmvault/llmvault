@@ -128,12 +128,6 @@ func TestBuildRuntimeEnvProvisionsTunnelPassword(t *testing.T) {
 	if env[AgentEnvTunnelPassword] != "runtime-secret" {
 		t.Fatalf("%s = %q, want %q (tunnel must fail closed)", AgentEnvTunnelPassword, env[AgentEnvTunnelPassword], "runtime-secret")
 	}
-	if env[AgentEnvStreamToken] == "" {
-		t.Fatalf("%s must be provisioned for direct browser stream auth", AgentEnvStreamToken)
-	}
-	if env[AgentEnvStreamToken] == "runtime-secret" {
-		t.Fatalf("%s must not reuse %s", AgentEnvStreamToken, AgentEnvRuntimeSecret)
-	}
 }
 
 // Reserved HIVY_ runtime keys (proxy key, runtime secret, drive bearer) must not
@@ -148,7 +142,6 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testin
 		// Org env vars smuggling reserved HIVY_ keys.
 		EncryptedEnvVars: testEncryptJSON(t, encKey, map[string]string{
 			AgentEnvRuntimeSecret:     "user-controlled-secret",
-			AgentEnvStreamToken:       "user-controlled-stream-token",
 			AgentEnvProxyAPIKey:       "user-controlled-proxy-key",
 			AgentEnvDriveUploadBearer: "user-controlled-bearer",
 			"MY_CUSTOM_VAR":           "custom-value",
@@ -183,10 +176,6 @@ func TestBuildRuntimeEnvWithProxyToken_ReservedKeysNotClobbedByUserEnv(t *testin
 	if got := env[AgentEnvProxyAPIKey]; got != proxyToken.Token {
 		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
 			AgentEnvProxyAPIKey, got, proxyToken.Token)
-	}
-	if got, want := env[AgentEnvStreamToken], StreamTokenFromRuntimeSecret(runtimeSecret); got != want {
-		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",
-			AgentEnvStreamToken, got, want)
 	}
 	if got := env[AgentEnvDriveUploadBearer]; got != runtimeSecret {
 		t.Errorf("%s = %q, want control-plane value %q; user env must not clobber reserved key",

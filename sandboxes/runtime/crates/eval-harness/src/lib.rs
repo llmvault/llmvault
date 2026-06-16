@@ -245,7 +245,6 @@ impl FakeRuntimeServer {
             Arc::new(NoopEventRepo),
             Arc::new(NoopCronJobRepo),
             bearer_token.clone(),
-            None,
             std::env::temp_dir(),
             Arc::new(LocalBashOperations),
             Arc::new(SkillWriter::new(
@@ -255,6 +254,7 @@ impl FakeRuntimeServer {
                 inbound_sink,
                 broker: broker.clone(),
             }),
+            None,
             None,
             None,
             None,

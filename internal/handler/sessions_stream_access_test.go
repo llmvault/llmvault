@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-	"time"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestIntegration_SessionsStreamAccessRequiresParticipantAndReturnsStreamToken(t *testing.T) {
+func TestIntegration_SandboxAccessRequiresParticipantAndMintsJWT(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 	created := h.createSession(t, fx, fx.owner, "Stream this turn")
@@ -23,7 +23,7 @@ func TestIntegration_SessionsStreamAccessRequiresParticipantAndReturnsStreamToke
 		OrgID:                  &fx.org.ID,
 		AgentID:                &fx.agent.ID,
 		ProviderID:             "docker",
-		ExternalID:             "stream-access-container",
+		ExternalID:             "sandbox-access-container",
 		RuntimeURL:             "http://203.0.113.10:7080",
 		EncryptedRuntimeSecret: encSecret,
 		Status:                 "running",
@@ -34,58 +34,48 @@ func TestIntegration_SessionsStreamAccessRequiresParticipantAndReturnsStreamToke
 	if err := h.db.Model(&model.Session{}).Where("id = ?", created.Session.ID).Update("sandbox_id", sb.ID).Error; err != nil {
 		t.Fatalf("attach sandbox: %v", err)
 	}
-	if err := h.db.Model(&model.SessionMessageQueue{}).Where("session_event_id = ?", created.Event.ID).Updates(map[string]any{
-		"status":             "delivered",
-		"delivered_at":       time.Now(),
-		"runtime_stream_id":  "stream-123",
-		"runtime_stream_url": "/sessions/" + created.Session.ID + "/stream",
-		"runtime_trace_id":   "trace-123",
-		"runtime_turn_id":    "turn-123",
-	}).Error; err != nil {
-		t.Fatalf("mark queue delivered: %v", err)
-	}
-
-	path := "/v1/sessions/" + created.Session.ID + "/stream-access?event_id=" + created.Event.ID
-	blocked := h.doJSON(t, http.MethodGet, path, fx, fx.member, nil)
+	path := "/v1/sessions/" + created.Session.ID + "/sandbox-access"
+	blocked := h.doJSON(t, http.MethodPost, path, fx, fx.member, nil)
 	if blocked.Code != http.StatusForbidden {
-		t.Fatalf("unshared member stream access status=%d body=%s", blocked.Code, blocked.Body.String())
+		t.Fatalf("unshared member sandbox access status=%d body=%s", blocked.Code, blocked.Body.String())
 	}
 
 	invite := h.doJSON(t, http.MethodPut, "/v1/sessions/"+created.Session.ID+"/participants/"+fx.member.ID.String(), fx, fx.owner, nil)
 	if invite.Code != http.StatusOK {
 		t.Fatalf("invite status=%d body=%s", invite.Code, invite.Body.String())
 	}
-	allowed := h.doJSON(t, http.MethodGet, path, fx, fx.member, nil)
-	if allowed.Code != http.StatusOK {
-		t.Fatalf("stream access status=%d body=%s", allowed.Code, allowed.Body.String())
+	sandboxAccess := h.doJSON(t, http.MethodPost, path, fx, fx.member, nil)
+	if sandboxAccess.Code != http.StatusOK {
+		t.Fatalf("sandbox access status=%d body=%s", sandboxAccess.Code, sandboxAccess.Body.String())
 	}
-	var out struct {
-		SessionID      string `json:"session_id"`
-		SessionEventID string `json:"session_event_id"`
-		SequenceNumber int64  `json:"sequence_number"`
-		StreamID       string `json:"stream_id"`
-		StreamURL      string `json:"stream_url"`
-		DirectURL      string `json:"direct_url"`
-		StreamToken    string `json:"stream_token"`
-		TraceID        string `json:"trace_id"`
-		TurnID         string `json:"turn_id"`
+	var access struct {
+		SessionID      string   `json:"session_id"`
+		SandboxID      string   `json:"sandbox_id"`
+		SandboxBaseURL string   `json:"sandbox_base_url"`
+		Token          string   `json:"token"`
+		ExpiresAt      string   `json:"expires_at"`
+		Scopes         []string `json:"scopes"`
 	}
-	if err := json.Unmarshal(allowed.Body.Bytes(), &out); err != nil {
-		t.Fatalf("decode stream access: %v\n%s", err, allowed.Body.String())
+	if err := json.Unmarshal(sandboxAccess.Body.Bytes(), &access); err != nil {
+		t.Fatalf("decode sandbox access: %v\n%s", err, sandboxAccess.Body.String())
 	}
-	if out.SessionID != created.Session.ID || out.SessionEventID != created.Event.ID || out.SequenceNumber != 1 {
-		t.Fatalf("bad stream ownership fields: %+v", out)
+	if access.SandboxBaseURL != "http://203.0.113.10:7080" || access.SandboxID != sb.ID.String() {
+		t.Fatalf("bad sandbox access target: %+v", access)
 	}
-	if out.StreamID != "stream-123" || out.TraceID != "trace-123" || out.TurnID != "turn-123" {
-		t.Fatalf("bad runtime stream metadata: %+v", out)
+	if len(access.Scopes) != 2 || access.Scopes[0] != "stream:read" || access.Scopes[1] != "repo:read" {
+		t.Fatalf("bad sandbox scopes: %+v", access.Scopes)
 	}
-	if out.StreamURL != "/sessions/"+created.Session.ID+"/stream" {
-		t.Fatalf("stream url=%q", out.StreamURL)
+	claims := jwt.MapClaims{}
+	parsed, err := jwt.ParseWithClaims(access.Token, claims, func(token *jwt.Token) (any, error) {
+		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			t.Fatalf("unexpected alg: %s", token.Method.Alg())
+		}
+		return []byte(runtimeSecret), nil
+	}, jwt.WithAudience("hivy-runtime"), jwt.WithExpirationRequired())
+	if err != nil || !parsed.Valid {
+		t.Fatalf("sandbox jwt invalid: parsed=%v err=%v", parsed != nil && parsed.Valid, err)
 	}
-	if out.DirectURL != "http://203.0.113.10:7080/sessions/"+created.Session.ID+"/stream" {
-		t.Fatalf("direct url=%q", out.DirectURL)
-	}
-	if want := agentruntime.StreamTokenFromRuntimeSecret(runtimeSecret); out.StreamToken != want {
-		t.Fatalf("stream token=%q want %q", out.StreamToken, want)
+	if claims["session_id"] != created.Session.ID || claims["sandbox_id"] != sb.ID.String() {
+		t.Fatalf("bad sandbox jwt claims: %+v", claims)
 	}
 }

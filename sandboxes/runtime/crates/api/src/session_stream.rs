@@ -90,7 +90,7 @@ pub struct StreamSubscription {
 
 #[cfg(test)]
 impl StreamSubscription {
-    fn into_parts(self) -> (Vec<SeqEvent>, broadcast::Receiver<SeqEvent>) {
+    pub(crate) fn into_parts(self) -> (Vec<SeqEvent>, broadcast::Receiver<SeqEvent>) {
         (self.history, self.receiver)
     }
 

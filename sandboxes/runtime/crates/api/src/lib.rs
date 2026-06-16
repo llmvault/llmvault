@@ -1,8 +1,10 @@
 mod auth;
+mod browser_auth;
 mod handlers;
 mod observability_handlers;
 mod plan_manager;
 mod question_manager;
+mod repos;
 mod session_stream;
 mod state;
 
@@ -11,7 +13,7 @@ use std::net::SocketAddr;
 use axum::{
     http::{
         header::{AUTHORIZATION, CONTENT_TYPE},
-        HeaderName, Method,
+        Method,
     },
     routing::{get, post, put},
     Router,
@@ -22,6 +24,7 @@ use tracing::{info, warn};
 
 pub use plan_manager::PlanManager;
 pub use question_manager::{QuestionAnswerError, QuestionAnswerResponse, QuestionManager};
+pub use repos::RepoService;
 pub use session_stream::{SessionMessageState, SessionStreamBroker, SessionStreamEvent};
 pub use state::{ApiState, OutboundConfigReloader};
 
@@ -43,6 +46,10 @@ mod openapi {
             crate::handlers::post_session_message,
             crate::handlers::post_question_answer,
             crate::handlers::get_session_live_stream,
+            crate::repos::list_repos,
+            crate::repos::get_repo_tree,
+            crate::repos::get_repo_content,
+            crate::repos::get_repo_diff,
             crate::observability_handlers::get_trace_events,
             crate::observability_handlers::get_trace_summary,
         ),
@@ -116,6 +123,12 @@ mod openapi {
             crate::session_stream::SessionMessageRequest,
             crate::session_stream::SessionMessageResponse,
             crate::question_manager::QuestionAnswerResponse,
+            crate::repos::RepoInfo,
+            crate::repos::RepoListResponse,
+            crate::repos::TreeResponse,
+            crate::repos::TreeEntry,
+            crate::repos::ContentResponse,
+            crate::repos::DiffResponse,
         )),
         modifiers(&SecurityAddon),
         security(("bearer" = []))
@@ -181,6 +194,10 @@ pub fn build_router(state: ApiState) -> Router {
             "/observability/traces/:trace_id/summary",
             get(observability_handlers::get_trace_summary),
         )
+        .route("/repos", get(repos::list_repos))
+        .route("/repos/:repo_id/tree", get(repos::get_repo_tree))
+        .route("/repos/:repo_id/content", get(repos::get_repo_content))
+        .route("/repos/:repo_id/diff", get(repos::get_repo_diff))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             auth::bearer_auth,
@@ -189,11 +206,7 @@ pub fn build_router(state: ApiState) -> Router {
             CorsLayer::new()
                 .allow_origin(Any)
                 .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
-                .allow_headers([
-                    AUTHORIZATION,
-                    CONTENT_TYPE,
-                    HeaderName::from_static("x-hivy-stream-token"),
-                ]),
+                .allow_headers([AUTHORIZATION, CONTENT_TYPE]),
         )
         .with_state(state)
 }

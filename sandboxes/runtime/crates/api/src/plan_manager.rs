@@ -10,7 +10,7 @@ use domain::{
 use nanoid::nanoid;
 use outbound::OutboundEmitter;
 
-use crate::session_stream::{SessionStreamBroker, StreamReplayMode};
+use crate::session_stream::SessionStreamBroker;
 
 pub struct PlanManager {
     broker: Arc<SessionStreamBroker>,
@@ -87,6 +87,8 @@ impl PlanUpdater for PlanManager {
 mod tests {
     use super::*;
     use domain::{PlanItem, PlanItemStatus};
+
+    use crate::session_stream::StreamReplayMode;
 
     fn plan_payload() -> UpdatePlanPayload {
         UpdatePlanPayload {

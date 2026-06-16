@@ -155,7 +155,7 @@ describe("chat cache helpers", () => {
     ).toBe(true)
     expect(isPersistableChatQuery(["get", "/auth/me"])).toBe(false)
     expect(
-      isPersistableChatQuery(["get", "/v1/sessions/{id}/stream-access"])
+      isPersistableChatQuery(["post", "/v1/sessions/{id}/sandbox-access"])
     ).toBe(false)
   })
 })

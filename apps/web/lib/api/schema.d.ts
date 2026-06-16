@@ -2356,158 +2356,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/agents/{id}/skills": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List skills attached to an agent */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["agentSkillResponse"][];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Attach a skill to an agent
-         * @description Creates an agent skill attachment.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Skill to attach */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["attachSkillRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["agentSkillResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/agents/{id}/skills/{skillID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Detach a skill from an agent
-         * @description Removes an agent skill attachment.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent ID */
-                    id: string;
-                    /** @description Skill ID */
-                    skillID: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/agents/{id}/sync": {
         parameters: {
             query?: never;
@@ -8919,23 +8767,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/sessions/{id}/stream-access": {
+    "/v1/sessions/{id}/sandbox-access": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /**
-         * Get direct session stream access
-         * @description Returns browser-direct sandbox stream details for a delivered queued session message.
+         * Mint direct sandbox access
+         * @description Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.
          */
-        get: {
+        post: {
             parameters: {
-                query?: {
-                    /** @description Session event ID */
-                    event_id?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     /** @description Session ID */
@@ -8951,16 +8798,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["sessionStreamAccessResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
+                        "application/json": components["schemas"]["sessionSandboxAccessResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -9001,8 +8839,6 @@ export interface paths {
                 };
             };
         };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10282,13 +10118,6 @@ export interface components {
             updated_at?: string;
             upgrade_id?: string;
         };
-        agentSkillResponse: {
-            created_at?: string;
-            locked?: boolean;
-            required?: boolean;
-            skill?: components["schemas"]["skillResponse"];
-            skill_id?: string;
-        };
         agentSkillSummary: {
             description?: string;
             id?: string;
@@ -10347,9 +10176,6 @@ export interface components {
             key?: string;
             path?: string;
             updated_at?: string;
-        };
-        attachSkillRequest: {
-            skill_id?: string;
         };
         auditEntryResponse: {
             action?: string;
@@ -11264,16 +11090,13 @@ export interface components {
             status?: string;
             updated_at?: string;
         };
-        sessionStreamAccessResponse: {
-            direct_url?: string;
-            sequence_number?: number;
-            session_event_id?: string;
+        sessionSandboxAccessResponse: {
+            expires_at?: string;
+            sandbox_base_url?: string;
+            sandbox_id?: string;
+            scopes?: string[];
             session_id?: string;
-            stream_id?: string;
-            stream_token?: string;
-            stream_url?: string;
-            trace_id?: string;
-            turn_id?: string;
+            token?: string;
         };
         sessionSummary: {
             created_at?: string;

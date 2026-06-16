@@ -111,7 +111,6 @@ func agentRuntimeConfigPayload(runtimeSecret, controlPlaneURL, agentID, sandboxI
 			"HIVY_DB_SYNC_WRITE_THRESHOLD":  "1",
 			"HIVY_DB_SYNC_INTERVAL_SECONDS": "1",
 			"HIVY_PROXY_API_KEY":            agentRuntimeProxyToken,
-			"HIVY_STREAM_TOKEN":             agentRuntimeStreamToken,
 			"HIVY_MCP_SECURE_TOKEN":         "secure-mcp-token",
 		},
 		"definition": definition,

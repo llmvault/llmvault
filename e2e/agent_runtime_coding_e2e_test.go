@@ -15,7 +15,6 @@ import (
 const (
 	agentRuntimeE2EToken      = "HIVY_AGENT_RUNTIME_E2E_TOKEN_7d4f1c"
 	agentRuntimeProxyToken    = "ptok_agent_runtime_e2e_proxy_7d4f1c"
-	agentRuntimeStreamToken   = "stok_agent_runtime_e2e_stream_7d4f1c"
 	agentRuntimeContainerPort = "7080"
 )
 
@@ -92,7 +91,6 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 			"HIVY_DB_SYNC_WRITE_THRESHOLD":  "1",
 			"HIVY_DB_SYNC_INTERVAL_SECONDS": "1",
 			"HIVY_PROXY_API_KEY":            agentRuntimeProxyToken,
-			"HIVY_STREAM_TOKEN":             agentRuntimeStreamToken,
 		},
 		"definition": definition,
 		"schedules":  []any{},
@@ -112,6 +110,7 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 		trace,
 		ctx,
 		directRuntimeStreamURL(t, runtimeBaseURL, messageResponse.StreamURL),
+		directRuntimeJWT(t, runtimeSecret, messageResponse.SessionID, sandboxID, "stream:read"),
 	)
 	events := readRuntimeSSE(t, trace, ctx, runtimeBaseURL+messageResponse.StreamURL, runtimeSecret, nil)
 	directSessionEvents := directSessionStream.wait(t)

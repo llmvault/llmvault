@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use storage::QuestionRequestRepo;
 use tokio::sync::{oneshot, Mutex};
 
-use crate::session_stream::{SessionStreamBroker, StreamReplayMode};
+use crate::session_stream::SessionStreamBroker;
 
 #[derive(Debug, thiserror::Error)]
 pub enum QuestionAnswerError {
@@ -208,6 +208,8 @@ mod tests {
     use async_trait::async_trait;
     use domain::{QuestionAnswerValue, QuestionOption, RequestUserInputQuestion};
     use storage::Result as StorageResult;
+
+    use crate::session_stream::StreamReplayMode;
 
     #[derive(Default)]
     struct MemoryQuestionRepo {

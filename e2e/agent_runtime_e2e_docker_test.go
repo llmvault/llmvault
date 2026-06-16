@@ -40,6 +40,7 @@ func startAgentRuntimeContainerWithOptions(t *testing.T, trace *agentRuntimeE2ET
 
 	args := []string{
 		"run", "-d", "--rm",
+		"--privileged",
 		"--add-host", "host.docker.internal:host-gateway",
 		"-p", "127.0.0.1:" + port + ":" + agentRuntimeContainerPort,
 		"-v", workspaceRoot + ":/workspace",

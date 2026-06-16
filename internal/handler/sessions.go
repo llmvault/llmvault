@@ -180,16 +180,13 @@ type sessionEventResponse struct {
 	EventAt        string     `json:"event_at"`
 }
 
-type sessionStreamAccessResponse struct {
-	SessionID      string `json:"session_id"`
-	SessionEventID string `json:"session_event_id"`
-	SequenceNumber int64  `json:"sequence_number"`
-	StreamID       string `json:"stream_id"`
-	StreamURL      string `json:"stream_url"`
-	DirectURL      string `json:"direct_url"`
-	StreamToken    string `json:"stream_token"`
-	TraceID        string `json:"trace_id"`
-	TurnID         string `json:"turn_id"`
+type sessionSandboxAccessResponse struct {
+	SessionID      string   `json:"session_id"`
+	SandboxID      string   `json:"sandbox_id"`
+	SandboxBaseURL string   `json:"sandbox_base_url"`
+	Token          string   `json:"token"`
+	ExpiresAt      string   `json:"expires_at"`
+	Scopes         []string `json:"scopes"`
 }
 
 func sessionIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
