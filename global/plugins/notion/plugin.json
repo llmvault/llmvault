@@ -3,10 +3,21 @@
   "slug": "notion",
   "name": "Notion",
   "description": "Find, summarize, create, and update Notion pages and databases across your connected workspace.",
-  "category": "Knowledge",
+  "category": "Productivity",
   "icon": "simple-icons:notion",
   "icon_color": "#111111",
   "developer": "Hivy",
+  "official": true,
+  "capabilities": ["Read", "Write"],
+  "examples": [
+    "Find the onboarding docs in Notion",
+    "Create a project brief in the product workspace",
+    "Summarize the notes from this Notion page"
+  ],
+  "links": {
+    "website": "https://www.notion.so/"
+  },
+  "long_description": "Use the Notion plugin to search, summarize, create, and update pages and databases across your connected Notion workspace.",
   "plugin_version": "1",
   "enabled": true,
   "required_connections": [

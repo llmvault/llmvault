@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
@@ -222,19 +223,11 @@ func (h *RawProviderProxyHandler) resolveConnection(ctx context.Context, agent m
 	if agent.OrgID == nil {
 		return model.Connection{}, "", gorm.ErrRecordNotFound
 	}
-	var conn model.Connection
-	if err := h.db.WithContext(ctx).
-		Preload("Integration").
-		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
-		Where("connections.org_id = ? AND connections.revoked_at IS NULL AND integrations.provider = ?", *agent.OrgID, h.provider).
-		Order("connections.created_at ASC").
-		First(&conn).Error; err != nil {
+	result, err := connectionaccess.ResolveAgentProvider(ctx, h.db, *agent.OrgID, agent.ID, h.provider)
+	if err != nil {
 		return model.Connection{}, "", err
 	}
-	if conn.NangoConnectionID == "" {
-		return model.Connection{}, "", fmt.Errorf("%s connection missing nango connection id", h.provider)
-	}
-	return conn, nangoProviderConfigKey(conn.Integration.UniqueKey), nil
+	return result.Connection, result.ProviderConfigKey, nil
 }
 
 func (h *RawProviderProxyHandler) captureProxyFailure(ctx context.Context, eventCtx rawProviderProxyContext, status int, reason string) {

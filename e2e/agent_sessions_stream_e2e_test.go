@@ -22,29 +22,43 @@ type agentSessionsSandboxAccess struct {
 func fetchAgentSessionsSandboxAccess(t *testing.T, ctx context.Context, baseURL, token, orgID, sessionID string) agentSessionsSandboxAccess {
 	t.Helper()
 	endpoint := baseURL + "/v1/sessions/" + sessionID + "/sandbox-access"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
-	if err != nil {
-		t.Fatalf("new sandbox access request: %v", err)
+	deadline := time.Now().Add(3 * time.Minute)
+	var lastStatus int
+	var lastBody []byte
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
+		if err != nil {
+			t.Fatalf("new sandbox access request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("X-Org-ID", orgID)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("sandbox access request failed: %v", err)
+		}
+		raw, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			var out agentSessionsSandboxAccess
+			if err := json.Unmarshal(raw, &out); err != nil {
+				t.Fatalf("decode sandbox access: %v\n%s", err, raw)
+			}
+			if out.Token == "" {
+				t.Fatalf("sandbox access missing token: %+v", out)
+			}
+			return out
+		}
+		lastStatus = resp.StatusCode
+		lastBody = raw
+		if resp.StatusCode != http.StatusNotFound || time.Now().After(deadline) {
+			t.Fatalf("sandbox access status=%d body=%s", resp.StatusCode, raw)
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("sandbox access wait canceled after status=%d body=%s: %v", lastStatus, lastBody, ctx.Err())
+		case <-time.After(2 * time.Second):
+		}
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Org-ID", orgID)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("sandbox access request failed: %v", err)
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("sandbox access status=%d body=%s", resp.StatusCode, raw)
-	}
-	var out agentSessionsSandboxAccess
-	if err := json.Unmarshal(raw, &out); err != nil {
-		t.Fatalf("decode sandbox access: %v\n%s", err, raw)
-	}
-	if out.Token == "" {
-		t.Fatalf("sandbox access missing token: %+v", out)
-	}
-	return out
 }
 
 func agentSessionsSandboxAccessStatus(t *testing.T, ctx context.Context, baseURL, token, orgID, sessionID string, want int) {
@@ -95,21 +109,7 @@ func agentSessionsOpenDirectStream(t *testing.T, ctx context.Context, directURL,
 		t.Fatalf("parse direct stream url: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
-	if err != nil {
-		t.Fatalf("new direct stream request: %v", err)
-	}
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("open direct sandbox stream: %v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
-		raw, _ := io.ReadAll(resp.Body)
-		t.Fatalf("direct sandbox stream status=%d body=%s", resp.StatusCode, raw)
-	}
+	resp := openDirectStreamWithRetry(t, ctx, parsed.String(), token)
 
 	stream := &agentSessionsLiveDirectStream{
 		events: make(chan runtimeSSEEvent, 256),
@@ -126,6 +126,47 @@ func agentSessionsOpenDirectStream(t *testing.T, ctx context.Context, directURL,
 		stream.done <- events
 	}()
 	return stream
+}
+
+func openDirectStreamWithRetry(t *testing.T, ctx context.Context, directURL, token string) *http.Response {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Minute)
+	var lastStatus int
+	var lastBody []byte
+	var lastErr error
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, directURL, nil)
+		if err != nil {
+			t.Fatalf("new direct stream request: %v", err)
+		}
+		req.Header.Set("Accept", "text/event-stream")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			return resp
+		}
+		if err != nil {
+			lastErr = err
+		} else {
+			lastStatus = resp.StatusCode
+			lastBody, _ = io.ReadAll(resp.Body)
+			resp.Body.Close()
+		}
+		if time.Now().After(deadline) {
+			if lastErr != nil {
+				t.Fatalf("open direct sandbox stream: %v", lastErr)
+			}
+			t.Fatalf("direct sandbox stream status=%d body=%s", lastStatus, lastBody)
+		}
+		select {
+		case <-ctx.Done():
+			if lastErr != nil {
+				t.Fatalf("direct sandbox stream wait canceled: %v", lastErr)
+			}
+			t.Fatalf("direct sandbox stream wait canceled after status=%d body=%s: %v", lastStatus, lastBody, ctx.Err())
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 func (s *agentSessionsLiveDirectStream) waitForEvent(t *testing.T, ctx context.Context, timeout time.Duration, want func(runtimeSSEEvent) bool) runtimeSSEEvent {

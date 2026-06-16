@@ -8,15 +8,28 @@ type Manifest struct {
 	Name                string                  `json:"name"`
 	Description         string                  `json:"description"`
 	Category            string                  `json:"category"`
+	DetailCategory      string                  `json:"detail_category,omitempty"`
 	Icon                string                  `json:"icon"`
 	IconColor           string                  `json:"icon_color"`
 	Developer           string                  `json:"developer"`
+	Official            *bool                   `json:"official,omitempty"`
+	Featured            *bool                   `json:"featured,omitempty"`
+	Capabilities        []string                `json:"capabilities,omitempty"`
+	Examples            []string                `json:"examples,omitempty"`
+	Links               *ManifestLinks          `json:"links,omitempty"`
+	LongDescription     string                  `json:"long_description,omitempty"`
 	PluginVersion       string                  `json:"plugin_version"`
 	Enabled             *bool                   `json:"enabled,omitempty"`
 	RequiredConnections []ConnectionRequirement `json:"required_connections,omitempty"`
 	raw                 json.RawMessage         `json:"-"`
 	sourcePath          string                  `json:"-"`
 	dir                 string                  `json:"-"`
+}
+
+type ManifestLinks struct {
+	Website string `json:"website,omitempty"`
+	Privacy string `json:"privacy,omitempty"`
+	Terms   string `json:"terms,omitempty"`
 }
 
 type ConnectionRequirement struct {

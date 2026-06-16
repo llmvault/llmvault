@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
-	"github.com/usehivy/hivy/internal/mcp"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/token"
@@ -83,32 +82,17 @@ func (h *TokenHandler) Mint(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(req.Scopes) > 0 && h.catalog != nil {
-		if err := mcp.ValidateScopes(h.db, org.ID, h.catalog, req.Scopes); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-			return
-		}
-	}
-
 	var mintOpts []token.MintOptions
 	var scopesJSON model.JSON
 	if len(req.Scopes) > 0 {
-		scopeHash, err := mcp.ScopeHash(req.Scopes)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to compute scope hash"})
-			return
-		}
-		mintOpts = append(mintOpts, token.MintOptions{ScopeHash: scopeHash})
-
-		scopeBytes, err := json.Marshal(req.Scopes)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to serialize scopes"})
-			return
-		}
 		var scopeMap model.JSON
-		if err := json.Unmarshal(scopeBytes, &scopeMap); err != nil {
-
-			scopesJSON = model.JSON{"scopes": req.Scopes}
+		if err := json.Unmarshal(req.Scopes, &scopeMap); err != nil {
+			var scopeValue any
+			if err := json.Unmarshal(req.Scopes, &scopeValue); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid scopes"})
+				return
+			}
+			scopesJSON = model.JSON{"scopes": scopeValue}
 		} else {
 			scopesJSON = scopeMap
 		}
@@ -149,10 +133,6 @@ func (h *TokenHandler) Mint(w http.ResponseWriter, r *http.Request) {
 		Token:     "ptok_" + tokenStr,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
 		JTI:       jti,
-	}
-	if len(req.Scopes) > 0 && h.mcpBaseURL != "" {
-		ep := h.mcpBaseURL + "/" + jti
-		resp.MCPEndpoint = &ep
 	}
 	writeJSON(w, http.StatusCreated, resp)
 }

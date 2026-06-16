@@ -3,10 +3,21 @@
   "slug": "bugsink",
   "name": "Bugsink",
   "description": "Investigate application errors, stack traces, releases, and affected users from Bugsink without leaving Hivy.",
-  "category": "Monitoring",
+  "category": "Developer Tools",
   "icon": "lucide:bug",
   "icon_color": "#0F766E",
   "developer": "Hivy",
+  "official": true,
+  "capabilities": ["Read"],
+  "examples": [
+    "Show me the latest production errors in Bugsink",
+    "Summarize the stack trace for this Bugsink issue",
+    "Which release introduced this regression?"
+  ],
+  "links": {
+    "website": "https://www.bugsink.com/"
+  },
+  "long_description": "Use the Bugsink plugin to inspect issues, events, stack traces, releases, and affected users from your connected Bugsink workspace without leaving Hivy.",
   "plugin_version": "1",
   "enabled": true,
   "required_connections": [

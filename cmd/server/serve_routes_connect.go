@@ -44,6 +44,7 @@ func setupConnectRoutes(
 			r.Post("/v1/integrations/{id}/connections", connectionHandler.Create)
 			r.Get("/v1/connections", connectionHandler.List)
 			r.Get("/v1/connections/{id}", connectionHandler.Get)
+			r.Put("/v1/connections/{id}/resources", connectionHandler.UpdateResources)
 			r.Get("/v1/connections/{id}/resources/{type}", connectionHandler.ListResources)
 			r.Post("/v1/connections/{id}/reconnect-session", connectionHandler.CreateReconnectSession)
 			r.Patch("/v1/connections/{id}/webhook-configured", connectionHandler.MarkWebhookConfigured)

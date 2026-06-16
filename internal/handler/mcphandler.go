@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/counter"
 	"github.com/usehivy/hivy/internal/logging"
-	mcppkg "github.com/usehivy/hivy/internal/mcp"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/mcpserver"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -91,12 +89,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 			return nil, time.Time{}, err
 		}
 
-		scopes, err := parseTokenScopes(token.Scopes)
-		if err != nil {
-			return nil, time.Time{}, err
-		}
-
-		srv, err := mcpserver.BuildServer(ctx, &token, scopes, h.catalog, h.nango, h.db, h.counter, h.memoryTools, h.webTools, h.knowledgeTools)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.memoryTools, h.webTools, h.knowledgeTools)
 		if err != nil {
 			return nil, time.Time{}, err
 		}
@@ -124,7 +117,8 @@ func (h *MCPHandler) ValidateJTIMatch(next http.Handler) http.Handler {
 	})
 }
 
-// ValidateHasScopes is middleware ensuring the token has scopes (returns 403 if no scopes).
+// ValidateHasScopes preserves the existing middleware hook while MCP no longer
+// uses integration connection scopes. Agent proxy tokens are the runtime path.
 func (h *MCPHandler) ValidateHasScopes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := middleware.ClaimsFromContext(r.Context())
@@ -145,33 +139,6 @@ func (h *MCPHandler) ValidateHasScopes(next http.Handler) http.Handler {
 			}
 		}
 
-		scopes, err := parseTokenScopes(token.Scopes)
-		if err != nil || len(scopes) == 0 {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "token has no MCP scopes"})
-			return
-		}
-
 		next.ServeHTTP(w, r)
 	})
-}
-
-// parseTokenScopes extracts TokenScope slice from the JSONB column.
-func parseTokenScopes(scopesJSON model.JSON) ([]mcppkg.TokenScope, error) {
-	if scopesJSON == nil {
-		return nil, nil
-	}
-
-	if scopeArr, ok := scopesJSON["scopes"]; ok {
-		raw, err := json.Marshal(scopeArr)
-		if err != nil {
-			return nil, err
-		}
-		var scopes []mcppkg.TokenScope
-		if err := json.Unmarshal(raw, &scopes); err != nil {
-			return nil, err
-		}
-		return scopes, nil
-	}
-
-	return nil, nil
 }

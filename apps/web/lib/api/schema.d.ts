@@ -4512,6 +4512,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connections/{id}/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save default resources for a connection
+         * @description Stores default provider resources such as selected GitHub repositories on the connection. Agent-specific resources can still override these defaults.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Connection ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Selected resources grouped by resource type */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateConnectionResourcesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["updateConnectionResourcesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/connections/{id}/resources/{type}": {
         parameters: {
             query?: never;
@@ -6675,6 +6758,263 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List plugins
+         * @description Returns active plugins for the current organization, including install state, requirements, and presentation metadata for the plugins catalog.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginResponse"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plugins/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get plugin
+         * @description Returns one active plugin by slug for the current organization, including install state, requirements, and presentation metadata.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plugins/{slug}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install plugin
+         * @description Installs a plugin for the current organization and enables it for the default Hivy agent when requirements are satisfied.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginInstallConflictResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Uninstall plugin
+         * @description Uninstalls a plugin for the current organization and removes it from enabled agents.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -9979,13 +10319,6 @@ export interface components {
         SchemaRef: {
             $ref?: string;
         };
-        TokenScope: {
-            actions?: string[];
-            connection_id?: string;
-            resources?: {
-                [key: string]: string[];
-            };
-        };
         Usage: {
             cached_tokens?: number;
             input_tokens?: number;
@@ -10580,7 +10913,7 @@ export interface components {
             refill_amount?: number;
             refill_interval?: string;
             remaining?: number;
-            scopes?: components["schemas"]["TokenScope"][];
+            scopes?: number[];
             /** @description e.g. "1h", "24h" */
             ttl?: string;
         };
@@ -10755,6 +11088,54 @@ export interface components {
             provider?: string;
             slug?: string;
             welcome_credits?: number;
+        };
+        pluginConnectionRequirement: {
+            kind?: string;
+            provider?: string;
+            required?: boolean;
+        };
+        pluginInstallConflictResponse: {
+            error?: string;
+            missing_requirements?: components["schemas"]["pluginConnectionRequirement"][];
+        };
+        pluginLinksResponse: {
+            privacy?: string;
+            terms?: string;
+            website?: string;
+        };
+        pluginResponse: {
+            capabilities?: string[];
+            category?: string;
+            created_at?: string;
+            description?: string;
+            detail_category?: string;
+            developer?: string;
+            enabled_agent_ids?: string[];
+            examples?: string[];
+            featured?: boolean;
+            icon?: string;
+            icon_color?: string;
+            id?: string;
+            installed?: boolean;
+            links?: components["schemas"]["pluginLinksResponse"];
+            long_description?: string;
+            missing_requirements?: components["schemas"]["pluginConnectionRequirement"][];
+            name?: string;
+            official?: boolean;
+            required_connections?: components["schemas"]["pluginConnectionRequirement"][];
+            skills?: components["schemas"]["pluginSkillResponse"][];
+            slug?: string;
+            status?: string;
+            updated_at?: string;
+            version?: string;
+        };
+        pluginSkillResponse: {
+            category?: string;
+            description?: string;
+            id?: string;
+            name?: string;
+            slug?: string;
+            tags?: string[];
         };
         previewChangeRequest: {
             plan_slug?: string;
@@ -11314,6 +11695,16 @@ export interface components {
         updateAgentModelResponse: {
             agent?: components["schemas"]["agentResponse"];
             sync?: components["schemas"]["syncAgentResponse"];
+        };
+        updateConnectionResourcesRequest: {
+            resources?: {
+                [key: string]: components["schemas"]["agentConnectionResourceSelection"][];
+            };
+        };
+        updateConnectionResourcesResponse: {
+            clone_queued?: boolean;
+            connection_id?: string;
+            resources?: components["schemas"]["JSON"];
         };
         updateContentRequest: {
             bundle?: components["schemas"]["Bundle"];

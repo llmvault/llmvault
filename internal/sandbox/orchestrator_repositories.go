@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -85,8 +86,19 @@ func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, ag
 		}
 		return nil, fmt.Errorf("load agent github resources: %w", err)
 	}
+	if agent.OrgID == nil {
+		return nil, nil
+	}
 
-	raw := selectedRepositoriesFromResources(agent.Resources)
+	access, err := connectionaccess.ResolveAgentProviderAny(ctx, db, *agent.OrgID, agent.ID, "github-app", "github-app-oauth", "github", "github-pat")
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("resolve agent github access: %w", err)
+	}
+
+	raw := selectedRepositoriesFromResources(access.Resources)
 	if raw == nil {
 		return nil, nil
 	}

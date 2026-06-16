@@ -97,14 +97,6 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := tx.Create(&conn).Error; err != nil {
 			return err
 		}
-		agent, err := ensureHivyAgent(r.Context(), tx, org.ID)
-		if err != nil {
-			return err
-		}
-		conn.Integration = integ
-		if err := h.ensureGitHubAgentTriggers(r.Context(), tx, org.ID, conn, agent); err != nil {
-			return err
-		}
 		return nil
 	})
 	if err != nil {

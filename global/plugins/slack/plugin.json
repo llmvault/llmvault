@@ -7,6 +7,17 @@
   "icon": "simple-icons:slack",
   "icon_color": "#4A154B",
   "developer": "Hivy",
+  "official": true,
+  "capabilities": ["Read", "Write"],
+  "examples": [
+    "Summarize what happened in the engineering channel today",
+    "Draft a reply to this Slack thread",
+    "Find the last discussion about the pricing rollout"
+  ],
+  "links": {
+    "website": "https://slack.com/"
+  },
+  "long_description": "Use the Slack plugin to search conversations, summarize channels, draft replies, and triage work across your connected Slack workspace.",
   "plugin_version": "1",
   "enabled": true,
   "required_connections": [
