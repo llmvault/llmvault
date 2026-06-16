@@ -46,15 +46,22 @@ func TestAgentRuntimeQuestionE2E(t *testing.T) {
 		}
 	}
 	go func() {
-		events, err := readRuntimeSSEClient(ctx, trace, "question-direct", directURL, "", observer)
+		events, err := readRuntimeSSEClient(
+			ctx,
+			trace,
+			"question-direct",
+			directURL,
+			directRuntimeJWT(t, scenario.runtimeSecret, sessionID, scenario.sandboxID, "stream:read"),
+			observer,
+		)
 		streamDone <- directRuntimeSSEResult{events: events, err: err}
 	}()
 
 	questionEvent := waitForQuestionRequested(t, trace, questionCh)
 	questionRequestID := assertQuestionRequestedPayload(t, questionEvent, sessionID)
 	answerBody := questionAnswerBody(t)
-	postQuestionAnswerWithStreamToken(t, trace, ctx, scenario.baseURL, sessionID, questionRequestID, answerBody, false, http.StatusOK)
-	postQuestionAnswerWithStreamToken(t, trace, ctx, scenario.baseURL, sessionID, questionRequestID, answerBody, true, http.StatusConflict)
+	postQuestionAnswerWithRuntimeSecret(t, trace, ctx, scenario.baseURL, scenario.runtimeSecret, sessionID, questionRequestID, answerBody, http.StatusOK)
+	postQuestionAnswerWithRuntimeSecret(t, trace, ctx, scenario.baseURL, scenario.runtimeSecret, sessionID, questionRequestID, answerBody, http.StatusConflict)
 
 	result := <-streamDone
 	if result.err != nil {
@@ -169,27 +176,20 @@ func questionAnswerBody(t *testing.T) []byte {
 	})
 }
 
-func postQuestionAnswerWithStreamToken(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, baseURL, sessionID, questionRequestID string, body []byte, useHeader bool, wantStatus int) {
+func postQuestionAnswerWithRuntimeSecret(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, baseURL, runtimeSecret, sessionID, questionRequestID string, body []byte, wantStatus int) {
 	t.Helper()
 	endpoint := fmt.Sprintf("%s/sessions/%s/questions/%s/answer", strings.TrimRight(baseURL, "/"), neturl.PathEscape(sessionID), neturl.PathEscape(questionRequestID))
 	parsed, err := neturl.Parse(endpoint)
 	if err != nil {
 		t.Fatalf("parse question answer endpoint: %v", err)
 	}
-	if !useHeader {
-		query := parsed.Query()
-		query.Set("stream_token", agentRuntimeStreamToken)
-		parsed.RawQuery = query.Encode()
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, parsed.String(), bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("new question answer request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if useHeader {
-		req.Header.Set("X-Hivy-Stream-Token", agentRuntimeStreamToken)
-	}
-	trace.Body("question", fmt.Sprintf("POST %s request header_token=%v", parsed.String(), useHeader), body)
+	req.Header.Set("Authorization", "Bearer "+runtimeSecret)
+	trace.Body("question", fmt.Sprintf("POST %s request", parsed.String()), body)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("post question answer failed: %v", err)

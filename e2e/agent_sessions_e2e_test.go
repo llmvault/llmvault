@@ -65,14 +65,15 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	}
 
 	agentSessionsSendMessageStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, "I should be blocked before sharing", http.StatusForbidden)
-	firstStreamAccess := waitForAgentSessionsStreamAccess(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, session.Event.ID)
-	t.Logf("first direct sandbox stream url=%s stream_id=%s event_id=%s", firstStreamAccess.DirectURL, firstStreamAccess.StreamID, firstStreamAccess.SessionEventID)
-	firstStream := agentSessionsStartDirectStream(t, ctx, firstStreamAccess.DirectURL, firstStreamAccess.StreamToken)
+	agentSessionsSandboxAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, http.StatusForbidden)
+	ownerSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
+	directURL := agentSessionsDirectStreamURL(ownerSandboxAccess, session.Session.ID)
+	t.Logf("first direct sandbox stream url=%s", directURL)
+	firstStream := agentSessionsStartDirectStream(t, ctx, directURL, ownerSandboxAccess.Token)
 	firstToolEvent := firstStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, "bash")
 	})
 	t.Logf("first turn entered tool execution event=%s", firstToolEvent.RawData)
-	agentSessionsStreamAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, session.Event.ID, http.StatusForbidden)
 
 	detail := agentSessionsPutParticipant(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, memberAuth.User.ID)
 	assertAgentSessionsParticipant(t, detail, memberAuth.User.ID)
@@ -84,12 +85,12 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	if !memberMessage.Queued || memberMessage.Event == nil || memberMessage.Event.SequenceNumber <= session.Event.SequenceNumber {
 		t.Fatalf("collaborator message was not queued after sharing: %+v", memberMessage)
 	}
-	memberStreamAccess := waitForAgentSessionsStreamAccess(t, ctx, apiBase, memberToken, orgID, session.Session.ID, memberMessage.Event.ID)
-	if memberStreamAccess.DirectURL != firstStreamAccess.DirectURL {
-		t.Fatalf("member stream direct_url=%q want stable session stream %q", memberStreamAccess.DirectURL, firstStreamAccess.DirectURL)
+	memberSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, memberToken, orgID, session.Session.ID)
+	if memberSandboxAccess.Token == ownerSandboxAccess.Token {
+		t.Fatalf("member sandbox token should be independently minted")
 	}
-	if memberStreamAccess.StreamToken != firstStreamAccess.StreamToken {
-		t.Fatalf("member stream token differs from owner stream token")
+	if memberDirectURL := agentSessionsDirectStreamURL(memberSandboxAccess, session.Session.ID); memberDirectURL != directURL {
+		t.Fatalf("member stream direct_url=%q want stable session stream %q", memberDirectURL, directURL)
 	}
 
 	firstMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
@@ -107,7 +108,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	t.Logf("collaborator agent response observed event_id=%s type=%s", secondResponse.ID, secondResponse.EventType)
 	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	assertAgentSessionsEventOrder(t, events)
-	assertAgentSessionsCanonicalIngestion(t, events, session.Session.ID, firstStreamAccess.StreamID, thinkingMarker, firstMarker, secondMarker)
+	assertAgentSessionsCanonicalIngestion(t, events, session.Session.ID, "", thinkingMarker, firstMarker, secondMarker)
 
 	agents = agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
 	defaultAgent = findDefaultAgent(t, agents)

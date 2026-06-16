@@ -72,10 +72,6 @@ async fn main() -> Result<()> {
         "HIVY_RUNTIME_SECRET",
         "shared runtime bearer token",
     )?;
-    let stream_token = runtime_env
-        .get("HIVY_STREAM_TOKEN")
-        .cloned()
-        .filter(|value| !value.trim().is_empty());
     let bind_addr_text = runtime_env
         .get("HIVY_RUNTIME_BIND_ADDR")
         .cloned()
@@ -155,6 +151,11 @@ async fn main() -> Result<()> {
     );
 
     let session_stream_broker = Arc::new(api::SessionStreamBroker::new());
+    let repo_service = Arc::new(api::RepoService::new(
+        workspace_root.clone(),
+        session_stream_broker.clone(),
+    ));
+    repo_service.clone().start();
     let plan_manager = Arc::new(
         api::PlanManager::new(session_stream_broker.clone()).with_outbound_emitter(emitter.clone()),
     );
@@ -173,7 +174,6 @@ async fn main() -> Result<()> {
         event_repo.clone(),
         cron_repo.clone(),
         runtime_secret,
-        stream_token,
         workspace_root.clone(),
         Arc::new(LocalBashOperations),
         skill_writer,
@@ -182,6 +182,7 @@ async fn main() -> Result<()> {
             broker: session_stream_broker.clone(),
         }),
         Some(question_manager.clone()),
+        Some(repo_service.clone()),
         Some(mcp_registry.clone()),
         Some(outbound_reloader),
         sentry_enabled,

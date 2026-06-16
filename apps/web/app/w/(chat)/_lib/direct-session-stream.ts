@@ -27,7 +27,7 @@ export type DirectSessionStreamReplayMode =
 export function subscribeToDirectSessionStream({
   sessionId,
   directUrl,
-  streamToken,
+  token,
   replay,
   signal,
   onOpen,
@@ -35,17 +35,17 @@ export function subscribeToDirectSessionStream({
 }: {
   sessionId: string
   directUrl: string
-  streamToken: string
+  token: string
   replay?: DirectSessionStreamReplayMode
   signal: AbortSignal
   onOpen?: (meta: DirectSessionStreamOpen) => void
   onEvent?: (frame: DirectSessionStreamFrame) => void
 }) {
-  return fetchEventSource(directSessionStreamURL(directUrl, streamToken, replay), {
+  return fetchEventSource(directSessionStreamURL(directUrl, replay), {
     method: "GET",
     headers: {
       Accept: "text/event-stream",
-      "X-Hivy-Stream-Token": streamToken,
+      Authorization: `Bearer ${token}`,
     },
     signal,
     openWhenHidden: true,
@@ -89,11 +89,9 @@ export function subscribeToDirectSessionStream({
 
 export function directSessionStreamURL(
   url: string,
-  streamToken: string,
   replay: DirectSessionStreamReplayMode = { mode: "all" }
 ) {
   const parsed = new URL(url)
-  parsed.searchParams.set("stream_token", streamToken)
   parsed.searchParams.delete("replay")
   parsed.searchParams.delete("after_seq")
   if (replay.mode === "none") {
@@ -108,7 +106,11 @@ export function directSessionStreamURL(
 export function directSessionStreamCursor(
   frame: DirectSessionStreamFrame
 ): DirectSessionStreamCursor | null {
-  if (!frame.data || typeof frame.data !== "object" || Array.isArray(frame.data)) {
+  if (
+    !frame.data ||
+    typeof frame.data !== "object" ||
+    Array.isArray(frame.data)
+  ) {
     return null
   }
   const record = frame.data as Record<string, unknown>

@@ -74,6 +74,16 @@ export function SessionThreadView({
     "post",
     "/v1/sessions/{id}/messages"
   )
+  const sandboxAccessMutation = $api.useMutation(
+    "post",
+    "/v1/sessions/{id}/sandbox-access"
+  )
+  const {
+    data: sandboxAccess,
+    error: sandboxAccessError,
+    isPending: sandboxAccessPending,
+    mutate: requestSandboxAccess,
+  } = sandboxAccessMutation
   const sessionHistoryQuery = $api.useInfiniteQuery(
     "get",
     "/v1/sessions/{id}/events",
@@ -95,19 +105,6 @@ export function SessionThreadView({
     }
   )
   const refetchHistoryRef = useRef(sessionHistoryQuery.refetch)
-  const streamAccessQuery = $api.useQuery(
-    "get",
-    "/v1/sessions/{id}/stream-access",
-    {
-      params: {
-        path: { id: sessionId ?? "" },
-      },
-    },
-    {
-      enabled: Boolean(sessionId) && !optimisticSession,
-      retry: false,
-    }
-  )
   const historyPages = sessionHistoryQuery.data?.pages
   const historyEvents = useMemo(
     () => sessionHistoryPagesToEvents(historyPages ?? []),
@@ -247,6 +244,13 @@ export function SessionThreadView({
   }, [streaming])
 
   useEffect(() => {
+    if (!sessionId || optimisticSession) {
+      return
+    }
+    requestSandboxAccess({ params: { path: { id: sessionId } } })
+  }, [optimisticSession, requestSandboxAccess, sessionId])
+
+  useEffect(() => {
     return () => {
       clearStreamWatchdog()
       clearStreamReconnectTimer()
@@ -254,28 +258,28 @@ export function SessionThreadView({
   }, [clearStreamReconnectTimer, clearStreamWatchdog])
 
   useEffect(() => {
-    if (!sessionId || !streamAccessQuery.data || !historyReadyForStream) return
-    const directUrl = streamAccessQuery.data.direct_url
-    const streamToken = streamAccessQuery.data.stream_token
-    const streamId = streamAccessQuery.data.stream_id
-    if (!directUrl || !streamToken) {
+    if (!sessionId || !historyReadyForStream) return
+    if (!sandboxAccess) return
+    const sandboxBaseUrl = sandboxAccess.sandbox_base_url
+    const sandboxToken = sandboxAccess.token
+    if (!sandboxBaseUrl || !sandboxToken) {
       failLiveStream("The live session stream is not available.")
       return
     }
+    const directUrl = `${sandboxBaseUrl.replace(/\/+$/, "")}/sessions/${sessionId}/stream`
 
     const cursor = streamCursorRef.current
-    const replay: DirectSessionStreamReplayMode =
-      cursor && cursor.streamId === streamId
-        ? { mode: "after_seq", afterSeq: cursor.sequence }
-        : sessionHistoryQuery.isSuccess
-          ? { mode: "none" }
-          : { mode: "all" }
+    const replay: DirectSessionStreamReplayMode = cursor
+      ? { mode: "after_seq", afterSeq: cursor.sequence }
+      : sessionHistoryQuery.isSuccess
+        ? { mode: "none" }
+        : { mode: "all" }
 
     const controller = new AbortController()
     void subscribeToDirectSessionStream({
       sessionId,
       directUrl,
-      streamToken,
+      token: sandboxToken,
       replay,
       signal: controller.signal,
       onOpen: ({ streamId: openedStreamId, nextSequence }) => {
@@ -354,24 +358,33 @@ export function SessionThreadView({
     sessionHistoryQuery.isSuccess,
     startLiveStream,
     streamReconnectVersion,
-    streamAccessQuery.data,
+    sandboxAccess,
   ])
 
   useEffect(() => {
-    if (!streamAccessQuery.isError || !streamingRef.current) return
-    failLiveStream("The live session stream could not be opened.")
-  }, [failLiveStream, streamAccessQuery.isError, streaming])
+    if (sandboxAccessError && streamingRef.current) {
+      failLiveStream(
+        extractErrorMessage(
+          sandboxAccessError,
+          "Sandbox access is not available."
+        )
+      )
+    }
+  }, [failLiveStream, sandboxAccessError])
 
   useEffect(() => {
-    if (!streaming || !streamAccessQuery.data) return
-    if (
-      streamAccessQuery.data.direct_url &&
-      streamAccessQuery.data.stream_token
-    ) {
+    if (!streaming || sandboxAccessPending) return
+    if (sandboxAccess?.sandbox_base_url && sandboxAccess.token) {
       return
     }
     failLiveStream("The live session stream is not available.")
-  }, [failLiveStream, streamAccessQuery.data, streaming])
+  }, [
+    failLiveStream,
+    sandboxAccess?.sandbox_base_url,
+    sandboxAccess?.token,
+    sandboxAccessPending,
+    streaming,
+  ])
 
   const send = async (text: string, retryEventID?: string) => {
     if (streaming) return false

@@ -66,7 +66,7 @@ func newSessionHarness(t *testing.T) *sessionHarness {
 		r.Patch("/sessions/{id}", h.Update)
 		r.Post("/sessions/{id}/messages", h.SendMessage)
 		r.Get("/sessions/{id}/events", h.ListEvents)
-		r.Get("/sessions/{id}/stream-access", h.StreamAccess)
+		r.Post("/sessions/{id}/sandbox-access", h.SandboxAccess)
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)
 	})

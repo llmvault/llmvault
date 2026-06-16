@@ -2,8 +2,6 @@ package agentruntime
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -79,7 +77,6 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 		env[AgentEnvSandboxID] = sb.ID.String()
 	}
 	env[AgentEnvRuntimeSecret] = runtimeSecret
-	env[AgentEnvStreamToken] = StreamTokenFromRuntimeSecret(runtimeSecret)
 	env[AgentEnvDriveUploadBearer] = runtimeSecret
 	env[AgentEnvAgentID] = agent.ID.String()
 	if agent.OrgID != nil {
@@ -103,11 +100,6 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	addControlPlaneRuntimeEnv(ctx, deps, env, agent, runtimeSecret)
 
 	return env, nil
-}
-
-func StreamTokenFromRuntimeSecret(runtimeSecret string) string {
-	sum := sha256.Sum256([]byte("hivy-runtime-stream-token:v1:" + runtimeSecret))
-	return "stok_" + base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // mergeAgentEnvVars decrypts and merges org-supplied env vars into env. It must

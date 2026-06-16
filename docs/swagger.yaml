@@ -591,19 +591,6 @@ definitions:
       upgrade_id:
         type: string
     type: object
-  agentSkillResponse:
-    properties:
-      created_at:
-        type: string
-      locked:
-        type: boolean
-      required:
-        type: boolean
-      skill:
-        $ref: '#/definitions/skillResponse'
-      skill_id:
-        type: string
-    type: object
   agentSkillSummary:
     properties:
       description:
@@ -710,11 +697,6 @@ definitions:
       path:
         type: string
       updated_at:
-        type: string
-    type: object
-  attachSkillRequest:
-    properties:
-      skill_id:
         type: string
     type: object
   auditEntryResponse:
@@ -2495,25 +2477,21 @@ definitions:
       updated_at:
         type: string
     type: object
-  sessionStreamAccessResponse:
+  sessionSandboxAccessResponse:
     properties:
-      direct_url:
+      expires_at:
         type: string
-      sequence_number:
-        type: integer
-      session_event_id:
+      sandbox_base_url:
         type: string
+      sandbox_id:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
       session_id:
         type: string
-      stream_id:
-        type: string
-      stream_token:
-        type: string
-      stream_url:
-        type: string
-      trace_id:
-        type: string
-      turn_id:
+      token:
         type: string
     type: object
   sessionSummary:
@@ -4320,100 +4298,6 @@ paths:
       summary: Get an agent sandbox upgrade
       tags:
       - agents
-  /v1/agents/{id}/skills:
-    get:
-      parameters:
-      - description: Agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/agentSkillResponse'
-            type: array
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: List skills attached to an agent
-      tags:
-      - skills
-    post:
-      consumes:
-      - application/json
-      description: Creates an agent skill attachment.
-      parameters:
-      - description: Agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Skill to attach
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/attachSkillRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/agentSkillResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Attach a skill to an agent
-      tags:
-      - skills
-  /v1/agents/{id}/skills/{skillID}:
-    delete:
-      description: Removes an agent skill attachment.
-      parameters:
-      - description: Agent ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Skill ID
-        in: path
-        name: skillID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Detach a skill from an agent
-      tags:
-      - skills
   /v1/agents/{id}/sync:
     post:
       description: |-
@@ -7931,19 +7815,15 @@ paths:
       summary: Add a session participant
       tags:
       - sessions
-  /v1/sessions/{id}/stream-access:
-    get:
-      description: Returns browser-direct sandbox stream details for a delivered queued
-        session message.
+  /v1/sessions/{id}/sandbox-access:
+    post:
+      description: Returns the direct sandbox base URL and a short-lived JWT scoped
+        to read-only stream and repository APIs.
       parameters:
       - description: Session ID
         in: path
         name: id
         required: true
-        type: string
-      - description: Session event ID
-        in: query
-        name: event_id
         type: string
       produces:
       - application/json
@@ -7951,11 +7831,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/sessionStreamAccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
+            $ref: '#/definitions/sessionSandboxAccessResponse'
         "401":
           description: Unauthorized
           schema:
@@ -7974,7 +7850,7 @@ paths:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Get direct session stream access
+      summary: Mint direct sandbox access
       tags:
       - sessions
   /v1/skills:

@@ -1848,154 +1848,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/agents/{id}/skills": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "List skills attached to an agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/agentSkillResponse"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates an agent skill attachment.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Attach a skill to an agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Skill to attach",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/attachSkillRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/agentSkillResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/agents/{id}/skills/{skillID}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Removes an agent skill attachment.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Detach a skill from an agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Skill ID",
-                        "name": "skillID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/agents/{id}/sync": {
             "post": {
                 "security": [
@@ -7378,21 +7230,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/sessions/{id}/stream-access": {
-            "get": {
+        "/v1/sessions/{id}/sandbox-access": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns browser-direct sandbox stream details for a delivered queued session message.",
+                "description": "Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "sessions"
                 ],
-                "summary": "Get direct session stream access",
+                "summary": "Mint direct sandbox access",
                 "parameters": [
                     {
                         "type": "string",
@@ -7400,25 +7252,13 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Session event ID",
-                        "name": "event_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sessionStreamAccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
+                            "$ref": "#/definitions/sessionSandboxAccessResponse"
                         }
                     },
                     "401": {
@@ -9176,26 +9016,6 @@ const docTemplate = `{
                 }
             }
         },
-        "agentSkillResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "locked": {
-                    "type": "boolean"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "skill": {
-                    "$ref": "#/definitions/skillResponse"
-                },
-                "skill_id": {
-                    "type": "string"
-                }
-            }
-        },
         "agentSkillSummary": {
             "type": "object",
             "properties": {
@@ -9352,14 +9172,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "attachSkillRequest": {
-            "type": "object",
-            "properties": {
-                "skill_id": {
                     "type": "string"
                 }
             }
@@ -12088,34 +11900,28 @@ const docTemplate = `{
                 }
             }
         },
-        "sessionStreamAccessResponse": {
+        "sessionSandboxAccessResponse": {
             "type": "object",
             "properties": {
-                "direct_url": {
+                "expires_at": {
                     "type": "string"
                 },
-                "sequence_number": {
-                    "type": "integer"
-                },
-                "session_event_id": {
+                "sandbox_base_url": {
                     "type": "string"
+                },
+                "sandbox_id": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "session_id": {
                     "type": "string"
                 },
-                "stream_id": {
-                    "type": "string"
-                },
-                "stream_token": {
-                    "type": "string"
-                },
-                "stream_url": {
-                    "type": "string"
-                },
-                "trace_id": {
-                    "type": "string"
-                },
-                "turn_id": {
+                "token": {
                     "type": "string"
                 }
             }

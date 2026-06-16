@@ -2257,180 +2257,6 @@
         }
       }
     },
-    "/v1/agents/{id}/skills": {
-      "get": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "tags": [
-          "skills"
-        ],
-        "summary": "List skills attached to an agent",
-        "parameters": [
-          {
-            "description": "Agent ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/agentSkillResponse"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Creates an agent skill attachment.",
-        "tags": [
-          "skills"
-        ],
-        "summary": "Attach a skill to an agent",
-        "parameters": [
-          {
-            "description": "Agent ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/attachSkillRequest"
-              }
-            }
-          },
-          "description": "Skill to attach",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/agentSkillResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/agents/{id}/skills/{skillID}": {
-      "delete": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "description": "Removes an agent skill attachment.",
-        "tags": [
-          "skills"
-        ],
-        "summary": "Detach a skill from an agent",
-        "parameters": [
-          {
-            "description": "Agent ID",
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Skill ID",
-            "name": "skillID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/agents/{id}/sync": {
       "post": {
         "security": [
@@ -9091,32 +8917,24 @@
         }
       }
     },
-    "/v1/sessions/{id}/stream-access": {
-      "get": {
+    "/v1/sessions/{id}/sandbox-access": {
+      "post": {
         "security": [
           {
             "BearerAuth": []
           }
         ],
-        "description": "Returns browser-direct sandbox stream details for a delivered queued session message.",
+        "description": "Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.",
         "tags": [
           "sessions"
         ],
-        "summary": "Get direct session stream access",
+        "summary": "Mint direct sandbox access",
         "parameters": [
           {
             "description": "Session ID",
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Session event ID",
-            "name": "event_id",
-            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -9128,17 +8946,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/sessionStreamAccessResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
+                  "$ref": "#/components/schemas/sessionSandboxAccessResponse"
                 }
               }
             }
@@ -11149,26 +10957,6 @@
           }
         }
       },
-      "agentSkillResponse": {
-        "type": "object",
-        "properties": {
-          "created_at": {
-            "type": "string"
-          },
-          "locked": {
-            "type": "boolean"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "skill": {
-            "$ref": "#/components/schemas/skillResponse"
-          },
-          "skill_id": {
-            "type": "string"
-          }
-        }
-      },
       "agentSkillSummary": {
         "type": "object",
         "properties": {
@@ -11325,14 +11113,6 @@
             "type": "string"
           },
           "updated_at": {
-            "type": "string"
-          }
-        }
-      },
-      "attachSkillRequest": {
-        "type": "object",
-        "properties": {
-          "skill_id": {
             "type": "string"
           }
         }
@@ -14061,34 +13841,28 @@
           }
         }
       },
-      "sessionStreamAccessResponse": {
+      "sessionSandboxAccessResponse": {
         "type": "object",
         "properties": {
-          "direct_url": {
+          "expires_at": {
             "type": "string"
           },
-          "sequence_number": {
-            "type": "integer"
-          },
-          "session_event_id": {
+          "sandbox_base_url": {
             "type": "string"
+          },
+          "sandbox_id": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "session_id": {
             "type": "string"
           },
-          "stream_id": {
-            "type": "string"
-          },
-          "stream_token": {
-            "type": "string"
-          },
-          "stream_url": {
-            "type": "string"
-          },
-          "trace_id": {
-            "type": "string"
-          },
-          "turn_id": {
+          "token": {
             "type": "string"
           }
         }

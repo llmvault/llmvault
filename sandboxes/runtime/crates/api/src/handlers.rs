@@ -293,20 +293,8 @@ pub async fn put_config(
         .runtime_secret
         .as_ref()
         .is_some_and(|v| !v.trim().is_empty());
-    let next_stream_token = request
-        .runtime_env
-        .get("HIVY_STREAM_TOKEN")
-        .map(|value| value.trim().to_string());
     if env_key_count > 0 {
         state.config_store.merge_runtime_env(request.runtime_env);
-    }
-    if let Some(stream_token) = next_stream_token {
-        let mut token = state.stream_token.write().await;
-        *token = if stream_token.is_empty() {
-            None
-        } else {
-            Some(stream_token)
-        };
     }
     if let Some(secret) = request.runtime_secret {
         let secret = secret.trim().to_string();
@@ -869,6 +857,9 @@ pub async fn get_session_live_stream(
         warn!(error = %error, "stream query rejected");
         (StatusCode::BAD_REQUEST, error)
     })?;
+    if let Some(repo_service) = state.repo_service.as_ref() {
+        repo_service.register_session(&session_id).await;
+    }
     Ok(sse_stream_response(
         crate::session_stream::session_stream_response(
             session_stream.broker.clone(),

@@ -12,6 +12,7 @@ use tokio::sync::{Notify, RwLock};
 use tools::LocalBashOperations;
 
 use crate::question_manager::QuestionManager;
+use crate::repos::RepoService;
 use crate::session_stream::SessionMessageState;
 
 #[derive(Clone)]
@@ -22,7 +23,6 @@ pub struct ApiState {
     pub event_repo: Arc<dyn EventRepo>,
     pub cron_repo: Arc<dyn CronJobRepo>,
     pub bearer_token: Arc<RwLock<String>>,
-    pub stream_token: Arc<RwLock<Option<String>>>,
     pub workspace_root: PathBuf,
     pub bash: Arc<LocalBashOperations>,
     pub session_api_ready: Arc<AtomicBool>,
@@ -31,6 +31,7 @@ pub struct ApiState {
     pub skill_writer: Arc<SkillWriter>,
     pub session_stream: Option<SessionMessageState>,
     pub question_manager: Option<Arc<QuestionManager>>,
+    pub repo_service: Option<Arc<RepoService>>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
     pub outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
     pub observability: ObservabilityRecorder,
@@ -52,12 +53,12 @@ impl ApiState {
         event_repo: Arc<dyn EventRepo>,
         cron_repo: Arc<dyn CronJobRepo>,
         bearer_token: String,
-        stream_token: Option<String>,
         workspace_root: PathBuf,
         bash: Arc<LocalBashOperations>,
         skill_writer: Arc<SkillWriter>,
         session_stream: Option<SessionMessageState>,
         question_manager: Option<Arc<QuestionManager>>,
+        repo_service: Option<Arc<RepoService>>,
         mcp_registry: Option<Arc<McpRegistry>>,
         outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
         sentry_enabled: bool,
@@ -74,9 +75,6 @@ impl ApiState {
             event_repo,
             cron_repo,
             bearer_token: Arc::new(RwLock::new(bearer_token)),
-            stream_token: Arc::new(RwLock::new(
-                stream_token.filter(|token| !token.trim().is_empty()),
-            )),
             workspace_root,
             bash,
             session_api_ready: Arc::new(AtomicBool::new(false)),
@@ -85,6 +83,7 @@ impl ApiState {
             skill_writer,
             session_stream,
             question_manager,
+            repo_service,
             mcp_registry,
             outbound_reloader,
             observability,

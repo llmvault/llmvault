@@ -7,7 +7,6 @@ import (
 
 const (
 	AgentEnvRuntimeSecret              = "HIVY_RUNTIME_SECRET"
-	AgentEnvStreamToken                = "HIVY_STREAM_TOKEN"
 	AgentEnvProxyAPIKey                = "HIVY_PROXY_API_KEY"
 	AgentEnvAgentModel                 = "HIVY_AGENT_MODEL"
 	AgentEnvAgentBaseURL               = "HIVY_AGENT_BASE_URL"
@@ -96,7 +95,6 @@ type AgentEnvReportEntry struct {
 
 var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvRuntimeSecret, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
-	{Key: AgentEnvStreamToken, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvProxyAPIKey, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvAgentModel, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvAgentBaseURL, Source: AgentEnvSourceControlPlaneInjected},

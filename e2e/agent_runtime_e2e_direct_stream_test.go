@@ -6,6 +6,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type directRuntimeSSEResult struct {
@@ -17,10 +20,10 @@ type directRuntimeSSEHandle struct {
 	ch <-chan directRuntimeSSEResult
 }
 
-func readDirectRuntimeSSEAsync(trace *agentRuntimeE2ETrace, ctx context.Context, streamURL string) directRuntimeSSEHandle {
+func readDirectRuntimeSSEAsync(trace *agentRuntimeE2ETrace, ctx context.Context, streamURL, token string) directRuntimeSSEHandle {
 	ch := make(chan directRuntimeSSEResult, 1)
 	go func() {
-		events, err := readRuntimeSSEClient(ctx, trace, "direct-response", streamURL, "", nil)
+		events, err := readRuntimeSSEClient(ctx, trace, "direct-response", streamURL, token, nil)
 		ch <- directRuntimeSSEResult{events: events, err: err}
 	}()
 	return directRuntimeSSEHandle{ch: ch}
@@ -41,10 +44,33 @@ func directRuntimeStreamURL(t *testing.T, baseURL, streamPath string) string {
 	if err != nil {
 		t.Fatalf("parse direct stream url: %v", err)
 	}
-	query := parsed.Query()
-	query.Set("stream_token", agentRuntimeStreamToken)
-	parsed.RawQuery = query.Encode()
 	return parsed.String()
+}
+
+func directRuntimeJWT(t *testing.T, runtimeSecret, sessionID, sandboxID string, scopes ...string) string {
+	t.Helper()
+	if len(scopes) == 0 {
+		scopes = []string{"stream:read", "repo:read"}
+	}
+	now := time.Now().UTC()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"iss":        "hivy",
+		"aud":        "hivy-runtime",
+		"sub":        "e2e-user",
+		"org_id":     "e2e-org",
+		"session_id": sessionID,
+		"sandbox_id": sandboxID,
+		"scopes":     scopes,
+		"iat":        now.Unix(),
+		"nbf":        now.Add(-time.Second).Unix(),
+		"exp":        now.Add(time.Hour).Unix(),
+		"jti":        "e2e-" + sessionID,
+	})
+	signed, err := token.SignedString([]byte(runtimeSecret))
+	if err != nil {
+		t.Fatalf("sign direct runtime jwt: %v", err)
+	}
+	return signed
 }
 
 func assertDirectStreamDisabledBeforeConfig(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, baseURL string) {
