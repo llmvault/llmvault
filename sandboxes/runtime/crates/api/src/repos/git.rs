@@ -77,7 +77,7 @@ pub(super) fn changed_paths(
     next: &RepoSnapshot,
 ) -> Vec<serde_json::Value> {
     let mut paths = BTreeMap::new();
-    if previous.is_none_or(|prev| prev.head_sha != next.head_sha) {
+    if previous.map_or(true, |prev| prev.head_sha != next.head_sha) {
         for (path, status) in &next.paths {
             paths.insert(path.clone(), status.clone());
         }
