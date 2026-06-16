@@ -11,6 +11,7 @@ use tokio::sync::mpsc;
 use tracing::{error, info};
 
 const POLL_INTERVAL_SECONDS: u64 = 5;
+const RUNNING_JOB_LEASE_SECONDS: i64 = 60 * 60;
 const STALE_GRACE_MULTIPLIER: f64 = 0.5;
 
 pub struct CronScheduler {
@@ -36,6 +37,7 @@ impl CronScheduler {
         let mut interval = tokio::time::interval(Duration::from_secs(POLL_INTERVAL_SECONDS));
         loop {
             interval.tick().await;
+            self.recover_stale_running_jobs().await;
             let due = match self.repo.list_due().await {
                 Ok(jobs) => jobs,
                 Err(e) => {
@@ -47,6 +49,23 @@ impl CronScheduler {
                 if let Some(final_job) = self.fast_forward_if_stale(job).await {
                     self.dispatch_job(final_job).await;
                 }
+            }
+        }
+    }
+
+    async fn recover_stale_running_jobs(&self) {
+        let before = Utc::now() - chrono::Duration::seconds(RUNNING_JOB_LEASE_SECONDS);
+        match self.repo.reset_stale_running(before).await {
+            Ok(0) => {}
+            Ok(count) => {
+                info!(
+                    recovered = count,
+                    lease_seconds = RUNNING_JOB_LEASE_SECONDS,
+                    "cron: recovered stale running jobs"
+                );
+            }
+            Err(e) => {
+                error!(error = %e, "cron: failed to recover stale running jobs");
             }
         }
     }
@@ -90,9 +109,52 @@ impl CronScheduler {
         let scheduled_at = job.next_run_at;
         let started_at = Utc::now();
         let run_key = schedule_run_key(&job.id, scheduled_at);
+        let is_wake = job.session_continuation_id.is_some();
+        if job.interval_seconds.is_none() && !is_wake {
+            error!(
+                job_id = %job.id,
+                cron_expression = ?job.cron_expression,
+                "cron: cron_expression schedules are not supported by this scheduler; pausing job"
+            );
+            let _ = self
+                .repo
+                .record_run(
+                    &job.id,
+                    started_at,
+                    "error",
+                    Some("cron_expression schedules are not supported by this runtime scheduler"),
+                )
+                .await;
+            let _ = self
+                .repo
+                .set_state(&job.id, domain::cron::CronJobState::Paused)
+                .await;
+            return;
+        }
         let is_recurring = job.interval_seconds.map(|v| v > 0).unwrap_or(false);
         let is_one_shot = job.interval_seconds == Some(0);
-        let is_wake = job.session_continuation_id.is_some();
+        let requires_claim = is_one_shot || is_wake;
+
+        if requires_claim {
+            match self
+                .repo
+                .claim_due_run(&job.id, Utc::now(), started_at)
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    info!(
+                        job_id = %job.id,
+                        "cron: skipped scheduled task because it was already claimed"
+                    );
+                    return;
+                }
+                Err(e) => {
+                    error!(job_id = %job.id, error = %e, "cron: failed to claim due run");
+                    return;
+                }
+            }
+        }
 
         if is_recurring && !is_wake {
             let next = Utc::now() + chrono::Duration::seconds(job.interval_seconds.unwrap() as i64);
@@ -109,12 +171,14 @@ impl CronScheduler {
         );
         let envelope_id = format!("cron-{}", Utc::now().timestamp_millis());
 
-        if let Err(e) = self
-            .repo
-            .record_run(&job.id, started_at, "running", None)
-            .await
-        {
-            error!(job_id = %job.id, error = %e, "cron: failed to record run start");
+        if !requires_claim {
+            if let Err(e) = self
+                .repo
+                .record_run(&job.id, started_at, "running", None)
+                .await
+            {
+                error!(job_id = %job.id, error = %e, "cron: failed to record run start");
+            }
         }
         let running_job = self
             .repo
@@ -197,6 +261,12 @@ impl CronScheduler {
         if let Err(e) = self.inbound_sink.send(inbound).await {
             error!(job_id = %job.id, error = %e, "cron: failed to dispatch");
             let failed_at = Utc::now();
+            if requires_claim {
+                let _ = self
+                    .repo
+                    .set_state(&job.id, domain::cron::CronJobState::Active)
+                    .await;
+            }
             let _ = self
                 .repo
                 .record_run(&job.id, failed_at, "error", Some(&e.to_string()))
@@ -284,7 +354,7 @@ fn scheduled_job_raw_metadata(job: &CronJob) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicI64, Ordering};
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
     use chrono::{DateTime, Duration as ChronoDuration, Utc};
@@ -293,7 +363,10 @@ mod tests {
     use storage::repos::{CronJobRepo, Result as StorageResult};
     use tokio::sync::mpsc;
 
-    use super::{next_future_occurrence, scheduled_job_raw_metadata, CronScheduler};
+    use super::{
+        next_future_occurrence, scheduled_job_raw_metadata, CronScheduler,
+        RUNNING_JOB_LEASE_SECONDS,
+    };
 
     fn test_job(id: &str) -> CronJob {
         CronJob {
@@ -337,6 +410,8 @@ mod tests {
     struct RecordingCronRepo {
         update_next_run_calls: AtomicI64,
         last_next_run: std::sync::Mutex<Option<DateTime<Utc>>>,
+        reset_stale_running_calls: AtomicI64,
+        last_reset_before: std::sync::Mutex<Option<DateTime<Utc>>>,
     }
 
     impl RecordingCronRepo {
@@ -344,6 +419,8 @@ mod tests {
             Self {
                 update_next_run_calls: AtomicI64::new(0),
                 last_next_run: std::sync::Mutex::new(None),
+                reset_stale_running_calls: AtomicI64::new(0),
+                last_reset_before: std::sync::Mutex::new(None),
             }
         }
     }
@@ -379,6 +456,20 @@ mod tests {
         }
         async fn set_state(&self, _id: &str, _state: CronJobState) -> StorageResult<()> {
             Ok(())
+        }
+        async fn claim_due_run(
+            &self,
+            _id: &str,
+            _now: DateTime<Utc>,
+            _started_at: DateTime<Utc>,
+        ) -> StorageResult<bool> {
+            Ok(true)
+        }
+        async fn reset_stale_running(&self, before: DateTime<Utc>) -> StorageResult<u64> {
+            self.reset_stale_running_calls
+                .fetch_add(1, Ordering::SeqCst);
+            *self.last_reset_before.lock().unwrap() = Some(before);
+            Ok(2)
         }
         async fn record_run(
             &self,
@@ -483,5 +574,190 @@ mod tests {
             0,
             "fresh jobs are advanced by dispatch_job, not fast_forward_if_stale"
         );
+    }
+
+    #[tokio::test]
+    async fn scheduler_sweeps_stale_running_jobs_with_lease_cutoff() {
+        let repo = Arc::new(RecordingCronRepo::new());
+        let scheduler = scheduler_with_repo(repo.clone());
+
+        scheduler.recover_stale_running_jobs().await;
+
+        assert_eq!(repo.reset_stale_running_calls.load(Ordering::SeqCst), 1);
+        let before = repo
+            .last_reset_before
+            .lock()
+            .unwrap()
+            .expect("recovery cutoff should be passed to repo");
+        let expected = Utc::now() - ChronoDuration::seconds(RUNNING_JOB_LEASE_SECONDS);
+        assert!((before - expected).num_seconds().abs() < 2);
+    }
+
+    struct ClaimingCronRepo {
+        job: Mutex<CronJob>,
+    }
+
+    impl ClaimingCronRepo {
+        fn new(job: CronJob) -> Self {
+            Self {
+                job: Mutex::new(job),
+            }
+        }
+
+        fn state(&self) -> CronJobState {
+            self.job.lock().unwrap().state
+        }
+
+        fn last_status(&self) -> Option<String> {
+            self.job.lock().unwrap().last_status.clone()
+        }
+
+        fn last_error(&self) -> Option<String> {
+            self.job.lock().unwrap().last_error.clone()
+        }
+    }
+
+    #[async_trait]
+    impl CronJobRepo for ClaimingCronRepo {
+        async fn create(&self, _job: &CronJob) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn get(&self, _id: &str) -> StorageResult<Option<CronJob>> {
+            Ok(Some(self.job.lock().unwrap().clone()))
+        }
+        async fn list_all(&self) -> StorageResult<Vec<CronJob>> {
+            Ok(vec![self.job.lock().unwrap().clone()])
+        }
+        async fn list_due(&self) -> StorageResult<Vec<CronJob>> {
+            let job = self.job.lock().unwrap();
+            if job.state == CronJobState::Active && job.next_run_at <= Utc::now() {
+                Ok(vec![job.clone()])
+            } else {
+                Ok(Vec::new())
+            }
+        }
+        async fn update_prompt(&self, _id: &str, _task_prompt: String) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_interval(&self, _id: &str, _interval_seconds: u64) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn update_next_run(
+            &self,
+            _id: &str,
+            next_run_at: DateTime<Utc>,
+        ) -> StorageResult<()> {
+            self.job.lock().unwrap().next_run_at = next_run_at;
+            Ok(())
+        }
+        async fn set_state(&self, _id: &str, state: CronJobState) -> StorageResult<()> {
+            self.job.lock().unwrap().state = state;
+            Ok(())
+        }
+        async fn claim_due_run(
+            &self,
+            _id: &str,
+            now: DateTime<Utc>,
+            started_at: DateTime<Utc>,
+        ) -> StorageResult<bool> {
+            let mut job = self.job.lock().unwrap();
+            if job.state != CronJobState::Active || job.next_run_at > now {
+                return Ok(false);
+            }
+            job.state = CronJobState::Running;
+            job.last_run_at = Some(started_at);
+            job.last_status = Some("running".to_string());
+            Ok(true)
+        }
+        async fn record_run(
+            &self,
+            _id: &str,
+            run_at: DateTime<Utc>,
+            status: &str,
+            error: Option<&str>,
+        ) -> StorageResult<()> {
+            let mut job = self.job.lock().unwrap();
+            job.last_run_at = Some(run_at);
+            job.last_status = Some(status.to_string());
+            job.last_error = error.map(ToString::to_string);
+            Ok(())
+        }
+        async fn increment_repeat(&self, _id: &str) -> StorageResult<()> {
+            Ok(())
+        }
+        async fn delete(&self, _id: &str) -> StorageResult<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn wake_dispatch_claims_job_before_enqueue_so_stale_due_clone_is_skipped() {
+        let mut job = test_job("wake-claim-dispatch");
+        job.interval_seconds = None;
+        job.next_run_at = Utc::now() - ChronoDuration::seconds(1);
+        job.session_continuation_id = Some("session-continue".to_string());
+        let stale_due_clone = job.clone();
+        let repo = Arc::new(ClaimingCronRepo::new(job));
+        let (tx, mut rx) = mpsc::channel(8);
+        let scheduler = CronScheduler::new(repo.clone(), tx, None);
+
+        scheduler.dispatch_job(stale_due_clone.clone()).await;
+
+        let dispatched = rx.try_recv().expect("wake should dispatch once");
+        assert_eq!(dispatched.session_id.as_str(), "session-continue");
+        assert_eq!(repo.state(), CronJobState::Running);
+
+        scheduler.dispatch_job(stale_due_clone).await;
+
+        assert!(
+            rx.try_recv().is_err(),
+            "claimed wake must not dispatch again from a stale due row"
+        );
+    }
+
+    #[tokio::test]
+    async fn wake_dispatch_send_failure_resets_claim_and_records_error() {
+        let mut job = test_job("wake-send-failure");
+        job.interval_seconds = None;
+        job.next_run_at = Utc::now() - ChronoDuration::seconds(1);
+        job.session_continuation_id = Some("session-continue".to_string());
+        let repo = Arc::new(ClaimingCronRepo::new(job.clone()));
+        let (tx, rx) = mpsc::channel(1);
+        drop(rx);
+        let scheduler = CronScheduler::new(repo.clone(), tx, None);
+
+        scheduler.dispatch_job(job).await;
+
+        assert_eq!(repo.state(), CronJobState::Active);
+        assert_eq!(repo.last_status().as_deref(), Some("error"));
+        assert!(
+            repo.last_error()
+                .as_deref()
+                .unwrap_or_default()
+                .contains("channel closed"),
+            "send error should be persisted for operators"
+        );
+    }
+
+    #[tokio::test]
+    async fn cron_expression_without_interval_is_paused_instead_of_repeated() {
+        let mut job = test_job("cron-expression-only");
+        job.interval_seconds = None;
+        job.cron_expression = Some("0 9 * * *".to_string());
+        job.next_run_at = Utc::now() - ChronoDuration::seconds(1);
+        let repo = Arc::new(ClaimingCronRepo::new(job.clone()));
+        let (tx, mut rx) = mpsc::channel(1);
+        let scheduler = CronScheduler::new(repo.clone(), tx, None);
+
+        scheduler.dispatch_job(job).await;
+
+        assert!(rx.try_recv().is_err(), "unsupported cron must not dispatch");
+        assert_eq!(repo.state(), CronJobState::Paused);
+        assert_eq!(repo.last_status().as_deref(), Some("error"));
+        assert!(repo
+            .last_error()
+            .as_deref()
+            .unwrap_or_default()
+            .contains("cron_expression schedules are not supported"));
     }
 }

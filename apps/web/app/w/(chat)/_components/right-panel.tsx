@@ -3,13 +3,18 @@
 import { useState } from "react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { ReviewView } from "./views/review"
-import { TerminalView } from "./views/terminal"
-import { BrowserView } from "./views/browser"
-import { FilesView } from "./views/files"
-import { SideChatView } from "./views/side-chat"
+import { BrowserView } from "@/app/w/(chat)/_components/views/browser"
+import { FilesView } from "@/app/w/(chat)/_components/views/files"
+import { ReviewView } from "@/app/w/(chat)/_components/views/review"
+import { SideChatView } from "@/app/w/(chat)/_components/views/side-chat"
+import { TerminalView } from "@/app/w/(chat)/_components/views/terminal"
 
-export type PanelViewID = "review" | "terminal" | "browser" | "files" | "side-chat"
+export type PanelViewID =
+  | "review"
+  | "terminal"
+  | "browser"
+  | "files"
+  | "side-chat"
 
 const PANEL_VIEWS: {
   id: PanelViewID
@@ -18,10 +23,20 @@ const PANEL_VIEWS: {
   shortcut: string
 }[] = [
   { id: "review", label: "Review", icon: "lucide:file-diff", shortcut: "⌃⇧G" },
-  { id: "terminal", label: "Terminal", icon: "lucide:square-terminal", shortcut: "⌃`" },
+  {
+    id: "terminal",
+    label: "Terminal",
+    icon: "lucide:square-terminal",
+    shortcut: "⌃`",
+  },
   { id: "browser", label: "Browser", icon: "lucide:globe", shortcut: "⌘T" },
   { id: "files", label: "Files", icon: "lucide:folder", shortcut: "⌘P" },
-  { id: "side-chat", label: "Side chat", icon: "lucide:message-square-plus", shortcut: "⌥⌘S" },
+  {
+    id: "side-chat",
+    label: "Side chat",
+    icon: "lucide:message-square-plus",
+    shortcut: "⌥⌘S",
+  },
 ]
 
 export function RightPanel({
@@ -47,7 +62,7 @@ export function RightPanel({
   const unopened = PANEL_VIEWS.filter((view) => !openViews.includes(view.id))
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-surface">
+    <div className="bg-surface flex h-full min-w-0 flex-col">
       <div className="flex h-12 shrink-0 items-center gap-1 px-2">
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {openViews.map((id) => {
@@ -57,10 +72,10 @@ export function RightPanel({
             return (
               <div
                 key={id}
-                className={`group flex min-w-0 items-center gap-1.5 rounded-lg border py-1 pl-2.5 pr-1.5 text-sm transition-colors ${
+                className={`group flex min-w-0 items-center gap-1.5 rounded-lg border py-1 pr-1.5 pl-2.5 text-sm transition-colors ${
                   isActive
-                    ? "border-border bg-surface"
-                    : "border-transparent text-muted hover:bg-default"
+                    ? "bg-surface border-border"
+                    : "hover:bg-default border-transparent text-muted"
                 }`}
               >
                 <button
@@ -74,7 +89,7 @@ export function RightPanel({
                 <button
                   type="button"
                   aria-label={`Close ${view.label}`}
-                  className="rounded p-0.5 opacity-0 transition-opacity hover:bg-default group-hover:opacity-100"
+                  className="hover:bg-default rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => onCloseView(id)}
                 >
                   <Icon icon="lucide:x" className="h-3 w-3" />
@@ -87,7 +102,7 @@ export function RightPanel({
             <Popover isOpen={addMenuOpen} onOpenChange={setAddMenuOpen}>
               <Popover.Trigger
                 aria-label="Open view"
-                className="flex items-center rounded-lg p-1.5 text-muted transition-colors hover:bg-default"
+                className="hover:bg-default flex items-center rounded-lg p-1.5 text-muted transition-colors"
               >
                 <Icon icon="lucide:plus" className="h-4 w-4" />
               </Popover.Trigger>
@@ -132,7 +147,10 @@ export function RightPanel({
             aria-label="Close panel"
             onPress={onClosePanel}
           >
-            <Icon icon="lucide:panel-right-close" className="h-4 w-4 text-muted" />
+            <Icon
+              icon="lucide:panel-right-close"
+              className="h-4 w-4 text-muted"
+            />
           </Button>
         </div>
       </div>
@@ -177,7 +195,7 @@ function LauncherRow({
     <button
       type="button"
       onClick={onPress}
-      className={`flex w-full items-center gap-2.5 rounded-xl text-left text-sm transition-colors hover:bg-default ${
+      className={`hover:bg-default flex w-full items-center gap-2.5 rounded-xl text-left text-sm transition-colors ${
         compact ? "px-2.5 py-1.5" : "bg-background px-3 py-2.5"
       }`}
     >

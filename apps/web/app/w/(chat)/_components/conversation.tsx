@@ -1,41 +1,46 @@
 "use client"
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { Lightbox } from "@/app/w/(chat)/_components/lightbox"
+import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
+import { useWorkspace } from "@/app/w/(chat)/_components/shell"
+import { ToolBlock } from "@/app/w/(chat)/_components/tool-block"
 import {
   type ConversationBlock,
   type MediaAttachment,
-} from "../_lib/static-data"
-import { useWorkspace } from "./shell"
-import { Lightbox } from "./lightbox"
+} from "@/app/w/(chat)/_lib/static-data"
 
-export function Conversation({ blocks }: { blocks: ConversationBlock[] }) {
+export function Conversation({
+  blocks,
+  onRetryMessage,
+}: {
+  blocks: ConversationBlock[]
+  onRetryMessage?: (eventID: string, text: string) => void
+}) {
   // All attachments across the conversation form one gallery so the
   // lightbox can navigate between every shared image and video.
-  const gallery = useMemo(
-    () =>
-      blocks.flatMap((block) =>
-        block.type === "user"
-          ? (block.attachments ?? [])
-          : block.type === "attachments"
-            ? block.items
-            : []
-      ),
-    [blocks]
-  )
+  const gallery = useMemo(() => blocks.flatMap(blockAttachments), [blocks])
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   const openAttachment = (attachment: MediaAttachment) => {
     const index = gallery.findIndex((item) => item.id === attachment.id)
-    if (index >= 0) setLightboxIndex(index)
+    if (index >= 0) {
+      setLightboxIndex(index)
+    }
   }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6">
       {blocks.map((block, index) => (
-        <Block key={index} block={block} onOpenAttachment={openAttachment} />
+        <Block
+          key={conversationBlockKey(block, index)}
+          block={block}
+          onOpenAttachment={openAttachment}
+          onRetryMessage={onRetryMessage}
+        />
       ))}
       <Lightbox
         items={gallery}
@@ -45,6 +50,15 @@ export function Conversation({ blocks }: { blocks: ConversationBlock[] }) {
       />
     </div>
   )
+}
+
+function conversationBlockKey(block: ConversationBlock, index: number) {
+  if (block.type === "worklog") {
+    return `${block.key ?? `${block.type}:${index}`}:${
+      block.active ? "active" : "complete"
+    }`
+  }
+  return block.key ?? `${block.type}:${index}`
 }
 
 function AttachmentThumbs({
@@ -62,9 +76,9 @@ function AttachmentThumbs({
           type="button"
           onClick={() => onOpen(item)}
           aria-label={`Open ${item.filename}`}
-          className="group relative overflow-hidden rounded-xl border border-border bg-surface transition-shadow hover:shadow-md"
+          className="group bg-surface relative overflow-hidden rounded-xl border border-border transition-shadow hover:shadow-md"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- static sample thumbnails */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- attachment previews keep their original dimensions */}
           <img
             src={item.kind === "video" ? (item.poster ?? item.url) : item.url}
             alt={item.filename}
@@ -90,41 +104,18 @@ function AttachmentThumbs({
   )
 }
 
-// Splits backtick-marked spans into inline code chips.
-export function InlineProse({ text }: { text: string }) {
-  const segments = text.split("`")
-  return (
-    <>
-      {segments.map((segment, index) =>
-        index % 2 === 1 ? (
-          <code
-            key={index}
-            className="rounded-md bg-default px-1.5 py-0.5 font-mono text-[0.85em]"
-          >
-            {segment}
-          </code>
-        ) : (
-          <Fragment key={index}>{segment}</Fragment>
-        )
-      )}
-    </>
-  )
-}
-
 function Block({
   block,
   onOpenAttachment,
+  onRetryMessage,
 }: {
   block: ConversationBlock
   onOpenAttachment: (attachment: MediaAttachment) => void
+  onRetryMessage?: (eventID: string, text: string) => void
 }) {
   switch (block.type) {
     case "assistant":
-      return (
-        <p className="text-[15px] leading-7">
-          <InlineProse text={block.text} />
-        </p>
-      )
+      return <MarkdownProse text={block.text} streaming={block.streaming} />
     case "activity":
       return <ActivityBlock block={block} />
     case "user":
@@ -136,7 +127,7 @@ function Block({
               <span className="text-xs text-muted">{block.author.name}</span>
             </div>
           ) : null}
-          <div className="flex flex-col gap-2 rounded-2xl bg-default px-4 py-3 text-[15px]">
+          <div className="bg-default flex flex-col gap-2 rounded-2xl px-3.5 py-2.5 text-sm">
             {block.attachments?.length ? (
               <AttachmentThumbs
                 items={block.attachments}
@@ -147,12 +138,13 @@ function Block({
             {block.link ? (
               <a
                 href={block.link}
-                className="flex min-w-0 items-center gap-1.5 text-sm text-danger underline-offset-2 hover:underline"
+                className="text-danger flex min-w-0 items-center gap-1.5 text-sm underline-offset-2 hover:underline"
               >
                 <Icon icon="mdi:github" className="h-4 w-4 shrink-0" />
                 <span className="truncate">{block.link}</span>
               </a>
             ) : null}
+            <UserMessageStatus block={block} onRetryMessage={onRetryMessage} />
           </div>
         </div>
       )
@@ -165,10 +157,28 @@ function Block({
           {block.text}
         </div>
       )
+    case "error":
+      return (
+        <div className="border-danger/20 bg-danger/10 text-danger flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+          <Icon
+            icon="lucide:circle-alert"
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span className="min-w-0">{block.text}</span>
+        </div>
+      )
     case "queued":
       return <QueuedBlock block={block} />
     case "worked":
       return <WorkedBlock block={block} />
+    case "worklog":
+      return (
+        <WorklogBlock
+          block={block}
+          onOpenAttachment={onOpenAttachment}
+          onRetryMessage={onRetryMessage}
+        />
+      )
     case "working":
       return <WorkingBlock block={block} />
     case "tool":
@@ -182,6 +192,55 @@ function Block({
   }
 }
 
+function UserMessageStatus({
+  block,
+  onRetryMessage,
+}: {
+  block: Extract<ConversationBlock, { type: "user" }>
+  onRetryMessage?: (eventID: string, text: string) => void
+}) {
+  const failed = block.clientStatus === "failed"
+  if (!failed) {
+    return null
+  }
+
+  const canRetry = failed && block.clientEventID && onRetryMessage
+
+  return (
+    <span
+      className={`flex items-center gap-1.5 self-end rounded-full px-2 py-0.5 text-[11px] ${
+        failed ? "bg-danger/10 text-danger" : "bg-surface text-muted"
+      }`}
+      title={block.clientError}
+    >
+      {failed ? <Icon icon="lucide:circle-alert" className="h-3 w-3" /> : null}
+      <span>{failed ? "Not sent" : "Sending"}</span>
+      {canRetry ? (
+        <button
+          type="button"
+          className="font-medium underline-offset-2 hover:underline"
+          onClick={() => onRetryMessage(block.clientEventID!, block.text)}
+        >
+          Retry
+        </button>
+      ) : null}
+    </span>
+  )
+}
+
+function blockAttachments(block: ConversationBlock): MediaAttachment[] {
+  if (block.type === "user") {
+    return block.attachments ?? []
+  }
+  if (block.type === "attachments") {
+    return block.items
+  }
+  if (block.type === "worklog") {
+    return block.blocks.flatMap(blockAttachments)
+  }
+  return []
+}
+
 function WorkingBlock({
   block,
 }: {
@@ -191,9 +250,13 @@ function WorkingBlock({
   const startRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (block.duration) return
+    if (block.duration) {
+      return
+    }
     const tick = () => {
-      if (startRef.current === null) startRef.current = performance.now()
+      if (startRef.current === null) {
+        startRef.current = performance.now()
+      }
       setElapsed(Math.floor((performance.now() - startRef.current) / 1000))
     }
     tick()
@@ -233,12 +296,12 @@ function QueuedBlock({
         <span className="text-xs text-muted">
           {block.author.you ? "You" : block.author.name}
         </span>
-        <span className="flex items-center gap-1 rounded-full bg-default px-1.5 py-0.5 text-[11px] text-muted">
+        <span className="bg-default flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] text-muted">
           <Icon icon="lucide:clock" className="h-3 w-3" />
           Queued
         </span>
       </div>
-      <div className="rounded-2xl border border-dashed border-border px-4 py-3 text-[15px]">
+      <div className="rounded-2xl border border-dashed border-border px-3.5 py-2.5 text-sm">
         {block.text}
       </div>
     </div>
@@ -255,33 +318,11 @@ function PersonAvatar({
   const dims = size === "xs" ? "h-5 w-5 text-[10px]" : "h-6 w-6 text-xs"
   return (
     <span
-      className={`flex ${dims} shrink-0 items-center justify-center rounded-full font-semibold text-white ring-2 ring-surface`}
+      className={`flex ${dims} ring-surface shrink-0 items-center justify-center rounded-full font-semibold text-white ring-2`}
       style={{ backgroundColor: person.color }}
     >
       {person.initials}
     </span>
-  )
-}
-
-function ToolBlock({
-  block,
-}: {
-  block: Extract<ConversationBlock, { type: "tool" }>
-}) {
-  return (
-    <div className="flex items-center gap-2 text-sm text-muted">
-      <Icon
-        icon="lucide:square-chevron-right"
-        className="h-3.5 w-3.5 shrink-0"
-      />
-      <span
-        className={`min-w-0 flex-1 truncate font-mono text-[13px] ${
-          block.running ? "hivy-shimmer" : ""
-        }`}
-      >
-        {block.label}
-      </span>
-    </div>
   )
 }
 
@@ -290,13 +331,53 @@ function ThinkingBlock({
 }: {
   block: Extract<ConversationBlock, { type: "thinking" }>
 }) {
+  const [expanded, setExpanded] = useState(block.defaultExpanded ?? false)
+
+  if (block.text) {
+    return (
+      <div className="flex min-w-0 flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          className={`focus-visible:outline-warning self-start text-left text-sm font-medium text-muted transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+            block.active ? "hivy-shimmer" : ""
+          }`}
+        >
+          {block.label ??
+            (block.duration ? `Thought for ${block.duration}` : "Thinking")}
+        </button>
+        <Collapse open={expanded}>
+          <div className="bg-default rounded-2xl px-4 py-3">
+            <MarkdownProse text={block.text} streaming={block.active} muted />
+          </div>
+        </Collapse>
+      </div>
+    )
+  }
+
+  if (block.duration) {
+    return (
+      <span className="self-start text-sm font-medium text-muted">
+        {block.label ?? `Thought for ${block.duration}`}
+      </span>
+    )
+  }
+
+  const label = block.label ?? "Thinking"
+
+  if (!block.active) {
+    return (
+      <span className="self-start text-sm font-medium text-muted">{label}</span>
+    )
+  }
+
   return (
     <motion.span
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="hivy-shimmer self-start text-[15px] font-medium"
+      className="hivy-shimmer self-start text-sm font-medium"
     >
-      {block.label ?? "Thinking"}
+      {label}
     </motion.span>
   )
 }
@@ -356,12 +437,12 @@ function ActivityBlock({
         <Collapse open={expanded}>
           <div className="flex items-center gap-1.5 pt-1.5 text-sm">
             <span className="text-muted">{block.detail.prefix}</span>
-            <span className="font-mono text-[13px] text-danger underline-offset-2 hover:underline">
+            <span className="text-danger font-mono text-[13px] underline-offset-2 hover:underline">
               {block.detail.file}
             </span>
             <span className="text-success">+{block.detail.adds}</span>
             <span className="text-danger">-{block.detail.dels}</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-danger" />
+            <span className="bg-danger h-1.5 w-1.5 rounded-full" />
           </div>
         </Collapse>
       ) : null}
@@ -390,9 +471,12 @@ function WorkedBlock({
         />
       </button>
       <Collapse open={expanded}>
-        <div className="flex flex-col gap-1.5 border-l border-border pl-4 pt-2">
+        <div className="flex flex-col gap-1.5 border-l border-border pt-2 pl-4">
           {block.steps.map((step) => (
-            <div key={step} className="flex items-start gap-2 text-sm text-muted">
+            <div
+              key={step}
+              className="flex items-start gap-2 text-sm text-muted"
+            >
               <Icon
                 icon="lucide:check"
                 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success"
@@ -404,6 +488,90 @@ function WorkedBlock({
       </Collapse>
     </div>
   )
+}
+
+function WorklogBlock({
+  block,
+  onOpenAttachment,
+  onRetryMessage,
+}: {
+  block: Extract<ConversationBlock, { type: "worklog" }>
+  onOpenAttachment: (attachment: MediaAttachment) => void
+  onRetryMessage?: (eventID: string, text: string) => void
+}) {
+  const [expanded, setExpanded] = useState(block.defaultExpanded ?? false)
+  const duration = useLiveWorkDuration(
+    block.active ? block.startedAt : undefined,
+    block.duration
+  )
+  const label = `Worked${duration ? ` for ${duration}` : ""}`
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+        className="focus-visible:outline-warning flex w-full items-center gap-2 border-b border-border pb-3 text-left text-sm text-muted transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        <span className={block.active ? "hivy-shimmer" : ""}>{label}</span>
+        <Icon
+          icon="lucide:chevron-right"
+          className={`h-4 w-4 transition-transform ${
+            expanded ? "rotate-90" : ""
+          }`}
+        />
+      </button>
+      <Collapse open={expanded}>
+        <div className="flex flex-col gap-5 pb-1">
+          {block.blocks.map((child, index) => (
+            <Block
+              key={conversationBlockKey(child, index)}
+              block={child}
+              onOpenAttachment={onOpenAttachment}
+              onRetryMessage={onRetryMessage}
+            />
+          ))}
+        </div>
+      </Collapse>
+    </div>
+  )
+}
+
+function useLiveWorkDuration(startedAt?: number, fallback?: string) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!startedAt) {
+      return
+    }
+    const interval = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(interval)
+  }, [startedAt])
+
+  if (!startedAt) {
+    return fallback
+  }
+  return formatWorkDuration(Math.max(100, now - startedAt))
+}
+
+function formatWorkDuration(durationMs: number) {
+  if (durationMs < 1000) {
+    return `${Math.max(0.1, Math.round(durationMs / 100) / 10)} seconds`
+  }
+  if (durationMs < 60_000) {
+    const seconds = Math.round(durationMs / 1000)
+    return seconds === 1 ? "1 second" : `${seconds} seconds`
+  }
+  if (durationMs < 3_600_000) {
+    const totalSeconds = Math.round(durationMs / 1000)
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`
+  }
+  const totalMinutes = Math.round(durationMs / 60_000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
 }
 
 function EditsBlock({
@@ -421,7 +589,9 @@ function EditsBlock({
           <Icon icon="lucide:file-diff" className="h-4 w-4 text-muted" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="text-sm font-medium">Edited {block.count} files</span>
+          <span className="text-sm font-medium">
+            Edited {block.count} files
+          </span>
           <span className="text-sm">
             <span className="text-success">+{block.adds}</span>{" "}
             <span className="text-danger">-{block.dels}</span>
@@ -542,7 +712,7 @@ function ActionIcon({
       type="button"
       aria-label={label}
       onClick={onPress}
-      className={`rounded-lg p-1.5 transition-colors hover:bg-default ${
+      className={`hover:bg-default rounded-lg p-1.5 transition-colors ${
         active ? "text-foreground" : "text-muted hover:text-foreground"
       }`}
     >

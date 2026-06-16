@@ -1,9 +1,9 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useRef, useState, type ComponentType } from "react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { modelById, type Agent } from "../_lib/agents"
+import { modelById, type Agent } from "@/app/w/(chat)/_lib/agents"
 
 const ACCESS_MODES = [
   {
@@ -31,6 +31,39 @@ const ACCESS_MODES = [
 
 const EFFORTS = ["Low", "Medium", "High"]
 
+type DisplayModel = {
+  id: string
+  label: string
+  provider: string
+  Icon?: ComponentType<{ className?: string }>
+}
+
+function displayModel(id: string): DisplayModel {
+  try {
+    return modelById(id)
+  } catch {
+    return {
+      id,
+      label: id,
+      provider: "Agent model",
+    }
+  }
+}
+
+function ModelIcon({
+  model,
+  className,
+}: {
+  model: DisplayModel
+  className: string
+}) {
+  const IconComponent = model.Icon
+  if (IconComponent) {
+    return <IconComponent className={className} />
+  }
+  return <Icon icon="lucide:brain" className={`${className} text-muted`} />
+}
+
 export function Composer({
   agent,
   modelId,
@@ -43,7 +76,7 @@ export function Composer({
   agent: Agent
   modelId: string
   onModelChange: (modelId: string) => void
-  onSend: (text: string) => void
+  onSend: (text: string) => boolean | void | Promise<boolean | void>
   placeholder?: string
   isStreaming?: boolean
   onStop?: () => void
@@ -56,20 +89,34 @@ export function Composer({
   const [recording, setRecording] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
-  const selectedModel = modelById(modelId)
+  const selectedModel = displayModel(modelId)
   const canSend = value.trim().length > 0
 
-  const submit = () => {
-    if (!canSend) return
-    onSend(value.trim())
+  const submit = async () => {
+    if (!canSend || isStreaming) {
+      return
+    }
+
+    const text = value.trim()
     setValue("")
     const node = textareaRef.current
-    if (node) node.style.height = "auto"
+    if (node) {
+      node.style.height = "auto"
+    }
+
+    try {
+      const sent = await onSend(text)
+      if (sent === false) {
+        setValue((current) => (current === "" ? text : current))
+      }
+    } catch {
+      setValue((current) => (current === "" ? text : current))
+    }
   }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-      <div className="flex flex-col gap-2 rounded-3xl border border-border bg-surface px-3 pb-2 pt-3 shadow-sm">
+      <div className="bg-surface flex flex-col gap-2 rounded-3xl border border-border px-3 pt-3 pb-2 shadow-sm">
         <textarea
           ref={textareaRef}
           rows={1}
@@ -83,7 +130,7 @@ export function Composer({
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault()
-              submit()
+              void submit()
             }
           }}
           className="max-h-40 w-full resize-none bg-transparent px-2 text-[15px] outline-none placeholder:text-muted"
@@ -97,7 +144,7 @@ export function Composer({
           <Popover isOpen={accessOpen} onOpenChange={setAccessOpen}>
             <Popover.Trigger
               aria-label="Access mode"
-              className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-default ${
+              className={`hover:bg-default flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
                 accessMode.warning ? "text-warning" : "text-muted"
               }`}
             >
@@ -115,7 +162,7 @@ export function Composer({
                       setAccessMode(mode)
                       setAccessOpen(false)
                     }}
-                    className="flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-default"
+                    className="hover:bg-default flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors"
                   >
                     <Icon
                       icon={mode.icon}
@@ -144,9 +191,9 @@ export function Composer({
           <Popover isOpen={modelOpen} onOpenChange={setModelOpen}>
             <Popover.Trigger
               aria-label="Model and effort"
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-default"
+              className="hover:bg-default flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors"
             >
-              <selectedModel.Icon className="h-3.5 w-3.5" />
+              <ModelIcon model={selectedModel} className="h-3.5 w-3.5" />
               <span className="font-medium">{selectedModel.label}</span>
               <span className="text-muted">{effort}</span>
               <Icon
@@ -156,17 +203,17 @@ export function Composer({
             </Popover.Trigger>
             <Popover.Content className="w-64 rounded-2xl border border-border p-1.5">
               <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-                <span className="px-2.5 pb-1 pt-1.5 text-xs text-muted">
+                <span className="px-2.5 pt-1.5 pb-1 text-xs text-muted">
                   Models available to {agent.name}
                 </span>
-                {agent.modelIds.map(modelById).map((entry) => (
+                {agent.modelIds.map(displayModel).map((entry) => (
                   <button
                     key={entry.id}
                     type="button"
                     onClick={() => onModelChange(entry.id)}
-                    className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default"
+                    className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
                   >
-                    <entry.Icon className="h-4 w-4 shrink-0" />
+                    <ModelIcon model={entry} className="h-4 w-4 shrink-0" />
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span>{entry.label}</span>
                       <span className="text-xs text-muted">
@@ -178,7 +225,7 @@ export function Composer({
                     ) : null}
                   </button>
                 ))}
-                <span className="px-2.5 pb-1 pt-2 text-xs text-muted">
+                <span className="px-2.5 pt-2 pb-1 text-xs text-muted">
                   Reasoning effort
                 </span>
                 {EFFORTS.map((entry) => (
@@ -189,7 +236,7 @@ export function Composer({
                       setEffort(entry)
                       setModelOpen(false)
                     }}
-                    className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default"
+                    className="hover:bg-default flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
                   >
                     <span className="min-w-0 flex-1">{entry}</span>
                     {entry === effort ? (
@@ -231,7 +278,7 @@ export function Composer({
               isIconOnly
               aria-label="Send"
               isDisabled={!canSend}
-              onPress={submit}
+              onPress={() => void submit()}
               className="rounded-full"
             >
               <Icon icon="lucide:arrow-up" className="h-4 w-4" />

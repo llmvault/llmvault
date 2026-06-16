@@ -1,25 +1,19 @@
 "use client"
 
-import { PatchDiff } from "@pierre/diffs/react"
-import { reviewPatches } from "../../_lib/static-data"
+import { Icon } from "@iconify/react"
 
 export function ReviewView() {
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2 text-sm">
-        <span className="font-medium">Edited 9 files</span>
-        <span className="text-success">+66</span>
-        <span className="text-danger">-77</span>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-        {reviewPatches.map((patch, index) => (
-          <PatchDiff
-            key={index}
-            patch={patch}
-            options={{ theme: "pierre-light" }}
-            disableWorkerPool
-          />
-        ))}
+    <div className="flex h-full items-center justify-center px-6 text-center">
+      <div className="flex max-w-sm flex-col items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background">
+          <Icon icon="lucide:file-diff" className="h-5 w-5 text-muted" />
+        </div>
+        <div className="text-sm font-medium">No review available</div>
+        <p className="text-sm leading-6 text-muted">
+          File diffs will appear here when the current session reports edited
+          files.
+        </p>
       </div>
     </div>
   )

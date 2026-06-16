@@ -10,7 +10,7 @@ use domain::{
 use nanoid::nanoid;
 use outbound::OutboundEmitter;
 
-use crate::session_stream::SessionStreamBroker;
+use crate::session_stream::{SessionStreamBroker, StreamReplayMode};
 
 pub struct PlanManager {
     broker: Arc<SessionStreamBroker>,
@@ -113,7 +113,11 @@ mod tests {
         broker
             .register_session(session_id.as_str(), &stream_id)
             .await;
-        let (_history, mut stream) = broker.subscribe(&stream_id).await.expect("stream");
+        let mut stream = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream")
+            .into_receiver_for_test();
 
         let result = manager
             .update_plan(&session_id, plan_payload())

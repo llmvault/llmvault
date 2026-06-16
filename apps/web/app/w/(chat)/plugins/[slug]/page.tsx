@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { Button, Link } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { findPluginBySlug } from "../_data"
+import { findPluginBySlug } from "@/app/w/(chat)/plugins/_data"
 
 export default async function PluginDetailPage({
   params,

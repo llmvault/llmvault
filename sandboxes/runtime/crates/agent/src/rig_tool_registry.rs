@@ -1065,6 +1065,7 @@ fn schedule_payload(job: &CronJob, session_id: &SessionId, origin: &str) -> Valu
 fn cron_state_string(state: CronJobState) -> &'static str {
     match state {
         CronJobState::Active => "active",
+        CronJobState::Running => "running",
         CronJobState::Paused => "paused",
         CronJobState::Completed => "completed",
     }

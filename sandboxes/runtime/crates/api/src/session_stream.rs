@@ -6,7 +6,9 @@ use std::time::Instant;
 
 use anyhow::Result;
 use async_stream::stream;
+use axum::http::{HeaderName, HeaderValue};
 use axum::response::sse::{Event, Sse};
+use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, Utc};
 use domain::{Attachment, InboundEvent, SessionId};
 use observability::{
@@ -69,6 +71,39 @@ impl std::ops::Deref for SeqEvent {
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamReplayMode {
+    All,
+    None,
+    AfterSeq(u64),
+}
+
+pub struct StreamSubscription {
+    history: Vec<SeqEvent>,
+    receiver: broadcast::Receiver<SeqEvent>,
+    initial_last_seq: Option<u64>,
+    next_seq: u64,
+    resync_required: Option<ResyncRequired>,
+}
+
+#[cfg(test)]
+impl StreamSubscription {
+    fn into_parts(self) -> (Vec<SeqEvent>, broadcast::Receiver<SeqEvent>) {
+        (self.history, self.receiver)
+    }
+
+    pub(crate) fn into_receiver_for_test(self) -> broadcast::Receiver<SeqEvent> {
+        self.receiver
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ResyncRequired {
+    requested_after_seq: u64,
+    earliest_seq: u64,
+    latest_seq: u64,
 }
 
 struct StreamState {
@@ -316,11 +351,48 @@ impl SessionStreamBroker {
     pub async fn subscribe(
         &self,
         stream_id: &str,
-    ) -> Option<(Vec<SeqEvent>, broadcast::Receiver<SeqEvent>)> {
+        replay_mode: StreamReplayMode,
+    ) -> Option<StreamSubscription> {
         let streams = self.streams.lock().await;
         let state = streams.get(stream_id)?;
-        let history = state.history.iter().cloned().collect();
-        Some((history, state.sender.subscribe()))
+        let latest_seq = state.next_seq.checked_sub(1);
+        let earliest_seq = state.history.front().map(|item| item.seq);
+        let mut resync_required = None;
+        let (history, initial_last_seq) = match replay_mode {
+            StreamReplayMode::All => (state.history.iter().cloned().collect(), None),
+            StreamReplayMode::None => (Vec::new(), latest_seq),
+            StreamReplayMode::AfterSeq(after_seq) => {
+                if let (Some(first), Some(latest)) = (earliest_seq, latest_seq) {
+                    if after_seq < first.saturating_sub(1) {
+                        resync_required = Some(ResyncRequired {
+                            requested_after_seq: after_seq,
+                            earliest_seq: first,
+                            latest_seq: latest,
+                        });
+                        (Vec::new(), Some(latest))
+                    } else {
+                        (
+                            state
+                                .history
+                                .iter()
+                                .filter(|item| item.seq > after_seq)
+                                .cloned()
+                                .collect(),
+                            Some(after_seq),
+                        )
+                    }
+                } else {
+                    (Vec::new(), Some(after_seq))
+                }
+            }
+        };
+        Some(StreamSubscription {
+            history,
+            receiver: state.sender.subscribe(),
+            initial_last_seq,
+            next_seq: state.next_seq,
+            resync_required,
+        })
     }
 
     /// Replay-history events with sequence number strictly greater than
@@ -627,6 +699,7 @@ impl SessionMessageState {
 enum StreamFrame {
     Event(SessionStreamEvent),
     Resync { skipped: u64, from_seq: Option<u64> },
+    ResyncRequired(ResyncRequired),
 }
 
 /// Core of the SSE replay stream, decoupled from the `Sse`/`Event` wire types so
@@ -638,13 +711,18 @@ fn replay_stream(
     broker: Arc<SessionStreamBroker>,
     stream_id: String,
     stop_on_done: bool,
+    initial_last_seq: Option<u64>,
+    resync_required: Option<ResyncRequired>,
     history: Vec<SeqEvent>,
     mut receiver: broadcast::Receiver<SeqEvent>,
 ) -> impl futures::Stream<Item = StreamFrame> {
     stream! {
         // Track the highest sequence number delivered to this subscriber so a
         // `Lagged` gap can be resynced precisely from history.
-        let mut last_seq: Option<u64> = None;
+        let mut last_seq = initial_last_seq;
+        if let Some(resync) = resync_required {
+            yield StreamFrame::ResyncRequired(resync);
+        }
         for item in history {
             last_seq = Some(item.seq);
             let is_done = item.inner.event == "done";
@@ -708,6 +786,41 @@ fn stream_frame_to_sse(stream_id: &str, frame: StreamFrame) -> Event {
                 "from_seq": from_seq,
             }))
             .unwrap_or_else(|_| Event::default().event("resync").data("{}")),
+        StreamFrame::ResyncRequired(resync) => Event::default()
+            .event("resync_required")
+            .json_data(json!({
+                "stream_id": stream_id,
+                "requested_after_seq": resync.requested_after_seq,
+                "earliest_seq": resync.earliest_seq,
+                "latest_seq": resync.latest_seq,
+            }))
+            .unwrap_or_else(|_| Event::default().event("resync_required").data("{}")),
+    }
+}
+
+pub struct SessionStreamResponse<S> {
+    stream_id: String,
+    next_sequence: u64,
+    sse: Sse<S>,
+}
+
+impl<S> IntoResponse for SessionStreamResponse<S>
+where
+    S: futures::Stream<Item = Result<Event, Infallible>> + Send + 'static,
+{
+    fn into_response(self) -> Response {
+        let mut response = self.sse.into_response();
+        let headers = response.headers_mut();
+        if let Ok(value) = HeaderValue::from_str(&self.stream_id) {
+            headers.insert(HeaderName::from_static("x-hivy-stream-id"), value);
+        }
+        if let Ok(value) = HeaderValue::from_str(&self.next_sequence.to_string()) {
+            headers.insert(
+                HeaderName::from_static("x-hivy-stream-next-sequence"),
+                value,
+            );
+        }
+        response
     }
 }
 
@@ -715,53 +828,81 @@ pub async fn stream_response(
     broker: Arc<SessionStreamBroker>,
     session_id: String,
     stream_id: String,
-) -> Option<Sse<impl futures::Stream<Item = Result<Event, Infallible>>>> {
+    replay_mode: StreamReplayMode,
+) -> Option<SessionStreamResponse<impl futures::Stream<Item = Result<Event, Infallible>>>> {
     if !broker
         .stream_belongs_to_session(&session_id, &stream_id)
         .await
     {
         return None;
     }
-    let (history, receiver) = broker.subscribe(&stream_id).await?;
-    let frames = replay_stream(broker, stream_id.clone(), true, history, receiver);
+    let subscription = broker.subscribe(&stream_id, replay_mode).await?;
+    let next_sequence = subscription.next_seq;
+    let frames = replay_stream(
+        broker,
+        stream_id.clone(),
+        true,
+        subscription.initial_last_seq,
+        subscription.resync_required,
+        subscription.history,
+        subscription.receiver,
+    );
+    let output_stream_id = stream_id.clone();
     let output = stream! {
         use futures::StreamExt;
         futures::pin_mut!(frames);
         while let Some(frame) = frames.next().await {
-            yield Ok(stream_frame_to_sse(&stream_id, frame));
+            yield Ok(stream_frame_to_sse(&output_stream_id, frame));
         }
     };
-    Some(
-        Sse::new(output).keep_alive(
+    Some(SessionStreamResponse {
+        stream_id,
+        next_sequence,
+        sse: Sse::new(output).keep_alive(
             axum::response::sse::KeepAlive::new()
                 .interval(Duration::from_secs(15))
                 .text("keep-alive"),
         ),
-    )
+    })
 }
 
 pub async fn session_stream_response(
     broker: Arc<SessionStreamBroker>,
     session_id: String,
-) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
+    replay_mode: StreamReplayMode,
+) -> SessionStreamResponse<impl futures::Stream<Item = Result<Event, Infallible>>> {
     let stream_id = broker.get_or_create_session_stream(&session_id).await;
-    let (history, receiver) = broker
-        .subscribe(&stream_id)
+    let subscription = broker
+        .subscribe(&stream_id, replay_mode)
         .await
         .expect("session stream was just created");
-    let frames = replay_stream(broker, stream_id.clone(), false, history, receiver);
+    let next_sequence = subscription.next_seq;
+    let frames = replay_stream(
+        broker,
+        stream_id.clone(),
+        false,
+        subscription.initial_last_seq,
+        subscription.resync_required,
+        subscription.history,
+        subscription.receiver,
+    );
+    let output_stream_id = stream_id.clone();
     let output = stream! {
         use futures::StreamExt;
         futures::pin_mut!(frames);
         while let Some(frame) = frames.next().await {
-            yield Ok(stream_frame_to_sse(&stream_id, frame));
+            yield Ok(stream_frame_to_sse(&output_stream_id, frame));
         }
     };
-    Sse::new(output).keep_alive(
-        axum::response::sse::KeepAlive::new()
-            .interval(Duration::from_secs(15))
-            .text("keep-alive"),
-    )
+    SessionStreamResponse {
+        stream_id,
+        next_sequence,
+        sse: Sse::new(output).keep_alive(
+            axum::response::sse::KeepAlive::new()
+                .interval(Duration::from_secs(15))
+                .text("keep-alive"),
+        ),
+    }
 }
 
 fn to_sse_event(item: SessionStreamEvent) -> Event {
@@ -932,10 +1073,19 @@ mod tests {
         let broker = Arc::new(SessionStreamBroker::new());
         let stream_id = broker.get_or_create_session_stream("session-stable").await;
         let (history, receiver) = broker
-            .subscribe(&stream_id)
+            .subscribe(&stream_id, StreamReplayMode::All)
             .await
-            .expect("stable stream exists");
-        let frames = replay_stream(broker.clone(), stream_id.clone(), false, history, receiver);
+            .expect("stable stream exists")
+            .into_parts();
+        let frames = replay_stream(
+            broker.clone(),
+            stream_id.clone(),
+            false,
+            None,
+            None,
+            history,
+            receiver,
+        );
         futures::pin_mut!(frames);
 
         broker
@@ -955,6 +1105,32 @@ mod tests {
             names.push(event.event);
         }
         assert_eq!(names, vec!["final", "done", "final", "done"]);
+    }
+
+    #[tokio::test]
+    async fn session_stream_response_sets_cursor_headers() {
+        let broker = Arc::new(SessionStreamBroker::new());
+        let stream_id = broker.get_or_create_session_stream("session-headers").await;
+        broker
+            .publish(&stream_id, "token", json!({"text": "hello"}))
+            .await;
+
+        let response = session_stream_response(
+            broker,
+            "session-headers".to_string(),
+            StreamReplayMode::None,
+        )
+        .await
+        .into_response();
+
+        assert_eq!(
+            response.headers()["x-hivy-stream-id"],
+            HeaderValue::from_str(&stream_id).unwrap()
+        );
+        assert_eq!(
+            response.headers()["x-hivy-stream-next-sequence"],
+            HeaderValue::from_static("1")
+        );
     }
 
     #[tokio::test]
@@ -992,7 +1168,11 @@ mod tests {
             .publish(&stream_id, "token", json!({"text": "hello"}))
             .await;
 
-        let (history, mut receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let (history, mut receiver) = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream exists")
+            .into_parts();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].event, "token");
         assert_eq!(history[0].payload["text"], "hello");
@@ -1025,7 +1205,11 @@ mod tests {
 
         // A subscriber arriving only now (reconnect / Slack asynq task / Go
         // proxy retry) must replay the NEWEST events, including final + done.
-        let (history, _receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let (history, _receiver) = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream exists")
+            .into_parts();
 
         assert_eq!(
             history.len(),
@@ -1073,7 +1257,11 @@ mod tests {
         let stream_id = broker.create_stream().await;
 
         // First connection sees the first two tokens live.
-        let (history0, mut first) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let (history0, mut first) = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream exists")
+            .into_parts();
         assert!(history0.is_empty(), "no history before any publish");
         broker
             .publish(&stream_id, "token", json!({"text": "The "}))
@@ -1094,7 +1282,11 @@ mod tests {
 
         // Reconnect: history must contain the WHOLE turn so far (the tail the new
         // subscriber missed is replayable), then live events continue.
-        let (history1, mut second) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let (history1, mut second) = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream exists")
+            .into_parts();
         let replayed: Vec<String> = history1
             .iter()
             .filter(|e| e.event == "token")
@@ -1133,7 +1325,11 @@ mod tests {
         broker.publish(&stream_id, "done", json!({})).await;
 
         // Subscribe only now — strictly after the stream is done.
-        let (history, mut receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let (history, mut receiver) = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream exists")
+            .into_parts();
         assert_eq!(history.last().map(|e| e.event.as_str()), Some("done"));
         assert!(
             history.iter().any(|e| e.event == "final"),
@@ -1254,7 +1450,10 @@ mod tests {
         // Before the grace elapses the state is retained so a late subscriber can
         // still replay the terminal events.
         assert_eq!(broker.stream_count().await, 1);
-        assert!(broker.subscribe(&stream_id).await.is_some());
+        assert!(broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .is_some());
 
         // Simulate the grace window having elapsed, then trigger an opportunistic
         // sweep by creating a new (unrelated) stream.
@@ -1264,7 +1463,10 @@ mod tests {
         // The finished stream and its session mappings are reclaimed; only the
         // freshly created unrelated stream remains.
         assert_eq!(broker.stream_count().await, 1);
-        assert!(broker.subscribe(&stream_id).await.is_none());
+        assert!(broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .is_none());
         assert_eq!(broker.session_stream_count().await, 0);
         assert!(broker.stream_id_for_session("session-1").await.is_none());
     }
@@ -1285,7 +1487,10 @@ mod tests {
 
         // The old finished stream is evicted, but the session mapping now points
         // at the newer stream and must be preserved.
-        assert!(broker.subscribe(&old).await.is_none());
+        assert!(broker
+            .subscribe(&old, StreamReplayMode::All)
+            .await
+            .is_none());
         assert_eq!(broker.stream_id_for_session("session-x").await, Some(new));
     }
 
@@ -1299,7 +1504,11 @@ mod tests {
         // Subscribe (capacity 256) but do NOT consume, then publish far more than
         // the channel capacity so the broadcast drops events for this receiver —
         // forcing a `Lagged` on the first recv.
-        let (history, receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
+        let (history, receiver) = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream exists")
+            .into_parts();
         assert!(history.is_empty());
         let total = 400usize; // > broadcast capacity (256), < HISTORY_CAPACITY (512)
         for i in 0..total {
@@ -1313,7 +1522,15 @@ mod tests {
         broker.publish(&stream_id, "done", json!({})).await;
 
         // Drive the replay core directly so we can inspect the frame sequence.
-        let frames = replay_stream(broker.clone(), stream_id.clone(), true, history, receiver);
+        let frames = replay_stream(
+            broker.clone(),
+            stream_id.clone(),
+            true,
+            None,
+            None,
+            history,
+            receiver,
+        );
         futures::pin_mut!(frames);
         let mut saw_resync = false;
         let mut replayed_tokens: Vec<String> = Vec::new();
@@ -1333,6 +1550,9 @@ mod tests {
                     "done" => saw_done = true,
                     _ => {}
                 },
+                StreamFrame::ResyncRequired(_) => {
+                    panic!("fresh all-history subscription must not require full resync");
+                }
             }
         }
 
@@ -1376,8 +1596,20 @@ mod tests {
             .await;
         broker.publish(&stream_id, "done", json!({})).await;
 
-        let (history, receiver) = broker.subscribe(&stream_id).await.expect("stream exists");
-        let frames = replay_stream(broker.clone(), stream_id, true, history, receiver);
+        let (history, receiver) = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream exists")
+            .into_parts();
+        let frames = replay_stream(
+            broker.clone(),
+            stream_id,
+            true,
+            None,
+            None,
+            history,
+            receiver,
+        );
         futures::pin_mut!(frames);
         let mut resyncs = 0;
         while let Some(frame) = frames.next().await {
@@ -1389,5 +1621,92 @@ mod tests {
             resyncs, 0,
             "a healthy stream must never emit a resync frame"
         );
+    }
+
+    #[tokio::test]
+    async fn subscribe_replay_none_emits_only_post_subscription_events() {
+        let broker = SessionStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+        broker
+            .publish(&stream_id, "token", json!({"text": "old"}))
+            .await;
+
+        let subscription = broker
+            .subscribe(&stream_id, StreamReplayMode::None)
+            .await
+            .expect("stream exists");
+        assert!(subscription.history.is_empty());
+        assert_eq!(subscription.initial_last_seq, Some(0));
+        assert_eq!(subscription.next_seq, 1);
+
+        let mut receiver = subscription.receiver;
+        broker
+            .publish(&stream_id, "token", json!({"text": "new"}))
+            .await;
+        let live = receiver.recv().await.expect("live event");
+        assert_eq!(live.payload["text"], "new");
+    }
+
+    #[tokio::test]
+    async fn subscribe_after_seq_replays_only_newer_retained_events() {
+        let broker = SessionStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+        for text in ["zero", "one", "two"] {
+            broker
+                .publish(&stream_id, "token", json!({"text": text}))
+                .await;
+        }
+
+        let subscription = broker
+            .subscribe(&stream_id, StreamReplayMode::AfterSeq(0))
+            .await
+            .expect("stream exists");
+        let replayed: Vec<&str> = subscription
+            .history
+            .iter()
+            .map(|event| event.payload["text"].as_str().unwrap())
+            .collect();
+        assert_eq!(replayed, vec!["one", "two"]);
+        assert_eq!(subscription.initial_last_seq, Some(0));
+        assert!(subscription.resync_required.is_none());
+    }
+
+    #[tokio::test]
+    async fn subscribe_after_expired_seq_emits_resync_required_without_old_history() {
+        let broker = Arc::new(SessionStreamBroker::new());
+        let stream_id = broker.create_stream().await;
+        for i in 0..(HISTORY_CAPACITY + 2) {
+            broker
+                .publish(&stream_id, "token", json!({"text": format!("tok-{i}")}))
+                .await;
+        }
+
+        let subscription = broker
+            .subscribe(&stream_id, StreamReplayMode::AfterSeq(0))
+            .await
+            .expect("stream exists");
+        assert!(subscription.history.is_empty());
+        assert_eq!(
+            subscription.initial_last_seq,
+            Some((HISTORY_CAPACITY + 1) as u64)
+        );
+        assert!(subscription.resync_required.is_some());
+
+        let frames = replay_stream(
+            broker.clone(),
+            stream_id.clone(),
+            false,
+            subscription.initial_last_seq,
+            subscription.resync_required,
+            subscription.history,
+            subscription.receiver,
+        );
+        futures::pin_mut!(frames);
+        let Some(StreamFrame::ResyncRequired(resync)) = frames.next().await else {
+            panic!("expired cursor must produce resync_required first");
+        };
+        assert_eq!(resync.requested_after_seq, 0);
+        assert_eq!(resync.earliest_seq, 2);
+        assert_eq!(resync.latest_seq, (HISTORY_CAPACITY + 1) as u64);
     }
 }

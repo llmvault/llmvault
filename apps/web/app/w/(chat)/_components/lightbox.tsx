@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, Modal } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import type { MediaAttachment } from "../_lib/static-data"
+import type { MediaAttachment } from "@/app/w/(chat)/_lib/static-data"
 
 const CHROME_TRANSITION = { duration: 0.16, ease: [0.16, 1, 0.3, 1] as const }
 
@@ -83,167 +83,173 @@ export function Lightbox({
           placement="center"
           className="fixed inset-0 z-50 h-full w-full max-w-none p-0"
         >
-        <Modal.Dialog
-          aria-label={current?.filename ?? "Media preview"}
-          className="flex h-full w-full max-w-none flex-col rounded-none border-0 bg-transparent p-0 shadow-none outline-none"
-        >
-          {current ? (
-            <div
-              className="relative flex h-full w-full flex-col"
-              onMouseMove={wakeChrome}
-              onPointerDown={wakeChrome}
-            >
-              <AnimatePresence>
-                {chromeVisible ? (
-                  <motion.header
-                    key="header"
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={CHROME_TRANSITION}
-                    className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 border-b border-border bg-surface/85 px-5 py-3 backdrop-blur-md"
-                  >
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm font-medium">
-                        {current.filename}
+          <Modal.Dialog
+            aria-label={current?.filename ?? "Media preview"}
+            className="flex h-full w-full max-w-none flex-col rounded-none border-0 bg-transparent p-0 shadow-none outline-none"
+          >
+            {current ? (
+              <div
+                className="relative flex h-full w-full flex-col"
+                onMouseMove={wakeChrome}
+                onPointerDown={wakeChrome}
+              >
+                <AnimatePresence>
+                  {chromeVisible ? (
+                    <motion.header
+                      key="header"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={CHROME_TRANSITION}
+                      className="bg-surface/85 absolute inset-x-0 top-0 z-20 flex items-center gap-3 border-b border-border px-5 py-3 backdrop-blur-md"
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-sm font-medium">
+                          {current.filename}
+                        </span>
+                        <span className="text-xs text-muted">
+                          {current.kind === "video" ? "Video" : "Image"}
+                          {current.duration ? ` · ${current.duration}` : ""}
+                        </span>
+                      </div>
+
+                      <span className="text-xs text-muted tabular-nums">
+                        {(index ?? 0) + 1} / {total}
                       </span>
-                      <span className="text-xs text-muted">
-                        {current.kind === "video" ? "Video" : "Image"}
-                        {current.duration ? ` · ${current.duration}` : ""}
-                      </span>
-                    </div>
 
-                    <span className="text-xs text-muted tabular-nums">
-                      {(index ?? 0) + 1} / {total}
-                    </span>
-
-                    <div className="flex items-center gap-0.5">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        isIconOnly
-                        aria-label="Download"
-                        onPress={() => {
-                          const link = document.createElement("a")
-                          link.href = current.url
-                          link.download = current.filename
-                          link.click()
-                        }}
-                      >
-                        <Icon
-                          icon="lucide:download"
-                          className="h-4 w-4 text-muted"
-                        />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        isIconOnly
-                        aria-label="Copy URL"
-                        onPress={copyUrl}
-                      >
-                        <Icon
-                          icon={copied ? "lucide:check" : "lucide:copy"}
-                          className="h-4 w-4 text-muted"
-                        />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        isIconOnly
-                        aria-label="Close preview"
-                        onPress={onClose}
-                      >
-                        <Icon icon="lucide:x" className="h-4 w-4 text-muted" />
-                      </Button>
-                    </div>
-                  </motion.header>
-                ) : null}
-              </AnimatePresence>
-
-              <div className="relative min-h-0 flex-1 overflow-hidden">
-                {total > 1 ? (
-                  <AnimatePresence>
-                    {chromeVisible ? (
-                      <>
-                        <motion.div
-                          key="prev"
-                          initial={{ opacity: 0, x: -6 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -6 }}
-                          transition={CHROME_TRANSITION}
-                          className="absolute top-1/2 left-4 z-10 -translate-y-1/2"
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          isIconOnly
+                          aria-label="Download"
+                          onPress={() => {
+                            const link = document.createElement("a")
+                            link.href = current.url
+                            link.download = current.filename
+                            link.click()
+                          }}
                         >
-                          <Button
-                            variant="tertiary"
-                            size="sm"
-                            isIconOnly
-                            aria-label="Previous"
-                            isDisabled={index === 0}
-                            onPress={() => onIndexChange((index ?? 0) - 1)}
-                            className="rounded-full shadow-sm"
-                          >
-                            <Icon icon="lucide:arrow-left" className="h-4 w-4" />
-                          </Button>
-                        </motion.div>
-                        <motion.div
-                          key="next"
-                          initial={{ opacity: 0, x: 6 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 6 }}
-                          transition={CHROME_TRANSITION}
-                          className="absolute top-1/2 right-4 z-10 -translate-y-1/2"
+                          <Icon
+                            icon="lucide:download"
+                            className="h-4 w-4 text-muted"
+                          />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          isIconOnly
+                          aria-label="Copy URL"
+                          onPress={copyUrl}
                         >
-                          <Button
-                            variant="tertiary"
-                            size="sm"
-                            isIconOnly
-                            aria-label="Next"
-                            isDisabled={index === total - 1}
-                            onPress={() => onIndexChange((index ?? 0) + 1)}
-                            className="rounded-full shadow-sm"
-                          >
-                            <Icon
-                              icon="lucide:arrow-right"
-                              className="h-4 w-4"
-                            />
-                          </Button>
-                        </motion.div>
-                      </>
-                    ) : null}
-                  </AnimatePresence>
-                ) : null}
-
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={current.id}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute inset-0 flex items-center justify-center p-12 pt-20"
-                  >
-                    {current.kind === "video" ? (
-                      <video
-                        src={current.url}
-                        poster={current.poster}
-                        controls
-                        autoPlay
-                        className="max-h-full max-w-full rounded-2xl border border-border bg-black shadow-lg"
-                      />
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element -- lightbox renders arbitrary sample assets at native size
-                      <img
-                        src={current.url}
-                        alt={current.filename}
-                        className="max-h-full max-w-full rounded-2xl border border-border bg-surface object-contain shadow-lg"
-                      />
-                    )}
-                  </motion.div>
+                          <Icon
+                            icon={copied ? "lucide:check" : "lucide:copy"}
+                            className="h-4 w-4 text-muted"
+                          />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          isIconOnly
+                          aria-label="Close preview"
+                          onPress={onClose}
+                        >
+                          <Icon
+                            icon="lucide:x"
+                            className="h-4 w-4 text-muted"
+                          />
+                        </Button>
+                      </div>
+                    </motion.header>
+                  ) : null}
                 </AnimatePresence>
+
+                <div className="relative min-h-0 flex-1 overflow-hidden">
+                  {total > 1 ? (
+                    <AnimatePresence>
+                      {chromeVisible ? (
+                        <>
+                          <motion.div
+                            key="prev"
+                            initial={{ opacity: 0, x: -6 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -6 }}
+                            transition={CHROME_TRANSITION}
+                            className="absolute top-1/2 left-4 z-10 -translate-y-1/2"
+                          >
+                            <Button
+                              variant="tertiary"
+                              size="sm"
+                              isIconOnly
+                              aria-label="Previous"
+                              isDisabled={index === 0}
+                              onPress={() => onIndexChange((index ?? 0) - 1)}
+                              className="rounded-full shadow-sm"
+                            >
+                              <Icon
+                                icon="lucide:arrow-left"
+                                className="h-4 w-4"
+                              />
+                            </Button>
+                          </motion.div>
+                          <motion.div
+                            key="next"
+                            initial={{ opacity: 0, x: 6 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 6 }}
+                            transition={CHROME_TRANSITION}
+                            className="absolute top-1/2 right-4 z-10 -translate-y-1/2"
+                          >
+                            <Button
+                              variant="tertiary"
+                              size="sm"
+                              isIconOnly
+                              aria-label="Next"
+                              isDisabled={index === total - 1}
+                              onPress={() => onIndexChange((index ?? 0) + 1)}
+                              className="rounded-full shadow-sm"
+                            >
+                              <Icon
+                                icon="lucide:arrow-right"
+                                className="h-4 w-4"
+                              />
+                            </Button>
+                          </motion.div>
+                        </>
+                      ) : null}
+                    </AnimatePresence>
+                  ) : null}
+
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={current.id}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      className="absolute inset-0 flex items-center justify-center p-12 pt-20"
+                    >
+                      {current.kind === "video" ? (
+                        <video
+                          src={current.url}
+                          poster={current.poster}
+                          controls
+                          autoPlay
+                          className="max-h-full max-w-full rounded-2xl border border-border bg-black shadow-lg"
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element -- lightbox renders arbitrary sample assets at native size
+                        <img
+                          src={current.url}
+                          alt={current.filename}
+                          className="bg-surface max-h-full max-w-full rounded-2xl border border-border object-contain shadow-lg"
+                        />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>

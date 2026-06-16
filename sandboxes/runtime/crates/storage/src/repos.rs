@@ -148,6 +148,15 @@ pub trait CronJobRepo: Send + Sync + 'static {
     async fn update_interval(&self, id: &str, interval_seconds: u64) -> Result<()>;
     async fn update_next_run(&self, id: &str, next_run_at: DateTime<Utc>) -> Result<()>;
     async fn set_state(&self, id: &str, state: CronJobState) -> Result<()>;
+    async fn claim_due_run(
+        &self,
+        id: &str,
+        now: DateTime<Utc>,
+        started_at: DateTime<Utc>,
+    ) -> Result<bool>;
+    async fn reset_stale_running(&self, _before: DateTime<Utc>) -> Result<u64> {
+        Ok(0)
+    }
     async fn record_run(
         &self,
         id: &str,

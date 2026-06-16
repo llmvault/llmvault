@@ -78,6 +78,45 @@ pub(super) async fn cron_set_state(
     Ok(())
 }
 
+pub(super) async fn cron_claim_due_run(
+    conn: &mut SqliteConnection,
+    id: &str,
+    now: DateTime<Utc>,
+    started_at: DateTime<Utc>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        "UPDATE cron_jobs
+         SET state = 'running', last_run_at = ?, last_status = 'running', last_error = NULL
+         WHERE id = ?
+           AND state = 'active'
+           AND next_run_at <= ?",
+    )
+    .bind(started_at.to_rfc3339())
+    .bind(id)
+    .bind(now.to_rfc3339())
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+pub(super) async fn cron_reset_stale_running(
+    conn: &mut SqliteConnection,
+    before: DateTime<Utc>,
+) -> Result<u64> {
+    let result = sqlx::query(
+        "UPDATE cron_jobs
+         SET state = 'active',
+             last_status = 'recovered',
+             last_error = 'stale running job reset to active after scheduler lease timeout'
+         WHERE state = 'running'
+           AND (last_run_at IS NULL OR last_run_at <= ?)",
+    )
+    .bind(before.to_rfc3339())
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected())
+}
+
 pub(super) async fn cron_record_run(
     conn: &mut SqliteConnection,
     id: &str,
@@ -116,6 +155,7 @@ pub(super) async fn cron_delete(conn: &mut SqliteConnection, id: &str) -> Result
 fn cron_state_str(state: CronJobState) -> &'static str {
     match state {
         CronJobState::Active => "active",
+        CronJobState::Running => "running",
         CronJobState::Paused => "paused",
         CronJobState::Completed => "completed",
     }

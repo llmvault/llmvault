@@ -204,6 +204,30 @@ impl SqliteWriteGateway {
         recv(rx).await
     }
 
+    pub async fn claim_due_cron_run(
+        &self,
+        id: String,
+        now: DateTime<Utc>,
+        started_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::CronClaimDueRun {
+            id,
+            now,
+            started_at,
+            resp,
+        })
+        .await?;
+        recv(rx).await
+    }
+
+    pub async fn reset_stale_cron_running(&self, before: DateTime<Utc>) -> Result<u64> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::CronResetStaleRunning { before, resp })
+            .await?;
+        recv(rx).await
+    }
+
     pub async fn record_cron_run(
         &self,
         id: String,

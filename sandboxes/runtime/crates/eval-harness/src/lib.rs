@@ -585,6 +585,15 @@ impl CronJobRepo for NoopCronJobRepo {
         Ok(())
     }
 
+    async fn claim_due_run(
+        &self,
+        _id: &str,
+        _now: DateTime<Utc>,
+        _started_at: DateTime<Utc>,
+    ) -> storage::Result<bool> {
+        Ok(true)
+    }
+
     async fn record_run(
         &self,
         _id: &str,

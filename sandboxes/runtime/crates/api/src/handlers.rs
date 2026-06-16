@@ -20,7 +20,9 @@ use tools::{BashExecOptions, BashOperations};
 use tracing::warn;
 
 use crate::question_manager::{QuestionAnswerError, QuestionAnswerResponse};
-use crate::session_stream::{stream_response, SessionMessageRequest, SessionMessageResponse};
+use crate::session_stream::{
+    stream_response, SessionMessageRequest, SessionMessageResponse, StreamReplayMode,
+};
 use crate::state::ApiState;
 
 #[derive(Serialize)]
@@ -54,6 +56,45 @@ const MAX_CONTROL_COMMAND_TIMEOUT_SECONDS: u64 = 300;
 const MAX_CONTROL_COMMAND_OUTPUT_BYTES: u64 = 64 * 1024;
 const INTERNAL_RETRY_MESSAGE: &str =
     "An internal runtime error occurred. Please retry. The Hivy team has been notified of this error.";
+
+#[derive(Debug, Default, Deserialize)]
+pub struct SessionStreamQuery {
+    replay: Option<String>,
+    after_seq: Option<String>,
+}
+
+impl SessionStreamQuery {
+    fn replay_mode(&self) -> Result<StreamReplayMode, String> {
+        let replay = self.replay.as_deref().unwrap_or("all");
+        let after_seq = self
+            .after_seq
+            .as_deref()
+            .map(|value| {
+                value
+                    .parse::<u64>()
+                    .map_err(|_| "after_seq must be an unsigned integer".to_string())
+            })
+            .transpose()?;
+
+        match replay {
+            "all" => {}
+            "none" => {
+                if after_seq.is_some() {
+                    return Err("replay=none cannot be combined with after_seq".to_string());
+                }
+            }
+            _ => {
+                return Err("replay must be one of: all, none".to_string());
+            }
+        }
+
+        Ok(match after_seq {
+            Some(sequence) => StreamReplayMode::AfterSeq(sequence),
+            None if replay == "none" => StreamReplayMode::None,
+            None => StreamReplayMode::All,
+        })
+    }
+}
 
 fn capture_internal_error(context: &'static str, error: impl Display) {
     let error = error.to_string();
@@ -802,10 +843,13 @@ fn question_answer_error_response(error: QuestionAnswerError) -> (StatusCode, St
     get,
     path = "/sessions/{session_id}/stream",
     params(
-        ("session_id" = String, Path, description = "Session identifier")
+        ("session_id" = String, Path, description = "Session identifier"),
+        ("replay" = Option<String>, Query, description = "Replay mode: `all` or `none`"),
+        ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value")
     ),
     responses(
         (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
+        (status = 400, description = "Invalid replay parameters"),
         (status = 503, description = "session API is not enabled")
     ),
     security(("bearer" = []))
@@ -813,27 +857,69 @@ fn question_answer_error_response(error: QuestionAnswerError) -> (StatusCode, St
 pub async fn get_session_live_stream(
     State(state): State<ApiState>,
     Path(session_id): Path<String>,
-) -> Result<impl IntoResponse, StatusCode> {
+    Query(query): Query<SessionStreamQuery>,
+) -> Result<Response, (StatusCode, String)> {
     let Some(session_stream) = state.session_stream.as_ref() else {
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "session API is not enabled".to_string(),
+        ));
     };
+    let replay_mode = query.replay_mode().map_err(|error| {
+        warn!(error = %error, "stream query rejected");
+        (StatusCode::BAD_REQUEST, error)
+    })?;
     Ok(sse_stream_response(
-        crate::session_stream::session_stream_response(session_stream.broker.clone(), session_id)
-            .await,
+        crate::session_stream::session_stream_response(
+            session_stream.broker.clone(),
+            session_id,
+            replay_mode,
+        )
+        .await,
     ))
 }
 
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/sessions/{session_id}/streams/{stream_id}",
+    params(
+        ("session_id" = String, Path, description = "Session identifier"),
+        ("stream_id" = String, Path, description = "Turn stream identifier"),
+        ("replay" = Option<String>, Query, description = "Replay mode: `all` or `none`"),
+        ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value")
+    ),
+    responses(
+        (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
+        (status = 400, description = "Invalid replay parameters"),
+        (status = 404, description = "stream not found"),
+        (status = 503, description = "session API is not enabled")
+    ),
+    security(("bearer" = []))
+))]
 pub async fn get_session_stream(
     State(state): State<ApiState>,
     Path((session_id, stream_id)): Path<(String, String)>,
-) -> Result<impl IntoResponse, StatusCode> {
+    Query(query): Query<SessionStreamQuery>,
+) -> Result<Response, (StatusCode, String)> {
     let Some(session_stream) = state.session_stream.as_ref() else {
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "session API is not enabled".to_string(),
+        ));
     };
-    stream_response(session_stream.broker.clone(), session_id, stream_id)
-        .await
-        .map(sse_stream_response)
-        .ok_or(StatusCode::NOT_FOUND)
+    let replay_mode = query.replay_mode().map_err(|error| {
+        warn!(error = %error, "stream query rejected");
+        (StatusCode::BAD_REQUEST, error)
+    })?;
+    stream_response(
+        session_stream.broker.clone(),
+        session_id,
+        stream_id,
+        replay_mode,
+    )
+    .await
+    .map(sse_stream_response)
+    .ok_or((StatusCode::NOT_FOUND, "stream not found".to_string()))
 }
 
 fn sse_stream_response(response: impl IntoResponse) -> Response {
@@ -897,6 +983,53 @@ mod tests {
 
     use domain::cron::CronJobState;
     use std::collections::HashMap;
+
+    #[test]
+    fn stream_query_default_replays_all() {
+        assert_eq!(
+            SessionStreamQuery::default().replay_mode().unwrap(),
+            StreamReplayMode::All
+        );
+    }
+
+    #[test]
+    fn stream_query_accepts_replay_none_and_after_seq() {
+        let none = SessionStreamQuery {
+            replay: Some("none".to_string()),
+            after_seq: None,
+        };
+        assert_eq!(none.replay_mode().unwrap(), StreamReplayMode::None);
+
+        let after_seq = SessionStreamQuery {
+            replay: None,
+            after_seq: Some("42".to_string()),
+        };
+        assert_eq!(
+            after_seq.replay_mode().unwrap(),
+            StreamReplayMode::AfterSeq(42)
+        );
+    }
+
+    #[test]
+    fn stream_query_rejects_invalid_cursor_options() {
+        let invalid_combo = SessionStreamQuery {
+            replay: Some("none".to_string()),
+            after_seq: Some("42".to_string()),
+        };
+        assert!(invalid_combo.replay_mode().is_err());
+
+        let invalid_replay = SessionStreamQuery {
+            replay: Some("latest".to_string()),
+            after_seq: None,
+        };
+        assert!(invalid_replay.replay_mode().is_err());
+
+        let invalid_sequence = SessionStreamQuery {
+            replay: None,
+            after_seq: Some("nope".to_string()),
+        };
+        assert!(invalid_sequence.replay_mode().is_err());
+    }
 
     fn test_definition() -> AgentDefinition {
         AgentDefinition {

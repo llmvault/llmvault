@@ -138,6 +138,74 @@ async fn wake_jobs_store_session_continuation_id_and_can_be_due() {
 }
 
 #[tokio::test]
+async fn claim_due_run_moves_wake_out_of_due_set_once() {
+    let repo = setup_repo().await;
+    let mut job = test_job("wake-claim", 60);
+    job.next_run_at = Utc::now() - chrono::Duration::seconds(10);
+    job.session_continuation_id = Some("session-continue".into());
+    repo.create(&job).await.unwrap();
+
+    let claimed = repo
+        .claim_due_run("wake-claim", Utc::now(), Utc::now())
+        .await
+        .unwrap();
+    assert!(claimed);
+    assert!(repo.list_due().await.unwrap().is_empty());
+
+    let second_claim = repo
+        .claim_due_run("wake-claim", Utc::now(), Utc::now())
+        .await
+        .unwrap();
+    assert!(!second_claim);
+
+    let fetched = repo.get("wake-claim").await.unwrap().unwrap();
+    assert_eq!(fetched.state, CronJobState::Running);
+    assert_eq!(fetched.last_status.as_deref(), Some("running"));
+}
+
+#[tokio::test]
+async fn reset_stale_running_reactivates_only_expired_running_jobs() {
+    let repo = setup_repo().await;
+    let now = Utc::now();
+    let stale_started_at = now - chrono::Duration::hours(2);
+    let fresh_started_at = now - chrono::Duration::minutes(5);
+
+    let mut stale = test_job("stale-running", 60);
+    stale.next_run_at = now - chrono::Duration::seconds(10);
+    repo.create(&stale).await.unwrap();
+    assert!(repo
+        .claim_due_run("stale-running", now, stale_started_at)
+        .await
+        .unwrap());
+
+    let mut fresh = test_job("fresh-running", 60);
+    fresh.next_run_at = now - chrono::Duration::seconds(10);
+    repo.create(&fresh).await.unwrap();
+    assert!(repo
+        .claim_due_run("fresh-running", now, fresh_started_at)
+        .await
+        .unwrap());
+
+    let reset = repo
+        .reset_stale_running(now - chrono::Duration::hours(1))
+        .await
+        .unwrap();
+
+    assert_eq!(reset, 1);
+    let stale = repo.get("stale-running").await.unwrap().unwrap();
+    assert_eq!(stale.state, CronJobState::Active);
+    assert_eq!(stale.last_status.as_deref(), Some("recovered"));
+    assert!(stale
+        .last_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("stale running job reset"));
+    let fresh = repo.get("fresh-running").await.unwrap().unwrap();
+    assert_eq!(fresh.state, CronJobState::Running);
+    assert_eq!(fresh.last_status.as_deref(), Some("running"));
+}
+
+#[tokio::test]
 async fn delete_removes_job() {
     let repo = setup_repo().await;
     repo.create(&test_job("job-1", 60)).await.unwrap();

@@ -159,6 +159,26 @@ impl CronJobRepo for FakeCronRepo {
         Ok(())
     }
 
+    async fn claim_due_run(
+        &self,
+        id: &str,
+        now: DateTime<Utc>,
+        started_at: DateTime<Utc>,
+    ) -> storage::Result<bool> {
+        let mut jobs = self.jobs.lock().expect("cron lock");
+        let Some(job) = jobs.get_mut(id) else {
+            return Ok(false);
+        };
+        if job.state != CronJobState::Active || job.next_run_at > now {
+            return Ok(false);
+        }
+        job.state = CronJobState::Running;
+        job.last_run_at = Some(started_at);
+        job.last_status = Some("running".to_string());
+        job.last_error = None;
+        Ok(true)
+    }
+
     async fn record_run(
         &self,
         id: &str,

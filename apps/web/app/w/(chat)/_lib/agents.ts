@@ -4,12 +4,12 @@
 // the model can be switched mid-session, but only within the agent's list.
 
 import type { ComponentType } from "react"
-import { ClaudeIcon } from "../_components/claude"
-import { DeepseekIcon } from "../_components/deepseek"
-import { GeminiIcon } from "../_components/gemini"
-import { GrokIcon } from "../_components/grok"
-import { MoonshotIcon } from "../_components/moonshot"
-import { QwenIcon } from "../_components/qwen"
+import { ClaudeIcon } from "@/app/w/(chat)/_components/claude"
+import { DeepseekIcon } from "@/app/w/(chat)/_components/deepseek"
+import { GeminiIcon } from "@/app/w/(chat)/_components/gemini"
+import { GrokIcon } from "@/app/w/(chat)/_components/grok"
+import { MoonshotIcon } from "@/app/w/(chat)/_components/moonshot"
+import { QwenIcon } from "@/app/w/(chat)/_components/qwen"
 
 export interface AgentModel {
   id: string
@@ -19,10 +19,30 @@ export interface AgentModel {
 }
 
 export const MODELS: AgentModel[] = [
-  { id: "claude-opus", label: "Claude Opus 4.8", provider: "Anthropic", Icon: ClaudeIcon },
-  { id: "claude-sonnet", label: "Claude Sonnet 4.6", provider: "Anthropic", Icon: ClaudeIcon },
-  { id: "gemini-pro", label: "Gemini 2.5 Pro", provider: "Google", Icon: GeminiIcon },
-  { id: "deepseek-v3", label: "DeepSeek V3.2", provider: "DeepSeek", Icon: DeepseekIcon },
+  {
+    id: "claude-opus",
+    label: "Claude Opus 4.8",
+    provider: "Anthropic",
+    Icon: ClaudeIcon,
+  },
+  {
+    id: "claude-sonnet",
+    label: "Claude Sonnet 4.6",
+    provider: "Anthropic",
+    Icon: ClaudeIcon,
+  },
+  {
+    id: "gemini-pro",
+    label: "Gemini 2.5 Pro",
+    provider: "Google",
+    Icon: GeminiIcon,
+  },
+  {
+    id: "deepseek-v3",
+    label: "DeepSeek V3.2",
+    provider: "DeepSeek",
+    Icon: DeepseekIcon,
+  },
   { id: "grok-4", label: "Grok 4", provider: "xAI", Icon: GrokIcon },
   { id: "qwen-max", label: "Qwen3 Max", provider: "Alibaba", Icon: QwenIcon },
   { id: "kimi-k2", label: "Kimi K2", provider: "Moonshot", Icon: MoonshotIcon },
