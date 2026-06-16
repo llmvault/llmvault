@@ -22,6 +22,10 @@ jobs:
     name: publish runtime manifests
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || contains(github.event.head_commit.message, '[publish-runtime-manifests]')
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.RELEASE_TAG }}
+      version: ${{ steps.version.outputs.RELEASE_VERSION }}
+      commit: ${{ steps.version.outputs.RELEASE_COMMIT }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -77,10 +81,70 @@ jobs:
       - name: write manifest
         run: ./scripts/release/write-manifest.sh "${{ steps.version.outputs.RELEASE_TAG }}" release-manifest.json "${{ steps.version.outputs.RELEASE_COMMIT }}"
 
+      - name: archive manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: release-manifest.json
+
       - name: upload manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ steps.version.outputs.RELEASE_TAG }}" release-manifest.json --clobber
+
+  microsandbox-snapshots:
+    name: microsandbox snapshots (${{ matrix.size }})
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        size:
+          - small
+          - medium
+          - large
+          - xlarge
+    env:
+      HIVY_MICROSANDBOX_API_TOKEN: ${{ secrets.HIVY_MICROSANDBOX_API_TOKEN }}
+      HIVY_MICROSANDBOX_CONTROL_URL: ${{ secrets.HIVY_MICROSANDBOX_CONTROL_URL || vars.HIVY_MICROSANDBOX_CONTROL_URL }}
+      HIVY_MICROSANDBOX_SNAPSHOT_ORG_ID: ${{ vars.HIVY_MICROSANDBOX_SNAPSHOT_ORG_ID || 'org_system' }}
+      HIVY_MICROSANDBOX_IMAGE_ARCH_SUFFIX: amd64
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.publish.outputs.tag }}
+
+      - name: publish snapshots
+        run: |
+          control_url="${HIVY_MICROSANDBOX_CONTROL_URL:-https://msb.usehivy.com}"
+          scripts/microsandbox/publish-latest-snapshots.py \
+            --control-url "${control_url}" \
+            --tag "${{ needs.publish.outputs.tag }}" \
+            --size "${{ matrix.size }}" \
+            --concurrency 2 \
+            --output "dist/microsandbox-snapshots-${{ needs.publish.outputs.tag }}-${{ matrix.size }}.json"
+
+      - name: archive snapshot manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: microsandbox-snapshots-${{ matrix.size }}
+          path: dist/microsandbox-snapshots-${{ needs.publish.outputs.tag }}-${{ matrix.size }}.json
+
+  update-railway-runtime-config:
+    name: update Railway runtime config
+    runs-on: ubuntu-latest
+    needs:
+      - publish
+      - microsandbox-snapshots
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.publish.outputs.tag }}
+
+      - name: download manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
 
       - name: install Railway CLI
         run: npm install -g @railway/cli
@@ -90,4 +154,5 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_ENVIRONMENT: production
           RAILWAY_SERVICES: "api.usehivy.com asynq.usehivy.com"
+          HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX: amd64
         run: ./scripts/release/update-railway-runtime-config.sh release-manifest.json
