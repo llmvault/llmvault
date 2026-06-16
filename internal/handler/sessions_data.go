@@ -2,10 +2,12 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -161,6 +163,24 @@ func (h *SessionHandler) enqueueSessionDelivery(ctx context.Context, sessionID u
 	}
 	if err := tasks.EnqueueSessionMessageDeliver(ctx, h.enqueuer, sessionID); err != nil {
 		return fmt.Errorf("enqueue session message delivery: %w", err)
+	}
+	return nil
+}
+
+func (h *SessionHandler) enqueueSessionName(ctx context.Context, sessionID uuid.UUID) error {
+	if h == nil || h.enqueuer == nil {
+		return nil
+	}
+
+	task, opts, err := tasks.NewSessionNameTask(sessionID)
+	if err != nil {
+		return fmt.Errorf("build session name task: %w", err)
+	}
+	if _, err := h.enqueuer.EnqueueContext(ctx, task, opts...); err != nil {
+		if errors.Is(err, asynq.ErrDuplicateTask) {
+			return nil
+		}
+		return fmt.Errorf("enqueue session name: %w", err)
 	}
 	return nil
 }

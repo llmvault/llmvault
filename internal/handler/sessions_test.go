@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
@@ -36,6 +37,8 @@ func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
 	if queueCount != 1 {
 		t.Fatalf("queue count=%d, want 1", queueCount)
 	}
+
+	assertSessionNameTaskEnqueued(t, h, out.Session.ID)
 }
 
 func TestIntegration_SessionsParticipantsAndQueuedMessages(t *testing.T) {
@@ -99,6 +102,26 @@ func TestIntegration_SessionsChannelVisibilityDoesNotGrantSend(t *testing.T) {
 	}
 }
 
+func TestIntegration_SessionsCreate_WithExplicitName_DoesNotEnqueueAutoNaming(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
+		"channel_id": fx.channel.ID.String(),
+		"text":       "Investigate the deploy failure",
+		"name":       "manual-name",
+	})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create session status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	for _, task := range h.enqueuer.Tasks() {
+		if task.TypeName == tasks.TypeSessionName {
+			t.Fatalf("unexpected %s task enqueued", tasks.TypeSessionName)
+		}
+	}
+}
+
 func eventTypes(events []model.SessionEvent) []string {
 	out := make([]string, len(events))
 	for i, event := range events {
@@ -130,4 +153,24 @@ func assertSessionListIDs(t *testing.T, rr *httptest.ResponseRecorder, want []st
 			t.Fatalf("session ids=%v, want=%v", got, want)
 		}
 	}
+}
+
+func assertSessionNameTaskEnqueued(t *testing.T, h *sessionHarness, sessionID string) {
+	t.Helper()
+
+	for _, task := range h.enqueuer.Tasks() {
+		if task.TypeName != tasks.TypeSessionName {
+			continue
+		}
+
+		var payload tasks.SessionNamePayload
+		if err := json.Unmarshal(task.Payload, &payload); err != nil {
+			t.Fatalf("decode %s payload: %v", tasks.TypeSessionName, err)
+		}
+		if payload.SessionID.String() == sessionID {
+			return
+		}
+	}
+
+	t.Fatalf("expected %s task for session %s", tasks.TypeSessionName, sessionID)
 }
