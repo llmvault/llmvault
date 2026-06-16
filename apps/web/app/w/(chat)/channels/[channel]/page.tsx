@@ -1,5 +1,10 @@
-import { ChatCanvas } from "../../_components/chat-canvas"
+import { ChatCanvas } from "@/app/w/(chat)/_components/chat-canvas"
 
-export default function ChannelPage() {
-  return <ChatCanvas />
+export default async function ChannelPage({
+  params,
+}: {
+  params: Promise<{ channel: string }>
+}) {
+  const { channel } = await params
+  return <ChatCanvas channelSlug={channel} />
 }

@@ -4,10 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   Group,
   Panel,
@@ -18,10 +21,31 @@ import {
 import { animate, type AnimationPlaybackControls } from "motion/react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { Sidebar } from "./sidebar"
-import { RightPanel, type PanelViewID } from "./right-panel"
-import { agentById, DEFAULT_AGENT_ID, type Agent } from "../_lib/agents"
-import { presentCollaborators } from "../_lib/static-data"
+import { $api } from "@/lib/api/hooks"
+import { useAuth } from "@/lib/auth/auth-context"
+import type { components } from "@/lib/api/schema"
+import {
+  RightPanel,
+  type PanelViewID,
+} from "@/app/w/(chat)/_components/right-panel"
+import { Sidebar } from "@/app/w/(chat)/_components/sidebar"
+import {
+  agentById,
+  DEFAULT_AGENT_ID,
+  type Agent,
+} from "@/app/w/(chat)/_lib/agents"
+import {
+  agentDisplayName,
+  agentIcon,
+  agentModel,
+  sessionDisplayName,
+  sessionRouteFromPathname,
+} from "@/app/w/(chat)/_lib/sidebar-data"
+import {
+  CHAT_QUERY_STALE_TIME_MS,
+  persistChatQueries,
+  prefetchSessionRoute,
+} from "@/app/w/(chat)/_lib/chat-cache"
 
 const SIDEBAR_WIDTH = 300
 const RIGHT_SIZE = 42 // percent
@@ -33,6 +57,8 @@ const PANEL_EASE = [0.32, 0.72, 0, 1] as const
 export interface ChatSession {
   title: string
   agentId: string
+  agentName?: string
+  agentIcon?: string
   modelId: string
   initialMessage?: string
 }
@@ -40,13 +66,25 @@ export interface ChatSession {
 interface WorkspaceContextValue {
   session: ChatSession | null
   startNewChat: () => void
-  openChat: (title: string, agentId: string) => void
-  startSession: (agentId: string, firstMessage: string, modelId?: string) => void
+  openChannel: (channelSlug: string) => void
+  openChat: (
+    channelSlug: string,
+    sessionId: string,
+    session?: ChatSession,
+    options?: { replace?: boolean }
+  ) => void
+  startSession: (
+    agentId: string,
+    firstMessage: string,
+    modelId?: string
+  ) => void
   setModel: (modelId: string) => void
   openView: (id: PanelViewID) => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
+type SessionResponse = components["schemas"]["sessionResponse"]
+type AgentResponse = components["schemas"]["agentListItem"]
 
 export function useWorkspace() {
   const context = useContext(WorkspaceContext)
@@ -57,16 +95,95 @@ export function useWorkspace() {
 }
 
 export function WorkspaceShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const queryClient = useQueryClient()
+  const { user, activeOrg } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(false)
   const [openViews, setOpenViews] = useState<PanelViewID[]>([])
   const [activeView, setActiveView] = useState<PanelViewID | null>(null)
-  const [session, setSession] = useState<ChatSession | null>({
-    title: "Add Glitchtip support",
-    agentId: DEFAULT_AGENT_ID,
-    modelId: agentById(DEFAULT_AGENT_ID).defaultModelId,
-  })
+  const [draftSession, setDraftSession] = useState<ChatSession | null>(null)
+  const [routePreviewSession, setRoutePreviewSession] = useState<{
+    sessionId: string
+    session: ChatSession
+  } | null>(null)
   const [rightMaximized, setRightMaximized] = useState(false)
+
+  const routeParams = useMemo(
+    () => sessionRouteFromPathname(pathname),
+    [pathname]
+  )
+  const routeSessionID = routeParams?.sessionId
+  const routeIsOptimistic = routeSessionID?.startsWith("tmp_") ?? false
+  const routeSessionQuery = $api.useQuery(
+    "get",
+    "/v1/sessions/{id}",
+    {
+      params: {
+        path: {
+          id: routeSessionID ?? "",
+        },
+      },
+    },
+    {
+      enabled: Boolean(routeSessionID) && !routeIsOptimistic,
+      retry: false,
+      staleTime: CHAT_QUERY_STALE_TIME_MS,
+    }
+  )
+  const agentsQuery = $api.useQuery(
+    "get",
+    "/v1/agents",
+    {
+      params: {
+        query: {
+          status: "active",
+          limit: 100,
+        },
+      },
+    },
+    {
+      enabled: Boolean(routeSessionID),
+      retry: false,
+      staleTime: CHAT_QUERY_STALE_TIME_MS,
+    }
+  )
+  const agentsByID = useMemo(
+    () =>
+      new Map(
+        (agentsQuery.data?.data ?? []).flatMap((agent) =>
+          agent.id ? ([[agent.id, agent]] as const) : []
+        )
+      ),
+    [agentsQuery.data?.data]
+  )
+  const routeSession = useMemo(() => {
+    if (!routeSessionID) return null
+    const fetched = chatSessionFromResponse(
+      routeSessionQuery.data?.session,
+      agentsByID
+    )
+    const preview =
+      routePreviewSession?.sessionId === routeSessionID
+        ? routePreviewSession.session
+        : null
+    return (
+      fetched ??
+      preview ?? {
+        title: routeSessionQuery.isError ? "Chat unavailable" : "Loading chat",
+        agentId: DEFAULT_AGENT_ID,
+        modelId: agentById(DEFAULT_AGENT_ID).defaultModelId,
+      }
+    )
+  }, [
+    agentsByID,
+    routeSessionID,
+    routePreviewSession,
+    routeSessionQuery.data?.session,
+    routeSessionQuery.isError,
+  ])
+  const session = routeSession ?? draftSession
 
   const sidebarPanelRef = usePanelRef()
   const rightPanelRef = usePanelRef()
@@ -88,12 +205,16 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       anim.current = animate(from, to, {
         duration: 0.3,
         ease: PANEL_EASE,
-        onUpdate: (value) =>
-          handle.resize(unit === "px" ? value : `${value}%`),
+        onUpdate: (value) => handle.resize(unit === "px" ? value : `${value}%`),
       })
     },
     []
   )
+
+  useEffect(() => {
+    if (!user?.id || !activeOrg?.id) return
+    return persistChatQueries(queryClient, `${user.id}:${activeOrg.id}`)
+  }, [activeOrg?.id, queryClient, user?.id])
 
   const toggleSidebar = useCallback(() => {
     animatePanel(
@@ -151,15 +272,40 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     })
   }
 
-  const startNewChat = useCallback(() => setSession(null), [])
+  const startNewChat = useCallback(() => {
+    setDraftSession(null)
+    setRoutePreviewSession(null)
+    router.push("/w")
+  }, [router])
 
-  const openChat = useCallback((title: string, agentId: string) => {
-    setSession({
-      title,
-      agentId,
-      modelId: agentById(agentId).defaultModelId,
-    })
-  }, [])
+  const openChannel = useCallback(
+    (channelSlug: string) => {
+      setDraftSession(null)
+      setRoutePreviewSession(null)
+      router.push(`/w/channels/${channelSlug}`)
+    },
+    [router]
+  )
+
+  const openChat = useCallback(
+    (
+      channelSlug: string,
+      sessionId: string,
+      session?: ChatSession,
+      options: { replace?: boolean } = {}
+    ) => {
+      setDraftSession(null)
+      setRoutePreviewSession(session ? { sessionId, session } : null)
+      prefetchSessionRoute(queryClient, sessionId)
+      const href = `/w/channels/${channelSlug}/${sessionId}`
+      if (options.replace) {
+        router.replace(href)
+      } else {
+        router.push(href)
+      }
+    },
+    [queryClient, router]
+  )
 
   const startSession = useCallback(
     (agentId: string, firstMessage: string, modelId?: string) => {
@@ -168,7 +314,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         firstMessage.length > 44
           ? `${firstMessage.slice(0, 44).trimEnd()}…`
           : firstMessage
-      setSession({
+      setDraftSession({
         title,
         agentId,
         modelId:
@@ -182,21 +328,38 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   )
 
   const setModel = useCallback((modelId: string) => {
-    setSession((current) => {
+    setDraftSession((current) => {
       if (!current) return current
-      if (!agentById(current.agentId).modelIds.includes(modelId)) return current
+      const agent = safeStaticAgentById(current.agentId)
+      if (agent && !agent.modelIds.includes(modelId)) return current
       return { ...current, modelId }
     })
   }, [])
 
   const workspace = useMemo(
-    () => ({ session, startNewChat, openChat, startSession, setModel, openView }),
-    [session, startNewChat, openChat, startSession, setModel, openView]
+    () => ({
+      session,
+      startNewChat,
+      openChannel,
+      openChat,
+      startSession,
+      setModel,
+      openView,
+    }),
+    [
+      session,
+      startNewChat,
+      openChannel,
+      openChat,
+      startSession,
+      setModel,
+      openView,
+    ]
   )
 
   return (
     <WorkspaceContext.Provider value={workspace}>
-      <div className="h-screen w-screen overflow-hidden bg-surface text-foreground">
+      <div className="bg-surface h-screen w-screen overflow-hidden text-foreground">
         <Group orientation="horizontal" className="h-full w-full">
           <Panel
             id="sidebar"
@@ -221,7 +384,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
             <div className="flex h-full min-w-0 flex-col">
               <ChatHeader
                 title={session?.title ?? "New chat"}
-                agent={session ? agentById(session.agentId) : null}
+                agent={session ? chatHeaderAgent(session) : null}
                 sidebarOpen={sidebarOpen}
                 onExpandSidebar={toggleSidebar}
                 rightOpen={rightOpen}
@@ -263,9 +426,58 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   )
 }
 
+function chatSessionFromResponse(
+  session?: SessionResponse,
+  agentsByID?: Map<string, AgentResponse>
+): ChatSession | null {
+  if (!session) return null
+  const agentID = session.agent_id?.trim() || DEFAULT_AGENT_ID
+  const apiAgent = agentsByID?.get(agentID)
+  const staticAgent = safeStaticAgentById(agentID)
+  const fallbackAgent = staticAgent ?? agentById(DEFAULT_AGENT_ID)
+  return {
+    title: sessionDisplayName(session),
+    agentId: agentID,
+    agentName: apiAgent ? agentDisplayName(apiAgent) : staticAgent?.name,
+    agentIcon: apiAgent ? agentIcon(apiAgent) : staticAgent?.icon,
+    modelId:
+      session.model?.trim() ||
+      agentModel(apiAgent) ||
+      fallbackAgent.defaultModelId,
+  }
+}
+
+function safeStaticAgentById(id: string): Agent | null {
+  try {
+    return agentById(id)
+  } catch {
+    return null
+  }
+}
+
+function safeAgentById(id: string): Agent {
+  return safeStaticAgentById(id) ?? agentById(DEFAULT_AGENT_ID)
+}
+
+function chatHeaderAgent(session: ChatSession): Pick<Agent, "name" | "icon"> {
+  const fallback = safeAgentById(session.agentId)
+  return {
+    name: session.agentName ?? fallback.name,
+    icon: session.agentIcon ?? fallback.icon,
+  }
+}
+
 const EDITORS = [
-  { id: "vscode", label: "Open in VS Code", icon: "vscode-icons:file-type-vscode" },
-  { id: "cursor", label: "Open in Cursor", icon: "lucide:square-mouse-pointer" },
+  {
+    id: "vscode",
+    label: "Open in VS Code",
+    icon: "vscode-icons:file-type-vscode",
+  },
+  {
+    id: "cursor",
+    label: "Open in Cursor",
+    icon: "lucide:square-mouse-pointer",
+  },
   { id: "zed", label: "Open in Zed", icon: "lucide:zap" },
   { id: "copy", label: "Copy worktree path", icon: "lucide:copy" },
 ]
@@ -287,7 +499,7 @@ function ChatHeader({
   onToggleRight,
 }: {
   title: string
-  agent: Agent | null
+  agent: Pick<Agent, "name" | "icon"> | null
   sidebarOpen: boolean
   onExpandSidebar: () => void
   rightOpen: boolean
@@ -325,7 +537,7 @@ function ChatHeader({
       <Popover isOpen={actionsOpen} onOpenChange={setActionsOpen}>
         <Popover.Trigger
           aria-label="Chat options"
-          className="flex items-center rounded-lg p-1.5 text-muted transition-colors hover:bg-default"
+          className="hover:bg-default flex items-center rounded-lg p-1.5 text-muted transition-colors"
         >
           <Icon icon="lucide:ellipsis" className="h-4 w-4" />
         </Popover.Trigger>
@@ -336,7 +548,7 @@ function ChatHeader({
                 key={action.id}
                 type="button"
                 onClick={() => setActionsOpen(false)}
-                className={`flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default ${
+                className={`hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors ${
                   action.danger ? "text-danger" : ""
                 }`}
               >
@@ -356,7 +568,7 @@ function ChatHeader({
         <Popover isOpen={editorOpen} onOpenChange={setEditorOpen}>
           <Popover.Trigger
             aria-label="Open in editor"
-            className="flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-default"
+            className="hover:bg-default flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors"
           >
             <Icon icon="vscode-icons:file-type-vscode" className="h-4 w-4" />
             <Icon icon="lucide:chevron-down" className="h-3 w-3 text-muted" />
@@ -368,7 +580,7 @@ function ChatHeader({
                   key={editor.id}
                   type="button"
                   onClick={() => setEditorOpen(false)}
-                  className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default"
+                  className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
                 >
                   <Icon icon={editor.icon} className="h-4 w-4 shrink-0" />
                   {editor.label}
@@ -398,55 +610,5 @@ function ChatHeader({
 }
 
 function PresenceStack() {
-  const [open, setOpen] = useState(false)
-  const shown = presentCollaborators.slice(0, 3)
-  const extra = presentCollaborators.length - shown.length
-
-  return (
-    <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger
-        aria-label={`${presentCollaborators.length} people viewing`}
-        className="mr-1 flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2 transition-colors hover:bg-default"
-      >
-        <span className="flex items-center -space-x-1.5">
-          {shown.map((person) => (
-            <span
-              key={person.id}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white ring-2 ring-surface"
-              style={{ backgroundColor: person.color }}
-            >
-              {person.initials}
-            </span>
-          ))}
-          {extra > 0 ? (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-default text-[11px] font-semibold text-muted ring-2 ring-surface">
-              +{extra}
-            </span>
-          ) : null}
-        </span>
-      </Popover.Trigger>
-      <Popover.Content className="w-56 rounded-2xl border border-border p-1.5">
-        <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-          <span className="px-2.5 pb-1 pt-1.5 text-xs text-muted">
-            {presentCollaborators.length} viewing
-          </span>
-          {presentCollaborators.map((person) => (
-            <div
-              key={person.id}
-              className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-sm"
-            >
-              <span
-                className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-                style={{ backgroundColor: person.color }}
-              >
-                {person.initials}
-              </span>
-              <span className="min-w-0 flex-1 truncate">{person.name}</span>
-              <span className="h-1.5 w-1.5 rounded-full bg-success" />
-            </div>
-          ))}
-        </Popover.Dialog>
-      </Popover.Content>
-    </Popover>
-  )
+  return null
 }

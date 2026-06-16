@@ -1,0 +1,449 @@
+import {
+  persistQueryClient,
+  type Persister,
+} from "@tanstack/query-persist-client-core"
+import type { InfiniteData, QueryClient, QueryKey } from "@tanstack/react-query"
+import { createStore, del, get, set, clear } from "idb-keyval"
+import { api } from "@/lib/api/client"
+import type { components } from "@/lib/api/schema"
+
+export const CHAT_QUERY_STALE_TIME_MS = 5 * 60 * 1000
+export const CHAT_QUERY_GC_TIME_MS = 7 * 24 * 60 * 60 * 1000
+export const CHAT_QUERY_PERSIST_MAX_AGE_MS = 24 * 60 * 60 * 1000
+export const SESSION_HISTORY_PAGE_LIMIT = 100
+export const SIDEBAR_SESSION_PAGE_LIMIT = 5
+const CHAT_CACHE_STORE = createStore("hivy-chat-query-cache", "queries")
+const CHAT_CACHE_VERSION = "v2"
+export const CHANNEL_SESSIONS_INFINITE_KEY = "channel-sessions-infinite-v1"
+export const SESSION_EVENTS_INFINITE_KEY = "session-events-infinite-v1"
+
+export type ChannelResponse = components["schemas"]["channelResponse"]
+export type SessionResponse = components["schemas"]["sessionResponse"]
+export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
+export type PaginatedChannels =
+  components["schemas"]["paginatedResponse-channelResponse"]
+export type PaginatedSessions =
+  components["schemas"]["paginatedResponse-sessionResponse"]
+export type PaginatedSessionEvents =
+  components["schemas"]["paginatedResponse-sessionEventResponse"]
+
+export const chatQueryKeys = {
+  channels: (limit = 100) =>
+    ["get", "/v1/channels", { params: { query: { limit } } }] as const,
+  channelSessions: (channelID: string, limit = SIDEBAR_SESSION_PAGE_LIMIT) =>
+    [
+      "get",
+      "/v1/channels/{id}/sessions",
+      {
+        _hivyQueryKey: CHANNEL_SESSIONS_INFINITE_KEY,
+        params: {
+          path: { id: channelID },
+          query: { limit },
+        },
+      },
+    ] as const,
+  session: (sessionID: string) =>
+    [
+      "get",
+      "/v1/sessions/{id}",
+      { params: { path: { id: sessionID } } },
+    ] as const,
+  sessionEvents: (sessionID: string, limit = SESSION_HISTORY_PAGE_LIMIT) =>
+    [
+      "get",
+      "/v1/sessions/{id}/events",
+      {
+        _hivyQueryKey: SESSION_EVENTS_INFINITE_KEY,
+        params: {
+          path: { id: sessionID },
+          query: { limit },
+        },
+      },
+    ] as const,
+  agents: (limit = 100, status = "active") =>
+    ["get", "/v1/agents", { params: { query: { status, limit } } }] as const,
+}
+
+export function isPersistableChatQuery(queryKey: QueryKey) {
+  const [method, path] = queryKey
+  if (method !== "get" || typeof path !== "string") return false
+  return (
+    path === "/v1/channels" ||
+    path === "/v1/channels/{id}/sessions" ||
+    path === "/v1/sessions/{id}" ||
+    path === "/v1/sessions/{id}/events" ||
+    path === "/v1/agents"
+  )
+}
+
+export function persistChatQueries(
+  queryClient: QueryClient,
+  scope: string
+): () => void {
+  const cacheScope = `${CHAT_CACHE_VERSION}:${scope}`
+  const [unsubscribe] = persistQueryClient({
+    queryClient,
+    persister: indexedDBPersister(`chat:${cacheScope}`),
+    buster: cacheScope,
+    maxAge: CHAT_QUERY_PERSIST_MAX_AGE_MS,
+    dehydrateOptions: {
+      shouldDehydrateQuery: (query) =>
+        query.state.status === "success" &&
+        isPersistableChatQuery(query.queryKey),
+    },
+  })
+  return unsubscribe
+}
+
+export function clearPersistedChatQueries() {
+  return clear(CHAT_CACHE_STORE)
+}
+
+export function prefetchSessionRoute(
+  queryClient: QueryClient,
+  sessionID: string
+) {
+  if (!sessionID || sessionID.startsWith("tmp_")) return
+  void queryClient.prefetchQuery({
+    queryKey: chatQueryKeys.session(sessionID),
+    queryFn: async () => {
+      const response = await api.GET("/v1/sessions/{id}", {
+        params: { path: { id: sessionID } },
+      })
+      if (response.error) throw response.error
+      return response.data
+    },
+    staleTime: CHAT_QUERY_STALE_TIME_MS,
+  })
+  void queryClient.prefetchInfiniteQuery({
+    queryKey: chatQueryKeys.sessionEvents(sessionID),
+    queryFn: async ({ pageParam }) => {
+      const cursor = typeof pageParam === "string" ? pageParam : undefined
+      const response = await api.GET("/v1/sessions/{id}/events", {
+        params: {
+          path: { id: sessionID },
+          query: {
+            limit: SESSION_HISTORY_PAGE_LIMIT,
+            ...(cursor ? { cursor } : {}),
+          },
+        },
+      })
+      if (response.error) throw response.error
+      return response.data
+    },
+    initialPageParam: "0",
+    getNextPageParam: (lastPage: PaginatedSessionEvents | undefined) =>
+      lastPage?.has_more ? lastPage.next_cursor : undefined,
+    staleTime: CHAT_QUERY_STALE_TIME_MS,
+  })
+}
+
+export function seedSessionDetail(
+  queryClient: QueryClient,
+  session: SessionResponse
+) {
+  if (!session.id) return
+  queryClient.setQueryData(chatQueryKeys.session(session.id), { session })
+}
+
+export function insertSessionIntoChannelCache(
+  queryClient: QueryClient,
+  session: SessionResponse
+) {
+  if (!session.id || !session.channel_id) return
+  queryClient.setQueryData<InfiniteData<PaginatedSessions>>(
+    chatQueryKeys.channelSessions(session.channel_id),
+    (current) => {
+      if (!current) {
+        return {
+          pageParams: ["0"],
+          pages: [{ data: [session], has_more: false }],
+        }
+      }
+      const pages = current.pages.map((page, index) => {
+        const data = page.data ?? []
+        const withoutDuplicate = data.filter((entry) => entry.id !== session.id)
+        return index === 0
+          ? { ...page, data: [session, ...withoutDuplicate] }
+          : { ...page, data: withoutDuplicate }
+      })
+      return { ...current, pages }
+    }
+  )
+}
+
+export function removeSessionFromChannelCache(
+  queryClient: QueryClient,
+  channelID: string | undefined,
+  sessionID: string
+) {
+  if (!channelID) return
+  queryClient.setQueryData<InfiniteData<PaginatedSessions>>(
+    chatQueryKeys.channelSessions(channelID),
+    (current) => {
+      if (!current) return current
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          data: (page.data ?? []).filter((session) => session.id !== sessionID),
+        })),
+      }
+    }
+  )
+}
+
+export function seedSessionEvents(
+  queryClient: QueryClient,
+  sessionID: string,
+  events: SessionEventResponse[]
+) {
+  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
+    chatQueryKeys.sessionEvents(sessionID),
+    (current) => {
+      const page = mergeEventsIntoPage(current?.pages[0], events)
+      return {
+        pageParams: current?.pageParams ?? ["0"],
+        pages: current?.pages.length
+          ? [page, ...current.pages.slice(1)]
+          : [page],
+      }
+    }
+  )
+}
+
+export function appendSessionEvents(
+  queryClient: QueryClient,
+  sessionID: string,
+  events: SessionEventResponse[]
+) {
+  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
+    chatQueryKeys.sessionEvents(sessionID),
+    (current) => {
+      const firstPage = mergeEventsIntoPage(current?.pages[0], events)
+      return {
+        pageParams: current?.pageParams ?? ["0"],
+        pages: current?.pages.length
+          ? [firstPage, ...current.pages.slice(1)]
+          : [firstPage],
+      }
+    }
+  )
+}
+
+export function replaceOptimisticSessionID(
+  queryClient: QueryClient,
+  optimisticID: string,
+  session: SessionResponse
+) {
+  if (!session.id || optimisticID === session.id) return
+  const optimisticEvents = queryClient.getQueryData<
+    InfiniteData<PaginatedSessionEvents>
+  >(chatQueryKeys.sessionEvents(optimisticID))
+  queryClient.removeQueries({
+    queryKey: chatQueryKeys.sessionEvents(optimisticID),
+    exact: true,
+  })
+  queryClient.removeQueries({
+    queryKey: chatQueryKeys.session(optimisticID),
+    exact: true,
+  })
+  if (optimisticEvents) {
+    queryClient.setQueryData(chatQueryKeys.sessionEvents(session.id), {
+      ...optimisticEvents,
+      pages: optimisticEvents.pages.map((page) => ({
+        ...page,
+        data: (page.data ?? []).map((event) => ({
+          ...event,
+          session_id: session.id,
+        })),
+      })),
+    })
+  }
+}
+
+export function markOptimisticEventFailed(
+  queryClient: QueryClient,
+  sessionID: string,
+  eventID: string,
+  message: string
+) {
+  updateOptimisticEventPayload(queryClient, sessionID, eventID, (event) => ({
+    ...payloadRecord(event),
+    client_status: "failed",
+    client_error: message,
+  }))
+}
+
+export function markOptimisticEventPending(
+  queryClient: QueryClient,
+  sessionID: string,
+  eventID: string
+) {
+  updateOptimisticEventPayload(queryClient, sessionID, eventID, (event) => {
+    const payload: Record<string, unknown> = {
+      ...payloadRecord(event),
+      client_status: "pending",
+    }
+    delete payload.client_error
+    return payload
+  })
+}
+
+export function removeSessionEvent(
+  queryClient: QueryClient,
+  sessionID: string,
+  eventID: string
+) {
+  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
+    chatQueryKeys.sessionEvents(sessionID),
+    (current) => {
+      if (!current) return current
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          data: (page.data ?? []).filter(
+            (event) => event.event_id !== eventID && event.id !== eventID
+          ),
+        })),
+      }
+    }
+  )
+}
+
+export function replaceOptimisticEvent(
+  queryClient: QueryClient,
+  sessionID: string,
+  optimisticEventID: string,
+  event: SessionEventResponse
+) {
+  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
+    chatQueryKeys.sessionEvents(sessionID),
+    (current) => {
+      if (!current) return current
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          data: (page.data ?? []).map((entry) =>
+            entry.id === optimisticEventID ||
+            entry.event_id === optimisticEventID
+              ? event
+              : entry
+          ),
+        })),
+      }
+    }
+  )
+}
+
+export function optimisticUserEvent(
+  sessionID: string,
+  text: string,
+  eventID = `optimistic_msg_${crypto.randomUUID()}`
+): SessionEventResponse {
+  const now = new Date().toISOString()
+  return {
+    id: eventID,
+    event_id: eventID,
+    event_type: "user.message",
+    event_at: now,
+    session_id: sessionID,
+    source: "web",
+    payload: {
+      text,
+      client_status: "pending",
+    },
+  }
+}
+
+export function optimisticThinkingEvent(
+  sessionID: string,
+  turnID = `optimistic_turn_${crypto.randomUUID()}`
+): SessionEventResponse {
+  const now = new Date().toISOString()
+  return {
+    id: `optimistic_thinking_${turnID}`,
+    event_id: `optimistic_thinking_${turnID}`,
+    event_type: "thinking",
+    event_at: now,
+    session_id: sessionID,
+    source: "web",
+    payload: {
+      text: "",
+      turn_id: turnID,
+      client_status: "pending",
+    },
+  }
+}
+
+function mergeEventsIntoPage(
+  page: PaginatedSessionEvents | undefined,
+  incoming: SessionEventResponse[]
+): PaginatedSessionEvents {
+  const existing = page?.data ?? []
+  const byID = new Map<string, SessionEventResponse>()
+  for (const event of existing) byID.set(eventKey(event), event)
+  for (const event of incoming) byID.set(eventKey(event), event)
+  const data = [...byID.values()].sort(compareSessionEvents)
+  return { ...page, data, has_more: page?.has_more ?? false }
+}
+
+function compareSessionEvents(
+  left: SessionEventResponse,
+  right: SessionEventResponse
+) {
+  const byTime = eventTime(left) - eventTime(right)
+  if (byTime !== 0) return byTime
+  return (left.sequence_number ?? 0) - (right.sequence_number ?? 0)
+}
+
+function eventTime(event: SessionEventResponse) {
+  const time = event.event_at ? Date.parse(event.event_at) : 0
+  return Number.isNaN(time) ? 0 : time
+}
+
+function eventKey(event: SessionEventResponse) {
+  return event.id ?? event.event_id ?? `${event.event_type}:${event.event_at}`
+}
+
+function updateOptimisticEventPayload(
+  queryClient: QueryClient,
+  sessionID: string,
+  eventID: string,
+  update: (event: SessionEventResponse) => Record<string, unknown>
+) {
+  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
+    chatQueryKeys.sessionEvents(sessionID),
+    (current) => {
+      if (!current) return current
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          data: (page.data ?? []).map((event) =>
+            event.event_id === eventID || event.id === eventID
+              ? { ...event, payload: update(event) }
+              : event
+          ),
+        })),
+      }
+    }
+  )
+}
+
+function payloadRecord(event: SessionEventResponse): Record<string, unknown> {
+  const payload = event.payload
+  return payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : {}
+}
+
+function indexedDBPersister(key: string): Persister {
+  return {
+    persistClient: (client) => set(key, client, CHAT_CACHE_STORE),
+    restoreClient: () => get(key, CHAT_CACHE_STORE),
+    removeClient: () => del(key, CHAT_CACHE_STORE),
+  }
+}

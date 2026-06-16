@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use storage::QuestionRequestRepo;
 use tokio::sync::{oneshot, Mutex};
 
-use crate::session_stream::SessionStreamBroker;
+use crate::session_stream::{SessionStreamBroker, StreamReplayMode};
 
 #[derive(Debug, thiserror::Error)]
 pub enum QuestionAnswerError {
@@ -293,7 +293,11 @@ mod tests {
         broker
             .register_session(session_id.as_str(), &stream_id)
             .await;
-        let (_history, mut stream) = broker.subscribe(&stream_id).await.expect("stream");
+        let mut stream = broker
+            .subscribe(&stream_id, StreamReplayMode::All)
+            .await
+            .expect("stream")
+            .into_receiver_for_test();
 
         let manager_for_task = manager.clone();
         let session_for_task = session_id.clone();

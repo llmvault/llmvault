@@ -90,6 +90,21 @@ impl CronJobRepo for SqliteCronJobRepo {
         self.writer.set_cron_state(id.to_string(), state).await
     }
 
+    async fn claim_due_run(
+        &self,
+        id: &str,
+        now: DateTime<Utc>,
+        started_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        self.writer
+            .claim_due_cron_run(id.to_string(), now, started_at)
+            .await
+    }
+
+    async fn reset_stale_running(&self, before: DateTime<Utc>) -> Result<u64> {
+        self.writer.reset_stale_cron_running(before).await
+    }
+
     async fn record_run(
         &self,
         id: &str,
@@ -119,6 +134,7 @@ impl CronJobRepo for SqliteCronJobRepo {
 fn parse_state(s: &str) -> CronJobState {
     match s {
         "active" => CronJobState::Active,
+        "running" => CronJobState::Running,
         "paused" => CronJobState::Paused,
         "completed" => CronJobState::Completed,
         _ => CronJobState::Active,

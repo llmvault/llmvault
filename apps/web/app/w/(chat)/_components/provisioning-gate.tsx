@@ -10,7 +10,7 @@ import type { components } from "@/lib/api/schema"
 import {
   resolveWorkspaceProvisioningState,
   type WorkspaceAgent,
-} from "../_lib/provisioning"
+} from "@/app/w/(chat)/_lib/provisioning"
 
 type OrgResponse = components["schemas"]["orgResponse"]
 

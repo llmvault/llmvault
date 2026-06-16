@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum CronJobState {
     Active,
+    Running,
     Paused,
     Completed,
 }

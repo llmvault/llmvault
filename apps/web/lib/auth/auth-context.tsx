@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
 import { api } from "@/lib/api/client"
 import type { components } from "@/lib/api/schema"
+import { clearPersistedChatQueries } from "@/app/w/(chat)/_lib/chat-cache"
 
 type User = components["schemas"]["userResponse"]
 type Org = components["schemas"]["orgMemberDTO"]
@@ -112,8 +113,10 @@ export function AuthProvider({
 
   const logout = useCallback(async () => {
     await api.POST("/auth/logout", { body: {} })
+    queryClient.clear()
+    await clearPersistedChatQueries()
     router.replace(signInPath)
-  }, [router, signInPath])
+  }, [queryClient, router, signInPath])
 
   return (
     <AuthContext.Provider

@@ -23,7 +23,7 @@ import {
   SOURCES,
   type Plugin,
   type PluginCategory,
-} from "./_data"
+} from "@/app/w/(chat)/plugins/_data"
 
 export default function PluginsPage() {
   const [query, setQuery] = useState("")

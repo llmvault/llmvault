@@ -4,7 +4,7 @@ mod composition;
 mod media;
 mod session;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use agent::{AgentEvent, AgentRunner, TurnInput};
@@ -471,6 +471,7 @@ pub async fn handle_inbound(
 
     let mut current_inbound = inbound;
     let session_stream_id = session_stream_id(&current_inbound);
+    let mut queued_backlog = QueuedInboundBacklog::default();
     'turns: loop {
         process_single_turn(
             runner.clone(),
@@ -491,8 +492,10 @@ pub async fn handle_inbound(
         let mut subagent_task_wait_deadline: Option<std::time::Instant> = None;
         loop {
             let follow_ups = coordinator.drain_queued(&current_inbound.session_id);
-            if !follow_ups.is_empty() {
-                current_inbound = merge_queued_inbound(&current_inbound, follow_ups);
+            if let Some(next) =
+                next_queued_inbound(&current_inbound, follow_ups, &mut queued_backlog)
+            {
+                current_inbound = next;
                 continue 'turns;
             }
 
@@ -557,14 +560,24 @@ pub async fn handle_inbound(
             if published_waiting {
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 let follow_ups = coordinator.drain_queued(&current_inbound.session_id);
-                if !follow_ups.is_empty() {
-                    current_inbound = merge_queued_inbound(&current_inbound, follow_ups);
+                if let Some(next) =
+                    next_queued_inbound(&current_inbound, follow_ups, &mut queued_backlog)
+                {
+                    current_inbound = next;
                     continue 'turns;
                 }
             }
 
             let follow_ups = coordinator.finish_turn(&current_inbound.session_id);
-            if follow_ups.is_empty() {
+            if let Some(next) =
+                next_queued_inbound(&current_inbound, follow_ups, &mut queued_backlog)
+            {
+                current_inbound = next;
+                coordinator.reserve(&current_inbound.session_id);
+                continue 'turns;
+            }
+
+            if queued_backlog.is_empty() {
                 if !is_subagent_task_inbound(&current_inbound) {
                     if let Some(stream_id) = session_stream_id.as_deref() {
                         let metadata = stream_event_metadata(&current_inbound);
@@ -575,10 +588,6 @@ pub async fn handle_inbound(
                 }
                 break 'turns;
             }
-
-            current_inbound = merge_queued_inbound(&current_inbound, follow_ups);
-            coordinator.reserve(&current_inbound.session_id);
-            continue 'turns;
         }
     }
 
@@ -589,6 +598,7 @@ pub async fn handle_inbound(
 /// before force-failing them. Without this bound a task whose result write
 /// never lands keeps the job Active and spins the parent loop forever.
 const MAX_SUBAGENT_TASK_WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+const MAX_REGULAR_BATCHES_BEFORE_SCHEDULED: usize = 1;
 
 async fn session_has_active_subagent_tasks(
     repo: &dyn SubagentTaskRepo,
@@ -614,6 +624,60 @@ async fn force_fail_active_subagent_tasks(repo: &dyn SubagentTaskRepo, session_i
     {
         warn!(error = %e, session = %session_id, "failed to force-fail subagent tasks");
     }
+}
+
+#[derive(Default)]
+struct QueuedInboundBacklog {
+    regular: Vec<InboundEvent>,
+    scheduled: VecDeque<InboundEvent>,
+    regular_batches_since_scheduled: usize,
+}
+
+impl QueuedInboundBacklog {
+    fn is_empty(&self) -> bool {
+        self.regular.is_empty() && self.scheduled.is_empty()
+    }
+}
+
+fn next_queued_inbound(
+    current: &InboundEvent,
+    queued: Vec<InboundEvent>,
+    backlog: &mut QueuedInboundBacklog,
+) -> Option<InboundEvent> {
+    for event in queued {
+        if is_scheduled_run_inbound(&event) {
+            backlog.scheduled.push_back(event);
+        } else {
+            backlog.regular.push(event);
+        }
+    }
+
+    if !backlog.scheduled.is_empty()
+        && (backlog.regular.is_empty()
+            || backlog.regular_batches_since_scheduled >= MAX_REGULAR_BATCHES_BEFORE_SCHEDULED)
+    {
+        backlog.regular_batches_since_scheduled = 0;
+        return backlog.scheduled.pop_front();
+    }
+
+    if !backlog.regular.is_empty() {
+        backlog.regular_batches_since_scheduled += 1;
+        let regular = std::mem::take(&mut backlog.regular);
+        return Some(merge_queued_inbound(current, regular));
+    }
+
+    if let Some(scheduled) = backlog.scheduled.pop_front() {
+        backlog.regular_batches_since_scheduled = 0;
+        return Some(scheduled);
+    }
+    None
+}
+
+fn is_scheduled_run_inbound(inbound: &InboundEvent) -> bool {
+    !matches!(
+        ScheduledRunStatus::from_inbound(inbound),
+        ScheduledRunStatus::None
+    )
 }
 
 fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> InboundEvent {
@@ -845,6 +909,130 @@ mod queue_tests {
     }
 
     #[test]
+    fn scheduled_wake_queued_during_active_turn_runs_as_standalone_inbound() {
+        let current = inbound(
+            "session-1",
+            "E1",
+            "working",
+            serde_json::json!({
+                "source": "session",
+                "session_stream_id": "stream-1",
+                "trace_id": "trace-1",
+                "turn_id": "turn-1"
+            }),
+        );
+        let now = Utc::now();
+        let wake = inbound(
+            "session-1",
+            "wake-1",
+            "Check the background process",
+            serde_json::json!({
+                "source": "wake",
+                "job_kind": "wake",
+                "job_id": "wake-1",
+                "schedule_run_key": "wake-1:2026-06-15T17:44:35Z",
+                "schedule_scheduled_at": now,
+                "schedule_started_at": now,
+                "schedule_is_one_shot": false,
+                "schedule_is_wake": true
+            }),
+        );
+        let mut backlog = QueuedInboundBacklog::default();
+
+        let next = next_queued_inbound(&current, vec![wake], &mut backlog)
+            .expect("scheduled wake should be selected");
+
+        assert_eq!(next.raw["source"], "wake");
+        assert_eq!(next.raw["job_id"], "wake-1");
+        assert_eq!(next.raw["schedule_run_key"], "wake-1:2026-06-15T17:44:35Z");
+        assert!(next.raw.get("events").is_none());
+        assert!(turn_id(&next).is_none());
+        assert!(trace_id(&next).is_none());
+    }
+
+    #[test]
+    fn scheduled_backlog_runs_after_one_regular_batch_even_when_more_regular_arrives() {
+        let current = inbound(
+            "session-1",
+            "E1",
+            "working",
+            serde_json::json!({"source": "session"}),
+        );
+        let now = Utc::now();
+        let wake = inbound(
+            "session-1",
+            "wake-1",
+            "Check status",
+            serde_json::json!({
+                "source": "wake",
+                "job_kind": "wake",
+                "job_id": "wake-1",
+                "schedule_run_key": "wake-1:2026-06-15T17:44:35Z",
+                "schedule_scheduled_at": now,
+                "schedule_started_at": now,
+                "schedule_is_one_shot": false,
+                "schedule_is_wake": true
+            }),
+        );
+        let regular_1 = inbound(
+            "session-1",
+            "E2",
+            "follow up one",
+            serde_json::json!({"source": "session"}),
+        );
+        let regular_2 = inbound(
+            "session-1",
+            "E3",
+            "follow up two",
+            serde_json::json!({"source": "session"}),
+        );
+        let mut backlog = QueuedInboundBacklog::default();
+
+        let first = next_queued_inbound(&current, vec![wake, regular_1], &mut backlog)
+            .expect("regular batch should be selected first");
+        assert_eq!(first.raw["source"], "queued_batch");
+
+        let second = next_queued_inbound(&first, vec![regular_2], &mut backlog)
+            .expect("scheduled backlog should be selected after one regular batch");
+        assert_eq!(second.raw["source"], "wake");
+        assert_eq!(second.raw["job_id"], "wake-1");
+
+        let third = next_queued_inbound(&second, Vec::new(), &mut backlog)
+            .expect("deferred regular should still be preserved");
+        assert_eq!(third.raw["source"], "queued_batch");
+        assert!(third.text.contains("follow up two"));
+    }
+
+    #[test]
+    fn malformed_scheduled_metadata_is_still_classified_as_scheduled() {
+        let inbound = inbound(
+            "session-1",
+            "wake-1",
+            "Check status",
+            serde_json::json!({
+                "source": "wake",
+                "job_kind": "wake",
+                "job_id": "wake-1",
+                "schedule_run_key": "wake-1:bad-timestamp",
+                "schedule_scheduled_at": "not-a-timestamp",
+                "schedule_started_at": Utc::now(),
+                "schedule_is_wake": true
+            }),
+        );
+
+        assert!(is_scheduled_run_inbound(&inbound));
+        match ScheduledRunStatus::from_inbound(&inbound) {
+            ScheduledRunStatus::Malformed(malformed) => {
+                assert_eq!(malformed.job_id.as_deref(), Some("wake-1"));
+                assert_eq!(malformed.reason, "invalid schedule_scheduled_at");
+            }
+            ScheduledRunStatus::None | ScheduledRunStatus::Valid(_) => {
+                panic!("expected malformed scheduled metadata")
+            }
+        }
+    }
+
+    #[test]
     fn session_inbound_source_and_final_metadata_are_preserved() {
         let inbound = inbound(
             "session-1",
@@ -937,6 +1125,11 @@ async fn process_single_turn(
     coordinator: Arc<SessionCoordinator>,
     inbound_sink: mpsc::Sender<InboundEvent>,
 ) -> Result<()> {
+    if let ScheduledRunStatus::Malformed(malformed) = ScheduledRunStatus::from_inbound(inbound) {
+        fail_malformed_scheduled_run(cron_repo.as_ref(), &malformed, &inbound.session_id).await;
+        return Ok(());
+    }
+
     if inbound.text.trim().is_empty() && inbound.attachments.is_empty() {
         return Ok(());
     }
@@ -1249,24 +1442,72 @@ struct ScheduledRunContext {
     is_wake: bool,
 }
 
+struct MalformedScheduledRunContext {
+    job_id: Option<String>,
+    reason: String,
+}
+
+enum ScheduledRunStatus {
+    None,
+    Valid(ScheduledRunContext),
+    Malformed(MalformedScheduledRunContext),
+}
+
 impl ScheduledRunContext {
     fn from_inbound(inbound: &InboundEvent) -> Option<Self> {
-        let raw = inbound.raw.as_object()?;
-        // Only scheduler-dispatched runs carry these keys; ordinary inbound
-        // messages (and subagent task results, handled above) do not.
-        let run_key = raw.get("schedule_run_key")?.as_str()?.to_string();
-        let job_id = raw.get("job_id")?.as_str()?.to_string();
-        let scheduled_at = raw
-            .get("schedule_scheduled_at")
+        match ScheduledRunStatus::from_inbound(inbound) {
+            ScheduledRunStatus::Valid(run) => Some(run),
+            ScheduledRunStatus::None | ScheduledRunStatus::Malformed(_) => None,
+        }
+    }
+}
+
+impl ScheduledRunStatus {
+    fn from_inbound(inbound: &InboundEvent) -> Self {
+        let Some(raw) = inbound.raw.as_object() else {
+            return Self::None;
+        };
+        let has_schedule_metadata = raw.contains_key("schedule_run_key")
+            || raw.contains_key("schedule_scheduled_at")
+            || raw.contains_key("schedule_started_at");
+        if !has_schedule_metadata {
+            return Self::None;
+        }
+
+        let job_id = raw
+            .get("job_id")
             .and_then(Value::as_str)
-            .and_then(|s| s.parse().ok())?;
-        let started_at = raw
-            .get("schedule_started_at")
-            .and_then(Value::as_str)
-            .and_then(|s| s.parse().ok())?;
-        Some(Self {
+            .map(str::to_string);
+        let malformed = |reason: &str| {
+            Self::Malformed(MalformedScheduledRunContext {
+                job_id: job_id.clone(),
+                reason: reason.to_string(),
+            })
+        };
+
+        let Some(run_key) = raw.get("schedule_run_key").and_then(Value::as_str) else {
+            return malformed("missing schedule_run_key");
+        };
+        let Some(job_id) = job_id.clone() else {
+            return malformed("missing job_id");
+        };
+        let Some(scheduled_at_raw) = raw.get("schedule_scheduled_at").and_then(Value::as_str)
+        else {
+            return malformed("missing schedule_scheduled_at");
+        };
+        let Ok(scheduled_at) = scheduled_at_raw.parse() else {
+            return malformed("invalid schedule_scheduled_at");
+        };
+        let Some(started_at_raw) = raw.get("schedule_started_at").and_then(Value::as_str) else {
+            return malformed("missing schedule_started_at");
+        };
+        let Ok(started_at) = started_at_raw.parse() else {
+            return malformed("invalid schedule_started_at");
+        };
+
+        Self::Valid(ScheduledRunContext {
             job_id,
-            run_key,
+            run_key: run_key.to_string(),
             scheduled_at,
             started_at,
             is_one_shot: raw
@@ -1278,6 +1519,36 @@ impl ScheduledRunContext {
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
         })
+    }
+}
+
+async fn fail_malformed_scheduled_run(
+    cron_repo: &dyn CronJobRepo,
+    malformed: &MalformedScheduledRunContext,
+    session_id: &SessionId,
+) {
+    warn!(
+        session = %session_id,
+        job_id = malformed.job_id.as_deref().unwrap_or("<missing>"),
+        reason = %malformed.reason,
+        "cron: malformed scheduled run metadata; resetting claimed job if possible"
+    );
+    let Some(job_id) = malformed.job_id.as_deref() else {
+        return;
+    };
+    let now = Utc::now();
+    let error = format!("malformed scheduled run metadata: {}", malformed.reason);
+    if let Err(e) = cron_repo
+        .record_run(job_id, now, "error", Some(&error))
+        .await
+    {
+        warn!(job_id = %job_id, error = %e, "cron: failed to record malformed scheduled run");
+    }
+    if let Err(e) = cron_repo
+        .set_state(job_id, domain::cron::CronJobState::Active)
+        .await
+    {
+        warn!(job_id = %job_id, error = %e, "cron: failed to reset malformed scheduled run");
     }
 }
 
@@ -2377,7 +2648,10 @@ mod stream_tests {
 
 #[cfg(test)]
 mod scheduled_run_tests {
-    use super::{complete_scheduled_run, InboundEvent, ScheduledRunContext};
+    use super::{
+        complete_scheduled_run, fail_malformed_scheduled_run, InboundEvent, ScheduledRunContext,
+        ScheduledRunStatus,
+    };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use domain::cron::{CronJob, CronJobState};
@@ -2459,6 +2733,10 @@ mod scheduled_run_tests {
         fn job_exists(&self, id: &str) -> bool {
             self.jobs.lock().unwrap().contains_key(id)
         }
+
+        fn job_state(&self, id: &str) -> Option<CronJobState> {
+            self.jobs.lock().unwrap().get(id).map(|job| job.state)
+        }
     }
 
     #[async_trait]
@@ -2489,6 +2767,25 @@ mod scheduled_run_tests {
                 job.state = state;
             }
             Ok(())
+        }
+        async fn claim_due_run(
+            &self,
+            id: &str,
+            now: DateTime<Utc>,
+            started_at: DateTime<Utc>,
+        ) -> StorageResult<bool> {
+            let mut jobs = self.jobs.lock().unwrap();
+            let Some(job) = jobs.get_mut(id) else {
+                return Ok(false);
+            };
+            if job.state != CronJobState::Active || job.next_run_at > now {
+                return Ok(false);
+            }
+            job.state = CronJobState::Running;
+            job.last_run_at = Some(started_at);
+            job.last_status = Some("running".to_string());
+            job.last_error = None;
+            Ok(true)
         }
         async fn record_run(
             &self,
@@ -2661,5 +2958,33 @@ mod scheduled_run_tests {
         assert_eq!(*repo.increment_calls.lock().unwrap(), 1);
         // repeat_completed (1) + 1 >= repeat_count (2): job removed.
         assert!(!repo.job_exists("repeat-1"));
+    }
+
+    #[tokio::test]
+    async fn malformed_scheduled_metadata_records_error_and_resets_claim() {
+        let mut job = test_job("wake-malformed", None);
+        job.state = CronJobState::Running;
+        job.session_continuation_id = Some("C123-cron-1".to_string());
+        let repo = FakeCronRepo::with_job(job);
+        let inbound = {
+            let mut inbound = scheduled_inbound("wake-malformed", false, true);
+            inbound.raw["schedule_scheduled_at"] = json!("not-a-date");
+            inbound
+        };
+        let malformed = match ScheduledRunStatus::from_inbound(&inbound) {
+            ScheduledRunStatus::Malformed(malformed) => malformed,
+            ScheduledRunStatus::None | ScheduledRunStatus::Valid(_) => {
+                panic!("expected malformed scheduled context")
+            }
+        };
+
+        fail_malformed_scheduled_run(repo.as_ref(), &malformed, &SessionId::from("C123-cron-1"))
+            .await;
+
+        assert_eq!(repo.job_state("wake-malformed"), Some(CronJobState::Active));
+        assert_eq!(
+            *repo.run_records.lock().unwrap(),
+            vec![("wake-malformed".to_string(), "error".to_string())]
+        );
     }
 }

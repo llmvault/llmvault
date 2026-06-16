@@ -91,6 +91,16 @@ pub(super) enum WriteRequest {
         state: CronJobState,
         resp: Resp<()>,
     },
+    CronClaimDueRun {
+        id: String,
+        now: DateTime<Utc>,
+        started_at: DateTime<Utc>,
+        resp: Resp<bool>,
+    },
+    CronResetStaleRunning {
+        before: DateTime<Utc>,
+        resp: Resp<u64>,
+    },
     CronRecordRun {
         id: String,
         run_at: DateTime<Utc>,
@@ -279,6 +289,18 @@ impl WriteRequest {
             ),
             WriteRequest::CronSetState { id, state, resp } => {
                 respond(resp, cron_ops::cron_set_state(conn, &id, state).await)
+            }
+            WriteRequest::CronClaimDueRun {
+                id,
+                now,
+                started_at,
+                resp,
+            } => respond(
+                resp,
+                cron_ops::cron_claim_due_run(conn, &id, now, started_at).await,
+            ),
+            WriteRequest::CronResetStaleRunning { before, resp } => {
+                respond(resp, cron_ops::cron_reset_stale_running(conn, before).await)
             }
             WriteRequest::CronRecordRun {
                 id,
