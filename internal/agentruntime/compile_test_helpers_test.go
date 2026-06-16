@@ -2,6 +2,7 @@ package agentruntime
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"gorm.io/driver/postgres"
@@ -40,20 +41,23 @@ func connectCompileTestDB(t *testing.T) *gorm.DB {
 }
 
 type fakeMemoryRecall struct {
-	bankID   string
-	request  *hindsight.RecallRequest
-	response *hindsight.RecallResponse
-	err      error
+	mu           sync.Mutex
+	bankID       string
+	listRequests []hindsight.ListMemoriesOptions
+	listResponse *hindsight.ListMemoriesResponse
+	err          error
 }
 
-func (f *fakeMemoryRecall) Recall(_ context.Context, bankID string, req *hindsight.RecallRequest) (*hindsight.RecallResponse, error) {
+func (f *fakeMemoryRecall) ListMemoriesFiltered(_ context.Context, bankID string, opts hindsight.ListMemoriesOptions) (*hindsight.ListMemoriesResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.bankID = bankID
-	f.request = req
+	f.listRequests = append(f.listRequests, opts)
 	if f.err != nil {
 		return nil, f.err
 	}
-	if f.response == nil {
-		return &hindsight.RecallResponse{}, nil
+	if f.listResponse == nil {
+		return &hindsight.ListMemoriesResponse{}, nil
 	}
-	return f.response, nil
+	return f.listResponse, nil
 }

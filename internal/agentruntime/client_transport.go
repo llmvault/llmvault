@@ -81,13 +81,33 @@ func (c *Client) newRequest(ctx context.Context, method, rawURL string, data []b
 
 func localDockerHostBaseURL(raw string) (string, bool) {
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Hostname() != "host.docker.internal" {
+	if err != nil {
 		return "", false
 	}
-	if port := parsed.Port(); port != "" {
-		parsed.Host = net.JoinHostPort("localhost", port)
-	} else {
-		parsed.Host = "localhost"
+	host := parsed.Hostname()
+	switch {
+	case host == "host.docker.internal":
+		if port := parsed.Port(); port != "" {
+			parsed.Host = net.JoinHostPort("localhost", port)
+		} else {
+			parsed.Host = "localhost"
+		}
+	case isLocalDockerHost(host):
+		if port := parsed.Port(); port != "" {
+			parsed.Host = net.JoinHostPort("host.docker.internal", port)
+		} else {
+			parsed.Host = "host.docker.internal"
+		}
+	default:
+		return "", false
 	}
 	return strings.TrimRight(parsed.String(), "/"), true
+}
+
+func isLocalDockerHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

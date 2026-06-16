@@ -12,7 +12,7 @@ import (
 
 const (
 	AgentSandboxPort    = 7080
-	agentHealthTimeout  = 90 * time.Second
+	agentHealthTimeout  = 4 * time.Minute
 	agentHealthInterval = 2 * time.Second
 )
 

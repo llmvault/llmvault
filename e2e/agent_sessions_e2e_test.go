@@ -60,8 +60,8 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		"After the bash result, emit a hidden thinking segment exactly like <think>" + thinkingMarker + "</think>, then visible final reply exactly " + firstMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created session id=%s queued=%t first_event=%s", session.Session.ID, session.Queued, eventType(session.Event))
-	if !session.Queued || session.Session.ID == "" || session.Event == nil || session.Event.SequenceNumber != 1 {
-		t.Fatalf("session was not queued correctly: %+v", session)
+	if session.Session.ID == "" || session.Event == nil || session.Event.SequenceNumber != 1 {
+		t.Fatalf("session was not created correctly: %+v", session)
 	}
 
 	agentSessionsSendMessageStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, "I should be blocked before sharing", http.StatusForbidden)

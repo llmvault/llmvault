@@ -34,11 +34,11 @@ type CompileDeps struct {
 	SigningKey []byte
 	Cfg        *config.Config
 	Nango      *nango.Client
-	Hindsight  HindsightRecallClient
+	Hindsight  HindsightMemoryClient
 }
 
-type HindsightRecallClient interface {
-	Recall(ctx context.Context, bankID string, req *hindsight.RecallRequest) (*hindsight.RecallResponse, error)
+type HindsightMemoryClient interface {
+	ListMemoriesFiltered(ctx context.Context, bankID string, opts hindsight.ListMemoriesOptions) (*hindsight.ListMemoriesResponse, error)
 }
 
 type StartupSecrets struct {

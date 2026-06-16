@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -45,7 +44,6 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 	if err := h.db.WithContext(ctx).Create(&session).Error; err != nil {
 		return nil, fmt.Errorf("create trigger session: %w", err)
 	}
-	h.enqueueTriggerSessionMemoryRetain(ctx, session, "trigger_session_created", "trigger.session.created")
 	return &session, nil
 }
 
@@ -76,53 +74,4 @@ func shortTaskUUID(id uuid.UUID) string {
 		return value
 	}
 	return value[:8]
-}
-
-func (h *AgentTriggerDispatchHandler) enqueueTriggerSessionMemoryRetain(ctx context.Context, session model.Session, reason, sourceEvent string) {
-	if h == nil || h.enqueuer == nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("trigger agent memory retain: enqueuer missing"), triggerAgentMemoryRetainFields(session, reason, sourceEvent))
-		return
-	}
-	if session.SandboxID == nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("trigger agent memory retain: session sandbox missing"), triggerAgentMemoryRetainFields(session, reason, sourceEvent))
-		return
-	}
-	payload := AgentMemoryRetainPayload{
-		AgentID:     session.AgentID,
-		SandboxID:   *session.SandboxID,
-		SessionUUID: session.ID,
-		SessionID:   session.ID.String(),
-		Reason:      reason,
-		SourceEvent: sourceEvent,
-	}
-	duplicate, err := EnqueueAgentMemoryRetain(ctx, h.enqueuer, payload)
-	if err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("trigger agent memory retain: enqueue: %w", err), triggerAgentMemoryRetainFields(session, reason, sourceEvent))
-		return
-	}
-	logging.FromContext(ctx).InfoContext(ctx, "trigger agent memory retain enqueued",
-		"org_id", session.OrgID.String(),
-		"agent_id", session.AgentID.String(),
-		"sandbox_id", session.SandboxID.String(),
-		"session_id", session.ID.String(),
-		"reason", reason,
-		"source_event", sourceEvent,
-		"delay_seconds", int(AgentMemoryRetainDelay.Seconds()),
-		"duplicate", duplicate,
-	)
-}
-
-func triggerAgentMemoryRetainFields(session model.Session, reason, sourceEvent string) map[string]any {
-	sandboxID := ""
-	if session.SandboxID != nil {
-		sandboxID = session.SandboxID.String()
-	}
-	return map[string]any{
-		"org_id":       session.OrgID.String(),
-		"agent_id":     session.AgentID.String(),
-		"sandbox_id":   sandboxID,
-		"session_id":   session.ID.String(),
-		"reason":       reason,
-		"source_event": sourceEvent,
-	}
 }

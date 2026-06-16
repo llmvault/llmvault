@@ -84,16 +84,22 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	if !strings.Contains(requirePromptString(t, identity.Content), "You are a "+orgName+" agent.") {
 		t.Fatalf("identity content missing company sentence: %q", requirePromptString(t, identity.Content))
 	}
+	if !strings.Contains(requirePromptString(t, identity.Content), "<agent_identity>") {
+		t.Fatalf("identity content is not XML wrapped: %q", requirePromptString(t, identity.Content))
+	}
 	instructionsSegment := requireStaticPromptSegment(t, cacheable[2])
 	if requirePromptString(t, instructionsSegment.Title) != "Agent instructions" {
 		t.Fatalf("instructions title = %q", requirePromptString(t, instructionsSegment.Title))
 	}
-	if requirePromptString(t, instructionsSegment.Content) != instructions {
+	if !strings.Contains(requirePromptString(t, instructionsSegment.Content), "<agent_instructions>\n"+instructions+"\n</agent_instructions>") {
 		t.Fatalf("instructions content = %q", requirePromptString(t, instructionsSegment.Content))
 	}
 	company := requireStaticPromptSegment(t, cacheable[3])
 	if requirePromptString(t, company.Title) != "About the company" {
 		t.Fatalf("company title = %q", requirePromptString(t, company.Title))
+	}
+	if !strings.Contains(requirePromptString(t, company.Content), "<company>") {
+		t.Fatalf("company content is not XML wrapped: %q", requirePromptString(t, company.Content))
 	}
 	if len(dynamic) != 4 {
 		t.Fatalf("dynamic segment count = %d", len(dynamic))

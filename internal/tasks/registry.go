@@ -107,7 +107,6 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	}
 
 	if deps.Hindsight != nil {
-		mux.HandleFunc(TypeAgentMemoryRetain, NewAgentMemoryRetainHandler(deps.DB, deps.Hindsight, deps.Enqueuer, deps.PreContextCache).Handle)
 		mux.HandleFunc(TypeAgentMemoryRefresh, NewAgentMemoryRefreshHandler(deps.DB, deps.AgentCompile).Handle)
 	}
 	if deps.Orchestrator != nil && deps.S3Client != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil {

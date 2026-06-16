@@ -3,12 +3,21 @@ package agentruntime
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/sourcegraph/conc/pool"
 
 	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+)
+
+const (
+	memoryPreloadPerQueryLimit = 100
+	memoryPreloadMaxEntries    = 12
 )
 
 func buildMemoryContext(ctx context.Context, deps CompileDeps, agent *model.Agent) MemoryContext {
@@ -21,33 +30,61 @@ func buildMemoryContext(ctx context.Context, deps CompileDeps, agent *model.Agen
 		logging.Capture(ctx, err)
 		return memory
 	}
-	recallCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	listCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	query := "Durable company, people, project, decision, policy, preference, technical, customer, and communication-behavior memories relevant to this agent's current work."
-	result, err := deps.Hindsight.Recall(recallCtx, bankID, &hindsight.RecallRequest{
-		Query:     query,
-		Budget:    "mid",
-		TagGroups: agentMemoryTagGroups(agent),
-	})
-	if err != nil || result == nil {
+	queries, err := hindsight.PreloadMemoryListQueries(listCtx, deps.DB, agent)
+	if err != nil {
+		logging.Capture(ctx, err)
 		return memory
 	}
-	memory.Entries = compactMemoryResults(result.Results, 12, memory.TokenBudget)
+	if len(queries) == 0 {
+		return memory
+	}
+	results := listPreloadMemories(listCtx, deps.Hindsight, bankID, queries)
+	memory.Entries = compactMemoryResults(results, memoryPreloadMaxEntries, memory.TokenBudget)
 	return memory
 }
 
-func agentMemoryTagGroups(agent *model.Agent) []any {
-	if agent == nil || agent.OrgID == nil {
-		return nil
+func listPreloadMemories(ctx context.Context, client HindsightMemoryClient, bankID string, queries []hindsight.MemoryListQuery) []any {
+	var mu sync.Mutex
+	resultsByQuery := make([][]any, len(queries))
+	p := pool.New().WithErrors().WithMaxGoroutines(8)
+	for index, query := range queries {
+		index, query := index, query
+		p.Go(func() error {
+			resp, err := client.ListMemoriesFiltered(ctx, bankID, hindsight.ListMemoriesOptions{
+				Limit:       memoryPreloadPerQueryLimit,
+				TagGroups:   query.TagGroups,
+				ExcludeTags: query.ExcludeTags,
+			})
+			if err != nil || resp == nil {
+				return err
+			}
+			items := make([]any, 0, len(resp.Items))
+			for _, item := range resp.Items {
+				items = append(items, item)
+			}
+			mu.Lock()
+			resultsByQuery[index] = items
+			mu.Unlock()
+			return nil
+		})
 	}
-	tags := []string{"company:" + agent.OrgID.String()}
-	return []any{map[string]any{"tags": tags, "match": "all_strict"}}
+	if err := p.Wait(); err != nil {
+		logging.Capture(ctx, err)
+	}
+	results := make([]any, 0, len(queries)*memoryPreloadPerQueryLimit)
+	for _, items := range resultsByQuery {
+		results = append(results, items...)
+	}
+	return results
 }
 
 func compactMemoryResults(results []any, maxEntries int, tokenBudget int) []MemoryContextEntry {
 	entries := make([]MemoryContextEntry, 0, len(results))
 	remainingChars := tokenBudget * 4
+	seen := map[string]struct{}{}
 	for _, raw := range results {
 		if len(entries) >= maxEntries || remainingChars <= 0 {
 			break
@@ -57,6 +94,12 @@ func compactMemoryResults(results []any, maxEntries int, tokenBudget int) []Memo
 		if entry.Content == "" {
 			continue
 		}
+		sort.Strings(entry.Tags)
+		key := memoryEntryDedupeKey(entry)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
 		if len(entry.Content) > remainingChars {
 			entry.Content = entry.Content[:remainingChars]
 		}
@@ -88,7 +131,7 @@ func memoryEntryFromResult(raw any) MemoryContextEntry {
 func memoryEntryFromMap(m map[string]any) MemoryContextEntry {
 	entry := MemoryContextEntry{
 		Content:    firstString(m, "content", "text", "memory", "summary", "fact", "observation"),
-		Source:     firstString(m, "source"),
+		Source:     firstString(m, "source", "document_id", "id"),
 		MemoryType: firstString(m, "memory_type", "type"),
 	}
 	if entry.Content == "" {
@@ -103,7 +146,17 @@ func memoryEntryFromMap(m map[string]any) MemoryContextEntry {
 			}
 		}
 	}
+	if tags, ok := m["tags"].([]string); ok {
+		entry.Tags = append(entry.Tags, tags...)
+	}
 	return entry
+}
+
+func memoryEntryDedupeKey(entry MemoryContextEntry) string {
+	if entry.Source != "" {
+		return entry.Source
+	}
+	return entry.Content
 }
 
 func firstString(m map[string]any, keys ...string) string {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -92,6 +91,13 @@ type ListMemoriesResponse struct {
 	Offset int              `json:"offset"`
 }
 
+type ListMemoriesOptions struct {
+	Limit       int
+	Offset      int
+	TagGroups   []any
+	ExcludeTags []string
+}
+
 // ReflectRequest is the request body for POST /v1/default/banks/{bankID}/reflect.
 type ReflectRequest struct {
 	Query     string `json:"query"`
@@ -144,32 +150,6 @@ func (c *Client) Recall(ctx context.Context, bankID string, req *RecallRequest) 
 	var result RecallResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("hindsight recall: decoding response: %w", err)
-	}
-	return &result, nil
-}
-
-func (c *Client) ListMemories(ctx context.Context, bankID string, limit, offset int) (*ListMemoriesResponse, error) {
-	if limit <= 0 {
-		limit = 100
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	path := fmt.Sprintf("/v1/default/banks/%s/memories/list?limit=%d&offset=%d", url.PathEscape(bankID), limit, offset)
-	resp, err := c.do(ctx, http.MethodGet, path, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("hindsight list memories: status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result ListMemoriesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("hindsight list memories: decoding response: %w", err)
 	}
 	return &result, nil
 }
