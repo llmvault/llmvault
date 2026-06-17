@@ -357,11 +357,7 @@ impl SessionStreamBroker {
             .cloned()
     }
 
-    pub async fn set_model_definition_for_session(
-        &self,
-        session_id: &str,
-        model: ModelConfig,
-    ) {
+    pub async fn set_model_definition_for_session(&self, session_id: &str, model: ModelConfig) {
         self.session_model_definitions
             .lock()
             .await
