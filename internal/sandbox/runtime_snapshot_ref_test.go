@@ -26,6 +26,18 @@ func TestAgentRuntimeTemplateRefUsesMicrosandboxSmallSnapshotAlias(t *testing.T)
 	}
 }
 
+func TestAgentRuntimeTemplateRefForSizeUsesMicrosandboxSizeSnapshotAlias(t *testing.T) {
+	cfg := &config.Config{
+		SandboxProviderID:         ProviderMicrosandbox,
+		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.18-amd64",
+	}
+	got := AgentRuntimeTemplateRefForSize(cfg, "xlarge")
+	want := "hivy-sandboxes-runtime-v3-1-18-amd64-xlarge"
+	if got != want {
+		t.Fatalf("runtime template ref = %q, want %q", got, want)
+	}
+}
+
 func TestAgentRuntimeTemplateRefLeavesNonMicrosandboxImageRef(t *testing.T) {
 	cfg := &config.Config{
 		SandboxProviderID:         ProviderDocker,

@@ -19,6 +19,7 @@ type agentMutationRequest struct {
 	AvatarURL         *string          `json:"avatar_url,omitempty"`
 	Icon              *string          `json:"icon,omitempty"`
 	SandboxStrategy   *string          `json:"sandbox_strategy,omitempty"`
+	SandboxSize       *string          `json:"sandbox_size,omitempty"`
 	SandboxTemplateID *string          `json:"sandbox_template_id,omitempty"`
 	Model             *string          `json:"model,omitempty"`
 	AvailableModels   *[]string        `json:"available_models,omitempty"`
@@ -95,6 +96,10 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_strategy must be always_on or per_session"})
 		return
 	}
+	sandboxSize, ok := normalizeAgentSandboxSizeForRequest(w, req.SandboxSize)
+	if !ok {
+		return
+	}
 	sandboxTemplateID, ok := parseOptionalUUIDForRequest(w, req.SandboxTemplateID, "sandbox_template_id")
 	if !ok {
 		return
@@ -127,6 +132,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Icon:              cleanStringPtr(req.Icon),
 		IsDefault:         false,
 		SandboxStrategy:   strategy,
+		SandboxSize:       sandboxSize,
 		SandboxTemplateID: sandboxTemplateID,
 		Model:             modelID,
 		AvailableModels:   availableModels,

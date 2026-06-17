@@ -4,12229 +4,12228 @@
  */
 
 export interface paths {
-  "/auth/change-password": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Change password
-     * @description Changes the authenticated user's password. Revokes all sessions.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Current and new password */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["changePasswordRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/confirm-email": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Confirm email address
-     * @description Confirms a user's email address using a 6-digit code.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Email and 6-digit code */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["confirmEmailRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/forgot-password": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Request password reset
-     * @description Sends a password reset link to the email address if an account exists.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Email address */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["forgotPasswordRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/login": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Log in
-     * @description Authenticates a user with email and password.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Login parameters */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["loginRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["authResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/logout": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Log out
-     * @description Revokes a refresh token.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Logout parameters */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["logoutRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/me": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get current user
-     * @description Returns the current user and their organization memberships.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["meResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    /**
-     * Delete current user account
-     * @description Permanently deletes the authenticated user's account. This action cannot be undone.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    /**
-     * Update current user profile
-     * @description Updates the authenticated user's name, email, or avatar URL.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Fields to update */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateProfileRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["userResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/auth/otp/request": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Request an OTP code
-     * @description Sends a 6-digit one-time code to the given email address.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description OTP request */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["otpRequestPayload"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/otp/verify": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Verify an OTP code
-     * @description Verifies the 6-digit code and returns access/refresh tokens. Creates the user account if it doesn't exist.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description OTP verification */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["otpVerifyPayload"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["authResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/refresh": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Refresh tokens
-     * @description Exchanges a refresh token for new access and refresh tokens.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Refresh parameters */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["refreshRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["authResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/register": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Register
-     * @description Creates a user account with email and password.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Registration parameters */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["registerRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["authResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/resend-confirmation": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Resend confirmation email
-     * @description Sends a new 6-digit email confirmation code. Rate limited to 1 per 60 seconds.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Email address */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["resendConfirmationRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Too Many Requests */
-        429: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/auth/reset-password": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Reset password
-     * @description Resets a user's password using a reset token. Revokes all sessions.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Reset token and new password */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["resetPasswordRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/incoming/triggers/{triggerID}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Receive HTTP trigger request
-     * @description Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
-     */
-    post: {
-      parameters: {
-        query?: {
-          /** @description Plaintext shared secret as a query param. Last-resort transport when headers can't be customized. */
-          secret?: string
-        }
-        header?: {
-          /** @description Bearer <secret>. One of the accepted ways to send the trigger's shared secret. */
-          Authorization?: string
-          /** @description Plaintext shared secret. One of the accepted auth header names. */
-          "X-Api-Key"?: string
-          /** @description Plaintext shared secret. One of the accepted auth header names. */
-          "X-Webhook-Secret"?: string
-        }
-        path: {
-          /** @description Trigger UUID */
-          triggerID: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Missing or invalid shared secret */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Request Entity Too Large */
-        413: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/incoming/webhooks/{provider}/{connectionID}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Receive incoming webhook from external provider
-     * @description Receives webhook events directly from providers that require manual webhook URL configuration (e.g. Railway). The connection UUID in the URL identifies the org and connection.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Provider name (e.g. railway) */
-          provider: string
-          /** @description Connection UUID */
-          connectionID: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/oauth/exchange": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Exchange OAuth token for access and refresh tokens
-     * @description Exchanges a short-lived, single-use OAuth exchange token for an access/refresh token pair. The exchange token is obtained from the OAuth callback redirect.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Exchange token */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["exchangeRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["authResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/oauth/github": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Start GitHub OAuth login
-     * @description Redirects the browser to GitHub's authorization page. Sets a state cookie for CSRF protection.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Redirect to GitHub */
-        307: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-        /** @description Provider not configured */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/oauth/github/callback": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * GitHub OAuth callback
-     * @description Handles the redirect from GitHub after authorization. Exchanges the code for a token, creates or links the user account, and redirects to the frontend with a short-lived exchange token.
-     */
-    get: {
-      parameters: {
-        query: {
-          /** @description Authorization code from GitHub */
-          code: string
-          /** @description CSRF state parameter */
-          state: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Redirect to frontend with error */
-        307: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/oauth/google": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Start Google OAuth login
-     * @description Redirects the browser to Google's authorization page. Sets a state cookie for CSRF protection.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Redirect to Google */
-        307: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-        /** @description Provider not configured */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/oauth/google/callback": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Google OAuth callback
-     * @description Handles the redirect from Google after authorization. Exchanges the code for a token, creates or links the user account, and redirects to the frontend with a short-lived exchange token.
-     */
-    get: {
-      parameters: {
-        query: {
-          /** @description Authorization code from Google */
-          code: string
-          /** @description CSRF state parameter */
-          state: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Redirect to frontend with error */
-        307: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/oauth/x": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Start X (Twitter) OAuth login
-     * @description Redirects the browser to X's authorization page. Sets state and PKCE verifier cookies.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Redirect to X */
-        307: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-        /** @description Provider not configured */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/oauth/x/callback": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * X (Twitter) OAuth callback
-     * @description Handles the redirect from X after authorization. Exchanges the code for a token using PKCE, creates or links the user account, and redirects to the frontend with a short-lived exchange token.
-     */
-    get: {
-      parameters: {
-        query: {
-          /** @description Authorization code from X */
-          code: string
-          /** @description CSRF state parameter */
-          state: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Redirect to frontend with error */
-        307: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/admin/integrations": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List admin integration definitions
-     * @description Lists supported global integration definitions and existing synced records.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header: {
-          /** @description Admin secret */
-          "X-Hivy-Admin-Secret": string
-        }
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["AdminDefinition"][]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/admin/integrations/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /**
-     * Sync an admin integration
-     * @description Creates or updates the supported global integration in Nango and the Hivy database.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header: {
-          /** @description Admin secret */
-          "X-Hivy-Admin-Secret": string
-        }
-        path: {
-          /** @description Integration definition ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Integration credentials */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["upsertAdminIntegrationRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["upsertAdminIntegrationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List AI agents
-     * @description Returns all agents in the org with skills (metadata only — no bundle content),
-     *     triggers, and the latest sandbox row.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter by status (draft, active, archived) */
-          status?: string
-          /** @description Page size (default 50, max 100) */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-agentListItem"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create an agent
-     * @description Creates a user-managed agent definition. Sandbox creation stays lazy until the first session.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Agent create payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["agentMutationRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/catalog": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List agent catalog
-     * @description Returns active agent catalog entries for the current organization, including install state and required plugin state.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentCatalogResponse"][]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/catalog/{slug}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get agent catalog entry
-     * @description Returns one active agent catalog entry by slug for the current organization, including required plugin install state.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent catalog slug */
-          slug: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentCatalogResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/catalog/{slug}/install": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Install catalog agent
-     * @description Installs an agent catalog entry into the current organization when required plugins are installed.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent catalog slug */
-          slug: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentMutationResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentCatalogInstallConflictResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    /**
-     * Uninstall catalog agent
-     * @description Archives the installed agent for a catalog entry in the current organization.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent catalog slug */
-          slug: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/models": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List agent-selectable models
-     * @description Returns canonical models backed by active org or system credentials.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["modelSummary"][]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get an AI agent
-     * @description Returns one agent in the org with skills (metadata only — no bundle content),
-     *     triggers, and the latest sandbox row.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent agent ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentListItem"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    /**
-     * Archive an agent
-     * @description Archives an agent when it is not the default Hivy agent and has no active sessions.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    /**
-     * Update an agent
-     * @description Updates a user-managed agent definition. The default Hivy agent cannot be renamed or moved away from always_on.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Agent update payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["agentMutationRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/agents/{id}/connections/{connectionID}/resources": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /**
-     * Save selected connection resources for an agent
-     * @description Saves provider resources such as selected GitHub repositories on the agent, then queues provider-specific reconciliation when needed.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent UUID */
-          id: string
-          /** @description Connection UUID */
-          connectionID: string
-        }
-        cookie?: never
-      }
-      /** @description Selected resources grouped by resource type */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateAgentConnectionResourcesRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["updateAgentConnectionResourcesResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/{id}/model": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /**
-     * Update an agent model
-     * @description Persists Hivy's agent model and pushes the full runtime config to the live sandbox.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Agent model update */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateAgentModelRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["updateAgentModelResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/agents/{id}/sandbox/reboot": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Reboot an agent sandbox
-     * @description Restarts the agent sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["rebootAgentSandboxResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/{id}/sandbox/upgrade": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Start an agent sandbox upgrade
-     * @description Queues a control-plane upgrade that snapshots the agent runtime SQLite database,
-     *     recreates the sandbox on the current agent image, restores the database,
-     *     syncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.
-     *     If an upgrade is already queued or running for the agent, the active operation is returned.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent agent ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentSandboxUpgradeResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/{id}/sandbox/upgrades/{upgradeID}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get an agent sandbox upgrade
-     * @description Returns the current status and phase for a sandbox upgrade operation.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent agent ID */
-          id: string
-          /** @description Upgrade operation ID */
-          upgradeID: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["agentSandboxUpgradeResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/agents/{id}/sync": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Push compiled config to an agent sandbox
-     * @description Compiles the agent config, provisions an agent sandbox if
-     *     needed, pushes it to the runtime, and verifies readiness.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Agent UUID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["syncAgentResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/api-keys": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List API keys
-     * @description Returns API keys for the current organization with cursor pagination.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Max items per page (1-100, default 50) */
-          limit?: number
-          /** @description Pagination cursor from previous response */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-handler_apiKeyResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create an API key
-     * @description Creates a new API key for the current organization. The plaintext key is returned once.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description API key parameters */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createAPIKeyRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["createAPIKeyResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/api-keys/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Revoke an API key
-     * @description Soft-deletes an API key by setting its revoked_at timestamp.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description API Key ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/assets": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List org assets
-     * @description Lists agent drive assets owned by the caller's org. Optional filters: agent_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter to files owned by this agent */
-          agent_id?: string
-          /** @description Filter by exact folder label (empty = root) */
-          path?: string
-          /** @description Filter by folder tree prefix */
-          path_prefix?: string
-          /** @description Fuzzy search path, filename, content type, and storage key */
-          q?: string
-          /** @description Alias for q */
-          search?: string
-          /** @description Filter by filename extension */
-          extension?: string
-          /** @description Filter by content type prefix */
-          content_type?: string
-          /** @description Created-at lower bound (RFC3339 or YYYY-MM-DD) */
-          created_from?: string
-          /** @description Created-at upper bound (RFC3339 or YYYY-MM-DD) */
-          created_to?: string
-          /** @description Sort field: created_at, updated_at, filename, bytes, content_type, path */
-          sort_by?: string
-          /** @description Sort direction: asc or desc */
-          sort_dir?: string
-          /** @description Page size (default 50, max 200) */
-          limit?: number
-          /** @description Pagination cursor — unix-nanos from the previous page's tail for created_at/updated_at sorting */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-handler_assetListItem"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/assets/preview": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Preview public asset
-     * @description Redirects to a short-lived signed URL for an object in the public assets bucket.
-     */
-    get: {
-      parameters: {
-        query: {
-          /** @description Public assets S3 key */
-          path: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Found */
-        302: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/audit": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List audit log entries
-     * @description Returns audit log entries for the current organization with cursor pagination. Cursor is the last-seen entry ID.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Max items per page (1-100, default 50) */
-          limit?: number
-          /** @description Pagination cursor (entry ID) from previous response */
-          cursor?: string
-          /** @description Filter by action (e.g. proxy.request, api.request) */
-          action?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-handler_auditEntryResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/checkout": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Create checkout session
-     * @description Creates a checkout session for subscribing to a plan. The client chooses the provider.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Checkout request */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createCheckoutRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["createCheckoutResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/subscription": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get subscription status
-     * @description Returns the org's active plan, provider, payment-method snapshot, and any pending plan change.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["subscriptionResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/subscription/apply-change": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Apply a subscription plan change */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Quote and (for upgrades) Paystack reference */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["applyChangeRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["applyChangeResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Payment Required */
-        402: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Gone */
-        410: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/subscription/cancel": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Cancel a subscription */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Cancellation options */
-      requestBody?: {
-        content: {
-          "application/json": components["schemas"]["cancelRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["cancelResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/subscription/init-upgrade": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Initialise a Paystack transaction for an upgrade quote */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Upgrade quote id */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["initUpgradeRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["initUpgradeResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Gone */
-        410: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/subscription/preview-change": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Preview a subscription plan change */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Target plan */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["previewChangeRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["previewChangeResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/subscription/resume": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Resume a subscription */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["cancelResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/billing/verify": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Verify checkout completed
-     * @description Resolves a Paystack transaction reference, asserts the paid amount matches the plan's price, and provisions the Subscription row.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Reference returned from /v1/billing/checkout */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["verifyRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["verifyResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Payment Required */
-        402: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/catalog/integrations": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List all integrations
-     * @description Returns every integration provider in the catalog with action counts.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["integrationSummary"][]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/catalog/integrations/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get integration detail
-     * @description Returns a single integration with its full action list.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Provider ID (e.g. github-app, slack, jira) */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["integrationDetail"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/catalog/integrations/{id}/actions": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List actions for an integration
-     * @description Returns all actions for a single integration, optionally filtered by access type.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter by access type (read or write) */
-          access?: string
-        }
-        header?: never
-        path: {
-          /** @description Provider ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["actionSummary"][]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/catalog/integrations/{id}/schema-paths": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get schema paths for an integration
-     * @description Returns flattened schema property paths (up to 3 levels) for trigger refs and read action responses. Used for template autocomplete.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Provider ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["schemaPathsResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/catalog/integrations/{id}/triggers": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List triggers for an integration
-     * @description Returns all webhook event triggers for a single integration, including manual webhook configuration requirements if applicable.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Provider ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["triggersResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/channels": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List channels
-     * @description Lists channels visible to the caller. Use discoverable=true to include public channels the caller can join.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Include public discoverable channels */
-          discoverable?: boolean
-          /** @description Page size (default 50, max 100) */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-channelResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create a channel
-     * @description Creates a web-first channel. The creator becomes channel owner when the caller is a user.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Channel create payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["channelMutationRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["channelMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/channels/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a channel
-     * @description Returns one visible channel and its members.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Channel ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["channelDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    /**
-     * Archive a channel
-     * @description Archives a non-default, non-personal channel.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Channel ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["channelMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    /**
-     * Update a channel
-     * @description Updates a channel when the caller is a channel owner, org admin, or scoped API key.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Channel ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Channel update payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["channelMutationRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["channelMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/channels/{id}/join": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Join a public channel
-     * @description Adds the authenticated user to a public channel.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Channel ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["channelMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/channels/{id}/members/{userID}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /**
-     * Add or update a channel member
-     * @description Adds a user to a channel or updates their channel role.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Channel ID */
-          id: string
-          /** @description User ID */
-          userID: string
-        }
-        cookie?: never
-      }
-      /** @description Member role */
-      requestBody?: {
-        content: {
-          "application/json": components["schemas"]["channelMemberRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["channelDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    /**
-     * Remove a channel member
-     * @description Removes a user from a channel. Users may remove themselves; owners and org admins may remove others.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Channel ID */
-          id: string
-          /** @description User ID */
-          userID: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["channelDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/channels/{id}/sessions": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List channel sessions
-     * @description Lists sessions in a visible channel.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Page size */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path: {
-          /** @description Channel ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-sessionResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/connections": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List user's connections
-     * @description Returns the authenticated user's non-revoked platform integration connections.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter by provider */
-          provider?: string
-          /** @description Page size */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-connectionResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/connections/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Disconnect an connection
-     * @description Revokes a user's platform integration connection and removes it from Nango.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Connection ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/connections/{id}/reconnect-session": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Create a reconnect session for an existing connection
-     * @description Creates a Nango connect session scoped to an existing connection, allowing OAuth re-authorization without creating a duplicate.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Connection ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["connectSessionResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/connections/{id}/resources": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /**
-     * Save default resources for a connection
-     * @description Stores default provider resources such as selected GitHub repositories on the connection. Agent-specific resources can still override these defaults.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Connection ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Selected resources grouped by resource type */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateConnectionResourcesRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["updateConnectionResourcesResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/connections/{id}/resources/{type}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List available resources for a connection
-     * @description Fetches available resources of a specific type from the provider API. For example, list all repositories for a GitHub connection.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description In-Connection ID */
-          id: string
-          /** @description Resource type (e.g., repository, project) */
-          type: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["DiscoveryResult"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/connections/{id}/webhook-configured": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /**
-     * Mark webhook as configured
-     * @description Sets the webhook_configured flag to true on a connection, indicating the user has manually configured the webhook URL in the provider's dashboard.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Connection ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["connectionResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/credentials": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List credentials
-     * @description Returns credentials for the current organization with cursor-based pagination and usage stats.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter by JSONB metadata (e.g. {\ */
-          meta?: string
-          /** @description Page size (default 50, max 100) */
-          limit?: number
-          /** @description Pagination cursor from previous response */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-credentialResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create a credential
-     * @description Stores an encrypted LLM API credential for the current organization.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Credential details */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createCredentialRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["credentialResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/credentials/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a credential
-     * @description Returns a single credential by ID with usage stats.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Credential ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["credentialResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    /**
-     * Revoke a credential
-     * @description Soft-deletes a credential by setting its revoked_at timestamp.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Credential ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["credentialResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/dashboard": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get dashboard summary
-     * @description Returns Hivy dashboard metrics for the current organization.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["dashboardResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/database-integrations": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List database integrations
-     * @description Lists active database integrations for the current organization.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["databaseConnectionResponse"][]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create database integration
-     * @description Stores encrypted database credentials for the current organization.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Database integration details */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["databaseConnectionRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["databaseConnectionResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/database-integrations/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Disconnect database integration
-     * @description Revokes a database integration without exposing stored credentials.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Database integration ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["databaseConnectionResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/database-integrations/{id}/introspect": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Introspect database integration
-     * @description Introspects and stores the visible database schema snapshot.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Database integration ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["databaseConnectionResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/database-integrations/{id}/policy": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /**
-     * Update database access policy
-     * @description Saves table, collection, field mask, and result limit policy for a database integration.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Database integration ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Access policy */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["Policy"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["databaseConnectionResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/database-integrations/{id}/test": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Test database integration
-     * @description Verifies that stored database credentials can connect.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Database integration ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/generations": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List generations
-     * @description Returns generation records for the current organization with cursor pagination and filtering.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Max items per page (1-100, default 50) */
-          limit?: number
-          /** @description Pagination cursor from previous response */
-          cursor?: string
-          /** @description Filter by model name */
-          model?: string
-          /** @description Filter by provider ID */
-          provider_id?: string
-          /** @description Filter by credential ID */
-          credential_id?: string
-          /** @description Filter by user ID */
-          user_id?: string
-          /** @description Filter by tag */
-          tags?: string
-          /** @description Filter by error type */
-          error_type?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-generationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/generations/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a generation
-     * @description Returns a single generation record by ID.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Generation ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["generationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/integrations/available": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List available platform integrations
-     * @description Returns non-deleted platform integrations with safe fields for end users.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["integrationAvailableResponse"][]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/integrations/{id}/connect-session": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Create a connect session
-     * @description Creates a Nango connect session for the authenticated user to initiate OAuth.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Integration ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["connectSessionResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/integrations/{id}/connections": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Create an connection
-     * @description Stores a connection after the OAuth flow completes via Nango.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Integration ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Connection details */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createConnectionRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["connectionResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/invites/{token}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Preview an invitation (public)
-     * @description Returns basic invite details by plaintext token. Returns 404 for invalid/expired/used/revoked tokens without distinguishing.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Invite token (plaintext) */
-          token: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgInvitePreviewResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/invites/{token}/accept": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Accept an invitation
-     * @description Accepts an invite and creates the corresponding org membership. The authenticated user's email must match the invite email.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Invite token (plaintext) */
-          token: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgInviteAcceptResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/invites/{token}/decline": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Decline an invitation
-     * @description Declines an invite and marks it as terminally revoked.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Invite token (plaintext) */
-          token: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description No Content */
-        204: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/models": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List user-selectable models across providers
-     * @description Returns models from providers that have at least one active system credential. Hidden routing-only models are excluded.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["modelSummary"][]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/orgs": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Create an organization
-     * @description Creates a new organization and adds the requesting user as an admin member.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Organization name */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createOrgRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/orgs/current": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get current organization
-     * @description Returns the organization resolved from the request's auth context.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /**
-     * Update current organization
-     * @description Updates workspace profile fields on the current organization.
-     *     Admins and owners only. Pass an empty string for optional fields to clear them.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Fields to patch */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateOrgRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/orgs/current/environment-variables": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List organization environment variables
-     * @description Lists custom environment variables stored on the Hivy agent. Values are not returned.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgEnvironmentVariablesResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create an organization environment variable
-     * @description Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Environment variable */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createOrgEnvironmentVariableRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgEnvironmentVariableResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/orgs/current/environment-variables/{name}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Delete an organization environment variable
-     * @description Removes a custom environment variable from the Hivy agent.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Environment variable name */
-          name: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    /**
-     * Update an organization environment variable
-     * @description Renames and/or updates a custom environment variable stored on the Hivy agent.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Environment variable name */
-          name: string
-        }
-        cookie?: never
-      }
-      /** @description Fields to patch */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateOrgEnvironmentVariableRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgEnvironmentVariableResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/orgs/current/invites": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List pending invitations
-     * @description Returns non-expired, non-accepted, non-revoked invites for the current org. Admin-only.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["listOrgInvitesResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Invite a user to the current organization
-     * @description Creates a pending invitation for the given email and role. Admin-only.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Invite parameters */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createOrgInviteRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgInviteResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/orgs/current/invites/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Revoke a pending invitation
-     * @description Marks an invite as revoked. Admin-only. Already-accepted invites cannot be revoked.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Invite ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description No Content */
-        204: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "*/*": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/orgs/current/invites/{id}/resend": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Resend an invitation
-     * @description Generates a new token and re-sends the invite email. Admin-only.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Invite ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["orgInviteResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/orgs/current/members": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List members of the current organization
-     * @description Returns every user with an active membership in the current org. Any member may call this.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["listOrgMembersResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/plans": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List all public active plans
-     * @description Returns the public catalog of billing plans, ordered by price
-     *     ascending (free first). Public — no authentication required.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["planDTO"][]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/plugins": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List plugins
-     * @description Returns active plugins for the current organization, including install state, requirements, and presentation metadata for the plugins catalog.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["pluginResponse"][]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/plugins/{slug}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get plugin
-     * @description Returns one active plugin by slug for the current organization, including install state, requirements, and presentation metadata.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Plugin slug */
-          slug: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["pluginResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/plugins/{slug}/install": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Install plugin
-     * @description Installs a plugin for the current organization and enables it for the default Hivy agent when requirements are satisfied.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Plugin slug */
-          slug: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["pluginResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["pluginInstallConflictResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    /**
-     * Uninstall plugin
-     * @description Uninstalls a plugin for the current organization and removes it from enabled agents.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Plugin slug */
-          slug: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["statusResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/providers": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List all providers
-     * @description Returns every provider in the catalog with a model count.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["providerSummary"][]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/providers/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get provider detail
-     * @description Returns a single provider with its full model list.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Provider ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["providerDetail"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/providers/{id}/models": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List models for a provider
-     * @description Returns the model catalog for a single provider.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Provider ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["modelSummary"][]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/integrations": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List RAG-supported integrations
-     * @description Returns the platform integrations that can be used as RAG sources (i.e. their `supports_rag_source` flag is true). The admin UI uses this to filter the connection picker for the Knowledge Base.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragIntegrationsListResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/search": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Search the knowledge base
-     * @description Hybrid retrieval against the org's RAG dataset, optionally reranked.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Search query */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["ragSearchRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragSearchResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/sources": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List RAG sources
-     * @description Returns the org's RAG sources. Supports pagination and optional status / kind filters.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter by status */
-          status?: string
-          /** @description Filter by kind */
-          kind?: string
-          /** @description Page number (0-indexed) */
-          page?: number
-          /** @description Page size, max 100 */
-          page_size?: number
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragListResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create a RAG source
-     * @description Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune / perm-sync frequencies are validated against per-org minimums.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Source definition */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createRAGSourceRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragSourceResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/sources/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a RAG source
-     * @description Returns one RAG source by ID with the last 5 index attempts inlined. 404 on cross-org access by design.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragSourceDetailResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    /**
-     * Delete a RAG source
-     * @description Hard-deletes the source row. Postgres-side rows (attempts, documents, sync state, ACLs) cascade. Vector store entries are reaped later by the prune loop.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description No Content */
-        204: {
-          headers: {
-            [name: string]: unknown
-          }
-          content?: never
-        }
-      }
-    }
-    options?: never
-    head?: never
-    /**
-     * Update a RAG source
-     * @description Patches mutable fields (name, status pause/resume, refresh / prune / perm-sync frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Patch payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateRAGSourceRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragSourceResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/rag/sources/{id}/attempts": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List index attempts for a RAG source
-     * @description Paginated, most-recent-first. Each row covers one ingest / perm-sync / prune attempt with status, doc counts, and error summary.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Page number (0-indexed) */
-          page?: number
-          /** @description Page size, max 100 */
-          page_size?: number
-        }
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragAttemptsListResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/sources/{id}/attempts/{attempt_id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get an index-attempt with per-doc errors
-     * @description Returns the attempt's status / counts / window plus the first page of per-doc failure rows. The target agent errors page can be used to walk later pages if needed.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-          /** @description Attempt ID */
-          attempt_id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["ragAttemptDetailResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/sources/{id}/perm-sync": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Trigger an immediate permission sync
-     * @description Enqueues a one-off permission-sync job. Returns 422 if the source's connector does not implement PermSyncConnector (i.e. has no external ACL model worth syncing).
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["triggerResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/sources/{id}/prune": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Trigger an immediate prune
-     * @description Enqueues a one-off prune job: the connector enumerates upstream IDs and the worker deletes any documents we have that no longer exist upstream.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["triggerResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/rag/sources/{id}/sync": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Trigger an immediate ingest
-     * @description Enqueues a one-off ingest job for the source. Set from_beginning=true to override the time-window floor and re-walk from the source's IndexingStart (or epoch).
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Source ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Trigger options */
-      requestBody?: {
-        content: {
-          "application/json": components["schemas"]["syncTriggerRequest"]
-        }
-      }
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["triggerResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/reporting": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get analytics report
-     * @description Returns aggregated analytics from generations with flexible grouping and filtering.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Comma-separated grouping dimensions: model, provider, credential, user */
-          group_by?: string
-          /** @description Time granularity: hour or day (default: day) */
-          date_part?: string
-          /** @description Start date inclusive (YYYY-MM-DD) */
-          start_date?: string
-          /** @description End date inclusive (YYYY-MM-DD) */
-          end_date?: string
-          /** @description Filter by model name */
-          model?: string
-          /** @description Filter by provider ID */
-          provider_id?: string
-          /** @description Filter by credential ID */
-          credential_id?: string
-          /** @description Filter by user ID */
-          user_id?: string
-          /** @description Filter by tag (comma-separated, OR) */
-          tags?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["reportRow"][]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandbox-templates": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List sandbox templates
-     * @description Returns sandbox templates for the current organization.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Page size (default 50, max 100) */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-sandboxTemplateResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create a sandbox template
-     * @description Creates a new sandbox template with build commands.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Template details */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createSandboxTemplateRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sandboxTemplateResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandbox-templates/public": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List public sandbox templates
-     * @description Returns all public (platform-wide) sandbox templates that are ready.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: components["schemas"]["publicTemplateResponse"][]
-            }
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandbox-templates/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a sandbox template
-     * @description Returns a single sandbox template by ID.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Template ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sandboxTemplateResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    /**
-     * Update a sandbox template
-     * @description Updates a sandbox template. Resets build status if commands change.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Template ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Fields to update */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateSandboxTemplateRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sandboxTemplateResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    /**
-     * Delete a sandbox template
-     * @description Deletes a template. Fails if agents still reference it.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Template ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandbox-templates/{id}/build": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Trigger a sandbox template build
-     * @description Enqueues an async build job for the template. Poll GET endpoint for status and logs.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Template ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sandboxTemplateResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandbox-templates/{id}/retry": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Retry a sandbox template build
-     * @description Deletes the existing snapshot (if any) and starts a new build. Can optionally update build commands.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Template ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Optional build commands update */
-      requestBody?: {
-        content: {
-          "application/json": components["schemas"]["retryBuildRequest"]
-        }
-      }
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sandboxTemplateResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Conflict */
-        409: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandboxes": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List sandboxes
-     * @description Returns sandboxes for the current organization.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter by status (running, stopped, error) */
-          status?: string
-          /** @description Page size */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-handler_sandboxResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandboxes/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a sandbox
-     * @description Returns sandbox details by ID.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Sandbox ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sandboxResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    /**
-     * Delete a sandbox
-     * @description Deletes a sandbox from the provider and removes the DB record.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Sandbox ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandboxes/{id}/exec": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Execute commands in a sandbox
-     * @description Runs an array of shell commands sequentially inside the sandbox. Stops on first failure.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Sandbox ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Commands to execute */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["execRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["execResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sandboxes/{id}/stop": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Stop a sandbox
-     * @description Stops a running sandbox via the sandbox provider.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Sandbox ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sessions": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List sessions
-     * @description Lists sessions visible to the caller, optionally filtered by channel or agent.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Channel ID */
-          channel_id?: string
-          /** @description Agent ID */
-          agent_id?: string
-          /** @description Page size */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-sessionResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create a session
-     * @description Creates a channel-scoped session and queues the first user message.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Session create payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createSessionRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sessions/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a session
-     * @description Returns one visible session and its participants.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /**
-     * Update a session
-     * @description Renames, archives, moves, or reassigns a visible session.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Session update payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateSessionRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/sessions/{id}/events": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List session events
-     * @description Lists visible session transcript events.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Page size */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-sessionEventResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sessions/{id}/interrupt": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Interrupt a running session turn
-     * @description Requests the sandbox runtime to stop the active agent turn for this session.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionInterruptResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sessions/{id}/messages": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Send a session message
-     * @description Persists a user message and queues it for FIFO runtime delivery.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Message payload */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["sendSessionMessageRequest"]
-        }
-      }
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionMutationResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sessions/{id}/participants/{userID}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /**
-     * Add a session participant
-     * @description Invites an org member into a session.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-          /** @description User ID */
-          userID: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    /**
-     * Remove a session participant
-     * @description Removes a participant from a session.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-          /** @description User ID */
-          userID: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/sessions/{id}/sandbox-access": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Mint direct sandbox access
-     * @description Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Session ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["sessionSandboxAccessResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/skills": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List skills
-     * @description Lists skills visible to the current org. Use scope=public to browse the global library, scope=own for org skills, scope=all for both. Pass q to search by name/description.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Filter: public, own, all (default all) */
-          scope?: string
-          /** @description Free-text search over name and description */
-          q?: string
-          /** @description Page size (default 50, max 100) */
-          limit?: number
-          /** @description Pagination cursor */
-          cursor?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-skillResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Create a skill
-     * @description Creates an inline-authored skill or registers a git-sourced skill for hydration.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Skill details */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["createSkillRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["skillDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/skills/{id}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get a skill
-     * @description Returns a skill with its latest hydrated bundle.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Skill ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["skillDetailResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    /**
-     * Archive a skill
-     * @description Marks an org-owned skill as archived. Public skills cannot be deleted via this endpoint.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Skill ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    /**
-     * Update a skill
-     * @description Updates metadata on an org-owned skill. Public skills are read-only.
-     */
-    patch: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Skill ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Fields to update */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateSkillRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["skillResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    trace?: never
-  }
-  "/v1/skills/{id}/content": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /**
-     * Update skill content
-     * @description Replaces the current bundle for an org-owned skill.
-     */
-    put: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Skill ID */
-          id: string
-        }
-        cookie?: never
-      }
-      /** @description Bundle content */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["updateContentRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["skillDetailResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/skills/{id}/hydrate": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Re-hydrate a git-sourced skill
-     * @description Enqueues a fresh git pull at the tracked ref. Only valid for git-sourced skills.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Skill ID */
-          id: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description Accepted */
-        202: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/slack/channels": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List Slack channels
-     * @description Returns public Slack channels plus private channels where Hivy is already a member.
-     */
-    get: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["slackChannelsResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/slack/channels/join": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Join Slack channels
-     * @description Invites Hivy to all public channels or selected channels. Joined private channels are treated as already available.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Join request */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["joinSlackChannelsRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["joinSlackChannelsResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/system/tasks/{taskName}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Run a system task
-     * @description Executes a registered server-side LLM task using platform credentials. Each task name maps to a hard-coded definition (model tier, prompt, args). Caller may opt into streaming.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Task name */
-          taskName: string
-        }
-        cookie?: never
-      }
-      /** @description Task arguments */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["systemTaskRequest"]
-        }
-      }
-      responses: {
-        /** @description SSE stream when stream=true */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": string
-            "text/event-stream": string
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-            "text/event-stream": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-            "text/event-stream": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-            "text/event-stream": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Bad Gateway */
-        502: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-            "text/event-stream": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Service Unavailable */
-        503: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-            "text/event-stream": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/tokens": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List tokens
-     * @description Returns tokens for the organization with cursor pagination. Supports filtering by credential_id.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Max items per page (1-100, default 50) */
-          limit?: number
-          /** @description Pagination cursor from previous response */
-          cursor?: string
-          /** @description Filter by credential ID */
-          credential_id?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["paginatedResponse-handler_tokenListItem"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    /**
-     * Mint a proxy token
-     * @description Creates a short-lived JWT proxy token scoped to a credential.
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Token minting parameters */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["mintTokenRequest"]
-        }
-      }
-      responses: {
-        /** @description Created */
-        201: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["mintTokenResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/tokens/{jti}": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Revoke a proxy token
-     * @description Revokes a proxy token by its JTI and propagates through cache tiers.
-     */
-    delete: {
-      parameters: {
-        query?: never
-        header?: never
-        path: {
-          /** @description Token JTI */
-          jti: string
-        }
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": {
-              [key: string]: string
-            }
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Not Found */
-        404: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Internal Server Error */
-        500: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/uploads/sign": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Sign upload URL
-     * @description Returns a presigned URL the client can PUT to for uploading public assets (avatars, org logos, etc).
-     */
-    post: {
-      parameters: {
-        query?: never
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      /** @description Upload metadata */
-      requestBody: {
-        content: {
-          "application/json": components["schemas"]["signUploadRequest"]
-        }
-      }
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["signUploadResponse"]
-          }
-        }
-        /** @description Bad Request */
-        400: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unauthorized */
-        401: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-        /** @description Unprocessable Entity */
-        422: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  "/v1/usage": {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Get organization usage
-     * @description Returns aggregated usage statistics for the current organization.
-     */
-    get: {
-      parameters: {
-        query?: {
-          /** @description Start date inclusive (YYYY-MM-DD), defaults to 30 days ago */
-          start_date?: string
-          /** @description End date inclusive (YYYY-MM-DD), defaults to now */
-          end_date?: string
-        }
-        header?: never
-        path?: never
-        cookie?: never
-      }
-      requestBody?: never
-      responses: {
-        /** @description OK */
-        200: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["usageResponse"]
-          }
-        }
-        /** @description Forbidden */
-        403: {
-          headers: {
-            [name: string]: unknown
-          }
-          content: {
-            "application/json": components["schemas"]["errorResponse"]
-          }
-        }
-      }
-    }
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
+    "/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change password
+         * @description Changes the authenticated user's password. Revokes all sessions.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Current and new password */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["changePasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/confirm-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm email address
+         * @description Confirms a user's email address using a 6-digit code.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Email and 6-digit code */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["confirmEmailRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request password reset
+         * @description Sends a password reset link to the email address if an account exists.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Email address */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["forgotPasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log in
+         * @description Authenticates a user with email and password.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Login parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["loginRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["authResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out
+         * @description Revokes a refresh token.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Logout parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["logoutRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current user
+         * @description Returns the current user and their organization memberships.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["meResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete current user account
+         * @description Permanently deletes the authenticated user's account. This action cannot be undone.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update current user profile
+         * @description Updates the authenticated user's name, email, or avatar URL.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateProfileRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["userResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/auth/otp/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request an OTP code
+         * @description Sends a 6-digit one-time code to the given email address.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description OTP request */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["otpRequestPayload"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an OTP code
+         * @description Verifies the 6-digit code and returns access/refresh tokens. Creates the user account if it doesn't exist.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description OTP verification */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["otpVerifyPayload"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["authResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh tokens
+         * @description Exchanges a refresh token for new access and refresh tokens.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Refresh parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["refreshRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["authResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register
+         * @description Creates a user account with email and password.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Registration parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["registerRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["authResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/resend-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend confirmation email
+         * @description Sends a new 6-digit email confirmation code. Rate limited to 1 per 60 seconds.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Email address */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["resendConfirmationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset password
+         * @description Resets a user's password using a reset token. Revokes all sessions.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Reset token and new password */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["resetPasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/incoming/triggers/{triggerID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive HTTP trigger request
+         * @description Receives an HTTP request and dispatches it to the owning agent runtime for the specified trigger. The trigger UUID acts as a bearer token. If the trigger has a shared secret configured, the request must include the plaintext secret in any of: Authorization: Bearer <secret>, X-Api-Key, X-Webhook-Secret, or ?secret=<secret>.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    /** @description Plaintext shared secret as a query param. Last-resort transport when headers can't be customized. */
+                    secret?: string;
+                };
+                header?: {
+                    /** @description Bearer <secret>. One of the accepted ways to send the trigger's shared secret. */
+                    Authorization?: string;
+                    /** @description Plaintext shared secret. One of the accepted auth header names. */
+                    "X-Api-Key"?: string;
+                    /** @description Plaintext shared secret. One of the accepted auth header names. */
+                    "X-Webhook-Secret"?: string;
+                };
+                path: {
+                    /** @description Trigger UUID */
+                    triggerID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Missing or invalid shared secret */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/incoming/webhooks/{provider}/{connectionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive incoming webhook from external provider
+         * @description Receives webhook events directly from providers that require manual webhook URL configuration (e.g. Railway). The connection UUID in the URL identifies the org and connection.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Provider name (e.g. railway) */
+                    provider: string;
+                    /** @description Connection UUID */
+                    connectionID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange OAuth token for access and refresh tokens
+         * @description Exchanges a short-lived, single-use OAuth exchange token for an access/refresh token pair. The exchange token is obtained from the OAuth callback redirect.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Exchange token */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["exchangeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["authResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start GitHub OAuth login
+         * @description Redirects the browser to GitHub's authorization page. Sets a state cookie for CSRF protection.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to GitHub */
+                307: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Provider not configured */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/github/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GitHub OAuth callback
+         * @description Handles the redirect from GitHub after authorization. Exchanges the code for a token, creates or links the user account, and redirects to the frontend with a short-lived exchange token.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Authorization code from GitHub */
+                    code: string;
+                    /** @description CSRF state parameter */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to frontend with error */
+                307: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Google OAuth login
+         * @description Redirects the browser to Google's authorization page. Sets a state cookie for CSRF protection.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to Google */
+                307: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Provider not configured */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Google OAuth callback
+         * @description Handles the redirect from Google after authorization. Exchanges the code for a token, creates or links the user account, and redirects to the frontend with a short-lived exchange token.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Authorization code from Google */
+                    code: string;
+                    /** @description CSRF state parameter */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to frontend with error */
+                307: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/x": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start X (Twitter) OAuth login
+         * @description Redirects the browser to X's authorization page. Sets state and PKCE verifier cookies.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to X */
+                307: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Provider not configured */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/x/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * X (Twitter) OAuth callback
+         * @description Handles the redirect from X after authorization. Exchanges the code for a token using PKCE, creates or links the user account, and redirects to the frontend with a short-lived exchange token.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Authorization code from X */
+                    code: string;
+                    /** @description CSRF state parameter */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to frontend with error */
+                307: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List admin integration definitions
+         * @description Lists supported global integration definitions and existing synced records.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Admin secret */
+                    "X-Hivy-Admin-Secret": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminDefinition"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/integrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sync an admin integration
+         * @description Creates or updates the supported global integration in Nango and the Hivy database.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Admin secret */
+                    "X-Hivy-Admin-Secret": string;
+                };
+                path: {
+                    /** @description Integration definition ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Integration credentials */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["upsertAdminIntegrationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["upsertAdminIntegrationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List AI agents
+         * @description Returns all agents in the org with skills (metadata only — no bundle content),
+         *     triggers, and the latest sandbox row.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by status (draft, active, archived) */
+                    status?: string;
+                    /** @description Page size (default 50, max 100) */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-agentListItem"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create an agent
+         * @description Creates a user-managed agent definition. Sandbox creation stays lazy until the first session.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Agent create payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["agentMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent catalog
+         * @description Returns active agent catalog entries for the current organization, including install state and required plugin state.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentCatalogResponse"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/catalog/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get agent catalog entry
+         * @description Returns one active agent catalog entry by slug for the current organization, including required plugin install state.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent catalog slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentCatalogResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/catalog/{slug}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install catalog agent
+         * @description Installs an agent catalog entry into the current organization when required plugins are installed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent catalog slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentMutationResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentCatalogInstallConflictResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Uninstall catalog agent
+         * @description Archives the installed agent for a catalog entry in the current organization.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent catalog slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent-selectable models
+         * @description Returns canonical models backed by active org or system credentials.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["modelSummary"][];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an AI agent
+         * @description Returns one agent in the org with skills (metadata only — no bundle content),
+         *     triggers, and the latest sandbox row.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentListItem"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Archive an agent
+         * @description Archives an agent when it is not the default Hivy agent and has no active sessions.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update an agent
+         * @description Updates a user-managed agent definition. The default Hivy agent cannot be renamed or moved away from always_on.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Agent update payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["agentMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/agents/{id}/connections/{connectionID}/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save selected connection resources for an agent
+         * @description Saves provider resources such as selected GitHub repositories on the agent, then queues provider-specific reconciliation when needed.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent UUID */
+                    id: string;
+                    /** @description Connection UUID */
+                    connectionID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Selected resources grouped by resource type */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateAgentConnectionResourcesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["updateAgentConnectionResourcesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/{id}/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update an agent model
+         * @description Persists Hivy's agent model and pushes the full runtime config to the live sandbox.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Agent model update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateAgentModelRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["updateAgentModelResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/agents/{id}/sandbox/reboot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reboot an agent sandbox
+         * @description Restarts the agent sandbox, pushes fresh runtime config, mints fresh proxy credentials, and verifies readiness.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["rebootAgentSandboxResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/{id}/sandbox/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an agent sandbox upgrade
+         * @description Queues a control-plane upgrade that snapshots the agent runtime SQLite database,
+         *     recreates the sandbox on the current agent image, restores the database,
+         *     syncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.
+         *     If an upgrade is already queued or running for the agent, the active operation is returned.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentSandboxUpgradeResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/{id}/sandbox/upgrades/{upgradeID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an agent sandbox upgrade
+         * @description Returns the current status and phase for a sandbox upgrade operation.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent agent ID */
+                    id: string;
+                    /** @description Upgrade operation ID */
+                    upgradeID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentSandboxUpgradeResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push compiled config to an agent sandbox
+         * @description Compiles the agent config, provisions an agent sandbox if
+         *     needed, pushes it to the runtime, and verifies readiness.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["syncAgentResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List API keys
+         * @description Returns API keys for the current organization with cursor pagination.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Max items per page (1-100, default 50) */
+                    limit?: number;
+                    /** @description Pagination cursor from previous response */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_apiKeyResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create an API key
+         * @description Creates a new API key for the current organization. The plaintext key is returned once.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description API key parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createAPIKeyRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["createAPIKeyResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an API key
+         * @description Soft-deletes an API key by setting its revoked_at timestamp.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description API Key ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List org assets
+         * @description Lists agent drive assets owned by the caller's org. Optional filters: agent_id, path, path_prefix, q/search, extension, content_type, created_from, created_to. Ordered by created_at desc by default and cursor-paginated.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter to files owned by this agent */
+                    agent_id?: string;
+                    /** @description Filter by exact folder label (empty = root) */
+                    path?: string;
+                    /** @description Filter by folder tree prefix */
+                    path_prefix?: string;
+                    /** @description Fuzzy search path, filename, content type, and storage key */
+                    q?: string;
+                    /** @description Alias for q */
+                    search?: string;
+                    /** @description Filter by filename extension */
+                    extension?: string;
+                    /** @description Filter by content type prefix */
+                    content_type?: string;
+                    /** @description Created-at lower bound (RFC3339 or YYYY-MM-DD) */
+                    created_from?: string;
+                    /** @description Created-at upper bound (RFC3339 or YYYY-MM-DD) */
+                    created_to?: string;
+                    /** @description Sort field: created_at, updated_at, filename, bytes, content_type, path */
+                    sort_by?: string;
+                    /** @description Sort direction: asc or desc */
+                    sort_dir?: string;
+                    /** @description Page size (default 50, max 200) */
+                    limit?: number;
+                    /** @description Pagination cursor — unix-nanos from the previous page's tail for created_at/updated_at sorting */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_assetListItem"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assets/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview public asset
+         * @description Redirects to a short-lived signed URL for an object in the public assets bucket.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Public assets S3 key */
+                    path: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Found */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List audit log entries
+         * @description Returns audit log entries for the current organization with cursor pagination. Cursor is the last-seen entry ID.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Max items per page (1-100, default 50) */
+                    limit?: number;
+                    /** @description Pagination cursor (entry ID) from previous response */
+                    cursor?: string;
+                    /** @description Filter by action (e.g. proxy.request, api.request) */
+                    action?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_auditEntryResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create checkout session
+         * @description Creates a checkout session for subscribing to a plan. The client chooses the provider.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Checkout request */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createCheckoutRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["createCheckoutResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get subscription status
+         * @description Returns the org's active plan, provider, payment-method snapshot, and any pending plan change.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["subscriptionResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/subscription/apply-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a subscription plan change */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Quote and (for upgrades) Paystack reference */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["applyChangeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["applyChangeResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Payment Required */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/subscription/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a subscription */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Cancellation options */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["cancelRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["cancelResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/subscription/init-upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Initialise a Paystack transaction for an upgrade quote */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Upgrade quote id */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["initUpgradeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["initUpgradeResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/subscription/preview-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a subscription plan change */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Target plan */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["previewChangeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["previewChangeResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/subscription/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume a subscription */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["cancelResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify checkout completed
+         * @description Resolves a Paystack transaction reference, asserts the paid amount matches the plan's price, and provisions the Subscription row.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Reference returned from /v1/billing/checkout */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["verifyRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["verifyResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Payment Required */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all integrations
+         * @description Returns every integration provider in the catalog with action counts.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["integrationSummary"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/integrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get integration detail
+         * @description Returns a single integration with its full action list.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Provider ID (e.g. github-app, slack, jira) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["integrationDetail"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/integrations/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List actions for an integration
+         * @description Returns all actions for a single integration, optionally filtered by access type.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by access type (read or write) */
+                    access?: string;
+                };
+                header?: never;
+                path: {
+                    /** @description Provider ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["actionSummary"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/integrations/{id}/schema-paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get schema paths for an integration
+         * @description Returns flattened schema property paths (up to 3 levels) for trigger refs and read action responses. Used for template autocomplete.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Provider ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["schemaPathsResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/integrations/{id}/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List triggers for an integration
+         * @description Returns all webhook event triggers for a single integration, including manual webhook configuration requirements if applicable.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Provider ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggersResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List channels
+         * @description Lists channels visible to the caller. Use discoverable=true to include public channels the caller can join.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Include public discoverable channels */
+                    discoverable?: boolean;
+                    /** @description Page size (default 50, max 100) */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-channelResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a channel
+         * @description Creates a web-first channel. The creator becomes channel owner when the caller is a user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Channel create payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["channelMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a channel
+         * @description Returns one visible channel and its members.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Archive a channel
+         * @description Archives a non-default, non-personal channel.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a channel
+         * @description Updates a channel when the caller is a channel owner, org admin, or scoped API key.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Channel update payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["channelMutationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/channels/{id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join a public channel
+         * @description Adds the authenticated user to a public channel.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/channels/{id}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add or update a channel member
+         * @description Adds a user to a channel or updates their channel role.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                    /** @description User ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Member role */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["channelMemberRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Remove a channel member
+         * @description Removes a user from a channel. Users may remove themselves; owners and org admins may remove others.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                    /** @description User ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["channelDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/channels/{id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List channel sessions
+         * @description Lists sessions in a visible channel.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page size */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path: {
+                    /** @description Channel ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-sessionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List user's connections
+         * @description Returns the authenticated user's non-revoked platform integration connections.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by provider */
+                    provider?: string;
+                    /** @description Page size */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-connectionResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect an connection
+         * @description Revokes a user's platform integration connection and removes it from Nango.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Connection ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connections/{id}/reconnect-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a reconnect session for an existing connection
+         * @description Creates a Nango connect session scoped to an existing connection, allowing OAuth re-authorization without creating a duplicate.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Connection ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["connectSessionResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connections/{id}/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save default resources for a connection
+         * @description Stores default provider resources such as selected GitHub repositories on the connection. Agent-specific resources can still override these defaults.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Connection ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Selected resources grouped by resource type */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateConnectionResourcesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["updateConnectionResourcesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connections/{id}/resources/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available resources for a connection
+         * @description Fetches available resources of a specific type from the provider API. For example, list all repositories for a GitHub connection.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description In-Connection ID */
+                    id: string;
+                    /** @description Resource type (e.g., repository, project) */
+                    type: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DiscoveryResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connections/{id}/webhook-configured": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark webhook as configured
+         * @description Sets the webhook_configured flag to true on a connection, indicating the user has manually configured the webhook URL in the provider's dashboard.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Connection ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["connectionResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List credentials
+         * @description Returns credentials for the current organization with cursor-based pagination and usage stats.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by JSONB metadata (e.g. {\ */
+                    meta?: string;
+                    /** @description Page size (default 50, max 100) */
+                    limit?: number;
+                    /** @description Pagination cursor from previous response */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-credentialResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a credential
+         * @description Stores an encrypted LLM API credential for the current organization.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Credential details */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createCredentialRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["credentialResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a credential
+         * @description Returns a single credential by ID with usage stats.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Credential ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["credentialResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a credential
+         * @description Soft-deletes a credential by setting its revoked_at timestamp.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Credential ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["credentialResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get dashboard summary
+         * @description Returns Hivy dashboard metrics for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dashboardResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/database-integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List database integrations
+         * @description Lists active database integrations for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["databaseConnectionResponse"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create database integration
+         * @description Stores encrypted database credentials for the current organization.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Database integration details */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["databaseConnectionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["databaseConnectionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/database-integrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect database integration
+         * @description Revokes a database integration without exposing stored credentials.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Database integration ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["databaseConnectionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/database-integrations/{id}/introspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Introspect database integration
+         * @description Introspects and stores the visible database schema snapshot.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Database integration ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["databaseConnectionResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/database-integrations/{id}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update database access policy
+         * @description Saves table, collection, field mask, and result limit policy for a database integration.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Database integration ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Access policy */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Policy"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["databaseConnectionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/database-integrations/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test database integration
+         * @description Verifies that stored database credentials can connect.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Database integration ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/generations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List generations
+         * @description Returns generation records for the current organization with cursor pagination and filtering.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Max items per page (1-100, default 50) */
+                    limit?: number;
+                    /** @description Pagination cursor from previous response */
+                    cursor?: string;
+                    /** @description Filter by model name */
+                    model?: string;
+                    /** @description Filter by provider ID */
+                    provider_id?: string;
+                    /** @description Filter by credential ID */
+                    credential_id?: string;
+                    /** @description Filter by user ID */
+                    user_id?: string;
+                    /** @description Filter by tag */
+                    tags?: string;
+                    /** @description Filter by error type */
+                    error_type?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-generationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/generations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a generation
+         * @description Returns a single generation record by ID.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Generation ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["generationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available platform integrations
+         * @description Returns non-deleted platform integrations with safe fields for end users.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["integrationAvailableResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/{id}/connect-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a connect session
+         * @description Creates a Nango connect session for the authenticated user to initiate OAuth.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Integration ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["connectSessionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/{id}/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an connection
+         * @description Stores a connection after the OAuth flow completes via Nango.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Integration ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Connection details */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createConnectionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["connectionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview an invitation (public)
+         * @description Returns basic invite details by plaintext token. Returns 404 for invalid/expired/used/revoked tokens without distinguishing.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Invite token (plaintext) */
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgInvitePreviewResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invites/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an invitation
+         * @description Accepts an invite and creates the corresponding org membership. The authenticated user's email must match the invite email.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Invite token (plaintext) */
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgInviteAcceptResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invites/{token}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline an invitation
+         * @description Declines an invite and marks it as terminally revoked.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Invite token (plaintext) */
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List user-selectable models across providers
+         * @description Returns models from providers that have at least one active system credential. Hidden routing-only models are excluded.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["modelSummary"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an organization
+         * @description Creates a new organization and adds the requesting user as an admin member.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Organization name */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createOrgRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current organization
+         * @description Returns the organization resolved from the request's auth context.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update current organization
+         * @description Updates workspace profile fields on the current organization.
+         *     Admins and owners only. Pass an empty string for optional fields to clear them.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Fields to patch */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateOrgRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/orgs/current/environment-variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization environment variables
+         * @description Lists custom environment variables stored on the Hivy agent. Values are not returned.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgEnvironmentVariablesResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create an organization environment variable
+         * @description Stores a custom environment variable on the Hivy agent. It is pushed to runtime sandboxes as HIVY_ORG_<NAME>.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Environment variable */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createOrgEnvironmentVariableRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgEnvironmentVariableResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/environment-variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an organization environment variable
+         * @description Removes a custom environment variable from the Hivy agent.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Environment variable name */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update an organization environment variable
+         * @description Renames and/or updates a custom environment variable stored on the Hivy agent.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Environment variable name */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to patch */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateOrgEnvironmentVariableRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgEnvironmentVariableResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/orgs/current/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pending invitations
+         * @description Returns non-expired, non-accepted, non-revoked invites for the current org. Admin-only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listOrgInvitesResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Invite a user to the current organization
+         * @description Creates a pending invitation for the given email and role. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Invite parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createOrgInviteRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgInviteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/invites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a pending invitation
+         * @description Marks an invite as revoked. Admin-only. Already-accepted invites cannot be revoked.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Invite ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/invites/{id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend an invitation
+         * @description Generates a new token and re-sends the invite email. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Invite ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["orgInviteResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List members of the current organization
+         * @description Returns every user with an active membership in the current org. Any member may call this.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listOrgMembersResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all public active plans
+         * @description Returns the public catalog of billing plans, ordered by price
+         *     ascending (free first). Public — no authentication required.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["planDTO"][];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List plugins
+         * @description Returns active plugins for the current organization, including install state, requirements, and presentation metadata for the plugins catalog.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginResponse"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plugins/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get plugin
+         * @description Returns one active plugin by slug for the current organization, including install state, requirements, and presentation metadata.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plugins/{slug}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install plugin
+         * @description Installs a plugin for the current organization and enables it for the default Hivy agent when requirements are satisfied.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["pluginInstallConflictResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Uninstall plugin
+         * @description Uninstalls a plugin for the current organization and removes it from enabled agents.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plugin slug */
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["statusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all providers
+         * @description Returns every provider in the catalog with a model count.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["providerSummary"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/providers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get provider detail
+         * @description Returns a single provider with its full model list.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Provider ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["providerDetail"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/providers/{id}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List models for a provider
+         * @description Returns the model catalog for a single provider.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Provider ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["modelSummary"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List RAG-supported integrations
+         * @description Returns the platform integrations that can be used as RAG sources (i.e. their `supports_rag_source` flag is true). The admin UI uses this to filter the connection picker for the Knowledge Base.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragIntegrationsListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search the knowledge base
+         * @description Hybrid retrieval against the org's RAG dataset, optionally reranked.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Search query */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ragSearchRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragSearchResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List RAG sources
+         * @description Returns the org's RAG sources. Supports pagination and optional status / kind filters.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by status */
+                    status?: string;
+                    /** @description Filter by kind */
+                    kind?: string;
+                    /** @description Page number (0-indexed) */
+                    page?: number;
+                    /** @description Page size, max 100 */
+                    page_size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a RAG source
+         * @description Creates a new RAG source that the scheduler will pick up on the next tick. Kind=integration requires a valid connection_id pointing at an integration whose supports_rag_source flag is true. Refresh / prune / perm-sync frequencies are validated against per-org minimums.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Source definition */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createRAGSourceRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragSourceResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a RAG source
+         * @description Returns one RAG source by ID with the last 5 index attempts inlined. 404 on cross-org access by design.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragSourceDetailResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete a RAG source
+         * @description Hard-deletes the source row. Postgres-side rows (attempts, documents, sync state, ACLs) cascade. Vector store entries are reaped later by the prune loop.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a RAG source
+         * @description Patches mutable fields (name, status pause/resume, refresh / prune / perm-sync frequencies, indexing_start floor). Only ACTIVE ↔ PAUSED transitions are client-settable; DELETING is server-managed.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Patch payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateRAGSourceRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragSourceResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List index attempts for a RAG source
+         * @description Paginated, most-recent-first. Each row covers one ingest / perm-sync / prune attempt with status, doc counts, and error summary.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page number (0-indexed) */
+                    page?: number;
+                    /** @description Page size, max 100 */
+                    page_size?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragAttemptsListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}/attempts/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an index-attempt with per-doc errors
+         * @description Returns the attempt's status / counts / window plus the first page of per-doc failure rows. The target agent errors page can be used to walk later pages if needed.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                    /** @description Attempt ID */
+                    attempt_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ragAttemptDetailResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}/perm-sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger an immediate permission sync
+         * @description Enqueues a one-off permission-sync job. Returns 422 if the source's connector does not implement PermSyncConnector (i.e. has no external ACL model worth syncing).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger an immediate prune
+         * @description Enqueues a one-off prune job: the connector enumerates upstream IDs and the worker deletes any documents we have that no longer exist upstream.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger an immediate ingest
+         * @description Enqueues a one-off ingest job for the source. Set from_beginning=true to override the time-window floor and re-walk from the source's IndexingStart (or epoch).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Trigger options */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["syncTriggerRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reporting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get analytics report
+         * @description Returns aggregated analytics from generations with flexible grouping and filtering.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Comma-separated grouping dimensions: model, provider, credential, user */
+                    group_by?: string;
+                    /** @description Time granularity: hour or day (default: day) */
+                    date_part?: string;
+                    /** @description Start date inclusive (YYYY-MM-DD) */
+                    start_date?: string;
+                    /** @description End date inclusive (YYYY-MM-DD) */
+                    end_date?: string;
+                    /** @description Filter by model name */
+                    model?: string;
+                    /** @description Filter by provider ID */
+                    provider_id?: string;
+                    /** @description Filter by credential ID */
+                    credential_id?: string;
+                    /** @description Filter by user ID */
+                    user_id?: string;
+                    /** @description Filter by tag (comma-separated, OR) */
+                    tags?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["reportRow"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandbox-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sandbox templates
+         * @description Returns sandbox templates for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page size (default 50, max 100) */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-sandboxTemplateResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a sandbox template
+         * @description Creates a new sandbox template with build commands.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Template details */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createSandboxTemplateRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sandboxTemplateResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandbox-templates/public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List public sandbox templates
+         * @description Returns all public (platform-wide) sandbox templates that are ready.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: components["schemas"]["publicTemplateResponse"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandbox-templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a sandbox template
+         * @description Returns a single sandbox template by ID.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Template ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sandboxTemplateResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Update a sandbox template
+         * @description Updates a sandbox template. Resets build status if commands change.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Template ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateSandboxTemplateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sandboxTemplateResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a sandbox template
+         * @description Deletes a template. Fails if agents still reference it.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Template ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandbox-templates/{id}/build": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger a sandbox template build
+         * @description Enqueues an async build job for the template. Poll GET endpoint for status and logs.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Template ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sandboxTemplateResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandbox-templates/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a sandbox template build
+         * @description Deletes the existing snapshot (if any) and starts a new build. Can optionally update build commands.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Template ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Optional build commands update */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["retryBuildRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sandboxTemplateResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sandboxes
+         * @description Returns sandboxes for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by status (running, stopped, error) */
+                    status?: string;
+                    /** @description Page size */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_sandboxResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandboxes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a sandbox
+         * @description Returns sandbox details by ID.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Sandbox ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sandboxResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete a sandbox
+         * @description Deletes a sandbox from the provider and removes the DB record.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Sandbox ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandboxes/{id}/exec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute commands in a sandbox
+         * @description Runs an array of shell commands sequentially inside the sandbox. Stops on first failure.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Sandbox ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Commands to execute */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["execRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["execResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sandboxes/{id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a sandbox
+         * @description Stops a running sandbox via the sandbox provider.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Sandbox ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sessions
+         * @description Lists sessions visible to the caller, optionally filtered by channel or agent.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Channel ID */
+                    channel_id?: string;
+                    /** @description Agent ID */
+                    agent_id?: string;
+                    /** @description Page size */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-sessionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a session
+         * @description Creates a channel-scoped session and queues the first user message.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Session create payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createSessionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a session
+         * @description Returns one visible session and its participants.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a session
+         * @description Renames, archives, moves, or reassigns a visible session.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Session update payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateSessionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/sessions/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List session events
+         * @description Lists visible session transcript events.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page size */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-sessionEventResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{id}/interrupt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interrupt a running session turn
+         * @description Requests the sandbox runtime to stop the active agent turn for this session.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionInterruptResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a session message
+         * @description Persists a user message and queues it for FIFO runtime delivery.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Message payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["sendSessionMessageRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{id}/participants/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a session participant
+         * @description Invites an org member into a session.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                    /** @description User ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Remove a session participant
+         * @description Removes a participant from a session.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                    /** @description User ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{id}/sandbox-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint direct sandbox access
+         * @description Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionSandboxAccessResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List skills
+         * @description Lists skills visible to the current org. Use scope=public to browse the global library, scope=own for org skills, scope=all for both. Pass q to search by name/description.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter: public, own, all (default all) */
+                    scope?: string;
+                    /** @description Free-text search over name and description */
+                    q?: string;
+                    /** @description Page size (default 50, max 100) */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-skillResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a skill
+         * @description Creates an inline-authored skill or registers a git-sourced skill for hydration.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Skill details */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createSkillRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["skillDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/skills/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a skill
+         * @description Returns a skill with its latest hydrated bundle.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Skill ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["skillDetailResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Archive a skill
+         * @description Marks an org-owned skill as archived. Public skills cannot be deleted via this endpoint.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Skill ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a skill
+         * @description Updates metadata on an org-owned skill. Public skills are read-only.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Skill ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateSkillRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["skillResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/skills/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update skill content
+         * @description Replaces the current bundle for an org-owned skill.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Skill ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Bundle content */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateContentRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["skillDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/skills/{id}/hydrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-hydrate a git-sourced skill
+         * @description Enqueues a fresh git pull at the tracked ref. Only valid for git-sourced skills.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Skill ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/slack/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Slack channels
+         * @description Returns public Slack channels plus private channels where Hivy is already a member.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["slackChannelsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/slack/channels/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join Slack channels
+         * @description Invites Hivy to all public channels or selected channels. Joined private channels are treated as already available.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Join request */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["joinSlackChannelsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["joinSlackChannelsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/tasks/{taskName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a system task
+         * @description Executes a registered server-side LLM task using platform credentials. Each task name maps to a hard-coded definition (model tier, prompt, args). Caller may opt into streaming.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Task name */
+                    taskName: string;
+                };
+                cookie?: never;
+            };
+            /** @description Task arguments */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["systemTaskRequest"];
+                };
+            };
+            responses: {
+                /** @description SSE stream when stream=true */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                        "text/event-stream": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                        "text/event-stream": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tokens
+         * @description Returns tokens for the organization with cursor pagination. Supports filtering by credential_id.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Max items per page (1-100, default 50) */
+                    limit?: number;
+                    /** @description Pagination cursor from previous response */
+                    cursor?: string;
+                    /** @description Filter by credential ID */
+                    credential_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_tokenListItem"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Mint a proxy token
+         * @description Creates a short-lived JWT proxy token scoped to a credential.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Token minting parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["mintTokenRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["mintTokenResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tokens/{jti}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a proxy token
+         * @description Revokes a proxy token by its JTI and propagates through cache tiers.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Token JTI */
+                    jti: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/uploads/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign upload URL
+         * @description Returns a presigned URL the client can PUT to for uploading public assets (avatars, org logos, etc).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Upload metadata */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["signUploadRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["signUploadResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get organization usage
+         * @description Returns aggregated usage statistics for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Start date inclusive (YYYY-MM-DD), defaults to 30 days ago */
+                    start_date?: string;
+                    /** @description End date inclusive (YYYY-MM-DD), defaults to now */
+                    end_date?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["usageResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
-export type webhooks = Record<string, never>
+export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    AdminCredentialField: {
-      label?: string
-      multiline?: boolean
-      name?: string
-      placeholder?: string
-      required?: boolean
-      secret?: boolean
-    }
-    AdminDefinition: {
-      auth_mode?: string
-      credential_fields?: components["schemas"]["AdminCredentialField"][]
-      display_name?: string
-      enabled?: boolean
-      existing?: components["schemas"]["AdminExistingIntegration"]
-      fixed_credentials?: components["schemas"]["AdminFixedCredential"][]
-      id?: string
-      meta?: components["schemas"]["JSON"]
-      nango_provider?: string
-      provider?: string
-      required?: boolean
-      supports_rag_source?: boolean
-      unique_key?: string
-    }
-    AdminExistingIntegration: {
-      active_connections?: number
-      display_name?: string
-      id?: string
-      managed?: boolean
-      unique_key?: string
-      updated_at?: string
-    }
-    AdminFixedCredential: {
-      label?: string
-      name?: string
-      value?: string
-    }
-    AvailableResource: {
-      id?: string
-      name?: string
-      type?: string
-    }
-    Bundle: {
-      content?: string
-      description?: string
-      files?: {
-        [key: string]: string
-      }
-      id?: string
-      manifest?: {
-        [key: string]: unknown
-      }
-      parameters_schema?: number[]
-      references?: components["schemas"]["Reference"][]
-      required_environment_variables?: string[]
-      title?: string
-    }
-    ConfigurableResourceSummary: {
-      description?: string
-      display_name?: string
-      key?: string
-    }
-    ConnectionConfigField: {
-      automated?: boolean
-      description?: string
-      doc_section?: string
-      example?: string
-      format?: string
-      optional?: boolean
-      pattern?: string
-      title?: string
-      type?: string
-    }
-    Cost: {
-      cache_read?: number
-      cache_write?: number
-      input?: number
-      output?: number
-    }
-    Credentials: {
-      app_id?: string
-      app_link?: string
-      client_id?: string
-      client_logo_uri?: string
-      /** @description MCP_OAUTH2_GENERIC fields */
-      client_name?: string
-      client_secret?: string
-      client_uri?: string
-      password?: string
-      private_key?: string
-      scopes?: string
-      type?: string
-      /** @description INSTALL_PLUGIN fields */
-      username?: string
-      webhook_secret?: string
-    }
-    DiscoveryResult: {
-      resources?: components["schemas"]["AvailableResource"][]
-    }
-    JSON: {
-      [key: string]: unknown
-    }
-    Limit: {
-      context?: number
-      output?: number
-    }
-    Modalities: {
-      input?: string[]
-      output?: string[]
-    }
-    NangoConfig: {
-      auth_mode?: string
-      authorization_url?: string
-      callback_url?: string
-      categories?: string[]
-      connection_config?: {
-        [key: string]: components["schemas"]["ConnectionConfigField"]
-      }
-      credentials_schema?: {
-        [key: string]: unknown
-      }
-      docs?: string
-      docs_connect?: string
-      forward_webhooks?: boolean
-      installation?: string
-      logo?: string
-      setup_guide_url?: string
-      webhook_routing_script?: string
-      webhook_secret?: string
-      webhook_url?: string
-      webhook_user_defined_secret?: boolean
-    }
-    Policy: {
-      allowed_collections?: string[]
-      allowed_schemas?: string[]
-      allowed_tables?: string[]
-      masked_fields?: string[]
-      max_rows?: number
-    }
-    Reference: {
-      body?: string
-      path?: string
-    }
-    SchemaDefinition: {
-      /** @description for array types */
-      items?: components["schemas"]["SchemaRef"]
-      properties?: {
-        [key: string]: components["schemas"]["SchemaPropertyDef"]
-      }
-      type?: string
-    }
-    SchemaPropertyDef: {
-      description?: string
-      nullable?: boolean
-      /** @description references another schema by name for nested object resolution */
-      schema_ref?: string
-      type?: string
-    }
-    SchemaRef: {
-      $ref?: string
-    }
-    Usage: {
-      cached_tokens?: number
-      input_tokens?: number
-      output_tokens?: number
-      reasoning_tokens?: number
-    }
-    WebhookConfig: {
-      /**
-       * @description ConfigurationNotes is markdown text shown to the user explaining how to
-       *     configure the webhook in the provider's settings.
-       */
-      configuration_notes?: string
-      /**
-       * @description WebhookURLRequired indicates the user must manually configure a webhook
-       *     URL in the provider's dashboard for triggers to work.
-       */
-      webhook_url_required?: boolean
-    }
-    actionSchemaPaths: {
-      paths?: components["schemas"]["schemaPath"][]
-      response_schema?: string
-    }
-    actionSummary: {
-      access?: string
-      description?: string
-      display_name?: string
-      key?: string
-      parameters?: number[]
-      resource_type?: string
-      response_schema?: string
-    }
-    agentCatalogInstallConflictResponse: {
-      error?: string
-      missing_plugins?: components["schemas"]["agentCatalogPluginSummary"][]
-    }
-    agentCatalogPluginSummary: {
-      id?: string
-      installed?: boolean
-      name?: string
-      slug?: string
-    }
-    agentCatalogResponse: {
-      available_models?: string[]
-      avatar_url?: string
-      category?: string
-      description?: string
-      developer?: string
-      id?: string
-      installed_agent_id?: string
-      is_default?: boolean
-      model?: string
-      name?: string
-      official?: boolean
-      recommended_plugins?: components["schemas"]["agentCatalogPluginSummary"][]
-      required_plugins?: components["schemas"]["agentCatalogPluginSummary"][]
-      sandbox_strategy?: string
-      slug?: string
-    }
-    agentCatalogSummary: {
-      avatar_url?: string
-      category?: string
-      description?: string
-      developer?: string
-      id?: string
-      is_default?: boolean
-      name?: string
-      official?: boolean
-      recommended_plugins?: string[]
-      required_plugins?: string[]
-      slug?: string
-    }
-    agentConnectionResourceSelection: {
-      full_name?: string
-      id?: string
-      name?: string
-      type?: string
-    }
-    agentListItem: {
-      attached_skills?: components["schemas"]["agentSkillSummary"][]
-      available_models?: string[]
-      avatar_url?: string
-      catalog?: components["schemas"]["agentCatalogSummary"]
-      created_at?: string
-      description?: string
-      icon?: string
-      id?: string
-      instructions?: string
-      is_default?: boolean
-      last_memory_refreshed_at?: string
-      latest_runtime_version?: string
-      mcp_servers?: number[]
-      memory_refresh_error?: string
-      memory_refresh_status?: string
-      model?: string
-      name?: string
-      permissions?: components["schemas"]["JSON"]
-      resources?: components["schemas"]["JSON"]
-      sandbox?: components["schemas"]["agentSandboxSummary"]
-      sandbox_strategy?: string
-      sandbox_template_id?: string
-      sandbox_tools?: string[]
-      skills?: components["schemas"]["JSON"]
-      status?: string
-      tools?: components["schemas"]["JSON"]
-      triggers?: components["schemas"]["agentTriggerResponse"][]
-      updated_at?: string
-      upgrade_available?: boolean
-    }
-    agentMutationRequest: {
-      available_models?: string[]
-      avatar_url?: string
-      description?: string
-      icon?: string
-      instructions?: string
-      mcp_servers?: number[]
-      model?: string
-      name?: string
-      permissions?: components["schemas"]["JSON"]
-      resources?: components["schemas"]["JSON"]
-      sandbox_strategy?: string
-      sandbox_template_id?: string
-      sandbox_tools?: string[]
-      skills?: components["schemas"]["JSON"]
-      tools?: components["schemas"]["JSON"]
-    }
-    agentMutationResponse: {
-      agent?: components["schemas"]["agentListItem"]
-    }
-    agentResponse: {
-      attached_skills?: components["schemas"]["agentSkillSummary"][]
-      available_models?: string[]
-      avatar_url?: string
-      catalog?: components["schemas"]["agentCatalogSummary"]
-      created_at?: string
-      description?: string
-      icon?: string
-      id?: string
-      instructions?: string
-      is_default?: boolean
-      last_memory_refreshed_at?: string
-      mcp_servers?: number[]
-      memory_refresh_error?: string
-      memory_refresh_status?: string
-      model?: string
-      name?: string
-      permissions?: components["schemas"]["JSON"]
-      resources?: components["schemas"]["JSON"]
-      sandbox_strategy?: string
-      sandbox_template_id?: string
-      sandbox_tools?: string[]
-      skills?: components["schemas"]["JSON"]
-      status?: string
-      tools?: components["schemas"]["JSON"]
-      triggers?: components["schemas"]["agentTriggerResponse"][]
-      updated_at?: string
-    }
-    agentSandboxSummary: {
-      created_at?: string
-      error_message?: string
-      external_id?: string
-      id?: string
-      last_active_at?: string
-      runtime_version?: string
-      status?: string
-    }
-    agentSandboxUpgradeResponse: {
-      backup_bytes?: number
-      backup_key?: string
-      backup_sha256?: string
-      completed_at?: string
-      created_at?: string
-      error_message?: string
-      new_sandbox_id?: string
-      old_sandbox_id?: string
-      phase?: string
-      status?: string
-      updated_at?: string
-      upgrade_id?: string
-    }
-    agentSkillSummary: {
-      description?: string
-      id?: string
-      locked?: boolean
-      name?: string
-      required?: boolean
-      source_type?: string
-    }
-    agentTriggerResponse: {
-      conditions?: unknown
-      connection_id?: string
-      enabled?: boolean
-      id?: string
-      instructions?: string
-      provider?: string
-      /**
-       * @description SecretSet indicates whether an HTTP trigger has a shared secret configured.
-       *     True when the trigger requires auth on incoming requests. The secret value
-       *     is never returned.
-       */
-      secret_set?: boolean
-      trigger_keys?: string[]
-      trigger_type?: string
-    }
-    apiKeyResponse: {
-      created_at?: string
-      expires_at?: string
-      id?: string
-      key_prefix?: string
-      last_used_at?: string
-      name?: string
-      revoked_at?: string
-      scopes?: string[]
-    }
-    apiKeyStats: {
-      active?: number
-      revoked?: number
-      total?: number
-    }
-    applyChangeRequest: {
-      paystack_reference?: string
-      quote_id?: string
-    }
-    applyChangeResponse: {
-      plan_slug?: string
-      status?: string
-    }
-    assetListItem: {
-      agent_id?: string
-      asset_url?: string
-      bytes?: number
-      content_type?: string
-      created_at?: string
-      filename?: string
-      id?: string
-      key?: string
-      path?: string
-      updated_at?: string
-    }
-    auditEntryResponse: {
-      action?: string
-      created_at?: string
-      credential_id?: string
-      id?: number
-      ip_address?: string
-      latency_ms?: number
-      method?: string
-      path?: string
-      status?: number
-    }
-    authResponse: {
-      access_token?: string
-      /** @description seconds */
-      expires_in?: number
-      orgs?: components["schemas"]["orgMemberDTO"][]
-      refresh_token?: string
-      user?: components["schemas"]["userResponse"]
-    }
-    cancelRequest: {
-      at_period_end?: boolean
-    }
-    cancelResponse: {
-      cancel_at_period_end?: boolean
-      canceled_at?: string
-      status?: string
-    }
-    changePasswordRequest: {
-      current_password?: string
-      new_password?: string
-    }
-    channelDetailResponse: {
-      channel?: components["schemas"]["channelResponse"]
-      members?: components["schemas"]["channelMemberResponse"][]
-    }
-    channelMemberRequest: {
-      role?: string
-    }
-    channelMemberResponse: {
-      created_at?: string
-      role?: string
-      user_id?: string
-    }
-    channelMutationRequest: {
-      default_agent_id?: string
-      description?: string
-      external_connection_id?: string
-      external_metadata?: components["schemas"]["JSON"]
-      external_provider?: string
-      external_resource_key?: string
-      external_resource_name?: string
-      external_resource_type?: string
-      external_resource_url?: string
-      external_workspace_key?: string
-      name?: string
-      origin?: string
-      visibility?: string
-    }
-    channelMutationResponse: {
-      channel?: components["schemas"]["channelResponse"]
-    }
-    channelResponse: {
-      archived_at?: string
-      created_at?: string
-      created_by?: string
-      default_agent_id?: string
-      description?: string
-      external_connection_id?: string
-      external_metadata?: components["schemas"]["JSON"]
-      external_provider?: string
-      external_resource_key?: string
-      external_resource_name?: string
-      external_resource_type?: string
-      external_resource_url?: string
-      external_workspace_key?: string
-      id?: string
-      is_default?: boolean
-      kind?: string
-      member_count?: number
-      name?: string
-      origin?: string
-      role?: string
-      updated_at?: string
-      visibility?: string
-    }
-    commandResult: {
-      command?: string
-      error?: string
-      exit_code?: number
-      output?: string
-    }
-    confirmEmailRequest: {
-      code?: string
-      email?: string
-    }
-    connectSessionResponse: {
-      provider_config_key?: string
-      token?: string
-    }
-    connectionResponse: {
-      actions_count?: number
-      configurable_resources?: components["schemas"]["ConfigurableResourceSummary"][]
-      created_at?: string
-      display_name?: string
-      id?: string
-      integration_id?: string
-      meta?: components["schemas"]["JSON"]
-      nango_connection_id?: string
-      org_id?: string
-      provider?: string
-      provider_config?: components["schemas"]["JSON"]
-      revoked_at?: string
-      updated_at?: string
-      webhook_configured?: boolean
-    }
-    createAPIKeyRequest: {
-      expires_in?: string
-      name?: string
-      scopes?: string[]
-    }
-    createAPIKeyResponse: {
-      created_at?: string
-      expires_at?: string
-      id?: string
-      key?: string
-      key_prefix?: string
-      name?: string
-      scopes?: string[]
-    }
-    createCheckoutRequest: {
-      cancel_url?: string
-      /** @description e.g. "USD", "NGN" */
-      currency?: string
-      /** @description "monthly" | "annual" */
-      cycle?: string
-      plan_slug?: string
-      provider?: string
-      success_url?: string
-    }
-    createCheckoutResponse: {
-      /** @description popup flow: hand to PaystackPop().resumeTransaction() */
-      access_code?: string
-      checkout_url?: string
-      reference?: string
-    }
-    createConnectionRequest: {
-      meta?: components["schemas"]["JSON"]
-      nango_connection_id?: string
-    }
-    createCredentialRequest: {
-      api_key?: string
-      auth_scheme?: string
-      base_url?: string
-      external_id?: string
-      label?: string
-      meta?: components["schemas"]["JSON"]
-      provider_id?: string
-      refill_amount?: number
-      refill_interval?: string
-      remaining?: number
-    }
-    createOrgEnvironmentVariableRequest: {
-      name?: string
-      value?: string
-    }
-    createOrgInviteRequest: {
-      email?: string
-      role?: string
-    }
-    createOrgRequest: {
-      name?: string
-    }
-    createRAGSourceRequest: {
-      access_type?: string
-      config?: components["schemas"]["JSON"]
-      connection_id?: string
-      kind?: string
-      name?: string
-      perm_sync_freq_seconds?: number
-      prune_freq_seconds?: number
-      refresh_freq_seconds?: number
-    }
-    createSandboxTemplateRequest: {
-      build_commands?: string[]
-      config?: components["schemas"]["JSON"]
-      disk_gb?: number
-      memory_gb?: number
-      name?: string
-      vcpu?: number
-    }
-    createSessionRequest: {
-      access_mode?: string
-      agent_id?: string
-      channel_id?: string
-      message?: string
-      model?: string
-      model_definition?: components["schemas"]["sessionModelDefinitionRequest"]
-      name?: string
-      raw?: components["schemas"]["JSON"]
-      reasoning_effort?: string
-      text?: string
-    }
-    createSkillRequest: {
-      bundle?: components["schemas"]["Bundle"]
-      category?: string
-      description?: string
-      hidden?: boolean
-      integration_ids?: string[]
-      name?: string
-      repo_ref?: string
-      repo_subpath?: string
-      repo_url?: string
-      /** @description "inline" | "git" */
-      source_type?: string
-      tags?: string[]
-    }
-    credentialResponse: {
-      auth_scheme?: string
-      base_url?: string
-      created_at?: string
-      id?: string
-      label?: string
-      last_used_at?: string
-      meta?: components["schemas"]["JSON"]
-      provider_id?: string
-      refill_amount?: number
-      refill_interval?: string
-      remaining?: number
-      request_count?: number
-      revoked_at?: string
-    }
-    credentialStats: {
-      active?: number
-      revoked?: number
-      total?: number
-    }
-    dailyRequests: {
-      count?: number
-      date?: string
-    }
-    dashboardConnectionsResponse: {
-      non_slack_connected?: number
-      slack_connected?: boolean
-      total?: number
-    }
-    dashboardCreditsResponse: {
-      balance?: number
-      period_end?: string
-      period_start?: string
-      spent_this_period?: number
-    }
-    dashboardResponse: {
-      connections?: components["schemas"]["dashboardConnectionsResponse"]
-      credits?: components["schemas"]["dashboardCreditsResponse"]
-      schedules?: components["schemas"]["dashboardSchedulesResponse"]
-    }
-    dashboardSchedulesResponse: {
-      total?: number
-    }
-    databaseConnectionRequest: {
-      access_policy?: components["schemas"]["Policy"]
-      agent_id?: string
-      connection_url?: string
-      display_name?: string
-      provider?: string
-    }
-    databaseConnectionResponse: {
-      access_policy?: components["schemas"]["JSON"]
-      agent_id?: string
-      created_at?: string
-      display_name?: string
-      id?: string
-      provider?: string
-      revoked_at?: string
-      schema_snapshot?: unknown
-      updated_at?: string
-    }
-    errorRate: {
-      date?: string
-      error_count?: number
-      total?: number
-    }
-    errorResponse: {
-      error?: string
-    }
-    exchangeRequest: {
-      token?: string
-    }
-    execRequest: {
-      commands?: string[]
-    }
-    execResponse: {
-      results?: components["schemas"]["commandResult"][]
-      success?: boolean
-    }
-    forgotPasswordRequest: {
-      email?: string
-    }
-    generationResponse: {
-      billing_cost_source?: string
-      cached_tokens?: number
-      cost?: number
-      created_at?: string
-      credential_id?: string
-      credits_debited?: number
-      error_message?: string
-      error_type?: string
-      id?: string
-      input_tokens?: number
-      ip_address?: string
-      is_streaming?: boolean
-      model?: string
-      org_id?: string
-      output_tokens?: number
-      provider_id?: string
-      reasoning_tokens?: number
-      request_path?: string
-      tags?: string[]
-      token_jti?: string
-      total_ms?: number
-      ttfb_ms?: number
-      upstream_status?: number
-      user_id?: string
-    }
-    initUpgradeRequest: {
-      quote_id?: string
-    }
-    initUpgradeResponse: {
-      access_code?: string
-      amount_minor?: number
-      currency?: string
-      reference?: string
-    }
-    integrationAvailableResponse: {
-      created_at?: string
-      display_name?: string
-      id?: string
-      meta?: components["schemas"]["JSON"]
-      nango_config?: components["schemas"]["NangoConfig"]
-      provider?: string
-    }
-    integrationDetail: {
-      actions?: components["schemas"]["actionSummary"][]
-      display_name?: string
-      id?: string
-      resources?: {
-        [key: string]: components["schemas"]["resource"]
-      }
-      schemas?: {
-        [key: string]: components["schemas"]["SchemaDefinition"]
-      }
-    }
-    integrationSummary: {
-      action_count?: number
-      display_name?: string
-      has_resources?: boolean
-      id?: string
-      read_count?: number
-      write_count?: number
-    }
-    joinSlackChannelFailure: {
-      channel_id?: string
-      error?: string
-    }
-    joinSlackChannelsRequest: {
-      all_public?: boolean
-      channel_ids?: string[]
-    }
-    joinSlackChannelsResponse: {
-      already_member?: number
-      failed?: number
-      failures?: components["schemas"]["joinSlackChannelFailure"][]
-      joined?: number
-    }
-    latencyStats: {
-      avg_ttfb_ms?: number
-      date?: string
-      p95_ttfb_ms?: number
-    }
-    listOrgInvitesResponse: {
-      data?: components["schemas"]["orgInviteResponse"][]
-    }
-    listOrgMembersResponse: {
-      data?: components["schemas"]["orgMemberResponse"][]
-    }
-    loginRequest: {
-      email?: string
-      /** @description optional: scope token to a specific org */
-      org_id?: string
-      password?: string
-    }
-    logoutRequest: {
-      refresh_token?: string
-    }
-    meResponse: {
-      orgs?: components["schemas"]["orgMemberDTO"][]
-      user?: components["schemas"]["userResponse"]
-    }
-    mintTokenRequest: {
-      credential_id?: string
-      meta?: components["schemas"]["JSON"]
-      refill_amount?: number
-      refill_interval?: string
-      remaining?: number
-      scopes?: number[]
-      /** @description e.g. "1h", "24h" */
-      ttl?: string
-    }
-    mintTokenResponse: {
-      expires_at?: string
-      jti?: string
-      mcp_endpoint?: string
-      token?: string
-    }
-    modelSummary: {
-      cost?: components["schemas"]["Cost"]
-      description?: string
-      family?: string
-      id?: string
-      knowledge?: string
-      limit?: components["schemas"]["Limit"]
-      modalities?: components["schemas"]["Modalities"]
-      name?: string
-      open_weights?: boolean
-      provider_id?: string
-      provider_ids?: string[]
-      reasoning?: boolean
-      release_date?: string
-      speed?: string
-      status?: string
-      structured_output?: boolean
-      tool_call?: boolean
-    }
-    orgEnvironmentVariableResponse: {
-      env_key?: string
-      name?: string
-    }
-    orgEnvironmentVariablesResponse: {
-      data?: components["schemas"]["orgEnvironmentVariableResponse"][]
-    }
-    orgInviteAcceptResponse: {
-      org_id?: string
-      org_name?: string
-      role?: string
-    }
-    orgInvitePreviewResponse: {
-      email?: string
-      expires_at?: string
-      inviter_name?: string
-      org_id?: string
-      org_name?: string
-      role?: string
-    }
-    orgInviteResponse: {
-      accepted_at?: string
-      created_at?: string
-      email?: string
-      expires_at?: string
-      id?: string
-      invited_by_email?: string
-      invited_by_id?: string
-      invited_by_name?: string
-      org_id?: string
-      revoked_at?: string
-      role?: string
-    }
-    orgMemberDTO: {
-      byok?: boolean
-      credits?: number
-      id?: string
-      logo_url?: string
-      name?: string
-      plan?: components["schemas"]["planDTO"]
-      role?: string
-    }
-    orgMemberResponse: {
-      email?: string
-      joined_at?: string
-      name?: string
-      role?: string
-      user_id?: string
-    }
-    orgResponse: {
-      active?: boolean
-      created_at?: string
-      id?: string
-      logo_url?: string
-      name?: string
-      plan?: components["schemas"]["planDTO"]
-      prompt_company?: string
-      rate_limit?: number
-      website?: string
-    }
-    otpRequestPayload: {
-      email?: string
-    }
-    otpVerifyPayload: {
-      code?: string
-      email?: string
-    }
-    "paginatedResponse-agentListItem": {
-      data?: components["schemas"]["agentListItem"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-channelResponse": {
-      data?: components["schemas"]["channelResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-connectionResponse": {
-      data?: components["schemas"]["connectionResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-credentialResponse": {
-      data?: components["schemas"]["credentialResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-generationResponse": {
-      data?: components["schemas"]["generationResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-handler_apiKeyResponse": {
-      data?: components["schemas"]["apiKeyResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-handler_assetListItem": {
-      data?: components["schemas"]["assetListItem"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-handler_auditEntryResponse": {
-      data?: components["schemas"]["auditEntryResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-handler_sandboxResponse": {
-      data?: components["schemas"]["sandboxResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-handler_tokenListItem": {
-      data?: components["schemas"]["tokenListItem"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-sandboxTemplateResponse": {
-      data?: components["schemas"]["sandboxTemplateResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-sessionEventResponse": {
-      data?: components["schemas"]["sessionEventResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-sessionResponse": {
-      data?: components["schemas"]["sessionResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    "paginatedResponse-skillResponse": {
-      data?: components["schemas"]["skillResponse"][]
-      has_more?: boolean
-      next_cursor?: string
-    }
-    planDTO: {
-      currency?: string
-      features?: string[]
-      monthly_credits?: number
-      name?: string
-      price_cents?: number
-      provider?: string
-      slug?: string
-      welcome_credits?: number
-    }
-    pluginConnectionRequirement: {
-      kind?: string
-      provider?: string
-      required?: boolean
-    }
-    pluginInstallConflictResponse: {
-      error?: string
-      missing_requirements?: components["schemas"]["pluginConnectionRequirement"][]
-    }
-    pluginLinksResponse: {
-      privacy?: string
-      terms?: string
-      website?: string
-    }
-    pluginResourceRequirement: {
-      connection_id?: string
-      description?: string
-      display_name?: string
-      kind?: string
-      missing?: boolean
-      provider?: string
-      required?: boolean
-      resource_key?: string
-      selected?: boolean
-      selected_count?: number
-    }
-    pluginResponse: {
-      capabilities?: string[]
-      category?: string
-      created_at?: string
-      description?: string
-      detail_category?: string
-      developer?: string
-      enabled_agent_ids?: string[]
-      examples?: string[]
-      featured?: boolean
-      icon?: string
-      icon_color?: string
-      id?: string
-      installed?: boolean
-      links?: components["schemas"]["pluginLinksResponse"]
-      long_description?: string
-      missing_requirements?: components["schemas"]["pluginConnectionRequirement"][]
-      name?: string
-      official?: boolean
-      required_connections?: components["schemas"]["pluginConnectionRequirement"][]
-      resource_requirements?: components["schemas"]["pluginResourceRequirement"][]
-      skills?: components["schemas"]["pluginSkillResponse"][]
-      slug?: string
-      status?: string
-      updated_at?: string
-      version?: string
-    }
-    pluginSkillResponse: {
-      category?: string
-      description?: string
-      id?: string
-      name?: string
-      slug?: string
-      tags?: string[]
-    }
-    previewChangeRequest: {
-      plan_slug?: string
-    }
-    previewChangeResponse: {
-      amount_minor?: number
-      credit_grant_minor?: number
-      currency?: string
-      effective_at?: string
-      expires_at?: string
-      from_plan_slug?: string
-      kind?: string
-      quote_id?: string
-      requires_payment_now?: boolean
-      to_plan_slug?: string
-    }
-    providerDetail: {
-      api?: string
-      doc?: string
-      id?: string
-      models?: components["schemas"]["modelSummary"][]
-      name?: string
-    }
-    providerSummary: {
-      api?: string
-      doc?: string
-      id?: string
-      model_count?: number
-      name?: string
-    }
-    publicTemplateResponse: {
-      description?: string
-      id?: string
-      name?: string
-      size?: string
-      slug?: string
-      tags?: components["schemas"]["JSON"]
-    }
-    ragAttemptDetailResponse: {
-      docs_estimated?: number
-      docs_removed_from_index?: number
-      error_count?: number
-      error_msg?: string
-      errors?: components["schemas"]["ragAttemptErrorPayload"][]
-      from_beginning?: boolean
-      full_exception_trace?: string
-      id?: string
-      new_docs_indexed?: number
-      poll_range_end?: string
-      poll_range_start?: string
-      status?: string
-      time_created?: string
-      time_started?: string
-      time_updated?: string
-      total_docs_indexed?: number
-    }
-    ragAttemptErrorPayload: {
-      document_id?: string
-      document_link?: string
-      entity_id?: string
-      error_type?: string
-      failed_time_range_end?: string
-      failed_time_range_start?: string
-      failure_message?: string
-      id?: string
-      is_resolved?: boolean
-      time_created?: string
-    }
-    ragAttemptsListResponse: {
-      data?: components["schemas"]["ragIndexAttemptResponse"][]
-      page?: number
-      page_size?: number
-      total?: number
-    }
-    ragIndexAttemptResponse: {
-      docs_estimated?: number
-      docs_removed_from_index?: number
-      error_msg?: string
-      from_beginning?: boolean
-      id?: string
-      new_docs_indexed?: number
-      poll_range_end?: string
-      poll_range_start?: string
-      status?: string
-      time_created?: string
-      time_started?: string
-      time_updated?: string
-      total_docs_indexed?: number
-    }
-    ragIntegrationResponse: {
-      display_name?: string
-      id?: string
-      provider?: string
-      unique_key?: string
-    }
-    ragIntegrationsListResponse: {
-      data?: components["schemas"]["ragIntegrationResponse"][]
-    }
-    ragLatestAttemptStatus: {
-      docs_estimated?: number
-      error_msg?: string
-      id?: string
-      new_docs_indexed?: number
-      status?: string
-      time_started?: string
-      time_updated?: string
-      total_docs_indexed?: number
-    }
-    ragListResponse: {
-      data?: components["schemas"]["ragSourceResponse"][]
-      page?: number
-      page_size?: number
-      total?: number
-    }
-    ragSearchHit: {
-      blurb?: string
-      content?: string
-      doc_id?: string
-      id?: string
-      link?: string
-      rerank_score?: number
-      score?: number
-      title?: string
-    }
-    ragSearchRequest: {
-      bypass_acl?: boolean
-      limit?: number
-      query?: string
-      rerank?: boolean
-    }
-    ragSearchResponse: {
-      hits?: components["schemas"]["ragSearchHit"][]
-    }
-    ragSourceDetailResponse: {
-      access_type?: string
-      config?: number[]
-      connection_id?: string
-      created_at?: string
-      enabled?: boolean
-      id?: string
-      in_repeated_error_state?: boolean
-      indexing_start?: string
-      kind?: string
-      last_pruned?: string
-      last_successful_index_time?: string
-      last_time_perm_sync?: string
-      latest_attempt?: components["schemas"]["ragLatestAttemptStatus"]
-      name?: string
-      org_id?: string
-      perm_sync_freq_seconds?: number
-      prune_freq_seconds?: number
-      recent_attempts?: components["schemas"]["ragIndexAttemptResponse"][]
-      refresh_freq_seconds?: number
-      status?: string
-      total_docs_indexed?: number
-      updated_at?: string
-    }
-    ragSourceResponse: {
-      access_type?: string
-      config?: number[]
-      connection_id?: string
-      created_at?: string
-      enabled?: boolean
-      id?: string
-      in_repeated_error_state?: boolean
-      indexing_start?: string
-      kind?: string
-      last_pruned?: string
-      last_successful_index_time?: string
-      last_time_perm_sync?: string
-      latest_attempt?: components["schemas"]["ragLatestAttemptStatus"]
-      name?: string
-      org_id?: string
-      perm_sync_freq_seconds?: number
-      prune_freq_seconds?: number
-      refresh_freq_seconds?: number
-      status?: string
-      total_docs_indexed?: number
-      updated_at?: string
-    }
-    rebootAgentSandboxResponse: {
-      agent?: components["schemas"]["agentResponse"]
-      sandbox_id?: string
-      sync?: components["schemas"]["syncAgentResponse"]
-    }
-    refreshRequest: {
-      /** @description optional: switch org */
-      org_id?: string
-      refresh_token?: string
-    }
-    registerRequest: {
-      email?: string
-      name?: string
-      password?: string
-    }
-    reportRow: {
-      avg_ttfb_ms?: number
-      cached_tokens?: number
-      credential_id?: string
-      error_count?: number
-      input_tokens?: number
-      model?: string
-      output_tokens?: number
-      p50_ttfb_ms?: number
-      p95_ttfb_ms?: number
-      period?: string
-      provider_id?: string
-      reasoning_tokens?: number
-      request_count?: number
-      total_cost?: number
-      user_id?: string
-    }
-    requestStats: {
-      last_30d?: number
-      last_7d?: number
-      today?: number
-      total?: number
-      yesterday?: number
-    }
-    resendConfirmationRequest: {
-      email?: string
-    }
-    resetPasswordRequest: {
-      new_password?: string
-      token?: string
-    }
-    resource: {
-      description?: string
-      display_name?: string
-      icon?: string
-      id_field?: string
-      name_field?: string
-      ref_bindings?: {
-        [key: string]: string
-      }
-    }
-    retryBuildRequest: {
-      build_commands?: string[]
-    }
-    sandboxResponse: {
-      agent_id?: string
-      created_at?: string
-      error_message?: string
-      external_id?: string
-      id?: string
-      last_active_at?: string
-      status?: string
-    }
-    sandboxTemplateResponse: {
-      base_template_id?: string
-      build_commands?: string[]
-      build_error?: string
-      build_logs?: string
-      build_status?: string
-      config?: components["schemas"]["JSON"]
-      created_at?: string
-      description?: string
-      external_id?: string
-      id?: string
-      is_public?: boolean
-      name?: string
-      size?: string
-      slug?: string
-      tags?: components["schemas"]["JSON"]
-      updated_at?: string
-    }
-    schemaPath: {
-      path?: string
-      type?: string
-    }
-    schemaPathsResponse: {
-      actions?: {
-        [key: string]: components["schemas"]["actionSchemaPaths"]
-      }
-      refs?: {
-        [key: string]: string
-      }
-    }
-    sendSessionMessageRequest: {
-      dynamic_context?: components["schemas"]["JSON"]
-      message?: string
-      model_definition?: components["schemas"]["sessionModelDefinitionRequest"]
-      raw?: components["schemas"]["JSON"]
-      text?: string
-      user?: string
-      user_display_name?: string
-    }
-    sessionDetailResponse: {
-      participants?: components["schemas"]["sessionParticipantResponse"][]
-      session?: components["schemas"]["sessionResponse"]
-    }
-    sessionEventResponse: {
-      actor_user_id?: string
-      agent_id?: string
-      event_at?: string
-      event_id?: string
-      event_type?: string
-      id?: string
-      payload?: components["schemas"]["JSON"]
-      sandbox_id?: string
-      sequence_number?: number
-      session_id?: string
-      source?: string
-    }
-    sessionInterruptResponse: {
-      interrupted?: boolean
-      session_id?: string
-      status?: string
-    }
-    sessionModelDefinitionRequest: {
-      model_id?: string
-      reasoning_effort?: string
-    }
-    sessionMutationResponse: {
-      event?: components["schemas"]["sessionEventResponse"]
-      queued?: boolean
-      session?: components["schemas"]["sessionResponse"]
-    }
-    sessionParticipantResponse: {
-      created_at?: string
-      invited_by?: string
-      joined_at?: string
-      role?: string
-      user_id?: string
-    }
-    sessionResponse: {
-      access_mode?: string
-      agent_id?: string
-      channel_id?: string
-      created_at?: string
-      created_by?: string
-      ended_at?: string
-      event_count?: number
-      id?: string
-      last_activity_at?: string
-      model?: string
-      name?: string
-      participant_count?: number
-      reasoning_effort?: string
-      sandbox_id?: string
-      source?: string
-      source_resource_key?: string
-      status?: string
-      updated_at?: string
-    }
-    sessionSandboxAccessResponse: {
-      expires_at?: string
-      sandbox_base_url?: string
-      sandbox_id?: string
-      scopes?: string[]
-      session_id?: string
-      token?: string
-    }
-    sessionSummary: {
-      created_at?: string
-      ended_at?: string
-      event_count?: number
-      id?: string
-      name?: string
-      source?: string
-      status?: string
-    }
-    signUploadRequest: {
-      asset_type?: string
-      content_type?: string
-      filename?: string
-      org_id?: string
-      size_bytes?: number
-    }
-    signUploadResponse: {
-      asset_url?: string
-      expires_at?: string
-      key?: string
-      max_size_bytes?: number
-      required_headers?: {
-        [key: string]: string
-      }
-      upload_method?: string
-      upload_url?: string
-    }
-    skillDetailResponse: {
-      bundle?: components["schemas"]["Bundle"]
-      category?: string
-      created_at?: string
-      description?: string
-      featured?: boolean
-      hidden?: boolean
-      hydration_error?: string
-      /** @description pending, ready, error */
-      hydration_status?: string
-      id?: string
-      install_count?: number
-      integration_ids?: string[]
-      name?: string
-      org_id?: string
-      public_skill_id?: string
-      repo_ref?: string
-      repo_subpath?: string
-      repo_url?: string
-      slug?: string
-      source_type?: string
-      status?: string
-      tags?: string[]
-      updated_at?: string
-    }
-    skillResponse: {
-      category?: string
-      created_at?: string
-      description?: string
-      featured?: boolean
-      hidden?: boolean
-      hydration_error?: string
-      /** @description pending, ready, error */
-      hydration_status?: string
-      id?: string
-      install_count?: number
-      integration_ids?: string[]
-      name?: string
-      org_id?: string
-      public_skill_id?: string
-      repo_ref?: string
-      repo_subpath?: string
-      repo_url?: string
-      slug?: string
-      source_type?: string
-      status?: string
-      tags?: string[]
-      updated_at?: string
-    }
-    slackChannelResponse: {
-      id?: string
-      is_archived?: boolean
-      is_member?: boolean
-      is_private?: boolean
-      name?: string
-      num_members?: number
-      purpose?: string
-      topic?: string
-    }
-    slackChannelsResponse: {
-      channels?: components["schemas"]["slackChannelResponse"][]
-    }
-    spendOverTime: {
-      date?: string
-      total_cost?: number
-    }
-    statusResponse: {
-      message?: string
-      status?: string
-    }
-    subscriptionResponse: {
-      cancel_at_period_end?: boolean
-      card_brand?: string
-      card_exp_month?: string
-      card_exp_year?: string
-      card_last4?: string
-      credits_balance?: number
-      current_period_end?: string
-      payment_account_name?: string
-      payment_bank_name?: string
-      /** @description Payment-method snapshot from the most recent successful charge. */
-      payment_channel?: string
-      pending_change_at?: string
-      /** @description Pending plan change scheduled at PendingChangeAt (downgrade flow). */
-      pending_plan_slug?: string
-      plan_slug?: string
-      provider?: string
-      status?: string
-    }
-    syncAgentResponse: {
-      applied?: number
-      deleted?: number
-      errors?: string[]
-      repos_cloned?: number
-      restart_triggered?: boolean
-    }
-    syncTriggerRequest: {
-      from_beginning?: boolean
-    }
-    systemTaskJSONResponse: {
-      cached?: boolean
-      model?: string
-      text?: string
-      usage?: components["schemas"]["Usage"]
-    }
-    systemTaskRequest: {
-      args?: {
-        [key: string]: unknown
-      }
-      stream?: boolean
-    }
-    tokenListItem: {
-      created_at?: string
-      credential_id?: string
-      expires_at?: string
-      id?: string
-      jti?: string
-      meta?: components["schemas"]["JSON"]
-      refill_amount?: number
-      refill_interval?: string
-      remaining?: number
-      revoked_at?: string
-      scopes?: components["schemas"]["JSON"]
-    }
-    tokenStats: {
-      active?: number
-      expired?: number
-      revoked?: number
-      total?: number
-    }
-    tokenVolumes: {
-      cached_tokens?: number
-      date?: string
-      input_tokens?: number
-      output_tokens?: number
-    }
-    topCredential: {
-      id?: string
-      label?: string
-      provider_id?: string
-      request_count?: number
-    }
-    topModel: {
-      model?: string
-      provider_id?: string
-      request_count?: number
-      total_cost?: number
-    }
-    topUser: {
-      request_count?: number
-      total_cost?: number
-      user_id?: string
-    }
-    triggerResponse: {
-      deduplicated?: boolean
-      source_id?: string
-      task_type?: string
-    }
-    triggerSummary: {
-      description?: string
-      display_name?: string
-      key?: string
-      payload_schema?: string
-      refs?: {
-        [key: string]: string
-      }
-      resource_type?: string
-    }
-    triggersResponse: {
-      triggers?: components["schemas"]["triggerSummary"][]
-      webhook_config?: components["schemas"]["WebhookConfig"]
-    }
-    updateAgentConnectionResourcesRequest: {
-      resources?: {
-        [
-          key: string
-        ]: components["schemas"]["agentConnectionResourceSelection"][]
-      }
-    }
-    updateAgentConnectionResourcesResponse: {
-      agent_id?: string
-      clone_queued?: boolean
-      connection_id?: string
-      resources?: components["schemas"]["JSON"]
-    }
-    updateAgentModelRequest: {
-      model?: string
-    }
-    updateAgentModelResponse: {
-      agent?: components["schemas"]["agentResponse"]
-      sync?: components["schemas"]["syncAgentResponse"]
-    }
-    updateConnectionResourcesRequest: {
-      resources?: {
-        [
-          key: string
-        ]: components["schemas"]["agentConnectionResourceSelection"][]
-      }
-    }
-    updateConnectionResourcesResponse: {
-      clone_queued?: boolean
-      connection_id?: string
-      resources?: components["schemas"]["JSON"]
-    }
-    updateContentRequest: {
-      bundle?: components["schemas"]["Bundle"]
-    }
-    updateOrgEnvironmentVariableRequest: {
-      name?: string
-      value?: string
-    }
-    updateOrgRequest: {
-      logo_url?: string
-      name?: string
-      prompt_company?: string
-      sync?: boolean
-      website?: string
-    }
-    updateProfileRequest: {
-      avatar_url?: string
-      email?: string
-      name?: string
-    }
-    updateRAGSourceRequest: {
-      config?: components["schemas"]["JSON"]
-      enabled?: boolean
-      indexing_start?: string
-      name?: string
-      perm_sync_freq_seconds?: number
-      prune_freq_seconds?: number
-      refresh_freq_seconds?: number
-      status?: string
-    }
-    updateSandboxTemplateRequest: {
-      build_commands?: string[]
-      config?: components["schemas"]["JSON"]
-      name?: string
-    }
-    updateSessionRequest: {
-      agent_id?: string
-      channel_id?: string
-      name?: string
-      status?: string
-    }
-    updateSkillRequest: {
-      category?: string
-      description?: string
-      hidden?: boolean
-      integration_ids?: string[]
-      name?: string
-      repo_ref?: string
-      status?: string
-      tags?: string[]
-    }
-    upsertAdminIntegrationRequest: {
-      credentials?: components["schemas"]["Credentials"]
-    }
-    upsertAdminIntegrationResponse: {
-      definition?: components["schemas"]["AdminDefinition"]
-      state?: string
-    }
-    usageResponse: {
-      api_keys?: components["schemas"]["apiKeyStats"]
-      credentials?: components["schemas"]["credentialStats"]
-      daily_requests?: components["schemas"]["dailyRequests"][]
-      error_rates?: components["schemas"]["errorRate"][]
-      latency?: components["schemas"]["latencyStats"][]
-      requests?: components["schemas"]["requestStats"]
-      sessions?: components["schemas"]["sessionSummary"][]
-      spend_over_time?: components["schemas"]["spendOverTime"][]
-      token_volumes?: components["schemas"]["tokenVolumes"][]
-      tokens?: components["schemas"]["tokenStats"]
-      top_credentials?: components["schemas"]["topCredential"][]
-      top_models?: components["schemas"]["topModel"][]
-      top_users?: components["schemas"]["topUser"][]
-    }
-    userResponse: {
-      avatar_url?: string
-      email?: string
-      email_confirmed?: boolean
-      id?: string
-      name?: string
-    }
-    verifyRequest: {
-      provider?: string
-      reference?: string
-    }
-    verifyResponse: {
-      plan_slug?: string
-      status?: string
-    }
-  }
-  responses: never
-  parameters: never
-  requestBodies: never
-  headers: never
-  pathItems: never
+    schemas: {
+        AdminCredentialField: {
+            label?: string;
+            multiline?: boolean;
+            name?: string;
+            placeholder?: string;
+            required?: boolean;
+            secret?: boolean;
+        };
+        AdminDefinition: {
+            auth_mode?: string;
+            credential_fields?: components["schemas"]["AdminCredentialField"][];
+            display_name?: string;
+            enabled?: boolean;
+            existing?: components["schemas"]["AdminExistingIntegration"];
+            fixed_credentials?: components["schemas"]["AdminFixedCredential"][];
+            id?: string;
+            meta?: components["schemas"]["JSON"];
+            nango_provider?: string;
+            provider?: string;
+            required?: boolean;
+            supports_rag_source?: boolean;
+            unique_key?: string;
+        };
+        AdminExistingIntegration: {
+            active_connections?: number;
+            display_name?: string;
+            id?: string;
+            managed?: boolean;
+            unique_key?: string;
+            updated_at?: string;
+        };
+        AdminFixedCredential: {
+            label?: string;
+            name?: string;
+            value?: string;
+        };
+        AvailableResource: {
+            id?: string;
+            name?: string;
+            type?: string;
+        };
+        Bundle: {
+            content?: string;
+            description?: string;
+            files?: {
+                [key: string]: string;
+            };
+            id?: string;
+            manifest?: {
+                [key: string]: unknown;
+            };
+            parameters_schema?: number[];
+            references?: components["schemas"]["Reference"][];
+            required_environment_variables?: string[];
+            title?: string;
+        };
+        ConfigurableResourceSummary: {
+            description?: string;
+            display_name?: string;
+            key?: string;
+        };
+        ConnectionConfigField: {
+            automated?: boolean;
+            description?: string;
+            doc_section?: string;
+            example?: string;
+            format?: string;
+            optional?: boolean;
+            pattern?: string;
+            title?: string;
+            type?: string;
+        };
+        Cost: {
+            cache_read?: number;
+            cache_write?: number;
+            input?: number;
+            output?: number;
+        };
+        Credentials: {
+            app_id?: string;
+            app_link?: string;
+            client_id?: string;
+            client_logo_uri?: string;
+            /** @description MCP_OAUTH2_GENERIC fields */
+            client_name?: string;
+            client_secret?: string;
+            client_uri?: string;
+            password?: string;
+            private_key?: string;
+            scopes?: string;
+            type?: string;
+            /** @description INSTALL_PLUGIN fields */
+            username?: string;
+            webhook_secret?: string;
+        };
+        DiscoveryResult: {
+            resources?: components["schemas"]["AvailableResource"][];
+        };
+        JSON: {
+            [key: string]: unknown;
+        };
+        Limit: {
+            context?: number;
+            output?: number;
+        };
+        Modalities: {
+            input?: string[];
+            output?: string[];
+        };
+        NangoConfig: {
+            auth_mode?: string;
+            authorization_url?: string;
+            callback_url?: string;
+            categories?: string[];
+            connection_config?: {
+                [key: string]: components["schemas"]["ConnectionConfigField"];
+            };
+            credentials_schema?: {
+                [key: string]: unknown;
+            };
+            docs?: string;
+            docs_connect?: string;
+            forward_webhooks?: boolean;
+            installation?: string;
+            logo?: string;
+            setup_guide_url?: string;
+            webhook_routing_script?: string;
+            webhook_secret?: string;
+            webhook_url?: string;
+            webhook_user_defined_secret?: boolean;
+        };
+        Policy: {
+            allowed_collections?: string[];
+            allowed_schemas?: string[];
+            allowed_tables?: string[];
+            masked_fields?: string[];
+            max_rows?: number;
+        };
+        Reference: {
+            body?: string;
+            path?: string;
+        };
+        SchemaDefinition: {
+            /** @description for array types */
+            items?: components["schemas"]["SchemaRef"];
+            properties?: {
+                [key: string]: components["schemas"]["SchemaPropertyDef"];
+            };
+            type?: string;
+        };
+        SchemaPropertyDef: {
+            description?: string;
+            nullable?: boolean;
+            /** @description references another schema by name for nested object resolution */
+            schema_ref?: string;
+            type?: string;
+        };
+        SchemaRef: {
+            $ref?: string;
+        };
+        Usage: {
+            cached_tokens?: number;
+            input_tokens?: number;
+            output_tokens?: number;
+            reasoning_tokens?: number;
+        };
+        WebhookConfig: {
+            /**
+             * @description ConfigurationNotes is markdown text shown to the user explaining how to
+             *     configure the webhook in the provider's settings.
+             */
+            configuration_notes?: string;
+            /**
+             * @description WebhookURLRequired indicates the user must manually configure a webhook
+             *     URL in the provider's dashboard for triggers to work.
+             */
+            webhook_url_required?: boolean;
+        };
+        actionSchemaPaths: {
+            paths?: components["schemas"]["schemaPath"][];
+            response_schema?: string;
+        };
+        actionSummary: {
+            access?: string;
+            description?: string;
+            display_name?: string;
+            key?: string;
+            parameters?: number[];
+            resource_type?: string;
+            response_schema?: string;
+        };
+        agentCatalogInstallConflictResponse: {
+            error?: string;
+            missing_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
+        };
+        agentCatalogPluginSummary: {
+            id?: string;
+            installed?: boolean;
+            name?: string;
+            slug?: string;
+        };
+        agentCatalogResponse: {
+            available_models?: string[];
+            avatar_url?: string;
+            category?: string;
+            description?: string;
+            developer?: string;
+            id?: string;
+            installed_agent_id?: string;
+            is_default?: boolean;
+            model?: string;
+            name?: string;
+            official?: boolean;
+            recommended_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
+            required_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
+            sandbox_strategy?: string;
+            slug?: string;
+        };
+        agentCatalogSummary: {
+            avatar_url?: string;
+            category?: string;
+            description?: string;
+            developer?: string;
+            id?: string;
+            is_default?: boolean;
+            name?: string;
+            official?: boolean;
+            recommended_plugins?: string[];
+            required_plugins?: string[];
+            slug?: string;
+        };
+        agentConnectionResourceSelection: {
+            full_name?: string;
+            id?: string;
+            name?: string;
+            type?: string;
+        };
+        agentListItem: {
+            attached_skills?: components["schemas"]["agentSkillSummary"][];
+            available_models?: string[];
+            avatar_url?: string;
+            catalog?: components["schemas"]["agentCatalogSummary"];
+            created_at?: string;
+            description?: string;
+            icon?: string;
+            id?: string;
+            instructions?: string;
+            is_default?: boolean;
+            last_memory_refreshed_at?: string;
+            latest_runtime_version?: string;
+            mcp_servers?: number[];
+            memory_refresh_error?: string;
+            memory_refresh_status?: string;
+            model?: string;
+            name?: string;
+            permissions?: components["schemas"]["JSON"];
+            resources?: components["schemas"]["JSON"];
+            sandbox?: components["schemas"]["agentSandboxSummary"];
+            sandbox_size?: string;
+            sandbox_strategy?: string;
+            sandbox_template_id?: string;
+            sandbox_tools?: string[];
+            skills?: components["schemas"]["JSON"];
+            status?: string;
+            tools?: components["schemas"]["JSON"];
+            triggers?: components["schemas"]["agentTriggerResponse"][];
+            updated_at?: string;
+            upgrade_available?: boolean;
+        };
+        agentMutationRequest: {
+            available_models?: string[];
+            avatar_url?: string;
+            description?: string;
+            icon?: string;
+            instructions?: string;
+            mcp_servers?: number[];
+            model?: string;
+            name?: string;
+            permissions?: components["schemas"]["JSON"];
+            resources?: components["schemas"]["JSON"];
+            sandbox_size?: string;
+            sandbox_strategy?: string;
+            sandbox_template_id?: string;
+            sandbox_tools?: string[];
+            skills?: components["schemas"]["JSON"];
+            tools?: components["schemas"]["JSON"];
+        };
+        agentMutationResponse: {
+            agent?: components["schemas"]["agentListItem"];
+        };
+        agentResponse: {
+            attached_skills?: components["schemas"]["agentSkillSummary"][];
+            available_models?: string[];
+            avatar_url?: string;
+            catalog?: components["schemas"]["agentCatalogSummary"];
+            created_at?: string;
+            description?: string;
+            icon?: string;
+            id?: string;
+            instructions?: string;
+            is_default?: boolean;
+            last_memory_refreshed_at?: string;
+            mcp_servers?: number[];
+            memory_refresh_error?: string;
+            memory_refresh_status?: string;
+            model?: string;
+            name?: string;
+            permissions?: components["schemas"]["JSON"];
+            resources?: components["schemas"]["JSON"];
+            sandbox_size?: string;
+            sandbox_strategy?: string;
+            sandbox_template_id?: string;
+            sandbox_tools?: string[];
+            skills?: components["schemas"]["JSON"];
+            status?: string;
+            tools?: components["schemas"]["JSON"];
+            triggers?: components["schemas"]["agentTriggerResponse"][];
+            updated_at?: string;
+        };
+        agentSandboxSummary: {
+            created_at?: string;
+            error_message?: string;
+            external_id?: string;
+            id?: string;
+            last_active_at?: string;
+            runtime_version?: string;
+            status?: string;
+        };
+        agentSandboxUpgradeResponse: {
+            backup_bytes?: number;
+            backup_key?: string;
+            backup_sha256?: string;
+            completed_at?: string;
+            created_at?: string;
+            error_message?: string;
+            new_sandbox_id?: string;
+            old_sandbox_id?: string;
+            phase?: string;
+            status?: string;
+            updated_at?: string;
+            upgrade_id?: string;
+        };
+        agentSkillSummary: {
+            description?: string;
+            id?: string;
+            locked?: boolean;
+            name?: string;
+            required?: boolean;
+            source_type?: string;
+        };
+        agentTriggerResponse: {
+            conditions?: unknown;
+            connection_id?: string;
+            enabled?: boolean;
+            id?: string;
+            instructions?: string;
+            provider?: string;
+            /**
+             * @description SecretSet indicates whether an HTTP trigger has a shared secret configured.
+             *     True when the trigger requires auth on incoming requests. The secret value
+             *     is never returned.
+             */
+            secret_set?: boolean;
+            trigger_keys?: string[];
+            trigger_type?: string;
+        };
+        apiKeyResponse: {
+            created_at?: string;
+            expires_at?: string;
+            id?: string;
+            key_prefix?: string;
+            last_used_at?: string;
+            name?: string;
+            revoked_at?: string;
+            scopes?: string[];
+        };
+        apiKeyStats: {
+            active?: number;
+            revoked?: number;
+            total?: number;
+        };
+        applyChangeRequest: {
+            paystack_reference?: string;
+            quote_id?: string;
+        };
+        applyChangeResponse: {
+            plan_slug?: string;
+            status?: string;
+        };
+        assetListItem: {
+            agent_id?: string;
+            asset_url?: string;
+            bytes?: number;
+            content_type?: string;
+            created_at?: string;
+            filename?: string;
+            id?: string;
+            key?: string;
+            path?: string;
+            updated_at?: string;
+        };
+        auditEntryResponse: {
+            action?: string;
+            created_at?: string;
+            credential_id?: string;
+            id?: number;
+            ip_address?: string;
+            latency_ms?: number;
+            method?: string;
+            path?: string;
+            status?: number;
+        };
+        authResponse: {
+            access_token?: string;
+            /** @description seconds */
+            expires_in?: number;
+            orgs?: components["schemas"]["orgMemberDTO"][];
+            refresh_token?: string;
+            user?: components["schemas"]["userResponse"];
+        };
+        cancelRequest: {
+            at_period_end?: boolean;
+        };
+        cancelResponse: {
+            cancel_at_period_end?: boolean;
+            canceled_at?: string;
+            status?: string;
+        };
+        changePasswordRequest: {
+            current_password?: string;
+            new_password?: string;
+        };
+        channelDetailResponse: {
+            channel?: components["schemas"]["channelResponse"];
+            members?: components["schemas"]["channelMemberResponse"][];
+        };
+        channelMemberRequest: {
+            role?: string;
+        };
+        channelMemberResponse: {
+            created_at?: string;
+            role?: string;
+            user_id?: string;
+        };
+        channelMutationRequest: {
+            default_agent_id?: string;
+            description?: string;
+            external_connection_id?: string;
+            external_metadata?: components["schemas"]["JSON"];
+            external_provider?: string;
+            external_resource_key?: string;
+            external_resource_name?: string;
+            external_resource_type?: string;
+            external_resource_url?: string;
+            external_workspace_key?: string;
+            name?: string;
+            origin?: string;
+            visibility?: string;
+        };
+        channelMutationResponse: {
+            channel?: components["schemas"]["channelResponse"];
+        };
+        channelResponse: {
+            archived_at?: string;
+            created_at?: string;
+            created_by?: string;
+            default_agent_id?: string;
+            description?: string;
+            external_connection_id?: string;
+            external_metadata?: components["schemas"]["JSON"];
+            external_provider?: string;
+            external_resource_key?: string;
+            external_resource_name?: string;
+            external_resource_type?: string;
+            external_resource_url?: string;
+            external_workspace_key?: string;
+            id?: string;
+            is_default?: boolean;
+            kind?: string;
+            member_count?: number;
+            name?: string;
+            origin?: string;
+            role?: string;
+            updated_at?: string;
+            visibility?: string;
+        };
+        commandResult: {
+            command?: string;
+            error?: string;
+            exit_code?: number;
+            output?: string;
+        };
+        confirmEmailRequest: {
+            code?: string;
+            email?: string;
+        };
+        connectSessionResponse: {
+            provider_config_key?: string;
+            token?: string;
+        };
+        connectionResponse: {
+            actions_count?: number;
+            configurable_resources?: components["schemas"]["ConfigurableResourceSummary"][];
+            created_at?: string;
+            display_name?: string;
+            id?: string;
+            integration_id?: string;
+            meta?: components["schemas"]["JSON"];
+            nango_connection_id?: string;
+            org_id?: string;
+            provider?: string;
+            provider_config?: components["schemas"]["JSON"];
+            revoked_at?: string;
+            updated_at?: string;
+            webhook_configured?: boolean;
+        };
+        createAPIKeyRequest: {
+            expires_in?: string;
+            name?: string;
+            scopes?: string[];
+        };
+        createAPIKeyResponse: {
+            created_at?: string;
+            expires_at?: string;
+            id?: string;
+            key?: string;
+            key_prefix?: string;
+            name?: string;
+            scopes?: string[];
+        };
+        createCheckoutRequest: {
+            cancel_url?: string;
+            /** @description e.g. "USD", "NGN" */
+            currency?: string;
+            /** @description "monthly" | "annual" */
+            cycle?: string;
+            plan_slug?: string;
+            provider?: string;
+            success_url?: string;
+        };
+        createCheckoutResponse: {
+            /** @description popup flow: hand to PaystackPop().resumeTransaction() */
+            access_code?: string;
+            checkout_url?: string;
+            reference?: string;
+        };
+        createConnectionRequest: {
+            meta?: components["schemas"]["JSON"];
+            nango_connection_id?: string;
+        };
+        createCredentialRequest: {
+            api_key?: string;
+            auth_scheme?: string;
+            base_url?: string;
+            external_id?: string;
+            label?: string;
+            meta?: components["schemas"]["JSON"];
+            provider_id?: string;
+            refill_amount?: number;
+            refill_interval?: string;
+            remaining?: number;
+        };
+        createOrgEnvironmentVariableRequest: {
+            name?: string;
+            value?: string;
+        };
+        createOrgInviteRequest: {
+            email?: string;
+            role?: string;
+        };
+        createOrgRequest: {
+            name?: string;
+        };
+        createRAGSourceRequest: {
+            access_type?: string;
+            config?: components["schemas"]["JSON"];
+            connection_id?: string;
+            kind?: string;
+            name?: string;
+            perm_sync_freq_seconds?: number;
+            prune_freq_seconds?: number;
+            refresh_freq_seconds?: number;
+        };
+        createSandboxTemplateRequest: {
+            build_commands?: string[];
+            config?: components["schemas"]["JSON"];
+            disk_gb?: number;
+            memory_gb?: number;
+            name?: string;
+            vcpu?: number;
+        };
+        createSessionRequest: {
+            access_mode?: string;
+            agent_id?: string;
+            channel_id?: string;
+            message?: string;
+            model?: string;
+            model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
+            name?: string;
+            raw?: components["schemas"]["JSON"];
+            reasoning_effort?: string;
+            text?: string;
+        };
+        createSkillRequest: {
+            bundle?: components["schemas"]["Bundle"];
+            category?: string;
+            description?: string;
+            hidden?: boolean;
+            integration_ids?: string[];
+            name?: string;
+            repo_ref?: string;
+            repo_subpath?: string;
+            repo_url?: string;
+            /** @description "inline" | "git" */
+            source_type?: string;
+            tags?: string[];
+        };
+        credentialResponse: {
+            auth_scheme?: string;
+            base_url?: string;
+            created_at?: string;
+            id?: string;
+            label?: string;
+            last_used_at?: string;
+            meta?: components["schemas"]["JSON"];
+            provider_id?: string;
+            refill_amount?: number;
+            refill_interval?: string;
+            remaining?: number;
+            request_count?: number;
+            revoked_at?: string;
+        };
+        credentialStats: {
+            active?: number;
+            revoked?: number;
+            total?: number;
+        };
+        dailyRequests: {
+            count?: number;
+            date?: string;
+        };
+        dashboardConnectionsResponse: {
+            non_slack_connected?: number;
+            slack_connected?: boolean;
+            total?: number;
+        };
+        dashboardCreditsResponse: {
+            balance?: number;
+            period_end?: string;
+            period_start?: string;
+            spent_this_period?: number;
+        };
+        dashboardResponse: {
+            connections?: components["schemas"]["dashboardConnectionsResponse"];
+            credits?: components["schemas"]["dashboardCreditsResponse"];
+            schedules?: components["schemas"]["dashboardSchedulesResponse"];
+        };
+        dashboardSchedulesResponse: {
+            total?: number;
+        };
+        databaseConnectionRequest: {
+            access_policy?: components["schemas"]["Policy"];
+            agent_id?: string;
+            connection_url?: string;
+            display_name?: string;
+            provider?: string;
+        };
+        databaseConnectionResponse: {
+            access_policy?: components["schemas"]["JSON"];
+            agent_id?: string;
+            created_at?: string;
+            display_name?: string;
+            id?: string;
+            provider?: string;
+            revoked_at?: string;
+            schema_snapshot?: unknown;
+            updated_at?: string;
+        };
+        errorRate: {
+            date?: string;
+            error_count?: number;
+            total?: number;
+        };
+        errorResponse: {
+            error?: string;
+        };
+        exchangeRequest: {
+            token?: string;
+        };
+        execRequest: {
+            commands?: string[];
+        };
+        execResponse: {
+            results?: components["schemas"]["commandResult"][];
+            success?: boolean;
+        };
+        forgotPasswordRequest: {
+            email?: string;
+        };
+        generationResponse: {
+            billing_cost_source?: string;
+            cached_tokens?: number;
+            cost?: number;
+            created_at?: string;
+            credential_id?: string;
+            credits_debited?: number;
+            error_message?: string;
+            error_type?: string;
+            id?: string;
+            input_tokens?: number;
+            ip_address?: string;
+            is_streaming?: boolean;
+            model?: string;
+            org_id?: string;
+            output_tokens?: number;
+            provider_id?: string;
+            reasoning_tokens?: number;
+            request_path?: string;
+            tags?: string[];
+            token_jti?: string;
+            total_ms?: number;
+            ttfb_ms?: number;
+            upstream_status?: number;
+            user_id?: string;
+        };
+        initUpgradeRequest: {
+            quote_id?: string;
+        };
+        initUpgradeResponse: {
+            access_code?: string;
+            amount_minor?: number;
+            currency?: string;
+            reference?: string;
+        };
+        integrationAvailableResponse: {
+            created_at?: string;
+            display_name?: string;
+            id?: string;
+            meta?: components["schemas"]["JSON"];
+            nango_config?: components["schemas"]["NangoConfig"];
+            provider?: string;
+        };
+        integrationDetail: {
+            actions?: components["schemas"]["actionSummary"][];
+            display_name?: string;
+            id?: string;
+            resources?: {
+                [key: string]: components["schemas"]["resource"];
+            };
+            schemas?: {
+                [key: string]: components["schemas"]["SchemaDefinition"];
+            };
+        };
+        integrationSummary: {
+            action_count?: number;
+            display_name?: string;
+            has_resources?: boolean;
+            id?: string;
+            read_count?: number;
+            write_count?: number;
+        };
+        joinSlackChannelFailure: {
+            channel_id?: string;
+            error?: string;
+        };
+        joinSlackChannelsRequest: {
+            all_public?: boolean;
+            channel_ids?: string[];
+        };
+        joinSlackChannelsResponse: {
+            already_member?: number;
+            failed?: number;
+            failures?: components["schemas"]["joinSlackChannelFailure"][];
+            joined?: number;
+        };
+        latencyStats: {
+            avg_ttfb_ms?: number;
+            date?: string;
+            p95_ttfb_ms?: number;
+        };
+        listOrgInvitesResponse: {
+            data?: components["schemas"]["orgInviteResponse"][];
+        };
+        listOrgMembersResponse: {
+            data?: components["schemas"]["orgMemberResponse"][];
+        };
+        loginRequest: {
+            email?: string;
+            /** @description optional: scope token to a specific org */
+            org_id?: string;
+            password?: string;
+        };
+        logoutRequest: {
+            refresh_token?: string;
+        };
+        meResponse: {
+            orgs?: components["schemas"]["orgMemberDTO"][];
+            user?: components["schemas"]["userResponse"];
+        };
+        mintTokenRequest: {
+            credential_id?: string;
+            meta?: components["schemas"]["JSON"];
+            refill_amount?: number;
+            refill_interval?: string;
+            remaining?: number;
+            scopes?: number[];
+            /** @description e.g. "1h", "24h" */
+            ttl?: string;
+        };
+        mintTokenResponse: {
+            expires_at?: string;
+            jti?: string;
+            mcp_endpoint?: string;
+            token?: string;
+        };
+        modelSummary: {
+            cost?: components["schemas"]["Cost"];
+            description?: string;
+            family?: string;
+            id?: string;
+            knowledge?: string;
+            limit?: components["schemas"]["Limit"];
+            modalities?: components["schemas"]["Modalities"];
+            name?: string;
+            open_weights?: boolean;
+            provider_id?: string;
+            provider_ids?: string[];
+            reasoning?: boolean;
+            release_date?: string;
+            speed?: string;
+            status?: string;
+            structured_output?: boolean;
+            tool_call?: boolean;
+        };
+        orgEnvironmentVariableResponse: {
+            env_key?: string;
+            name?: string;
+        };
+        orgEnvironmentVariablesResponse: {
+            data?: components["schemas"]["orgEnvironmentVariableResponse"][];
+        };
+        orgInviteAcceptResponse: {
+            org_id?: string;
+            org_name?: string;
+            role?: string;
+        };
+        orgInvitePreviewResponse: {
+            email?: string;
+            expires_at?: string;
+            inviter_name?: string;
+            org_id?: string;
+            org_name?: string;
+            role?: string;
+        };
+        orgInviteResponse: {
+            accepted_at?: string;
+            created_at?: string;
+            email?: string;
+            expires_at?: string;
+            id?: string;
+            invited_by_email?: string;
+            invited_by_id?: string;
+            invited_by_name?: string;
+            org_id?: string;
+            revoked_at?: string;
+            role?: string;
+        };
+        orgMemberDTO: {
+            byok?: boolean;
+            credits?: number;
+            id?: string;
+            logo_url?: string;
+            name?: string;
+            plan?: components["schemas"]["planDTO"];
+            role?: string;
+        };
+        orgMemberResponse: {
+            email?: string;
+            joined_at?: string;
+            name?: string;
+            role?: string;
+            user_id?: string;
+        };
+        orgResponse: {
+            active?: boolean;
+            created_at?: string;
+            id?: string;
+            logo_url?: string;
+            name?: string;
+            plan?: components["schemas"]["planDTO"];
+            prompt_company?: string;
+            rate_limit?: number;
+            website?: string;
+        };
+        otpRequestPayload: {
+            email?: string;
+        };
+        otpVerifyPayload: {
+            code?: string;
+            email?: string;
+        };
+        "paginatedResponse-agentListItem": {
+            data?: components["schemas"]["agentListItem"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-channelResponse": {
+            data?: components["schemas"]["channelResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-connectionResponse": {
+            data?: components["schemas"]["connectionResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-credentialResponse": {
+            data?: components["schemas"]["credentialResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-generationResponse": {
+            data?: components["schemas"]["generationResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_apiKeyResponse": {
+            data?: components["schemas"]["apiKeyResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_assetListItem": {
+            data?: components["schemas"]["assetListItem"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_auditEntryResponse": {
+            data?: components["schemas"]["auditEntryResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_sandboxResponse": {
+            data?: components["schemas"]["sandboxResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_tokenListItem": {
+            data?: components["schemas"]["tokenListItem"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-sandboxTemplateResponse": {
+            data?: components["schemas"]["sandboxTemplateResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-sessionEventResponse": {
+            data?: components["schemas"]["sessionEventResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-sessionResponse": {
+            data?: components["schemas"]["sessionResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-skillResponse": {
+            data?: components["schemas"]["skillResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        planDTO: {
+            currency?: string;
+            features?: string[];
+            monthly_credits?: number;
+            name?: string;
+            price_cents?: number;
+            provider?: string;
+            slug?: string;
+            welcome_credits?: number;
+        };
+        pluginConnectionRequirement: {
+            kind?: string;
+            provider?: string;
+            required?: boolean;
+        };
+        pluginInstallConflictResponse: {
+            error?: string;
+            missing_requirements?: components["schemas"]["pluginConnectionRequirement"][];
+        };
+        pluginLinksResponse: {
+            privacy?: string;
+            terms?: string;
+            website?: string;
+        };
+        pluginResourceRequirement: {
+            connection_id?: string;
+            description?: string;
+            display_name?: string;
+            kind?: string;
+            missing?: boolean;
+            provider?: string;
+            required?: boolean;
+            resource_key?: string;
+            selected?: boolean;
+            selected_count?: number;
+        };
+        pluginResponse: {
+            capabilities?: string[];
+            category?: string;
+            created_at?: string;
+            description?: string;
+            detail_category?: string;
+            developer?: string;
+            enabled_agent_ids?: string[];
+            examples?: string[];
+            featured?: boolean;
+            icon?: string;
+            icon_color?: string;
+            id?: string;
+            installed?: boolean;
+            links?: components["schemas"]["pluginLinksResponse"];
+            long_description?: string;
+            missing_requirements?: components["schemas"]["pluginConnectionRequirement"][];
+            name?: string;
+            official?: boolean;
+            required_connections?: components["schemas"]["pluginConnectionRequirement"][];
+            resource_requirements?: components["schemas"]["pluginResourceRequirement"][];
+            skills?: components["schemas"]["pluginSkillResponse"][];
+            slug?: string;
+            status?: string;
+            updated_at?: string;
+            version?: string;
+        };
+        pluginSkillResponse: {
+            category?: string;
+            description?: string;
+            id?: string;
+            name?: string;
+            slug?: string;
+            tags?: string[];
+        };
+        previewChangeRequest: {
+            plan_slug?: string;
+        };
+        previewChangeResponse: {
+            amount_minor?: number;
+            credit_grant_minor?: number;
+            currency?: string;
+            effective_at?: string;
+            expires_at?: string;
+            from_plan_slug?: string;
+            kind?: string;
+            quote_id?: string;
+            requires_payment_now?: boolean;
+            to_plan_slug?: string;
+        };
+        providerDetail: {
+            api?: string;
+            doc?: string;
+            id?: string;
+            models?: components["schemas"]["modelSummary"][];
+            name?: string;
+        };
+        providerSummary: {
+            api?: string;
+            doc?: string;
+            id?: string;
+            model_count?: number;
+            name?: string;
+        };
+        publicTemplateResponse: {
+            description?: string;
+            id?: string;
+            name?: string;
+            size?: string;
+            slug?: string;
+            tags?: components["schemas"]["JSON"];
+        };
+        ragAttemptDetailResponse: {
+            docs_estimated?: number;
+            docs_removed_from_index?: number;
+            error_count?: number;
+            error_msg?: string;
+            errors?: components["schemas"]["ragAttemptErrorPayload"][];
+            from_beginning?: boolean;
+            full_exception_trace?: string;
+            id?: string;
+            new_docs_indexed?: number;
+            poll_range_end?: string;
+            poll_range_start?: string;
+            status?: string;
+            time_created?: string;
+            time_started?: string;
+            time_updated?: string;
+            total_docs_indexed?: number;
+        };
+        ragAttemptErrorPayload: {
+            document_id?: string;
+            document_link?: string;
+            entity_id?: string;
+            error_type?: string;
+            failed_time_range_end?: string;
+            failed_time_range_start?: string;
+            failure_message?: string;
+            id?: string;
+            is_resolved?: boolean;
+            time_created?: string;
+        };
+        ragAttemptsListResponse: {
+            data?: components["schemas"]["ragIndexAttemptResponse"][];
+            page?: number;
+            page_size?: number;
+            total?: number;
+        };
+        ragIndexAttemptResponse: {
+            docs_estimated?: number;
+            docs_removed_from_index?: number;
+            error_msg?: string;
+            from_beginning?: boolean;
+            id?: string;
+            new_docs_indexed?: number;
+            poll_range_end?: string;
+            poll_range_start?: string;
+            status?: string;
+            time_created?: string;
+            time_started?: string;
+            time_updated?: string;
+            total_docs_indexed?: number;
+        };
+        ragIntegrationResponse: {
+            display_name?: string;
+            id?: string;
+            provider?: string;
+            unique_key?: string;
+        };
+        ragIntegrationsListResponse: {
+            data?: components["schemas"]["ragIntegrationResponse"][];
+        };
+        ragLatestAttemptStatus: {
+            docs_estimated?: number;
+            error_msg?: string;
+            id?: string;
+            new_docs_indexed?: number;
+            status?: string;
+            time_started?: string;
+            time_updated?: string;
+            total_docs_indexed?: number;
+        };
+        ragListResponse: {
+            data?: components["schemas"]["ragSourceResponse"][];
+            page?: number;
+            page_size?: number;
+            total?: number;
+        };
+        ragSearchHit: {
+            blurb?: string;
+            content?: string;
+            doc_id?: string;
+            id?: string;
+            link?: string;
+            rerank_score?: number;
+            score?: number;
+            title?: string;
+        };
+        ragSearchRequest: {
+            bypass_acl?: boolean;
+            limit?: number;
+            query?: string;
+            rerank?: boolean;
+        };
+        ragSearchResponse: {
+            hits?: components["schemas"]["ragSearchHit"][];
+        };
+        ragSourceDetailResponse: {
+            access_type?: string;
+            config?: number[];
+            connection_id?: string;
+            created_at?: string;
+            enabled?: boolean;
+            id?: string;
+            in_repeated_error_state?: boolean;
+            indexing_start?: string;
+            kind?: string;
+            last_pruned?: string;
+            last_successful_index_time?: string;
+            last_time_perm_sync?: string;
+            latest_attempt?: components["schemas"]["ragLatestAttemptStatus"];
+            name?: string;
+            org_id?: string;
+            perm_sync_freq_seconds?: number;
+            prune_freq_seconds?: number;
+            recent_attempts?: components["schemas"]["ragIndexAttemptResponse"][];
+            refresh_freq_seconds?: number;
+            status?: string;
+            total_docs_indexed?: number;
+            updated_at?: string;
+        };
+        ragSourceResponse: {
+            access_type?: string;
+            config?: number[];
+            connection_id?: string;
+            created_at?: string;
+            enabled?: boolean;
+            id?: string;
+            in_repeated_error_state?: boolean;
+            indexing_start?: string;
+            kind?: string;
+            last_pruned?: string;
+            last_successful_index_time?: string;
+            last_time_perm_sync?: string;
+            latest_attempt?: components["schemas"]["ragLatestAttemptStatus"];
+            name?: string;
+            org_id?: string;
+            perm_sync_freq_seconds?: number;
+            prune_freq_seconds?: number;
+            refresh_freq_seconds?: number;
+            status?: string;
+            total_docs_indexed?: number;
+            updated_at?: string;
+        };
+        rebootAgentSandboxResponse: {
+            agent?: components["schemas"]["agentResponse"];
+            sandbox_id?: string;
+            sync?: components["schemas"]["syncAgentResponse"];
+        };
+        refreshRequest: {
+            /** @description optional: switch org */
+            org_id?: string;
+            refresh_token?: string;
+        };
+        registerRequest: {
+            email?: string;
+            name?: string;
+            password?: string;
+        };
+        reportRow: {
+            avg_ttfb_ms?: number;
+            cached_tokens?: number;
+            credential_id?: string;
+            error_count?: number;
+            input_tokens?: number;
+            model?: string;
+            output_tokens?: number;
+            p50_ttfb_ms?: number;
+            p95_ttfb_ms?: number;
+            period?: string;
+            provider_id?: string;
+            reasoning_tokens?: number;
+            request_count?: number;
+            total_cost?: number;
+            user_id?: string;
+        };
+        requestStats: {
+            last_30d?: number;
+            last_7d?: number;
+            today?: number;
+            total?: number;
+            yesterday?: number;
+        };
+        resendConfirmationRequest: {
+            email?: string;
+        };
+        resetPasswordRequest: {
+            new_password?: string;
+            token?: string;
+        };
+        resource: {
+            description?: string;
+            display_name?: string;
+            icon?: string;
+            id_field?: string;
+            name_field?: string;
+            ref_bindings?: {
+                [key: string]: string;
+            };
+        };
+        retryBuildRequest: {
+            build_commands?: string[];
+        };
+        sandboxResponse: {
+            agent_id?: string;
+            created_at?: string;
+            error_message?: string;
+            external_id?: string;
+            id?: string;
+            last_active_at?: string;
+            status?: string;
+        };
+        sandboxTemplateResponse: {
+            base_template_id?: string;
+            build_commands?: string[];
+            build_error?: string;
+            build_logs?: string;
+            build_status?: string;
+            config?: components["schemas"]["JSON"];
+            created_at?: string;
+            description?: string;
+            external_id?: string;
+            id?: string;
+            is_public?: boolean;
+            name?: string;
+            size?: string;
+            slug?: string;
+            tags?: components["schemas"]["JSON"];
+            updated_at?: string;
+        };
+        schemaPath: {
+            path?: string;
+            type?: string;
+        };
+        schemaPathsResponse: {
+            actions?: {
+                [key: string]: components["schemas"]["actionSchemaPaths"];
+            };
+            refs?: {
+                [key: string]: string;
+            };
+        };
+        sendSessionMessageRequest: {
+            dynamic_context?: components["schemas"]["JSON"];
+            message?: string;
+            model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
+            raw?: components["schemas"]["JSON"];
+            text?: string;
+            user?: string;
+            user_display_name?: string;
+        };
+        sessionDetailResponse: {
+            participants?: components["schemas"]["sessionParticipantResponse"][];
+            session?: components["schemas"]["sessionResponse"];
+        };
+        sessionEventResponse: {
+            actor_user_id?: string;
+            agent_id?: string;
+            event_at?: string;
+            event_id?: string;
+            event_type?: string;
+            id?: string;
+            payload?: components["schemas"]["JSON"];
+            sandbox_id?: string;
+            sequence_number?: number;
+            session_id?: string;
+            source?: string;
+        };
+        sessionInterruptResponse: {
+            interrupted?: boolean;
+            session_id?: string;
+            status?: string;
+        };
+        sessionModelDefinitionRequest: {
+            model_id?: string;
+            reasoning_effort?: string;
+        };
+        sessionMutationResponse: {
+            event?: components["schemas"]["sessionEventResponse"];
+            queued?: boolean;
+            session?: components["schemas"]["sessionResponse"];
+        };
+        sessionParticipantResponse: {
+            created_at?: string;
+            invited_by?: string;
+            joined_at?: string;
+            role?: string;
+            user_id?: string;
+        };
+        sessionResponse: {
+            access_mode?: string;
+            agent_id?: string;
+            channel_id?: string;
+            created_at?: string;
+            created_by?: string;
+            ended_at?: string;
+            event_count?: number;
+            id?: string;
+            last_activity_at?: string;
+            model?: string;
+            name?: string;
+            participant_count?: number;
+            reasoning_effort?: string;
+            sandbox_id?: string;
+            source?: string;
+            source_resource_key?: string;
+            status?: string;
+            updated_at?: string;
+        };
+        sessionSandboxAccessResponse: {
+            expires_at?: string;
+            sandbox_base_url?: string;
+            sandbox_id?: string;
+            scopes?: string[];
+            session_id?: string;
+            token?: string;
+        };
+        sessionSummary: {
+            created_at?: string;
+            ended_at?: string;
+            event_count?: number;
+            id?: string;
+            name?: string;
+            source?: string;
+            status?: string;
+        };
+        signUploadRequest: {
+            asset_type?: string;
+            content_type?: string;
+            filename?: string;
+            org_id?: string;
+            size_bytes?: number;
+        };
+        signUploadResponse: {
+            asset_url?: string;
+            expires_at?: string;
+            key?: string;
+            max_size_bytes?: number;
+            required_headers?: {
+                [key: string]: string;
+            };
+            upload_method?: string;
+            upload_url?: string;
+        };
+        skillDetailResponse: {
+            bundle?: components["schemas"]["Bundle"];
+            category?: string;
+            created_at?: string;
+            description?: string;
+            featured?: boolean;
+            hidden?: boolean;
+            hydration_error?: string;
+            /** @description pending, ready, error */
+            hydration_status?: string;
+            id?: string;
+            install_count?: number;
+            integration_ids?: string[];
+            name?: string;
+            org_id?: string;
+            public_skill_id?: string;
+            repo_ref?: string;
+            repo_subpath?: string;
+            repo_url?: string;
+            slug?: string;
+            source_type?: string;
+            status?: string;
+            tags?: string[];
+            updated_at?: string;
+        };
+        skillResponse: {
+            category?: string;
+            created_at?: string;
+            description?: string;
+            featured?: boolean;
+            hidden?: boolean;
+            hydration_error?: string;
+            /** @description pending, ready, error */
+            hydration_status?: string;
+            id?: string;
+            install_count?: number;
+            integration_ids?: string[];
+            name?: string;
+            org_id?: string;
+            public_skill_id?: string;
+            repo_ref?: string;
+            repo_subpath?: string;
+            repo_url?: string;
+            slug?: string;
+            source_type?: string;
+            status?: string;
+            tags?: string[];
+            updated_at?: string;
+        };
+        slackChannelResponse: {
+            id?: string;
+            is_archived?: boolean;
+            is_member?: boolean;
+            is_private?: boolean;
+            name?: string;
+            num_members?: number;
+            purpose?: string;
+            topic?: string;
+        };
+        slackChannelsResponse: {
+            channels?: components["schemas"]["slackChannelResponse"][];
+        };
+        spendOverTime: {
+            date?: string;
+            total_cost?: number;
+        };
+        statusResponse: {
+            message?: string;
+            status?: string;
+        };
+        subscriptionResponse: {
+            cancel_at_period_end?: boolean;
+            card_brand?: string;
+            card_exp_month?: string;
+            card_exp_year?: string;
+            card_last4?: string;
+            credits_balance?: number;
+            current_period_end?: string;
+            payment_account_name?: string;
+            payment_bank_name?: string;
+            /** @description Payment-method snapshot from the most recent successful charge. */
+            payment_channel?: string;
+            pending_change_at?: string;
+            /** @description Pending plan change scheduled at PendingChangeAt (downgrade flow). */
+            pending_plan_slug?: string;
+            plan_slug?: string;
+            provider?: string;
+            status?: string;
+        };
+        syncAgentResponse: {
+            applied?: number;
+            deleted?: number;
+            errors?: string[];
+            repos_cloned?: number;
+            restart_triggered?: boolean;
+        };
+        syncTriggerRequest: {
+            from_beginning?: boolean;
+        };
+        systemTaskJSONResponse: {
+            cached?: boolean;
+            model?: string;
+            text?: string;
+            usage?: components["schemas"]["Usage"];
+        };
+        systemTaskRequest: {
+            args?: {
+                [key: string]: unknown;
+            };
+            stream?: boolean;
+        };
+        tokenListItem: {
+            created_at?: string;
+            credential_id?: string;
+            expires_at?: string;
+            id?: string;
+            jti?: string;
+            meta?: components["schemas"]["JSON"];
+            refill_amount?: number;
+            refill_interval?: string;
+            remaining?: number;
+            revoked_at?: string;
+            scopes?: components["schemas"]["JSON"];
+        };
+        tokenStats: {
+            active?: number;
+            expired?: number;
+            revoked?: number;
+            total?: number;
+        };
+        tokenVolumes: {
+            cached_tokens?: number;
+            date?: string;
+            input_tokens?: number;
+            output_tokens?: number;
+        };
+        topCredential: {
+            id?: string;
+            label?: string;
+            provider_id?: string;
+            request_count?: number;
+        };
+        topModel: {
+            model?: string;
+            provider_id?: string;
+            request_count?: number;
+            total_cost?: number;
+        };
+        topUser: {
+            request_count?: number;
+            total_cost?: number;
+            user_id?: string;
+        };
+        triggerResponse: {
+            deduplicated?: boolean;
+            source_id?: string;
+            task_type?: string;
+        };
+        triggerSummary: {
+            description?: string;
+            display_name?: string;
+            key?: string;
+            payload_schema?: string;
+            refs?: {
+                [key: string]: string;
+            };
+            resource_type?: string;
+        };
+        triggersResponse: {
+            triggers?: components["schemas"]["triggerSummary"][];
+            webhook_config?: components["schemas"]["WebhookConfig"];
+        };
+        updateAgentConnectionResourcesRequest: {
+            resources?: {
+                [key: string]: components["schemas"]["agentConnectionResourceSelection"][];
+            };
+        };
+        updateAgentConnectionResourcesResponse: {
+            agent_id?: string;
+            clone_queued?: boolean;
+            connection_id?: string;
+            resources?: components["schemas"]["JSON"];
+        };
+        updateAgentModelRequest: {
+            model?: string;
+        };
+        updateAgentModelResponse: {
+            agent?: components["schemas"]["agentResponse"];
+            sync?: components["schemas"]["syncAgentResponse"];
+        };
+        updateConnectionResourcesRequest: {
+            resources?: {
+                [key: string]: components["schemas"]["agentConnectionResourceSelection"][];
+            };
+        };
+        updateConnectionResourcesResponse: {
+            clone_queued?: boolean;
+            connection_id?: string;
+            resources?: components["schemas"]["JSON"];
+        };
+        updateContentRequest: {
+            bundle?: components["schemas"]["Bundle"];
+        };
+        updateOrgEnvironmentVariableRequest: {
+            name?: string;
+            value?: string;
+        };
+        updateOrgRequest: {
+            logo_url?: string;
+            name?: string;
+            prompt_company?: string;
+            sync?: boolean;
+            website?: string;
+        };
+        updateProfileRequest: {
+            avatar_url?: string;
+            email?: string;
+            name?: string;
+        };
+        updateRAGSourceRequest: {
+            config?: components["schemas"]["JSON"];
+            enabled?: boolean;
+            indexing_start?: string;
+            name?: string;
+            perm_sync_freq_seconds?: number;
+            prune_freq_seconds?: number;
+            refresh_freq_seconds?: number;
+            status?: string;
+        };
+        updateSandboxTemplateRequest: {
+            build_commands?: string[];
+            config?: components["schemas"]["JSON"];
+            name?: string;
+        };
+        updateSessionRequest: {
+            agent_id?: string;
+            channel_id?: string;
+            name?: string;
+            status?: string;
+        };
+        updateSkillRequest: {
+            category?: string;
+            description?: string;
+            hidden?: boolean;
+            integration_ids?: string[];
+            name?: string;
+            repo_ref?: string;
+            status?: string;
+            tags?: string[];
+        };
+        upsertAdminIntegrationRequest: {
+            credentials?: components["schemas"]["Credentials"];
+        };
+        upsertAdminIntegrationResponse: {
+            definition?: components["schemas"]["AdminDefinition"];
+            state?: string;
+        };
+        usageResponse: {
+            api_keys?: components["schemas"]["apiKeyStats"];
+            credentials?: components["schemas"]["credentialStats"];
+            daily_requests?: components["schemas"]["dailyRequests"][];
+            error_rates?: components["schemas"]["errorRate"][];
+            latency?: components["schemas"]["latencyStats"][];
+            requests?: components["schemas"]["requestStats"];
+            sessions?: components["schemas"]["sessionSummary"][];
+            spend_over_time?: components["schemas"]["spendOverTime"][];
+            token_volumes?: components["schemas"]["tokenVolumes"][];
+            tokens?: components["schemas"]["tokenStats"];
+            top_credentials?: components["schemas"]["topCredential"][];
+            top_models?: components["schemas"]["topModel"][];
+            top_users?: components["schemas"]["topUser"][];
+        };
+        userResponse: {
+            avatar_url?: string;
+            email?: string;
+            email_confirmed?: boolean;
+            id?: string;
+            name?: string;
+        };
+        verifyRequest: {
+            provider?: string;
+            reference?: string;
+        };
+        verifyResponse: {
+            plan_slug?: string;
+            status?: string;
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
-export type $defs = Record<string, never>
-export type operations = Record<string, never>
+export type $defs = Record<string, never>;
+export type operations = Record<string, never>;

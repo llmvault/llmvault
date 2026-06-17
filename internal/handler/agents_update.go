@@ -130,6 +130,14 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["sandbox_strategy"] = strategy
 		agent.SandboxStrategy = strategy
 	}
+	if req.SandboxSize != nil {
+		size, ok := normalizeAgentSandboxSizeForRequest(w, req.SandboxSize)
+		if !ok {
+			return false
+		}
+		updates["sandbox_size"] = size
+		agent.SandboxSize = size
+	}
 	if req.SandboxTemplateID != nil {
 		id, ok := parseOptionalUUIDForRequest(w, req.SandboxTemplateID, "sandbox_template_id")
 		if !ok {

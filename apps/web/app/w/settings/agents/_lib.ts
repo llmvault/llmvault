@@ -6,6 +6,22 @@ export type InstalledAgent = components["schemas"]["agentListItem"]
 export type AgentPluginRequirement =
   components["schemas"]["agentCatalogPluginSummary"]
 export type AgentCategory = "All" | "Featured" | string
+export type AgentSandboxSize = "small" | "medium" | "large" | "xlarge"
+
+export const AGENT_SANDBOX_SIZE_OPTIONS: Array<{
+  key: AgentSandboxSize
+  label: string
+  specs: string
+}> = [
+  { key: "small", label: "Small", specs: "1 CPU / 2 GB RAM / 10 GB disk" },
+  { key: "medium", label: "Medium", specs: "2 CPU / 4 GB RAM / 20 GB disk" },
+  { key: "large", label: "Large", specs: "4 CPU / 8 GB RAM / 40 GB disk" },
+  {
+    key: "xlarge",
+    label: "Extra large",
+    specs: "8 CPU / 16 GB RAM / 60 GB disk",
+  },
+]
 
 export const AGENT_CATALOG_QUERY_KEY = ["get", "/v1/agents/catalog"] as const
 export const INSTALLED_AGENTS_QUERY_KEY = ["get", "/v1/agents"] as const
@@ -71,6 +87,14 @@ export function agentAvailableModels(
     out.unshift(defaultModel)
   }
   return out
+}
+
+export function normalizeAgentSandboxSize(
+  value: string | undefined
+): AgentSandboxSize {
+  return AGENT_SANDBOX_SIZE_OPTIONS.some((option) => option.key === value)
+    ? (value as AgentSandboxSize)
+    : "small"
 }
 
 export function agentMissingPlugins(

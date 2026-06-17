@@ -177,6 +177,7 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		AvatarURL:       optionalStringPtr(avatarURL),
 		IsDefault:       false,
 		SandboxStrategy: catalog.SandboxStrategy,
+		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
 		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
 		Tools:           model.JSON{},

@@ -8,6 +8,7 @@ import {
   agentMatchesQuery,
   agentMissingPlugins,
   groupAgents,
+  normalizeAgentSandboxSize,
   pluginForRequirement,
   pluginsBySlug,
   type CatalogAgent,
@@ -112,6 +113,12 @@ describe("agent catalog helpers", () => {
       "deepseek-v4-pro",
       "qwen3.7-plus",
     ])
+  })
+
+  it("normalizes agent sandbox size values", () => {
+    expect(normalizeAgentSandboxSize("xlarge")).toBe("xlarge")
+    expect(normalizeAgentSandboxSize("jumbo")).toBe("small")
+    expect(normalizeAgentSandboxSize(undefined)).toBe("small")
   })
 
   it("resolves required plugin logo data from the plugin catalog", () => {

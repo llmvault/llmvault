@@ -39,7 +39,9 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		return nil, fmt.Errorf("encrypting runtime secret: %w", err)
 	}
 
-	snapshotID := AgentRuntimeTemplateRef(o.cfg)
+	sandboxSize := model.NormalizeTemplateSize(agent.SandboxSize)
+	resourceSpec, _ := model.TemplateSizeSpec(sandboxSize)
+	snapshotID := AgentRuntimeTemplateRefForSize(o.cfg, sandboxSize)
 	sb := model.Sandbox{
 		OrgID:                  &orgID,
 		AgentID:                &agent.ID,
@@ -56,10 +58,11 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	glitchTipDashboardURL := agentruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
 	envVars := agentSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
 	labels := map[string]string{
-		"org_id":     orgID.String(),
-		"sandbox_id": sb.ID.String(),
-		"agent_id":   agent.ID.String(),
-		"harness":    "agent-sandbox",
+		"org_id":       orgID.String(),
+		"sandbox_id":   sb.ID.String(),
+		"agent_id":     agent.ID.String(),
+		"harness":      "agent-sandbox",
+		"sandbox_size": sandboxSize,
 	}
 
 	if _, usesWarmPool := o.provider.(WarmPoolCapable); usesWarmPool {
@@ -84,6 +87,9 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		TemplateRef: snapshotID,
 		EnvVars:     envVars,
 		Labels:      labels,
+		CPU:         resourceSpec.CPU,
+		Memory:      resourceSpec.Memory,
+		Disk:        resourceSpec.Disk,
 	})
 	if err != nil {
 		if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {

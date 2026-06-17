@@ -117,6 +117,58 @@ func TestRenderEnvironmentContextUsesDefaultSandboxSizeWithoutTemplate(t *testin
 	}
 }
 
+func TestRenderEnvironmentContextUsesAgentSandboxSize(t *testing.T) {
+	db := connectCompileTestDB(t)
+	orgID := uuid.New()
+	org := model.Org{ID: orgID, Name: "Environment Size Test", RateLimit: 1000, Active: true}
+	if err := db.Create(&org).Error; err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	agent := model.Agent{
+		ID:              uuid.New(),
+		OrgID:           &orgID,
+		Name:            "Runtime Agent",
+		SandboxStrategy: "always_on",
+		SandboxSize:     "xlarge",
+		Status:          "active",
+		Tools:           model.JSON{},
+		McpServers:      model.RawJSON("[]"),
+		Skills:          model.JSON{},
+		RuntimeConfig:   model.JSON{},
+		Permissions:     model.JSON{},
+		Resources:       model.JSON{},
+	}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	snapshotID := "hivy-sandboxes-runtime-v3-2-1-amd64-xlarge"
+	sandbox := model.Sandbox{
+		ID:                     uuid.New(),
+		OrgID:                  &orgID,
+		AgentID:                &agent.ID,
+		SnapshotID:             &snapshotID,
+		ProviderID:             "microsandbox",
+		ExternalID:             "environment-size-test",
+		RuntimeURL:             "http://runtime.test",
+		EncryptedRuntimeSecret: []byte("secret"),
+		Status:                 "running",
+	}
+	if err := db.Create(&sandbox).Error; err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("id = ?", sandbox.ID).Delete(&model.Sandbox{})
+		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
+		db.Where("id = ?", org.ID).Delete(&model.Org{})
+	})
+
+	got := renderEnvironmentContext(context.Background(), db, &agent)
+	want := "This sandbox has 8 CPU cores, 16 GB of memory, and 60 GB of disk available."
+	if !strings.Contains(got, want) {
+		t.Fatalf("environment context=%q, want %q", got, want)
+	}
+}
+
 func TestResourcePhrases(t *testing.T) {
 	if got := cpuPhrase(1); got != "1 CPU core" {
 		t.Fatalf("cpuPhrase(1) = %q", got)

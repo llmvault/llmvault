@@ -11512,6 +11512,9 @@
           "sandbox": {
             "$ref": "#/components/schemas/agentSandboxSummary"
           },
+          "sandbox_size": {
+            "type": "string"
+          },
           "sandbox_strategy": {
             "type": "string"
           },
@@ -11585,6 +11588,9 @@
           },
           "resources": {
             "$ref": "#/components/schemas/JSON"
+          },
+          "sandbox_size": {
+            "type": "string"
           },
           "sandbox_strategy": {
             "type": "string"
@@ -11679,6 +11685,9 @@
           },
           "resources": {
             "$ref": "#/components/schemas/JSON"
+          },
+          "sandbox_size": {
+            "type": "string"
           },
           "sandbox_strategy": {
             "type": "string"
