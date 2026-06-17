@@ -10,13 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
 type updateConnectionResourcesRequest struct {
@@ -175,49 +173,5 @@ func (h *ConnectionHandler) UpdateResources(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *ConnectionHandler) enqueueConnectionDefaultResourceReconcile(ctx context.Context, orgID uuid.UUID, conn model.Connection) bool {
-	if h == nil || h.enq == nil || !isGitHubProvider(conn.Integration.Provider) {
-		return false
-	}
-	var agentIDs []uuid.UUID
-	if err := h.db.WithContext(ctx).
-		Table("agent_plugin_installs").
-		Joins("JOIN plugin_integrations ON plugin_integrations.plugin_id = agent_plugin_installs.plugin_id AND plugin_integrations.provider = ? AND plugin_integrations.kind = ?", conn.Integration.Provider, model.PluginIntegrationKindIntegration).
-		Joins("JOIN agents ON agents.id = agent_plugin_installs.agent_id AND agents.org_id = agent_plugin_installs.org_id AND agents.status <> ?", "archived").
-		Where("agent_plugin_installs.org_id = ?", orgID).
-		Distinct("agent_plugin_installs.agent_id").
-		Pluck("agent_plugin_installs.agent_id", &agentIDs).Error; err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("list agents for connection resource reconcile: %w", err), map[string]any{
-			"org_id":        orgID.String(),
-			"connection_id": conn.ID.String(),
-		})
-		return false
-	}
-	queued := false
-	for _, agentID := range agentIDs {
-		task, opts, err := tasks.NewAgentGitHubResourcesCloneTask(tasks.AgentGitHubResourcesClonePayload{
-			OrgID:        orgID,
-			AgentID:      agentID,
-			ConnectionID: conn.ID,
-		})
-		if err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("create github resource clone task: %w", err), map[string]any{
-				"agent_id":      agentID.String(),
-				"connection_id": conn.ID.String(),
-			})
-			continue
-		}
-		if _, err := h.enq.EnqueueContext(ctx, task, opts...); err != nil {
-			if errors.Is(err, asynq.ErrDuplicateTask) || errors.Is(err, asynq.ErrTaskIDConflict) {
-				queued = true
-				continue
-			}
-			logging.CaptureWithFields(ctx, fmt.Errorf("enqueue github resource clone task: %w", err), map[string]any{
-				"agent_id":      agentID.String(),
-				"connection_id": conn.ID.String(),
-			})
-			continue
-		}
-		queued = true
-	}
-	return queued
+	return enqueueGitHubRepositoryCloneForAlwaysOnAgents(ctx, h.db, h.enq, orgID, conn)
 }

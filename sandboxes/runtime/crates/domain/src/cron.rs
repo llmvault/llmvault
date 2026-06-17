@@ -28,6 +28,8 @@ pub struct CronJob {
     pub last_status: Option<String>,
     pub last_error: Option<String>,
     pub session_continuation_id: Option<String>,
+    #[serde(default)]
+    pub stream_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub created_by_session: String,
 }

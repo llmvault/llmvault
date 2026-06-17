@@ -132,15 +132,7 @@ func resourcesForConnection(resources model.JSON, connectionID string) model.JSO
 	if !ok {
 		return nil
 	}
-	typed, ok := raw.(map[string]any)
-	if !ok {
-		return nil
-	}
-	out := model.JSON{}
-	for key, value := range typed {
-		out[key] = value
-	}
-	return out
+	return jsonObject(raw)
 }
 
 func resourcesFromConnectionMeta(meta model.JSON) model.JSON {
@@ -151,15 +143,29 @@ func resourcesFromConnectionMeta(meta model.JSON) model.JSON {
 	if !ok {
 		return nil
 	}
-	typed, ok := raw.(map[string]any)
-	if !ok {
+	return jsonObject(raw)
+}
+
+func jsonObject(raw any) model.JSON {
+	if raw == nil {
 		return nil
 	}
-	out := model.JSON{}
-	for key, value := range typed {
-		out[key] = value
+	switch typed := raw.(type) {
+	case model.JSON:
+		out := model.JSON{}
+		for key, value := range typed {
+			out[key] = value
+		}
+		return out
+	case map[string]any:
+		out := model.JSON{}
+		for key, value := range typed {
+			out[key] = value
+		}
+		return out
+	default:
+		return nil
 	}
-	return out
 }
 
 func NangoProviderConfigKey(uniqueKey string) string {

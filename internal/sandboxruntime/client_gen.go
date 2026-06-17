@@ -26,6 +26,7 @@ const (
 	CronJobStateActive    CronJobState = "active"
 	CronJobStateCompleted CronJobState = "completed"
 	CronJobStatePaused    CronJobState = "paused"
+	CronJobStateRunning   CronJobState = "running"
 )
 
 // Valid indicates whether the value is a known member of the CronJobState enum.
@@ -36,6 +37,8 @@ func (e CronJobState) Valid() bool {
 	case CronJobStateCompleted:
 		return true
 	case CronJobStatePaused:
+		return true
+	case CronJobStateRunning:
 		return true
 	default:
 		return false
@@ -631,6 +634,20 @@ type ConfigUpdateRequest struct {
 	Schedules     *[]CronJob         `json:"schedules,omitempty"`
 }
 
+// ContentResponse defines model for ContentResponse.
+type ContentResponse struct {
+	Content    string `json:"content"`
+	Encoding   string `json:"encoding"`
+	Limit      *int   `json:"limit,omitempty"`
+	Offset     *int   `json:"offset,omitempty"`
+	Path       string `json:"path"`
+	RepoId     string `json:"repo_id"`
+	ShownLines int    `json:"shown_lines"`
+	TotalBytes int    `json:"total_bytes"`
+	TotalLines int    `json:"total_lines"`
+	Truncated  bool   `json:"truncated"`
+}
+
 // ContextConfig defines model for ContextConfig.
 type ContextConfig struct {
 	Compaction       *CompactionConfig    `json:"compaction,omitempty"`
@@ -678,11 +695,19 @@ type CronJob struct {
 	RepeatCount           *int32       `json:"repeat_count,omitempty"`
 	SessionContinuationId *string      `json:"session_continuation_id,omitempty"`
 	State                 CronJobState `json:"state"`
+	StreamId              *string      `json:"stream_id,omitempty"`
 	TaskPrompt            string       `json:"task_prompt"`
 }
 
 // CronJobState defines model for CronJobState.
 type CronJobState string
+
+// DiffResponse defines model for DiffResponse.
+type DiffResponse struct {
+	Diff   string  `json:"diff"`
+	Path   *string `json:"path,omitempty"`
+	RepoId string  `json:"repo_id"`
+}
 
 // DynamicContextPromptSegment defines model for DynamicContextPromptSegment.
 type DynamicContextPromptSegment struct {
@@ -929,6 +954,20 @@ type RepeatDetectionConfig struct {
 	MaxTotal       *int  `json:"max_total,omitempty"`
 }
 
+// RepoInfo defines model for RepoInfo.
+type RepoInfo struct {
+	BaseSha      string `json:"base_sha"`
+	HeadSha      string `json:"head_sha"`
+	Id           string `json:"id"`
+	Name         string `json:"name"`
+	RelativePath string `json:"relative_path"`
+}
+
+// RepoListResponse defines model for RepoListResponse.
+type RepoListResponse struct {
+	Repos []RepoInfo `json:"repos"`
+}
+
 // SafetyConfig defines model for SafetyConfig.
 type SafetyConfig struct {
 	JsonRepair      *bool                  `json:"json_repair,omitempty"`
@@ -968,6 +1007,12 @@ type SessionEvent struct {
 
 // SessionId `SessionId` is the canonical identifier for a session.
 type SessionId = string
+
+// SessionInterruptResponse defines model for SessionInterruptResponse.
+type SessionInterruptResponse struct {
+	Interrupted bool   `json:"interrupted"`
+	Status      string `json:"status"`
+}
 
 // SessionMessageRequest defines model for SessionMessageRequest.
 type SessionMessageRequest struct {
@@ -1245,6 +1290,22 @@ type TraceSummary struct {
 	TurnCount     int        `json:"turn_count"`
 }
 
+// TreeEntry defines model for TreeEntry.
+type TreeEntry struct {
+	GitStatus *string `json:"git_status,omitempty"`
+	Name      string  `json:"name"`
+	Path      string  `json:"path"`
+	Size      *int64  `json:"size,omitempty"`
+	Type      string  `json:"type"`
+}
+
+// TreeResponse defines model for TreeResponse.
+type TreeResponse struct {
+	Entries []TreeEntry `json:"entries"`
+	Path    string      `json:"path"`
+	RepoId  string      `json:"repo_id"`
+}
+
 // WriteFileConfig defines model for WriteFileConfig.
 type WriteFileConfig struct {
 	AllowedRoots     []string  `json:"allowed_roots"`
@@ -1272,6 +1333,15 @@ type ListSessionsParams struct {
 
 	// Limit Maximum sessions to return, clamped from 1 to 200
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetSessionLiveStreamParams defines parameters for GetSessionLiveStream.
+type GetSessionLiveStreamParams struct {
+	// Replay Replay mode: `all` or `none`
+	Replay *string `form:"replay,omitempty" json:"replay,omitempty"`
+
+	// AfterSeq Replay retained events with sequence greater than this value
+	AfterSeq *int64 `form:"after_seq,omitempty" json:"after_seq,omitempty"`
 }
 
 // PutConfigJSONRequestBody defines body for PutConfig for application/json ContentType.
@@ -2203,11 +2273,26 @@ type ClientInterface interface {
 	// Readyz request
 	Readyz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListRepos request
+	ListRepos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRepoContent request
+	GetRepoContent(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRepoDiff request
+	GetRepoDiff(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRepoTree request
+	GetRepoTree(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSessions request
 	ListSessions(ctx context.Context, params *ListSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSessionDetail request
 	GetSessionDetail(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostSessionInterrupt request
+	PostSessionInterrupt(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostSessionMessageWithBody request with any body
 	PostSessionMessageWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2220,7 +2305,7 @@ type ClientInterface interface {
 	PostQuestionAnswer(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSessionLiveStream request
-	GetSessionLiveStream(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetSessionLiveStream(ctx context.Context, sessionId string, params *GetSessionLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2331,6 +2416,54 @@ func (c *Client) Readyz(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListRepos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReposRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRepoContent(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRepoContentRequest(c.Server, repoId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRepoDiff(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRepoDiffRequest(c.Server, repoId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRepoTree(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRepoTreeRequest(c.Server, repoId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListSessions(ctx context.Context, params *ListSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSessionsRequest(c.Server, params)
 	if err != nil {
@@ -2345,6 +2478,18 @@ func (c *Client) ListSessions(ctx context.Context, params *ListSessionsParams, r
 
 func (c *Client) GetSessionDetail(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetSessionDetailRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSessionInterrupt(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSessionInterruptRequest(c.Server, sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -2403,8 +2548,8 @@ func (c *Client) PostQuestionAnswer(ctx context.Context, sessionId string, quest
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetSessionLiveStream(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSessionLiveStreamRequest(c.Server, sessionId)
+func (c *Client) GetSessionLiveStream(ctx context.Context, sessionId string, params *GetSessionLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSessionLiveStreamRequest(c.Server, sessionId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2644,6 +2789,135 @@ func NewReadyzRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListReposRequest generates requests for ListRepos
+func NewListReposRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/repos")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRepoContentRequest generates requests for GetRepoContent
+func NewGetRepoContentRequest(server string, repoId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "repo_id", repoId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/repos/%s/content", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRepoDiffRequest generates requests for GetRepoDiff
+func NewGetRepoDiffRequest(server string, repoId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "repo_id", repoId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/repos/%s/diff", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRepoTreeRequest generates requests for GetRepoTree
+func NewGetRepoTreeRequest(server string, repoId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "repo_id", repoId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/repos/%s/tree", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListSessionsRequest generates requests for ListSessions
 func NewListSessionsRequest(server string, params *ListSessionsParams) (*http.Request, error) {
 	var err error
@@ -2780,6 +3054,40 @@ func NewGetSessionDetailRequest(server string, sessionId string) (*http.Request,
 	return req, nil
 }
 
+// NewPostSessionInterruptRequest generates requests for PostSessionInterrupt
+func NewPostSessionInterruptRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "session_id", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/interrupt", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewPostSessionMessageRequest calls the generic PostSessionMessage builder with application/json body
 func NewPostSessionMessageRequest(server string, sessionId string, body PostSessionMessageJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -2882,7 +3190,7 @@ func NewPostQuestionAnswerRequestWithBody(server string, sessionId string, quest
 }
 
 // NewGetSessionLiveStreamRequest generates requests for GetSessionLiveStream
-func NewGetSessionLiveStreamRequest(server string, sessionId string) (*http.Request, error) {
+func NewGetSessionLiveStreamRequest(server string, sessionId string, params *GetSessionLiveStreamParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2905,6 +3213,45 @@ func NewGetSessionLiveStreamRequest(server string, sessionId string) (*http.Requ
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Replay != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "replay", *params.Replay, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AfterSeq != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "after_seq", *params.AfterSeq, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -2983,11 +3330,26 @@ type ClientWithResponsesInterface interface {
 	// ReadyzWithResponse request
 	ReadyzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ReadyzResp, error)
 
+	// ListReposWithResponse request
+	ListReposWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListReposResp, error)
+
+	// GetRepoContentWithResponse request
+	GetRepoContentWithResponse(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*GetRepoContentResp, error)
+
+	// GetRepoDiffWithResponse request
+	GetRepoDiffWithResponse(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*GetRepoDiffResp, error)
+
+	// GetRepoTreeWithResponse request
+	GetRepoTreeWithResponse(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*GetRepoTreeResp, error)
+
 	// ListSessionsWithResponse request
 	ListSessionsWithResponse(ctx context.Context, params *ListSessionsParams, reqEditors ...RequestEditorFn) (*ListSessionsResp, error)
 
 	// GetSessionDetailWithResponse request
 	GetSessionDetailWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetSessionDetailResp, error)
+
+	// PostSessionInterruptWithResponse request
+	PostSessionInterruptWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*PostSessionInterruptResp, error)
 
 	// PostSessionMessageWithBodyWithResponse request with any body
 	PostSessionMessageWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSessionMessageResp, error)
@@ -3000,7 +3362,7 @@ type ClientWithResponsesInterface interface {
 	PostQuestionAnswerWithResponse(ctx context.Context, sessionId string, questionRequestId string, body PostQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*PostQuestionAnswerResp, error)
 
 	// GetSessionLiveStreamWithResponse request
-	GetSessionLiveStreamWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetSessionLiveStreamResp, error)
+	GetSessionLiveStreamWithResponse(ctx context.Context, sessionId string, params *GetSessionLiveStreamParams, reqEditors ...RequestEditorFn) (*GetSessionLiveStreamResp, error)
 }
 
 type GetConfigResp struct {
@@ -3212,6 +3574,126 @@ func (r ReadyzResp) ContentType() string {
 	return ""
 }
 
+type ListReposResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RepoListResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReposResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReposResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListReposResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetRepoContentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ContentResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRepoContentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRepoContentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetRepoContentResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetRepoDiffResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DiffResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRepoDiffResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRepoDiffResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetRepoDiffResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetRepoTreeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TreeResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRepoTreeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRepoTreeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetRepoTreeResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListSessionsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3266,6 +3748,36 @@ func (r GetSessionDetailResp) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetSessionDetailResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostSessionInterruptResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SessionInterruptResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostSessionInterruptResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostSessionInterruptResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostSessionInterruptResp) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3440,6 +3952,42 @@ func (c *ClientWithResponses) ReadyzWithResponse(ctx context.Context, reqEditors
 	return ParseReadyzResp(rsp)
 }
 
+// ListReposWithResponse request returning *ListReposResp
+func (c *ClientWithResponses) ListReposWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListReposResp, error) {
+	rsp, err := c.ListRepos(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReposResp(rsp)
+}
+
+// GetRepoContentWithResponse request returning *GetRepoContentResp
+func (c *ClientWithResponses) GetRepoContentWithResponse(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*GetRepoContentResp, error) {
+	rsp, err := c.GetRepoContent(ctx, repoId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRepoContentResp(rsp)
+}
+
+// GetRepoDiffWithResponse request returning *GetRepoDiffResp
+func (c *ClientWithResponses) GetRepoDiffWithResponse(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*GetRepoDiffResp, error) {
+	rsp, err := c.GetRepoDiff(ctx, repoId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRepoDiffResp(rsp)
+}
+
+// GetRepoTreeWithResponse request returning *GetRepoTreeResp
+func (c *ClientWithResponses) GetRepoTreeWithResponse(ctx context.Context, repoId string, reqEditors ...RequestEditorFn) (*GetRepoTreeResp, error) {
+	rsp, err := c.GetRepoTree(ctx, repoId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRepoTreeResp(rsp)
+}
+
 // ListSessionsWithResponse request returning *ListSessionsResp
 func (c *ClientWithResponses) ListSessionsWithResponse(ctx context.Context, params *ListSessionsParams, reqEditors ...RequestEditorFn) (*ListSessionsResp, error) {
 	rsp, err := c.ListSessions(ctx, params, reqEditors...)
@@ -3456,6 +4004,15 @@ func (c *ClientWithResponses) GetSessionDetailWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetSessionDetailResp(rsp)
+}
+
+// PostSessionInterruptWithResponse request returning *PostSessionInterruptResp
+func (c *ClientWithResponses) PostSessionInterruptWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*PostSessionInterruptResp, error) {
+	rsp, err := c.PostSessionInterrupt(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSessionInterruptResp(rsp)
 }
 
 // PostSessionMessageWithBodyWithResponse request with arbitrary body returning *PostSessionMessageResp
@@ -3493,8 +4050,8 @@ func (c *ClientWithResponses) PostQuestionAnswerWithResponse(ctx context.Context
 }
 
 // GetSessionLiveStreamWithResponse request returning *GetSessionLiveStreamResp
-func (c *ClientWithResponses) GetSessionLiveStreamWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetSessionLiveStreamResp, error) {
-	rsp, err := c.GetSessionLiveStream(ctx, sessionId, reqEditors...)
+func (c *ClientWithResponses) GetSessionLiveStreamWithResponse(ctx context.Context, sessionId string, params *GetSessionLiveStreamParams, reqEditors ...RequestEditorFn) (*GetSessionLiveStreamResp, error) {
+	rsp, err := c.GetSessionLiveStream(ctx, sessionId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3673,6 +4230,110 @@ func ParseReadyzResp(rsp *http.Response) (*ReadyzResp, error) {
 	return response, nil
 }
 
+// ParseListReposResp parses an HTTP response from a ListReposWithResponse call
+func ParseListReposResp(rsp *http.Response) (*ListReposResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReposResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RepoListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRepoContentResp parses an HTTP response from a GetRepoContentWithResponse call
+func ParseGetRepoContentResp(rsp *http.Response) (*GetRepoContentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRepoContentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ContentResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRepoDiffResp parses an HTTP response from a GetRepoDiffWithResponse call
+func ParseGetRepoDiffResp(rsp *http.Response) (*GetRepoDiffResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRepoDiffResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DiffResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRepoTreeResp parses an HTTP response from a GetRepoTreeWithResponse call
+func ParseGetRepoTreeResp(rsp *http.Response) (*GetRepoTreeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRepoTreeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TreeResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListSessionsResp parses an HTTP response from a ListSessionsWithResponse call
 func ParseListSessionsResp(rsp *http.Response) (*ListSessionsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -3715,6 +4376,32 @@ func ParseGetSessionDetailResp(rsp *http.Response) (*GetSessionDetailResp, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SessionDetailResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostSessionInterruptResp parses an HTTP response from a PostSessionInterruptWithResponse call
+func ParsePostSessionInterruptResp(rsp *http.Response) (*PostSessionInterruptResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostSessionInterruptResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SessionInterruptResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

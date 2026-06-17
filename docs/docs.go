@@ -7470,6 +7470,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/sessions/{id}/interrupt": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requests the sandbox runtime to stop the active agent turn for this session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Interrupt a running session turn",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sessionInterruptResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sessions/{id}/messages": {
             "post": {
                 "security": [
@@ -11552,6 +11616,41 @@ const docTemplate = `{
                 }
             }
         },
+        "pluginResourceRequirement": {
+            "type": "object",
+            "properties": {
+                "connection_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "missing": {
+                    "type": "boolean"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "resource_key": {
+                    "type": "string"
+                },
+                "selected": {
+                    "type": "boolean"
+                },
+                "selected_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "pluginResponse": {
             "type": "object",
             "properties": {
@@ -11625,6 +11724,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/pluginConnectionRequirement"
+                    }
+                },
+                "resource_requirements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pluginResourceRequirement"
                     }
                 },
                 "skills": {
@@ -12569,6 +12674,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "sessionInterruptResponse": {
+            "type": "object",
+            "properties": {
+                "interrupted": {
+                    "type": "boolean"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }

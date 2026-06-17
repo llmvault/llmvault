@@ -74,6 +74,10 @@ export function SessionThreadView({
     "post",
     "/v1/sessions/{id}/messages"
   )
+  const interruptSession = $api.useMutation(
+    "post",
+    "/v1/sessions/{id}/interrupt"
+  )
   const sandboxAccessMutation = $api.useMutation(
     "post",
     "/v1/sessions/{id}/sandbox-access"
@@ -387,7 +391,7 @@ export function SessionThreadView({
   ])
 
   const send = async (text: string, retryEventID?: string) => {
-    if (streaming) return false
+    if (streaming || interruptSession.isPending) return false
     if (optimisticSession) {
       toast.danger("This chat was not created. Start a new chat to try again.")
       return false
@@ -440,7 +444,17 @@ export function SessionThreadView({
   }
 
   const stop = () => {
-    finishLiveStream()
+    finishLiveStream({ refetch: false })
+    if (!sessionId || optimisticSession) return
+    void interruptSession
+      .mutateAsync({
+        params: { path: { id: sessionId } },
+      })
+      .then(() => refetchHistoryRef.current())
+      .catch((error) => {
+        toast.danger(extractErrorMessage(error, "Could not stop session"))
+        void refetchHistoryRef.current()
+      })
   }
 
   const retryMessage = (eventID: string, text: string) => {
@@ -448,7 +462,10 @@ export function SessionThreadView({
   }
 
   const isBusy =
-    streaming || hasPendingClientEvent || sendSessionMessage.isPending
+    streaming ||
+    hasPendingClientEvent ||
+    sendSessionMessage.isPending ||
+    interruptSession.isPending
   const visibleBlocks = [...baseBlocks, ...liveBlocks]
 
   return (
@@ -527,7 +544,14 @@ function terminalFrameErrorMessage(frame: DirectSessionStreamFrame): string {
     return fallback
   }
   const record = frame.data as Record<string, unknown>
+  if (record.interrupted === true) return ""
   const value = record.error ?? record.message ?? record.text
+  if (
+    typeof value === "string" &&
+    value.trim().toLowerCase() === "interrupted by user"
+  ) {
+    return ""
+  }
   return typeof value === "string" && value.trim() ? value : fallback
 }
 

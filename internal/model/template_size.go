@@ -8,6 +8,8 @@ type TemplateSize struct {
 	Disk   int // GB
 }
 
+const DefaultAgentSandboxSize = "small"
+
 // TemplateSizes maps size names to their resource allocations.
 var TemplateSizes = map[string]TemplateSize{
 	"small":  {Name: "small", CPU: 1, Memory: 2, Disk: 10},

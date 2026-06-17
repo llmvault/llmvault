@@ -15,6 +15,7 @@ import {
   pluginDescription,
   pluginIcon,
   pluginIconColor,
+  pluginHasMissingResourceRequirements,
   pluginLogoProvider,
   pluginMatchesCategory,
   pluginMatchesQuery,
@@ -130,16 +131,28 @@ export default function PluginsPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {connectedPlugins.map((plugin) => (
-                  <div
+                  <NextLink
                     key={pluginSlug(plugin)}
+                    href={`/w/plugins/${pluginSlug(plugin)}`}
                     className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted/40",
+                      "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40",
                       pluginLogoProvider(plugin) ? "bg-white" : "bg-card"
                     )}
                     title={pluginName(plugin)}
                   >
                     <PluginLogo plugin={plugin} size={20} iconSize={14} />
-                  </div>
+                    {pluginHasMissingResourceRequirements(plugin) ? (
+                      <span
+                        aria-label="Resource selection required"
+                        className="bg-warning text-warning-foreground absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full"
+                      >
+                        <Icon
+                          icon="lucide:triangle-alert"
+                          className="h-2.5 w-2.5"
+                        />
+                      </span>
+                    ) : null}
+                  </NextLink>
                 ))}
               </div>
             </section>

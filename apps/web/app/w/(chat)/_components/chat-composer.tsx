@@ -5,6 +5,7 @@ import { Button, Popover, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { modelById } from "@/app/w/(chat)/_lib/agents"
 import {
+  agentAvatarURL,
   agentDisplayName,
   agentIcon,
   agentModel,
@@ -149,7 +150,7 @@ export function ChatComposer({
           open={agentOpen}
           setOpen={setAgentOpen}
           label="Select agent"
-          icon={agentIcon(agent)}
+          agent={agent}
           value={
             agentsLoading
               ? "Loading agents"
@@ -167,7 +168,7 @@ export function ChatComposer({
             agents.map((entry) => (
               <PickerButton
                 key={entry.id ?? agentDisplayName(entry)}
-                icon={agentIcon(entry)}
+                agent={entry}
                 selected={entry.id === agent?.id}
                 onPress={() => {
                   onAgentChange(entry)
@@ -249,6 +250,7 @@ function Picker({
   setOpen,
   label,
   icon,
+  agent,
   model,
   value,
   suffix,
@@ -259,6 +261,7 @@ function Picker({
   setOpen: (open: boolean) => void
   label: string
   icon?: string
+  agent?: SidebarAgentResponse
   model?: DisplayModel
   value: string
   suffix?: string
@@ -271,7 +274,9 @@ function Picker({
         aria-label={label}
         className="hover:bg-default flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors"
       >
-        {model ? (
+        {agent ? (
+          <AgentLogo agent={agent} className="h-4 w-4 rounded-[5px]" />
+        ) : model ? (
           <ModelIcon model={model} />
         ) : (
           <Icon icon={icon ?? "lucide:circle"} className="h-4 w-4 text-muted" />
@@ -296,6 +301,7 @@ function Picker({
 
 function PickerButton({
   icon,
+  agent,
   model,
   selected,
   onPress,
@@ -303,6 +309,7 @@ function PickerButton({
   children,
 }: {
   icon?: string
+  agent?: SidebarAgentResponse
   model?: DisplayModel
   selected?: boolean
   onPress: () => void
@@ -315,7 +322,9 @@ function PickerButton({
       onClick={onPress}
       className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
     >
-      {model ? (
+      {agent ? (
+        <AgentLogo agent={agent} className="h-5 w-5 rounded-md" />
+      ) : model ? (
         <ModelIcon model={model} />
       ) : icon ? (
         <Icon icon={icon} className="h-4 w-4 text-muted" />
@@ -353,4 +362,36 @@ function ModelIcon({ model }: { model: DisplayModel }) {
     return <IconComponent className="h-4 w-4 shrink-0" />
   }
   return <Icon icon="lucide:brain" className="h-4 w-4 shrink-0 text-muted" />
+}
+
+function AgentLogo({
+  agent,
+  className,
+}: {
+  agent: SidebarAgentResponse
+  className: string
+}) {
+  const [failed, setFailed] = useState(false)
+  const avatarURL = agentAvatarURL(agent)
+  const fallbackIcon = agentIcon(agent)
+  const frameClassName = `${className} bg-default flex shrink-0 items-center justify-center overflow-hidden text-muted ring-1 ring-border/70`
+
+  if (avatarURL && !failed) {
+    return (
+      <span className={frameClassName}>
+        <img
+          src={avatarURL}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      </span>
+    )
+  }
+
+  return (
+    <span className={frameClassName}>
+      <Icon icon={fallbackIcon} className="h-3.5 w-3.5" />
+    </span>
+  )
 }

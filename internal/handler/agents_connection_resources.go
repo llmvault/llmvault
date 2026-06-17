@@ -10,14 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
 type updateAgentConnectionResourcesRequest struct {
@@ -189,32 +187,7 @@ func mergeAgentConnectionResources(current model.JSON, connectionID uuid.UUID, r
 }
 
 func (h *AgentHandler) enqueueConnectionResourceReconcile(ctx context.Context, agent model.Agent, conn model.Connection) bool {
-	if h == nil || h.enqueuer == nil || agent.OrgID == nil || !isGitHubProvider(conn.Integration.Provider) {
-		return false
-	}
-	task, opts, err := tasks.NewAgentGitHubResourcesCloneTask(tasks.AgentGitHubResourcesClonePayload{
-		OrgID:        *agent.OrgID,
-		AgentID:      agent.ID,
-		ConnectionID: conn.ID,
-	})
-	if err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("create github resource clone task: %w", err), map[string]any{
-			"agent_id":      agent.ID.String(),
-			"connection_id": conn.ID.String(),
-		})
-		return false
-	}
-	if _, err := h.enqueuer.EnqueueContext(ctx, task, opts...); err != nil {
-		if errors.Is(err, asynq.ErrDuplicateTask) || errors.Is(err, asynq.ErrTaskIDConflict) {
-			return true
-		}
-		logging.CaptureWithFields(ctx, fmt.Errorf("enqueue github resource clone task: %w", err), map[string]any{
-			"agent_id":      agent.ID.String(),
-			"connection_id": conn.ID.String(),
-		})
-		return false
-	}
-	return true
+	return enqueueGitHubRepositoryCloneForAgent(ctx, h.enqueuer, agent, conn)
 }
 
 func isGitHubProvider(provider string) bool {

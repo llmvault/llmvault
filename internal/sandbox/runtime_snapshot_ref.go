@@ -4,9 +4,10 @@ import (
 	"strings"
 
 	"github.com/usehivy/hivy/internal/config"
+	"github.com/usehivy/hivy/internal/model"
 )
 
-const DefaultAgentSandboxSize = "small"
+const DefaultAgentSandboxSize = model.DefaultAgentSandboxSize
 
 func AgentRuntimeTemplateRef(cfg *config.Config) string {
 	if cfg == nil {

@@ -27,10 +27,12 @@ use media::{collect_media_for_turn, DownloadResults};
 pub use media::{AttachmentDownloader, HttpAttachmentDownloader};
 use session::ensure_session_persisted;
 
-use crate::session_coordinator::{SessionCoordinator, Submission};
+use crate::session_coordinator::{SessionCoordinator, Submission, TurnCancellation};
 
 const USER_RETRY_MESSAGE: &str =
     "Something went wrong while generating that response. Please retry. The Hivy team has been notified of this error.";
+const INTERRUPTED_MESSAGE: &str = "Interrupted.";
+const INTERRUPTED_ERROR: &str = "interrupted by user";
 const MAX_DURABLE_DELTA_TEXT_BYTES: usize = 128 * 1024;
 const MAX_DURABLE_DELTA_COUNT: u64 = 1500;
 const TOOL_SUMMARY_CHARS: usize = 2_000;
@@ -71,6 +73,7 @@ pub trait TurnEventSink: Send + Sync + 'static {
         _session_id: &SessionId,
         _metadata: Option<&StreamEventMetadata>,
         _error: Option<&str>,
+        _interrupted: bool,
     ) {
     }
 
@@ -166,13 +169,17 @@ impl TurnEventSink for api::SessionStreamBroker {
         session_id: &SessionId,
         metadata: Option<&StreamEventMetadata>,
         error: Option<&str>,
+        interrupted: bool,
     ) {
         let mut payload = serde_json::json!({
             "session_id": session_id.as_str(),
         });
-        if let Some(error) = error {
-            if let Some(map) = payload.as_object_mut() {
+        if let Some(map) = payload.as_object_mut() {
+            if let Some(error) = error {
                 map.insert("error".to_string(), serde_json::json!(error));
+            }
+            if interrupted {
+                map.insert("interrupted".to_string(), serde_json::json!(true));
             }
         }
         self.publish(
@@ -440,6 +447,12 @@ fn subagent_lifecycle_payload(
     )
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TurnProcessResult {
+    Completed,
+    Interrupted,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_inbound(
     runner: Arc<dyn AgentRunner>,
@@ -473,7 +486,8 @@ pub async fn handle_inbound(
     let session_stream_id = session_stream_id(&current_inbound);
     let mut queued_backlog = QueuedInboundBacklog::default();
     'turns: loop {
-        process_single_turn(
+        let cancellation = coordinator.start_turn(&current_inbound.session_id);
+        let turn_result = process_single_turn(
             runner.clone(),
             attachment_downloader.clone(),
             config.clone(),
@@ -485,8 +499,31 @@ pub async fn handle_inbound(
             subagent_task_repo.clone(),
             coordinator.clone(),
             inbound_sink.clone(),
+            cancellation,
         )
-        .await?;
+        .await;
+        coordinator.finish_active_turn(&current_inbound.session_id);
+        if matches!(turn_result?, TurnProcessResult::Interrupted) {
+            let interrupted_follow_ups = coordinator.finish_turn(&current_inbound.session_id);
+            if interrupted_follow_ups.is_empty() && !is_subagent_task_inbound(&current_inbound) {
+                if let Some(stream_id) = session_stream_id.as_deref() {
+                    let metadata = stream_event_metadata(&current_inbound);
+                    turn_event_sink
+                        .publish_done(stream_id, &current_inbound.session_id, metadata.as_ref())
+                        .await;
+                }
+            }
+            for follow_up in interrupted_follow_ups {
+                if let Err(e) = inbound_sink.send(follow_up).await {
+                    warn!(
+                        error = %e,
+                        session = %current_inbound.session_id,
+                        "failed to re-dispatch queued session message after interrupt"
+                    );
+                }
+            }
+            break 'turns;
+        }
 
         let mut published_waiting = false;
         let mut subagent_task_wait_deadline: Option<std::time::Instant> = None;
@@ -1130,14 +1167,15 @@ async fn process_single_turn(
     subagent_task_repo: Arc<dyn SubagentTaskRepo>,
     coordinator: Arc<SessionCoordinator>,
     inbound_sink: mpsc::Sender<InboundEvent>,
-) -> Result<()> {
+    mut cancellation: TurnCancellation,
+) -> Result<TurnProcessResult> {
     if let ScheduledRunStatus::Malformed(malformed) = ScheduledRunStatus::from_inbound(inbound) {
         fail_malformed_scheduled_run(cron_repo.as_ref(), &malformed, &inbound.session_id).await;
-        return Ok(());
+        return Ok(TurnProcessResult::Completed);
     }
 
     if inbound.text.trim().is_empty() && inbound.attachments.is_empty() {
-        return Ok(());
+        return Ok(TurnProcessResult::Completed);
     }
     info!(
         session = %inbound.session_id,
@@ -1208,32 +1246,32 @@ async fn process_single_turn(
     )
     .await;
 
-    let stream_result = runner
-        .run_turn(&session_id, turn_input, inbound.agent_definition.clone())
-        .await;
-    let outcome = match stream_result {
-        Ok(stream) => {
-            consume_agent_stream(
-                stream,
-                session_stream_id.clone(),
-                &session_id,
-                &emitter,
-                event_source,
-                turn_event_sink.as_ref(),
-                stream_metadata.as_ref(),
-            )
-            .await
+    let outcome = tokio::select! {
+        _ = cancellation.cancelled() => StreamOutcome::interrupted(),
+        stream_result = runner.run_turn(&session_id, turn_input, inbound.agent_definition.clone()) => {
+            match stream_result {
+                Ok(stream) => {
+                    tokio::select! {
+                        _ = cancellation.cancelled() => StreamOutcome::interrupted(),
+                        outcome = consume_agent_stream(
+                            stream,
+                            session_stream_id.clone(),
+                            &session_id,
+                            &emitter,
+                            event_source,
+                            turn_event_sink.as_ref(),
+                            stream_metadata.as_ref(),
+                        ) => outcome,
+                    }
+                }
+                Err(e) => StreamOutcome::error(e.to_string()),
+            }
         }
-        Err(e) => StreamOutcome {
-            text: String::new(),
-            final_message: None,
-            error: Some(e.to_string()),
-            sequence: 0,
-        },
     };
 
     let final_text = format_final_message(&outcome);
     if let Some(stream_id) = session_stream_id.as_deref() {
+        let terminal_error = outcome.terminal_error();
         turn_event_sink
             .publish_final(
                 stream_id,
@@ -1247,7 +1285,8 @@ async fn process_single_turn(
                 stream_id,
                 &session_id,
                 stream_metadata.as_ref(),
-                outcome.error.as_deref(),
+                terminal_error.as_deref(),
+                outcome.interrupted,
             )
             .await;
     }
@@ -1258,7 +1297,18 @@ async fn process_single_turn(
         json!({ "text": final_text }),
     )
     .await;
-    if let Some(error_message) = outcome.error.as_ref() {
+    if outcome.interrupted {
+        emit_canonical_runtime_event(
+            &event_context,
+            event_types::TURN_FAILED,
+            outcome.sequence + 2,
+            json!({
+                "error": INTERRUPTED_ERROR,
+                "interrupted": true,
+            }),
+        )
+        .await;
+    } else if let Some(error_message) = outcome.error.as_ref() {
         emit_canonical_runtime_event(
             &event_context,
             event_types::TURN_FAILED,
@@ -1287,6 +1337,10 @@ async fn process_single_turn(
     }
 
     info!(session = %session_id, len = outcome.text.len(), "turn complete");
+
+    if outcome.interrupted {
+        return Ok(TurnProcessResult::Interrupted);
+    }
 
     // If this is a subagent task session, notify the parent and record the result.
     if is_subagent_task_inbound(inbound) {
@@ -1438,7 +1492,7 @@ async fn process_single_turn(
         .await;
     }
 
-    Ok(())
+    Ok(TurnProcessResult::Completed)
 }
 
 /// Run-lifecycle context the scheduler embeds in a scheduled job's inbound `raw`
@@ -1783,7 +1837,37 @@ pub(crate) struct StreamOutcome {
     pub text: String,
     pub final_message: Option<String>,
     pub error: Option<String>,
+    pub interrupted: bool,
     pub sequence: u64,
+}
+
+impl StreamOutcome {
+    fn error(message: String) -> Self {
+        Self {
+            text: String::new(),
+            final_message: None,
+            error: Some(message),
+            interrupted: false,
+            sequence: 0,
+        }
+    }
+
+    fn interrupted() -> Self {
+        Self {
+            text: String::new(),
+            final_message: Some(INTERRUPTED_MESSAGE.to_string()),
+            error: None,
+            interrupted: true,
+            sequence: 0,
+        }
+    }
+
+    fn terminal_error(&self) -> Option<String> {
+        if self.interrupted {
+            return Some(INTERRUPTED_ERROR.to_string());
+        }
+        self.error.clone()
+    }
 }
 
 async fn consume_agent_stream(
@@ -1847,6 +1931,7 @@ async fn consume_agent_stream(
         text: accumulated,
         final_message,
         error: error_message,
+        interrupted: false,
         sequence,
     }
 }
@@ -1906,6 +1991,19 @@ fn sanitize_agent_event_for_clients(
         AgentEvent::ToolResult { id, result } => {
             let mut next = result.clone();
             if let Some(error) = result.get("error").and_then(Value::as_str) {
+                if result
+                    .get("safe_error")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                {
+                    if let Some(map) = next.as_object_mut() {
+                        map.remove("safe_error");
+                    }
+                    return AgentEvent::ToolResult {
+                        id: id.clone(),
+                        result: next,
+                    };
+                }
                 capture_agent_internal_error(
                     session_id,
                     source,
@@ -2336,6 +2434,9 @@ fn stream_event_metadata(inbound: &InboundEvent) -> Option<StreamEventMetadata> 
 }
 
 fn format_final_message(outcome: &StreamOutcome) -> String {
+    if outcome.interrupted {
+        return INTERRUPTED_MESSAGE.to_string();
+    }
     if let Some(internal_error) = &outcome.error {
         warn!(error = %internal_error, "agent turn errored; replying with generic error");
         sentry::with_scope(
@@ -2373,6 +2474,7 @@ mod tests {
             text: String::new(),
             final_message: None,
             error: None,
+            interrupted: false,
             sequence: 0,
         });
 
@@ -2419,6 +2521,7 @@ mod tests {
             text: "Let me check the database.Going good!".to_string(),
             final_message: Some("Going good!".to_string()),
             error: None,
+            interrupted: false,
             sequence: 0,
         });
 
@@ -2431,6 +2534,7 @@ mod tests {
             text: "Streaming answer".to_string(),
             final_message: None,
             error: None,
+            interrupted: false,
             sequence: 0,
         });
 
@@ -2445,12 +2549,20 @@ mod tests {
             error: Some(
                 "error returned from database: attempt to write a readonly database".into(),
             ),
+            interrupted: false,
             sequence: 0,
         });
 
         assert!(!text.contains("readonly database"));
         assert!(!text.contains("error returned from database"));
         assert_eq!(text, USER_RETRY_MESSAGE);
+    }
+
+    #[test]
+    fn interrupted_outcome_uses_interrupt_message() {
+        let text = format_final_message(&StreamOutcome::interrupted());
+
+        assert_eq!(text, "Interrupted.");
     }
 
     #[test]
@@ -2503,6 +2615,31 @@ mod tests {
                 assert_eq!(result["error"], USER_RETRY_MESSAGE);
                 assert_eq!(result["team_notified"], true);
                 assert!(!result.to_string().contains("secret storage"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn client_tool_result_preserves_safe_model_error_payload() {
+        let event = AgentEvent::ToolResult {
+            id: "tool-1".to_string(),
+            result: json!({
+                "error": "The model produced an invalid `read_file` tool call: missing required argument(s): path.",
+                "safe_error": true,
+            }),
+        };
+        let sanitized =
+            sanitize_agent_event_for_clients(&event, &SessionId::from("session-1"), "http", 1);
+
+        match sanitized {
+            AgentEvent::ToolResult { result, .. } => {
+                assert_eq!(
+	                    result["error"],
+	                    "The model produced an invalid `read_file` tool call: missing required argument(s): path."
+	                );
+                assert!(result.get("safe_error").is_none());
+                assert!(result.get("team_notified").is_none());
             }
             other => panic!("unexpected event: {other:?}"),
         }
@@ -2847,6 +2984,7 @@ mod scheduled_run_tests {
             last_status: None,
             last_error: None,
             session_continuation_id: None,
+            stream_id: None,
             created_at: Utc::now(),
             created_by_session: "scheduler".to_string(),
         }

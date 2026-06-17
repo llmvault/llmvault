@@ -22,6 +22,7 @@ fn test_job(id: &str, interval: u64) -> CronJob {
         last_status: None,
         last_error: None,
         session_continuation_id: None,
+        stream_id: None,
         created_at: Utc::now(),
         created_by_session: "test-session".into(),
     }
@@ -48,6 +49,7 @@ async fn create_get_and_list_cron_jobs() {
     assert_eq!(fetched.task_prompt, "test prompt");
     assert_eq!(fetched.state, CronJobState::Active);
     assert_eq!(fetched.interval_seconds, Some(60));
+    assert!(fetched.stream_id.is_none());
 
     let all = repo.list_all().await.unwrap();
     assert_eq!(all.len(), 2);

@@ -339,11 +339,20 @@ fn next_future_occurrence(
 
 fn scheduled_job_raw_metadata(job: &CronJob) -> serde_json::Value {
     if job.session_continuation_id.is_some() {
-        return serde_json::json!({
+        let mut raw = serde_json::json!({
             "source": "wake",
             "job_kind": "wake",
             "job_id": job.id,
         });
+        if let Some(stream_id) = job.stream_id.as_deref() {
+            if let Some(obj) = raw.as_object_mut() {
+                obj.insert(
+                    "session_stream_id".to_string(),
+                    serde_json::Value::String(stream_id.to_string()),
+                );
+            }
+        }
+        return raw;
     }
     serde_json::json!({
         "source": "cron",
@@ -385,6 +394,7 @@ mod tests {
             last_status: None,
             last_error: None,
             session_continuation_id: None,
+            stream_id: None,
             created_at: Utc::now(),
             created_by_session: "parent-session".to_string(),
         }
@@ -403,6 +413,20 @@ mod tests {
         assert!(raw.get("parent_session_id").is_none());
         assert!(raw.get("subagent_task_goal").is_none());
         assert!(raw.get("agent_name").is_none());
+    }
+
+    #[test]
+    fn wake_metadata_preserves_session_stream_id() {
+        let mut job = test_job("wake-stream");
+        job.session_continuation_id = Some("parent-session".to_string());
+        job.stream_id = Some("stream-123".to_string());
+
+        let raw = scheduled_job_raw_metadata(&job);
+
+        assert_eq!(raw["source"], "wake");
+        assert_eq!(raw["job_kind"], "wake");
+        assert_eq!(raw["job_id"], "wake-stream");
+        assert_eq!(raw["session_stream_id"], "stream-123");
     }
 
     /// Minimal repo that records the last `update_next_run` it received and is a

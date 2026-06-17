@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -18,6 +19,7 @@ import (
 type PluginHandler struct {
 	db       *gorm.DB
 	enqueuer enqueue.TaskEnqueuer
+	catalog  *catalog.Catalog
 }
 
 func NewPluginHandler(db *gorm.DB, enqueuers ...enqueue.TaskEnqueuer) *PluginHandler {
@@ -25,7 +27,7 @@ func NewPluginHandler(db *gorm.DB, enqueuers ...enqueue.TaskEnqueuer) *PluginHan
 	if len(enqueuers) > 0 {
 		enq = enqueuers[0]
 	}
-	return &PluginHandler{db: db, enqueuer: enq}
+	return &PluginHandler{db: db, enqueuer: enq, catalog: catalog.Global()}
 }
 
 // @Summary List plugins

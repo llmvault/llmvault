@@ -8,10 +8,11 @@ import (
 )
 
 type agentSessionsAgentListItem struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	IsDefault bool   `json:"is_default"`
-	Sandbox   *struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	IsDefault       bool   `json:"is_default"`
+	SandboxStrategy string `json:"sandbox_strategy"`
+	Sandbox         *struct {
 		ID         string `json:"id"`
 		Status     string `json:"status"`
 		ExternalID string `json:"external_id"`
@@ -28,20 +29,39 @@ type agentSessionsChannel struct {
 }
 
 type agentSessionsMutation struct {
-	Session struct {
-		ID        string  `json:"id"`
-		ChannelID string  `json:"channel_id"`
-		AgentID   string  `json:"agent_id"`
-		SandboxID *string `json:"sandbox_id"`
-	} `json:"session"`
-	Event  *agentSessionsEvent `json:"event"`
-	Queued bool                `json:"queued"`
+	Session agentSessionsSession `json:"session"`
+	Event   *agentSessionsEvent  `json:"event"`
+	Queued  bool                 `json:"queued"`
+}
+
+type agentSessionsSession struct {
+	ID        string  `json:"id"`
+	ChannelID string  `json:"channel_id"`
+	AgentID   string  `json:"agent_id"`
+	SandboxID *string `json:"sandbox_id"`
+}
+
+type agentSessionsAgentMutation struct {
+	Agent agentSessionsAgentListItem `json:"agent"`
+}
+
+type agentSessionsChannelMutation struct {
+	Channel agentSessionsChannel `json:"channel"`
+}
+
+type agentSessionsInterrupt struct {
+	SessionID   string `json:"session_id"`
+	Interrupted bool   `json:"interrupted"`
+	Status      string `json:"status"`
 }
 
 type agentSessionsDetail struct {
 	Session struct {
-		ID               string `json:"id"`
-		ParticipantCount int64  `json:"participant_count"`
+		ID               string  `json:"id"`
+		ChannelID        string  `json:"channel_id"`
+		AgentID          string  `json:"agent_id"`
+		SandboxID        *string `json:"sandbox_id"`
+		ParticipantCount int64   `json:"participant_count"`
 	} `json:"session"`
 	Participants []agentSessionsParticipant `json:"participants"`
 }
@@ -69,6 +89,16 @@ func agentSessionsListAgents(t *testing.T, ctx context.Context, baseURL, token, 
 	return out.Data
 }
 
+func agentSessionsInstallCatalogAgent(t *testing.T, ctx context.Context, baseURL, token, orgID, slug string) agentSessionsAgentListItem {
+	t.Helper()
+	var out agentSessionsAgentMutation
+	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/agents/catalog/"+slug+"/install", token, orgID, nil, http.StatusCreated, &out)
+	if out.Agent.ID == "" {
+		t.Fatalf("catalog agent install returned empty agent: %+v", out)
+	}
+	return out.Agent
+}
+
 func agentSessionsListChannels(t *testing.T, ctx context.Context, baseURL, token, orgID string) []agentSessionsChannel {
 	t.Helper()
 	var out struct {
@@ -78,13 +108,38 @@ func agentSessionsListChannels(t *testing.T, ctx context.Context, baseURL, token
 	return out.Data
 }
 
+func agentSessionsCreateChannel(t *testing.T, ctx context.Context, baseURL, token, orgID, name, agentID string) agentSessionsChannel {
+	t.Helper()
+	var out agentSessionsChannelMutation
+	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/channels", token, orgID, map[string]any{
+		"name":             name,
+		"default_agent_id": agentID,
+	}, http.StatusCreated, &out)
+	if out.Channel.ID == "" {
+		t.Fatalf("channel create returned empty channel: %+v", out)
+	}
+	return out.Channel
+}
+
 func agentSessionsCreateSession(t *testing.T, ctx context.Context, baseURL, token, orgID, channelID, text string) agentSessionsMutation {
 	t.Helper()
-	var out agentSessionsMutation
-	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/sessions", token, orgID, map[string]any{
+	return agentSessionsCreateSessionWithPayload(t, ctx, baseURL, token, orgID, map[string]any{
 		"channel_id": channelID,
 		"text":       text,
-	}, http.StatusCreated, &out)
+	})
+}
+
+func agentSessionsCreateSessionWithPayload(t *testing.T, ctx context.Context, baseURL, token, orgID string, payload map[string]any) agentSessionsMutation {
+	t.Helper()
+	var out agentSessionsMutation
+	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/sessions", token, orgID, payload, http.StatusCreated, &out)
+	return out
+}
+
+func agentSessionsGetSession(t *testing.T, ctx context.Context, baseURL, token, orgID, sessionID string) agentSessionsDetail {
+	t.Helper()
+	var out agentSessionsDetail
+	agentSessionsJSON(t, ctx, http.MethodGet, baseURL+"/v1/sessions/"+sessionID, token, orgID, nil, http.StatusOK, &out)
 	return out
 }
 
@@ -99,6 +154,13 @@ func agentSessionsSendMessageStatus(t *testing.T, ctx context.Context, baseURL, 
 	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/sessions/"+sessionID+"/messages", token, orgID, map[string]any{
 		"text": text,
 	}, status, &out)
+	return out
+}
+
+func agentSessionsInterruptSession(t *testing.T, ctx context.Context, baseURL, token, orgID, sessionID string) agentSessionsInterrupt {
+	t.Helper()
+	var out agentSessionsInterrupt
+	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/sessions/"+sessionID+"/interrupt", token, orgID, nil, http.StatusOK, &out)
 	return out
 }
 

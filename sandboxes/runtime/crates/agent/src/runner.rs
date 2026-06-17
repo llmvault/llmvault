@@ -213,14 +213,14 @@ impl AgentRunner for RigAgentRunner {
             let mut consecutive_empty_responses = 0u32;
             let mut consecutive_model_failures = 0u32;
             let mut cumulative_completion_tokens: u64 = 0;
+            let mut turn_safety = TurnSafety::new(&safety);
+            let mut error_tracker = ToolErrorTracker::new(3);
+            let mut consecutive_repeat_rejections = 0u32;
             // Latch so the output-budget warning is injected at most once per
             // turn. Without it the instruction was re-appended on every iteration
             // past 80%, bloating the prompt and wasting tokens it was meant to save.
             let mut budget_warned = false;
             while effective_turn < max_turns {
-                let mut turn_safety = TurnSafety::new(&safety);
-                let mut error_tracker = ToolErrorTracker::new(3);
-
                 // Compaction: check actual conversation size before each request
                 if let Some(ref config) = compaction_config {
                     if config.enabled {
@@ -469,11 +469,11 @@ impl AgentRunner for RigAgentRunner {
                     }
                 }
 
-                // XML tool call repair: detect and extract tool calls from text content
-                if safety.config().xml_tool_repair
-                    && tool_calls.is_empty()
-                    && !turn_text.is_empty()
-                {
+                // XML tool call repair: detect and extract tool calls from text content.
+                // Some providers emit native tool call ids with empty arguments while also
+                // streaming the real call as XML text. In that case, keep the provider ids
+                // but replace the empty arguments from the XML payload.
+                if safety.config().xml_tool_repair && !turn_text.is_empty() {
                     let known_names: Vec<String> = available_tools
                         .iter()
                         .map(|t| t.definition().name.clone())
@@ -482,21 +482,28 @@ impl AgentRunner for RigAgentRunner {
                         .xml_repair()
                         .try_extract_tool_calls(&turn_text, &known_names);
                     if !xml_calls.is_empty() {
-                        for xml_call in xml_calls {
-                            tool_calls.push(ToolCall {
-                                id: xml_call.id,
-                                name: xml_call.name,
-                                arguments: xml_call.arguments,
-                            });
-                        }
-                        turn_text = cleaned;
-                        let reminder = xml_repair_reminder();
-                        yield AgentEvent::ThinkingChunk {
-                            text: reminder.clone(),
+                        let repaired = if tool_calls.is_empty() {
+                            for xml_call in xml_calls {
+                                tool_calls.push(ToolCall {
+                                    id: xml_call.id,
+                                    name: xml_call.name,
+                                    arguments: xml_call.arguments,
+                                });
+                            }
+                            true
+                        } else {
+                            replace_empty_tool_call_arguments_from_xml(&mut tool_calls, &xml_calls)
                         };
-                        messages.push(AgentMessage::user(format!(
-                            "[system instruction] {reminder}"
-                        )));
+                        if repaired {
+                            turn_text = cleaned;
+                            let reminder = xml_repair_reminder();
+                            yield AgentEvent::ThinkingChunk {
+                                text: reminder.clone(),
+                            };
+                            messages.push(AgentMessage::user(format!(
+                                "[system instruction] {reminder}"
+                            )));
+                        }
                     }
                 }
 
@@ -646,11 +653,13 @@ impl AgentRunner for RigAgentRunner {
                 consecutive_empty_responses = 0;
                 consecutive_model_failures = 0;
                 had_thinking = false;
+                let mut stop_after_tool_calls: Option<String> = None;
                 for call in tool_calls {
                     yield AgentEvent::ToolCall { id: call.id.clone(), tool: call.name.clone(), args: call.arguments.clone() };
 
                     if safety.config().repeat_detection.enabled {
                         if let Some(error_msg) = turn_safety.repeat_detector.check(&call.name, &call.arguments) {
+                            consecutive_repeat_rejections += 1;
                             yield AgentEvent::RunEvent {
                                 event: "repeat_tool_call_rejected".to_string(),
                                 payload: serde_json::json!({
@@ -660,7 +669,7 @@ impl AgentRunner for RigAgentRunner {
                                     "reason": error_msg,
                                 }),
                             };
-                            let result = json_error(&error_msg);
+                            let result = json_safe_error(&error_msg);
                             yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
                             let message = AgentMessage::tool_result(call.id.clone(), result.to_string());
                             if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
@@ -668,14 +677,22 @@ impl AgentRunner for RigAgentRunner {
                                 return;
                             }
                             messages.push(message);
+                            if consecutive_repeat_rejections >= 2 {
+                                stop_after_tool_calls = Some(format!(
+                                    "I stopped because the model repeatedly issued the same invalid `{}` tool call. Please retry with a different model or request.",
+                                    call.name
+                                ));
+                                break;
+                            }
                             continue;
                         }
                     }
+                    consecutive_repeat_rejections = 0;
 
                     let Some(tool) = available_tools.iter().find(|tool| tool.definition().name == call.name).cloned() else {
                         let error_msg = format!("tool '{}' not found", call.name);
                         capture_tool_error(&session_id, &call.name, &call.arguments, &error_msg);
-                        let result = json_error(&error_msg);
+                        let result = json_safe_error(&error_msg);
                         let message = AgentMessage::tool_result(call.id, result.to_string());
                         if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
                             yield AgentEvent::Error { message: error.to_string() };
@@ -684,6 +701,19 @@ impl AgentRunner for RigAgentRunner {
                         messages.push(message);
                         continue;
                     };
+                    if let Some(error_msg) = missing_required_argument_message(&tool.definition(), &call.arguments) {
+                        error_tracker.record_failure(&call.name);
+                        capture_tool_error(&session_id, &call.name, &call.arguments, &error_msg);
+                        let result = json_safe_error(&error_msg);
+                        yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
+                        let message = AgentMessage::tool_result(call.id, result.to_string());
+                        if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
+                            yield AgentEvent::Error { message: error.to_string() };
+                            return;
+                        }
+                        messages.push(message);
+                        continue;
+                    }
                     match tool.call(call.arguments.clone()).await {
                         Ok(result) => {
                             error_tracker.reset(&call.name);
@@ -696,14 +726,18 @@ impl AgentRunner for RigAgentRunner {
                             }
                             messages.push(message);
                         }
-                        Err(error) => {
-                            error_tracker.record_failure(&call.name);
-                            let raw_error = error.to_string();
-                            capture_tool_error(&session_id, &call.name, &call.arguments, &raw_error);
-                            let error_msg = error_tracker.format_retry_hint(&call.name, &raw_error);
-                            emit_tool_error(emitter.clone(), &session_id, &call.name, &call.arguments, &error_msg).await;
-                            let result = json_error(&error_msg);
-                            yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
+                            Err(error) => {
+                                error_tracker.record_failure(&call.name);
+                                let raw_error = error.to_string();
+                                capture_tool_error(&session_id, &call.name, &call.arguments, &raw_error);
+                                let error_msg = error_tracker.format_retry_hint(&call.name, &raw_error);
+                                emit_tool_error(emitter.clone(), &session_id, &call.name, &call.arguments, &error_msg).await;
+                                let result = if is_safe_tool_argument_error(&raw_error) {
+                                    json_safe_error(&error_msg)
+                                } else {
+                                    json_error(&error_msg)
+                                };
+                                yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
                             let message = AgentMessage::tool_result(call.id, result.to_string());
                             if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
                                 yield AgentEvent::Error { message: error.to_string() };
@@ -712,6 +746,17 @@ impl AgentRunner for RigAgentRunner {
                             messages.push(message);
                         }
                     }
+                }
+                if let Some(message) = stop_after_tool_calls {
+                    final_text = message.clone();
+                    completed_with_final = true;
+                    let assistant = AgentMessage::assistant(message);
+                    if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &assistant).await {
+                        yield AgentEvent::Error { message: error.to_string() };
+                        return;
+                    }
+                    messages.push(assistant);
+                    break;
                 }
                 if !budget_warned
                     && cumulative_completion_tokens
@@ -1216,6 +1261,144 @@ mod tests {
         assert!(summary.contains("query"));
         assert!(!summary.contains("secret customer question"));
         assert!(!summary.contains("should not be sent"));
+    }
+
+    #[test]
+    fn xml_repair_replaces_empty_native_tool_arguments() {
+        let repair = safety::xml_tool_repair::XmlToolCallRepair::new();
+        let content = r#"<tool_call>
+<function=update_plan>
+<parameter=plan>[{"status":"in_progress","step":"Inspect"}]</parameter>
+</function>
+</tool_call>"#;
+        let known_tools = vec!["update_plan".to_string()];
+        let (_cleaned, xml_calls) = repair.try_extract_tool_calls(content, &known_tools);
+        let mut native_calls = vec![ToolCall {
+            id: "call_native".to_string(),
+            name: "update_plan".to_string(),
+            arguments: serde_json::json!({}),
+        }];
+
+        assert!(replace_empty_tool_call_arguments_from_xml(
+            &mut native_calls,
+            &xml_calls
+        ));
+        assert_eq!(native_calls[0].id, "call_native");
+        assert!(native_calls[0].arguments["plan"].is_array());
+        assert_eq!(native_calls[0].arguments["plan"][0]["step"], "Inspect");
+    }
+
+    #[test]
+    fn xml_repair_handles_exact_mimo_production_tool_call_samples() {
+        let repair = safety::xml_tool_repair::XmlToolCallRepair::new();
+        let samples = vec![
+            (
+                r#"<tool_call>
+<function=read_file>
+<parameter=path>/workspace/repos/hivy/Makefile</parameter>
+<parameter=limit>100</parameter>
+</function>
+</tool_call>"#,
+                "read_file",
+                "path",
+            ),
+            (
+                r#"<tool_call>
+<function=update_plan>
+<parameter=explanation>Setting up the Hivy repository for local development following the AGENTS.md instructions</parameter>
+<parameter=plan>[{"status": "in_progress", "step": "Copy .env.example to .env"}, {"status": "pending", "step": "Check Docker availability"}, {"status": "pending", "step": "Start the stack with make up"}, {"status": "pending", "step": "Verify all services are running"}]</parameter>
+</function>
+</tool_call>"#,
+                "update_plan",
+                "plan",
+            ),
+            (
+                r#"<tool_call>
+<function=update_plan>
+<parameter=explanation>Setting up the hivy repo requires: .env file, Go toolchain, and Docker Compose to bring up the full local stack (API, worker, web, Postgres, Redis, Nango, Qdrant, MinIO, Hindsight).</parameter>
+<parameter=plan>[{"status": "in_progress", "step": "Copy .env.example to .env"}, {"status": "pending", "step": "Check prerequisites: Docker, Go, Node"}, {"status": "pending", "step": "Generate real local secrets for .env"}, {"status": "pending", "step": "Pull Docker images and start the stack with make up"}, {"status": "pending", "step": "Verify all services are healthy (API, worker, web, DBs)"}, {"status": "pending", "step": "Store repo setup facts in memory"}]</parameter>
+</function>
+</tool_call>"#,
+                "update_plan",
+                "plan",
+            ),
+            (
+                r#"<tool_call>
+<function=update_plan>
+<parameter=explanation>Set up the hivy local development stack per AGENTS.md: copy env, verify prereqs, run make up, and verify services.</parameter>
+<parameter=plan>[{"status": "in_progress", "step": "Copy .env.example to .env"}, {"status": "pending", "step": "Check prerequisites (Docker, Go, make)"}, {"status": "pending", "step": "Pull Docker images and start the stack with make up"}, {"status": "pending", "step": "Verify all services are healthy (API, Worker, Web, Postgres, Redis, etc.)"}]</parameter>
+</function>
+</tool_call>"#,
+                "update_plan",
+                "plan",
+            ),
+            (
+                r#"<tool_call>
+<function=update_plan>
+<parameter=explanation>Setting up the hivy repo for local development per AGENTS.md instructions: copy .env.example to .env, verify Docker is running, then `make up`.</parameter>
+<parameter=plan>[{"step": "Check prerequisites (Docker, Go, Make)", "status": "in_progress"}, {"step": "Copy .env.example to .env", "status": "pending"}, {"step": "Pull latest changes (git pull)", "status": "pending"}, {"step": "Run make up to start the full local stack", "status": "pending"}, {"step": "Verify services are healthy (API, worker, web, etc.)", "status": "pending"}]</parameter>
+</function>
+</tool_call>"#,
+                "update_plan",
+                "plan",
+            ),
+        ];
+        let known_tools = vec!["read_file".to_string(), "update_plan".to_string()];
+
+        for (content, tool_name, expected_key) in samples {
+            let (_cleaned, xml_calls) = repair.try_extract_tool_calls(content, &known_tools);
+            let mut native_calls = vec![ToolCall {
+                id: format!("call_{tool_name}"),
+                name: tool_name.to_string(),
+                arguments: serde_json::json!({}),
+            }];
+
+            assert!(
+                replace_empty_tool_call_arguments_from_xml(&mut native_calls, &xml_calls),
+                "expected repair for {tool_name}"
+            );
+            assert_eq!(native_calls[0].id, format!("call_{tool_name}"));
+            assert!(
+                native_calls[0].arguments.get(expected_key).is_some(),
+                "missing expected key {expected_key} in repaired {tool_name} args"
+            );
+            if tool_name == "update_plan" {
+                assert!(
+                    native_calls[0].arguments["plan"].is_array(),
+                    "MiMo update_plan sample must repair plan as an array"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn missing_required_argument_message_is_user_safe() {
+        let definition = tools::ToolDefinition {
+            name: "read_file".to_string(),
+            description: "Read a file".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                    "path": {"type": "string"}
+                }
+            }),
+        };
+
+        let message = missing_required_argument_message(&definition, &serde_json::json!({}))
+            .expect("missing path should be detected");
+        assert!(message.contains("read_file"));
+        assert!(message.contains("path"));
+    }
+
+    #[test]
+    fn invalid_tool_argument_errors_are_safe_to_surface() {
+        assert!(is_safe_tool_argument_error(
+            "invalid update_plan arguments: invalid type: string, expected a sequence"
+        ));
+        assert!(!is_safe_tool_argument_error(
+            "process exited with status 1: secret command output"
+        ));
     }
 
     #[test]
@@ -1744,6 +1927,85 @@ fn summarize_tool_arguments(arguments: &serde_json::Value) -> String {
     }
 }
 
+fn replace_empty_tool_call_arguments_from_xml(
+    tool_calls: &mut [ToolCall],
+    xml_calls: &[safety::xml_tool_repair::ExtractedToolCall],
+) -> bool {
+    let mut used = vec![false; xml_calls.len()];
+    let mut repaired = false;
+    for call in tool_calls {
+        if !is_empty_json_object(&call.arguments) {
+            continue;
+        }
+        let Some(index) = xml_calls.iter().enumerate().find_map(|(index, xml_call)| {
+            if !used[index] && xml_call.name == call.name {
+                Some(index)
+            } else {
+                None
+            }
+        }) else {
+            continue;
+        };
+        used[index] = true;
+        call.arguments = xml_calls[index].arguments.clone();
+        repaired = true;
+    }
+    repaired
+}
+
+fn is_empty_json_object(value: &serde_json::Value) -> bool {
+    value.as_object().is_some_and(|object| object.is_empty())
+}
+
+fn missing_required_argument_message(
+    definition: &tools::ToolDefinition,
+    arguments: &serde_json::Value,
+) -> Option<String> {
+    let required = definition
+        .parameters
+        .get("required")
+        .and_then(serde_json::Value::as_array)?;
+    if required.is_empty() {
+        return None;
+    }
+    let required: Vec<&str> = required
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    if required.is_empty() {
+        return None;
+    }
+    let Some(object) = arguments.as_object() else {
+        return Some(format!(
+            "The model produced an invalid `{}` tool call: arguments must be a JSON object with required argument(s): {}.",
+            definition.name,
+            required.join(", ")
+        ));
+    };
+    let missing: Vec<&str> = required
+        .iter()
+        .copied()
+        .filter(|field| object.get(*field).map_or(true, serde_json::Value::is_null))
+        .collect();
+    if missing.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "The model produced an invalid `{}` tool call: missing required argument(s): {}.",
+            definition.name,
+            missing.join(", ")
+        ))
+    }
+}
+
+fn is_safe_tool_argument_error(error: &str) -> bool {
+    error.starts_with("invalid ") && error.contains(" arguments")
+}
+
 fn json_error(message: &str) -> serde_json::Value {
     serde_json::json!({"error": message})
+}
+
+fn json_safe_error(message: &str) -> serde_json::Value {
+    serde_json::json!({"error": message, "safe_error": true})
 }

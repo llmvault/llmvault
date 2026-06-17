@@ -103,14 +103,14 @@ impl XmlToolCallRepair {
         for cap in self.param_re.captures_iter(inner) {
             let key = cap[1].to_string();
             let value = cap[2].trim().to_string();
-            args.insert(key, Value::String(value));
+            args.insert(key, parse_parameter_value(&value));
         }
 
         if args.is_empty() {
             let tag_pairs = self.parse_tag_pairs(inner);
             if !tag_pairs.is_empty() {
                 for (key, value) in tag_pairs {
-                    args.insert(key, Value::String(value));
+                    args.insert(key, parse_parameter_value(&value));
                 }
             }
         }
@@ -155,7 +155,7 @@ impl XmlToolCallRepair {
         for cap in self.named_param_re.captures_iter(inner) {
             let key = cap[1].to_string();
             let value = cap[2].trim().to_string();
-            args.insert(key, Value::String(value));
+            args.insert(key, parse_parameter_value(&value));
         }
 
         if !args.is_empty() {
@@ -168,6 +168,16 @@ impl XmlToolCallRepair {
             None
         }
     }
+}
+
+fn parse_parameter_value(raw: &str) -> Value {
+    let trimmed = raw.trim();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
+            return value;
+        }
+    }
+    Value::String(trimmed.to_string())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -293,5 +303,24 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].name, "bash");
         assert_eq!(calls[0].arguments["command"], "ls -la /tmp");
+    }
+
+    #[test]
+    fn parses_json_array_parameter_values() {
+        let repair = XmlToolCallRepair::new();
+        let content = r#"<tool_call>
+<function=update_plan>
+<parameter=explanation>Setting up the repo</parameter>
+<parameter=plan>[{"status":"in_progress","step":"Copy env"},{"status":"pending","step":"Run make up"}]</parameter>
+</function>
+</tool_call>"#;
+        let known_tools = vec!["update_plan".to_string()];
+        let (_cleaned, calls) = repair.try_extract_tool_calls(content, &known_tools);
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "update_plan");
+        assert_eq!(calls[0].arguments["explanation"], "Setting up the repo");
+        assert!(calls[0].arguments["plan"].is_array());
+        assert_eq!(calls[0].arguments["plan"][0]["status"], "in_progress");
     }
 }

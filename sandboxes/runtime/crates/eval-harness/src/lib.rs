@@ -253,6 +253,7 @@ impl FakeRuntimeServer {
             Some(api::SessionMessageState {
                 inbound_sink,
                 broker: broker.clone(),
+                interrupter: None,
             }),
             None,
             None,

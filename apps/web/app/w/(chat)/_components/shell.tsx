@@ -35,6 +35,7 @@ import {
   type Agent,
 } from "@/app/w/(chat)/_lib/agents"
 import {
+  agentAvatarURL,
   agentDisplayName,
   agentIcon,
   agentModel,
@@ -59,6 +60,7 @@ export interface ChatSession {
   agentId: string
   agentName?: string
   agentIcon?: string
+  agentAvatarURL?: string
   modelId: string
   initialMessage?: string
 }
@@ -440,6 +442,7 @@ function chatSessionFromResponse(
     agentId: agentID,
     agentName: apiAgent ? agentDisplayName(apiAgent) : staticAgent?.name,
     agentIcon: apiAgent ? agentIcon(apiAgent) : staticAgent?.icon,
+    agentAvatarURL: agentAvatarURL(apiAgent),
     modelId:
       session.model?.trim() ||
       agentModel(apiAgent) ||
@@ -459,11 +462,16 @@ function safeAgentById(id: string): Agent {
   return safeStaticAgentById(id) ?? agentById(DEFAULT_AGENT_ID)
 }
 
-function chatHeaderAgent(session: ChatSession): Pick<Agent, "name" | "icon"> {
+type ChatHeaderAgent = Pick<Agent, "name" | "icon"> & {
+  avatarURL?: string
+}
+
+function chatHeaderAgent(session: ChatSession): ChatHeaderAgent {
   const fallback = safeAgentById(session.agentId)
   return {
     name: session.agentName ?? fallback.name,
     icon: session.agentIcon ?? fallback.icon,
+    avatarURL: session.agentAvatarURL,
   }
 }
 
@@ -499,7 +507,7 @@ function ChatHeader({
   onToggleRight,
 }: {
   title: string
-  agent: Pick<Agent, "name" | "icon"> | null
+  agent: ChatHeaderAgent | null
   sidebarOpen: boolean
   onExpandSidebar: () => void
   rightOpen: boolean
@@ -530,7 +538,7 @@ function ChatHeader({
           title="The agent can't be changed after a session starts"
           className="flex shrink-0 cursor-default items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs text-muted"
         >
-          <Icon icon={agent.icon} className="h-3.5 w-3.5" />
+          <ChatHeaderAgentLogo agent={agent} />
           {agent.name}
         </span>
       ) : null}
@@ -611,4 +619,22 @@ function ChatHeader({
 
 function PresenceStack() {
   return null
+}
+
+function ChatHeaderAgentLogo({ agent }: { agent: ChatHeaderAgent }) {
+  const [failed, setFailed] = useState(false)
+  if (agent.avatarURL && !failed) {
+    return (
+      <span className="bg-default flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-[5px] ring-1 ring-border/70">
+        <img
+          src={agent.avatarURL}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      </span>
+    )
+  }
+
+  return <Icon icon={agent.icon} className="h-3.5 w-3.5 shrink-0" />
 }

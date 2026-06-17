@@ -2,6 +2,7 @@ package agentruntime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -51,21 +52,47 @@ func renderEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Age
 	if err != nil {
 		return ""
 	}
-	if sandbox.SandboxTemplate != nil {
-		size := strings.TrimSpace(sandbox.SandboxTemplate.Size)
-		if resources, ok := model.TemplateSizes[size]; ok {
-			return fmt.Sprintf(
-				"This sandbox has %s, %s of memory, and %s of disk available.",
-				cpuPhrase(resources.CPU),
-				gbPhrase(resources.Memory),
-				gbPhrase(resources.Disk),
-			)
-		}
-		if size != "" {
-			return fmt.Sprintf("This sandbox is configured with the %s size.", size)
-		}
+	size := sandboxEnvironmentSize(ctx, db, agent, sandbox)
+	if resources, ok := model.TemplateSizes[size]; ok {
+		return fmt.Sprintf(
+			"This sandbox has %s, %s of memory, and %s of disk available.",
+			cpuPhrase(resources.CPU),
+			gbPhrase(resources.Memory),
+			gbPhrase(resources.Disk),
+		)
+	}
+	if size != "" {
+		return fmt.Sprintf("This sandbox is configured with the %s size.", size)
 	}
 	return ""
+}
+
+func sandboxEnvironmentSize(ctx context.Context, db *gorm.DB, agent *model.Agent, sandbox model.Sandbox) string {
+	if sandbox.SandboxTemplate != nil {
+		if size := strings.TrimSpace(sandbox.SandboxTemplate.Size); size != "" {
+			return size
+		}
+	}
+	if agent == nil || agent.SandboxTemplateID == nil {
+		return model.DefaultAgentSandboxSize
+	}
+	if agent.SandboxTemplate != nil {
+		if size := strings.TrimSpace(agent.SandboxTemplate.Size); size != "" {
+			return size
+		}
+	}
+	if db == nil {
+		return model.DefaultAgentSandboxSize
+	}
+	var tmpl model.SandboxTemplate
+	if err := db.WithContext(ctx).Select("id", "size").Where("id = ?", *agent.SandboxTemplateID).First(&tmpl).Error; err == nil {
+		if size := strings.TrimSpace(tmpl.Size); size != "" {
+			return size
+		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return ""
+	}
+	return model.DefaultAgentSandboxSize
 }
 
 func cpuPhrase(cpu int) string {

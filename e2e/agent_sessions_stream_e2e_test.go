@@ -217,3 +217,12 @@ func summarizeRuntimeSSEEvents(events []runtimeSSEEvent) string {
 	}
 	return strings.Join(names, ",")
 }
+
+func agentSessionsToolResultOutput(event runtimeSSEEvent) string {
+	if event.Name != "tool_result" {
+		return ""
+	}
+	result, _ := event.Payload["result"].(map[string]any)
+	output, _ := result["output"].(string)
+	return output
+}

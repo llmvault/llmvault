@@ -42,6 +42,13 @@ pub struct HealthResponse {
     sentry_dsn_set: bool,
 }
 
+#[derive(Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct SessionInterruptResponse {
+    pub interrupted: bool,
+    pub status: &'static str,
+}
+
 const MAX_RUNTIME_ENV_KEYS: usize = 128;
 const MAX_RUNTIME_ENV_KEY_LENGTH: usize = 128;
 const MAX_RUNTIME_ENV_VALUE_LENGTH: usize = 8192;
@@ -781,6 +788,41 @@ pub async fn post_session_message(
 
 #[cfg_attr(feature = "openapi", utoipa::path(
     post,
+    path = "/sessions/{session_id}/interrupt",
+    params(("session_id" = String, Path, description = "Session identifier")),
+    responses(
+        (status = 200, description = "Session interrupt accepted", body = SessionInterruptResponse),
+        (status = 503, description = "session interrupt is not enabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn post_session_interrupt(
+    State(state): State<ApiState>,
+    Path(session_id): Path<String>,
+) -> Result<Json<SessionInterruptResponse>, (StatusCode, String)> {
+    let Some(session_stream) = state.session_stream.as_ref() else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "session API is not enabled".to_string(),
+        ));
+    };
+    let Some(interrupter) = session_stream.interrupter.as_ref() else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "session interrupt is not enabled".to_string(),
+        ));
+    };
+    let interrupted = interrupter
+        .interrupt_session(&SessionId::from(session_id))
+        .await;
+    Ok(Json(SessionInterruptResponse {
+        interrupted,
+        status: if interrupted { "interrupted" } else { "idle" },
+    }))
+}
+
+#[cfg_attr(feature = "openapi", utoipa::path(
+    post,
     path = "/sessions/{session_id}/questions/{question_request_id}/answer",
     params(
         ("session_id" = String, Path, description = "Session identifier"),
@@ -1207,6 +1249,7 @@ mod tests {
                 last_status: None,
                 last_error: None,
                 session_continuation_id: None,
+                stream_id: None,
                 created_at: Utc::now(),
                 created_by_session: "system:service-discovery".to_string(),
             }],

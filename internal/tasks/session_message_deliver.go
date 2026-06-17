@@ -220,7 +220,7 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 		First(&agent).Error; err != nil {
 		return nil, fmt.Errorf("load session agent: %w", err)
 	}
-	sb, client, err := h.ensureRuntimeClient(ctx, &agent)
+	sb, client, err := h.ensureRuntimeClient(ctx, session, &agent)
 	if err != nil {
 		return nil, err
 	}
@@ -249,14 +249,30 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 	return resp, nil
 }
 
-func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, error) {
+const agentSandboxStrategyAlwaysOn = "always_on"
+
+func (h *SessionMessageDeliverHandler) loadRuntimeSandbox(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, error) {
+	if agent == nil || agent.OrgID == nil {
+		return nil, fmt.Errorf("session message delivery: agent must have org_id")
+	}
+	selector := agentRuntimeSelector(h.db, h.compileDeps)
+	if agent.SandboxStrategy == agentSandboxStrategyAlwaysOn {
+		return selector.MainRuntime(ctx, *agent.OrgID, agent.ID)
+	}
+	if session.SandboxID == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return selector.MainRuntimeByID(ctx, *agent.OrgID, agent.ID, *session.SandboxID)
+}
+
+func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, error) {
 	if h.compileDeps.EncKey == nil {
 		return nil, nil, fmt.Errorf("session message delivery: runtime encryption key is required")
 	}
 	if agent == nil || agent.OrgID == nil {
 		return nil, nil, fmt.Errorf("session message delivery: agent must have org_id")
 	}
-	sb, err := agentRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, *agent.OrgID, agent.ID)
+	sb, err := h.loadRuntimeSandbox(ctx, session, agent)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if !h.allowProvisioning {
 			return nil, nil, ErrSessionRuntimeNotReady

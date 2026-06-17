@@ -68,6 +68,7 @@ func newSessionHarness(t *testing.T) *sessionHarness {
 		r.Get("/sessions/{id}", h.Get)
 		r.Patch("/sessions/{id}", h.Update)
 		r.Post("/sessions/{id}/messages", h.SendMessage)
+		r.Post("/sessions/{id}/interrupt", h.Interrupt)
 		r.Get("/sessions/{id}/events", h.ListEvents)
 		r.Post("/sessions/{id}/sandbox-access", h.SandboxAccess)
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)

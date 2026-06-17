@@ -3,6 +3,8 @@ import type { components } from "@/lib/api/schema"
 export type ApiPlugin = components["schemas"]["pluginResponse"]
 export type PluginRequirement =
   components["schemas"]["pluginConnectionRequirement"]
+export type PluginResourceRequirement =
+  components["schemas"]["pluginResourceRequirement"]
 
 export type PluginCategory = "All" | "Featured" | string
 
@@ -105,6 +107,38 @@ export function pluginMissingRequirements(
   plugin: ApiPlugin
 ): PluginRequirement[] {
   return plugin.missing_requirements ?? []
+}
+
+export function pluginResourceRequirements(
+  plugin: ApiPlugin
+): PluginResourceRequirement[] {
+  return plugin.resource_requirements ?? []
+}
+
+export function pluginMissingResourceRequirements(
+  plugin: ApiPlugin
+): PluginResourceRequirement[] {
+  return pluginResourceRequirements(plugin).filter(
+    (requirement) => requirement.missing === true && !!requirement.connection_id
+  )
+}
+
+export function pluginHasMissingResourceRequirements(
+  plugin: ApiPlugin
+): boolean {
+  return pluginMissingResourceRequirements(plugin).length > 0
+}
+
+export function pluginResourceDisplayName(
+  requirement: PluginResourceRequirement
+): string {
+  return requirement.display_name || requirement.resource_key || "resources"
+}
+
+export function pluginResourceSelectLabel(
+  requirement: PluginResourceRequirement
+): string {
+  return `Select ${pluginResourceDisplayName(requirement).toLowerCase()}`
 }
 
 export function pluginNextMissingRequirement(

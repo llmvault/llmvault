@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQueries, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
-import { Button, Popover, Typography } from "@heroui/react"
+import { Button, Popover, Tooltip, Typography } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { api } from "@/lib/api/client"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
 import {
@@ -21,12 +22,18 @@ import {
   seedSessionDetail,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
+  agentAvatarURL,
+  agentDisplayName,
+  agentIcon,
+  agentModel,
   channelDisplayName,
   channelRouteSlug,
   channelRouteSlugCounts,
   dedupeSessions,
   sessionActivityLabel,
   sessionDisplayName,
+  sortChannelsByRecentSession,
+  type SidebarAgentResponse,
   type SidebarChannelResponse,
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
@@ -57,10 +64,61 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
       staleTime: CHAT_QUERY_STALE_TIME_MS,
     }
   )
+  const agentsQuery = $api.useQuery(
+    "get",
+    "/v1/agents",
+    { params: { query: { status: "active", limit: 100 } } },
+    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
+  )
 
   const channels = useMemo(
     () => channelsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? [],
     [channelsQuery.data?.pages]
+  )
+  const latestSessionQueries = useQueries({
+    queries: channels.map((channel) => {
+      const channelID = channel.id ?? ""
+      return {
+        queryKey: ["sidebar-channel-latest-session", channelID, 1] as const,
+        enabled: Boolean(channelID),
+        retry: false,
+        staleTime: CHAT_QUERY_STALE_TIME_MS,
+        queryFn: async () => {
+          const { data, error } = await api.GET("/v1/channels/{id}/sessions", {
+            params: {
+              path: { id: channelID },
+              query: { limit: 1 },
+            },
+          })
+          if (error) throw new Error("Could not load latest channel session")
+          return data?.data?.[0] ?? null
+        },
+      }
+    }),
+  })
+  const latestSessionsByChannelID = useMemo(() => {
+    const out = new Map<string, SidebarSessionResponse | null>()
+    channels.forEach((channel, index) => {
+      if (!channel.id) return
+      const result = latestSessionQueries[index]
+      if (result?.data !== undefined) {
+        out.set(channel.id, result.data ?? null)
+      }
+    })
+    return out
+  }, [channels, latestSessionQueries])
+  const sortedChannels = useMemo(
+    () => sortChannelsByRecentSession(channels, latestSessionsByChannelID),
+    [channels, latestSessionsByChannelID]
+  )
+  const agentsByID = useMemo(
+    () =>
+      new Map(
+        (agentsQuery.data?.data ?? []).flatMap((agent) =>
+          agent.id ? ([[agent.id, agent]] as const) : []
+        )
+      ),
+    [agentsQuery.data?.data]
   )
   const channelSlugCounts = useMemo(
     () => channelRouteSlugCounts(channels),
@@ -113,11 +171,13 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
               actionLabel="Retry"
               onAction={() => void channelsQuery.refetch()}
             />
-          ) : channels.length ? (
-            channels.map((channel, index) => (
+          ) : sortedChannels.length ? (
+            sortedChannels.map((channel, index) => (
               <ChannelGroup
                 key={channel.id ?? channel.name ?? index}
                 channel={channel}
+                agentsByID={agentsByID}
+                autoExpanded={index < 4}
                 slugAmbiguous={
                   (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
                 }
@@ -266,9 +326,13 @@ const COLLAPSE_TRANSITION = {
 
 function ChannelGroup({
   channel,
+  agentsByID,
+  autoExpanded,
   slugAmbiguous,
 }: {
   channel: SidebarChannelResponse
+  agentsByID: Map<string, SidebarAgentResponse>
+  autoExpanded: boolean
   slugAmbiguous: boolean
 }) {
   const { openChannel, openChat } = useWorkspace()
@@ -279,8 +343,8 @@ function ChannelGroup({
   const channelActive =
     !slugAmbiguous &&
     (pathname === channelPath || pathname.startsWith(`${channelPath}/`))
-  const [expanded, setExpanded] = useState(false)
-  const open = channelActive || expanded
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null)
+  const open = channelActive || (manualOpen ?? autoExpanded)
   const chatActive = (id: string) => pathname === `${channelPath}/${id}`
   const channelID = channel.id ?? ""
 
@@ -339,7 +403,7 @@ function ChannelGroup({
         <button
           type="button"
           aria-label={open ? "Collapse channel" : "Expand channel"}
-          onClick={() => setExpanded((open) => !open)}
+          onClick={() => setManualOpen(!open)}
           className="hover:bg-surface mr-1 rounded-md p-1 text-muted transition-colors"
         >
           <Icon
@@ -371,16 +435,23 @@ function ChannelGroup({
               ) : sessions.length ? (
                 sessions.map((session) => {
                   const id = session.id ?? ""
+                  const sessionAgent = sidebarSessionAgent(session, agentsByID)
+                  const apiAgent = apiAgentForSession(session, agentsByID)
                   return (
                     <ChatRow
                       key={id}
                       title={sessionDisplayName(session)}
+                      agent={sessionAgent}
                       meta={sessionActivityLabel(session)}
                       active={chatActive(id)}
                       onIntent={() => warmSession(session)}
                       onSelect={() => {
                         warmSession(session)
-                        openChat(slug, id, chatSessionFromResponse(session))
+                        openChat(
+                          slug,
+                          id,
+                          chatSessionFromResponse(session, apiAgent)
+                        )
                       }}
                     />
                   )
@@ -408,15 +479,48 @@ function ChannelGroup({
   )
 }
 
-function chatSessionFromResponse(session: SidebarSessionResponse): ChatSession {
+type SidebarSessionAgent = {
+  name: string
+  icon: string
+  avatarURL?: string
+}
+
+function apiAgentForSession(
+  session: SidebarSessionResponse,
+  agentsByID: Map<string, SidebarAgentResponse>
+): SidebarAgentResponse | undefined {
+  const agentID = session.agent_id?.trim()
+  return agentID ? agentsByID.get(agentID) : undefined
+}
+
+function sidebarSessionAgent(
+  session: SidebarSessionResponse,
+  agentsByID: Map<string, SidebarAgentResponse>
+): SidebarSessionAgent {
   const agentID = session.agent_id?.trim() || DEFAULT_AGENT_ID
-  const agent = safeAgentById(agentID)
-  const modelId = session.model?.trim() || agent.defaultModelId
+  const apiAgent = agentsByID.get(agentID)
+  const fallback = safeAgentById(agentID)
+  return {
+    name: apiAgent ? agentDisplayName(apiAgent) : fallback.name,
+    icon: apiAgent ? agentIcon(apiAgent) : fallback.icon,
+    avatarURL: agentAvatarURL(apiAgent),
+  }
+}
+
+function chatSessionFromResponse(
+  session: SidebarSessionResponse,
+  apiAgent?: SidebarAgentResponse
+): ChatSession {
+  const agentID = session.agent_id?.trim() || DEFAULT_AGENT_ID
+  const fallback = safeAgentById(agentID)
+  const modelId =
+    session.model?.trim() || agentModel(apiAgent) || fallback.defaultModelId
   return {
     title: sessionDisplayName(session),
     agentId: agentID,
-    agentName: agent.name,
-    agentIcon: agent.icon,
+    agentName: apiAgent ? agentDisplayName(apiAgent) : fallback.name,
+    agentIcon: apiAgent ? agentIcon(apiAgent) : fallback.icon,
+    agentAvatarURL: agentAvatarURL(apiAgent),
     modelId,
   }
 }
@@ -454,6 +558,7 @@ function SessionSkeletonList() {
           key={index}
           className="flex items-center gap-2 rounded-lg py-1.5 pr-3 pl-9"
         >
+          <span className="bg-default h-3 w-3 shrink-0 rounded-full" />
           <span className="bg-default h-3.5 flex-1 rounded" />
           <span className="bg-default h-3 w-8 rounded" />
         </div>
@@ -555,12 +660,14 @@ function NavRow({
 
 function ChatRow({
   title,
+  agent,
   meta,
   active,
   onIntent,
   onSelect,
 }: {
   title: string
+  agent: SidebarSessionAgent
   meta?: string
   active?: boolean
   onIntent?: () => void
@@ -577,10 +684,39 @@ function ChatRow({
         active ? "bg-default" : "hover:bg-default"
       }`}
     >
-      <span className="min-w-0 flex-1 truncate">{title}</span>
+      <span className="flex min-w-0 flex-1 items-center gap-1">
+        <SessionAgentAvatar agent={agent} />
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+      </span>
       {meta ? (
         <span className="shrink-0 text-xs text-muted">{meta}</span>
       ) : null}
     </button>
+  )
+}
+
+function SessionAgentAvatar({ agent }: { agent: SidebarSessionAgent }) {
+  const [failed, setFailed] = useState(false)
+
+  return (
+    <Tooltip delay={250} closeDelay={0}>
+      <Tooltip.Trigger className="flex h-3 w-3 shrink-0 items-center justify-center">
+        <span className="bg-default flex h-3 w-3 items-center justify-center overflow-hidden rounded-full text-muted ring-1 ring-border/70">
+          {agent.avatarURL && !failed ? (
+            <img
+              src={agent.avatarURL}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={() => setFailed(true)}
+            />
+          ) : (
+            <Icon icon={agent.icon} className="h-2 w-2" />
+          )}
+        </span>
+      </Tooltip.Trigger>
+      <Tooltip.Content placement="right" offset={8} className="text-xs">
+        {agent.name}
+      </Tooltip.Content>
+    </Tooltip>
   )
 }
