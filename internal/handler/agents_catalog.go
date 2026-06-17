@@ -39,6 +39,15 @@ type agentCatalogInstallConflictResponse struct {
 	MissingPlugins []agentCatalogPluginSummary `json:"missing_plugins"`
 }
 
+// ListCatalog handles GET /v1/agents/catalog.
+// @Summary List agent catalog
+// @Description Returns active agent catalog entries for the current organization, including install state and required plugin state.
+// @Tags agents
+// @Produce json
+// @Success 200 {array} agentCatalogResponse
+// @Failure 401 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Router /v1/agents/catalog [get]
 func (h *AgentHandler) ListCatalog(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -65,6 +74,48 @@ func (h *AgentHandler) ListCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// GetCatalog handles GET /v1/agents/catalog/{slug}.
+// @Summary Get agent catalog entry
+// @Description Returns one active agent catalog entry by slug for the current organization, including required plugin install state.
+// @Tags agents
+// @Produce json
+// @Param slug path string true "Agent catalog slug"
+// @Success 200 {object} agentCatalogResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Router /v1/agents/catalog/{slug} [get]
+func (h *AgentHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
+	org, ok := middleware.OrgFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	catalog, ok := h.loadAgentCatalogBySlug(w, r, chi.URLParam(r, "slug"))
+	if !ok {
+		return
+	}
+	resp, err := h.toAgentCatalogResponse(r.Context(), org.ID, catalog)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent catalog details"})
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// InstallCatalog handles POST /v1/agents/catalog/{slug}/install.
+// @Summary Install catalog agent
+// @Description Installs an agent catalog entry into the current organization when required plugins are installed.
+// @Tags agents
+// @Produce json
+// @Param slug path string true "Agent catalog slug"
+// @Success 201 {object} agentMutationResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} agentCatalogInstallConflictResponse
+// @Failure 500 {object} errorResponse
+// @Router /v1/agents/catalog/{slug}/install [post]
 func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
@@ -119,6 +170,17 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: h.agentListItem(r.Context(), org.ID, agent)})
 }
 
+// UninstallCatalog handles DELETE /v1/agents/catalog/{slug}/install.
+// @Summary Uninstall catalog agent
+// @Description Archives the installed agent for a catalog entry in the current organization.
+// @Tags agents
+// @Produce json
+// @Param slug path string true "Agent catalog slug"
+// @Success 200 {object} statusResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Router /v1/agents/catalog/{slug}/install [delete]
 func (h *AgentHandler) UninstallCatalog(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {

@@ -361,6 +361,61 @@ definitions:
       response_schema:
         type: string
     type: object
+  agentCatalogInstallConflictResponse:
+    properties:
+      error:
+        type: string
+      missing_plugins:
+        items:
+          $ref: '#/definitions/agentCatalogPluginSummary'
+        type: array
+    type: object
+  agentCatalogPluginSummary:
+    properties:
+      id:
+        type: string
+      installed:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  agentCatalogResponse:
+    properties:
+      avatar_url:
+        type: string
+      category:
+        type: string
+      description:
+        type: string
+      developer:
+        type: string
+      id:
+        type: string
+      installed_agent_id:
+        type: string
+      is_default:
+        type: boolean
+      model:
+        type: string
+      name:
+        type: string
+      official:
+        type: boolean
+      recommended_plugins:
+        items:
+          $ref: '#/definitions/agentCatalogPluginSummary'
+        type: array
+      required_plugins:
+        items:
+          $ref: '#/definitions/agentCatalogPluginSummary'
+        type: array
+      sandbox_strategy:
+        type: string
+      slug:
+        type: string
+    type: object
   agentCatalogSummary:
     properties:
       avatar_url:
@@ -4513,6 +4568,133 @@ paths:
       security:
       - BearerAuth: []
       summary: Push compiled config to an agent sandbox
+      tags:
+      - agents
+  /v1/agents/catalog:
+    get:
+      description: Returns active agent catalog entries for the current organization,
+        including install state and required plugin state.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/agentCatalogResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: List agent catalog
+      tags:
+      - agents
+  /v1/agents/catalog/{slug}:
+    get:
+      description: Returns one active agent catalog entry by slug for the current
+        organization, including required plugin install state.
+      parameters:
+      - description: Agent catalog slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentCatalogResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: Get agent catalog entry
+      tags:
+      - agents
+  /v1/agents/catalog/{slug}/install:
+    delete:
+      description: Archives the installed agent for a catalog entry in the current
+        organization.
+      parameters:
+      - description: Agent catalog slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: Uninstall catalog agent
+      tags:
+      - agents
+    post:
+      description: Installs an agent catalog entry into the current organization when
+        required plugins are installed.
+      parameters:
+      - description: Agent catalog slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/agentMutationResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/agentCatalogInstallConflictResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: Install catalog agent
       tags:
       - agents
   /v1/agents/models:

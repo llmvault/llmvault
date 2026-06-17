@@ -1425,6 +1425,254 @@
         }
       }
     },
+    "/v1/agents/catalog": {
+      "get": {
+        "description": "Returns active agent catalog entries for the current organization, including install state and required plugin state.",
+        "tags": [
+          "agents"
+        ],
+        "summary": "List agent catalog",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/agentCatalogResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/catalog/{slug}": {
+      "get": {
+        "description": "Returns one active agent catalog entry by slug for the current organization, including required plugin install state.",
+        "tags": [
+          "agents"
+        ],
+        "summary": "Get agent catalog entry",
+        "parameters": [
+          {
+            "description": "Agent catalog slug",
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/agentCatalogResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/catalog/{slug}/install": {
+      "post": {
+        "description": "Installs an agent catalog entry into the current organization when required plugins are installed.",
+        "tags": [
+          "agents"
+        ],
+        "summary": "Install catalog agent",
+        "parameters": [
+          {
+            "description": "Agent catalog slug",
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/agentMutationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/agentCatalogInstallConflictResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Archives the installed agent for a catalog entry in the current organization.",
+        "tags": [
+          "agents"
+        ],
+        "summary": "Uninstall catalog agent",
+        "parameters": [
+          {
+            "description": "Agent catalog slug",
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/statusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/agents/models": {
       "get": {
         "security": [
@@ -10950,6 +11198,90 @@
             "type": "string"
           },
           "response_schema": {
+            "type": "string"
+          }
+        }
+      },
+      "agentCatalogInstallConflictResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "missing_plugins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/agentCatalogPluginSummary"
+            }
+          }
+        }
+      },
+      "agentCatalogPluginSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "agentCatalogResponse": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "developer": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "installed_agent_id": {
+            "type": "string"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "official": {
+            "type": "boolean"
+          },
+          "recommended_plugins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/agentCatalogPluginSummary"
+            }
+          },
+          "required_plugins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/agentCatalogPluginSummary"
+            }
+          },
+          "sandbox_strategy": {
+            "type": "string"
+          },
+          "slug": {
             "type": "string"
           }
         }
