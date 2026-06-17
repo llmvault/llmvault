@@ -10,6 +10,10 @@ import (
 const DefaultAgentSandboxSize = model.DefaultAgentSandboxSize
 
 func AgentRuntimeTemplateRef(cfg *config.Config) string {
+	return AgentRuntimeTemplateRefForSize(cfg, DefaultAgentSandboxSize)
+}
+
+func AgentRuntimeTemplateRefForSize(cfg *config.Config, size string) string {
 	if cfg == nil {
 		return ""
 	}
@@ -17,7 +21,7 @@ func AgentRuntimeTemplateRef(cfg *config.Config) string {
 	if strings.TrimSpace(cfg.SandboxProviderID) != ProviderMicrosandbox {
 		return image
 	}
-	alias := SnapshotAliasForImage(image, DefaultAgentSandboxSize)
+	alias := SnapshotAliasForImage(image, model.NormalizeTemplateSize(size))
 	if alias == "" {
 		return image
 	}

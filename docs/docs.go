@@ -9410,6 +9410,9 @@ const docTemplate = `{
                 "sandbox": {
                     "$ref": "#/definitions/agentSandboxSummary"
                 },
+                "sandbox_size": {
+                    "type": "string"
+                },
                 "sandbox_strategy": {
                     "type": "string"
                 },
@@ -9483,6 +9486,9 @@ const docTemplate = `{
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
+                },
+                "sandbox_size": {
+                    "type": "string"
                 },
                 "sandbox_strategy": {
                     "type": "string"
@@ -9577,6 +9583,9 @@ const docTemplate = `{
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
+                },
+                "sandbox_size": {
+                    "type": "string"
                 },
                 "sandbox_strategy": {
                     "type": "string"

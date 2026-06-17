@@ -91,18 +91,17 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 	triggers := h.loadAgentTriggers(agentIDs...)
 	skills := h.loadAgentSkills(agentIDs...)
 	sandboxes := h.loadMainAgentRuntimeSandboxSummaries(r.Context(), org.ID, agentIDs)
-	currentSnapshotID := h.currentAgentSandboxSnapshotID()
-	latestRuntimeVersion := agentRuntimeVersionLabel(currentSnapshotID)
 
 	items := make([]agentListItem, len(agents))
 	for i, a := range agents {
 		base := toAgentResponse(a)
 		base.Triggers = triggers[a.ID]
 		base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &a, skills[a.ID])
+		currentSnapshotID := h.currentAgentSandboxSnapshotIDForSize(a.SandboxSize)
 		items[i] = agentListItem{
 			agentResponse:        base,
 			UpgradeAvailable:     agentSandboxUpgradeAvailable(sandboxes[a.ID], currentSnapshotID),
-			LatestRuntimeVersion: latestRuntimeVersion,
+			LatestRuntimeVersion: agentRuntimeVersionLabel(currentSnapshotID),
 			Sandbox:              sandboxes[a.ID],
 		}
 	}
@@ -161,7 +160,7 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
 	sandbox := h.loadMainAgentRuntimeSandboxSummaries(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
-	currentSnapshotID := h.currentAgentSandboxSnapshotID()
+	currentSnapshotID := h.currentAgentSandboxSnapshotIDForSize(agent.SandboxSize)
 
 	writeJSON(w, http.StatusOK, agentListItem{
 		agentResponse:        base,
@@ -185,10 +184,14 @@ func (h *AgentHandler) ensureReturnedAgentMemoryBanks(ctx context.Context, orgID
 }
 
 func (h *AgentHandler) currentAgentSandboxSnapshotID() string {
+	return h.currentAgentSandboxSnapshotIDForSize(model.DefaultAgentSandboxSize)
+}
+
+func (h *AgentHandler) currentAgentSandboxSnapshotIDForSize(size string) string {
 	if h == nil || h.compileDeps.Cfg == nil {
 		return ""
 	}
-	return sandboxpkg.AgentRuntimeTemplateRef(h.compileDeps.Cfg)
+	return sandboxpkg.AgentRuntimeTemplateRefForSize(h.compileDeps.Cfg, size)
 }
 
 func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) agentListItem {
@@ -196,7 +199,7 @@ func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(ctx, orgID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
 	sandbox := h.loadMainAgentRuntimeSandboxSummaries(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]
-	currentSnapshotID := h.currentAgentSandboxSnapshotID()
+	currentSnapshotID := h.currentAgentSandboxSnapshotIDForSize(agent.SandboxSize)
 	return agentListItem{
 		agentResponse:        base,
 		UpgradeAvailable:     agentSandboxUpgradeAvailable(sandbox, currentSnapshotID),

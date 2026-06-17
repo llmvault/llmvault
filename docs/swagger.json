@@ -9407,6 +9407,9 @@
                 "sandbox": {
                     "$ref": "#/definitions/agentSandboxSummary"
                 },
+                "sandbox_size": {
+                    "type": "string"
+                },
                 "sandbox_strategy": {
                     "type": "string"
                 },
@@ -9480,6 +9483,9 @@
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
+                },
+                "sandbox_size": {
+                    "type": "string"
                 },
                 "sandbox_strategy": {
                     "type": "string"
@@ -9574,6 +9580,9 @@
                 },
                 "resources": {
                     "$ref": "#/definitions/JSON"
+                },
+                "sandbox_size": {
+                    "type": "string"
                 },
                 "sandbox_strategy": {
                     "type": "string"

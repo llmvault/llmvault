@@ -159,6 +159,18 @@ func parseOptionalUUIDForRequest(w http.ResponseWriter, value *string, field str
 	return &id, true
 }
 
+func normalizeAgentSandboxSizeForRequest(w http.ResponseWriter, value *string) (string, bool) {
+	size := cleanStringPtr(value)
+	if size == "" {
+		return model.DefaultAgentSandboxSize, true
+	}
+	if !model.ValidTemplateSize(size) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_size must be small, medium, large, or xlarge"})
+		return "", false
+	}
+	return model.NormalizeTemplateSize(size), true
+}
+
 func isValidAgentSandboxStrategy(strategy string) bool {
 	return strategy == agentStrategyAlwaysOn || strategy == agentStrategyPerSession
 }

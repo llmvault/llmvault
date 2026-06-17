@@ -69,6 +69,7 @@ type agentResponse struct {
 	Icon                  string                 `json:"icon"`
 	IsDefault             bool                   `json:"is_default"`
 	SandboxStrategy       string                 `json:"sandbox_strategy"`
+	SandboxSize           string                 `json:"sandbox_size"`
 	SandboxTemplateID     *string                `json:"sandbox_template_id,omitempty"`
 	Model                 string                 `json:"model"`
 	AvailableModels       []string               `json:"available_models"`
@@ -106,6 +107,7 @@ func toAgentResponse(a model.Agent) agentResponse {
 	if strategy == "" {
 		strategy = agentStrategyAlwaysOn
 	}
+	sandboxSize := model.NormalizeTemplateSize(a.SandboxSize)
 	mcpServers := json.RawMessage(a.McpServers)
 	if len(mcpServers) == 0 {
 		mcpServers = json.RawMessage("[]")
@@ -119,6 +121,7 @@ func toAgentResponse(a model.Agent) agentResponse {
 		Icon:                a.Icon,
 		IsDefault:           a.IsDefault,
 		SandboxStrategy:     strategy,
+		SandboxSize:         sandboxSize,
 		Model:               a.Model,
 		AvailableModels:     append([]string(nil), a.AvailableModels...),
 		Tools:               nonNilJSON(a.Tools),

@@ -1,14 +1,12 @@
 "use client"
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import Image from "next/image"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, ListBox, Select, Spinner, toast } from "@heroui/react"
+import { Button, Spinner, toast } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
-import { modelLogoURL } from "@/lib/model-logos"
 import { IntegrationLogo } from "@/components/integration-logo"
 import {
   pluginIcon,
@@ -27,14 +25,20 @@ import {
   agentMissingPlugins,
   agentName,
   agentRequiredPlugins,
+  normalizeAgentSandboxSize,
   pluginForRequirement,
   pluginRequirementName,
   pluginRequirementSlug,
   pluginsBySlug,
+  type AgentSandboxSize,
   type AgentPluginRequirement,
   type CatalogAgent,
   type InstalledAgent,
 } from "../_lib"
+import {
+  AgentSettingsSection,
+  SandboxSizeSection,
+} from "./_agent-settings-section"
 import {
   SandboxRuntimeSection,
   type AgentSandboxUpgrade,
@@ -58,6 +62,7 @@ export default function AgentDetailPage({
     "/v1/agents/catalog/{slug}/install"
   )
   const updateAgentModel = $api.useMutation("patch", "/v1/agents/{id}/model")
+  const updateAgent = $api.useMutation("patch", "/v1/agents/{id}")
   const startSandboxUpgrade = $api.useMutation(
     "post",
     "/v1/agents/{id}/sandbox/upgrade"
@@ -108,10 +113,14 @@ export default function AgentDetailPage({
   const availableModels = agentAvailableModels(agent)
   const selectedModel =
     installedAgent?.model || agent?.model || availableModels[0] || ""
+  const selectedSandboxSize = normalizeAgentSandboxSize(
+    installedAgent?.sandbox_size
+  )
   const installed = agent ? agentIsInstalled(agent) : false
   const canInstall = agentCanInstall(agent)
   const busy = installAgent.isPending
   const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
+  const sandboxSizeBusy = installedAgentQuery.isLoading || updateAgent.isPending
   const alwaysOnAgent = installedAgent?.sandbox_strategy === "always_on"
   const sandboxUpgradeBusy =
     startSandboxUpgrade.isPending ||
@@ -185,6 +194,26 @@ export default function AgentDetailPage({
     )
   }
 
+  function handleSandboxSizeChange(size: AgentSandboxSize) {
+    if (!installedAgentID || size === selectedSandboxSize) return
+    updateAgent.mutate(
+      {
+        params: { path: { id: installedAgentID } },
+        body: { sandbox_size: size },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Sandbox size updated")
+          refresh()
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not update sandbox size")
+          ),
+      }
+    )
+  }
+
   function handleSandboxUpgrade() {
     if (!installedAgentID) return
     startSandboxUpgrade.mutate(
@@ -235,7 +264,7 @@ export default function AgentDetailPage({
         <div className="flex min-w-0 items-center gap-3">
           <AgentAvatar agent={agent} size="lg" />
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-foreground">
+            <h1 className="text-lg font-semibold text-foreground">
               {agentName(agent)}
             </h1>
             <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
@@ -268,6 +297,11 @@ export default function AgentDetailPage({
             isBusy={modelBusy}
             onModelChange={handleModelChange}
           />
+          <SandboxSizeSection
+            selectedSandboxSize={selectedSandboxSize}
+            isBusy={sandboxSizeBusy}
+            onSandboxSizeChange={handleSandboxSizeChange}
+          />
           {alwaysOnAgent ? (
             <SandboxRuntimeSection
               agent={installedAgent}
@@ -288,89 +322,6 @@ export default function AgentDetailPage({
         <NoRequirementsSection />
       )}
     </div>
-  )
-}
-
-function AgentSettingsSection({
-  availableModels,
-  selectedModel,
-  isBusy,
-  onModelChange,
-}: {
-  availableModels: string[]
-  selectedModel: string
-  isBusy: boolean
-  onModelChange: (model: string) => void
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-foreground">
-          Default model
-        </h2>
-        <p className="text-sm leading-5 text-muted-foreground">
-          Select from this agent&apos;s catalog models.
-        </p>
-      </div>
-      <Select
-        aria-label="Default model"
-        selectedKey={selectedModel || null}
-        onSelectionChange={(key) => {
-          if (key !== null) onModelChange(String(key))
-        }}
-        isDisabled={isBusy || availableModels.length === 0}
-        className="w-full"
-      >
-        <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
-          <span className="flex min-w-0 items-center gap-2">
-            {selectedModel ? <ModelLogo model={selectedModel} /> : null}
-            <span className="truncate">
-              {selectedModel ? selectedModel : <Select.Value />}
-            </span>
-          </span>
-          {isBusy ? (
-            <Spinner color="current" size="sm" />
-          ) : (
-            <Select.Indicator />
-          )}
-        </Select.Trigger>
-        <Select.Popover className="rounded-xl p-1.5">
-          <ListBox>
-            {availableModels.map((model) => (
-              <ListBox.Item key={model} id={model} textValue={model}>
-                <span className="flex min-w-0 items-center gap-2">
-                  <ModelLogo model={model} />
-                  <span className="truncate">{model}</span>
-                </span>
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </Select.Popover>
-      </Select>
-    </section>
-  )
-}
-
-function ModelLogo({ model }: { model: string }) {
-  const logoURL = modelLogoURL(model)
-  if (!logoURL) {
-    return (
-      <span className="bg-default flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[9px] font-semibold text-muted-foreground">
-        AI
-      </span>
-    )
-  }
-
-  return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white p-0.5">
-      <Image
-        src={logoURL}
-        alt=""
-        width={20}
-        height={20}
-        className="size-full object-contain"
-      />
-    </span>
   )
 }
 
@@ -402,7 +353,7 @@ function RequiredPluginsSection({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-base font-semibold text-foreground">
+      <h2 className="text-sm font-semibold text-foreground">
         Required plugins
       </h2>
       <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
@@ -501,7 +452,7 @@ function RequiredPluginLogo({ plugin }: { plugin?: ApiPlugin }) {
 function NoRequirementsSection() {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-base font-semibold text-foreground">
+      <h2 className="text-sm font-semibold text-foreground">
         Required plugins
       </h2>
       <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">

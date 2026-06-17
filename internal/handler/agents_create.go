@@ -97,6 +97,7 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		AvatarURL:       ptrString(avatarURL),
 		IsDefault:       true,
 		SandboxStrategy: strategy,
+		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
 		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
 		Status:          "active",

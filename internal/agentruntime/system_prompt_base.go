@@ -68,6 +68,9 @@ func renderEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Age
 }
 
 func sandboxEnvironmentSize(ctx context.Context, db *gorm.DB, agent *model.Agent, sandbox model.Sandbox) string {
+	if agent != nil {
+		return model.NormalizeTemplateSize(agent.SandboxSize)
+	}
 	if sandbox.SandboxTemplate != nil {
 		if size := strings.TrimSpace(sandbox.SandboxTemplate.Size); size != "" {
 			return size

@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 // TemplateSize defines the resource allocation for a sandbox template variant.
 type TemplateSize struct {
 	Name   string
@@ -20,8 +22,22 @@ var TemplateSizes = map[string]TemplateSize{
 
 // ValidTemplateSize returns true if the given size name is a valid template size.
 func ValidTemplateSize(size string) bool {
+	size = canonicalTemplateSize(size)
 	_, ok := TemplateSizes[size]
 	return ok
+}
+
+func NormalizeTemplateSize(size string) string {
+	size = canonicalTemplateSize(size)
+	if ValidTemplateSize(size) {
+		return size
+	}
+	return DefaultAgentSandboxSize
+}
+
+func TemplateSizeSpec(size string) (TemplateSize, bool) {
+	sz, ok := TemplateSizes[canonicalTemplateSize(size)]
+	return sz, ok
 }
 
 func TemplateSizeForResources(cpu, memory, disk int) (string, bool) {
@@ -31,4 +47,8 @@ func TemplateSizeForResources(cpu, memory, disk int) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func canonicalTemplateSize(size string) string {
+	return strings.ToLower(strings.TrimSpace(size))
 }
