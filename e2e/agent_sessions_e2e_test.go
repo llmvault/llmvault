@@ -140,6 +140,9 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	}
 	t.Logf("sandbox id=%s status=%s external_id=%s", defaultAgent.Sandbox.ID, defaultAgent.Sandbox.Status, defaultAgent.Sandbox.ExternalID)
 
+	requireAgentSessionsHindsightHealthy(t, ctx)
+	runAgentSessionsHindsightMemoryE2E(t, ctx, apiBase, ownerToken, orgID, general.ID, runID)
+
 	wakeSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
 		"This is the agent sessions wake stream E2E.",
 		"Before replying, call wake exactly once with seconds=10 and task_prompt=\"When you wake up, reply exactly " + wakeMarker + " and no other text.\"",
