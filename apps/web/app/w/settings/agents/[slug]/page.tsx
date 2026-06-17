@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useMemo } from "react"
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
@@ -35,6 +35,10 @@ import {
   type CatalogAgent,
   type InstalledAgent,
 } from "../_lib"
+import {
+  SandboxRuntimeSection,
+  type AgentSandboxUpgrade,
+} from "./_sandbox-runtime-section"
 
 export default function AgentDetailPage({
   params,
@@ -43,6 +47,8 @@ export default function AgentDetailPage({
 }) {
   const { slug } = use(params)
   const queryClient = useQueryClient()
+  const [sandboxUpgradeID, setSandboxUpgradeID] = useState<string | null>(null)
+  const notifiedUpgradeIDRef = useRef<string | null>(null)
   const agentQuery = $api.useQuery("get", "/v1/agents/catalog/{slug}", {
     params: { path: { slug } },
   })
@@ -52,6 +58,10 @@ export default function AgentDetailPage({
     "/v1/agents/catalog/{slug}/install"
   )
   const updateAgentModel = $api.useMutation("patch", "/v1/agents/{id}/model")
+  const startSandboxUpgrade = $api.useMutation(
+    "post",
+    "/v1/agents/{id}/sandbox/upgrade"
+  )
   const agent = agentQuery.data as CatalogAgent | undefined
   const installedAgentID = agent?.installed_agent_id ?? ""
   const installedAgentQuery = $api.useQuery(
@@ -62,7 +72,32 @@ export default function AgentDetailPage({
     },
     { enabled: installedAgentID.length > 0 }
   )
+  const sandboxUpgradeQuery = $api.useQuery(
+    "get",
+    "/v1/agents/{id}/sandbox/upgrades/{upgradeID}",
+    {
+      params: {
+        path: {
+          id: installedAgentID,
+          upgradeID: sandboxUpgradeID ?? "",
+        },
+      },
+    },
+    {
+      enabled: installedAgentID.length > 0 && Boolean(sandboxUpgradeID),
+      refetchInterval: (query) => {
+        const upgrade = query.state.data as AgentSandboxUpgrade | undefined
+        if (upgrade?.status === "succeeded" || upgrade?.status === "failed") {
+          return false
+        }
+        return 2500
+      },
+    }
+  )
   const installedAgent = installedAgentQuery.data as InstalledAgent | undefined
+  const sandboxUpgrade = sandboxUpgradeQuery.data as
+    | AgentSandboxUpgrade
+    | undefined
   const plugins = useMemo(
     () => (pluginsQuery.data ?? []) as ApiPlugin[],
     [pluginsQuery.data]
@@ -77,19 +112,46 @@ export default function AgentDetailPage({
   const canInstall = agentCanInstall(agent)
   const busy = installAgent.isPending
   const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
+  const alwaysOnAgent = installedAgent?.sandbox_strategy === "always_on"
+  const sandboxUpgradeBusy =
+    startSandboxUpgrade.isPending ||
+    sandboxUpgrade?.status === "queued" ||
+    sandboxUpgrade?.status === "running"
 
-  function refresh() {
+  const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: AGENT_CATALOG_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: INSTALLED_AGENTS_QUERY_KEY })
     queryClient.invalidateQueries({
       queryKey: ["get", "/v1/agents/catalog/{slug}"],
     })
-    agentQuery.refetch()
     if (installedAgentID) {
       queryClient.invalidateQueries({ queryKey: ["get", "/v1/agents/{id}"] })
-      installedAgentQuery.refetch()
     }
-  }
+  }, [installedAgentID, queryClient])
+
+  useEffect(() => {
+    if (!sandboxUpgradeID || !sandboxUpgrade?.status) return
+    if (
+      sandboxUpgrade.status !== "succeeded" &&
+      sandboxUpgrade.status !== "failed"
+    ) {
+      return
+    }
+    if (notifiedUpgradeIDRef.current === sandboxUpgradeID) return
+    notifiedUpgradeIDRef.current = sandboxUpgradeID
+    if (sandboxUpgrade.status === "succeeded") {
+      toast.success("Sandbox upgraded")
+      refresh()
+      return
+    }
+    toast.danger(sandboxUpgrade.error_message || "Sandbox upgrade failed")
+    refresh()
+  }, [
+    refresh,
+    sandboxUpgrade?.error_message,
+    sandboxUpgrade?.status,
+    sandboxUpgradeID,
+  ])
 
   function handleInstall() {
     if (!agent || !canInstall) return
@@ -118,6 +180,34 @@ export default function AgentDetailPage({
         onError: (error) =>
           toast.danger(
             extractErrorMessage(error, "Could not update default model")
+          ),
+      }
+    )
+  }
+
+  function handleSandboxUpgrade() {
+    if (!installedAgentID) return
+    startSandboxUpgrade.mutate(
+      { params: { path: { id: installedAgentID } } },
+      {
+        onSuccess: (upgrade) => {
+          const id = upgrade.upgrade_id?.trim()
+          if (!id) {
+            toast.danger("Could not track sandbox upgrade")
+            refresh()
+            return
+          }
+          setSandboxUpgradeID(id)
+          notifiedUpgradeIDRef.current = null
+          toast.success(
+            upgrade.status === "queued" || upgrade.status === "running"
+              ? "Sandbox upgrade in progress"
+              : "Sandbox upgrade started"
+          )
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not start sandbox upgrade")
           ),
       }
     )
@@ -156,7 +246,8 @@ export default function AgentDetailPage({
 
         <Button
           size="sm"
-          className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
+          variant="primary"
+          className="shrink-0"
           isDisabled={busy || installed || !canInstall}
           onPress={handleInstall}
         >
@@ -170,12 +261,22 @@ export default function AgentDetailPage({
       ) : null}
 
       {installed ? (
-        <AgentSettingsSection
-          availableModels={availableModels}
-          selectedModel={selectedModel}
-          isBusy={modelBusy}
-          onModelChange={handleModelChange}
-        />
+        <div className="flex flex-col gap-6">
+          <AgentSettingsSection
+            availableModels={availableModels}
+            selectedModel={selectedModel}
+            isBusy={modelBusy}
+            onModelChange={handleModelChange}
+          />
+          {alwaysOnAgent ? (
+            <SandboxRuntimeSection
+              agent={installedAgent}
+              upgrade={sandboxUpgrade}
+              isBusy={sandboxUpgradeBusy}
+              onUpgrade={handleSandboxUpgrade}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {requiredPlugins.length > 0 ? (

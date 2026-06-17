@@ -240,9 +240,8 @@ function InviteRow({ invite, last }: { invite: Invite; last?: boolean }) {
           Resend
         </Button>
         <Button
-          variant="ghost"
+          variant="danger-soft"
           size="sm"
-          className="text-danger"
           isDisabled={busy}
           onPress={handleRevoke}
         >

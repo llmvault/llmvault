@@ -157,8 +157,7 @@ export function IntegrationDialog({
                     {canDelete ? (
                       <Button
                         type="button"
-                        variant="secondary"
-                        className="text-danger"
+                        variant="danger-soft"
                         isPending={deleteMutation.isPending}
                         onPress={() => {
                           if (definition.id) {

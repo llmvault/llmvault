@@ -22,6 +22,11 @@ import (
 
 const agentSandboxAutoUpgradeTimeout = 10 * time.Minute
 
+// AgentSandboxAutoUpgradeEnabled intentionally disables the boot-time
+// auto-upgrade sweep while keeping the task implementation available for
+// future controlled rollout.
+const AgentSandboxAutoUpgradeEnabled = false
+
 type AgentSandboxAutoUpgradePayload struct {
 	RuntimeImage string `json:"runtime_image"`
 	Limit        int    `json:"limit,omitempty"`

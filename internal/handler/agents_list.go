@@ -18,19 +18,21 @@ import (
 )
 
 type agentSandboxSummary struct {
-	ID           string  `json:"id"`
-	Status       string  `json:"status"`
-	ExternalID   string  `json:"external_id"`
-	ErrorMessage *string `json:"error_message,omitempty"`
-	LastActiveAt *string `json:"last_active_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	snapshotID   *string
+	ID             string  `json:"id"`
+	Status         string  `json:"status"`
+	ExternalID     string  `json:"external_id"`
+	RuntimeVersion string  `json:"runtime_version,omitempty"`
+	ErrorMessage   *string `json:"error_message,omitempty"`
+	LastActiveAt   *string `json:"last_active_at,omitempty"`
+	CreatedAt      string  `json:"created_at"`
+	snapshotID     *string
 }
 
 type agentListItem struct {
 	agentResponse
-	UpgradeAvailable bool                 `json:"upgrade_available"`
-	Sandbox          *agentSandboxSummary `json:"sandbox,omitempty"`
+	UpgradeAvailable     bool                 `json:"upgrade_available"`
+	LatestRuntimeVersion string               `json:"latest_runtime_version,omitempty"`
+	Sandbox              *agentSandboxSummary `json:"sandbox,omitempty"`
 }
 
 // @Summary List AI agents
@@ -90,6 +92,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 	skills := h.loadAgentSkills(agentIDs...)
 	sandboxes := h.loadMainAgentRuntimeSandboxSummaries(r.Context(), org.ID, agentIDs)
 	currentSnapshotID := h.currentAgentSandboxSnapshotID()
+	latestRuntimeVersion := agentRuntimeVersionLabel(currentSnapshotID)
 
 	items := make([]agentListItem, len(agents))
 	for i, a := range agents {
@@ -97,9 +100,10 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 		base.Triggers = triggers[a.ID]
 		base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &a, skills[a.ID])
 		items[i] = agentListItem{
-			agentResponse:    base,
-			UpgradeAvailable: agentSandboxUpgradeAvailable(sandboxes[a.ID], currentSnapshotID),
-			Sandbox:          sandboxes[a.ID],
+			agentResponse:        base,
+			UpgradeAvailable:     agentSandboxUpgradeAvailable(sandboxes[a.ID], currentSnapshotID),
+			LatestRuntimeVersion: latestRuntimeVersion,
+			Sandbox:              sandboxes[a.ID],
 		}
 	}
 
@@ -160,9 +164,10 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	currentSnapshotID := h.currentAgentSandboxSnapshotID()
 
 	writeJSON(w, http.StatusOK, agentListItem{
-		agentResponse:    base,
-		UpgradeAvailable: agentSandboxUpgradeAvailable(sandbox, currentSnapshotID),
-		Sandbox:          sandbox,
+		agentResponse:        base,
+		UpgradeAvailable:     agentSandboxUpgradeAvailable(sandbox, currentSnapshotID),
+		LatestRuntimeVersion: agentRuntimeVersionLabel(currentSnapshotID),
+		Sandbox:              sandbox,
 	})
 }
 
@@ -191,10 +196,12 @@ func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(ctx, orgID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
 	sandbox := h.loadMainAgentRuntimeSandboxSummaries(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]
+	currentSnapshotID := h.currentAgentSandboxSnapshotID()
 	return agentListItem{
-		agentResponse:    base,
-		UpgradeAvailable: agentSandboxUpgradeAvailable(sandbox, h.currentAgentSandboxSnapshotID()),
-		Sandbox:          sandbox,
+		agentResponse:        base,
+		UpgradeAvailable:     agentSandboxUpgradeAvailable(sandbox, currentSnapshotID),
+		LatestRuntimeVersion: agentRuntimeVersionLabel(currentSnapshotID),
+		Sandbox:              sandbox,
 	}
 }
 

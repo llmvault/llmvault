@@ -112,8 +112,10 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	if deps.Orchestrator != nil && deps.S3Client != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil {
 		mux.HandleFunc(TypeAgentSandboxUpgrade,
 			NewAgentSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.S3Client, deps.AgentCompile, deps.Enqueuer).Handle)
-		mux.HandleFunc(TypeAgentSandboxAutoUpgrade,
-			NewAgentSandboxAutoUpgradeHandler(deps.DB, deps.AgentCompile, deps.Enqueuer).Handle)
+		if AgentSandboxAutoUpgradeEnabled {
+			mux.HandleFunc(TypeAgentSandboxAutoUpgrade,
+				NewAgentSandboxAutoUpgradeHandler(deps.DB, deps.AgentCompile, deps.Enqueuer).Handle)
+		}
 	}
 
 	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.Enqueuer != nil {

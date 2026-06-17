@@ -597,7 +597,7 @@ function EditsBlock({
             <span className="text-danger">-{block.dels}</span>
           </span>
         </div>
-        <Button variant="ghost" size="sm" className="gap-1.5 text-muted">
+        <Button variant="ghost" size="sm" className="gap-1.5">
           Undo
           <Icon icon="lucide:rotate-ccw" className="h-3.5 w-3.5" />
         </Button>

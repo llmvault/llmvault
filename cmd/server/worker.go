@@ -120,7 +120,7 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 			return agentruntime.PushAgentRuntimeConfigForSandbox(ctx, workerDeps.AgentCompile, sb)
 		})
 	}
-	if deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.AgentCompile.EncKey != nil && workerDeps.AgentCompile.KMS != nil && cfg.AgentSandboxAutoUpgrade {
+	if tasks.AgentSandboxAutoUpgradeEnabled && deps.Orchestrator != nil && deps.S3Client != nil && workerDeps.AgentCompile.EncKey != nil && workerDeps.AgentCompile.KMS != nil && cfg.AgentSandboxAutoUpgrade {
 		if err := tasks.EnqueueAgentSandboxAutoUpgrade(ctx, enqueuer, tasks.AgentSandboxAutoUpgradePayload{
 			RuntimeImage: sandbox.AgentRuntimeTemplateRef(cfg),
 			Limit:        cfg.AgentSandboxAutoUpgradeLimit,
