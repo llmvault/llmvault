@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -203,10 +204,14 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 }
 
 func (h *SessionHandler) bestEffortSandboxID(r *http.Request, orgID uuid.UUID, agent model.Agent) *uuid.UUID {
+	return h.bestEffortSandboxIDForContext(r.Context(), orgID, agent)
+}
+
+func (h *SessionHandler) bestEffortSandboxIDForContext(ctx context.Context, orgID uuid.UUID, agent model.Agent) *uuid.UUID {
 	if agent.SandboxStrategy != agentStrategyAlwaysOn {
 		return nil
 	}
-	sandbox, err := agentsandbox.Selector{DB: h.db}.MainRuntime(r.Context(), orgID, agent.ID)
+	sandbox, err := agentsandbox.Selector{DB: h.db}.MainRuntime(ctx, orgID, agent.ID)
 	if err != nil || sandbox == nil {
 		return nil
 	}

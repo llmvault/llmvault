@@ -24,6 +24,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	workerBase := agentSessionsBaseURL("HIVY_WORKER_BASE_URL", "HIVY_COMPOSE_WORKER_HEALTH_PORT", "8090")
 	requireAgentSessionsHealthy(t, ctx, apiBase, "api")
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
+	agentSessionsEnsureSystemOpenRouterCredential(t)
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
 	password := "agent-sessions-e2e-password"
@@ -49,6 +50,8 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	agents := agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
 	defaultAgent := findDefaultAgent(t, agents)
 	t.Logf("default agent id=%s name=%s sandbox_present=%t", defaultAgent.ID, defaultAgent.Name, defaultAgent.Sandbox != nil)
+	pluginFixture := agentSessionsSeedPluginFixture(t, orgID, ownerAuth.User.ID, runID)
+	t.Logf("seeded plugin slug=%s id=%s connection=%s", pluginFixture.PluginSlug, pluginFixture.PluginID, pluginFixture.ConnectionID)
 
 	channels := agentSessionsListChannels(t, ctx, apiBase, ownerToken, orgID)
 	general := findDefaultGeneralChannel(t, channels, defaultAgent.ID)
@@ -74,6 +77,11 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, "bash")
 	})
 	t.Logf("first turn entered tool execution event=%s", firstToolEvent.RawData)
+	pluginInstall := agentSessionsInstallPlugin(t, ctx, apiBase, ownerToken, orgID, pluginFixture.PluginSlug)
+	if len(pluginInstall.EnabledAgentIDs) == 0 {
+		t.Fatalf("plugin install did not enable any agent: %+v", pluginInstall)
+	}
+	t.Logf("installed plugin slug=%s enabled_agents=%v while first turn was active", pluginInstall.Slug, pluginInstall.EnabledAgentIDs)
 
 	detail := agentSessionsPutParticipant(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, memberAuth.User.ID)
 	assertAgentSessionsParticipant(t, detail, memberAuth.User.ID)
@@ -106,6 +114,8 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 
 	secondResponse := waitForAgentSessionsResponse(t, ctx, apiBase, memberToken, orgID, session.Session.ID, secondMarker)
 	t.Logf("collaborator agent response observed event_id=%s type=%s", secondResponse.ID, secondResponse.EventType)
+	pluginFixture = waitForPluginServiceDiscoverySession(t, ctx, orgID, pluginFixture)
+	t.Logf("plugin service discovery session observed install=%s", pluginFixture.InstallID)
 	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	assertAgentSessionsEventOrder(t, events)
 	assertAgentSessionsCanonicalIngestion(t, events, session.Session.ID, "", thinkingMarker, firstMarker, secondMarker)
