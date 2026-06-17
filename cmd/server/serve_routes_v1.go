@@ -192,6 +192,7 @@ func setupV1Routes(
 				if agentHandler != nil {
 					r.Get("/agents", agentHandler.List)
 					r.Get("/agents/catalog", agentHandler.ListCatalog)
+					r.Get("/agents/catalog/{slug}", agentHandler.GetCatalog)
 					r.Get("/agents/models", agentHandler.ListModels)
 					r.Get("/agents/{id}", agentHandler.Get)
 					if pluginHandler != nil {

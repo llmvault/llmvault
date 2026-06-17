@@ -63,7 +63,8 @@ function SettingsChrome({ children }: { children: React.ReactNode }) {
               </span>
               {section.items.map((item) => {
                 const href = settingsHref(item.id)
-                const active = pathname === href
+                const active =
+                  pathname === href || pathname.startsWith(`${href}/`)
                 return (
                   <Link
                     key={item.id}

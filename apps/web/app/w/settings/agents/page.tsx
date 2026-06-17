@@ -1,142 +1,61 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Avatar, Button, Input, ListBox, Select, toast } from "@heroui/react"
+import NextLink from "next/link"
+import { Input, ListBox, Select } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { cn } from "@/lib/utils"
+import { $api } from "@/lib/api/hooks"
+import { AgentAvatar } from "./_agent-avatar"
+import {
+  agentCategories,
+  agentCategory,
+  agentDescription,
+  agentIsInstalled,
+  agentMatchesCategory,
+  agentMatchesQuery,
+  agentName,
+  agentSlug,
+  groupAgents,
+  type AgentCategory,
+  type InstalledAgent,
+  type CatalogAgent,
+} from "./_lib"
 
-type AgentCategory = "All" | "Featured" | string
-
-interface CatalogAgent {
-  id: string
-  name: string
-  description: string
-  category: string
-  avatarUrl?: string
-  icon: string
-  iconColor: string
-  featured?: boolean
-  installed?: boolean
-}
-
-const CATALOG_AGENTS: CatalogAgent[] = [
-  {
-    id: "hivy",
-    name: "Hivy",
-    description:
-      "Triage work, answer questions, and route requests across the workspace.",
-    category: "Workspace",
-    avatarUrl: "/assets/hivy.png",
-    icon: "lucide:sparkles",
-    iconColor: "#6D5EF7",
-    featured: true,
-    installed: true,
-  },
-  {
-    id: "hakaree",
-    name: "Hakaree",
-    description: "Coding, devops, infrastructure and debugging specialist.",
-    category: "Developer Tools",
-    avatarUrl: "/assets/hakaree.png",
-    icon: "lucide:code-xml",
-    iconColor: "#2563EB",
-    featured: true,
-  },
-  {
-    id: "software-engineer",
-    name: "Software Engineer",
-    description:
-      "Build features, fix bugs, run tests, and prepare pull requests from a sandbox.",
-    category: "Developer Tools",
-    icon: "lucide:code-xml",
-    iconColor: "#2563EB",
-    featured: true,
-  },
-  {
-    id: "support-engineer",
-    name: "Support Engineer",
-    description:
-      "Investigate customer issues, inspect connected tools, and draft replies.",
-    category: "Customer Support",
-    icon: "lucide:headset",
-    iconColor: "#0F766E",
-    featured: true,
-  },
-  {
-    id: "research-analyst",
-    name: "Research Analyst",
-    description:
-      "Search sources, compare findings, and write concise research briefs.",
-    category: "Research",
-    icon: "lucide:telescope",
-    iconColor: "#7C3AED",
-  },
-  {
-    id: "data-analyst",
-    name: "Data Analyst",
-    description:
-      "Query connected data, explain metric changes, and produce charts.",
-    category: "Data & Analytics",
-    icon: "lucide:chart-spline",
-    iconColor: "#0891B2",
-  },
-  {
-    id: "sales-assistant",
-    name: "Sales Assistant",
-    description:
-      "Prepare account summaries, draft follow-ups, and organize deal next steps.",
-    category: "Business & Operations",
-    icon: "lucide:trending-up",
-    iconColor: "#EA580C",
-  },
-  {
-    id: "content-writer",
-    name: "Content Writer",
-    description:
-      "Draft docs, updates, and launch copy from briefs and workspace context.",
-    category: "Creativity",
-    icon: "lucide:pen-line",
-    iconColor: "#DB2777",
-  },
-]
+const EMPTY_CATALOG_AGENTS: CatalogAgent[] = []
+const EMPTY_INSTALLED_AGENTS: InstalledAgent[] = []
 
 export default function AgentsSettingsPage() {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<AgentCategory>("All")
-  const [installedAgentIDs, setInstalledAgentIDs] = useState(
-    () =>
-      new Set(
-        CATALOG_AGENTS.filter((agent) => agent.installed).map(
-          (agent) => agent.id
-        )
-      )
-  )
 
-  const categories = useMemo(() => agentCategories(CATALOG_AGENTS), [])
-  const installedAgents = useMemo(
-    () => CATALOG_AGENTS.filter((agent) => installedAgentIDs.has(agent.id)),
-    [installedAgentIDs]
+  const catalogQuery = $api.useQuery("get", "/v1/agents/catalog")
+  const installedQuery = $api.useQuery("get", "/v1/agents", {
+    params: { query: { status: "active", limit: 100 } },
+  })
+
+  const catalogAgents =
+    (catalogQuery.data as CatalogAgent[] | undefined) ?? EMPTY_CATALOG_AGENTS
+  const installedAgents =
+    (installedQuery.data?.data as InstalledAgent[] | undefined) ??
+    EMPTY_INSTALLED_AGENTS
+  const categories = useMemo(
+    () => agentCategories(catalogAgents),
+    [catalogAgents]
   )
   const filteredAgents = useMemo(
     () =>
-      CATALOG_AGENTS.filter(
+      catalogAgents.filter(
         (agent) =>
           agentMatchesCategory(agent, category) &&
           agentMatchesQuery(agent, query)
       ),
-    [category, query]
+    [catalogAgents, category, query]
   )
   const groupedAgents = useMemo(
     () => groupAgents(filteredAgents, categories, category),
     [categories, category, filteredAgents]
   )
   const sectionEntries = Object.entries(groupedAgents)
-
-  function handleInstall(agent: CatalogAgent) {
-    if (installedAgentIDs.has(agent.id)) return
-    setInstalledAgentIDs((current) => new Set(current).add(agent.id))
-    toast.success(`${agent.name} agent installed`)
-  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -168,34 +87,16 @@ export default function AgentsSettingsPage() {
         />
       </div>
 
-      {installedAgents.length > 0 ? (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-foreground">
-              Installed agents
-            </h2>
-            <button
-              type="button"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Manage
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {installedAgents.map((agent) => (
-              <div
-                key={agent.id}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-card transition-colors hover:bg-muted/40"
-                title={agent.name}
-              >
-                <AgentAvatar agent={agent} size="sm" />
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <InstalledAgentsSection
+        agents={installedAgents}
+        isLoading={installedQuery.isLoading}
+      />
 
-      {sectionEntries.length === 0 ? (
+      {catalogQuery.isLoading ? (
+        <CatalogSkeleton />
+      ) : catalogQuery.isError ? (
+        <ErrorState />
+      ) : sectionEntries.length === 0 ? (
         <EmptyState query={query} />
       ) : (
         <div className="flex flex-col gap-8">
@@ -203,12 +104,10 @@ export default function AgentsSettingsPage() {
             <section key={section} className="flex flex-col gap-3">
               <h2 className="text-sm font-medium text-foreground">{section}</h2>
               <div className="flex flex-col bg-card">
-                {agents.map((agent) => (
+                {agents.map((agent, index) => (
                   <AgentRow
-                    key={agent.id}
+                    key={agentSlug(agent) || `${section}-${index}`}
                     agent={agent}
-                    installed={installedAgentIDs.has(agent.id)}
-                    onInstall={() => handleInstall(agent)}
                   />
                 ))}
               </div>
@@ -217,6 +116,64 @@ export default function AgentsSettingsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function InstalledAgentsSection({
+  agents,
+  isLoading,
+}: {
+  agents: InstalledAgent[]
+  isLoading: boolean
+}) {
+  if (isLoading) {
+    return (
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-foreground">
+            Installed agents
+          </h2>
+          <span className="text-sm text-muted-foreground">Manage</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="bg-default h-8 w-8 animate-pulse rounded-lg"
+            />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  if (agents.length === 0) return null
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-foreground">
+          Installed agents
+        </h2>
+        <button
+          type="button"
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Manage
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {agents.map((agent) => (
+          <div
+            key={agent.id ?? agentName(agent)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-card transition-colors hover:bg-muted/40"
+            title={agentName(agent)}
+          >
+            <AgentAvatar agent={agent} size="sm" />
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -253,17 +210,14 @@ function CategorySelect({
   )
 }
 
-function AgentRow({
-  agent,
-  installed,
-  onInstall,
-}: {
-  agent: CatalogAgent
-  installed: boolean
-  onInstall: () => void
-}) {
+function AgentRow({ agent }: { agent: CatalogAgent }) {
+  const slug = agentSlug(agent)
+
   return (
-    <div className="group -mx-3 py-1.5">
+    <NextLink
+      href={`/w/settings/agents/${slug}`}
+      className="group -mx-3 block py-1.5"
+    >
       <div className="group-hover:bg-default rounded-xl px-3 py-1.5 transition-colors">
         <div className="flex items-center gap-3">
           <AgentAvatar agent={agent} size="md" />
@@ -271,60 +225,68 @@ function AgentRow({
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
               <h3 className="truncate text-sm font-medium text-foreground">
-                {agent.name}
+                {agentName(agent)}
               </h3>
               <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-                {agent.category}
+                {agentCategory(agent)}
               </span>
+              {agentIsInstalled(agent) ? (
+                <span className="bg-default hidden shrink-0 rounded-full px-2 py-0.5 text-xs text-muted-foreground sm:inline">
+                  Installed
+                </span>
+              ) : null}
             </div>
             <p className="truncate text-sm text-muted-foreground">
-              {agent.description}
+              {agentDescription(agent)}
             </p>
           </div>
 
-          <Button
-            variant="tertiary"
-            size="sm"
-            className="shrink-0 rounded-full"
-            isDisabled={installed}
-            onPress={onInstall}
-          >
-            {installed ? "Installed" : "Install"}
-          </Button>
+          <Icon
+            icon="lucide:chevron-right"
+            className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+          />
         </div>
       </div>
+    </NextLink>
+  )
+}
+
+function CatalogSkeleton() {
+  return (
+    <div className="flex flex-col gap-8">
+      {Array.from({ length: 2 }).map((_, section) => (
+        <section key={section} className="flex flex-col gap-3">
+          <div className="bg-default h-4 w-28 animate-pulse rounded" />
+          <div className="flex flex-col gap-3 bg-card">
+            {Array.from({ length: 3 }).map((_, row) => (
+              <div key={row} className="flex items-center gap-3 py-1.5">
+                <div className="bg-default h-9 w-9 animate-pulse rounded-lg" />
+                <div className="min-w-0 flex-1">
+                  <div className="bg-default h-4 w-40 animate-pulse rounded" />
+                  <div className="bg-default mt-2 h-4 w-full max-w-sm animate-pulse rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   )
 }
 
-function AgentAvatar({
-  agent,
-  size,
-}: {
-  agent: CatalogAgent
-  size: "sm" | "md"
-}) {
-  const dimension = size === "sm" ? "h-6 w-6 rounded-md" : "h-9 w-9 rounded-lg"
-  const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-[18px] w-[18px]"
-
-  if (agent.avatarUrl) {
-    return (
-      <Avatar size={size === "sm" ? "sm" : "md"} className="shrink-0">
-        <Avatar.Image src={agent.avatarUrl} />
-        <Avatar.Fallback>{initials(agent.name)}</Avatar.Fallback>
-      </Avatar>
-    )
-  }
-
+function ErrorState() {
   return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center justify-center text-white",
-        dimension
-      )}
-      style={{ backgroundColor: agent.iconColor }}
-    >
-      <Icon icon={agent.icon} className={iconSize} />
+    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
+      <Icon
+        icon="lucide:triangle-alert"
+        className="h-7 w-7 text-muted-foreground"
+      />
+      <p className="mt-3 text-sm font-medium text-foreground">
+        Could not load agents
+      </p>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        Refresh the page to try again.
+      </p>
     </div>
   )
 }
@@ -343,56 +305,4 @@ function EmptyState({ query }: { query: string }) {
       </p>
     </div>
   )
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return (name.trim().slice(0, 2) || "AG").toUpperCase()
-}
-
-function agentCategories(agents: CatalogAgent[]): AgentCategory[] {
-  const categories = new Set<string>()
-  for (const agent of agents) {
-    categories.add(agent.category)
-  }
-  return ["All", "Featured", ...Array.from(categories).sort()]
-}
-
-function agentMatchesCategory(agent: CatalogAgent, category: AgentCategory) {
-  if (category === "All") return true
-  if (category === "Featured") return agent.featured === true
-  return agent.category === category
-}
-
-function agentMatchesQuery(agent: CatalogAgent, query: string) {
-  const normalized = query.trim().toLowerCase()
-  if (!normalized) return true
-  return [agent.name, agent.description, agent.category].some((value) =>
-    value.toLowerCase().includes(normalized)
-  )
-}
-
-function groupAgents(
-  agents: CatalogAgent[],
-  categories: AgentCategory[],
-  category: AgentCategory
-) {
-  if (category !== "All") {
-    return { [category]: agents }
-  }
-
-  const groups: Record<string, CatalogAgent[]> = {}
-  for (const agent of agents) {
-    if (!groups[agent.category]) groups[agent.category] = []
-    groups[agent.category].push(agent)
-  }
-
-  const ordered: Record<string, CatalogAgent[]> = {}
-  for (const section of categories.filter(
-    (item) => item !== "All" && item !== "Featured"
-  )) {
-    if (groups[section]) ordered[section] = groups[section]
-  }
-  return ordered
 }
