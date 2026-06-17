@@ -115,22 +115,8 @@ func (h *ConnectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	logging.FromContext(r.Context()).InfoContext(r.Context(), "connection created", "connection_id", conn.ID, "org_id", org.ID, "user_id", user.ID, "provider", integ.Provider)
 
 	h.autoCreateRAGSourceForConnection(r.Context(), &conn, user.ID, org.ID)
-	h.ensureServiceDiscoveryScheduleForConnection(r.Context(), org.ID, conn)
 
 	writeJSON(w, http.StatusCreated, h.toConnectionResponse(conn))
-}
-
-func (h *ConnectionHandler) ensureServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) {
-	if h.serviceDiscoveryManager == nil || !serviceDiscoveryProviderSupported(conn.Integration.Provider) {
-		return
-	}
-	if err := h.serviceDiscoveryManager.EnsureServiceDiscoveryScheduleForConnection(ctx, orgID, conn); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("ensure service discovery schedule: %w", err), map[string]any{
-			"org_id":        orgID.String(),
-			"connection_id": conn.ID.String(),
-			"provider":      conn.Integration.Provider,
-		})
-	}
 }
 
 // autoCreateRAGSourceForConnection creates a RAG source when a

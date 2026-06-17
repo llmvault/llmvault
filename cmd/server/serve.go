@@ -144,7 +144,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	}
 	sandboxTemplateHandler := handler.NewSandboxTemplateHandler(database, templateBuilder, enqueuer)
 	skillHandler := handler.NewSkillHandler(database, enqueuer)
-	pluginHandler := handler.NewPluginHandler(database)
+	pluginHandler := handler.NewPluginHandler(database, enqueuer)
 
 	var agentHandler *handler.AgentHandler
 	if orchestrator != nil {
@@ -156,7 +156,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		orgHandler.SetAgentSyncer(agentHandler)
 		authHandler.SetAgentSyncer(agentHandler)
 		oauthHandler.SetAgentSyncer(agentHandler)
-		connectionHandler.SetServiceDiscoveryManager(agentHandler)
 	}
 	var sqliteBackupHandler *handler.AgentSQLiteBackupHandler
 	if deps.S3Client != nil && sandboxEncKey != nil {

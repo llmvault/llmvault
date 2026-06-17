@@ -41,6 +41,10 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
 		return
 	}
+	if isReservedChannelName(name) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel name is reserved"})
+		return
+	}
 	visibility := defaultString(cleanStringPtr(req.Visibility), "public")
 	if !validChannelVisibility(visibility) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "visibility must be public or private"})
@@ -197,6 +201,10 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		name := normalizeChannelName(*req.Name)
 		if name == "" {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name cannot be empty"})
+			return false
+		}
+		if isReservedChannelName(name) {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "channel name is reserved"})
 			return false
 		}
 		updates["name"] = name

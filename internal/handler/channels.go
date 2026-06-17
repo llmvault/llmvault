@@ -127,6 +127,10 @@ func normalizeChannelName(raw string) string {
 	return value
 }
 
+func isReservedChannelName(name string) bool {
+	return name == systemChannelName
+}
+
 func formatUUIDPtr(id *uuid.UUID) *string {
 	if id == nil || *id == uuid.Nil {
 		return nil

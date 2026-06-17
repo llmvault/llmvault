@@ -9,16 +9,23 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/tasks"
 )
 
 type PluginHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	enqueuer enqueue.TaskEnqueuer
 }
 
-func NewPluginHandler(db *gorm.DB) *PluginHandler {
-	return &PluginHandler{db: db}
+func NewPluginHandler(db *gorm.DB, enqueuers ...enqueue.TaskEnqueuer) *PluginHandler {
+	var enq enqueue.TaskEnqueuer
+	if len(enqueuers) > 0 {
+		enq = enqueuers[0]
+	}
+	return &PluginHandler{db: db, enqueuer: enq}
 }
 
 // @Summary List plugins
@@ -148,6 +155,14 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to install plugin"})
+		return
+	}
+	if err := tasks.EnqueuePluginInstallSync(r.Context(), h.enqueuer, tasks.PluginInstallSyncPayload{
+		OrgID:     org.ID,
+		PluginID:  plugin.ID,
+		InstallID: install.ID,
+	}); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to queue plugin install sync"})
 		return
 	}
 	resp, err := h.toPluginResponse(r.Context(), org.ID, plugin)

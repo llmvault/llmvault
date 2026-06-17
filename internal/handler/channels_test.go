@@ -150,6 +150,27 @@ func TestIntegration_ChannelsManagementGuardrails(t *testing.T) {
 	}
 }
 
+func TestIntegration_ChannelsRejectReservedSystemName(t *testing.T) {
+	h := newChannelHarness(t)
+	fx := h.seed(t)
+
+	create := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
+		"name":             "#system",
+		"default_agent_id": fx.agent.ID.String(),
+	})
+	if create.Code != http.StatusBadRequest {
+		t.Fatalf("create system status=%d body=%s", create.Code, create.Body.String())
+	}
+
+	channelID := createChannelForTest(t, h, fx, fx.owner, "ops", "public")
+	rename := h.doJSON(t, http.MethodPatch, "/v1/channels/"+channelID, fx, fx.owner, map[string]any{
+		"name": "system",
+	})
+	if rename.Code != http.StatusBadRequest {
+		t.Fatalf("rename system status=%d body=%s", rename.Code, rename.Body.String())
+	}
+}
+
 func createChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, user model.User, name, visibility string) string {
 	t.Helper()
 	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, user, map[string]any{

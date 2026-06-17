@@ -1,13 +1,10 @@
 package handler
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
@@ -67,21 +64,7 @@ func (h *ConnectionHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "connection not found or already revoked"})
 		return
 	}
-	h.disableServiceDiscoveryScheduleForConnection(r.Context(), org.ID, conn)
 
 	logging.FromContext(r.Context()).InfoContext(r.Context(), "connection revoked", "connection_id", conn.ID, "org_id", org.ID, "provider", conn.Integration.Provider)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
-}
-
-func (h *ConnectionHandler) disableServiceDiscoveryScheduleForConnection(ctx context.Context, orgID uuid.UUID, conn model.Connection) {
-	if h.serviceDiscoveryManager == nil || !serviceDiscoveryProviderSupported(conn.Integration.Provider) {
-		return
-	}
-	if err := h.serviceDiscoveryManager.DisableServiceDiscoveryScheduleForConnection(ctx, orgID, conn); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("disable service discovery schedule: %w", err), map[string]any{
-			"org_id":        orgID.String(),
-			"connection_id": conn.ID.String(),
-			"provider":      conn.Integration.Provider,
-		})
-	}
 }
