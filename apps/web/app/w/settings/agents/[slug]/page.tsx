@@ -12,7 +12,6 @@ import {
   AGENT_CATALOG_QUERY_KEY,
   INSTALLED_AGENTS_QUERY_KEY,
   agentCanInstall,
-  agentCategory,
   agentDescription,
   agentIsInstalled,
   agentMissingPlugins,
@@ -91,14 +90,9 @@ export default function AgentDetailPage({
         <div className="flex min-w-0 items-center gap-3">
           <AgentAvatar agent={agent} size="lg" />
           <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold text-foreground">
-                {agentName(agent)}
-              </h1>
-              <span className="bg-default rounded-full px-2 py-0.5 text-xs text-muted-foreground">
-                {agentCategory(agent)}
-              </span>
-            </div>
+            <h1 className="text-xl font-semibold text-foreground">
+              {agentName(agent)}
+            </h1>
             <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
               {agentDescription(agent)}
             </p>

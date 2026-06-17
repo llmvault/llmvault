@@ -8,7 +8,6 @@ import { $api } from "@/lib/api/hooks"
 import { AgentAvatar } from "./_agent-avatar"
 import {
   agentCategories,
-  agentCategory,
   agentDescription,
   agentIsInstalled,
   agentMatchesCategory,
@@ -212,6 +211,7 @@ function CategorySelect({
 
 function AgentRow({ agent }: { agent: CatalogAgent }) {
   const slug = agentSlug(agent)
+  const installed = agentIsInstalled(agent)
 
   return (
     <NextLink
@@ -227,24 +227,25 @@ function AgentRow({ agent }: { agent: CatalogAgent }) {
               <h3 className="truncate text-sm font-medium text-foreground">
                 {agentName(agent)}
               </h3>
-              <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-                {agentCategory(agent)}
-              </span>
-              {agentIsInstalled(agent) ? (
-                <span className="bg-default hidden shrink-0 rounded-full px-2 py-0.5 text-xs text-muted-foreground sm:inline">
-                  Installed
-                </span>
-              ) : null}
             </div>
             <p className="truncate text-sm text-muted-foreground">
               {agentDescription(agent)}
             </p>
           </div>
 
-          <Icon
-            icon="lucide:chevron-right"
-            className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-          />
+          {installed ? (
+            <span
+              aria-label="Installed"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
+            >
+              <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+            </span>
+          ) : (
+            <Icon
+              icon="lucide:chevron-right"
+              className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+            />
+          )}
         </div>
       </div>
     </NextLink>
