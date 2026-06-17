@@ -20,8 +20,8 @@ pub struct AgentDefinition {
     pub limits: Limits,
     #[serde(default)]
     pub context: ContextConfig,
-    #[serde(default)]
-    pub tools: Vec<ToolSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ToolSpec>>,
     #[serde(default)]
     pub mcp_servers: Vec<McpSpec>,
     #[serde(default)]

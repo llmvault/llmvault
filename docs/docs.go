@@ -1230,7 +1230,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the OpenRouter-backed model allowlist supported for Hivy agents.",
+                "description": "Returns canonical models backed by active org or system credentials.",
                 "produces": [
                     "application/json"
                 ],
@@ -8937,6 +8937,50 @@ const docTemplate = `{
                 }
             }
         },
+        "agentCatalogSummary": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "developer": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "official": {
+                    "type": "boolean"
+                },
+                "recommended_plugins": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "required_plugins": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
         "agentConnectionResourceSelection": {
             "type": "object",
             "properties": {
@@ -8963,8 +9007,17 @@ const docTemplate = `{
                         "$ref": "#/definitions/agentSkillSummary"
                     }
                 },
+                "available_models": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
+                },
+                "catalog": {
+                    "$ref": "#/definitions/agentCatalogSummary"
                 },
                 "created_at": {
                     "type": "string"
@@ -9052,6 +9105,12 @@ const docTemplate = `{
         "agentMutationRequest": {
             "type": "object",
             "properties": {
+                "available_models": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -9119,8 +9178,17 @@ const docTemplate = `{
                         "$ref": "#/definitions/agentSkillSummary"
                     }
                 },
+                "available_models": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
+                },
+                "catalog": {
+                    "$ref": "#/definitions/agentCatalogSummary"
                 },
                 "created_at": {
                     "type": "string"
@@ -9994,6 +10062,9 @@ const docTemplate = `{
                 },
                 "model": {
                     "type": "string"
+                },
+                "model_definition": {
+                    "$ref": "#/definitions/sessionModelDefinitionRequest"
                 },
                 "name": {
                     "type": "string"
@@ -12151,6 +12222,9 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
+                "model_definition": {
+                    "$ref": "#/definitions/sessionModelDefinitionRequest"
+                },
                 "raw": {
                     "$ref": "#/definitions/JSON"
                 },
@@ -12213,6 +12287,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "sessionModelDefinitionRequest": {
+            "type": "object",
+            "properties": {
+                "model_id": {
+                    "type": "string"
+                },
+                "reasoning_effort": {
                     "type": "string"
                 }
             }

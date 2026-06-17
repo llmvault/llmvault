@@ -99,24 +99,31 @@ func (h *SessionHandler) dispatchOrQueueSessionDelivery(ctx context.Context, ses
 }
 
 type createSessionRequest struct {
-	ChannelID       string     `json:"channel_id"`
-	AgentID         string     `json:"agent_id,omitempty"`
-	Text            string     `json:"text,omitempty"`
-	Message         string     `json:"message,omitempty"`
-	Name            string     `json:"name,omitempty"`
-	Model           string     `json:"model,omitempty"`
-	AccessMode      string     `json:"access_mode,omitempty"`
-	ReasoningEffort string     `json:"reasoning_effort,omitempty"`
-	Raw             model.JSON `json:"raw,omitempty"`
+	ChannelID       string                         `json:"channel_id"`
+	AgentID         string                         `json:"agent_id,omitempty"`
+	Text            string                         `json:"text,omitempty"`
+	Message         string                         `json:"message,omitempty"`
+	Name            string                         `json:"name,omitempty"`
+	Model           string                         `json:"model,omitempty"`
+	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
+	AccessMode      string                         `json:"access_mode,omitempty"`
+	ReasoningEffort string                         `json:"reasoning_effort,omitempty"`
+	Raw             model.JSON                     `json:"raw,omitempty"`
+}
+
+type sessionModelDefinitionRequest struct {
+	ModelID         string `json:"model_id"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 }
 
 type sendSessionMessageRequest struct {
-	Text            string     `json:"text"`
-	Message         string     `json:"message,omitempty"`
-	User            string     `json:"user,omitempty"`
-	UserDisplayName string     `json:"user_display_name,omitempty"`
-	DynamicContext  model.JSON `json:"dynamic_context,omitempty"`
-	Raw             model.JSON `json:"raw,omitempty"`
+	Text            string                         `json:"text"`
+	Message         string                         `json:"message,omitempty"`
+	User            string                         `json:"user,omitempty"`
+	UserDisplayName string                         `json:"user_display_name,omitempty"`
+	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
+	DynamicContext  model.JSON                     `json:"dynamic_context,omitempty"`
+	Raw             model.JSON                     `json:"raw,omitempty"`
 }
 
 type updateSessionRequest struct {

@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use domain::{
-    AgentDefinition, QuestionAnswerPayload, RequestUserInputPayload, SessionId, UpdatePlanPayload,
-    UpdatePlanResult,
+    AgentDefinition, ModelConfig, QuestionAnswerPayload, RequestUserInputPayload, SessionId,
+    UpdatePlanPayload, UpdatePlanResult,
 };
 use futures::stream::BoxStream;
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,7 @@ pub struct TurnInput {
     pub images: Vec<ImageInput>,
     pub prior_history: Vec<HistoryEntry>,
     pub dynamic_context: Vec<String>,
+    pub model_override: Option<ModelConfig>,
     pub session_stream_id: Option<String>,
     pub trace_id: Option<String>,
     pub turn_id: Option<String>,
@@ -55,6 +56,7 @@ impl TurnInput {
             images: Vec::new(),
             prior_history: Vec::new(),
             dynamic_context: Vec::new(),
+            model_override: None,
             session_stream_id: None,
             trace_id: None,
             turn_id: None,
@@ -87,6 +89,11 @@ impl TurnInput {
         if !stream_id.trim().is_empty() {
             self.session_stream_id = Some(stream_id);
         }
+        self
+    }
+
+    pub fn with_model_override(mut self, model: ModelConfig) -> Self {
+        self.model_override = Some(model);
         self
     }
 

@@ -7,9 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/usehivy/hivy/internal/registry"
 )
+
+var subAgentKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 
 func loadManifests(dir string) ([]Manifest, error) {
 	entries, err := os.ReadDir(dir)
@@ -46,6 +51,9 @@ func loadManifest(path string) (Manifest, error) {
 	if err := loadInstructions(&manifest); err != nil {
 		return Manifest{}, err
 	}
+	if err := loadSubAgentInstructions(&manifest); err != nil {
+		return Manifest{}, err
+	}
 	return manifest, nil
 }
 
@@ -65,6 +73,35 @@ func loadInstructions(manifest *Manifest) error {
 	return nil
 }
 
+func loadSubAgentInstructions(manifest *Manifest) error {
+	if len(manifest.SubAgents) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(manifest.SubAgents))
+	for key := range manifest.SubAgents {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		subAgent := manifest.SubAgents[key]
+		path := strings.TrimSpace(subAgent.Prompt.Instructions)
+		if path == "" {
+			manifest.SubAgents[key] = subAgent
+			continue
+		}
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(manifest.dir, path)
+		}
+		raw, err := os.ReadFile(filepath.Clean(path))
+		if err != nil {
+			return fmt.Errorf("read instructions for subagent %q on agent %q: %w", key, manifest.Slug, err)
+		}
+		subAgent.instructions = strings.TrimSpace(string(raw))
+		manifest.SubAgents[key] = subAgent
+	}
+	return nil
+}
+
 func validateManifests(manifests []Manifest) error {
 	seen := map[string]bool{}
 	for _, manifest := range manifests {
@@ -80,7 +117,34 @@ func validateManifests(manifests []Manifest) error {
 		if seen[manifest.Slug] {
 			return fmt.Errorf("duplicate agent slug %q", manifest.Slug)
 		}
+		if err := validateSubAgents(manifest); err != nil {
+			return err
+		}
 		seen[manifest.Slug] = true
+	}
+	return nil
+}
+
+func validateSubAgents(manifest Manifest) error {
+	keys := make([]string, 0, len(manifest.SubAgents))
+	for key := range manifest.SubAgents {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if !subAgentKeyPattern.MatchString(key) {
+			return fmt.Errorf("agent %q has invalid subagent key %q", manifest.Slug, key)
+		}
+		subAgent := manifest.SubAgents[key]
+		if strings.TrimSpace(subAgent.Name) == "" {
+			return fmt.Errorf("agent %q subagent %q is missing name", manifest.Slug, key)
+		}
+		modelID := strings.TrimSpace(subAgent.Model)
+		if modelID != "" {
+			if err := registry.Global().ValidateCanonicalModel(modelID); err != nil {
+				return fmt.Errorf("agent %q subagent %q model: %w", manifest.Slug, key, err)
+			}
+		}
 	}
 	return nil
 }
@@ -95,6 +159,25 @@ func sourceHash(manifest Manifest) (string, error) {
 	}
 	if _, err := hash.Write([]byte(manifest.instructions)); err != nil {
 		return "", err
+	}
+	keys := make([]string, 0, len(manifest.SubAgents))
+	for key := range manifest.SubAgents {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if _, err := hash.Write([]byte{0}); err != nil {
+			return "", err
+		}
+		if _, err := hash.Write([]byte(key)); err != nil {
+			return "", err
+		}
+		if _, err := hash.Write([]byte{0}); err != nil {
+			return "", err
+		}
+		if _, err := hash.Write([]byte(manifest.SubAgents[key].instructions)); err != nil {
+			return "", err
+		}
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }

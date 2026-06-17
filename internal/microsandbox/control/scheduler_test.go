@@ -60,3 +60,45 @@ func TestSelectRunnerRejectsInsufficientCapacity(t *testing.T) {
 		t.Fatal("expected capacity error")
 	}
 }
+
+func TestReleaseRunnerUsesCurrentReservedCapacity(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:runner-release-current?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+		t.Fatal(err)
+	}
+	runner := model.Runner{
+		ID: "runner-1", Name: "runner-1", APIURL: "http://runner", AuthTokenHash: []byte("hash"),
+		Status: model.RunnerStatusHealthy, TotalCPU: 16, TotalMemoryMB: 32768, TotalDiskGB: 500, CPUOvercommit: 1.5,
+		ReservedCPU: 13, ReservedMemoryMB: 26624, ReservedDiskGB: 400,
+	}
+	if err := db.Create(&runner).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	var staleA, staleB model.Runner
+	if err := db.First(&staleA, "id = ?", runner.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.First(&staleB, "id = ?", runner.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := releaseRunner(db, &staleA, api.Size{CPU: 6, MemoryMB: 12288, DiskGB: 160}); err != nil {
+		t.Fatal(err)
+	}
+	if err := releaseRunner(db, &staleB, api.Size{CPU: 5, MemoryMB: 10240, DiskGB: 160}); err != nil {
+		t.Fatal(err)
+	}
+
+	var got model.Runner
+	if err := db.First(&got, "id = ?", runner.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.ReservedCPU != 2 || got.ReservedMemoryMB != 4096 || got.ReservedDiskGB != 80 {
+		t.Fatalf("reserved capacity = cpu %d memory %d disk %d, want cpu 2 memory 4096 disk 80",
+			got.ReservedCPU, got.ReservedMemoryMB, got.ReservedDiskGB)
+	}
+}

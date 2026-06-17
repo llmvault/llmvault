@@ -1050,7 +1050,7 @@ mod tests {
             multimodal_model: None,
             limits: Default::default(),
             context: Default::default(),
-            tools: Vec::new(),
+            tools: Some(Vec::new()),
             mcp_servers: Vec::new(),
             skills: Vec::new(),
             outbound_channels: Vec::new(),

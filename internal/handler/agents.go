@@ -14,7 +14,7 @@ const (
 	agentHarness            = "agent-sandbox"
 	hivyAgentName           = "Hivy"
 	hivyAgentDescription    = "Hivy is a real teammate focused on getting meaningful company work done."
-	hivyAgentAvatarURL      = "/assets/hivy-avatar.png"
+	hivyAgentAvatarURL      = "/assets/hivy.png"
 	agentStrategyAlwaysOn   = "always_on"
 	agentStrategyPerSession = "per_session"
 )

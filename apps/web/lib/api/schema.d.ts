@@ -1585,7 +1585,7 @@ export interface paths {
         };
         /**
          * List agent-selectable models
-         * @description Returns the OpenRouter-backed model allowlist supported for Hivy agents.
+         * @description Returns canonical models backed by active org or system credentials.
          */
         get: {
             parameters: {
@@ -10350,6 +10350,19 @@ export interface components {
             resource_type?: string;
             response_schema?: string;
         };
+        agentCatalogSummary: {
+            avatar_url?: string;
+            category?: string;
+            description?: string;
+            developer?: string;
+            id?: string;
+            is_default?: boolean;
+            name?: string;
+            official?: boolean;
+            recommended_plugins?: string[];
+            required_plugins?: string[];
+            slug?: string;
+        };
         agentConnectionResourceSelection: {
             full_name?: string;
             id?: string;
@@ -10358,7 +10371,9 @@ export interface components {
         };
         agentListItem: {
             attached_skills?: components["schemas"]["agentSkillSummary"][];
+            available_models?: string[];
             avatar_url?: string;
+            catalog?: components["schemas"]["agentCatalogSummary"];
             created_at?: string;
             description?: string;
             icon?: string;
@@ -10385,6 +10400,7 @@ export interface components {
             upgrade_available?: boolean;
         };
         agentMutationRequest: {
+            available_models?: string[];
             avatar_url?: string;
             description?: string;
             icon?: string;
@@ -10405,7 +10421,9 @@ export interface components {
         };
         agentResponse: {
             attached_skills?: components["schemas"]["agentSkillSummary"][];
+            available_models?: string[];
             avatar_url?: string;
+            catalog?: components["schemas"]["agentCatalogSummary"];
             created_at?: string;
             description?: string;
             icon?: string;
@@ -10706,6 +10724,7 @@ export interface components {
             channel_id?: string;
             message?: string;
             model?: string;
+            model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
             name?: string;
             raw?: components["schemas"]["JSON"];
             reasoning_effort?: string;
@@ -11417,6 +11436,7 @@ export interface components {
         sendSessionMessageRequest: {
             dynamic_context?: components["schemas"]["JSON"];
             message?: string;
+            model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
             raw?: components["schemas"]["JSON"];
             text?: string;
             user?: string;
@@ -11438,6 +11458,10 @@ export interface components {
             sequence_number?: number;
             session_id?: string;
             source?: string;
+        };
+        sessionModelDefinitionRequest: {
+            model_id?: string;
+            reasoning_effort?: string;
         };
         sessionMutationResponse: {
             event?: components["schemas"]["sessionEventResponse"];

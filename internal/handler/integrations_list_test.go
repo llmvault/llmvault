@@ -140,12 +140,112 @@ func TestIntegrationHandler_ListAvailable_Success(t *testing.T) {
 	}
 
 	for _, item := range resp {
-		if _, exists := item["nango_config"]; exists {
-			t.Fatal("nango_config should not be in available response")
-		}
 		if _, exists := item["unique_key"]; exists {
 			t.Fatal("unique_key should not be in available response")
 		}
+	}
+}
+
+func TestIntegrationHandler_ListAvailable_ReturnsSanitizedNangoConfig(t *testing.T) {
+	h := newIntegrationHarness(t, nil)
+	bugsink := createTestIntegration(t, h.db, "bugsink")
+	github := createTestIntegration(t, h.db, "github-app")
+	h.db.Model(&bugsink).Update("nango_config", model.JSON{
+		"auth_mode": "API_KEY",
+		"connection_config": map[string]any{
+			"baseUrl": map[string]any{
+				"title":       "Bugsink URL",
+				"description": "Base URL for the Bugsink instance.",
+				"type":        "string",
+				"example":     "https://bugsink.example.com",
+			},
+		},
+		"credentials_schema":          map[string]any{"api_key": map[string]any{"type": "string"}},
+		"webhook_routing_script":      "secret script",
+		"webhook_secret":              "secret",
+		"webhook_url":                 "https://hooks.example.test",
+		"webhook_user_defined_secret": true,
+	})
+	h.db.Model(&github).Update("nango_config", model.JSON{
+		"auth_mode": "APP",
+		"connection_config": map[string]any{
+			"appPublicLink": map[string]any{
+				"title":       "GitHub App link",
+				"description": "GitHub App public link.",
+				"type":        "string",
+				"automated":   true,
+			},
+			"installation_id": map[string]any{
+				"title":       "Installation ID",
+				"description": "GitHub App installation ID.",
+				"type":        "string",
+				"automated":   true,
+			},
+		},
+	})
+
+	rr := h.doRequest(t, http.MethodGet, "/v1/integrations/available", nil, nil)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp []map[string]any
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	byProvider := availableByProvider(resp)
+
+	bugsinkConfig := requireNangoConfig(t, byProvider["bugsink"])
+	if bugsinkConfig["auth_mode"] != "API_KEY" {
+		t.Fatalf("bugsink auth_mode = %v, want API_KEY", bugsinkConfig["auth_mode"])
+	}
+	connectionConfig := bugsinkConfig["connection_config"].(map[string]any)
+	if _, ok := connectionConfig["baseUrl"]; !ok {
+		t.Fatalf("bugsink connection_config missing baseUrl: %v", connectionConfig)
+	}
+	for _, secretField := range []string{"credentials_schema", "webhook_routing_script", "webhook_secret", "webhook_url", "webhook_user_defined_secret"} {
+		if _, ok := bugsinkConfig[secretField]; ok {
+			t.Fatalf("available nango_config leaked %s", secretField)
+		}
+	}
+
+	githubConfig := requireNangoConfig(t, byProvider["github-app"])
+	if githubConfig["auth_mode"] != "APP" {
+		t.Fatalf("github auth_mode = %v, want APP", githubConfig["auth_mode"])
+	}
+	githubConnectionConfig := githubConfig["connection_config"].(map[string]any)
+	appPublicLink := githubConnectionConfig["appPublicLink"].(map[string]any)
+	if appPublicLink["automated"] != true {
+		t.Fatalf("github appPublicLink automated = %v, want true", appPublicLink["automated"])
+	}
+}
+
+func TestIntegrationHandler_ListAvailable_RefreshesMissingNangoConfig(t *testing.T) {
+	h := newIntegrationHarness(t, nil)
+	integ := createTestIntegration(t, h.db, "glitchtip")
+
+	rr := h.doRequest(t, http.MethodGet, "/v1/integrations/available", nil, nil)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp []map[string]any
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	glitchtipConfig := requireNangoConfig(t, availableByProvider(resp)["glitchtip"])
+	if glitchtipConfig["auth_mode"] != "API_KEY" {
+		t.Fatalf("glitchtip auth_mode = %v, want API_KEY", glitchtipConfig["auth_mode"])
+	}
+	connectionConfig := glitchtipConfig["connection_config"].(map[string]any)
+	if _, ok := connectionConfig["baseUrl"]; !ok {
+		t.Fatalf("glitchtip connection_config missing baseUrl: %v", connectionConfig)
+	}
+
+	var stored model.Integration
+	if err := h.db.First(&stored, "id = ?", integ.ID).Error; err != nil {
+		t.Fatalf("load integration: %v", err)
+	}
+	if stored.NangoConfig["auth_mode"] != "API_KEY" {
+		t.Fatalf("stored auth_mode = %v, want API_KEY", stored.NangoConfig["auth_mode"])
 	}
 }
 
@@ -169,4 +269,25 @@ func TestIntegrationHandler_ListAvailable_ExcludesDeleted(t *testing.T) {
 			t.Fatal("deleted integration should not appear in available list")
 		}
 	}
+}
+
+func availableByProvider(resp []map[string]any) map[string]map[string]any {
+	out := make(map[string]map[string]any, len(resp))
+	for _, item := range resp {
+		provider, _ := item["provider"].(string)
+		out[provider] = item
+	}
+	return out
+}
+
+func requireNangoConfig(t *testing.T, item map[string]any) map[string]any {
+	t.Helper()
+	if item == nil {
+		t.Fatal("available integration not found")
+	}
+	cfg, ok := item["nango_config"].(map[string]any)
+	if !ok {
+		t.Fatalf("nango_config missing or invalid: %v", item["nango_config"])
+	}
+	return cfg
 }

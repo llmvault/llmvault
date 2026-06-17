@@ -6,8 +6,9 @@ use std::sync::Arc;
 
 use async_stream::stream;
 use domain::{
-    AgentDefinition, ConfigStore, MemoryContextConfig, MemoryContextEntry, ModelConfig,
-    SafetyConfig, SessionId, SystemPromptSegment,
+    default_parent_builtin_tool_specs, default_subagent_builtin_tool_specs, AgentDefinition,
+    ConfigStore, MemoryContextConfig, MemoryContextEntry, ModelConfig, SafetyConfig, SessionId,
+    SystemPromptSegment, ToolSpec,
 };
 use futures::{stream::BoxStream, StreamExt};
 use mcp::McpRegistry;
@@ -122,6 +123,7 @@ impl AgentRunner for RigAgentRunner {
         user_input: TurnInput,
         definition_override: Option<Arc<AgentDefinition>>,
     ) -> Result<BoxStream<'static, AgentEvent>> {
+        let is_subagent_definition = definition_override.is_some();
         let snapshot = definition_override.unwrap_or_else(|| self.config.snapshot());
         let model_config = pick_model_for_turn(&snapshot, &user_input);
         let runtime_env = self.config.runtime_env();
@@ -136,7 +138,7 @@ impl AgentRunner for RigAgentRunner {
             reasoning_effort,
             temperature,
             max_output_tokens,
-        } = build_model_client(model_config, &runtime_env)?;
+        } = build_model_client(&model_config, &runtime_env)?;
 
         let mut messages = build_initial_messages(
             &snapshot,
@@ -164,8 +166,9 @@ impl AgentRunner for RigAgentRunner {
         let process_registry = self.tool_context.process_registry.clone();
         let mcp_registry = self.mcp_registry.clone();
 
+        let tool_specs = effective_tool_specs(&snapshot, is_subagent_definition);
         let mut available_tools = build_all_tools(
-            &snapshot.tools,
+            &tool_specs,
             session_id,
             &tool_context,
             &ToolContext {
@@ -1103,13 +1106,103 @@ mod tests {
             multimodal_model: None,
             limits: Limits::default(),
             context: ContextConfig::default(),
-            tools: Vec::new(),
+            tools: Some(Vec::new()),
             mcp_servers: Vec::new(),
             skills: Vec::new(),
             outbound_channels: Vec::new(),
             sub_agents: Default::default(),
             safety: Default::default(),
         }
+    }
+
+    fn tool_kind(spec: &ToolSpec) -> &'static str {
+        match spec {
+            ToolSpec::Bash(_) => "bash",
+            ToolSpec::ReadFile(_) => "read_file",
+            ToolSpec::WriteFile(_) => "write_file",
+            ToolSpec::Cron => "cron",
+            ToolSpec::SubagentTask(_) => "subagent_task",
+            ToolSpec::CheckSubagentTaskStatus => "check_subagent_task_status",
+            ToolSpec::CheckBashStatus => "check_bash_status",
+            ToolSpec::Wake => "wake",
+            ToolSpec::SkillsList => "skills_list",
+            ToolSpec::SkillView => "skill_view",
+            ToolSpec::SkillManage => "skill_manage",
+            ToolSpec::SearchSessions => "search_sessions",
+            ToolSpec::RequestUserInput => "request_user_input",
+            ToolSpec::UpdatePlan => "update_plan",
+        }
+    }
+
+    fn has_tool(specs: &[ToolSpec], kind: &str) -> bool {
+        specs.iter().any(|spec| tool_kind(spec) == kind)
+    }
+
+    #[test]
+    fn missing_parent_tools_default_to_all_builtin_tools() {
+        let mut definition = test_definition();
+        definition.tools = None;
+
+        let specs = effective_tool_specs(&definition, false);
+
+        for kind in [
+            "bash",
+            "read_file",
+            "write_file",
+            "cron",
+            "subagent_task",
+            "check_subagent_task_status",
+            "check_bash_status",
+            "wake",
+            "skills_list",
+            "skill_view",
+            "skill_manage",
+            "search_sessions",
+            "request_user_input",
+            "update_plan",
+        ] {
+            assert!(has_tool(&specs, kind), "missing {kind}");
+        }
+    }
+
+    #[test]
+    fn missing_subagent_tools_default_without_root_orchestration_tools() {
+        let mut definition = test_definition();
+        definition.tools = None;
+
+        let specs = effective_tool_specs(&definition, true);
+
+        for kind in [
+            "bash",
+            "read_file",
+            "write_file",
+            "check_bash_status",
+            "skills_list",
+            "skill_view",
+            "skill_manage",
+            "search_sessions",
+            "update_plan",
+        ] {
+            assert!(has_tool(&specs, kind), "missing {kind}");
+        }
+        for kind in [
+            "cron",
+            "wake",
+            "subagent_task",
+            "check_subagent_task_status",
+            "request_user_input",
+        ] {
+            assert!(!has_tool(&specs, kind), "unexpected {kind}");
+        }
+    }
+
+    #[test]
+    fn explicit_empty_tools_remain_empty() {
+        let definition = test_definition();
+
+        let specs = effective_tool_specs(&definition, false);
+
+        assert!(specs.is_empty());
     }
 
     #[test]
@@ -1488,16 +1581,16 @@ mod tests {
     }
 }
 
-fn pick_model_for_turn<'a>(
-    snapshot: &'a domain::AgentDefinition,
-    input: &TurnInput,
-) -> &'a ModelConfig {
+fn pick_model_for_turn(snapshot: &domain::AgentDefinition, input: &TurnInput) -> ModelConfig {
+    if let Some(model) = input.model_override.as_ref() {
+        return model.clone();
+    }
     if !input.images.is_empty() {
         if let Some(model) = snapshot.multimodal_model.as_ref() {
-            return model;
+            return model.clone();
         }
     }
-    &snapshot.model
+    snapshot.model.clone()
 }
 
 fn build_model_client(
@@ -1545,6 +1638,14 @@ fn build_all_tools(
     let mut tools: Vec<_> = by_name.into_values().collect();
     tools.sort_by(|a, b| a.definition().name.cmp(&b.definition().name));
     tools
+}
+
+fn effective_tool_specs(snapshot: &AgentDefinition, is_subagent_definition: bool) -> Vec<ToolSpec> {
+    match snapshot.tools.as_ref() {
+        Some(tools) => tools.clone(),
+        None if is_subagent_definition => default_subagent_builtin_tool_specs(),
+        None => default_parent_builtin_tool_specs(),
+    }
 }
 
 fn capture_tool_error(

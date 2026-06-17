@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "slack",
   "name": "Slack",
-  "description": "Search Slack, summarize channels, and draft replies.",
+  "description": "Bring your ai team mates directly to your slack workspace.",
   "category": "Communication",
   "icon": "simple-icons:slack",
   "icon_color": "#4A154B",
@@ -17,7 +17,7 @@
   "links": {
     "website": "https://slack.com/"
   },
-  "long_description": "Use the Slack plugin to search conversations, summarize channels, draft replies, and triage work across your connected Slack workspace.",
+  "long_description": "Use the Slack plugin to search conversations, assign tasks, get reports, and create automations directly from slack.",
   "plugin_version": "1",
   "enabled": true,
   "required_connections": [

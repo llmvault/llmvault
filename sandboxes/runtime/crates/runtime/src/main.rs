@@ -20,10 +20,9 @@ use api::{ApiState, OutboundConfigReloader};
 use async_trait::async_trait;
 use db_sync::{spawn_db_sync, DbSyncConfig, DbSyncNotifierHandle};
 use domain::{
-    AgentDefinition, AgentMeta, BashConfig, ConfigStore, DynamicContextPromptSegment, InboundEvent,
-    ListPromptSegment, MemoryPromptSegment, ModelConfig, OutboundChannelSpec, ReadFileConfig,
-    ReasoningEffort, StaticPromptSegment, SystemPromptConfig, SystemPromptSegment, ToolSpec,
-    WriteFileConfig,
+    AgentDefinition, AgentMeta, ConfigStore, DynamicContextPromptSegment, InboundEvent,
+    ListPromptSegment, MemoryPromptSegment, ModelConfig, OutboundChannelSpec, ReasoningEffort,
+    StaticPromptSegment, SystemPromptConfig, SystemPromptSegment,
 };
 use mcp::McpRegistry;
 use outbound::{
@@ -410,7 +409,7 @@ fn bootstrap_agent_definition() -> AgentDefinition {
         multimodal_model: None,
         limits: Default::default(),
         context: Default::default(),
-        tools: default_builtin_tool_specs(),
+        tools: None,
         mcp_servers: Vec::new(),
         skills: Vec::new(),
         outbound_channels: Vec::new(),
@@ -463,47 +462,4 @@ fn bootstrap_system_prompt() -> SystemPromptConfig {
             }),
         ],
     }
-}
-
-fn default_builtin_tool_specs() -> Vec<ToolSpec> {
-    vec![
-        ToolSpec::Bash(BashConfig {
-            workdir: ".".into(),
-            timeout_seconds: 60,
-            max_output_bytes: 5 * 1024 * 1024,
-            deny_patterns: vec![
-                "rm -rf /".into(),
-                "rm -rf ~".into(),
-                "mkfs".into(),
-                "dd if=".into(),
-                ":(){:|:&};:".into(),
-                "shutdown".into(),
-                "reboot".into(),
-            ],
-            env_passthrough: vec!["HOME".into(), "PATH".into(), "LANG".into(), "LC_ALL".into()],
-            sandbox: "process_isolated".into(),
-        }),
-        ToolSpec::ReadFile(ReadFileConfig {
-            allowed_roots: vec![],
-            max_file_size_bytes: 5 * 1024 * 1024,
-            deny_globs: vec![],
-        }),
-        ToolSpec::WriteFile(WriteFileConfig {
-            allowed_roots: vec![],
-            max_file_size_bytes: 5 * 1024 * 1024,
-            deny_globs: vec![],
-            atomic: true,
-        }),
-        ToolSpec::Cron,
-        ToolSpec::SubagentTask(Default::default()),
-        ToolSpec::CheckSubagentTaskStatus,
-        ToolSpec::CheckBashStatus,
-        ToolSpec::SearchSessions,
-        ToolSpec::RequestUserInput,
-        ToolSpec::UpdatePlan,
-        ToolSpec::Wake,
-        ToolSpec::SkillsList,
-        ToolSpec::SkillView,
-        ToolSpec::SkillManage,
-    ]
 }

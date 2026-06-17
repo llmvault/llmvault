@@ -60,7 +60,7 @@ type AgentDefinition struct {
 	MultimodalModel  *ModelConfig                `json:"multimodal_model,omitempty"`
 	Limits           map[string]any              `json:"limits,omitempty"`
 	Context          map[string]any              `json:"context,omitempty"`
-	Tools            []map[string]any            `json:"tools"`
+	Tools            []map[string]any            `json:"tools,omitempty"`
 	McpServers       []any                       `json:"mcp_servers"`
 	Skills           []SkillSpec                 `json:"skills"`
 	OutboundChannels []any                       `json:"outbound_channels"`
@@ -261,6 +261,10 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
+	subAgents, err := buildSubAgents(ctx, deps, agent, modelID)
+	if err != nil {
+		return nil, err
+	}
 	return &AgentDefinition{
 		Agent: AgentMeta{
 			Name:        managedAgentName,
@@ -271,11 +275,10 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel)),
 		Limits:           defaultLimits(),
 		Context:          contextMap,
-		Tools:            defaultTools(),
 		McpServers:       mcpServers,
 		Skills:           skills,
 		OutboundChannels: []any{},
-		SubAgents:        map[string]*AgentDefinition{},
+		SubAgents:        subAgents,
 	}, nil
 }
 
