@@ -82,6 +82,7 @@ func (h *sessionHarness) seed(t *testing.T) sessionFixture {
 	if err := h.db.Create(&org).Error; err != nil {
 		t.Fatalf("create org: %v", err)
 	}
+	seedSessionModelCredential(t, h.db, org.ID)
 	owner := seedSessionUser(t, h.db, org.ID, "owner")
 	member := seedSessionUser(t, h.db, org.ID, "member")
 	viewer := seedSessionUser(t, h.db, org.ID, "viewer")
@@ -137,6 +138,22 @@ func seedSessionAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 		t.Fatalf("create agent: %v", err)
 	}
 	return agent
+}
+
+func seedSessionModelCredential(t *testing.T, db *gorm.DB, orgID uuid.UUID) {
+	t.Helper()
+	cred := model.Credential{
+		OrgID:        &orgID,
+		Label:        "session-model-openrouter-" + uuid.NewString()[:8],
+		BaseURL:      "https://openrouter.example.test/api/v1",
+		AuthScheme:   "bearer",
+		EncryptedKey: []byte("enc"),
+		WrappedDEK:   []byte("dek"),
+		ProviderID:   "openrouter",
+	}
+	if err := db.Create(&cred).Error; err != nil {
+		t.Fatalf("create session model credential: %v", err)
+	}
 }
 
 func sessionTestEncKey(t *testing.T) *crypto.SymmetricKey {
