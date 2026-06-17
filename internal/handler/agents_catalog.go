@@ -28,6 +28,7 @@ type agentCatalogResponse struct {
 	Official           bool                        `json:"official"`
 	IsDefault          bool                        `json:"is_default"`
 	Model              string                      `json:"model"`
+	AvailableModels    []string                    `json:"available_models"`
 	SandboxStrategy    string                      `json:"sandbox_strategy"`
 	RequiredPlugins    []agentCatalogPluginSummary `json:"required_plugins"`
 	RecommendedPlugins []agentCatalogPluginSummary `json:"recommended_plugins"`

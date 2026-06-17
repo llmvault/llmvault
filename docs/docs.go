@@ -9157,6 +9157,12 @@ const docTemplate = `{
         "agentCatalogResponse": {
             "type": "object",
             "properties": {
+                "available_models": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },

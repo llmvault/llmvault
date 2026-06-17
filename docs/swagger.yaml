@@ -383,6 +383,10 @@ definitions:
     type: object
   agentCatalogResponse:
     properties:
+      available_models:
+        items:
+          type: string
+        type: array
       avatar_url:
         type: string
       category:

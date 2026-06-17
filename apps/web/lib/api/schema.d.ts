@@ -10627,6 +10627,7 @@ export interface components {
             slug?: string;
         };
         agentCatalogResponse: {
+            available_models?: string[];
             avatar_url?: string;
             category?: string;
             description?: string;
