@@ -9316,6 +9316,9 @@ const docTemplate = `{
                 "last_memory_refreshed_at": {
                     "type": "string"
                 },
+                "latest_runtime_version": {
+                    "type": "string"
+                },
                 "mcp_servers": {
                     "type": "array",
                     "items": {
@@ -9559,6 +9562,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_active_at": {
+                    "type": "string"
+                },
+                "runtime_version": {
                     "type": "string"
                 },
                 "status": {

@@ -243,7 +243,8 @@ export default function PluginDetailPage({
               </div>
               <Button
                 size="sm"
-                className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
+                variant="primary"
+                className="shrink-0"
                 isDisabled={busy || (!plugin.installed && !canInstall)}
                 onPress={plugin.installed ? handleUninstall : handleInstall}
               >

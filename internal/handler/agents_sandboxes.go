@@ -32,12 +32,13 @@ func loadMainAgentRuntimeSandboxPerAgent(ctx context.Context, db *gorm.DB, orgID
 func sandboxSummary(sandbox model.Sandbox) *agentSandboxSummary {
 	createdAt := sandbox.CreatedAt.UTC().Format(time.RFC3339)
 	summary := &agentSandboxSummary{
-		ID:           sandbox.ID.String(),
-		Status:       sandbox.Status,
-		ExternalID:   sandbox.ExternalID,
-		ErrorMessage: sandbox.ErrorMessage,
-		CreatedAt:    createdAt,
-		snapshotID:   sandbox.SnapshotID,
+		ID:             sandbox.ID.String(),
+		Status:         sandbox.Status,
+		ExternalID:     sandbox.ExternalID,
+		RuntimeVersion: agentRuntimeVersionLabelFromPtr(sandbox.SnapshotID),
+		ErrorMessage:   sandbox.ErrorMessage,
+		CreatedAt:      createdAt,
+		snapshotID:     sandbox.SnapshotID,
 	}
 	if sandbox.LastActiveAt != nil {
 		lastActiveAt := sandbox.LastActiveAt.UTC().Format(time.RFC3339)

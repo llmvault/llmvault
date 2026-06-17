@@ -10674,6 +10674,7 @@ export interface components {
             instructions?: string;
             is_default?: boolean;
             last_memory_refreshed_at?: string;
+            latest_runtime_version?: string;
             mcp_servers?: number[];
             memory_refresh_error?: string;
             memory_refresh_status?: string;
@@ -10746,6 +10747,7 @@ export interface components {
             external_id?: string;
             id?: string;
             last_active_at?: string;
+            runtime_version?: string;
             status?: string;
         };
         agentSandboxUpgradeResponse: {
