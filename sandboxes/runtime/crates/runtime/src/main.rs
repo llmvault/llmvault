@@ -165,6 +165,7 @@ async fn main() -> Result<()> {
     let (inbound_sink, mut inbound_events) = mpsc::channel::<InboundEvent>(256);
     let attachment_downloader: Arc<dyn handler::AttachmentDownloader> =
         Arc::new(handler::HttpAttachmentDownloader::new());
+    let coordinator = Arc::new(SessionCoordinator::new());
 
     let api_state = ApiState::new(
         config.clone(),
@@ -179,6 +180,7 @@ async fn main() -> Result<()> {
         Some(api::SessionMessageState {
             inbound_sink: inbound_sink.clone(),
             broker: session_stream_broker.clone(),
+            interrupter: Some(coordinator.clone()),
         }),
         Some(question_manager.clone()),
         Some(repo_service.clone()),
@@ -234,8 +236,6 @@ async fn main() -> Result<()> {
         .with_event_repo(event_repo.clone())
         .with_mcp_registry(mcp_registry.clone());
     let agent_runner: Arc<dyn AgentRunner> = Arc::new(rig_runner);
-
-    let coordinator = Arc::new(SessionCoordinator::new());
 
     let scheduler = CronScheduler::new(
         cron_repo.clone(),
@@ -304,6 +304,7 @@ async fn main() -> Result<()> {
                         // The turn task panicked. Release the coordinator entry so
                         // future inbound messages for this session are not queued
                         // forever behind a turn that will never call finish_turn.
+                        panic_guard_coordinator.finish_active_turn(&session_id);
                         panic_guard_coordinator.finish_turn(&session_id);
                         let panic_msg = panic
                             .downcast_ref::<&str>()

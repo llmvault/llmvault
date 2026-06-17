@@ -23,6 +23,7 @@ fn test_job(id: &str, interval: u64) -> CronJob {
         last_status: None,
         last_error: None,
         session_continuation_id: None,
+        stream_id: None,
         created_at: Utc::now(),
         created_by_session: "test".into(),
     }
@@ -58,6 +59,7 @@ async fn wake_reminder_preserves_session_continuation() {
     let repo = setup_repo().await;
     let mut job = test_job("wake-1", 300);
     job.session_continuation_id = Some("session-1778247607".into());
+    job.stream_id = Some("stream-1778247607".into());
     job.description = "wake-up reminder".into();
     repo.create(&job).await.unwrap();
 
@@ -66,6 +68,7 @@ async fn wake_reminder_preserves_session_continuation() {
         fetched.session_continuation_id.as_deref(),
         Some("session-1778247607")
     );
+    assert_eq!(fetched.stream_id.as_deref(), Some("stream-1778247607"));
     assert_eq!(fetched.interval_seconds, Some(300));
 }
 

@@ -86,6 +86,11 @@ type HTTPMessageResponse struct {
 	TurnID            string `json:"turn_id"`
 }
 
+type InterruptSessionResponse struct {
+	Interrupted bool   `json:"interrupted"`
+	Status      string `json:"status"`
+}
+
 func NewClient(baseURL, apiKey string) *Client {
 	return NewClientWithTimeout(baseURL, apiKey, defaultHTTPTimeout)
 }
@@ -212,6 +217,27 @@ func (c *Client) PostHTTPMessage(ctx context.Context, body HTTPMessageRequest) (
 	var out HTTPMessageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, fmt.Errorf("decode session message response: %w", err)
+	}
+	return &out, nil
+}
+
+func (c *Client) InterruptSession(ctx context.Context, sessionID string) (*InterruptSessionResponse, error) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return nil, fmt.Errorf("interrupt session: session_id is required")
+	}
+	resp, err := c.do(ctx, http.MethodPost, "/sessions/"+url.PathEscape(sessionID)+"/interrupt", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		raw, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("interrupt session: %s: %s", resp.Status, raw)
+	}
+	var out InterruptSessionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode interrupt session response: %w", err)
 	}
 	return &out, nil
 }

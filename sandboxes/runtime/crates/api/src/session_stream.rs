@@ -24,6 +24,12 @@ use tokio::time::Duration;
 pub struct SessionMessageState {
     pub inbound_sink: tokio::sync::mpsc::Sender<InboundEvent>,
     pub broker: Arc<SessionStreamBroker>,
+    pub interrupter: Option<Arc<dyn SessionInterrupter>>,
+}
+
+#[async_trait::async_trait]
+pub trait SessionInterrupter: Send + Sync + 'static {
+    async fn interrupt_session(&self, session_id: &SessionId) -> bool;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -980,6 +986,7 @@ mod tests {
         let sessions = SessionMessageState {
             inbound_sink: tx,
             broker: broker.clone(),
+            interrupter: None,
         };
 
         let response = sessions
@@ -1046,6 +1053,7 @@ mod tests {
         let sessions = SessionMessageState {
             inbound_sink: tx,
             broker: Arc::new(SessionStreamBroker::new()),
+            interrupter: None,
         };
 
         sessions
@@ -1075,6 +1083,7 @@ mod tests {
         let sessions = SessionMessageState {
             inbound_sink: tx,
             broker: Arc::new(SessionStreamBroker::new()),
+            interrupter: None,
         };
 
         sessions
@@ -1126,6 +1135,7 @@ mod tests {
         let sessions = SessionMessageState {
             inbound_sink: tx,
             broker: Arc::new(SessionStreamBroker::new()),
+            interrupter: None,
         };
 
         let first = sessions
@@ -1245,6 +1255,7 @@ mod tests {
         let sessions = SessionMessageState {
             inbound_sink: tx,
             broker: Arc::new(SessionStreamBroker::new()),
+            interrupter: None,
         };
 
         sessions

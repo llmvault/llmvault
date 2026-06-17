@@ -466,6 +466,46 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
 }
 
 #[tokio::test]
+async fn wake_tool_persists_parent_session_stream_id() {
+    let repo = Arc::new(FakeCronRepo::default());
+    let ctx = ToolContext {
+        cron_repo: Some(repo.clone()),
+        subagent_task_repo: None,
+        event_repo: None,
+        process_registry: None,
+        question_requester: None,
+        plan_updater: None,
+        mcp_registry: None,
+        workspace_root: temp_workspace(),
+        outbound_emitter: None,
+        agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
+            test_agent_definition(),
+        ))),
+        session_stream_id: Some("parent-stream-1".to_string()),
+    };
+    let tool = build_agent_tools(&[ToolSpec::Wake], &SessionId::from("parent-session"), &ctx)
+        .into_iter()
+        .find(|tool| tool.definition().name == "wake")
+        .expect("wake tool");
+
+    let result = tool
+        .call(json!({
+            "seconds": 10,
+            "task_prompt": "Resume and reply"
+        }))
+        .await
+        .expect("wake call");
+    let job_id = result["job_id"].as_str().expect("job id");
+    let job = repo.get(job_id).await.expect("repo get").expect("wake job");
+
+    assert_eq!(
+        job.session_continuation_id.as_deref(),
+        Some("parent-session")
+    );
+    assert_eq!(job.stream_id.as_deref(), Some("parent-stream-1"));
+}
+
+#[tokio::test]
 async fn request_user_input_tool_is_registered_and_returns_answer() {
     let requester = Arc::new(FakeQuestionRequester::default());
     let ctx = ToolContext {
@@ -851,6 +891,7 @@ async fn wake_jobs_do_not_emit_schedule_events() {
         last_status: None,
         last_error: None,
         session_continuation_id: Some("C123-456.789".to_string()),
+        stream_id: None,
         created_at: now,
         created_by_session: "C123-456.789".to_string(),
     };

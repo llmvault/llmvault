@@ -89,7 +89,11 @@ pub fn build_agent_tools(
             ToolSpec::Wake => {
                 if let Some(repo) = &ctx.cron_repo {
                     if !session_is_cron {
-                        tools.push(wake_tool(repo.clone(), session_id.clone()));
+                        tools.push(wake_tool(
+                            repo.clone(),
+                            session_id.clone(),
+                            ctx.session_stream_id.clone(),
+                        ));
                     }
                 }
             }
@@ -394,7 +398,11 @@ fn cron_tool(
     ))
 }
 
-fn wake_tool(repo: Arc<dyn CronJobRepo>, session_id: SessionId) -> Arc<dyn JsonTool> {
+fn wake_tool(
+    repo: Arc<dyn CronJobRepo>,
+    session_id: SessionId,
+    session_stream_id: Option<String>,
+) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "wake".into(),
@@ -404,6 +412,7 @@ fn wake_tool(repo: Arc<dyn CronJobRepo>, session_id: SessionId) -> Arc<dyn JsonT
         move |args| {
             let repo = repo.clone();
             let session_id = session_id.clone();
+            let session_stream_id = session_stream_id.clone();
             Box::pin(async move {
                 let seconds = args
                     .get("seconds")
@@ -431,6 +440,7 @@ fn wake_tool(repo: Arc<dyn CronJobRepo>, session_id: SessionId) -> Arc<dyn JsonT
                     last_status: None,
                     last_error: None,
                     session_continuation_id: Some(session_id.as_str().to_string()),
+                    stream_id: session_stream_id.clone(),
                     created_at: now,
                     created_by_session: session_id.as_str().to_string(),
                 };
@@ -875,6 +885,7 @@ async fn execute_cron(
                 last_status: None,
                 last_error: None,
                 session_continuation_id: None,
+                stream_id: None,
                 created_at: now,
                 created_by_session: session_id.as_str().to_string(),
             };

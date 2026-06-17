@@ -36,7 +36,7 @@ func NewAgentGitHubResourcesCloneTask(payload AgentGitHubResourcesClonePayload) 
 	}
 	opts := []asynq.Option{
 		asynq.Queue(QueueDefault),
-		asynq.MaxRetry(3),
+		asynq.MaxRetry(0),
 		asynq.Timeout(agentGitHubResourcesCloneTimeout),
 		asynq.Unique(10 * time.Second),
 		asynq.TaskID(fmt.Sprintf("agent-github-resources-clone:%s:%s", payload.AgentID, payload.ConnectionID)),
@@ -69,7 +69,7 @@ func (h *AgentGitHubResourcesCloneHandler) Handle(ctx context.Context, task *asy
 	}
 	if err := h.run(ctx, payload); err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("github resources clone failed: %w", err), fields)
-		return err
+		return nil
 	}
 	logging.FromContext(ctx).InfoContext(ctx, "github resources clone completed",
 		"org_id", payload.OrgID,
@@ -111,8 +111,12 @@ func (h *AgentGitHubResourcesCloneHandler) run(ctx context.Context, payload Agen
 			return fmt.Errorf("refresh agent sandbox url: %w", err)
 		}
 	}
-	if err := h.orchestrator.SyncAgentSelectedRepositories(ctx, sb, &agent); err != nil {
-		return err
+	if err := h.orchestrator.SyncGitHubConnectionResources(ctx, sb, access.Resources); err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("sync selected github repositories: %w", err), map[string]any{
+			"org_id":        payload.OrgID.String(),
+			"agent_id":      payload.AgentID.String(),
+			"connection_id": payload.ConnectionID.String(),
+		})
 	}
 	if err := agentruntime.PushAgentRuntimeConfig(ctx, h.compileDeps, &agent, sb); err != nil {
 		return fmt.Errorf("push agent runtime config: %w", err)

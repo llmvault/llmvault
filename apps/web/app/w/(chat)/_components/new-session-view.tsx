@@ -22,6 +22,7 @@ import {
   seedSessionEvents,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
+  agentAvatarURL,
   agentDisplayName,
   agentIcon,
   agentModel,
@@ -124,6 +125,7 @@ export function SessionView({
       agentId: selectedAgent?.id ?? fallbackAgent.id,
       agentName: selectedAgent ? agentDisplayName(selectedAgent) : undefined,
       agentIcon: agentIcon(selectedAgent),
+      agentAvatarURL: agentAvatarURL(selectedAgent),
       modelId,
     }
 
@@ -189,6 +191,7 @@ export function SessionView({
               ? agentDisplayName(selectedAgent)
               : undefined,
             agentIcon: agentIcon(selectedAgent),
+            agentAvatarURL: agentAvatarURL(selectedAgent),
             modelId,
           },
           { replace: true }

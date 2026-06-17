@@ -6,11 +6,11 @@ use crate::repos::Result;
 
 const CRON_SELECT_COLS: &str = "id, description, channel, task_prompt, cron_expression, \
     interval_seconds, repeat_count, repeat_completed, state, next_run_at, last_run_at, \
-    last_status, last_error, session_continuation_id, created_at, created_by_session";
+    last_status, last_error, session_continuation_id, stream_id, created_at, created_by_session";
 
 pub(super) async fn cron_create(conn: &mut SqliteConnection, job: CronJob) -> Result<()> {
     sqlx::query(&format!(
-        "INSERT INTO cron_jobs ({CRON_SELECT_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO cron_jobs ({CRON_SELECT_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ))
     .bind(job.id).bind(job.description).bind(job.channel)
     .bind(job.task_prompt).bind(job.cron_expression)
@@ -21,6 +21,7 @@ pub(super) async fn cron_create(conn: &mut SqliteConnection, job: CronJob) -> Re
     .bind(job.last_run_at.map(|t| t.to_rfc3339()))
     .bind(job.last_status).bind(job.last_error)
     .bind(job.session_continuation_id)
+    .bind(job.stream_id)
     .bind(job.created_at.to_rfc3339()).bind(job.created_by_session)
     .execute(conn).await?;
     Ok(())

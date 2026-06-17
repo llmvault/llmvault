@@ -30,6 +30,7 @@ type PluginInstallSyncHandler struct {
 	db             *gorm.DB
 	agentHandler   *AgentHandler
 	sessionHandler *SessionHandler
+	enq            enqueue.TaskEnqueuer
 }
 
 func NewPluginInstallSyncHandler(
@@ -43,6 +44,7 @@ func NewPluginInstallSyncHandler(
 		db:             db,
 		agentHandler:   agentHandler,
 		sessionHandler: NewSessionHandler(db, enq).WithRuntimeDelivery(orchestrator, compileDeps),
+		enq:            enq,
 	}
 }
 
@@ -81,7 +83,31 @@ func (h *PluginInstallSyncHandler) Handle(ctx context.Context, task *asynq.Task)
 	if err := h.syncAlwaysOnAgents(ctx, payload.OrgID); err != nil {
 		return err
 	}
+	h.enqueuePluginResourceReconcile(ctx, payload.OrgID, plugin.ID)
 	return h.dispatchPluginServiceDiscovery(ctx, payload, plugin, discoveryAgent)
+}
+
+func (h *PluginInstallSyncHandler) enqueuePluginResourceReconcile(ctx context.Context, orgID, pluginID uuid.UUID) {
+	if h == nil || h.db == nil || h.enq == nil {
+		return
+	}
+	var conns []model.Connection
+	if err := h.db.WithContext(ctx).
+		Preload("Integration").
+		Joins("JOIN integrations ON integrations.id = connections.integration_id AND integrations.deleted_at IS NULL").
+		Joins("JOIN plugin_integrations ON plugin_integrations.provider = integrations.provider AND plugin_integrations.kind = ? AND plugin_integrations.plugin_id = ?", model.PluginIntegrationKindIntegration, pluginID).
+		Where("connections.org_id = ? AND connections.revoked_at IS NULL", orgID).
+		Order("connections.created_at ASC").
+		Find(&conns).Error; err != nil {
+		logging.CaptureWithFields(ctx, fmt.Errorf("list plugin resource connections: %w", err), map[string]any{
+			"org_id":    orgID.String(),
+			"plugin_id": pluginID.String(),
+		})
+		return
+	}
+	for _, conn := range conns {
+		enqueueGitHubRepositoryCloneForAlwaysOnAgents(ctx, h.db, h.enq, orgID, conn)
+	}
 }
 
 func (h *PluginInstallSyncHandler) syncAlwaysOnAgents(ctx context.Context, orgID uuid.UUID) error {

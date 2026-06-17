@@ -20,6 +20,40 @@ export function channelRouteSlug(channel: SidebarChannelResponse): string {
   return slugify(channelDisplayName(channel))
 }
 
+export function sortChannelsByRecentSession(
+  channels: SidebarChannelResponse[],
+  latestSessionsByChannelID: Map<string, SidebarSessionResponse | null>
+): SidebarChannelResponse[] {
+  return channels
+    .map((channel, index) => {
+      const latestSession = channel.id
+        ? latestSessionsByChannelID.get(channel.id)
+        : undefined
+      return {
+        channel,
+        index,
+        hasSession: Boolean(latestSession),
+        timestamp:
+          timestampValue(latestSession?.last_activity_at) ??
+          timestampValue(latestSession?.updated_at) ??
+          timestampValue(latestSession?.created_at) ??
+          timestampValue(channel.updated_at) ??
+          timestampValue(channel.created_at) ??
+          0,
+      }
+    })
+    .sort((left, right) => {
+      if (left.hasSession !== right.hasSession) {
+        return left.hasSession ? -1 : 1
+      }
+      if (left.timestamp !== right.timestamp) {
+        return right.timestamp - left.timestamp
+      }
+      return left.index - right.index
+    })
+    .map(({ channel }) => channel)
+}
+
 export function channelRouteSlugCounts(channels: SidebarChannelResponse[]) {
   const counts = new Map<string, number>()
   for (const channel of channels) {
@@ -56,6 +90,16 @@ export function agentIcon(agent?: SidebarAgentResponse): string {
   return agent?.icon?.trim() || "lucide:bot"
 }
 
+export function agentAvatarURL(
+  agent?: SidebarAgentResponse
+): string | undefined {
+  const avatarURL = agent?.avatar_url?.trim()
+  if (avatarURL) return avatarURL
+
+  const catalogAvatarURL = agent?.catalog?.avatar_url?.trim()
+  return catalogAvatarURL || undefined
+}
+
 export function agentModel(agent?: SidebarAgentResponse): string | undefined {
   return agent?.model?.trim() || undefined
 }
@@ -84,6 +128,12 @@ export function sessionActivityLabel(session: SidebarSessionResponse): string {
     month: "short",
     day: "numeric",
   }).format(new Date(time))
+}
+
+function timestampValue(value?: string): number | undefined {
+  if (!value) return undefined
+  const time = Date.parse(value)
+  return Number.isNaN(time) ? undefined : time
 }
 
 export function dedupeSessions(sessions: SidebarSessionResponse[]) {

@@ -17,7 +17,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	}
 	loadEnv(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	apiBase := agentSessionsBaseURL("HIVY_API_BASE_URL", "HIVY_COMPOSE_API_PORT", "8080")
@@ -33,6 +33,13 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	firstMarker := "AGENT_SESSIONS_E2E_PASS_" + runID
 	secondMarker := "AGENT_SESSIONS_E2E_MULTI_PASS_" + runID
 	thinkingMarker := "AGENT_SESSIONS_E2E_THINKING_" + runID
+	interruptMarker := "AGENT_SESSIONS_E2E_INTERRUPT_PASS_" + runID
+	interruptRecoveryMarker := "AGENT_SESSIONS_E2E_INTERRUPT_RECOVERY_" + runID
+	interruptSentinelMissing := "AGENT_SESSIONS_E2E_INTERRUPT_SENTINEL_MISSING_" + runID
+	interruptSentinelExists := "AGENT_SESSIONS_E2E_INTERRUPT_SENTINEL_EXISTS_" + runID
+	interruptSentinelPath := "/tmp/hivy_interrupt_" + runID
+	wakeScheduledMarker := "AGENT_SESSIONS_E2E_WAKE_SCHEDULED_" + runID
+	wakeMarker := "AGENT_SESSIONS_E2E_WAKE_STREAM_" + runID
 
 	t.Logf("registering owner=%s", ownerEmail)
 	ownerAuth := agentSessionsRegister(t, ctx, apiBase, ownerEmail, password, "Agent Sessions Owner "+runID)
@@ -132,6 +139,94 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		t.Fatalf("sandbox external_id does not look like a Docker container id: %q", defaultAgent.Sandbox.ExternalID)
 	}
 	t.Logf("sandbox id=%s status=%s external_id=%s", defaultAgent.Sandbox.ID, defaultAgent.Sandbox.Status, defaultAgent.Sandbox.ExternalID)
+
+	wakeSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
+		"This is the agent sessions wake stream E2E.",
+		"Before replying, call wake exactly once with seconds=10 and task_prompt=\"When you wake up, reply exactly " + wakeMarker + " and no other text.\"",
+		"After the wake tool succeeds, visible final reply exactly " + wakeScheduledMarker + " and no other text.",
+	}, "\n"))
+	t.Logf("created wake stream session id=%s queued=%t", wakeSession.Session.ID, wakeSession.Queued)
+	if wakeSession.Session.ID == "" || wakeSession.Event == nil {
+		t.Fatalf("wake stream session was not created correctly: %+v", wakeSession)
+	}
+	wakeSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, wakeSession.Session.ID)
+	wakeDirectURL := agentSessionsDirectStreamURL(wakeSandboxAccess, wakeSession.Session.ID)
+	t.Logf("wake direct sandbox stream url=%s", wakeDirectURL)
+	wakeStream := agentSessionsStartDirectStream(t, ctx, wakeDirectURL, wakeSandboxAccess.Token)
+	wakeToolEvent := wakeStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "tool_call" && strings.Contains(event.RawData, "wake")
+	})
+	t.Logf("wake turn scheduled continuation event=%s", wakeToolEvent.RawData)
+	wakeScheduledEvent := wakeStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "final" && strings.Contains(event.RawData, wakeScheduledMarker)
+	})
+	t.Logf("wake scheduled marker observed on direct stream event=%s", wakeScheduledEvent.RawData)
+	wakeMarkerEvent := wakeStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "final" && strings.Contains(event.RawData, wakeMarker)
+	})
+	t.Logf("wake continuation marker observed on same direct stream event=%s", wakeMarkerEvent.RawData)
+	wakeResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, wakeSession.Session.ID, wakeMarker)
+	t.Logf("wake continuation response observed event_id=%s type=%s", wakeResponse.ID, wakeResponse.EventType)
+
+	interruptCommand := "python3 -c 'import pathlib,time; time.sleep(8); pathlib.Path(\"" + interruptSentinelPath + "\").write_text(\"done\")'"
+	interruptSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
+		"This is the agent sessions interrupt E2E.",
+		"Before replying, call bash exactly once with this foreground command: " + interruptCommand + ".",
+		"Do not run it in the background. Do not call wake. If the bash result completes, final reply exactly " + interruptMarker + " and no other text.",
+	}, "\n"))
+	t.Logf("created interrupt session id=%s queued=%t", interruptSession.Session.ID, interruptSession.Queued)
+	if interruptSession.Session.ID == "" || interruptSession.Event == nil {
+		t.Fatalf("interrupt session was not created correctly: %+v", interruptSession)
+	}
+	interruptSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID)
+	interruptDirectURL := agentSessionsDirectStreamURL(interruptSandboxAccess, interruptSession.Session.ID)
+	t.Logf("interrupt direct sandbox stream url=%s", interruptDirectURL)
+	interruptStream := agentSessionsStartDirectStream(t, ctx, interruptDirectURL, interruptSandboxAccess.Token)
+	interruptToolEvent := interruptStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "tool_call" && strings.Contains(event.RawData, interruptSentinelPath)
+	})
+	t.Logf("interrupt turn entered foreground bash event=%s", interruptToolEvent.RawData)
+	recovery := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID, strings.Join([]string{
+		"Before replying, call bash exactly once with this command: sleep 10; if test -f " + interruptSentinelPath + "; then echo " + interruptSentinelExists + "; else echo " + interruptSentinelMissing + "; fi.",
+		"After the bash result, visible final reply exactly " + interruptRecoveryMarker + " and no other text.",
+	}, "\n"))
+	if !recovery.Queued {
+		t.Fatalf("post-interrupt recovery message should queue behind active interrupted turn: %+v", recovery)
+	}
+	t.Logf("queued recovery message before interrupt event=%s", eventType(recovery.Event))
+	interrupt := agentSessionsInterruptSession(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID)
+	if interrupt.SessionID != interruptSession.Session.ID || !interrupt.Interrupted || interrupt.Status != "interrupted" {
+		t.Fatalf("bad interrupt response: %+v", interrupt)
+	}
+	interruptFinal := interruptStream.waitForEvent(t, ctx, time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "final" && strings.Contains(event.RawData, "Interrupted.")
+	})
+	t.Logf("interrupt final observed event=%s", interruptFinal.RawData)
+	interruptFailed := interruptStream.waitForEvent(t, ctx, time.Minute, func(event runtimeSSEEvent) bool {
+		interrupted, _ := event.Payload["interrupted"].(bool)
+		return event.Name == "turn_failed" && interrupted && strings.Contains(event.RawData, "interrupted by user")
+	})
+	t.Logf("interrupt terminal observed event=%s", interruptFailed.RawData)
+	sentinelEvent := interruptStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
+		return strings.Contains(agentSessionsToolResultOutput(event), interruptSentinelMissing) ||
+			strings.Contains(agentSessionsToolResultOutput(event), interruptSentinelExists)
+	})
+	if strings.Contains(agentSessionsToolResultOutput(sentinelEvent), interruptSentinelExists) {
+		t.Fatalf("interrupted foreground bash wrote sentinel file; event=%s", sentinelEvent.RawData)
+	}
+	t.Logf("interrupted foreground bash sentinel check event=%s", sentinelEvent.RawData)
+	recoveryMarkerEvent := interruptStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
+		return strings.Contains(event.RawData, interruptRecoveryMarker)
+	})
+	t.Logf("post-interrupt recovery marker observed event=%s", recoveryMarkerEvent.RawData)
+	recoveryResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID, interruptRecoveryMarker)
+	t.Logf("post-interrupt session response observed event_id=%s type=%s", recoveryResponse.ID, recoveryResponse.EventType)
+	interruptStream.waitForEvent(t, ctx, time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "done"
+	})
+
+	runAgentSessionsPerSessionCatalogAgentE2E(t, ctx, apiBase, ownerToken, orgID, ownerAuth.User.ID, runID)
+
 	t.Cleanup(func() {
 		agentSessionsDeleteSandbox(t, ctx, apiBase, ownerToken, orgID, defaultAgent.Sandbox.ID)
 	})

@@ -21,7 +21,7 @@ func TestEffectiveResourcesPrefersAgentOverride(t *testing.T) {
 		}},
 	}
 	agentResources := model.JSON{
-		connID.String(): map[string]any{
+		connID.String(): model.JSON{
 			"repository": []any{map[string]any{"id": "org/override", "name": "override"}},
 		},
 	}
@@ -80,8 +80,8 @@ func TestResolveAgentProviderRequiresEnabledPlugin(t *testing.T) {
 	if result.Connection.ID != fixture.connectionID {
 		t.Fatalf("connection id = %s, want %s", result.Connection.ID, fixture.connectionID)
 	}
-	if result.ProviderConfigKey != "linear" {
-		t.Fatalf("provider config key = %q", result.ProviderConfigKey)
+	if result.ProviderConfigKey != fixture.integrationUniqueKey {
+		t.Fatalf("provider config key = %q, want %q", result.ProviderConfigKey, fixture.integrationUniqueKey)
 	}
 }
 
@@ -95,7 +95,7 @@ func TestResolveAgentProviderUsesEffectiveResources(t *testing.T) {
 		t.Fatalf("update connection meta: %v", err)
 	}
 	if err := db.Model(&model.Agent{}).Where("id = ?", fixture.agentID).Update("resources", model.JSON{
-		fixture.connectionID.String(): map[string]any{"project": []any{map[string]any{"id": "override", "name": "Override"}}},
+		fixture.connectionID.String(): model.JSON{"project": []any{map[string]any{"id": "override", "name": "Override"}}},
 	}).Error; err != nil {
 		t.Fatalf("update agent resources: %v", err)
 	}
@@ -115,11 +115,12 @@ func TestResolveAgentProviderUsesEffectiveResources(t *testing.T) {
 }
 
 type resolverFixture struct {
-	orgID         uuid.UUID
-	userID        uuid.UUID
-	agentID       uuid.UUID
-	integrationID uuid.UUID
-	connectionID  uuid.UUID
+	orgID                uuid.UUID
+	userID               uuid.UUID
+	agentID              uuid.UUID
+	integrationID        uuid.UUID
+	integrationUniqueKey string
+	connectionID         uuid.UUID
 }
 
 func newResolverTestDB(t *testing.T) *gorm.DB {
@@ -140,11 +141,12 @@ func newResolverTestDB(t *testing.T) *gorm.DB {
 func insertResolverFixture(t *testing.T, db *gorm.DB) resolverFixture {
 	t.Helper()
 	fixture := resolverFixture{
-		orgID:         uuid.New(),
-		userID:        uuid.New(),
-		agentID:       uuid.New(),
-		integrationID: uuid.New(),
-		connectionID:  uuid.New(),
+		orgID:                uuid.New(),
+		userID:               uuid.New(),
+		agentID:              uuid.New(),
+		integrationID:        uuid.New(),
+		integrationUniqueKey: "linear-" + uuid.NewString()[:8],
+		connectionID:         uuid.New(),
 	}
 	if err := db.Create(&model.Org{ID: fixture.orgID, Name: "resolver-" + uuid.NewString()[:8], Active: true}).Error; err != nil {
 		t.Fatalf("insert org: %v", err)
@@ -166,7 +168,7 @@ func insertResolverFixture(t *testing.T, db *gorm.DB) resolverFixture {
 	}
 	if err := db.Create(&model.Integration{
 		ID:          fixture.integrationID,
-		UniqueKey:   "linear-" + uuid.NewString()[:8],
+		UniqueKey:   fixture.integrationUniqueKey,
 		Provider:    "linear",
 		DisplayName: "Linear",
 	}).Error; err != nil {

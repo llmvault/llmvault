@@ -25,7 +25,9 @@ use tracing::{info, warn};
 pub use plan_manager::PlanManager;
 pub use question_manager::{QuestionAnswerError, QuestionAnswerResponse, QuestionManager};
 pub use repos::RepoService;
-pub use session_stream::{SessionMessageState, SessionStreamBroker, SessionStreamEvent};
+pub use session_stream::{
+    SessionInterrupter, SessionMessageState, SessionStreamBroker, SessionStreamEvent,
+};
 pub use state::{ApiState, OutboundConfigReloader};
 
 #[cfg(feature = "openapi")]
@@ -44,6 +46,7 @@ mod openapi {
             crate::handlers::healthz,
             crate::handlers::readyz,
             crate::handlers::post_session_message,
+            crate::handlers::post_session_interrupt,
             crate::handlers::post_question_answer,
             crate::handlers::get_session_live_stream,
             crate::repos::list_repos,
@@ -119,6 +122,7 @@ mod openapi {
             crate::handlers::ListSessionsParams,
             crate::handlers::ListSessionsResponse,
             crate::handlers::SessionDetailResponse,
+            crate::handlers::SessionInterruptResponse,
             crate::session_stream::SessionStreamEvent,
             crate::session_stream::SessionMessageRequest,
             crate::session_stream::SessionMessageResponse,
@@ -171,6 +175,10 @@ pub fn build_router(state: ApiState) -> Router {
         .route(
             "/sessions/:session_id/messages",
             post(handlers::post_session_message),
+        )
+        .route(
+            "/sessions/:session_id/interrupt",
+            post(handlers::post_session_interrupt),
         )
         .route(
             "/sessions/:session_id/questions/:question_request_id/answer",
@@ -255,8 +263,13 @@ mod openapi_tests {
             "/observability/traces/{trace_id}/events".to_string(),
             "/observability/traces/{trace_id}/summary".to_string(),
             "/readyz".to_string(),
+            "/repos".to_string(),
+            "/repos/{repo_id}/content".to_string(),
+            "/repos/{repo_id}/diff".to_string(),
+            "/repos/{repo_id}/tree".to_string(),
             "/sessions".to_string(),
             "/sessions/{session_id}".to_string(),
+            "/sessions/{session_id}/interrupt".to_string(),
             "/sessions/{session_id}/messages".to_string(),
             "/sessions/{session_id}/questions/{question_request_id}/answer".to_string(),
             "/sessions/{session_id}/stream".to_string(),

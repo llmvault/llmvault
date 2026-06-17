@@ -1,14 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  agentAvatarURL,
   channelRouteSlug,
   dedupeSessions,
   findChannelByRouteSlug,
   isAmbiguousChannelRouteSlug,
   sessionActivityLabel,
   sessionRouteFromPathname,
+  sortChannelsByRecentSession,
+  type SidebarAgentResponse,
   type SidebarChannelResponse,
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
+
+function agent(overrides: Partial<SidebarAgentResponse>): SidebarAgentResponse {
+  return { id: "agent_1", name: "Hivy", ...overrides }
+}
 
 function channel(
   overrides: Partial<SidebarChannelResponse>
@@ -53,6 +60,38 @@ describe("sidebar route helpers", () => {
       sessionId: "session_1",
     })
   })
+
+  it("sorts channels by newest latest session and keeps empty channels last", () => {
+    const channels = [
+      channel({
+        id: "empty",
+        name: "Empty",
+        updated_at: "2026-06-17T10:00:00.000Z",
+      }),
+      channel({ id: "old", name: "Old" }),
+      channel({ id: "recent", name: "Recent" }),
+    ]
+    const latestSessionsByChannelID = new Map([
+      [
+        "old",
+        session({
+          last_activity_at: "2026-06-16T10:00:00.000Z",
+        }),
+      ],
+      [
+        "recent",
+        session({
+          last_activity_at: "2026-06-17T09:00:00.000Z",
+        }),
+      ],
+    ])
+
+    expect(
+      sortChannelsByRecentSession(channels, latestSessionsByChannelID).map(
+        (entry) => entry.id
+      )
+    ).toEqual(["recent", "old", "empty"])
+  })
 })
 
 describe("sidebar session helpers", () => {
@@ -87,5 +126,27 @@ describe("sidebar session helpers", () => {
         session({ last_activity_at: "2026-06-15T22:00:00.000Z" })
       )
     ).toBe("3h")
+  })
+})
+
+describe("sidebar agent helpers", () => {
+  it("uses direct agent avatars before catalog fallback avatars", () => {
+    expect(
+      agentAvatarURL(
+        agent({
+          avatar_url: " /assets/hivy.png ",
+          catalog: { avatar_url: "/assets/hakaree.png" },
+        })
+      )
+    ).toBe("/assets/hivy.png")
+
+    expect(
+      agentAvatarURL(
+        agent({
+          avatar_url: "",
+          catalog: { avatar_url: " /assets/hakaree.png " },
+        })
+      )
+    ).toBe("/assets/hakaree.png")
   })
 })

@@ -1,9 +1,11 @@
 use dashmap::DashMap;
 use domain::{InboundEvent, SessionId};
 use std::sync::Mutex;
+use tokio::sync::watch;
 
 pub struct SessionCoordinator {
     sessions: DashMap<SessionId, Mutex<Vec<InboundEvent>>>,
+    active_turns: DashMap<SessionId, watch::Sender<bool>>,
 }
 
 pub enum Submission {
@@ -11,10 +13,37 @@ pub enum Submission {
     Queued,
 }
 
+pub enum InterruptResult {
+    Interrupted,
+    NotRunning,
+}
+
+pub struct TurnCancellation {
+    receiver: watch::Receiver<bool>,
+}
+
+impl TurnCancellation {
+    pub fn is_cancelled(&self) -> bool {
+        *self.receiver.borrow()
+    }
+
+    pub async fn cancelled(&mut self) {
+        loop {
+            if self.is_cancelled() {
+                return;
+            }
+            if self.receiver.changed().await.is_err() {
+                return;
+            }
+        }
+    }
+}
+
 impl SessionCoordinator {
     pub fn new() -> Self {
         Self {
             sessions: DashMap::new(),
+            active_turns: DashMap::new(),
         }
     }
 
@@ -58,6 +87,31 @@ impl SessionCoordinator {
                 std::mem::take(&mut *queue)
             })
             .unwrap_or_default()
+    }
+
+    pub fn start_turn(&self, session_id: &SessionId) -> TurnCancellation {
+        let (sender, receiver) = watch::channel(false);
+        self.active_turns.insert(session_id.clone(), sender);
+        TurnCancellation { receiver }
+    }
+
+    pub fn finish_active_turn(&self, session_id: &SessionId) {
+        self.active_turns.remove(session_id);
+    }
+
+    pub fn interrupt(&self, session_id: &SessionId) -> InterruptResult {
+        let Some(active) = self.active_turns.get(session_id) else {
+            return InterruptResult::NotRunning;
+        };
+        let _ = active.send(true);
+        InterruptResult::Interrupted
+    }
+}
+
+#[async_trait::async_trait]
+impl api::SessionInterrupter for SessionCoordinator {
+    async fn interrupt_session(&self, session_id: &SessionId) -> bool {
+        matches!(self.interrupt(session_id), InterruptResult::Interrupted)
     }
 }
 
@@ -281,5 +335,31 @@ mod tests {
         assert!(coordinator
             .finish_turn(&SessionId::from("C123-T2".to_string()))
             .is_empty());
+    }
+
+    #[tokio::test]
+    async fn interrupt_active_turn_notifies_receiver() {
+        let coordinator = SessionCoordinator::new();
+        let session = SessionId::from("interrupt-session");
+        let mut cancellation = coordinator.start_turn(&session);
+
+        assert!(!cancellation.is_cancelled());
+        assert!(matches!(
+            coordinator.interrupt(&session),
+            InterruptResult::Interrupted
+        ));
+        cancellation.cancelled().await;
+        assert!(cancellation.is_cancelled());
+    }
+
+    #[test]
+    fn interrupt_idle_session_reports_not_running() {
+        let coordinator = SessionCoordinator::new();
+        let session = SessionId::from("idle-session");
+
+        assert!(matches!(
+            coordinator.interrupt(&session),
+            InterruptResult::NotRunning
+        ));
     }
 }

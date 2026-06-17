@@ -9223,6 +9223,93 @@
         }
       }
     },
+    "/v1/sessions/{id}/interrupt": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Requests the sandbox runtime to stop the active agent turn for this session.",
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Interrupt a running session turn",
+        "parameters": [
+          {
+            "description": "Session ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sessionInterruptResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions/{id}/messages": {
       "post": {
         "security": [
@@ -13631,6 +13718,41 @@
           }
         }
       },
+      "pluginResourceRequirement": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "missing": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "resource_key": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "selected_count": {
+            "type": "integer"
+          }
+        }
+      },
       "pluginResponse": {
         "type": "object",
         "properties": {
@@ -13704,6 +13826,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/pluginConnectionRequirement"
+            }
+          },
+          "resource_requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/pluginResourceRequirement"
             }
           },
           "skills": {
@@ -14648,6 +14776,20 @@
             "type": "string"
           },
           "source": {
+            "type": "string"
+          }
+        }
+      },
+      "sessionInterruptResponse": {
+        "type": "object",
+        "properties": {
+          "interrupted": {
+            "type": "boolean"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "status": {
             "type": "string"
           }
         }

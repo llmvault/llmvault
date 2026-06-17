@@ -23,6 +23,7 @@ fn test_job(id: &str) -> CronJob {
         last_status: None,
         last_error: None,
         session_continuation_id: None,
+        stream_id: None,
         created_at: Utc::now(),
         created_by_session: "test".into(),
     }
