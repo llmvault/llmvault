@@ -36,7 +36,7 @@
     }
   },
   "plugins": {
-    "required": [],
+    "required": ["github"],
     "recommended": []
   }
 }
