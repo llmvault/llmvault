@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button, Spinner } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { useAuth } from "@/lib/auth/auth-context"
 import type { components } from "@/lib/api/schema"
-import { PlansModal } from "./plans-modal"
 
 type Plan = components["schemas"]["planDTO"]
 type SubscriptionResponse = components["schemas"]["subscriptionResponse"]
@@ -21,9 +20,9 @@ function formatMoney(minor: number | undefined | null, currency?: string) {
 }
 
 export function YourPlanSection() {
+  const router = useRouter()
   const { plans, activeOrg, isLoading: authLoading } = useAuth()
   const subscriptionQuery = $api.useQuery("get", "/v1/billing/subscription")
-  const [open, setOpen] = useState(false)
 
   const subscription = subscriptionQuery.data as SubscriptionResponse | undefined
   const currentPlanSlug =
@@ -71,20 +70,12 @@ export function YourPlanSection() {
           variant="tertiary"
           size="sm"
           isDisabled={isLoading}
-          onPress={() => setOpen(true)}
+          onPress={() => router.push("/w/billing/plans")}
         >
           {isLoading ? <Spinner color="current" size="sm" /> : null}
           View plans
         </Button>
       </div>
-
-      <PlansModal
-        open={open}
-        onOpenChange={setOpen}
-        plans={plans}
-        currentPlanSlug={currentPlanSlug}
-        subscription={subscription}
-      />
     </section>
   )
 }
