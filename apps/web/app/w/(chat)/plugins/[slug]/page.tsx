@@ -35,8 +35,8 @@ import {
   pluginLogoProvider,
   pluginMissingRequirements,
   pluginName,
-  pluginRequiredConnections,
   pluginRequirementKind,
+  pluginShownRequiredConnections,
   type PluginRequirement,
 } from "@/app/w/(chat)/plugins/_lib"
 
@@ -206,11 +206,9 @@ export default function PluginDetailPage({
 
   const examples = plugin.examples ?? []
   const skills = plugin.skills ?? []
-  const requiredConnections = pluginRequiredConnections(plugin)
   const missing = pluginMissingRequirements(plugin)
   const canInstall = pluginCanInstall(plugin)
-  const shownRequiredConnections =
-    requiredConnections.length > 0 ? requiredConnections : missing
+  const shownRequiredConnections = pluginShownRequiredConnections(plugin)
 
   return (
     <>
@@ -253,7 +251,7 @@ export default function PluginDetailPage({
               </Button>
             </header>
 
-            {missing.length > 0 ? (
+            {shownRequiredConnections.length > 0 ? (
               <RequiredConnectionsSection
                 requirements={shownRequiredConnections}
                 missing={missing}
@@ -338,19 +336,31 @@ function RequiredConnectionsSection({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <div className="border-warning/40 bg-warning/10 flex gap-3 rounded-xl border p-4">
-        <div className="bg-warning/15 text-warning flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-          <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-sm font-medium text-foreground">
-            Required connections missing
-          </h2>
-          <p className="mt-1 text-sm leading-5 text-muted-foreground">
-            Add the required connections before adding this plugin.
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-semibold text-foreground">
+          Required connections
+        </h2>
+        {missing.length === 0 ? (
+          <p className="text-sm leading-5 text-muted-foreground">
+            All required connections are connected.
           </p>
-        </div>
+        ) : null}
       </div>
+      {missing.length > 0 ? (
+        <div className="border-warning/40 bg-warning/10 flex gap-3 rounded-xl border p-4">
+          <div className="bg-warning/15 text-warning flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+            <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-foreground">
+              Required connections missing
+            </h3>
+            <p className="mt-1 text-sm leading-5 text-muted-foreground">
+              Add the required connections before adding this plugin.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {requirements.map((requirement, index) => {
           const provider = requirement.provider ?? ""
@@ -378,18 +388,25 @@ function RequiredConnectionsSection({
                   </p>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant={isMissing ? "primary" : "tertiary"}
-                className="shrink-0 rounded-full"
-                isDisabled={!canConnect || isBusy || waitingForIntegrations}
-                onPress={() => onConnect(requirement)}
-              >
-                {isBusy && isMissing ? (
-                  <Spinner color="current" size="sm" />
-                ) : null}
-                {isMissing ? "Connect" : "Connected"}
-              </Button>
+              {isMissing ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="shrink-0 rounded-full"
+                  isDisabled={!canConnect || isBusy || waitingForIntegrations}
+                  onPress={() => onConnect(requirement)}
+                >
+                  {isBusy ? <Spinner color="current" size="sm" /> : null}
+                  Connect
+                </Button>
+              ) : (
+                <span
+                  aria-label="Connected"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
+                >
+                  <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+                </span>
+              )}
             </div>
           )
         })}
@@ -483,9 +500,7 @@ function RequiredConnectionModal({
     <Modal.Root state={state}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog
-            className="relative w-full max-w-sm rounded-3xl bg-background p-0 shadow-xl outline-none"
-          >
+          <Modal.Dialog className="relative w-full max-w-sm rounded-3xl bg-background p-0 shadow-xl outline-none">
             {modal?.view === "database" && isDatabaseProvider(provider) ? (
               <DatabaseConnectionModalContent
                 provider={provider}

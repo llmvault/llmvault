@@ -2,14 +2,18 @@ import { describe, expect, it } from "vitest"
 import {
   agentCanInstall,
   agentAvatarURL,
+  agentAvailableModels,
   agentCategories,
   agentMatchesCategory,
   agentMatchesQuery,
   agentMissingPlugins,
   groupAgents,
+  pluginForRequirement,
+  pluginsBySlug,
   type CatalogAgent,
   type InstalledAgent,
 } from "./_lib"
+import { pluginLogoProvider, type ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 
 function agent(overrides: Partial<CatalogAgent>): CatalogAgent {
   return {
@@ -96,5 +100,35 @@ describe("agent catalog helpers", () => {
     }
 
     expect(agentAvatarURL(item)).toBe("/assets/hivy.png")
+  })
+
+  it("uses catalog available models with the catalog default first when needed", () => {
+    const item = agent({
+      model: "deepseek-v4-pro",
+      available_models: [" qwen3.7-plus ", "qwen3.7-plus"],
+    })
+
+    expect(agentAvailableModels(item)).toEqual([
+      "deepseek-v4-pro",
+      "qwen3.7-plus",
+    ])
+  })
+
+  it("resolves required plugin logo data from the plugin catalog", () => {
+    const plugin: ApiPlugin = {
+      id: "plugin-1",
+      slug: "github",
+      name: "GitHub",
+      icon: "simple-icons:github",
+      icon_color: "#181717",
+      required_connections: [
+        { provider: "github-app", kind: "integration", required: true },
+      ],
+    }
+    const lookup = pluginsBySlug([plugin])
+    const matched = pluginForRequirement({ slug: "github" }, lookup)
+
+    expect(matched).toBe(plugin)
+    expect(pluginLogoProvider(matched!)).toBe("github-app")
   })
 })

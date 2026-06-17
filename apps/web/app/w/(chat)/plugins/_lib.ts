@@ -64,6 +64,13 @@ export function pluginRequiredConnections(
   )
 }
 
+export function pluginShownRequiredConnections(
+  plugin: ApiPlugin
+): PluginRequirement[] {
+  const required = pluginRequiredConnections(plugin)
+  return required.length > 0 ? required : pluginMissingRequirements(plugin)
+}
+
 export function pluginRequiredIntegrationProvider(
   plugin: ApiPlugin
 ): string | null {

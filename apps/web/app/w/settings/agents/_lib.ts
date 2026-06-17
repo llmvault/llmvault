@@ -1,4 +1,5 @@
 import type { components } from "@/lib/api/schema"
+import type { ApiPlugin } from "@/app/w/(chat)/plugins/_lib"
 
 export type CatalogAgent = components["schemas"]["agentCatalogResponse"]
 export type InstalledAgent = components["schemas"]["agentListItem"]
@@ -53,6 +54,25 @@ export function agentRequiredPlugins(
   return agent?.required_plugins ?? []
 }
 
+export function agentAvailableModels(
+  agent: CatalogAgent | undefined
+): string[] {
+  const values = agent?.available_models ?? []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const model = value.trim()
+    if (!model || seen.has(model)) continue
+    seen.add(model)
+    out.push(model)
+  }
+  const defaultModel = agent?.model?.trim()
+  if (defaultModel && !seen.has(defaultModel)) {
+    out.unshift(defaultModel)
+  }
+  return out
+}
+
 export function agentMissingPlugins(
   agent: CatalogAgent | undefined
 ): AgentPluginRequirement[] {
@@ -73,6 +93,23 @@ export function pluginRequirementSlug(
   plugin: AgentPluginRequirement
 ): string | undefined {
   return plugin.slug?.trim() || undefined
+}
+
+export function pluginsBySlug(plugins: ApiPlugin[]): Map<string, ApiPlugin> {
+  const out = new Map<string, ApiPlugin>()
+  for (const plugin of plugins) {
+    const slug = plugin.slug?.trim()
+    if (slug) out.set(slug, plugin)
+  }
+  return out
+}
+
+export function pluginForRequirement(
+  requirement: AgentPluginRequirement,
+  lookup: Map<string, ApiPlugin>
+): ApiPlugin | undefined {
+  const slug = pluginRequirementSlug(requirement)
+  return slug ? lookup.get(slug) : undefined
 }
 
 export function agentInitials(name: string): string {
