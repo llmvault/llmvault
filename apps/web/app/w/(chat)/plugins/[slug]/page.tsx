@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useEffect, useMemo, useState } from "react"
+import { use, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Modal, Spinner, toast, useOverlayState } from "@heroui/react"
 import { Icon } from "@iconify/react"
@@ -565,8 +565,37 @@ function ResourceSelectionModal({
   onCancel: () => void
 }) {
   const requirement = modal?.requirement
-  const connectionID = requirement?.connection_id ?? ""
-  const resourceKey = requirement?.resource_key ?? ""
+  if (!requirement) {
+    return null
+  }
+
+  return (
+    <Modal.Root state={state}>
+      <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
+        <Modal.Container placement="center" className="p-4">
+          <ResourceSelectionModalContent
+            key={`${requirement.connection_id ?? ""}:${requirement.resource_key ?? ""}`}
+            requirement={requirement}
+            onSaved={onSaved}
+            onCancel={onCancel}
+          />
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal.Root>
+  )
+}
+
+function ResourceSelectionModalContent({
+  requirement,
+  onSaved,
+  onCancel,
+}: {
+  requirement: PluginResourceRequirement
+  onSaved: () => void
+  onCancel: () => void
+}) {
+  const connectionID = requirement.connection_id ?? ""
+  const resourceKey = requirement.resource_key ?? ""
   const [selectedIDs, setSelectedIDs] = useState<Set<string>>(new Set())
   const resourcesQuery = $api.useQuery(
     "get",
@@ -574,7 +603,7 @@ function ResourceSelectionModal({
     {
       params: { path: { id: connectionID, type: resourceKey } },
     },
-    { enabled: state.isOpen && !!connectionID && !!resourceKey }
+    { enabled: !!connectionID && !!resourceKey }
   )
   const saveResources = $api.useMutation(
     "put",
@@ -584,10 +613,6 @@ function ResourceSelectionModal({
     () => (resourcesQuery.data?.resources ?? []) as AvailableResource[],
     [resourcesQuery.data]
   )
-
-  useEffect(() => {
-    if (state.isOpen) setSelectedIDs(new Set())
-  }, [connectionID, resourceKey, state.isOpen])
 
   function toggleResource(resource: AvailableResource) {
     const id = resource.id
@@ -625,113 +650,102 @@ function ResourceSelectionModal({
   }
 
   return (
-    <Modal.Root state={state}>
-      <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
-        <Modal.Container placement="center" className="p-4">
-          <Modal.Dialog className="relative w-full max-w-lg rounded-3xl bg-background p-0 shadow-xl outline-none">
-            <div className="flex flex-col gap-5 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-foreground">
-                    {requirement
-                      ? pluginResourceSelectLabel(requirement)
-                      : "Select resources"}
-                  </h2>
-                  {requirement?.description ? (
-                    <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                      {requirement.description}
-                    </p>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
-                  onClick={onCancel}
-                >
-                  <Icon icon="lucide:x" className="h-4 w-4" />
-                </button>
-              </div>
+    <Modal.Dialog className="relative w-full max-w-lg rounded-3xl bg-background p-0 shadow-xl outline-none">
+      <div className="flex flex-col gap-5 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-foreground">
+              {pluginResourceSelectLabel(requirement)}
+            </h2>
+            {requirement.description ? (
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                {requirement.description}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
+            onClick={onCancel}
+          >
+            <Icon icon="lucide:x" className="h-4 w-4" />
+          </button>
+        </div>
 
-              <div className="max-h-80 overflow-y-auto">
-                {resourcesQuery.isLoading ? (
-                  <div className="flex min-h-32 items-center justify-center">
-                    <Spinner size="sm" />
-                  </div>
-                ) : resources.length === 0 ? (
-                  <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-                    No resources found for this integration.
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {resources.map((resource, index) => {
-                      const id = resource.id ?? ""
-                      const selected = selectedIDs.has(id)
-                      return (
-                        <button
-                          key={id || index}
-                          type="button"
-                          aria-pressed={selected}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/20"
-                          onClick={() => toggleResource(resource)}
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm text-foreground">
-                              {resource.name || resource.id || "Resource"}
-                            </p>
-                            {resource.id ? (
-                              <p className="truncate text-xs text-muted-foreground">
-                                {resource.id}
-                              </p>
-                            ) : null}
-                          </div>
-                          <span
-                            aria-hidden="true"
-                            className={
-                              selected
-                                ? "flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
-                                : "h-5 w-5 shrink-0 rounded-full border border-border"
-                            }
-                          >
-                            {selected ? (
-                              <Icon
-                                icon="lucide:check"
-                                className="h-3.5 w-3.5"
-                              />
-                            ) : null}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button size="sm" variant="secondary" onPress={onCancel}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  isDisabled={
-                    selectedIDs.size === 0 ||
-                    saveResources.isPending ||
-                    resourcesQuery.isLoading
-                  }
-                  onPress={handleSave}
-                >
-                  {saveResources.isPending ? (
-                    <Spinner color="current" size="sm" />
-                  ) : null}
-                  Save
-                </Button>
-              </div>
+        <div className="max-h-80 overflow-y-auto">
+          {resourcesQuery.isLoading ? (
+            <div className="flex min-h-32 items-center justify-center">
+              <Spinner size="sm" />
             </div>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal.Root>
+          ) : resources.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+              No resources found for this integration.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {resources.map((resource, index) => {
+                const id = resource.id ?? ""
+                const selected = selectedIDs.has(id)
+                return (
+                  <button
+                    key={id || index}
+                    type="button"
+                    aria-pressed={selected}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/20"
+                    onClick={() => toggleResource(resource)}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-foreground">
+                        {resource.name || resource.id || "Resource"}
+                      </p>
+                      {resource.id ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {resource.id}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span
+                      aria-hidden="true"
+                      className={
+                        selected
+                          ? "flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
+                          : "h-5 w-5 shrink-0 rounded-full border border-border"
+                      }
+                    >
+                      {selected ? (
+                        <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+                      ) : null}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="secondary" onPress={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            isDisabled={
+              selectedIDs.size === 0 ||
+              saveResources.isPending ||
+              resourcesQuery.isLoading
+            }
+            onPress={handleSave}
+          >
+            {saveResources.isPending ? (
+              <Spinner color="current" size="sm" />
+            ) : null}
+            Save
+          </Button>
+        </div>
+      </div>
+    </Modal.Dialog>
   )
 }
 
