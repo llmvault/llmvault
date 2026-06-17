@@ -10,7 +10,7 @@ use axum::http::{HeaderName, HeaderValue};
 use axum::response::sse::{Event, Sse};
 use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, Utc};
-use domain::{Attachment, InboundEvent, SessionId};
+use domain::{Attachment, InboundEvent, ModelConfig, SessionId};
 use observability::{
     parse_model_usage, EventTimings, ObservabilityEvent, ObservabilityEventType,
     ObservabilityRecorder, ToolUsage,
@@ -40,6 +40,7 @@ pub struct SessionStreamBroker {
     session_streams: Mutex<HashMap<String, String>>,
     stream_sessions: Mutex<HashMap<String, String>>,
     active_session_streams: Mutex<HashMap<String, String>>,
+    session_model_definitions: Mutex<HashMap<String, ModelConfig>>,
     observability: ObservabilityRecorder,
     counter: AtomicU64,
     turn_counter: AtomicU64,
@@ -348,6 +349,25 @@ impl SessionStreamBroker {
             .is_some_and(|owner| owner == session_id)
     }
 
+    pub async fn model_definition_for_session(&self, session_id: &str) -> Option<ModelConfig> {
+        self.session_model_definitions
+            .lock()
+            .await
+            .get(session_id)
+            .cloned()
+    }
+
+    pub async fn set_model_definition_for_session(
+        &self,
+        session_id: &str,
+        model: ModelConfig,
+    ) {
+        self.session_model_definitions
+            .lock()
+            .await
+            .insert(session_id.to_string(), model);
+    }
+
     pub async fn subscribe(
         &self,
         stream_id: &str,
@@ -614,6 +634,8 @@ pub struct SessionMessageRequest {
     #[serde(default)]
     pub dynamic_context: Vec<String>,
     #[serde(default)]
+    pub model_definition: Option<ModelConfig>,
+    #[serde(default)]
     #[cfg_attr(feature = "openapi", schema(value_type = Object))]
     pub raw: Value,
 }
@@ -668,6 +690,19 @@ impl SessionMessageState {
             "turn_id": turn_id,
             "raw": request.raw,
         });
+        let model_definition = match request.model_definition {
+            Some(model) => {
+                self.broker
+                    .set_model_definition_for_session(session_id.as_str(), model.clone())
+                    .await;
+                Some(model)
+            }
+            None => {
+                self.broker
+                    .model_definition_for_session(session_id.as_str())
+                    .await
+            }
+        };
         let inbound = InboundEvent {
             envelope_id: stream_id.clone(),
             session_id: session_id.clone(),
@@ -676,6 +711,7 @@ impl SessionMessageState {
             text: request.text,
             attachments: request.attachments,
             dynamic_context: request.dynamic_context,
+            model_definition,
             raw,
             is_direct_message: true,
             is_directly_addressed: true,
@@ -922,6 +958,25 @@ mod tests {
     use futures::StreamExt;
     use tokio::sync::mpsc;
 
+    fn test_model(model_id: &str) -> ModelConfig {
+        ModelConfig::OpenaiCompatible {
+            base_url: "http://127.0.0.1:18082/v1".to_string(),
+            model_id: model_id.to_string(),
+            api_key_env: "HIVY_PROXY_API_KEY".to_string(),
+            temperature: None,
+            max_output_tokens: None,
+            reasoning_effort: Some(domain::ReasoningEffort::Low),
+            extra_headers: HashMap::new(),
+            fallback: None,
+        }
+    }
+
+    fn model_id(model: &ModelConfig) -> &str {
+        match model {
+            ModelConfig::OpenaiCompatible { model_id, .. } => model_id,
+        }
+    }
+
     #[tokio::test]
     async fn inject_message_uses_caller_supplied_session_id_and_stream_mapping() {
         let (tx, mut rx) = mpsc::channel(1);
@@ -940,6 +995,7 @@ mod tests {
                     user_display_name: Some("User One".to_string()),
                     attachments: Vec::new(),
                     dynamic_context: vec!["## Recent sessions\n- prior context".to_string()],
+                    model_definition: None,
                     raw: json!({"source": "session", "provider": "test-provider"}),
                 },
             )
@@ -1005,6 +1061,7 @@ mod tests {
                     user_display_name: Some("Ada".to_string()),
                     attachments: Vec::new(),
                     dynamic_context: Vec::new(),
+                    model_definition: None,
                     raw: json!({"source": "web"}),
                 },
             )
@@ -1014,6 +1071,57 @@ mod tests {
         let inbound = rx.recv().await.expect("inbound event");
         assert_eq!(inbound.session_id.as_str(), "web-session");
         assert_eq!(inbound.raw["source"], "web");
+    }
+
+    #[tokio::test]
+    async fn inject_message_reuses_session_model_definition() {
+        let (tx, mut rx) = mpsc::channel(2);
+        let sessions = SessionMessageState {
+            inbound_sink: tx,
+            broker: Arc::new(SessionStreamBroker::new()),
+        };
+
+        sessions
+            .inject_message(
+                SessionId::from("model-session"),
+                SessionMessageRequest {
+                    text: "first".to_string(),
+                    user: "user-1".to_string(),
+                    user_display_name: None,
+                    attachments: Vec::new(),
+                    dynamic_context: Vec::new(),
+                    model_definition: Some(test_model("qwen-3.7-plus")),
+                    raw: json!({"source": "session"}),
+                },
+            )
+            .await
+            .expect("first message");
+        sessions
+            .inject_message(
+                SessionId::from("model-session"),
+                SessionMessageRequest {
+                    text: "second".to_string(),
+                    user: "user-1".to_string(),
+                    user_display_name: None,
+                    attachments: Vec::new(),
+                    dynamic_context: Vec::new(),
+                    model_definition: None,
+                    raw: json!({"source": "session"}),
+                },
+            )
+            .await
+            .expect("second message");
+
+        let first = rx.recv().await.expect("first inbound event");
+        let second = rx.recv().await.expect("second inbound event");
+        assert_eq!(
+            model_id(first.model_definition.as_ref().expect("first model")),
+            "qwen-3.7-plus"
+        );
+        assert_eq!(
+            model_id(second.model_definition.as_ref().expect("second model")),
+            "qwen-3.7-plus"
+        );
     }
 
     #[tokio::test]
@@ -1033,6 +1141,7 @@ mod tests {
                     user_display_name: None,
                     attachments: Vec::new(),
                     dynamic_context: Vec::new(),
+                    model_definition: None,
                     raw: json!({"source": "session"}),
                 },
             )
@@ -1047,6 +1156,7 @@ mod tests {
                     user_display_name: None,
                     attachments: Vec::new(),
                     dynamic_context: Vec::new(),
+                    model_definition: None,
                     raw: json!({"source": "session"}),
                 },
             )
@@ -1150,6 +1260,7 @@ mod tests {
                     user_display_name: None,
                     attachments: Vec::new(),
                     dynamic_context: Vec::new(),
+                    model_definition: None,
                     raw: json!({"source": "external"}),
                 },
             )

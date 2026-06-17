@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "slug": "hakaree",
+  "name": "Hakaree",
+  "description": "Coding, devops, infrastructure and debugging specialist.",
+  "category": "Developer Tools",
+  "avatar_url": "/assets/hakaree.png",
+  "developer": "Hivy",
+  "official": true,
+  "agent_version": "1",
+  "enabled": true,
+  "default": true,
+  "runtime": {
+    "sandbox_strategy": "per_session",
+    "model": "deepseek-v4-pro",
+    "available_models": [
+      "deepseek-v4-pro",
+      "qwen3.7-plus",
+      "glm-5.1",
+      "kimi-k2.6",
+      "mimo-v2.5-pro"
+    ],
+    "multimodal_model": "gemini-3-flash-preview"
+  },
+  "prompt": {
+    "instructions": "./prompts/instructions.md"
+  },
+  "sub_agents": {
+    "codebase-explorer": {
+      "name": "Codebase Explorer",
+      "description": "Traces code paths, dependencies, and tests.",
+      "model": "deepseek-v4-flash",
+      "prompt": {
+        "instructions": "./sub_agents/codebase-explorer/instructions.md"
+      }
+    }
+  },
+  "plugins": {
+    "required": [],
+    "recommended": []
+  }
+}

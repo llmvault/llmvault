@@ -83,3 +83,53 @@ pub struct SubagentTaskConfig {
     #[serde(default)]
     pub agents: Vec<String>,
 }
+
+pub fn default_parent_builtin_tool_specs() -> Vec<ToolSpec> {
+    let mut specs = default_subagent_builtin_tool_specs();
+    specs.extend([
+        ToolSpec::Cron,
+        ToolSpec::SubagentTask(Default::default()),
+        ToolSpec::CheckSubagentTaskStatus,
+        ToolSpec::Wake,
+        ToolSpec::RequestUserInput,
+    ]);
+    specs
+}
+
+pub fn default_subagent_builtin_tool_specs() -> Vec<ToolSpec> {
+    vec![
+        ToolSpec::Bash(BashConfig {
+            workdir: ".".into(),
+            timeout_seconds: 60,
+            max_output_bytes: 5 * 1024 * 1024,
+            deny_patterns: vec![
+                "rm -rf /".into(),
+                "rm -rf ~".into(),
+                "mkfs".into(),
+                "dd if=".into(),
+                ":(){:|:&};:".into(),
+                "shutdown".into(),
+                "reboot".into(),
+            ],
+            env_passthrough: vec!["HOME".into(), "PATH".into(), "LANG".into(), "LC_ALL".into()],
+            sandbox: "process_isolated".into(),
+        }),
+        ToolSpec::ReadFile(ReadFileConfig {
+            allowed_roots: vec![],
+            max_file_size_bytes: 5 * 1024 * 1024,
+            deny_globs: vec![],
+        }),
+        ToolSpec::WriteFile(WriteFileConfig {
+            allowed_roots: vec![],
+            max_file_size_bytes: 5 * 1024 * 1024,
+            deny_globs: vec![],
+            atomic: true,
+        }),
+        ToolSpec::CheckBashStatus,
+        ToolSpec::SearchSessions,
+        ToolSpec::UpdatePlan,
+        ToolSpec::SkillsList,
+        ToolSpec::SkillView,
+        ToolSpec::SkillManage,
+    ]
+}

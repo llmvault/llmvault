@@ -70,6 +70,7 @@ type HTTPMessageRequest struct {
 	SessionID       string         `json:"-"`
 	User            string         `json:"user,omitempty"`
 	UserDisplayName string         `json:"user_display_name,omitempty"`
+	ModelDefinition *ModelConfig   `json:"model_definition,omitempty"`
 	Attachments     []any          `json:"attachments,omitempty"`
 	DynamicContext  []string       `json:"dynamic_context,omitempty"`
 	Raw             map[string]any `json:"raw,omitempty"`

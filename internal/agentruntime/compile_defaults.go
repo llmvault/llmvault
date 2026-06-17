@@ -2,6 +2,7 @@ package agentruntime
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
@@ -25,23 +26,24 @@ func proxyModel(cfg *config.Config, modelID string) ModelConfig {
 
 func ptrModel(m ModelConfig) *ModelConfig { return &m }
 
+func ProxyModelConfig(cfg *config.Config, modelID, reasoningEffort string) ModelConfig {
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		modelID = DefaultAgentModel
+	}
+	model := proxyModel(cfg, modelID)
+	if effort := strings.TrimSpace(reasoningEffort); effort != "" {
+		model.ReasoningEffort = &effort
+	}
+	return model
+}
+
 func defaultLimits() map[string]any {
 	return map[string]any{
 		"max_turns_per_session":     50,
 		"input_token_budget":        180000,
 		"output_token_budget":       8000,
 		"tool_call_timeout_seconds": 60,
-	}
-}
-
-func defaultTools() []map[string]any {
-	return []map[string]any{
-		{"type": "builtin.bash", "config": map[string]any{"workdir": ".", "timeout_seconds": 60, "max_output_bytes": 5 * 1024 * 1024, "deny_patterns": []string{"rm -rf /", "rm -rf ~", "mkfs", "dd if=", ":(){:|:&};:", "shutdown", "reboot"}, "env_passthrough": []string{}, "sandbox": "process_isolated"}},
-		{"type": "builtin.read_file", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 5 * 1024 * 1024, "deny_globs": []string{}}},
-		{"type": "builtin.write_file", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 5 * 1024 * 1024, "deny_globs": []string{}, "atomic": true}},
-		{"type": "builtin.cron"},
-		{"type": "builtin.check_bash_status"}, {"type": "builtin.search_sessions"}, {"type": "builtin.wake"},
-		{"type": "builtin.skills_list"}, {"type": "builtin.skill_view"}, {"type": "builtin.skill_manage"},
 	}
 }
 

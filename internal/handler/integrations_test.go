@@ -127,6 +127,25 @@ func newNangoMock(cfg *nangoMockConfig) http.Handler {
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"data": []map[string]any{
 					{"name": "github", "display_name": "GitHub", "auth_mode": "OAUTH2"},
+					{
+						"name":         "github-app",
+						"display_name": "GitHub",
+						"auth_mode":    "APP",
+						"connection_config": map[string]any{
+							"appPublicLink": map[string]any{
+								"title":       "GitHub App link",
+								"description": "GitHub App public link.",
+								"type":        "string",
+								"automated":   true,
+							},
+							"installation_id": map[string]any{
+								"title":       "Installation ID",
+								"description": "GitHub App installation ID.",
+								"type":        "string",
+								"automated":   true,
+							},
+						},
+					},
 					{"name": "slack", "display_name": "Slack", "auth_mode": "OAUTH2"},
 					{"name": "linear", "display_name": "Linear", "auth_mode": "OAUTH2"},
 					{"name": "notion", "display_name": "Notion", "auth_mode": "OAUTH2"},
@@ -135,11 +154,24 @@ func newNangoMock(cfg *nangoMockConfig) http.Handler {
 						"display_name": "Bugsink",
 						"auth_mode":    "API_KEY",
 						"connection_config": map[string]any{
-							"base_url": map[string]any{
+							"baseUrl": map[string]any{
 								"title":       "Bugsink URL",
 								"description": "Base URL for the Bugsink instance.",
 								"type":        "string",
 								"example":     "https://bugsink.example.com",
+							},
+						},
+					},
+					{
+						"name":         "glitchtip",
+						"display_name": "GlitchTip",
+						"auth_mode":    "API_KEY",
+						"connection_config": map[string]any{
+							"baseUrl": map[string]any{
+								"title":       "GlitchTip URL",
+								"description": "Base URL for the GlitchTip instance.",
+								"type":        "string",
+								"example":     "https://app.glitchtip.com",
 							},
 						},
 					},

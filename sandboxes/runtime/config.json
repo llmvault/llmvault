@@ -60,7 +60,6 @@
         "token_budget": 0
       }
     },
-    "tools": [],
     "mcp_servers": [],
     "skills": [],
     "outbound_channels": [],
@@ -107,7 +106,6 @@
             "token_budget": 0
           }
         },
-        "tools": [],
         "mcp_servers": [],
         "skills": [],
         "outbound_channels": [],

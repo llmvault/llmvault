@@ -14,7 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func runtimeMessageFromEvent(sessionID uuid.UUID, event model.SessionEvent) agentruntime.HTTPMessageRequest {
+func runtimeMessageFromEvent(session model.Session, event model.SessionEvent, modelDef *agentruntime.ModelConfig) agentruntime.HTTPMessageRequest {
 	payload := map[string]any{}
 	for key, value := range event.Payload {
 		payload[key] = value
@@ -27,9 +27,10 @@ func runtimeMessageFromEvent(sessionID uuid.UUID, event model.SessionEvent) agen
 	}
 	return agentruntime.HTTPMessageRequest{
 		Text:            strings.TrimSpace(text),
-		SessionID:       sessionID.String(),
+		SessionID:       session.ID.String(),
 		User:            strings.TrimSpace(user),
 		UserDisplayName: strings.TrimSpace(display),
+		ModelDefinition: modelDef,
 		DynamicContext:  stringSlice(payload["dynamic_context"]),
 		Raw:             payload,
 	}

@@ -244,6 +244,7 @@ impl CronScheduler {
             text: job.task_prompt.clone(),
             attachments: Vec::new(),
             dynamic_context: Vec::new(),
+            model_definition: None,
             raw,
             is_direct_message: false,
             is_directly_addressed: true,

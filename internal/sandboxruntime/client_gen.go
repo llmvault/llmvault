@@ -973,6 +973,7 @@ type SessionId = string
 type SessionMessageRequest struct {
 	Attachments     *[]Attachment           `json:"attachments,omitempty"`
 	DynamicContext  *[]string               `json:"dynamic_context,omitempty"`
+	ModelDefinition *ModelConfig            `json:"model_definition,omitempty"`
 	Raw             *map[string]interface{} `json:"raw,omitempty"`
 	Text            string                  `json:"text"`
 	User            *string                 `json:"user,omitempty"`

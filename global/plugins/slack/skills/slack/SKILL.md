@@ -94,6 +94,6 @@ slack_api POST "/chat.postMessage" "$(jq -n \
 - Do not use this skill to send the assistant's normal reply; Hivy does that automatically.
 - Always filter Slack responses with `jq`.
 - Never print `$HIVY_SLACK_TOKEN`.
-- Do not call `https://slack.com/api` directly from the runtime.
+- Do not call `https://slack.com/api` directly from the runtime. This will fail.
 - Prefer read-only operations unless the user explicitly asks for a Slack write action.
 - Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Slack.

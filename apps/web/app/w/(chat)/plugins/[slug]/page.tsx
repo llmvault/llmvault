@@ -1,29 +1,51 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import Image from "next/image"
 import { useQueryClient } from "@tanstack/react-query"
-import { Button, Link, Spinner, toast } from "@heroui/react"
+import { Button, Modal, Spinner, toast, useOverlayState } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
-import { integrationLogoURL } from "@/components/integration-logo"
+import {
+  IntegrationLogo,
+  integrationLogoURL,
+} from "@/components/integration-logo"
 import { cn } from "@/lib/utils"
+import {
+  type ConnectOptions,
+  useConnectIntegration,
+} from "@/app/w/(chat)/plugins/use-connect-integration"
+import { IntegrationCredentialsForm } from "@/app/w/(chat)/plugins/integration-credentials-form"
+import {
+  type AvailableIntegration,
+  integrationNeedsForm,
+} from "@/app/w/(chat)/plugins/integration-auth"
+import {
+  DatabaseConnectionModalContent,
+  isDatabaseProvider,
+} from "@/app/w/(chat)/plugins/database-connection-modal-content"
 import {
   type ApiPlugin,
   PLUGINS_QUERY_KEY,
   pluginCanInstall,
-  pluginCapabilities,
   pluginDescription,
-  pluginDetailCategory,
-  pluginDeveloper,
   pluginIcon,
   pluginIconColor,
   pluginLogoProvider,
-  pluginLongDescription,
   pluginMissingRequirements,
   pluginName,
+  pluginRequiredConnections,
+  pluginRequirementKind,
+  type PluginRequirement,
 } from "@/app/w/(chat)/plugins/_lib"
+
+type PluginSkill = NonNullable<ApiPlugin["skills"]>[number]
+
+type ConnectionModalState = {
+  view: "integration" | "database"
+  requirement: PluginRequirement
+}
 
 export default function PluginDetailPage({
   params,
@@ -40,12 +62,25 @@ export default function PluginDetailPage({
     "delete",
     "/v1/plugins/{slug}/install"
   )
+  const integrationsQuery = $api.useQuery("get", "/v1/integrations/available")
+  const { connectIntegration, isConnecting } = useConnectIntegration()
+  const [connectionModal, setConnectionModal] =
+    useState<ConnectionModalState | null>(null)
+  const connectionModalState = useOverlayState({
+    isOpen: connectionModal !== null,
+    onOpenChange: (next) => {
+      if (!next) setConnectionModal(null)
+    },
+  })
   const plugin = pluginQuery.data as ApiPlugin | undefined
-  const busy = installPlugin.isPending || uninstallPlugin.isPending
+  const integrations = (integrationsQuery.data ?? []) as AvailableIntegration[]
+  const busy =
+    installPlugin.isPending || uninstallPlugin.isPending || isConnecting
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins/{slug}"] })
+    pluginQuery.refetch()
   }
 
   function handleInstall() {
@@ -78,6 +113,75 @@ export default function PluginDetailPage({
     )
   }
 
+  function findIntegration(provider: string): AvailableIntegration | undefined {
+    return integrations.find((integration) => integration.provider === provider)
+  }
+
+  function closeConnectionModal() {
+    setConnectionModal(null)
+  }
+
+  function handleConnectRequirement(requirement: PluginRequirement) {
+    if (!isRequirementMissing(requirement, plugin ? missing : [])) return
+
+    if (isDatabaseRequirement(requirement)) {
+      setConnectionModal({ view: "database", requirement })
+      return
+    }
+
+    if (!isIntegrationRequirement(requirement)) {
+      toast.danger("This plugin needs an unsupported connection")
+      return
+    }
+
+    const integration = findIntegration(requirement.provider)
+    if (!integration?.id) {
+      toast.danger(
+        `No ${providerLabel(requirement.provider)} integration is available`
+      )
+      return
+    }
+
+    if (integrationNeedsForm(integration)) {
+      setConnectionModal({ view: "integration", requirement })
+      return
+    }
+
+    connectIntegration(integration.id, {
+      onSuccess: () => {
+        toast.success(`${providerLabel(requirement.provider)} connected`)
+        refresh()
+      },
+    })
+  }
+
+  function handleIntegrationConnect(options?: ConnectOptions) {
+    const requirement = connectionModal?.requirement
+    if (!isIntegrationRequirement(requirement)) return
+
+    const integration = findIntegration(requirement.provider)
+    if (!integration?.id) {
+      toast.danger(
+        `No ${providerLabel(requirement.provider)} integration is available`
+      )
+      return
+    }
+
+    connectIntegration(integration.id, {
+      ...options,
+      onSuccess: () => {
+        closeConnectionModal()
+        toast.success(`${providerLabel(requirement.provider)} connected`)
+        refresh()
+      },
+    })
+  }
+
+  function handleDatabaseConnected() {
+    closeConnectionModal()
+    refresh()
+  }
+
   if (pluginQuery.isLoading) {
     return <PluginDetailShell content={<DetailSkeleton />} />
   }
@@ -102,149 +206,112 @@ export default function PluginDetailPage({
 
   const examples = plugin.examples ?? []
   const skills = plugin.skills ?? []
-  const links = plugin.links ?? {}
+  const requiredConnections = pluginRequiredConnections(plugin)
   const missing = pluginMissingRequirements(plugin)
   const canInstall = pluginCanInstall(plugin)
+  const shownRequiredConnections =
+    requiredConnections.length > 0 ? requiredConnections : missing
 
   return (
-    <PluginDetailShell
-      content={
-        <div className="flex flex-col gap-10">
-          <header className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div
-                className={pluginLogoFrameClass(
-                  plugin,
-                  "flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl"
-                )}
-                style={pluginLogoFrameStyle(plugin)}
-              >
-                <PluginLogo
-                  plugin={plugin}
-                  size={44}
-                  iconSize={32}
-                  forceIconWhite
-                />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-3xl font-semibold text-foreground">
-                  {pluginName(plugin)}
-                </h1>
-                <p className="truncate text-lg text-muted-foreground">
-                  {pluginDescription(plugin)}
-                </p>
-              </div>
-            </div>
-            <Button
-              className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
-              isDisabled={busy || (!plugin.installed && !canInstall)}
-              onPress={plugin.installed ? handleUninstall : handleInstall}
-            >
-              {busy ? <Spinner color="current" size="sm" /> : null}
-              {plugin.installed ? "Remove" : "Add"}
-            </Button>
-          </header>
-
-          {missing.length > 0 ? (
-            <section className="border-warning/40 bg-warning/10 rounded-xl border p-4">
-              <h2 className="text-sm font-medium text-foreground">
-                Required connections missing
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Connect {missing.map((item) => item.provider).join(", ")} before
-                adding this plugin.
-              </p>
-            </section>
-          ) : null}
-
-          {examples.length > 0 ? (
-            <section className="flex flex-col gap-4">
-              <h2 className="text-xl font-semibold text-foreground">
-                Examples
-              </h2>
-              <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
-                {examples.map((example, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    className="group flex items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/20"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={pluginLogoFrameClass(
-                          plugin,
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                        )}
-                        style={pluginLogoFrameStyle(plugin)}
-                      >
-                        <PluginLogo
-                          plugin={plugin}
-                          size={24}
-                          iconSize={16}
-                          forceIconWhite
-                        />
-                      </div>
-                      <span className="text-sm text-foreground">{example}</span>
-                    </div>
-                    <Icon
-                      icon="lucide:arrow-right"
-                      className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-                    />
-                  </button>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {skills.length > 0 ? <ContainsSection skills={skills} /> : null}
-
-          <section className="flex flex-col gap-4">
-            <h2 className="text-xl font-semibold text-foreground">
-              Developed by {pluginDeveloper(plugin)}
-            </h2>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-muted-foreground">Category</p>
-                <p className="text-sm font-medium text-foreground">
-                  {pluginDetailCategory(plugin)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Links</p>
-                <div className="flex flex-col items-start gap-1">
-                  {links.website ? (
-                    <ExternalLink href={links.website} label="Website" />
-                  ) : null}
-                  {links.privacy ? (
-                    <ExternalLink href={links.privacy} label="Privacy Policy" />
-                  ) : null}
-                  {links.terms ? (
-                    <ExternalLink href={links.terms} label="Terms of Service" />
-                  ) : null}
-                  {!links.website && !links.privacy && !links.terms ? (
-                    <span className="text-sm text-muted">
-                      No links provided
-                    </span>
-                  ) : null}
+    <>
+      <PluginDetailShell
+        content={
+          <div className="flex flex-col gap-8">
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={pluginLogoFrameClass(
+                    plugin,
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                  )}
+                  style={pluginLogoFrameStyle(plugin)}
+                >
+                  <PluginLogo
+                    plugin={plugin}
+                    size={34}
+                    iconSize={24}
+                    forceIconWhite
+                  />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-semibold text-foreground">
+                    {pluginName(plugin)}
+                  </h1>
+                  <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
+                    {pluginDescription(plugin)}
+                  </p>
                 </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Capabilities</p>
-                <p className="text-sm font-medium text-foreground">
-                  {pluginCapabilities(plugin).join(", ")}
-                </p>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Description</p>
-              <p className="mt-1 text-sm leading-relaxed text-foreground">
-                {pluginLongDescription(plugin)}
-              </p>
-            </div>
-          </section>
-        </div>
-      }
-    />
+              <Button
+                size="sm"
+                className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
+                isDisabled={busy || (!plugin.installed && !canInstall)}
+                onPress={plugin.installed ? handleUninstall : handleInstall}
+              >
+                {busy ? <Spinner color="current" size="sm" /> : null}
+                {plugin.installed ? "Remove" : "Add"}
+              </Button>
+            </header>
+
+            {missing.length > 0 ? (
+              <RequiredConnectionsSection
+                requirements={shownRequiredConnections}
+                missing={missing}
+                integrationsLoading={integrationsQuery.isLoading}
+                isBusy={busy}
+                onConnect={handleConnectRequirement}
+              />
+            ) : null}
+
+            {examples.length > 0 ? (
+              <section className="flex flex-col gap-3">
+                <h2 className="text-base font-semibold text-foreground">
+                  Examples
+                </h2>
+                <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+                  {examples.map((example, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className="group flex items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/20"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <PluginListLogo plugin={plugin} />
+                        <span className="min-w-0 text-sm leading-5 text-foreground">
+                          {example}
+                        </span>
+                      </div>
+                      <Icon
+                        icon="lucide:arrow-right"
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {skills.length > 0 ? (
+              <SkillsSection plugin={plugin} skills={skills} />
+            ) : null}
+          </div>
+        }
+      />
+
+      <RequiredConnectionModal
+        modal={connectionModal}
+        state={connectionModalState}
+        integration={
+          connectionModal
+            ? findIntegration(connectionModal.requirement.provider ?? "")
+            : undefined
+        }
+        isPending={isConnecting}
+        onBack={closeConnectionModal}
+        onIntegrationConnect={handleIntegrationConnect}
+        onDatabaseConnected={handleDatabaseConnected}
+      />
+    </>
   )
 }
 
@@ -256,70 +323,201 @@ function PluginDetailShell({ content }: { content: React.ReactNode }) {
   )
 }
 
-function ExternalLink({ href, label }: { href: string; label: string }) {
+function RequiredConnectionsSection({
+  requirements,
+  missing,
+  integrationsLoading,
+  isBusy,
+  onConnect,
+}: {
+  requirements: PluginRequirement[]
+  missing: PluginRequirement[]
+  integrationsLoading: boolean
+  isBusy: boolean
+  onConnect: (requirement: PluginRequirement) => void
+}) {
   return (
-    <Link href={href} className="inline-flex items-center gap-1 text-sm">
-      {label}
-      <Icon icon="lucide:external-link" className="h-3.5 w-3.5" />
-    </Link>
+    <section className="flex flex-col gap-3">
+      <div className="border-warning/40 bg-warning/10 flex gap-3 rounded-xl border p-4">
+        <div className="bg-warning/15 text-warning flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+          <Icon icon="lucide:triangle-alert" className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-medium text-foreground">
+            Required connections missing
+          </h2>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            Add the required connections before adding this plugin.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+        {requirements.map((requirement, index) => {
+          const provider = requirement.provider ?? ""
+          const isMissing = isRequirementMissing(requirement, missing)
+          const canConnect =
+            isMissing &&
+            (isDatabaseRequirement(requirement) ||
+              isIntegrationRequirement(requirement))
+          const waitingForIntegrations =
+            integrationsLoading && isIntegrationRequirement(requirement)
+
+          return (
+            <div
+              key={provider || index}
+              className="flex items-center justify-between gap-3 px-3 py-2.5"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <RequirementLogo requirement={requirement} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {provider ? providerLabel(provider) : "Connection"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {connectionKindLabel(requirement)}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant={isMissing ? "primary" : "tertiary"}
+                className="shrink-0 rounded-full"
+                isDisabled={!canConnect || isBusy || waitingForIntegrations}
+                onPress={() => onConnect(requirement)}
+              >
+                {isBusy && isMissing ? (
+                  <Spinner color="current" size="sm" />
+                ) : null}
+                {isMissing ? "Connect" : "Connected"}
+              </Button>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
-function ContainsSection({
-  skills,
-}: {
-  skills: Array<{ name?: string; description?: string }>
-}) {
-  const previewCount = Math.min(5, skills.length)
-  const hasMore = skills.length > previewCount
+function RequirementLogo({ requirement }: { requirement: PluginRequirement }) {
+  const provider = requirement.provider
+  if (!provider) {
+    return (
+      <div className="bg-default flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
+        <Icon icon="lucide:plug" className="h-4 w-4 text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Contains</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Skills {skills.length}
-        </p>
-      </div>
-      <div className="flex flex-col gap-4">
-        {skills.slice(0, previewCount).map((skill, index) => (
+    <IntegrationLogo provider={provider} size={28} className="rounded-lg" />
+  )
+}
+
+function SkillsSection({
+  plugin,
+  skills,
+}: {
+  plugin: ApiPlugin
+  skills: PluginSkill[]
+}) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-base font-semibold text-foreground">Skills</h2>
+      <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+        {skills.map((skill, index) => (
           <div
             key={skill.name || index}
-            className="grid grid-cols-1 gap-1 sm:grid-cols-[1fr_2fr]"
+            className="flex items-start gap-3 px-3 py-2.5"
           >
-            <span className="text-sm font-medium text-foreground">
-              {skill.name || "Skill"}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {skill.description || "No description available."}
-            </span>
+            <PluginListLogo plugin={plugin} />
+            <div className="min-w-0">
+              <p className="text-sm leading-5 font-medium text-foreground">
+                {skill.name || "Skill"}
+              </p>
+              <p className="text-sm leading-5 text-muted-foreground">
+                {skill.description || "No description available."}
+              </p>
+            </div>
           </div>
         ))}
       </div>
-      {hasMore ? (
-        <button
-          type="button"
-          className="text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Show {skills.length - previewCount} more
-        </button>
-      ) : null}
     </section>
+  )
+}
+
+function PluginListLogo({ plugin }: { plugin: ApiPlugin }) {
+  return (
+    <div
+      className={pluginLogoFrameClass(
+        plugin,
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+      )}
+      style={pluginLogoFrameStyle(plugin)}
+    >
+      <PluginLogo plugin={plugin} size={24} iconSize={16} forceIconWhite />
+    </div>
+  )
+}
+
+function RequiredConnectionModal({
+  modal,
+  state,
+  integration,
+  isPending,
+  onBack,
+  onIntegrationConnect,
+  onDatabaseConnected,
+}: {
+  modal: ConnectionModalState | null
+  state: ReturnType<typeof useOverlayState>
+  integration: AvailableIntegration | undefined
+  isPending: boolean
+  onBack: () => void
+  onIntegrationConnect: (options?: ConnectOptions) => void
+  onDatabaseConnected: () => void
+}) {
+  const requirement = modal?.requirement
+  const provider = requirement?.provider
+
+  return (
+    <Modal.Root state={state}>
+      <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
+        <Modal.Container placement="center" className="p-4">
+          <Modal.Dialog
+            className="relative w-full max-w-sm rounded-3xl bg-background p-0 shadow-xl outline-none"
+          >
+            {modal?.view === "database" && isDatabaseProvider(provider) ? (
+              <DatabaseConnectionModalContent
+                provider={provider}
+                onConnected={onDatabaseConnected}
+              />
+            ) : modal?.view === "integration" && integration ? (
+              <IntegrationCredentialsForm
+                integration={integration}
+                isSubmitting={isPending}
+                onBack={onBack}
+                onSubmit={onIntegrationConnect}
+              />
+            ) : null}
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal.Root>
   )
 }
 
 function DetailSkeleton() {
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="bg-default h-16 w-16 animate-pulse rounded-2xl" />
+          <div className="bg-default h-12 w-12 animate-pulse rounded-xl" />
           <div className="flex flex-col gap-3">
-            <div className="bg-default h-7 w-40 animate-pulse rounded" />
-            <div className="bg-default h-5 w-80 max-w-full animate-pulse rounded" />
+            <div className="bg-default h-5 w-36 animate-pulse rounded" />
+            <div className="bg-default h-4 w-80 max-w-full animate-pulse rounded" />
           </div>
         </div>
-        <div className="bg-default h-10 w-20 animate-pulse rounded-full" />
+        <div className="bg-default h-8 w-16 animate-pulse rounded-full" />
       </header>
       <div className="bg-default h-40 animate-pulse rounded-xl" />
       <div className="bg-default h-56 animate-pulse rounded-xl" />
@@ -385,4 +583,53 @@ function pluginLogoFrameClass(plugin: ApiPlugin, className: string): string {
 function pluginLogoFrameStyle(plugin: ApiPlugin) {
   if (pluginLogoProvider(plugin)) return undefined
   return { backgroundColor: pluginIconColor(plugin) }
+}
+
+function providerLabel(provider: string): string {
+  return provider
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function connectionKindLabel(requirement: PluginRequirement): string {
+  return pluginRequirementKind(requirement) === "database"
+    ? "Database"
+    : "Integration"
+}
+
+function sameRequirement(
+  left: PluginRequirement,
+  right: PluginRequirement
+): boolean {
+  return (
+    (left.provider ?? "") === (right.provider ?? "") &&
+    pluginRequirementKind(left) === pluginRequirementKind(right)
+  )
+}
+
+function isRequirementMissing(
+  requirement: PluginRequirement,
+  missing: PluginRequirement[]
+): boolean {
+  return missing.some((item) => sameRequirement(requirement, item))
+}
+
+function isIntegrationRequirement(
+  requirement: PluginRequirement | null | undefined
+): requirement is PluginRequirement & { provider: string } {
+  return (
+    pluginRequirementKind(requirement) === "integration" &&
+    Boolean(requirement?.provider)
+  )
+}
+
+function isDatabaseRequirement(
+  requirement: PluginRequirement | null | undefined
+): requirement is PluginRequirement & { provider: string } {
+  return (
+    pluginRequirementKind(requirement) === "database" &&
+    isDatabaseProvider(requirement?.provider)
+  )
 }

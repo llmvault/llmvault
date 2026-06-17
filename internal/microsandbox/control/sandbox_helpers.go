@@ -102,17 +102,17 @@ func runnerHasCapacity(runner model.Runner, size api.Size) bool {
 
 func reserveRunner(tx *gorm.DB, runner *model.Runner, size api.Size) error {
 	return tx.Model(runner).Updates(map[string]any{
-		"reserved_cpu":       runner.ReservedCPU + size.CPU,
-		"reserved_memory_mb": runner.ReservedMemoryMB + size.MemoryMB,
-		"reserved_disk_gb":   runner.ReservedDiskGB + size.DiskGB,
+		"reserved_cpu":       gorm.Expr("reserved_cpu + ?", size.CPU),
+		"reserved_memory_mb": gorm.Expr("reserved_memory_mb + ?", size.MemoryMB),
+		"reserved_disk_gb":   gorm.Expr("reserved_disk_gb + ?", size.DiskGB),
 	}).Error
 }
 
 func releaseRunner(tx *gorm.DB, runner *model.Runner, size api.Size) error {
 	return tx.Model(runner).Updates(map[string]any{
-		"reserved_cpu":       max(runner.ReservedCPU-size.CPU, 0),
-		"reserved_memory_mb": max(runner.ReservedMemoryMB-size.MemoryMB, 0),
-		"reserved_disk_gb":   max(runner.ReservedDiskGB-size.DiskGB, 0),
+		"reserved_cpu":       gorm.Expr("CASE WHEN reserved_cpu > ? THEN reserved_cpu - ? ELSE 0 END", size.CPU, size.CPU),
+		"reserved_memory_mb": gorm.Expr("CASE WHEN reserved_memory_mb > ? THEN reserved_memory_mb - ? ELSE 0 END", size.MemoryMB, size.MemoryMB),
+		"reserved_disk_gb":   gorm.Expr("CASE WHEN reserved_disk_gb > ? THEN reserved_disk_gb - ? ELSE 0 END", size.DiskGB, size.DiskGB),
 	}).Error
 }
 

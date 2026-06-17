@@ -58,7 +58,11 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if ok := h.validateSessionModel(w, r, org.ID, &agent, req.Model); !ok {
+	if ok := h.validateSessionModel(w, r, org.ID, &agent, createSessionModelID(req)); !ok {
+		return
+	}
+	if _, err := normalizeSessionReasoningEffort(createSessionReasoningEffort(req)); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
@@ -173,10 +177,11 @@ func (h *SessionHandler) resolveSessionAgent(w http.ResponseWriter, r *http.Requ
 
 func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid.UUID, agent model.Agent, req createSessionRequest, userID *uuid.UUID) model.Session {
 	sessionID := uuid.New()
-	modelID := strings.TrimSpace(req.Model)
+	modelID := createSessionModelID(req)
 	if modelID == "" {
 		modelID = agent.Model
 	}
+	reasoningEffort, _ := normalizeSessionReasoningEffort(createSessionReasoningEffort(req))
 	session := model.Session{
 		ID:                sessionID,
 		OrgID:             orgID,
@@ -186,7 +191,7 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 		CreatedBy:         userID,
 		Model:             modelID,
 		AccessMode:        defaultString(strings.TrimSpace(req.AccessMode), "full"),
-		ReasoningEffort:   defaultString(strings.TrimSpace(req.ReasoningEffort), "high"),
+		ReasoningEffort:   reasoningEffort,
 		Source:            "web",
 		SourceResourceKey: sessionID.String(),
 		Name:              defaultString(strings.TrimSpace(req.Name), webSessionName(firstNonEmptyString(req.Text, req.Message))),

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -99,8 +100,37 @@ func (h *IntegrationHandler) ListAvailable(w http.ResponseWriter, r *http.Reques
 
 	resp := make([]integrationAvailableResponse, 0, len(integrations))
 	for _, integ := range integrations {
+		integ = h.withAvailableNangoConfig(r.Context(), integ)
 		resp = append(resp, toIntegrationAvailableResponse(integ))
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *IntegrationHandler) withAvailableNangoConfig(ctx context.Context, integ model.Integration) model.Integration {
+	cfg := parseNangoConfig(integ.NangoConfig)
+	if cfg != nil && cfg.AuthMode != "" {
+		return integ
+	}
+	if h.nango == nil {
+		return integ
+	}
+
+	nk := nangoProviderConfigKey(integ.UniqueKey)
+	integResp, err := h.nango.GetIntegration(ctx, nk)
+	if err != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "failed to refresh nango config for available integration", "error", err, "integration_id", integ.ID)
+		return integ
+	}
+
+	template, _ := h.nango.GetProviderTemplate(nangoProviderName(integ.Provider))
+	refreshed := buildNangoConfig(integResp, template, h.nango.CallbackURL())
+	if len(refreshed) == 0 {
+		return integ
+	}
+	integ.NangoConfig = refreshed
+	if err := h.db.WithContext(ctx).Model(&integ).Update("nango_config", refreshed).Error; err != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "failed to store refreshed nango config for available integration", "error", err, "integration_id", integ.ID)
+	}
+	return integ
 }

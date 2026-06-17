@@ -44,15 +44,6 @@ for segment in [
     if segment['type'] not in existing_dynamic:
         dynamic_segments.append(segment)
 
-tools = d.get('tools', [])
-existing = {t['type'] for t in tools}
-for spec in [
-    'builtin.cron', 'builtin.check_bash_status', 'builtin.wake',
-]:
-    if spec not in existing:
-        tools.append({'type': spec})
-d['tools'] = tools
-
 if 'context' not in d:
     d['context'] = {}
 comp = d['context'].get('compaction')

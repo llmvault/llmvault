@@ -4,7 +4,7 @@
   "name": "Hivy",
   "description": "Hivy is a real teammate focused on getting meaningful company work done.",
   "category": "General",
-  "avatar_url": "/assets/hivy-avatar.png",
+  "avatar_url": "/assets/hivy.png",
   "developer": "Hivy",
   "official": true,
   "agent_version": "1",
@@ -13,6 +13,10 @@
   "runtime": {
     "sandbox_strategy": "always_on",
     "model": "deepseek-v4-flash",
+    "available_models": [
+      "deepseek-v4-flash",
+      "step-3.7-flash"
+    ],
     "multimodal_model": "gemini-3-flash-preview"
   },
   "prompt": {

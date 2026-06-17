@@ -51,17 +51,69 @@ export function pluginCapabilities(plugin: ApiPlugin): string[] {
 }
 
 export function pluginLogoProvider(plugin: ApiPlugin): string | null {
-  const required = (plugin.required_connections ?? []).filter(
-    (connection) => connection.required
-  )
+  const required = pluginRequiredConnections(plugin)
   if (required.length !== 1) return null
   return required[0].provider || null
+}
+
+export function pluginRequiredConnections(
+  plugin: ApiPlugin
+): PluginRequirement[] {
+  return (plugin.required_connections ?? []).filter(
+    (connection) => connection.required !== false
+  )
+}
+
+export function pluginRequiredIntegrationProvider(
+  plugin: ApiPlugin
+): string | null {
+  const required = pluginRequiredConnections(plugin)
+  if (
+    required.length !== 1 ||
+    pluginConnectionKind(required[0]) !== "integration"
+  ) {
+    return null
+  }
+  return required[0].provider || null
+}
+
+export function pluginRequiredDatabaseProvider(
+  plugin: ApiPlugin
+): string | null {
+  const required = pluginRequiredConnections(plugin)
+  if (
+    required.length !== 1 ||
+    pluginConnectionKind(required[0]) !== "database"
+  ) {
+    return null
+  }
+  return required[0].provider || null
+}
+
+function pluginConnectionKind(requirement: PluginRequirement): string {
+  return requirement.kind || "integration"
 }
 
 export function pluginMissingRequirements(
   plugin: ApiPlugin
 ): PluginRequirement[] {
   return plugin.missing_requirements ?? []
+}
+
+export function pluginNextMissingRequirement(
+  plugin: ApiPlugin
+): PluginRequirement | null {
+  return (
+    pluginMissingRequirements(plugin).find(
+      (requirement) => requirement.required !== false
+    ) ?? null
+  )
+}
+
+export function pluginRequirementKind(
+  requirement: PluginRequirement | null | undefined
+): string {
+  return requirement?.kind || "integration"
 }
 
 export function pluginCanInstall(plugin: ApiPlugin): boolean {

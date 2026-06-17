@@ -60,21 +60,12 @@ func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 		t.Fatalf("MCP auth header references wrong env: %q", agentMCPAuthorizationHeader())
 	}
 
-	bashConfig, ok := def.Tools[0]["config"].(map[string]any)
-	if !ok {
-		t.Fatalf("bash tool config has wrong type: %#v", def.Tools[0]["config"])
-	}
-	envPassthrough, ok := bashConfig["env_passthrough"].([]string)
-	if !ok {
-		t.Fatalf("env_passthrough has wrong type: %#v", bashConfig["env_passthrough"])
-	}
-	if len(envPassthrough) != 0 {
-		t.Fatalf("env_passthrough = %#v, want empty to pass all runtime env", envPassthrough)
-	}
-
 	body, err := json.Marshal(def)
 	if err != nil {
 		t.Fatalf("marshal definition: %v", err)
+	}
+	if strings.Contains(string(body), `"tools"`) {
+		t.Fatalf("runtime config should not define built-in tools: %s", string(body))
 	}
 	for _, forbidden := range AgentForbiddenRawProviderEnvKeys() {
 		if strings.Contains(string(body), forbidden) {
@@ -102,5 +93,58 @@ func TestCompile_UsesAgentModelWithDefaultFallback(t *testing.T) {
 	}
 	if def.Model.ModelID != DefaultAgentModel {
 		t.Fatalf("blank model fallback = %q, want %q", def.Model.ModelID, DefaultAgentModel)
+	}
+}
+
+func TestCompile_IncludesCatalogSubAgents(t *testing.T) {
+	orgID := uuid.New()
+	rawSubAgents, err := json.Marshal(map[string]model.AgentCatalogSubAgent{
+		"codebase-explorer": {
+			Name:         "Codebase Explorer",
+			Description:  "Maps code paths.",
+			Model:        "qwen3.7-plus",
+			Instructions: "Trace code paths with evidence.",
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal subagents: %v", err)
+	}
+	agent := &model.Agent{
+		ID:    uuid.New(),
+		OrgID: &orgID,
+		Name:  "Hakaree",
+		Model: "deepseek-v4-pro",
+		AgentCatalog: &model.AgentCatalog{
+			SubAgents: model.RawJSON(rawSubAgents),
+		},
+	}
+
+	def, err := Compile(context.Background(), CompileDeps{Cfg: &config.Config{}}, agent)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	subAgent, ok := def.SubAgents["codebase-explorer"]
+	if !ok {
+		t.Fatalf("missing codebase-explorer subagent: %#v", def.SubAgents)
+	}
+	if subAgent.Agent.Name != "Codebase Explorer" {
+		t.Fatalf("subagent name = %q", subAgent.Agent.Name)
+	}
+	if subAgent.Model.ModelID != "qwen3.7-plus" {
+		t.Fatalf("subagent model = %q", subAgent.Model.ModelID)
+	}
+	cacheable := requireCacheableSegments(t, subAgent.SystemPrompt)
+	if len(cacheable) < 2 {
+		t.Fatalf("subagent cacheable segments = %d", len(cacheable))
+	}
+	instructionsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
+	if !strings.Contains(instructionsContent, "<instructions>\nTrace code paths with evidence.\n</instructions>") {
+		t.Fatalf("subagent instructions missing: %q", instructionsContent)
+	}
+	if len(def.Tools) != 0 {
+		t.Fatalf("parent tools should be omitted for runtime defaults: %#v", def.Tools)
+	}
+	if len(subAgent.Tools) != 0 {
+		t.Fatalf("subagent tools should be omitted for runtime defaults: %#v", subAgent.Tools)
 	}
 }

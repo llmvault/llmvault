@@ -80,6 +80,7 @@ mod tests {
                 size_bytes: Some(42),
             }],
             dynamic_context: Vec::new(),
+            model_definition: None,
             raw: serde_json::json!({"source": "test"}),
             is_direct_message: false,
             is_directly_addressed: true,

@@ -18,9 +18,11 @@ type AgentCatalog struct {
 	Official           bool           `gorm:"not null;default:false"`
 	IsDefault          bool           `gorm:"not null;default:false;index"`
 	Model              string         `gorm:"not null;default:''"`
+	AvailableModels    pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 	MultimodalModel    string         `gorm:"not null;default:''"`
 	SandboxStrategy    string         `gorm:"not null;default:'per_session'"`
 	Instructions       string         `gorm:"type:text;not null;default:''"`
+	SubAgents          RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
 	RequiredPlugins    pq.StringArray `gorm:"type:text[];default:'{}'"`
 	RecommendedPlugins pq.StringArray `gorm:"type:text[];default:'{}'"`
 	Manifest           RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
@@ -36,3 +38,10 @@ const (
 	AgentCatalogStatusActive   = "active"
 	AgentCatalogStatusArchived = "archived"
 )
+
+type AgentCatalogSubAgent struct {
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Model        string `json:"model,omitempty"`
+	Instructions string `json:"instructions"`
+}

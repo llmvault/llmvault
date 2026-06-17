@@ -2150,6 +2150,16 @@
               "type": "string"
             }
           },
+          "model_definition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ModelConfig"
+              }
+            ]
+          },
           "raw": {
             "type": "object"
           },

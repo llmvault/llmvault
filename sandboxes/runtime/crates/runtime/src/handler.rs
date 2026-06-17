@@ -686,7 +686,11 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
         String::from("[Additional request(s) received while working on the previous task]\n");
     let mut attachments = Vec::new();
     let mut raw_events = Vec::new();
+    let mut model_definition = current.model_definition.clone();
     for (index, event) in queued.into_iter().enumerate() {
+        if event.model_definition.is_some() {
+            model_definition = event.model_definition.clone();
+        }
         let number = index + 1;
         let source = inbound_event_source(&event);
         let display_name = event
@@ -731,6 +735,7 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
     merged.user_display_name = Some("Queued inbound messages".to_string());
     merged.text = text;
     merged.attachments = attachments;
+    merged.model_definition = model_definition;
     let mut raw = serde_json::json!({
         "source": "queued_batch",
         "events": raw_events,
@@ -771,6 +776,7 @@ mod queue_tests {
                 size_bytes: Some(128),
             }],
             dynamic_context: Vec::new(),
+            model_definition: None,
             raw,
             is_direct_message: false,
             is_directly_addressed: true,
@@ -1162,6 +1168,9 @@ async fn process_single_turn(
 
     let DownloadResults { images, .. } = media;
     let mut turn_input = TurnInput::text(annotated_text);
+    if let Some(model) = inbound.model_definition.clone() {
+        turn_input = turn_input.with_model_override(model);
+    }
     if let Some(stream_id) = session_stream_id(inbound) {
         turn_input = turn_input.with_session_stream_id(stream_id);
     }
@@ -1365,6 +1374,7 @@ async fn process_single_turn(
                 ),
                 attachments: Vec::new(),
                 dynamic_context: Vec::new(),
+                model_definition: None,
                 raw: serde_json::json!({
                     "source": "subagent_task_result",
                     "job_id": job_id,
@@ -2852,6 +2862,7 @@ mod scheduled_run_tests {
             text: "do work".to_string(),
             attachments: Vec::new(),
             dynamic_context: Vec::new(),
+            model_definition: None,
             raw: json!({
                 "source": "cron",
                 "job_kind": "cron",
