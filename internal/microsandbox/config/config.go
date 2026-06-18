@@ -40,6 +40,8 @@ type Config struct {
 	RunnerTotalMemoryMB         int
 	RunnerTotalDiskGB           int
 	RunnerCPUOvercommit         float64
+	RunnerMemoryOvercommit      float64
+	RunnerDiskOvercommit        float64
 	RunnerPreviewPortRangeStart int
 	RunnerPreviewPortRangeEnd   int
 
@@ -81,6 +83,8 @@ func Load() Config {
 		RunnerTotalMemoryMB:         integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_MEMORY_MB", 8192),
 		RunnerTotalDiskGB:           integer("HIVY_MICROSANDBOX_RUNNER_TOTAL_DISK_GB", 200),
 		RunnerCPUOvercommit:         float("HIVY_MICROSANDBOX_RUNNER_CPU_OVERCOMMIT", 1.5),
+		RunnerMemoryOvercommit:      float("HIVY_MICROSANDBOX_RUNNER_MEMORY_OVERCOMMIT", 1),
+		RunnerDiskOvercommit:        float("HIVY_MICROSANDBOX_RUNNER_DISK_OVERCOMMIT", 1),
 		RunnerPreviewPortRangeStart: integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_START", api.DefaultPreviewHostPortRangeStart),
 		RunnerPreviewPortRangeEnd:   integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_END", api.DefaultPreviewHostPortRangeEnd),
 		SnapshotS3Bucket:            os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_BUCKET"),

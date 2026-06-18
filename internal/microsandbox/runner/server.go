@@ -116,6 +116,7 @@ func (s *Server) register(ctx context.Context) error {
 		"capacity": map[string]any{
 			"cpu": s.cfg.RunnerTotalCPU, "memory_mb": s.cfg.RunnerTotalMemoryMB,
 			"disk_gb": s.cfg.RunnerTotalDiskGB, "cpu_overcommit": s.cfg.RunnerCPUOvercommit,
+			"memory_overcommit": s.cfg.RunnerMemoryOvercommit, "disk_overcommit": s.cfg.RunnerDiskOvercommit,
 		},
 	}
 	var out struct {

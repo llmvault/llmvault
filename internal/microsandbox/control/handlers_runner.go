@@ -23,10 +23,12 @@ type registerRunnerRequest struct {
 }
 
 type runnerCapacity struct {
-	CPU           int     `json:"cpu"`
-	MemoryMB      int     `json:"memory_mb"`
-	DiskGB        int     `json:"disk_gb"`
-	CPUOvercommit float64 `json:"cpu_overcommit"`
+	CPU              int     `json:"cpu"`
+	MemoryMB         int     `json:"memory_mb"`
+	DiskGB           int     `json:"disk_gb"`
+	CPUOvercommit    float64 `json:"cpu_overcommit"`
+	MemoryOvercommit float64 `json:"memory_overcommit"`
+	DiskOvercommit   float64 `json:"disk_overcommit"`
 }
 
 func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +57,19 @@ func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
 	if cpuOvercommit <= 0 {
 		cpuOvercommit = 1.5
 	}
+	memoryOvercommit := req.Capacity.MemoryOvercommit
+	if memoryOvercommit <= 0 {
+		memoryOvercommit = 1
+	}
+	diskOvercommit := req.Capacity.DiskOvercommit
+	if diskOvercommit <= 0 {
+		diskOvercommit = 1
+	}
 	runner := model.Runner{
 		ID: id, Name: req.Name, APIURL: req.APIURL, PreviewBaseURL: req.PreviewBaseURL, AuthTokenHash: security.HashToken(token),
 		Status: model.RunnerStatusHealthy, TotalCPU: req.Capacity.CPU, TotalMemoryMB: req.Capacity.MemoryMB,
-		TotalDiskGB: req.Capacity.DiskGB, CPUOvercommit: cpuOvercommit, LastHeartbeatAt: &now,
+		TotalDiskGB: req.Capacity.DiskGB, CPUOvercommit: cpuOvercommit, MemoryOvercommit: memoryOvercommit,
+		DiskOvercommit: diskOvercommit, LastHeartbeatAt: &now,
 	}
 	if err == nil {
 		runner.ReservedCPU = existing.ReservedCPU
@@ -67,7 +78,8 @@ func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
 		if err := s.db.Model(&existing).Updates(map[string]any{
 			"api_url": req.APIURL, "preview_base_url": req.PreviewBaseURL, "auth_token_hash": runner.AuthTokenHash, "status": runner.Status,
 			"total_cpu": runner.TotalCPU, "total_memory_mb": runner.TotalMemoryMB, "total_disk_gb": runner.TotalDiskGB,
-			"cpu_overcommit": runner.CPUOvercommit, "last_heartbeat_at": now,
+			"cpu_overcommit": runner.CPUOvercommit, "memory_overcommit": runner.MemoryOvercommit,
+			"disk_overcommit": runner.DiskOvercommit, "last_heartbeat_at": now,
 		}).Error; err != nil {
 			httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update runner"})
 			return
@@ -108,10 +120,19 @@ func (s *Server) runnerHeartbeat(w http.ResponseWriter, r *http.Request) {
 		updates["total_cpu"] = req.Capacity.CPU
 		updates["total_memory_mb"] = req.Capacity.MemoryMB
 		updates["total_disk_gb"] = req.Capacity.DiskGB
-		updates["cpu_overcommit"] = req.Capacity.CPUOvercommit
+		updates["cpu_overcommit"] = defaultOvercommit(req.Capacity.CPUOvercommit, 1.5)
+		updates["memory_overcommit"] = defaultOvercommit(req.Capacity.MemoryOvercommit, 1)
+		updates["disk_overcommit"] = defaultOvercommit(req.Capacity.DiskOvercommit, 1)
 	}
 	s.db.Model(&runner).Updates(updates)
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func defaultOvercommit(value, fallback float64) float64 {
+	if value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 func (s *Server) listRunners(w http.ResponseWriter, r *http.Request) {
