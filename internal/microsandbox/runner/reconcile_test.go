@@ -1,6 +1,10 @@
 package runner
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func TestRecoverSandboxStateFromLabelsAndPorts(t *testing.T) {
 	state, ok := recoverSandboxState("anything", "running", `{
@@ -123,6 +127,29 @@ func TestPinnedImageRefUsesDigestWithoutLosingRegistryPort(t *testing.T) {
 	for input, want := range cases {
 		if got := pinnedImageRef(input, digest); got != want {
 			t.Fatalf("pinnedImageRef(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestSnapshotImportArchivePathIsUniquePerCall(t *testing.T) {
+	dir := t.TempDir()
+	first, err := snapshotImportArchivePath(dir, "snp123", "s3://bucket/snapshots/snp123.tar.zst")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(first)
+	second, err := snapshotImportArchivePath(dir, "snp123", "s3://bucket/snapshots/snp123.tar.zst")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(second)
+
+	if first == second {
+		t.Fatalf("snapshot import archive path was reused: %s", first)
+	}
+	for _, path := range []string{first, second} {
+		if !strings.HasPrefix(path, dir+"/snp123-import-") || !strings.HasSuffix(path, ".tar.zst") {
+			t.Fatalf("unexpected import archive path %q", path)
 		}
 	}
 }

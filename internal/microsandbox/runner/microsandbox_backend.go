@@ -12,11 +12,12 @@ import (
 )
 
 type MicrosandboxBackend struct {
-	mu        sync.Mutex
-	ports     map[string]map[int]int
-	sandboxes map[string]sandboxState
-	store     *storage.SnapshotStore
-	allocator *portAllocator
+	mu               sync.Mutex
+	snapshotImportMu sync.Mutex
+	ports            map[string]map[int]int
+	sandboxes        map[string]sandboxState
+	store            *storage.SnapshotStore
+	allocator        *portAllocator
 }
 
 type sandboxState struct {
