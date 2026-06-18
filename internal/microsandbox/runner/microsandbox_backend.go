@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
 
@@ -220,6 +221,9 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 }
 
 func (m *MicrosandboxBackend) StartSandbox(ctx context.Context, sandboxID string) error {
+	if status, ok := m.sandboxStatus(sandboxID); ok && status == "running" {
+		return nil
+	}
 	sb, err := microsandbox.StartSandboxDetached(ctx, sandboxID)
 	if err != nil {
 		return err
@@ -235,11 +239,14 @@ func (m *MicrosandboxBackend) StartSandbox(ctx context.Context, sandboxID string
 }
 
 func (m *MicrosandboxBackend) StopSandbox(ctx context.Context, sandboxID string) error {
+	if status, ok := m.sandboxStatus(sandboxID); ok && status == "stopped" {
+		return nil
+	}
 	handle, err := microsandbox.GetSandbox(ctx, sandboxID)
 	if err != nil {
 		return err
 	}
-	if err := handle.Stop(ctx); err != nil {
+	if err := handle.Stop(ctx, microsandbox.WithStopTimeout(time.Second)); err != nil {
 		return err
 	}
 	m.setSandboxStatus(sandboxID, "stopped")

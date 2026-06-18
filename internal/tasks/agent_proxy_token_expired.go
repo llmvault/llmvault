@@ -59,7 +59,7 @@ func EnsureAgentProxyTokenRefreshScheduledForToken(ctx context.Context, db *gorm
 	}
 	var agent model.Agent
 	if err := db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND harness = ? AND status <> ?", agentID, tok.OrgID, "agent-sandbox", "archived").
+		Where("id = ? AND org_id = ? AND status <> ?", agentID, tok.OrgID, "archived").
 		First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil

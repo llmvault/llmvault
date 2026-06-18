@@ -49,11 +49,6 @@ struct FakeOutbox {
 }
 
 #[derive(Default)]
-struct FakeCronRepo {
-    jobs: Mutex<HashMap<String, CronJob>>,
-}
-
-#[derive(Default)]
 struct FakeSubagentTaskRepo {
     tasks: Mutex<HashMap<String, SubagentTask>>,
 }
@@ -66,6 +61,41 @@ struct FakeQuestionRequester {
 #[derive(Default)]
 struct FakePlanUpdater {
     updates: Mutex<Vec<UpdatePlanPayload>>,
+}
+
+#[derive(Debug)]
+struct FakeWakeCall {
+    session_id: String,
+    stream_id: Option<String>,
+    seconds: u64,
+    task_prompt: String,
+}
+
+#[derive(Default)]
+struct FakeWakeScheduler {
+    calls: Mutex<Vec<FakeWakeCall>>,
+}
+
+#[async_trait]
+impl WakeScheduler for FakeWakeScheduler {
+    async fn schedule_wake(
+        &self,
+        session_id: SessionId,
+        stream_id: Option<String>,
+        seconds: u64,
+        task_prompt: String,
+    ) -> Result<(String, DateTime<Utc>)> {
+        self.calls.lock().expect("wake lock").push(FakeWakeCall {
+            session_id: session_id.as_str().to_string(),
+            stream_id,
+            seconds,
+            task_prompt,
+        });
+        Ok((
+            "wake-test".to_string(),
+            Utc::now() + chrono::Duration::seconds(seconds as i64),
+        ))
+    }
 }
 
 #[async_trait]
@@ -99,110 +129,6 @@ impl OutboxRepo for FakeOutbox {
     }
 
     async fn mark_failed(&self, _id: i64) -> storage::Result<()> {
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl CronJobRepo for FakeCronRepo {
-    async fn create(&self, job: &CronJob) -> storage::Result<()> {
-        self.jobs
-            .lock()
-            .expect("cron lock")
-            .insert(job.id.clone(), job.clone());
-        Ok(())
-    }
-
-    async fn get(&self, id: &str) -> storage::Result<Option<CronJob>> {
-        Ok(self.jobs.lock().expect("cron lock").get(id).cloned())
-    }
-
-    async fn list_all(&self) -> storage::Result<Vec<CronJob>> {
-        Ok(self
-            .jobs
-            .lock()
-            .expect("cron lock")
-            .values()
-            .cloned()
-            .collect())
-    }
-
-    async fn list_due(&self) -> storage::Result<Vec<CronJob>> {
-        Ok(Vec::new())
-    }
-
-    async fn update_prompt(&self, id: &str, task_prompt: String) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.task_prompt = task_prompt;
-        }
-        Ok(())
-    }
-
-    async fn update_interval(&self, id: &str, interval_seconds: u64) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.interval_seconds = Some(interval_seconds);
-        }
-        Ok(())
-    }
-
-    async fn update_next_run(&self, id: &str, next_run_at: DateTime<Utc>) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.next_run_at = next_run_at;
-        }
-        Ok(())
-    }
-
-    async fn set_state(&self, id: &str, state: CronJobState) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.state = state;
-        }
-        Ok(())
-    }
-
-    async fn claim_due_run(
-        &self,
-        id: &str,
-        now: DateTime<Utc>,
-        started_at: DateTime<Utc>,
-    ) -> storage::Result<bool> {
-        let mut jobs = self.jobs.lock().expect("cron lock");
-        let Some(job) = jobs.get_mut(id) else {
-            return Ok(false);
-        };
-        if job.state != CronJobState::Active || job.next_run_at > now {
-            return Ok(false);
-        }
-        job.state = CronJobState::Running;
-        job.last_run_at = Some(started_at);
-        job.last_status = Some("running".to_string());
-        job.last_error = None;
-        Ok(true)
-    }
-
-    async fn record_run(
-        &self,
-        id: &str,
-        run_at: DateTime<Utc>,
-        status: &str,
-        error: Option<&str>,
-    ) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.last_run_at = Some(run_at);
-            job.last_status = Some(status.to_string());
-            job.last_error = error.map(ToString::to_string);
-        }
-        Ok(())
-    }
-
-    async fn increment_repeat(&self, id: &str) -> storage::Result<()> {
-        if let Some(job) = self.jobs.lock().expect("cron lock").get_mut(id) {
-            job.repeat_completed += 1;
-        }
-        Ok(())
-    }
-
-    async fn delete(&self, id: &str) -> storage::Result<()> {
-        self.jobs.lock().expect("cron lock").remove(id);
         Ok(())
     }
 }
@@ -393,7 +319,7 @@ fn test_emitter(outbox: Arc<FakeOutbox>) -> Arc<OutboundEmitter> {
 fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dyn JsonTool> {
     let emitter = test_emitter(outbox);
     let ctx = ToolContext {
-        cron_repo: None,
+        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -467,9 +393,9 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
 
 #[tokio::test]
 async fn wake_tool_persists_parent_session_stream_id() {
-    let repo = Arc::new(FakeCronRepo::default());
+    let scheduler = Arc::new(FakeWakeScheduler::default());
     let ctx = ToolContext {
-        cron_repo: Some(repo.clone()),
+        wake_scheduler: Some(scheduler.clone()),
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -496,20 +422,20 @@ async fn wake_tool_persists_parent_session_stream_id() {
         .await
         .expect("wake call");
     let job_id = result["job_id"].as_str().expect("job id");
-    let job = repo.get(job_id).await.expect("repo get").expect("wake job");
-
-    assert_eq!(
-        job.session_continuation_id.as_deref(),
-        Some("parent-session")
-    );
-    assert_eq!(job.stream_id.as_deref(), Some("parent-stream-1"));
+    assert_eq!(job_id, "wake-test");
+    let calls = scheduler.calls.lock().expect("wake lock");
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].session_id, "parent-session");
+    assert_eq!(calls[0].stream_id.as_deref(), Some("parent-stream-1"));
+    assert_eq!(calls[0].seconds, 10);
+    assert_eq!(calls[0].task_prompt, "Resume and reply");
 }
 
 #[tokio::test]
 async fn request_user_input_tool_is_registered_and_returns_answer() {
     let requester = Arc::new(FakeQuestionRequester::default());
     let ctx = ToolContext {
-        cron_repo: None,
+        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -586,7 +512,7 @@ async fn request_user_input_tool_rejects_invalid_schema() {
 async fn update_plan_tool_is_registered_and_returns_ack() {
     let updater = Arc::new(FakePlanUpdater::default());
     let ctx = ToolContext {
-        cron_repo: None,
+        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -693,7 +619,7 @@ async fn update_plan_tool_rejects_empty_steps() {
 async fn update_plan_tool_is_not_registered_for_cron_sessions() {
     let updater = Arc::new(FakePlanUpdater::default());
     let ctx = ToolContext {
-        cron_repo: None,
+        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -817,94 +743,6 @@ async fn skill_manage_delete_emits_tombstone() {
     assert!(payload.get("content").is_none());
 
     let _ = fs::remove_dir_all(workspace);
-}
-
-#[tokio::test]
-async fn cron_create_update_pause_resume_cancel_emit_schedule_events() {
-    let repo = Arc::new(FakeCronRepo::default());
-    let outbox = Arc::new(FakeOutbox::default());
-    let tool = cron_tool(
-        repo,
-        SessionId::from("C123-456.789"),
-        Some(test_emitter(outbox.clone())),
-    );
-
-    let created = tool
-        .call(json!({
-            "action": "create",
-            "task_prompt": "Check deploy health",
-            "interval_seconds": 3600,
-            "description": "Deploy health"
-        }))
-        .await
-        .expect("create cron");
-    let job_id = created["job_id"].as_str().expect("job id").to_string();
-    tool.call(json!({"action": "update", "job_id": job_id, "task_prompt": "Check API health", "interval_seconds": 7200}))
-            .await
-            .expect("update cron");
-    tool.call(json!({"action": "pause", "job_id": job_id}))
-        .await
-        .expect("pause cron");
-    tool.call(json!({"action": "resume", "job_id": job_id}))
-        .await
-        .expect("resume cron");
-    tool.call(json!({"action": "cancel", "job_id": job_id}))
-        .await
-        .expect("cancel cron");
-
-    let rows = outbox.rows.lock().expect("outbox lock");
-    let event_types: Vec<_> = rows
-        .iter()
-        .map(|(_, event_type, _)| event_type.as_str())
-        .collect();
-    assert_eq!(
-        event_types,
-        vec![
-            event_types::SCHEDULE_CREATED,
-            event_types::SCHEDULE_UPDATED,
-            event_types::SCHEDULE_PAUSED,
-            event_types::SCHEDULE_RESUMED,
-            event_types::SCHEDULE_CANCELLED,
-        ]
-    );
-    assert_eq!(rows[0].2["session_id"], "C123-456.789");
-    assert_eq!(rows[0].2["origin"], "tool");
-    assert_eq!(rows[0].2["task_prompt"], "Check deploy health");
-}
-
-#[tokio::test]
-async fn wake_jobs_do_not_emit_schedule_events() {
-    let now = Utc::now();
-    let outbox = Arc::new(FakeOutbox::default());
-    let job = CronJob {
-        id: "wake-1".to_string(),
-        description: "Wake".to_string(),
-        channel: "C123".to_string(),
-        task_prompt: "Wake up".to_string(),
-        cron_expression: None,
-        interval_seconds: None,
-        repeat_count: Some(1),
-        repeat_completed: 0,
-        state: CronJobState::Active,
-        next_run_at: now,
-        last_run_at: None,
-        last_status: None,
-        last_error: None,
-        session_continuation_id: Some("C123-456.789".to_string()),
-        stream_id: None,
-        created_at: now,
-        created_by_session: "C123-456.789".to_string(),
-    };
-    emit_schedule_event(
-        Some(test_emitter(outbox.clone())),
-        event_types::SCHEDULE_CREATED,
-        &job,
-        &SessionId::from("C123-456.789"),
-        "tool",
-        None,
-    )
-    .await;
-    assert!(outbox.rows.lock().expect("outbox lock").is_empty());
 }
 
 #[tokio::test]

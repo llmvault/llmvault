@@ -56,6 +56,8 @@ func BuildServer(
 		addKnowledgeTools(server, token)
 	}
 
+	addCronTool(server, token, db)
+
 	return server, nil
 }
 

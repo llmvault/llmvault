@@ -22,9 +22,11 @@ type AgentSchedule struct {
 	Connection      *Connection `gorm:"foreignKey:ConnectionID;constraint:OnDelete:SET NULL"`
 	Metadata        JSON        `gorm:"type:jsonb;not null;default:'{}'"`
 	Status          string      `gorm:"not null;default:'active';size:64;index"`
+	ScheduleKind    string      `gorm:"type:text;not null;default:'interval';index"`
 	Channel         string      `gorm:"not null;default:'';size:255"`
 	Description     string      `gorm:"type:text;not null;default:''"`
 	TaskPrompt      string      `gorm:"type:text;not null;default:''"`
+	CronExpression  string      `gorm:"type:text"`
 	IntervalSeconds *int64
 	RepeatCount     *int64
 	RepeatCompleted int64 `gorm:"not null;default:0"`
@@ -33,6 +35,8 @@ type AgentSchedule struct {
 	LastRunAt        *time.Time
 	LastStatus       string `gorm:"not null;default:'';size:64"`
 	LastError        string `gorm:"type:text;not null;default:''"`
+	LeaseOwner       string `gorm:"type:text;not null;default:''"`
+	LeasedUntil      *time.Time
 	CreatedBySession string `gorm:"not null;default:'';size:255"`
 	RuntimeCreatedAt *time.Time
 	CancelledAt      *time.Time `gorm:"index"`
@@ -51,7 +55,9 @@ type AgentScheduleRun struct {
 	Agent      Agent         `gorm:"foreignKey:AgentID;constraint:OnDelete:CASCADE"`
 	ScheduleID uuid.UUID     `gorm:"type:uuid;not null;uniqueIndex:idx_agent_schedule_run_key"`
 	Schedule   AgentSchedule `gorm:"foreignKey:ScheduleID;constraint:OnDelete:CASCADE"`
-	SandboxID  uuid.UUID     `gorm:"type:uuid;not null;index"`
+	SessionID  *uuid.UUID    `gorm:"type:uuid;index"`
+	Session    *Session      `gorm:"foreignKey:SessionID;constraint:OnDelete:SET NULL"`
+	SandboxID  *uuid.UUID    `gorm:"type:uuid;index"`
 	Sandbox    Sandbox       `gorm:"foreignKey:SandboxID;constraint:OnDelete:CASCADE"`
 
 	RuntimeJobID string     `gorm:"not null;size:255;index"`
@@ -61,6 +67,8 @@ type AgentScheduleRun struct {
 	StartedAt    *time.Time
 	CompletedAt  *time.Time
 	DurationMS   *int64
+	LeaseOwner   string `gorm:"type:text;not null;default:''"`
+	LeasedUntil  *time.Time
 	Error        string  `gorm:"type:text;not null;default:''"`
 	EventPayload RawJSON `gorm:"type:jsonb;not null;default:'{}'"`
 

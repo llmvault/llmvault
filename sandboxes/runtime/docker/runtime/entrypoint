@@ -9,19 +9,54 @@ if [ -n "${HIVY_GIT_EMAIL:-}" ]; then
   git config --system user.email "$HIVY_GIT_EMAIL"
 fi
 
+dockerd_pid=""
+runtime_pid=""
+
+terminate_children() {
+  if [ -n "${runtime_pid:-}" ] && kill -0 "$runtime_pid" 2>/dev/null; then
+    kill -TERM "$runtime_pid" 2>/dev/null || true
+    wait "$runtime_pid" 2>/dev/null || true
+  fi
+  if [ -n "${dockerd_pid:-}" ] && kill -0 "$dockerd_pid" 2>/dev/null; then
+    kill -TERM "$dockerd_pid" 2>/dev/null || true
+    for _ in $(seq 1 10); do
+      if ! kill -0 "$dockerd_pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.1
+    done
+    if kill -0 "$dockerd_pid" 2>/dev/null; then
+      kill -KILL "$dockerd_pid" 2>/dev/null || true
+    fi
+    wait "$dockerd_pid" 2>/dev/null || true
+  fi
+}
+
+trap 'terminate_children; exit 143' INT TERM
+
 if [ "${HIVY_RUNTIME_START_DOCKERD:-1}" = "1" ] && command -v dockerd >/dev/null 2>&1; then
   mkdir -p /var/lib/docker /var/run
-  dockerd --host=unix:///var/run/docker.sock --data-root=/var/lib/docker >/tmp/dockerd.log 2>&1 &
-  for _ in $(seq 1 60); do
-    if docker info >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
   if ! docker info >/dev/null 2>&1; then
-    cat /tmp/dockerd.log >&2 || true
-    exit 1
+    rm -f /var/run/docker.pid
+    dockerd --host=unix:///var/run/docker.sock --data-root=/var/lib/docker >/tmp/dockerd.log 2>&1 &
+    dockerd_pid="$!"
+    for _ in $(seq 1 60); do
+      if docker info >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    if ! docker info >/dev/null 2>&1; then
+      cat /tmp/dockerd.log >&2 || true
+      exit 1
+    fi
   fi
 fi
 
-exec "$@"
+"$@" &
+runtime_pid="$!"
+wait "$runtime_pid"
+status="$?"
+runtime_pid=""
+terminate_children
+exit "$status"

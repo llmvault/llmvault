@@ -21,11 +21,17 @@
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Uri {uri}
 			copy_headers X-Microsandbox-Upstream
+			transport http {
+				response_header_timeout 60s
+			}
 		}
 
 		reverse_proxy {http.request.header.X-Microsandbox-Upstream} {
 			header_up X-Hivy-Preview-Host {host}
 			flush_interval -1
+			transport http {
+				response_header_timeout 60s
+			}
 		}
 	}
 }

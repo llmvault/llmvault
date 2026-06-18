@@ -141,6 +141,10 @@ type Config struct {
 	PublicAssetsUseACL    bool          `env:"HIVY_PUBLIC_ASSETS_USE_ACL" envDefault:"false"`
 
 	SandboxResourceCheckInterval time.Duration `env:"HIVY_SANDBOX_RESOURCE_CHECK_INTERVAL" envDefault:"30m"`
+	SandboxIdleTimeout           time.Duration `env:"HIVY_SANDBOX_IDLE_TIMEOUT" envDefault:"5m"`
+	SandboxLifecycleInterval     time.Duration `env:"HIVY_SANDBOX_LIFECYCLE_INTERVAL" envDefault:"5s"`
+	AgentScheduleScanInterval    time.Duration `env:"HIVY_AGENT_SCHEDULE_SCAN_INTERVAL" envDefault:"5s"`
+	PreviewActivityToken         string        `env:"HIVY_PREVIEW_ACTIVITY_TOKEN"`
 
 	WorkerHealthPort     int           `env:"HIVY_WORKER_HEALTH_PORT" envDefault:"8090"`
 	AsynqConcurrency     int           `env:"HIVY_ASYNQ_CONCURRENCY" envDefault:"30"`

@@ -23,6 +23,7 @@ type Sandbox struct {
 	Status                 string           `gorm:"not null;default:'creating'"` // creating, running, stopped, starting, archived, archiving, error
 	ErrorMessage           *string
 	LastActiveAt           *time.Time
+	LastPreviewAt          *time.Time
 	StoppedAt              *time.Time // when the sandbox was last stopped (used for 24h auto-archive)
 
 	// Resource usage (populated by resource checker cron)

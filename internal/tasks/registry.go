@@ -107,7 +107,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	}
 
 	if deps.Hindsight != nil {
-		mux.HandleFunc(TypeAgentMemoryRefresh, NewAgentMemoryRefreshHandler(deps.DB, deps.AgentCompile).Handle)
+		mux.HandleFunc(TypeAgentMemoryRefresh, NewAgentMemoryRefreshHandler(deps.DB, deps.AgentCompile, deps.Orchestrator).Handle)
 	}
 	if deps.Orchestrator != nil && deps.S3Client != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil {
 		mux.HandleFunc(TypeAgentSandboxUpgrade,
@@ -132,10 +132,15 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
 		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)
+		mux.HandleFunc(TypeAgentScheduleDeliver,
+			NewAgentScheduleDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		mux.HandleFunc(TypeAgentGitHubResourcesClone,
 			NewAgentGitHubResourcesCloneHandler(deps.DB, deps.Orchestrator, deps.AgentCompile).Handle)
 	}
 	mux.HandleFunc(TypeAgentTriggerStoreDelivery, NewAgentTriggerStoreDeliveryHandler(deps.DB).Handle)
+	if deps.Enqueuer != nil && deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil {
+		mux.HandleFunc(TypeAgentScheduleScan, NewAgentScheduleScanHandler(deps.DB, deps.Enqueuer).Handle)
+	}
 
 	if deps.Rag != nil {
 		ragtasks.RegisterHandlers(mux, deps.Rag)

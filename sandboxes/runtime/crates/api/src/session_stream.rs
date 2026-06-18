@@ -685,13 +685,31 @@ impl SessionMessageState {
             .and_then(Value::as_str)
             .filter(|value| matches!(*value, "session" | "web"))
             .unwrap_or("session");
-        let raw = json!({
+        let mut raw = json!({
             "source": source,
             "session_stream_id": stream_id,
             "trace_id": trace_id,
             "turn_id": turn_id,
-            "raw": request.raw,
+            "raw": request.raw.clone(),
         });
+        if let Some(raw_obj) = request.raw.as_object() {
+            if let Some(out) = raw.as_object_mut() {
+                for key in [
+                    "job_id",
+                    "schedule_id",
+                    "schedule_run_id",
+                    "schedule_run_key",
+                    "schedule_scheduled_at",
+                    "schedule_started_at",
+                    "schedule_is_one_shot",
+                    "schedule_is_wake",
+                ] {
+                    if let Some(value) = raw_obj.get(key) {
+                        out.insert(key.to_string(), value.clone());
+                    }
+                }
+            }
+        }
         let model_definition = match request.model_definition {
             Some(model) => {
                 self.broker

@@ -2,7 +2,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use domain::cron::{CronJob, CronJobState};
 use domain::{
     EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionId, SessionStatus,
     SubagentTask, SubagentTaskState,
@@ -13,7 +12,6 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::repos::{notify_write, Result, SharedWriteNotifier};
 
-use super::cron_ops;
 use super::event_ops;
 use super::outbox_ops;
 use super::question_ops;
@@ -66,55 +64,6 @@ pub(super) enum WriteRequest {
     InboundDedupeCleanup {
         before: String,
         resp: Resp<u64>,
-    },
-    CronCreate {
-        job: Box<CronJob>,
-        resp: Resp<()>,
-    },
-    CronUpdatePrompt {
-        id: String,
-        task_prompt: String,
-        resp: Resp<()>,
-    },
-    CronUpdateInterval {
-        id: String,
-        interval_seconds: u64,
-        resp: Resp<()>,
-    },
-    CronUpdateNextRun {
-        id: String,
-        next_run_at: DateTime<Utc>,
-        resp: Resp<()>,
-    },
-    CronSetState {
-        id: String,
-        state: CronJobState,
-        resp: Resp<()>,
-    },
-    CronClaimDueRun {
-        id: String,
-        now: DateTime<Utc>,
-        started_at: DateTime<Utc>,
-        resp: Resp<bool>,
-    },
-    CronResetStaleRunning {
-        before: DateTime<Utc>,
-        resp: Resp<u64>,
-    },
-    CronRecordRun {
-        id: String,
-        run_at: DateTime<Utc>,
-        status: String,
-        error: Option<String>,
-        resp: Resp<()>,
-    },
-    CronIncrementRepeat {
-        id: String,
-        resp: Resp<()>,
-    },
-    CronDelete {
-        id: String,
-        resp: Resp<()>,
     },
     SubagentTaskCreate {
         task: Box<SubagentTask>,
@@ -260,64 +209,6 @@ impl WriteRequest {
                 resp,
                 session_ops::inbound_dedupe_cleanup(conn, &before).await,
             ),
-            WriteRequest::CronCreate { job, resp } => {
-                respond(resp, cron_ops::cron_create(conn, *job).await)
-            }
-            WriteRequest::CronUpdatePrompt {
-                id,
-                task_prompt,
-                resp,
-            } => respond(
-                resp,
-                cron_ops::cron_update_prompt(conn, &id, &task_prompt).await,
-            ),
-            WriteRequest::CronUpdateInterval {
-                id,
-                interval_seconds,
-                resp,
-            } => respond(
-                resp,
-                cron_ops::cron_update_interval(conn, &id, interval_seconds).await,
-            ),
-            WriteRequest::CronUpdateNextRun {
-                id,
-                next_run_at,
-                resp,
-            } => respond(
-                resp,
-                cron_ops::cron_update_next_run(conn, &id, next_run_at).await,
-            ),
-            WriteRequest::CronSetState { id, state, resp } => {
-                respond(resp, cron_ops::cron_set_state(conn, &id, state).await)
-            }
-            WriteRequest::CronClaimDueRun {
-                id,
-                now,
-                started_at,
-                resp,
-            } => respond(
-                resp,
-                cron_ops::cron_claim_due_run(conn, &id, now, started_at).await,
-            ),
-            WriteRequest::CronResetStaleRunning { before, resp } => {
-                respond(resp, cron_ops::cron_reset_stale_running(conn, before).await)
-            }
-            WriteRequest::CronRecordRun {
-                id,
-                run_at,
-                status,
-                error,
-                resp,
-            } => respond(
-                resp,
-                cron_ops::cron_record_run(conn, &id, run_at, &status, error.as_deref()).await,
-            ),
-            WriteRequest::CronIncrementRepeat { id, resp } => {
-                respond(resp, cron_ops::cron_increment_repeat(conn, &id).await)
-            }
-            WriteRequest::CronDelete { id, resp } => {
-                respond(resp, cron_ops::cron_delete(conn, &id).await)
-            }
             WriteRequest::SubagentTaskCreate { task, resp } => {
                 respond(resp, subagent_ops::subagent_task_create(conn, *task).await)
             }

@@ -54,10 +54,5 @@ func PushAgentRuntimeConfig(ctx context.Context, deps CompileDeps, agent *model.
 	if err := client.Readyz(ctx); err != nil {
 		return fmt.Errorf("agent runtime readyz: %w", err)
 	}
-	// Repoint schedules only after the runtime accepts the config carrying them, so
-	// a failed compile/push never mutates schedule rows.
-	if err := RepointAgentSchedules(ctx, deps.DB, agent, sb); err != nil {
-		return fmt.Errorf("repoint agent schedules: %w", err)
-	}
 	return nil
 }

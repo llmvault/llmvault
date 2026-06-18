@@ -143,26 +143,21 @@ func (h *AgentProxyTokenRefreshHandler) run(ctx context.Context, payload AgentPr
 		return nil
 	}
 
-	if h.orchestrator.NeedsURLRefresh(sb) {
-		if err := h.orchestrator.RefreshAgentSandboxURL(ctx, sb); err != nil {
-			return fmt.Errorf("refresh agent sandbox url: %w", err)
-		}
-	}
 	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
 	if err != nil {
 		return fmt.Errorf("decrypt agent runtime secret: %w", err)
 	}
-	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
-	if err := client.Healthz(ctx); err != nil {
-		return fmt.Errorf("agent runtime healthz: %w", err)
-	}
-
 	configUpdate, refreshed, err := agentruntime.BuildAgentRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, apiKey)
 	if err != nil {
 		if refreshed != nil {
 			h.revokeToken(ctx, refreshed.JTI)
 		}
 		return fmt.Errorf("build agent runtime config: %w", err)
+	}
+	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
+	if err != nil {
+		h.revokeToken(ctx, refreshed.JTI)
+		return fmt.Errorf("agent runtime client: %w", err)
 	}
 	if _, err := client.PutRuntimeConfig(ctx, configUpdate); err != nil {
 		h.revokeToken(ctx, refreshed.JTI)
@@ -203,7 +198,7 @@ func (h *AgentProxyTokenRefreshHandler) markAgentRefreshed(ctx context.Context, 
 func (h *AgentProxyTokenRefreshHandler) loadAgentAndSandbox(ctx context.Context, payload AgentProxyTokenRefreshPayload) (*model.Agent, *model.Sandbox, bool, error) {
 	var agent model.Agent
 	if err := h.db.WithContext(ctx).
-		Where("id = ? AND harness = ? AND status <> ?", payload.AgentID, "agent-sandbox", "archived").
+		Where("id = ? AND status <> ?", payload.AgentID, "archived").
 		First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil, false, nil

@@ -82,7 +82,6 @@ func agentRuntimeSkillsTools() []any {
 
 func agentRuntimeSchedulingTools() []any {
 	return append(agentRuntimeFileTools(),
-		map[string]any{"type": "builtin.cron"},
 		map[string]any{"type": "builtin.wake"},
 	)
 }
