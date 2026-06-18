@@ -61,6 +61,46 @@ func TestSelectRunnerRejectsInsufficientCapacity(t *testing.T) {
 	}
 }
 
+func TestSelectRunnerUsesMemoryAndDiskOvercommit(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:scheduler-memory-disk-overcommit?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+		t.Fatal(err)
+	}
+	runners := []model.Runner{
+		{
+			ID: "strict", Name: "strict", APIURL: "http://strict", AuthTokenHash: []byte("hash"),
+			Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 4096, TotalDiskGB: 40,
+			CPUOvercommit: 1, MemoryOvercommit: 1, DiskOvercommit: 1,
+			ReservedMemoryMB: 4096, ReservedDiskGB: 40,
+		},
+		{
+			ID: "overcommit", Name: "overcommit", APIURL: "http://overcommit", AuthTokenHash: []byte("hash"),
+			Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 4096, TotalDiskGB: 40,
+			CPUOvercommit: 1, MemoryOvercommit: 2, DiskOvercommit: 2,
+			ReservedMemoryMB: 4096, ReservedDiskGB: 40,
+		},
+	}
+	if err := db.Create(&runners).Error; err != nil {
+		t.Fatal(err)
+	}
+	err = db.Transaction(func(tx *gorm.DB) error {
+		selected, err := selectRunnerForUpdate(tx, api.Size{CPU: 1, MemoryMB: 4096, DiskGB: 40})
+		if err != nil {
+			return err
+		}
+		if selected.ID != "overcommit" {
+			t.Fatalf("selected runner = %q, want overcommit", selected.ID)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestReleaseRunnerUsesCurrentReservedCapacity(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:runner-release-current?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {

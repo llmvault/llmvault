@@ -57,8 +57,9 @@ func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {
 		if !runnerHasCapacity(*r, size) {
 			continue
 		}
-		cpuLimit := int(float64(r.TotalCPU) * r.CPUOvercommit)
-		free := (cpuLimit - r.ReservedCPU - size.CPU) + ((r.TotalMemoryMB - r.ReservedMemoryMB - size.MemoryMB) / 1024)
+		cpuLimit := overcommitLimit(r.TotalCPU, r.CPUOvercommit, 1.5)
+		memoryLimit := overcommitLimit(r.TotalMemoryMB, r.MemoryOvercommit, 1)
+		free := (cpuLimit - r.ReservedCPU - size.CPU) + ((memoryLimit - r.ReservedMemoryMB - size.MemoryMB) / 1024)
 		if best == nil || free < bestFree {
 			best = r
 			bestFree = free
@@ -94,10 +95,19 @@ func selectRunnerForSnapshotSandbox(tx *gorm.DB, snapshot model.Snapshot, size a
 }
 
 func runnerHasCapacity(runner model.Runner, size api.Size) bool {
-	cpuLimit := int(float64(runner.TotalCPU) * runner.CPUOvercommit)
+	cpuLimit := overcommitLimit(runner.TotalCPU, runner.CPUOvercommit, 1.5)
+	memoryLimit := overcommitLimit(runner.TotalMemoryMB, runner.MemoryOvercommit, 1)
+	diskLimit := overcommitLimit(runner.TotalDiskGB, runner.DiskOvercommit, 1)
 	return runner.ReservedCPU+size.CPU <= cpuLimit &&
-		runner.ReservedMemoryMB+size.MemoryMB <= runner.TotalMemoryMB &&
-		runner.ReservedDiskGB+size.DiskGB <= runner.TotalDiskGB
+		runner.ReservedMemoryMB+size.MemoryMB <= memoryLimit &&
+		runner.ReservedDiskGB+size.DiskGB <= diskLimit
+}
+
+func overcommitLimit(total int, overcommit, fallback float64) int {
+	if overcommit <= 0 {
+		overcommit = fallback
+	}
+	return int(float64(total) * overcommit)
 }
 
 func reserveRunner(tx *gorm.DB, runner *model.Runner, size api.Size) error {

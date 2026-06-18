@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS microsandbox_runners (
     reserved_memory_mb bigint NOT NULL DEFAULT 0,
     reserved_disk_gb bigint NOT NULL DEFAULT 0,
     cpu_overcommit double precision NOT NULL DEFAULT 1.5,
+    memory_overcommit double precision NOT NULL DEFAULT 1,
+    disk_overcommit double precision NOT NULL DEFAULT 1,
     metadata_json text NOT NULL DEFAULT '{}',
     last_heartbeat_at timestamptz,
     created_at timestamptz,

@@ -17,6 +17,8 @@ type Runner struct {
 	ReservedMemoryMB int     `gorm:"not null;default:0"`
 	ReservedDiskGB   int     `gorm:"not null;default:0"`
 	CPUOvercommit    float64 `gorm:"not null;default:1.5"`
+	MemoryOvercommit float64 `gorm:"not null;default:1"`
+	DiskOvercommit   float64 `gorm:"not null;default:1"`
 	MetadataJSON     string  `gorm:"type:text;not null;default:'{}'"`
 	LastHeartbeatAt  *time.Time
 	CreatedAt        time.Time
