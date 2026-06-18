@@ -24,13 +24,21 @@ func (m *MicrosandboxBackend) ensureSnapshotAvailable(ctx context.Context, req C
 	if m.store == nil {
 		return fmt.Errorf("snapshot %s is not local and snapshot storage is not configured", req.SnapshotID)
 	}
+	m.snapshotImportMu.Lock()
+	defer m.snapshotImportMu.Unlock()
+	if _, err := microsandbox.Snapshot.Get(ctx, req.SnapshotID); err == nil {
+		return nil
+	}
 	if err := m.ensureImageAvailable(ctx, req.ImageRef, req.SnapshotImageDigest); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(snapshotExportDir, 0o755); err != nil {
 		return err
 	}
-	archivePath := filepath.Join(snapshotExportDir, req.SnapshotID+"-import"+snapshotArchiveExtension(req.SnapshotArtifactURL))
+	archivePath, err := snapshotImportArchivePath(snapshotExportDir, req.SnapshotID, req.SnapshotArtifactURL)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		_ = os.Remove(archivePath)
 	}()
@@ -53,6 +61,19 @@ func (m *MicrosandboxBackend) ensureSnapshotAvailable(ctx context.Context, req C
 		return fmt.Errorf("snapshot %s imported but was not indexed by name: %w", req.SnapshotID, err)
 	}
 	return nil
+}
+
+func snapshotImportArchivePath(dir, snapshotID, artifactURL string) (string, error) {
+	file, err := os.CreateTemp(dir, snapshotID+"-import-*"+snapshotArchiveExtension(artifactURL))
+	if err != nil {
+		return "", err
+	}
+	path := file.Name()
+	if err := file.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return path, nil
 }
 
 func (m *MicrosandboxBackend) ensureImageAvailable(ctx context.Context, imageRef, imageDigest string) error {
