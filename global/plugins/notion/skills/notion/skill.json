@@ -1,6 +1,7 @@
 {
   "name": "notion",
-  "description": "Read, search, create, edit, and organize Notion pages, blocks, data sources, databases, comments, files, users, icons, custom emojis, and markdown content through the Hivy-provided Notion API proxy for the agent's Notion profile using HIVY_NOTION_API_URL, HIVY_NOTION_TOKEN, curl, and jq; use Notion response URLs for human-facing links, never the proxy URL.",
+  "description": "Use this skill when the user asks to search, read, summarize, create, edit, or organize Notion pages, databases, data sources, blocks, comments, files, users, icons, templates, or markdown content. Pick it for workspace knowledge retrieval, documentation updates, database item changes, and Notion content management. Do not use it for generic web browsing or non-Notion documents.",
+  "human_description": "Manage Notion pages and databases",
   "category": "Knowledge",
   "root": "./SKILL.md",
   "tags": [

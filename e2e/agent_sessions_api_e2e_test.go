@@ -12,6 +12,7 @@ type agentSessionsAgentListItem struct {
 	Name            string `json:"name"`
 	IsDefault       bool   `json:"is_default"`
 	SandboxStrategy string `json:"sandbox_strategy"`
+	SandboxImage    string `json:"sandbox_image"`
 	Sandbox         *struct {
 		ID         string `json:"id"`
 		Status     string `json:"status"`

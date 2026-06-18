@@ -1,15 +1,15 @@
 ---
 name: linear
-description: Use when reading or triaging Linear issues, projects, teams, workflow states, users, comments, labels, or planning data through Linear GraphQL. Provides verified curl and jq commands through the Hivy Linear proxy using HIVY_LINEAR_URL and HIVY_LINEAR_TOKEN, with strict response filtering to avoid dumping large GraphQL payloads into context.
+description: Use when reading, creating, updating, triaging, or summarizing Linear issues, projects, teams, workflow states, users, comments, labels, cycles, or planning data.
 ---
 
 # Linear GraphQL
 
-Use Linear through the Hivy-provided GraphQL endpoint at `$HIVY_LINEAR_URL`.
+Use Linear through the provided GraphQL proxy endpoint at `$HIVY_LINEAR_URL`.
 
-You are running inside the Hivy runtime. All external Linear API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+Do not call the real Linear API directly. Use the provided proxy endpoint and environment variables.
 
-`HIVY_LINEAR_URL` and `HIVY_LINEAR_TOKEN` are provided by the runtime for the configured Linear connection. Always call the provided `HIVY_LINEAR_URL` exactly; do not substitute another workspace or token.
+`HIVY_LINEAR_URL` and `HIVY_LINEAR_TOKEN` are provided for the configured Linear connection. Always call `HIVY_LINEAR_URL` exactly as provided; do not substitute another workspace or token.
 
 ## Environment
 
@@ -17,7 +17,7 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_LINEAR_URL` | Linear GraphQL endpoint provided by Hivy |
+| `HIVY_LINEAR_URL` | Provided Linear GraphQL proxy endpoint |
 | `HIVY_LINEAR_TOKEN` | Bearer token for the provided Linear endpoint |
 
 Initialize once:
@@ -56,7 +56,7 @@ linear_graphql() {
 - Use `identifier` like `ENG-123` for human-facing issue references. The `issue(id:)` query accepts either the UUID or the identifier.
 - Use Relay pagination: request `pageInfo { hasNextPage endCursor }`, then pass `after: endCursor` only when more results are needed.
 - For writes, first read the relevant object and schema input type, then make the smallest mutation that satisfies the task.
-- Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Linear.
+- Delete, remove, archive, trash, and destroy operations are blocked by the provided proxy. If the user asks for one of these actions, explain that they must perform it themselves in Linear.
 - Do not print `$HIVY_LINEAR_TOKEN`.
 - When reporting results to a teammate, summarize only user-relevant fields and outcomes. Do not mention proxy URLs, bearer-token mechanics, schema probing, GraphQL filtering steps, or internal query details unless troubleshooting the Linear integration itself.
 

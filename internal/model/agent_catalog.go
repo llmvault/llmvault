@@ -21,6 +21,7 @@ type AgentCatalog struct {
 	AvailableModels    pq.StringArray `gorm:"type:text[];not null;default:'{}'"`
 	MultimodalModel    string         `gorm:"not null;default:''"`
 	SandboxStrategy    string         `gorm:"not null;default:'per_session'"`
+	SandboxImage       string         `gorm:"type:text;not null;default:'default'"`
 	Instructions       string         `gorm:"type:text;not null;default:''"`
 	SubAgents          RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
 	RequiredPlugins    pq.StringArray `gorm:"type:text[];default:'{}'"`

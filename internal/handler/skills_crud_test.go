@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,6 +16,50 @@ import (
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+func TestSkillHandler_CreateStoresHumanDescriptionSeparately(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+
+	h := handler.NewSkillHandler(db, nil)
+	r := chi.NewRouter()
+	r.Post("/v1/skills", h.Create)
+
+	body := bytes.NewReader([]byte(`{
+		"name": "Export Artifacts",
+		"description": "Use this skill when the agent needs to upload generated files.",
+		"human_description": "Save generated files to the shared drive.",
+		"source_type": "inline",
+		"bundle": {
+			"id": "export-artifacts",
+			"title": "Export Artifacts",
+			"description": "Use this skill when the agent needs to upload generated files.",
+			"content": "# Export Artifacts"
+		}
+	}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/skills", body)
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		ID               string  `json:"id"`
+		Description      *string `json:"description"`
+		HumanDescription *string `json:"human_description"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Description == nil || *resp.Description != "Use this skill when the agent needs to upload generated files." {
+		t.Fatalf("description = %#v", resp.Description)
+	}
+	if resp.HumanDescription == nil || *resp.HumanDescription != "Save generated files to the shared drive." {
+		t.Fatalf("human_description = %#v", resp.HumanDescription)
+	}
+}
 
 func TestSkillHandler_ListHidesIntegrationManagedPublicSkills(t *testing.T) {
 	db := connectTestDB(t)

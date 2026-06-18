@@ -34,7 +34,7 @@ terminate_children() {
 
 trap 'terminate_children; exit 143' INT TERM
 
-if [ "${HIVY_RUNTIME_START_DOCKERD:-1}" = "1" ] && command -v dockerd >/dev/null 2>&1; then
+if [ "${HIVY_RUNTIME_START_DOCKERD:-1}" = "1" ] && command -v docker >/dev/null 2>&1 && command -v dockerd >/dev/null 2>&1; then
   mkdir -p /var/lib/docker /var/run
   if ! docker info >/dev/null 2>&1; then
     rm -f /var/run/docker.pid

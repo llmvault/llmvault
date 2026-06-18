@@ -9269,6 +9269,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/agentCatalogPluginSummary"
                     }
                 },
+                "sandbox_image": {
+                    "type": "string"
+                },
                 "sandbox_strategy": {
                     "type": "string"
                 },
@@ -9315,6 +9318,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "sandbox_image": {
+                    "type": "string"
                 },
                 "slug": {
                     "type": "string"
@@ -9409,6 +9415,9 @@ const docTemplate = `{
                 },
                 "sandbox": {
                     "$ref": "#/definitions/agentSandboxSummary"
+                },
+                "sandbox_image": {
+                    "type": "string"
                 },
                 "sandbox_size": {
                     "type": "string"
@@ -9584,6 +9593,9 @@ const docTemplate = `{
                 "resources": {
                     "$ref": "#/definitions/JSON"
                 },
+                "sandbox_image": {
+                    "type": "string"
+                },
                 "sandbox_size": {
                     "type": "string"
                 },
@@ -9690,6 +9702,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "description": {
+                    "type": "string"
+                },
+                "human_description": {
                     "type": "string"
                 },
                 "id": {
@@ -10449,6 +10464,9 @@ const docTemplate = `{
                 },
                 "hidden": {
                     "type": "boolean"
+                },
+                "human_description": {
+                    "type": "string"
                 },
                 "integration_ids": {
                     "type": "array",
@@ -11663,6 +11681,9 @@ const docTemplate = `{
         "pluginResponse": {
             "type": "object",
             "properties": {
+                "auto_install": {
+                    "type": "boolean"
+                },
                 "capabilities": {
                     "type": "array",
                     "items": {
@@ -11713,6 +11734,9 @@ const docTemplate = `{
                 },
                 "links": {
                     "$ref": "#/definitions/pluginLinksResponse"
+                },
+                "locked": {
+                    "type": "boolean"
                 },
                 "long_description": {
                     "type": "string"
@@ -11768,6 +11792,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "human_description": {
                     "type": "string"
                 },
                 "id": {
@@ -12927,6 +12954,9 @@ const docTemplate = `{
                 "hidden": {
                     "type": "boolean"
                 },
+                "human_description": {
+                    "type": "string"
+                },
                 "hydration_error": {
                     "type": "string"
                 },
@@ -13001,6 +13031,9 @@ const docTemplate = `{
                 },
                 "hidden": {
                     "type": "boolean"
+                },
+                "human_description": {
+                    "type": "string"
                 },
                 "hydration_error": {
                     "type": "string"
@@ -13612,6 +13645,9 @@ const docTemplate = `{
                 },
                 "hidden": {
                     "type": "boolean"
+                },
+                "human_description": {
+                    "type": "string"
                 },
                 "integration_ids": {
                     "type": "array",

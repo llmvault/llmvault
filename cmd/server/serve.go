@@ -23,6 +23,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/proxy"
+	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -42,8 +43,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	sandboxEncKey := deps.SandboxEncKey
 	orchestrator := deps.Orchestrator
 	if orchestrator != nil {
-		orchestrator.SetWarmPoolReconciler(func(ctx context.Context, providerID, mode string) error {
-			return tasks.EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, providerID, mode)
+		orchestrator.SetWarmPoolReconciler(func(ctx context.Context, providerID, mode, runtimeImage string) error {
+			return tasks.EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, providerID, mode, runtimeImage)
 		})
 		tasks.EnqueueConfiguredWarmPoolReconciles(ctx, enqueuer, orchestrator)
 	}
@@ -164,7 +165,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			deps.S3Client,
 			sandboxEncKey,
 			cfg.AgentSQLiteBackupMaxBytes,
-		).WithRuntimeImages(cfg.SandboxesRuntimeBaseImage)
+		).WithRuntimeImages(sandbox.AgentRuntimeImageRef(cfg, model.SandboxImageDefault))
 	}
 
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)

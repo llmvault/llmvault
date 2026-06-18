@@ -38,12 +38,13 @@ type agentTriggerResponse struct {
 }
 
 type agentSkillSummary struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	SourceType  string  `json:"source_type"`
-	Locked      bool    `json:"locked,omitempty"`
-	Required    bool    `json:"required,omitempty"`
+	ID               string  `json:"id"`
+	Name             string  `json:"name"`
+	Description      *string `json:"description,omitempty"`
+	HumanDescription *string `json:"human_description,omitempty"`
+	SourceType       string  `json:"source_type"`
+	Locked           bool    `json:"locked,omitempty"`
+	Required         bool    `json:"required,omitempty"`
 }
 
 type agentCatalogSummary struct {
@@ -56,6 +57,7 @@ type agentCatalogSummary struct {
 	Developer          string   `json:"developer"`
 	Official           bool     `json:"official"`
 	IsDefault          bool     `json:"is_default"`
+	SandboxImage       string   `json:"sandbox_image"`
 	RequiredPlugins    []string `json:"required_plugins"`
 	RecommendedPlugins []string `json:"recommended_plugins"`
 }
@@ -69,6 +71,7 @@ type agentResponse struct {
 	Icon                  string                 `json:"icon"`
 	IsDefault             bool                   `json:"is_default"`
 	SandboxStrategy       string                 `json:"sandbox_strategy"`
+	SandboxImage          string                 `json:"sandbox_image"`
 	SandboxSize           string                 `json:"sandbox_size"`
 	SandboxTemplateID     *string                `json:"sandbox_template_id,omitempty"`
 	Model                 string                 `json:"model"`
@@ -121,6 +124,7 @@ func toAgentResponse(a model.Agent) agentResponse {
 		Icon:                a.Icon,
 		IsDefault:           a.IsDefault,
 		SandboxStrategy:     strategy,
+		SandboxImage:        model.NormalizeSandboxImage(a.SandboxImage),
 		SandboxSize:         sandboxSize,
 		Model:               a.Model,
 		AvailableModels:     append([]string(nil), a.AvailableModels...),
@@ -161,6 +165,7 @@ func toAgentCatalogSummary(c model.AgentCatalog) *agentCatalogSummary {
 		Developer:          c.Developer,
 		Official:           c.Official,
 		IsDefault:          c.IsDefault,
+		SandboxImage:       model.NormalizeSandboxImage(c.SandboxImage),
 		RequiredPlugins:    append([]string(nil), c.RequiredPlugins...),
 		RecommendedPlugins: append([]string(nil), c.RecommendedPlugins...),
 	}

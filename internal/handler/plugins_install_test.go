@@ -91,3 +91,70 @@ func TestPluginHandler_InstallEnqueuesPluginInstallSync(t *testing.T) {
 		t.Fatalf("agent plugin install missing: %v", err)
 	}
 }
+
+func TestPluginHandler_GetReturnsSkillHumanDescription(t *testing.T) {
+	db := connectTestDB(t)
+	h := handler.NewPluginHandler(db)
+	r := chi.NewRouter()
+	r.Get("/v1/plugins/{slug}", h.Get)
+
+	org := createTestOrg(t, db)
+	plugin := model.Plugin{
+		ID:       uuid.New(),
+		Slug:     "human-description-plugin-" + uuid.NewString()[:8],
+		Name:     "Human Description Plugin",
+		Status:   model.PluginStatusActive,
+		Manifest: model.RawJSON(`{}`),
+	}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
+	agentDesc := "Agent-facing plugin skill description."
+	humanDesc := "User-facing plugin skill summary."
+	skill := model.Skill{
+		ID:               uuid.New(),
+		PluginID:         &plugin.ID,
+		Slug:             "plugin-skill",
+		Name:             "Plugin Skill",
+		Description:      &agentDesc,
+		HumanDescription: &humanDesc,
+		Category:         "Testing",
+		SourceType:       model.SkillSourceInline,
+		RepoRef:          "main",
+		Bundle:           model.RawJSON(`{"description":"Agent-facing plugin skill description.","content":"# Plugin Skill"}`),
+		Status:           model.SkillStatusPublished,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create plugin skill: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("id = ?", skill.ID).Delete(&model.Skill{})
+		db.Where("id = ?", plugin.ID).Delete(&model.Plugin{})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/plugins/"+plugin.Slug, nil)
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Skills []struct {
+			Description      string  `json:"description"`
+			HumanDescription *string `json:"human_description"`
+		} `json:"skills"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Skills) != 1 {
+		t.Fatalf("skills = %d, want 1", len(resp.Skills))
+	}
+	if resp.Skills[0].Description != agentDesc {
+		t.Fatalf("description = %q, want %q", resp.Skills[0].Description, agentDesc)
+	}
+	if resp.Skills[0].HumanDescription == nil || *resp.Skills[0].HumanDescription != humanDesc {
+		t.Fatalf("human_description = %#v", resp.Skills[0].HumanDescription)
+	}
+}

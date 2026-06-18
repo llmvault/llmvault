@@ -30,6 +30,7 @@ type agentCatalogResponse struct {
 	Model              string                      `json:"model"`
 	AvailableModels    []string                    `json:"available_models"`
 	SandboxStrategy    string                      `json:"sandbox_strategy"`
+	SandboxImage       string                      `json:"sandbox_image"`
 	RequiredPlugins    []agentCatalogPluginSummary `json:"required_plugins"`
 	RecommendedPlugins []agentCatalogPluginSummary `json:"recommended_plugins"`
 	InstalledAgentID   *string                     `json:"installed_agent_id,omitempty"`

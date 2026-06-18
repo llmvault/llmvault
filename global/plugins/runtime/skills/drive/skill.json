@@ -1,0 +1,17 @@
+{
+  "name": "drive",
+  "description": "Use this skill when the user wants a generated file saved, shared, attached, uploaded, or linked in a durable place. Pick it for images, videos, screenshots, charts, CSV or Excel exports, PDFs, archives, reports, PR assets, and demo artifacts. Use it before referencing local sandbox files that teammates need to open later.",
+  "human_description": "Save files to your company's shared drive.",
+  "category": "Files",
+  "root": "./SKILL.md",
+  "tags": [
+    "drive",
+    "files",
+    "sharing"
+  ],
+  "required_environment_variables": [
+    "HIVY_DRIVE_UPLOAD_URL",
+    "HIVY_DRIVE_UPLOAD_BEARER"
+  ],
+  "files": []
+}

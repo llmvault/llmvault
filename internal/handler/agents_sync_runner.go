@@ -11,6 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentsandbox"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/tasks"
 	"gorm.io/gorm"
 )
@@ -197,7 +198,7 @@ func (h *AgentHandler) loadRuntimeEnv(ctx context.Context, agent *model.Agent, s
 func (h *AgentHandler) mainAgentRuntimeSelector() agentsandbox.Selector {
 	selector := agentsandbox.Selector{DB: h.db}
 	if h != nil && h.compileDeps.Cfg != nil {
-		selector.AgentRuntimeImage = h.compileDeps.Cfg.SandboxesRuntimeBaseImage
+		selector.AgentRuntimeImage = sandbox.AgentRuntimeImageRef(h.compileDeps.Cfg, model.SandboxImageDefault)
 	}
 	return selector
 }

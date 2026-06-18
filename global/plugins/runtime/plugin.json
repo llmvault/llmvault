@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "slug": "runtime",
+  "name": "Runtime",
+  "description": "Core runtime capabilities available to every agent.",
+  "category": "Runtime",
+  "icon": "lucide:cpu",
+  "icon_color": "#0F766E",
+  "developer": "Hivy",
+  "official": true,
+  "featured": false,
+  "auto_install": true,
+  "locked": true,
+  "capabilities": ["Files", "Browser"],
+  "examples": [
+    "Save this report to Drive",
+    "Upload the exported screenshots to the shared folder",
+    "Store this generated file where the team can access it",
+    "Open the app in a browser and capture a screenshot",
+    "Click through this page and verify the form works"
+  ],
+  "links": {
+    "website": "https://www.usehivy.com/"
+  },
+  "long_description": "Runtime provides core Hivy-managed capabilities that every agent receives automatically. Drive lets agents save generated files, screenshots, reports, and other artifacts to a shared destination that your team can revisit later. Browser lets agents use Agent Browser from inside the sandbox to inspect, interact with, and capture web applications.",
+  "plugin_version": "1",
+  "enabled": true
+}

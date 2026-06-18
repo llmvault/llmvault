@@ -23,8 +23,9 @@ const (
 )
 
 type SandboxWarmPoolReconcilePayload struct {
-	ProviderID string `json:"provider_id"`
-	Mode       string `json:"mode"`
+	ProviderID   string `json:"provider_id"`
+	Mode         string `json:"mode"`
+	RuntimeImage string `json:"runtime_image,omitempty"`
 }
 
 type SandboxWarmSlotCheckPayload struct {
@@ -63,13 +64,14 @@ func NewSandboxWarmSlotCheckTask(payload SandboxWarmSlotCheckPayload) (*asynq.Ta
 	return asynq.NewTask(TypeSandboxWarmSlotCheck, body), opts, nil
 }
 
-func EnqueueSandboxWarmPoolReconcile(ctx context.Context, enqueuer enqueue.TaskEnqueuer, providerID, mode string) error {
+func EnqueueSandboxWarmPoolReconcile(ctx context.Context, enqueuer enqueue.TaskEnqueuer, providerID, mode, runtimeImage string) error {
 	if enqueuer == nil {
 		return nil
 	}
 	task, opts, err := NewSandboxWarmPoolReconcileTask(SandboxWarmPoolReconcilePayload{
-		ProviderID: providerID,
-		Mode:       mode,
+		ProviderID:   providerID,
+		Mode:         mode,
+		RuntimeImage: runtimeImage,
 	})
 	if err != nil {
 		return err
@@ -114,7 +116,9 @@ func EnqueueConfiguredWarmPoolReconciles(ctx context.Context, enqueuer enqueue.T
 	}
 	mode := model.SandboxWarmSlotModeAgent
 	if orchestrator.WarmPool().DesiredCount(mode) > 0 {
-		_ = EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, orchestrator.ProviderID(), mode)
+		for _, image := range sandbox.AgentRuntimeImageRefs(orchestrator.Config()) {
+			_ = EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, orchestrator.ProviderID(), mode, image)
+		}
 	}
 }
 
@@ -138,7 +142,7 @@ func (h *SandboxWarmPoolReconcileHandler) Handle(ctx context.Context, task *asyn
 	if payload.ProviderID != h.orchestrator.ProviderID() {
 		return nil
 	}
-	_, err := h.orchestrator.WarmPool().Reconcile(ctx, payload.Mode, func(ctx context.Context, slotID uuid.UUID) error {
+	_, err := h.orchestrator.WarmPool().Reconcile(ctx, payload.Mode, payload.RuntimeImage, func(ctx context.Context, slotID uuid.UUID) error {
 		if err := EnqueueSandboxWarmSlotCheck(ctx, h.enqueuer, payload.ProviderID, slotID, 1, sandboxWarmSlotCheckDelay); err != nil {
 			return fmt.Errorf("enqueue warm slot check: %w", err)
 		}
@@ -177,8 +181,8 @@ func (h *SandboxWarmSlotCheckHandler) Handle(ctx context.Context, task *asynq.Ta
 	if payload.Attempt >= sandboxWarmSlotMaxChecks {
 		_ = h.orchestrator.WarmPool().MarkError(ctx, payload.SlotID,
 			fmt.Sprintf("warm slot did not become ready after %d checks", payload.Attempt))
-		if mode, modeErr := h.orchestrator.WarmPool().SlotMode(ctx, payload.SlotID); modeErr == nil {
-			_ = EnqueueSandboxWarmPoolReconcile(ctx, h.enqueuer, payload.ProviderID, mode)
+		if mode, runtimeImage, modeErr := h.orchestrator.WarmPool().SlotModeAndRuntimeImage(ctx, payload.SlotID); modeErr == nil {
+			_ = EnqueueSandboxWarmPoolReconcile(ctx, h.enqueuer, payload.ProviderID, mode, runtimeImage)
 		}
 		return fmt.Errorf("warm slot %s did not become ready after %d checks", payload.SlotID, payload.Attempt)
 	}

@@ -27,6 +27,36 @@ func TestCatalogUpdatesDefaultsAvailableModelsToRuntimeModel(t *testing.T) {
 	}
 }
 
+func TestCatalogUpdatesNormalizesSandboxImage(t *testing.T) {
+	updates := catalogUpdates(Manifest{
+		Runtime: RuntimeManifest{SandboxImage: " developer "},
+	}, model.RawJSON("{}"), "hash", model.AgentCatalogStatusActive)
+
+	if got, want := updates["sandbox_image"], model.SandboxImageDeveloper; got != want {
+		t.Fatalf("sandbox_image = %q, want %q", got, want)
+	}
+}
+
+func TestCatalogUpdatesDefaultsSandboxImage(t *testing.T) {
+	updates := catalogUpdates(Manifest{}, model.RawJSON("{}"), "hash", model.AgentCatalogStatusActive)
+
+	if got, want := updates["sandbox_image"], model.SandboxImageDefault; got != want {
+		t.Fatalf("sandbox_image = %q, want %q", got, want)
+	}
+}
+
+func TestValidateManifestsRejectsInvalidSandboxImage(t *testing.T) {
+	err := validateManifests([]Manifest{{
+		Version: 1,
+		Slug:    "hakaree",
+		Name:    "Hakaree",
+		Runtime: RuntimeManifest{SandboxImage: "builder"},
+	}})
+	if err == nil {
+		t.Fatal("validateManifests succeeded, want invalid sandbox_image error")
+	}
+}
+
 func TestLoadManifestLoadsSubAgentInstructions(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "sub_agents", "codebase-explorer"), 0o755); err != nil {

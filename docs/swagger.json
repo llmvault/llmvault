@@ -9266,6 +9266,9 @@
                         "$ref": "#/definitions/agentCatalogPluginSummary"
                     }
                 },
+                "sandbox_image": {
+                    "type": "string"
+                },
                 "sandbox_strategy": {
                     "type": "string"
                 },
@@ -9312,6 +9315,9 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "sandbox_image": {
+                    "type": "string"
                 },
                 "slug": {
                     "type": "string"
@@ -9406,6 +9412,9 @@
                 },
                 "sandbox": {
                     "$ref": "#/definitions/agentSandboxSummary"
+                },
+                "sandbox_image": {
+                    "type": "string"
                 },
                 "sandbox_size": {
                     "type": "string"
@@ -9581,6 +9590,9 @@
                 "resources": {
                     "$ref": "#/definitions/JSON"
                 },
+                "sandbox_image": {
+                    "type": "string"
+                },
                 "sandbox_size": {
                     "type": "string"
                 },
@@ -9687,6 +9699,9 @@
             "type": "object",
             "properties": {
                 "description": {
+                    "type": "string"
+                },
+                "human_description": {
                     "type": "string"
                 },
                 "id": {
@@ -10446,6 +10461,9 @@
                 },
                 "hidden": {
                     "type": "boolean"
+                },
+                "human_description": {
+                    "type": "string"
                 },
                 "integration_ids": {
                     "type": "array",
@@ -11660,6 +11678,9 @@
         "pluginResponse": {
             "type": "object",
             "properties": {
+                "auto_install": {
+                    "type": "boolean"
+                },
                 "capabilities": {
                     "type": "array",
                     "items": {
@@ -11710,6 +11731,9 @@
                 },
                 "links": {
                     "$ref": "#/definitions/pluginLinksResponse"
+                },
+                "locked": {
+                    "type": "boolean"
                 },
                 "long_description": {
                     "type": "string"
@@ -11765,6 +11789,9 @@
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "human_description": {
                     "type": "string"
                 },
                 "id": {
@@ -12924,6 +12951,9 @@
                 "hidden": {
                     "type": "boolean"
                 },
+                "human_description": {
+                    "type": "string"
+                },
                 "hydration_error": {
                     "type": "string"
                 },
@@ -12998,6 +13028,9 @@
                 },
                 "hidden": {
                     "type": "boolean"
+                },
+                "human_description": {
+                    "type": "string"
                 },
                 "hydration_error": {
                     "type": "string"
@@ -13609,6 +13642,9 @@
                 },
                 "hidden": {
                     "type": "boolean"
+                },
+                "human_description": {
+                    "type": "string"
                 },
                 "integration_ids": {
                     "type": "array",

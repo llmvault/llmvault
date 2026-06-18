@@ -1,17 +1,17 @@
 ---
 name: notion
-description: Use whenever the user asks to read, search, create, edit, summarize, organize, or manage Notion pages, blocks, databases, data sources, comments, files, icons, custom emojis, templates, users, or markdown content. Provides verified curl and jq commands through the Hivy Notion API proxy using HIVY_NOTION_API_URL and HIVY_NOTION_TOKEN, including safe patterns for Notion API version 2026-03-11 and human-facing Notion links that never use the proxy URL.
+description: Use when searching, reading, summarizing, creating, editing, or organizing Notion pages, databases, data sources, blocks, comments, files, users, icons, templates, or markdown content.
 ---
 
 # Notion REST API
 
-Use Notion through the Hivy-provided Notion API proxy at `$HIVY_NOTION_API_URL`.
+Use Notion through the provided API proxy endpoint at `$HIVY_NOTION_API_URL`.
 
-You are running inside the Hivy runtime. All external Notion API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+Do not call the real Notion API directly. Use the provided proxy endpoint and environment variables.
 
-`HIVY_NOTION_API_URL` and `HIVY_NOTION_TOKEN` are provided by the Hivy runtime for the agent's configured Notion profile. Always call the provided `HIVY_NOTION_API_URL` exactly; it is not expected to be `https://api.notion.com`, and the runtime handles forwarding to Notion for the selected profile connection. Do not substitute another workspace, base URL, or token.
+`HIVY_NOTION_API_URL` and `HIVY_NOTION_TOKEN` are provided for the agent's configured Notion profile. Always call `HIVY_NOTION_API_URL` exactly as provided; it is not expected to be `https://api.notion.com`, and the runtime handles forwarding to Notion for the selected profile connection. Do not substitute another workspace, base URL, or token.
 
-Never use `HIVY_NOTION_API_URL` to construct human-facing Notion dashboard links. It is an API proxy, not the Notion UI host. For links shown to users, use the `url` or `public_url` fields returned by Notion page, database, or data source responses. If no Notion response URL is available, provide the object ID and say the UI URL is unavailable instead of inventing one from the proxy.
+Never use `HIVY_NOTION_API_URL` to construct human-facing Notion dashboard links. It is an API endpoint, not the Notion UI host. For links shown to users, use the `url` or `public_url` fields returned by Notion page, database, or data source responses. If no Notion response URL is available, provide the object ID and say the UI URL is unavailable instead of inventing one from the API endpoint.
 
 ## Environment
 
@@ -19,7 +19,7 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_NOTION_API_URL` | Hivy-provided Notion API proxy base URL |
+| `HIVY_NOTION_API_URL` | Provided Notion API proxy base URL |
 | `HIVY_NOTION_TOKEN` | Bearer token for the configured Notion connection |
 
 Initialize once:
@@ -80,9 +80,9 @@ For file upload content, call `curl` directly with the same headers.
 
 - Always filter API JSON with `jq` before reading or returning results.
 - Never print `$HIVY_NOTION_TOKEN`.
-- Always call `$HIVY_NOTION_API_URL` for API requests. Do not call `https://api.notion.com` directly in runtime work unless the user is explicitly debugging Notion outside Hivy.
+- Always call `$HIVY_NOTION_API_URL` for API requests. Do not call `https://api.notion.com` directly in runtime work unless the user is explicitly debugging Notion outside the runtime.
 - Never construct a human-facing Notion URL from `$HIVY_NOTION_API_URL`. Use `url` or `public_url` fields from Notion responses, or report the ID when no UI URL is available.
-- Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Notion.
+- Delete, remove, archive, trash, and destroy operations are blocked by the provided proxy. If the user asks for one of these actions, explain that they must perform it themselves in Notion.
 - Use `Notion-Version: 2026-03-11` unless the user explicitly requests another version.
 - Prefer the markdown endpoints for broad document reading and editing. Use block endpoints when you need precise block structure, media blocks, tables, toggles, or block IDs.
 - Use data source endpoints for table rows and schemas. Current Notion databases are containers; data sources hold the schema and rows.
@@ -119,7 +119,7 @@ notion_api GET "/v1/data_sources/$DATA_SOURCE_ID" \
   | jq '{id, title: ([.title[]?.plain_text] | join("")), url, public_url}'
 ```
 
-Do not transform `$HIVY_NOTION_API_URL/v1/pages/...` into a browser link. `HIVY_NOTION_API_URL` is the Hivy runtime proxy and is not suitable for teammates to open in a browser.
+Do not transform `$HIVY_NOTION_API_URL/v1/pages/...` into a browser link. `HIVY_NOTION_API_URL` is an API endpoint and is not suitable for teammates to open in a browser.
 
 ## Search accessible content
 

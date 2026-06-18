@@ -10727,6 +10727,7 @@ export interface components {
             official?: boolean;
             recommended_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
             required_plugins?: components["schemas"]["agentCatalogPluginSummary"][];
+            sandbox_image?: string;
             sandbox_strategy?: string;
             slug?: string;
         };
@@ -10741,6 +10742,7 @@ export interface components {
             official?: boolean;
             recommended_plugins?: string[];
             required_plugins?: string[];
+            sandbox_image?: string;
             slug?: string;
         };
         agentConnectionResourceSelection: {
@@ -10770,6 +10772,7 @@ export interface components {
             permissions?: components["schemas"]["JSON"];
             resources?: components["schemas"]["JSON"];
             sandbox?: components["schemas"]["agentSandboxSummary"];
+            sandbox_image?: string;
             sandbox_size?: string;
             sandbox_strategy?: string;
             sandbox_template_id?: string;
@@ -10821,6 +10824,7 @@ export interface components {
             name?: string;
             permissions?: components["schemas"]["JSON"];
             resources?: components["schemas"]["JSON"];
+            sandbox_image?: string;
             sandbox_size?: string;
             sandbox_strategy?: string;
             sandbox_template_id?: string;
@@ -10856,6 +10860,7 @@ export interface components {
         };
         agentSkillSummary: {
             description?: string;
+            human_description?: string;
             id?: string;
             locked?: boolean;
             name?: string;
@@ -11120,6 +11125,7 @@ export interface components {
             category?: string;
             description?: string;
             hidden?: boolean;
+            human_description?: string;
             integration_ids?: string[];
             name?: string;
             repo_ref?: string;
@@ -11520,6 +11526,7 @@ export interface components {
             selected_count?: number;
         };
         pluginResponse: {
+            auto_install?: boolean;
             capabilities?: string[];
             category?: string;
             created_at?: string;
@@ -11534,6 +11541,7 @@ export interface components {
             id?: string;
             installed?: boolean;
             links?: components["schemas"]["pluginLinksResponse"];
+            locked?: boolean;
             long_description?: string;
             missing_requirements?: components["schemas"]["pluginConnectionRequirement"][];
             name?: string;
@@ -11549,6 +11557,7 @@ export interface components {
         pluginSkillResponse: {
             category?: string;
             description?: string;
+            human_description?: string;
             id?: string;
             name?: string;
             slug?: string;
@@ -11940,6 +11949,7 @@ export interface components {
             description?: string;
             featured?: boolean;
             hidden?: boolean;
+            human_description?: string;
             hydration_error?: string;
             /** @description pending, ready, error */
             hydration_status?: string;
@@ -11964,6 +11974,7 @@ export interface components {
             description?: string;
             featured?: boolean;
             hidden?: boolean;
+            human_description?: string;
             hydration_error?: string;
             /** @description pending, ready, error */
             hydration_status?: string;
@@ -12177,6 +12188,7 @@ export interface components {
             category?: string;
             description?: string;
             hidden?: boolean;
+            human_description?: string;
             integration_ids?: string[];
             name?: string;
             repo_ref?: string;

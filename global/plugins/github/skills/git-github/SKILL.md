@@ -1,6 +1,6 @@
 ---
 name: git-github
-description: Use whenever you need to perform common human git or GitHub activities from the CLI — creating branches, writing commits, opening pull requests (including PRs with screenshots, GIFs, or video demos in the description), commenting on PRs or issues, reacting (👍 / 🚀 / 👀), adding labels, requesting reviews, merging, checking status, fetching diffs. Always inspect the repo first to discover its branch-naming, commit, label, and PR conventions before acting. PR images and demo media are always written through the `drive` skill, never gists or base64 — load that skill before composing a PR body that includes media. Triggers include: "open a PR", "create a pull request", "comment on PR", "react to that comment", "label this PR", "create a branch", "commit this", "follow the commit convention", "attach a screenshot", "embed an image in the PR", "include a demo video", "before/after screenshots", "request a review", "merge this", "draft PR".
+description: Use when doing git or GitHub work, including branches, commits, pull requests, reviews, comments, labels, CI status, releases, screenshots, or demo media.
 ---
 
 # Git + GitHub workflows from the CLI

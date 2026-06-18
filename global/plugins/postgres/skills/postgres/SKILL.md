@@ -1,17 +1,17 @@
 ---
 name: postgres
-description: Query the connected PostgreSQL database through Hivy's read-only database proxy.
+description: Use when inspecting, querying, joining, aggregating, counting, or troubleshooting data in a connected PostgreSQL database.
 ---
 
 # Use PostgreSQL
 
-You are running inside the Hivy runtime. All PostgreSQL access must go through the Hivy proxy for security, credential isolation, policy enforcement, and tracking.
+Do not connect to PostgreSQL directly. Use the provided proxy endpoint and environment variables.
 
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_POSTGRES_URL` | Hivy-provided PostgreSQL query proxy URL |
+| `HIVY_POSTGRES_URL` | Provided PostgreSQL query proxy URL |
 | `HIVY_POSTGRES_TOKEN` | Bearer token for the proxy |
 
 ## Query
@@ -79,6 +79,6 @@ run_pg 'SELECT id, amount, created_at FROM invoices ORDER BY created_at DESC LIM
 - Prefer explicit columns and small limits.
 - Push filtering, grouping, sorting, and aggregation into SQL first; use `jq` to shape the final JSON and remove noise.
 - Do not attempt writes, deletes, schema changes, privilege changes, credential extraction, or admin commands.
-- If a query is blocked, explain that the requested data or action is outside the configured Hivy database access policy.
+- If a query is blocked, explain that the requested data or action is outside the configured database access policy.
 - Do not print `$HIVY_POSTGRES_TOKEN`.
 - Do not call the database directly.

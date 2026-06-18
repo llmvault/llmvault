@@ -1,6 +1,7 @@
 {
   "name": "vercel",
-  "description": "Deploy and manage projects, deployments, domains, environment variables, DNS records, Git integrations, logs, and rollbacks on Vercel through Hivy's pre-authenticated Vercel REST proxy using HIVY_VERCEL_API_URL and HIVY_VERCEL_API_KEY.",
+  "description": "Use this skill when the user asks to inspect, deploy, or manage Vercel projects, deployments, domains, environment variables, DNS records, Git links, logs, aliases, edge config, webhooks, rollbacks, or deployment status. Pick it for Vercel troubleshooting, release operations, and frontend hosting configuration. Do not use it for Railway or non-Vercel infrastructure.",
+  "human_description": "Manage Vercel projects and deployments",
   "category": "Deployments",
   "root": "./SKILL.md",
   "tags": [

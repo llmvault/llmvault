@@ -24,6 +24,7 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	if agent.SandboxStrategy != "per_session" {
 		t.Fatalf("installed Hakaree sandbox_strategy=%q want per_session", agent.SandboxStrategy)
 	}
+	assertAgentSessionsAgentSandboxImage(t, "Hakaree", agent, model.SandboxImageDeveloper)
 	if agent.Sandbox != nil {
 		t.Fatalf("per-session catalog agent should not return an always-on sandbox at install time: %+v", agent.Sandbox)
 	}
@@ -82,6 +83,9 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	sandboxA := agentSessionsWaitForSessionSandbox(t, ctx, orgID, sessionA.Session.ID)
 	sandboxB := agentSessionsWaitForSessionSandbox(t, ctx, orgID, sessionB.Session.ID)
 	assertAgentSessionsDistinctDockerSandboxes(t, ctx, sandboxA, sandboxB)
+	expectedDeveloperImage := developerAgentSessionsSandboxRuntimeImage()
+	assertAgentSessionsDockerContainerImage(t, ctx, "Hakaree session A", sandboxA.ExternalID, expectedDeveloperImage)
+	assertAgentSessionsDockerContainerImage(t, ctx, "Hakaree session B", sandboxB.ExternalID, expectedDeveloperImage)
 	t.Cleanup(func() {
 		agentSessionsDeleteSandbox(t, ctx, apiBase, ownerToken, orgID, sandboxA.ID.String())
 		agentSessionsDeleteSandbox(t, ctx, apiBase, ownerToken, orgID, sandboxB.ID.String())

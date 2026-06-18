@@ -5,11 +5,13 @@ import (
 	"net/http"
 
 	"github.com/lib/pq"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 type agentMutationRequest struct {
@@ -132,6 +134,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Icon:              cleanStringPtr(req.Icon),
 		IsDefault:         false,
 		SandboxStrategy:   strategy,
+		SandboxImage:      model.SandboxImageDefault,
 		SandboxSize:       sandboxSize,
 		SandboxTemplateID: sandboxTemplateID,
 		Model:             modelID,
@@ -144,7 +147,12 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		SandboxTools:      pq.StringArray(sandboxTools),
 		Status:            "active",
 	}
-	if err := h.db.WithContext(ctx).Create(&agent).Error; err != nil {
+	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&agent).Error; err != nil {
+			return err
+		}
+		return pluginstore.EnsureAutoInstalledForAgent(ctx, tx, org.ID, agent.ID)
+	}); err != nil {
 		if isDuplicateKeyError(err) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent name already exists"})
 			return

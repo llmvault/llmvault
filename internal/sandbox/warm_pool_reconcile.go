@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(context.Context, uuid.UUID) error) ([]uuid.UUID, error) {
+func (p *WarmPool) Reconcile(ctx context.Context, mode, runtimeImage string, onCreated func(context.Context, uuid.UUID) error) ([]uuid.UUID, error) {
 	if p == nil {
 		return nil, nil
 	}
@@ -21,7 +21,7 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 	if desired <= 0 {
 		return nil, nil
 	}
-	image := p.runtimeImage(mode)
+	image := p.runtimeImage(mode, runtimeImage)
 	if image == "" {
 		return nil, fmt.Errorf("runtime image for warm %s sandbox is not configured", mode)
 	}
@@ -31,7 +31,7 @@ func (p *WarmPool) Reconcile(ctx context.Context, mode string, onCreated func(co
 	// each read 'available < desired' and both provision, over-provisioning forever.
 	var created []uuid.UUID
 	err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", warmPoolReconcileLockKey(p.provider.ID(), mode)).Error; err != nil {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", warmPoolReconcileLockKey(p.provider.ID(), mode, image)).Error; err != nil {
 			return fmt.Errorf("acquire warm pool reconcile lock: %w", err)
 		}
 		var rerr error
@@ -74,7 +74,7 @@ func (p *WarmPool) reconcileLocked(ctx context.Context, tx *gorm.DB, mode, image
 
 	created := make([]uuid.UUID, 0, desired-int(available))
 	for i := available; i < int64(desired); i++ {
-		slotID, err := p.provision(ctx, mode)
+		slotID, err := p.provision(ctx, mode, image)
 		if err != nil {
 			return created, err
 		}
@@ -138,18 +138,20 @@ func (p *WarmPool) trimSurplusSlots(ctx context.Context, slots []model.SandboxWa
 	return nil
 }
 
-// warmPoolReconcileLockKey derives a stable bigint advisory-lock key for a (provider, mode) pair.
+// warmPoolReconcileLockKey derives a stable bigint advisory-lock key for a (provider, mode, runtime image) tuple.
 // Collisions only ever serialise unrelated reconciles, which is harmless.
-func warmPoolReconcileLockKey(providerID, mode string) int64 {
+func warmPoolReconcileLockKey(providerID, mode, runtimeImage string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte("warm-pool-reconcile:"))
 	_, _ = h.Write([]byte(providerID))
 	_, _ = h.Write([]byte{0})
 	_, _ = h.Write([]byte(mode))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(runtimeImage))
 	return int64(h.Sum64()) // #nosec G115 -- hash truncation; sign bit is part of the hash distribution
 }
 
-func (p *WarmPool) provision(ctx context.Context, mode string) (uuid.UUID, error) {
+func (p *WarmPool) provision(ctx context.Context, mode, image string) (uuid.UUID, error) {
 	provider, ok := p.provider.(WarmSlotProvider)
 	if !ok {
 		return uuid.Nil, fmt.Errorf("provider %s does not support warm slots", p.provider.ID())
@@ -162,7 +164,6 @@ func (p *WarmPool) provision(ctx context.Context, mode string) (uuid.UUID, error
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("encrypt runtime secret: %w", err)
 	}
-	image := p.runtimeImage(mode)
 	logger := logging.FromContext(ctx)
 	logger.InfoContext(ctx, "sandbox warm slot provisioning",
 		"provider", p.provider.ID(), "mode", mode, "image", image, "port", p.cfg.RailwayRuntimePort)
@@ -203,14 +204,25 @@ func (p *WarmPool) provision(ctx context.Context, mode string) (uuid.UUID, error
 }
 
 func (p *WarmPool) deleteStaleAvailableSlots(ctx context.Context, mode, image string) error {
-	var stale []model.SandboxWarmSlot
+	var candidates []model.SandboxWarmSlot
 	if err := p.db.WithContext(ctx).
-		Where("provider_id = ? AND mode = ? AND runtime_image <> ? AND status IN ?", p.provider.ID(), mode, image, []string{
+		Where("provider_id = ? AND mode = ? AND status IN ?", p.provider.ID(), mode, []string{
 			model.SandboxWarmSlotStatusWarm,
 			model.SandboxWarmSlotStatusWarming,
 		}).
-		Find(&stale).Error; err != nil {
+		Find(&candidates).Error; err != nil {
 		return err
+	}
+	expectedRepository := imageRepository(image)
+	stale := make([]model.SandboxWarmSlot, 0, len(candidates))
+	for _, slot := range candidates {
+		if slot.RuntimeImage == image {
+			continue
+		}
+		if expectedRepository == "" || imageRepository(slot.RuntimeImage) != expectedRepository {
+			continue
+		}
+		stale = append(stale, slot)
 	}
 	if len(stale) == 0 {
 		return nil
@@ -230,8 +242,11 @@ func (p *WarmPool) deleteStaleAvailableSlots(ctx context.Context, mode, image st
 	return nil
 }
 
-func (p *WarmPool) runtimeImage(mode string) string {
-	return strings.TrimSpace(p.cfg.SandboxesRuntimeBaseImage)
+func (p *WarmPool) runtimeImage(mode, runtimeImage string) string {
+	if runtimeImage = strings.TrimSpace(runtimeImage); runtimeImage != "" {
+		return runtimeImage
+	}
+	return AgentRuntimeImageRef(p.cfg, model.SandboxImageDefault)
 }
 
 func (p *WarmPool) slotName(mode string) string {

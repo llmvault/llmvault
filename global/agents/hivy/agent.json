@@ -12,6 +12,7 @@
   "default": true,
   "runtime": {
     "sandbox_strategy": "always_on",
+    "sandbox_image": "default",
     "model": "deepseek-v4-flash",
     "available_models": [
       "deepseek-v4-flash",

@@ -1,6 +1,7 @@
 {
   "name": "linear",
-  "description": "Query Linear teams, projects, issues, comments, users, workflow states, and issue metadata through Linear GraphQL using HIVY_LINEAR_URL, HIVY_LINEAR_TOKEN, curl, and jq without dumping oversized GraphQL payloads into context.",
+  "description": "Use this skill when the user asks for Linear work: finding issues, creating or updating issues, changing statuses, adding comments, reading project or roadmap context, checking teams, users, labels, or workflow states, and summarizing planning data. Pick it when the task mentions Linear, issue IDs, cycles, projects, triage, backlog, roadmap, or team planning.",
+  "human_description": "Manage Linear issues and projects",
   "category": "Project management",
   "root": "./SKILL.md",
   "tags": [

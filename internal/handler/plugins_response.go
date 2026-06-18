@@ -11,6 +11,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 type pluginResponse struct {
@@ -31,6 +32,8 @@ type pluginResponse struct {
 	LongDescription      string                        `json:"long_description"`
 	Version              string                        `json:"version"`
 	Status               string                        `json:"status"`
+	AutoInstall          bool                          `json:"auto_install"`
+	Locked               bool                          `json:"locked"`
 	Skills               []pluginSkillResponse         `json:"skills"`
 	RequiredConnections  []pluginConnectionRequirement `json:"required_connections"`
 	ResourceRequirements []pluginResourceRequirement   `json:"resource_requirements"`
@@ -42,12 +45,13 @@ type pluginResponse struct {
 }
 
 type pluginSkillResponse struct {
-	ID          string   `json:"id"`
-	Slug        string   `json:"slug"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Category    string   `json:"category"`
-	Tags        []string `json:"tags"`
+	ID               string   `json:"id"`
+	Slug             string   `json:"slug"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	HumanDescription *string  `json:"human_description,omitempty"`
+	Category         string   `json:"category"`
+	Tags             []string `json:"tags"`
 }
 
 type pluginConnectionRequirement struct {
@@ -133,6 +137,8 @@ func (h *PluginHandler) toPluginResponse(ctx context.Context, orgID uuid.UUID, p
 		LongDescription:      presentation.LongDescription,
 		Version:              plugin.Version,
 		Status:               plugin.Status,
+		AutoInstall:          pluginstore.PluginAutoInstall(plugin),
+		Locked:               pluginstore.PluginLocked(plugin),
 		Skills:               toPluginSkillResponses(skills),
 		RequiredConnections:  toPluginRequirementResponses(reqs),
 		ResourceRequirements: resourceRequirements,
@@ -162,12 +168,13 @@ func toPluginSkillResponses(skills []model.Skill) []pluginSkillResponse {
 			desc = *skill.Description
 		}
 		out = append(out, pluginSkillResponse{
-			ID:          skill.ID.String(),
-			Slug:        skill.Slug,
-			Name:        skill.Name,
-			Description: desc,
-			Category:    skill.Category,
-			Tags:        []string(skill.Tags),
+			ID:               skill.ID.String(),
+			Slug:             skill.Slug,
+			Name:             skill.Name,
+			Description:      desc,
+			HumanDescription: skill.HumanDescription,
+			Category:         skill.Category,
+			Tags:             []string(skill.Tags),
 		})
 	}
 	return out

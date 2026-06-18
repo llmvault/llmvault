@@ -1,6 +1,7 @@
 {
   "name": "mongodb",
-  "description": "Query the connected MongoDB database through Hivy's read-only database proxy using HIVY_MONGODB_URL and HIVY_MONGODB_TOKEN. Credentials are never exposed to the runtime.",
+  "description": "Use this skill when the user asks to inspect, search, aggregate, count, sample, or troubleshoot data in a connected MongoDB database. Pick it for collection discovery, document lookups, aggregation pipelines, schema exploration, and read-only analysis. Do not use it for SQL databases or for write, delete, or migration tasks.",
+  "human_description": "Query connected MongoDB databases",
   "category": "Databases",
   "root": "./SKILL.md",
   "tags": [

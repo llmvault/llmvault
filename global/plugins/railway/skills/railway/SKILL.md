@@ -1,15 +1,15 @@
 ---
 name: railway
-description: Use when deploying services, managing environments, reading logs, or configuring infrastructure on Railway - provides pre-authenticated GraphQL API patterns for projects, services, deployments, variables, domains, volumes, buckets, and templates via ${HIVY_RAILWAY_API_URL} proxy
+description: Use when inspecting, deploying, troubleshooting, or managing Railway projects, services, deployments, environments, variables, domains, volumes, databases, buckets, logs, or templates.
 ---
 
 # Managing Railway Infrastructure
 
 ## Overview
 
-Manage Railway cloud infrastructure through a pre-authenticated GraphQL API proxy. All requests go to `${HIVY_RAILWAY_API_URL}` with `Authorization: Bearer $HIVY_RAILWAY_API_KEY`.
+Manage Railway cloud infrastructure through the provided GraphQL proxy endpoint. All requests go to `${HIVY_RAILWAY_API_URL}` with `Authorization: Bearer $HIVY_RAILWAY_API_KEY`.
 
-You are running inside the Hivy runtime. All external Railway API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+Do not call the real Railway API directly. Use the provided proxy endpoint and environment variables.
 
 ## When to Use
 
@@ -51,7 +51,7 @@ Every call is `curl -s -X POST ${HIVY_RAILWAY_API_URL} -H "Authorization: Bearer
 
 ### Mutations
 
-Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in the Railway dashboard.
+Delete, remove, archive, trash, and destroy operations are blocked by the provided proxy. If the user asks for one of these actions, explain that they must perform it themselves in the Railway dashboard.
 
 | Operation | Key Variables | Purpose |
 |-----------|--------------|---------|

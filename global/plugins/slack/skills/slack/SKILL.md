@@ -1,15 +1,15 @@
 ---
 name: slack
-description: Use the connected Slack workspace through Hivy's backend Slack proxy using HIVY_SLACK_API_URL and HIVY_SLACK_TOKEN.
+description: Use when reading Slack conversations, searching workspace messages, summarizing channels or threads, inspecting users or channels, drafting replies, or sending Slack messages.
 ---
 
 # Slack
 
-Slack access is provided by Hivy through the organization's connected Slack app.
+Slack access is provided through the organization's connected Slack app.
 
-You are running inside the Hivy runtime. All external Slack API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+Do not call the real Slack API directly. Use the provided proxy endpoint and environment variables.
 
-Normal mention replies and thread responses are handled by Hivy automatically. Use this skill only when the user explicitly asks you to inspect or act on Slack workspace data.
+Normal mention replies and thread responses are handled automatically. Use this skill only when the user explicitly asks you to inspect or act on Slack workspace data.
 
 ## Environment
 
@@ -17,7 +17,7 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_SLACK_API_URL` | Hivy-provided Slack Web API proxy base URL |
+| `HIVY_SLACK_API_URL` | Provided Slack Web API proxy base URL |
 | `HIVY_SLACK_TOKEN` | Bearer token for the provided Slack endpoint |
 
 Initialize once:
@@ -91,9 +91,9 @@ slack_api POST "/chat.postMessage" "$(jq -n \
 
 ## Rules
 
-- Do not use this skill to send the assistant's normal reply; Hivy does that automatically.
+- Do not use this skill to send the assistant's normal reply; that is handled automatically.
 - Always filter Slack responses with `jq`.
 - Never print `$HIVY_SLACK_TOKEN`.
 - Do not call `https://slack.com/api` directly from the runtime. This will fail.
 - Prefer read-only operations unless the user explicitly asks for a Slack write action.
-- Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Slack.
+- Delete, remove, archive, trash, and destroy operations are blocked by the provided proxy. If the user asks for one of these actions, explain that they must perform it themselves in Slack.

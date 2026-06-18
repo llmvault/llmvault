@@ -19,7 +19,7 @@ func (o *Orchestrator) resolveBuildOpts(tmpl *model.SandboxTemplate, templateNam
 	opts := TemplateBuildRequest{
 		Name:          templateName,
 		BuildCommands: cmds,
-		BaseImage:     strings.TrimSpace(o.cfg.SandboxesRuntimeBaseImage),
+		BaseImage:     AgentRuntimeImageRef(o.cfg, model.SandboxImageDefault),
 		OrgID:         "system",
 	}
 	if tmpl.OrgID != nil {

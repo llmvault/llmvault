@@ -12,6 +12,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
+	pluginstore "github.com/usehivy/hivy/internal/plugins"
 )
 
 func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UUID, c model.AgentCatalog) (agentCatalogResponse, error) {
@@ -47,6 +48,7 @@ func (h *AgentHandler) toAgentCatalogResponse(ctx context.Context, orgID uuid.UU
 		Model:              c.Model,
 		AvailableModels:    append([]string{}, c.AvailableModels...),
 		SandboxStrategy:    c.SandboxStrategy,
+		SandboxImage:       model.NormalizeSandboxImage(c.SandboxImage),
 		RequiredPlugins:    required,
 		RecommendedPlugins: recommended,
 		InstalledAgentID:   installedID,
@@ -177,6 +179,7 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		AvatarURL:       optionalStringPtr(avatarURL),
 		IsDefault:       false,
 		SandboxStrategy: catalog.SandboxStrategy,
+		SandboxImage:    model.NormalizeSandboxImage(catalog.SandboxImage),
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
 		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
@@ -193,6 +196,9 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 	}
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return model.Agent{}, fmt.Errorf("create catalog agent: %w", err)
+	}
+	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
+		return model.Agent{}, err
 	}
 	return agent, nil
 }

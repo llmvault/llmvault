@@ -1,6 +1,7 @@
 {
   "name": "glitchtip",
-  "description": "Query GlitchTip organizations, projects, issues, events, tags, releases, environments, monitors, logs, and issue metadata through Hivy's pre-authenticated GlitchTip REST proxy using HIVY_GLITCHTIP_URL, HIVY_GLITCHTIP_TOKEN, curl, and jq; construct dashboard links with HIVY_GLITCHTIP_DASHBOARD_BASE_URL, never the Hivy proxy URL.",
+  "description": "Use this skill when the user asks about GlitchTip organizations, projects, issues, events, stack traces, monitors, releases, environments, logs, performance, regressions, or production exceptions. Pick it for debugging application errors, finding recent occurrences, linking to issue or event details, and summarizing error trends. Do not use it for non-GlitchTip monitoring systems.",
+  "human_description": "Investigate GlitchTip errors and monitors",
   "category": "Monitoring",
   "root": "./SKILL.md",
   "tags": [

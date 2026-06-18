@@ -118,7 +118,7 @@ func (h *AgentHandler) loadAgentSkills(agentIDs ...uuid.UUID) map[uuid.UUID][]ag
 		pluginIDs = append(pluginIDs, id)
 	}
 	var skills []model.Skill
-	if err := h.db.Select("id, name, description, source_type, plugin_id").
+	if err := h.db.Select("id, name, description, human_description, source_type, plugin_id").
 		Where("plugin_id IN ? AND hidden = false AND status = ?", pluginIDs, model.SkillStatusPublished).
 		Find(&skills).Error; err != nil {
 		return nil
@@ -135,10 +135,11 @@ func (h *AgentHandler) loadAgentSkills(agentIDs ...uuid.UUID) map[uuid.UUID][]ag
 		for _, pluginID := range plugins {
 			for _, skill := range skillsByPlugin[pluginID] {
 				result[agentID] = append(result[agentID], agentSkillSummary{
-					ID:          skill.ID.String(),
-					Name:        skill.Name,
-					Description: skill.Description,
-					SourceType:  skill.SourceType,
+					ID:               skill.ID.String(),
+					Name:             skill.Name,
+					Description:      skill.Description,
+					HumanDescription: skill.HumanDescription,
+					SourceType:       skill.SourceType,
 				})
 			}
 		}

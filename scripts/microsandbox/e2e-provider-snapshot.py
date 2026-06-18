@@ -165,18 +165,55 @@ sleep 2
     exec_cmd(sandbox, command, timeout=30)
 
 
-def validate_runtime_tools(sandbox):
+def base_tool_command(out_dir):
+    return (
+        "set -eu; "
+        f"node --version >{out_dir}/node-version.txt; "
+        f"npm --version >{out_dir}/npm-version.txt; "
+        f"git --version >{out_dir}/git-version.txt; "
+        f"curl --version | head -n 1 >{out_dir}/curl-version.txt; "
+        f"command -v browser >{out_dir}/browser-path.txt; "
+        f"command -v agent-browser >{out_dir}/agent-browser-path.txt; "
+        f"browser doctor --offline --quick >{out_dir}/browser-doctor.txt"
+    )
+
+
+def docker_tool_command(out_dir):
+    return (
+        "set -eu; "
+        f"docker info >{out_dir}/docker-info.txt; "
+        f"docker compose version >{out_dir}/docker-compose-version.txt"
+    )
+
+
+def snapshot_commands(label, marker):
+    commands = [
+        f"set -eu; mkdir -p /opt/hivy-e2e; printf %s {shlex.quote(marker)} > /opt/hivy-e2e/marker.txt; echo marker={shlex.quote(marker)}",
+        base_tool_command("/opt/hivy-e2e"),
+    ]
+    if label == "developers":
+        commands.append(docker_tool_command("/opt/hivy-e2e"))
+    return commands
+
+
+def snapshot_verify_command(label, marker):
+    commands = [
+        "set -eu",
+        f"test \"$(cat /opt/hivy-e2e/marker.txt)\" = {shlex.quote(marker)}",
+        base_tool_command("/tmp"),
+    ]
+    if label == "developers":
+        commands.append(docker_tool_command("/tmp"))
+    return "; ".join(commands)
+
+
+def validate_runtime_tools(sandbox, label):
+    commands = [base_tool_command("/tmp")]
+    if label == "developers":
+        commands.append(docker_tool_command("/tmp"))
     exec_cmd(
         sandbox,
-        """
-set -eu
-command -v node
-command -v npm
-command -v git
-command -v curl
-docker info >/tmp/hivy-e2e-docker-info.txt
-docker compose version
-""",
+        "; ".join(commands),
         timeout=180,
     )
 
@@ -193,19 +230,15 @@ def run_image(label, image):
         direct = create_sandbox(f"e2e-direct-{label}-{suffix}", image, marker)
         direct_sandbox = sandbox_id(direct)
         print(f"created direct sandbox {direct_sandbox}", flush=True)
-        validate_runtime_tools(direct_sandbox)
-        print("validated exec, docker, compose, and runtime tools", flush=True)
+        validate_runtime_tools(direct_sandbox, label)
+        print("validated exec and runtime tools", flush=True)
 
         snapshot_body = {
             "org_id": ORG_ID,
             "name": f"e2e-snapshot-{label}-{suffix}",
             "base_image_ref": image,
             "size": SIZE,
-            "commands": [
-                f"set -eu; mkdir -p /opt/hivy-e2e; printf %s {shlex.quote(marker)} > /opt/hivy-e2e/marker.txt; echo marker={shlex.quote(marker)}",
-                "set -eu; docker info >/opt/hivy-e2e/docker-info.txt; docker compose version >/opt/hivy-e2e/docker-compose-version.txt",
-                "set -eu; node --version >/opt/hivy-e2e/node-version.txt; npm --version >/opt/hivy-e2e/npm-version.txt; git --version >/opt/hivy-e2e/git-version.txt",
-            ],
+            "commands": snapshot_commands(label, marker),
             "env": {"HIVY_MICROSANDBOX_E2E_MARKER": marker},
         }
         snap = api_request("POST", "/v1/snapshots", snapshot_body, expected=(201,), timeout=1200)
@@ -221,7 +254,7 @@ def run_image(label, image):
         print(f"created snapshot sandbox {snapshot_sandbox}", flush=True)
         exec_cmd(
             snapshot_sandbox,
-            f"set -eu; test \"$(cat /opt/hivy-e2e/marker.txt)\" = {shlex.quote(marker)}; docker info >/tmp/hivy-e2e-docker-info.txt; docker compose version",
+            snapshot_verify_command(label, marker),
             timeout=180,
         )
         start_preview_server(snapshot_sandbox, marker)

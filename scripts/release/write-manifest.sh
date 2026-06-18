@@ -29,7 +29,7 @@ cat >"${out}" <<EOF
     "sandboxesRuntimeDevelopersSemver": "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${RELEASE_VERSION}"
   },
   "runtimeConfig": {
-    "HIVY_SANDBOXES_RUNTIME_BASE_IMAGE": "ghcr.io/usehivy/hivy-sandboxes-runtime:${RELEASE_TAG}"
+    "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG": "${RELEASE_TAG}"
   },
   "snapshots": {
     "sandboxesRuntime": {

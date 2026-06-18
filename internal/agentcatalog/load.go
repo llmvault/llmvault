@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 )
 
@@ -116,6 +117,9 @@ func validateManifests(manifests []Manifest) error {
 		}
 		if seen[manifest.Slug] {
 			return fmt.Errorf("duplicate agent slug %q", manifest.Slug)
+		}
+		if !model.ValidSandboxImage(manifest.Runtime.SandboxImage) {
+			return fmt.Errorf("agent %q has invalid runtime sandbox_image %q", manifest.Slug, manifest.Runtime.SandboxImage)
 		}
 		if err := validateSubAgents(manifest); err != nil {
 			return err

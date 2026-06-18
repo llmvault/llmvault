@@ -13,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	pluginstore "github.com/usehivy/hivy/internal/plugins"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
@@ -194,6 +195,10 @@ func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 	}
 	plugin, ok := h.loadPluginBySlug(w, r, chi.URLParam(r, "slug"))
 	if !ok {
+		return
+	}
+	if pluginstore.PluginLocked(plugin) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required and cannot be uninstalled"})
 		return
 	}
 	now := time.Now()

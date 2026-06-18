@@ -102,7 +102,8 @@ type Config struct {
 	APIWebhookBaseURL string `env:"HIVY_API_WEBHOOK_BASE_URL" envDefault:"https://api.usehivy.com"` // public API base URL for provider webhook callbacks
 	ProxyHost         string `env:"HIVY_PROXY_HOST" envDefault:"proxy.usehivy.com"`                 // LLM proxy hostname (proxy.usehivy.com)
 
-	// Agent sandbox runtime — ghcr.io/usehivy/hivy-sandboxes-runtime image.
+	// Agent sandbox runtime images. HIVY_SANDBOXES_RUNTIME_BASE_IMAGE is a deprecated fallback.
+	SandboxesRuntimeImageTag     string `env:"HIVY_SANDBOXES_RUNTIME_IMAGE_TAG"`
 	SandboxesRuntimeBaseImage    string `env:"HIVY_SANDBOXES_RUNTIME_BASE_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime:latest"`
 	AgentSandboxAutoUpgrade      bool   `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
 	AgentSandboxAutoUpgradeLimit int    `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`

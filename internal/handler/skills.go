@@ -25,13 +25,14 @@ func NewSkillHandler(db *gorm.DB, enqueuer enqueue.TaskEnqueuer) *SkillHandler {
 }
 
 type createSkillRequest struct {
-	Name           string   `json:"name"`
-	Description    *string  `json:"description,omitempty"`
-	Category       string   `json:"category,omitempty"`
-	SourceType     string   `json:"source_type"` // "inline" | "git"
-	Tags           []string `json:"tags,omitempty"`
-	IntegrationIDs []string `json:"integration_ids,omitempty"`
-	Hidden         bool     `json:"hidden,omitempty"`
+	Name             string   `json:"name"`
+	Description      *string  `json:"description,omitempty"`
+	HumanDescription *string  `json:"human_description,omitempty"`
+	Category         string   `json:"category,omitempty"`
+	SourceType       string   `json:"source_type"` // "inline" | "git"
+	Tags             []string `json:"tags,omitempty"`
+	IntegrationIDs   []string `json:"integration_ids,omitempty"`
+	Hidden           bool     `json:"hidden,omitempty"`
 
 	Bundle *skills.Bundle `json:"bundle,omitempty"`
 
@@ -41,14 +42,15 @@ type createSkillRequest struct {
 }
 
 type updateSkillRequest struct {
-	Name           *string   `json:"name,omitempty"`
-	Description    *string   `json:"description,omitempty"`
-	Category       *string   `json:"category,omitempty"`
-	Tags           *[]string `json:"tags,omitempty"`
-	IntegrationIDs *[]string `json:"integration_ids,omitempty"`
-	Hidden         *bool     `json:"hidden,omitempty"`
-	RepoRef        *string   `json:"repo_ref,omitempty"`
-	Status         *string   `json:"status,omitempty"`
+	Name             *string   `json:"name,omitempty"`
+	Description      *string   `json:"description,omitempty"`
+	HumanDescription *string   `json:"human_description,omitempty"`
+	Category         *string   `json:"category,omitempty"`
+	Tags             *[]string `json:"tags,omitempty"`
+	IntegrationIDs   *[]string `json:"integration_ids,omitempty"`
+	Hidden           *bool     `json:"hidden,omitempty"`
+	RepoRef          *string   `json:"repo_ref,omitempty"`
+	Status           *string   `json:"status,omitempty"`
 }
 
 type updateContentRequest struct {
@@ -56,27 +58,28 @@ type updateContentRequest struct {
 }
 
 type skillResponse struct {
-	ID              string    `json:"id"`
-	OrgID           *string   `json:"org_id,omitempty"`
-	Slug            string    `json:"slug"`
-	Name            string    `json:"name"`
-	Description     *string   `json:"description,omitempty"`
-	Category        string    `json:"category"`
-	SourceType      string    `json:"source_type"`
-	RepoURL         *string   `json:"repo_url,omitempty"`
-	RepoSubpath     *string   `json:"repo_subpath,omitempty"`
-	RepoRef         string    `json:"repo_ref"`
-	Tags            []string  `json:"tags"`
-	IntegrationIDs  []string  `json:"integration_ids"`
-	InstallCount    int       `json:"install_count"`
-	Featured        bool      `json:"featured"`
-	Hidden          bool      `json:"hidden"`
-	Status          string    `json:"status"`
-	PublicSkillID   *string   `json:"public_skill_id,omitempty"`
-	HydrationStatus string    `json:"hydration_status"` // pending, ready, error
-	HydrationError  *string   `json:"hydration_error,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	OrgID            *string   `json:"org_id,omitempty"`
+	Slug             string    `json:"slug"`
+	Name             string    `json:"name"`
+	Description      *string   `json:"description,omitempty"`
+	HumanDescription *string   `json:"human_description,omitempty"`
+	Category         string    `json:"category"`
+	SourceType       string    `json:"source_type"`
+	RepoURL          *string   `json:"repo_url,omitempty"`
+	RepoSubpath      *string   `json:"repo_subpath,omitempty"`
+	RepoRef          string    `json:"repo_ref"`
+	Tags             []string  `json:"tags"`
+	IntegrationIDs   []string  `json:"integration_ids"`
+	InstallCount     int       `json:"install_count"`
+	Featured         bool      `json:"featured"`
+	Hidden           bool      `json:"hidden"`
+	Status           string    `json:"status"`
+	PublicSkillID    *string   `json:"public_skill_id,omitempty"`
+	HydrationStatus  string    `json:"hydration_status"` // pending, ready, error
+	HydrationError   *string   `json:"hydration_error,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type skillDetailResponse struct {
@@ -88,7 +91,6 @@ type skillDetailResponse struct {
 type attachSkillRequest struct {
 	SkillID string `json:"skill_id"`
 }
-
 
 // Create handles POST /v1/skills.
 // @Summary Create a skill
@@ -128,16 +130,17 @@ func (h *SkillHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	orgID := org.ID
 	skill := model.Skill{
-		OrgID:          &orgID,
-		Slug:           model.GenerateSlug(req.Name),
-		Name:           req.Name,
-		Description:    req.Description,
-		Category:       req.Category,
-		SourceType:     req.SourceType,
-		Tags:           req.Tags,
-		IntegrationIDs: req.IntegrationIDs,
-		Hidden:         req.Hidden,
-		Status:         model.SkillStatusDraft,
+		OrgID:            &orgID,
+		Slug:             model.GenerateSlug(req.Name),
+		Name:             req.Name,
+		Description:      req.Description,
+		HumanDescription: req.HumanDescription,
+		Category:         req.Category,
+		SourceType:       req.SourceType,
+		Tags:             req.Tags,
+		IntegrationIDs:   req.IntegrationIDs,
+		Hidden:           req.Hidden,
+		Status:           model.SkillStatusDraft,
 	}
 
 	if req.SourceType == model.SkillSourceGit {

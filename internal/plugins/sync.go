@@ -72,6 +72,9 @@ func SyncLocal(ctx context.Context, db *gorm.DB, dir string) (*SyncResult, error
 			}
 			result.PluginsArchived++
 		}
+		if err := ReconcileAutoInstalled(ctx, tx); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
@@ -210,6 +213,7 @@ func syncPluginSkills(ctx context.Context, tx *gorm.DB, plugin model.Plugin, loa
 	for _, item := range loaded {
 		seen[item.Slug] = true
 		desc := strings.TrimSpace(item.Manifest.Description)
+		humanDesc := strings.TrimSpace(item.Manifest.HumanDescription)
 		bundle := &skillpkg.Bundle{
 			ID:          item.Slug,
 			Title:       item.Manifest.Name,
@@ -231,19 +235,20 @@ func syncPluginSkills(ctx context.Context, tx *gorm.DB, plugin model.Plugin, loa
 		err = tx.Where("plugin_id = ? AND slug = ?", plugin.ID, item.Slug).First(&skill).Error
 		if err == gorm.ErrRecordNotFound {
 			skill = model.Skill{
-				ID:          uuid.New(),
-				PluginID:    &plugin.ID,
-				Slug:        item.Slug,
-				Name:        item.Manifest.Name,
-				Description: stringPtr(desc),
-				Category:    item.Manifest.Category,
-				SourceType:  model.SkillSourceInline,
-				RepoRef:     "main",
-				Bundle:      model.RawJSON(raw),
-				Tags:        pq.StringArray(normalizeStrings(item.Manifest.Tags)),
-				Status:      model.SkillStatusPublished,
-				PublishedAt: timePtr(time.Now()),
-				HydratedAt:  timePtr(time.Now()),
+				ID:               uuid.New(),
+				PluginID:         &plugin.ID,
+				Slug:             item.Slug,
+				Name:             item.Manifest.Name,
+				Description:      stringPtr(desc),
+				HumanDescription: stringPtr(humanDesc),
+				Category:         item.Manifest.Category,
+				SourceType:       model.SkillSourceInline,
+				RepoRef:          "main",
+				Bundle:           model.RawJSON(raw),
+				Tags:             pq.StringArray(normalizeStrings(item.Manifest.Tags)),
+				Status:           model.SkillStatusPublished,
+				PublishedAt:      timePtr(time.Now()),
+				HydratedAt:       timePtr(time.Now()),
 			}
 			if err := tx.Create(&skill).Error; err != nil {
 				return fmt.Errorf("create skill %q: %w", item.Slug, err)
@@ -254,20 +259,21 @@ func syncPluginSkills(ctx context.Context, tx *gorm.DB, plugin model.Plugin, loa
 		} else {
 			now := time.Now()
 			updates := map[string]any{
-				"name":            item.Manifest.Name,
-				"description":     stringPtr(desc),
-				"category":        item.Manifest.Category,
-				"source_type":     model.SkillSourceInline,
-				"repo_url":        nil,
-				"repo_subpath":    nil,
-				"repo_ref":        "main",
-				"bundle":          model.RawJSON(raw),
-				"tags":            pq.StringArray(normalizeStrings(item.Manifest.Tags)),
-				"integration_ids": pq.StringArray{},
-				"hidden":          false,
-				"status":          model.SkillStatusPublished,
-				"hydrated_at":     &now,
-				"hydration_error": nil,
+				"name":              item.Manifest.Name,
+				"description":       stringPtr(desc),
+				"human_description": stringPtr(humanDesc),
+				"category":          item.Manifest.Category,
+				"source_type":       model.SkillSourceInline,
+				"repo_url":          nil,
+				"repo_subpath":      nil,
+				"repo_ref":          "main",
+				"bundle":            model.RawJSON(raw),
+				"tags":              pq.StringArray(normalizeStrings(item.Manifest.Tags)),
+				"integration_ids":   pq.StringArray{},
+				"hidden":            false,
+				"status":            model.SkillStatusPublished,
+				"hydrated_at":       &now,
+				"hydration_error":   nil,
 			}
 			if err := tx.Model(&skill).Updates(updates).Error; err != nil {
 				return fmt.Errorf("update skill %q: %w", item.Slug, err)

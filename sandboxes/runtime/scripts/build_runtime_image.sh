@@ -4,15 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.cargo/bin:$PATH"
 DOCKER_BIN="${DOCKER_BIN:-$(command -v docker)}"
-IMAGE="${HIVY_SANDBOXES_RUNTIME_IMAGE:-hivy-sandboxes-runtime:runtime}"
-case "$(uname -m)" in
-  arm64|aarch64)
-    default_target="aarch64-unknown-linux-gnu"
-    ;;
-  *)
-    default_target="x86_64-unknown-linux-gnu"
-    ;;
-esac
+IMAGE="${HIVY_SANDBOXES_RUNTIME_IMAGE:-ghcr.io/usehivy/hivy-sandboxes-runtime:runtime}"
+default_target="x86_64-unknown-linux-gnu"
 BINARY="${HIVY_SANDBOXES_RUNTIME_BINARY:-$ROOT/dist/hivy-sandboxes-runtime-$default_target}"
 PLATFORM="${HIVY_SANDBOXES_RUNTIME_PLATFORM:-}"
 DOCKERFILE="${HIVY_SANDBOXES_RUNTIME_DOCKERFILE:-Dockerfile.runtime}"
