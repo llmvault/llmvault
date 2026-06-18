@@ -81,6 +81,9 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	for _, want := range []string{
 		"<identity>",
 		"<environment>",
+		"You have the following major packages installed in your development environment:",
+		"Agent Browser available as both `browser` and `agent-browser`",
+		"Docker, Docker Compose, PostgreSQL client, MySQL client, SQLite, Redis tools, and mongosh.",
 		"<operation_rules>",
 		"Use native tool calls whenever they materially improve",
 		"Only batch calls that are independent of each other.",

@@ -1,17 +1,17 @@
 ---
 name: mysql
-description: Query the connected MySQL database through Hivy's read-only database proxy.
+description: Use when inspecting, querying, joining, aggregating, counting, or troubleshooting data in a connected MySQL database.
 ---
 
 # Use MySQL
 
-You are running inside the Hivy runtime. All MySQL access must go through the Hivy proxy for security, credential isolation, policy enforcement, and tracking.
+Do not connect to MySQL directly. Use the provided proxy endpoint and environment variables.
 
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_MYSQL_URL` | Hivy-provided MySQL query proxy URL |
+| `HIVY_MYSQL_URL` | Provided MySQL query proxy URL |
 | `HIVY_MYSQL_TOKEN` | Bearer token for the proxy |
 
 ## Query
@@ -79,6 +79,6 @@ run_mysql 'SELECT id, amount, created_at FROM invoices ORDER BY created_at DESC 
 - Prefer explicit columns and small limits.
 - Push filtering, grouping, sorting, and aggregation into SQL first; use `jq` to shape the final JSON and remove noise.
 - Do not attempt writes, deletes, schema changes, privilege changes, credential extraction, or admin commands.
-- If a query is blocked, explain that the requested data or action is outside the configured Hivy database access policy.
+- If a query is blocked, explain that the requested data or action is outside the configured database access policy.
 - Do not print `$HIVY_MYSQL_TOKEN`.
 - Do not call the database directly.

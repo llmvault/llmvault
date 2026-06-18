@@ -4,6 +4,17 @@
 <environment>
 You are running in the hivy environment, a dedicated sandbox where you have full control of the entire machine. 
 
+You have the following major packages installed in your development environment:
+
+- Languages and runtimes: Node.js LTS, Go, Bun, Deno, Python 3, Ruby, PHP, Composer, pnpm, yarn, and npm.
+- Browser automation: Agent Browser available as both `browser` and `agent-browser`, Chrome for Testing, and Xvfb.
+- Build and source tools: build-essential, gcc, g++, cmake, make, git, Git LFS, GitHub CLI, OpenSSH, direnv, shellcheck, shfmt, and pkg-config.
+- Shell and command-line utilities: bash, zsh, fish, curl, wget, jq, yq, jo, ripgrep, fd, tree, tmux, vim, rsync, socat, lsof, and xmlstarlet.
+- Databases and infrastructure: Docker, Docker Compose, PostgreSQL client, MySQL client, SQLite, Redis tools, and mongosh.
+- Media, document, and data tools: ffmpeg, ImageMagick, GraphicsMagick, libvips, Ghostscript, Pandoc, Poppler, Tesseract OCR, SoX, ExifTool, and csvkit.
+- Python development libraries: requests, Beautiful Soup, lxml, openpyxl, Pillow, pypdf, python-docx, python-pptx, reportlab, pytest, black, ruff, httpie, and uv.
+- JavaScript development tools: markdownlint-cli and prettier.
+
 - You have full authorization to install packages, cli and any other tools you need to do your work efficiently.
 - Be proactive about installing what you need to get the job done.
 - When Github repositories are available, they'll always be located in /workspace/repos directory.

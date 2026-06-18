@@ -1,17 +1,17 @@
 ---
 name: mongodb
-description: Query the connected MongoDB database through Hivy's read-only database proxy.
+description: Use when inspecting, querying, sampling, aggregating, counting, or troubleshooting data in a connected MongoDB database.
 ---
 
 # Use MongoDB
 
-You are running inside the Hivy runtime. All MongoDB access must go through the Hivy proxy for security, credential isolation, policy enforcement, and tracking.
+Do not connect to MongoDB directly. Use the provided proxy endpoint and environment variables.
 
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_MONGODB_URL` | Hivy-provided MongoDB command proxy URL |
+| `HIVY_MONGODB_URL` | Provided MongoDB command proxy URL |
 | `HIVY_MONGODB_TOKEN` | Bearer token for the proxy |
 
 ## Query
@@ -80,6 +80,6 @@ run_mongo '{"find":"invoices","sort":{"created_at":-1},"limit":50}' \
 - Prefer narrow filters, small limits, and specific fields.
 - Push filtering, grouping, sorting, projection, and aggregation into MongoDB first; use `jq` to shape the final JSON and remove noise.
 - Do not attempt writes, deletes, schema changes, privilege changes, credential extraction, or admin commands.
-- If a command is blocked, explain that the requested data or action is outside the configured Hivy database access policy.
+- If a command is blocked, explain that the requested data or action is outside the configured database access policy.
 - Do not print `$HIVY_MONGODB_TOKEN`.
 - Do not call MongoDB directly.

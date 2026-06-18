@@ -41,7 +41,9 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 
 	sandboxSize := model.NormalizeTemplateSize(agent.SandboxSize)
 	resourceSpec, _ := model.TemplateSizeSpec(sandboxSize)
-	snapshotID := AgentRuntimeTemplateRefForSize(o.cfg, sandboxSize)
+	sandboxImage := model.NormalizeSandboxImage(agent.SandboxImage)
+	runtimeImage := AgentRuntimeImageRef(o.cfg, sandboxImage)
+	snapshotID := RuntimeTemplateRefForImageRef(o.cfg, runtimeImage, sandboxSize)
 	sb := model.Sandbox{
 		OrgID:                  &orgID,
 		AgentID:                &agent.ID,
@@ -58,15 +60,16 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	glitchTipDashboardURL := agentruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
 	envVars := agentSandboxEnvVars(o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
 	labels := map[string]string{
-		"org_id":       orgID.String(),
-		"sandbox_id":   sb.ID.String(),
-		"agent_id":     agent.ID.String(),
-		"harness":      "agent-sandbox",
-		"sandbox_size": sandboxSize,
+		"org_id":        orgID.String(),
+		"sandbox_id":    sb.ID.String(),
+		"agent_id":      agent.ID.String(),
+		"harness":       "agent-sandbox",
+		"sandbox_size":  sandboxSize,
+		"sandbox_image": sandboxImage,
 	}
 
 	if _, usesWarmPool := o.provider.(WarmPoolCapable); usesWarmPool {
-		if err := o.claimWarmRuntime(ctx, &sb, model.SandboxWarmSlotModeAgent); err != nil {
+		if err := o.claimWarmRuntime(ctx, &sb, model.SandboxWarmSlotModeAgent, runtimeImage); err != nil {
 			if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {
 				logging.FromContext(ctx).ErrorContext(ctx, "delete orphaned agent sandbox row after warm claim failure",
 					"error", delErr, "sandbox_id", sb.ID)

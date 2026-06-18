@@ -1,6 +1,7 @@
 {
   "name": "git-github",
-  "description": "Perform common human git and GitHub workflows from the CLI: branching, committing, opening pull requests (with images), commenting, reacting, labeling, reviewing \u2014 while respecting each repo's existing conventions.",
+  "description": "Use this skill when the user asks for git or GitHub repository work: inspecting diffs, creating branches, committing changes, opening or updating pull requests, adding comments or labels, requesting reviews, checking CI status, reviewing code, merging, or coordinating releases. Pick it when the task mentions a repo, branch, commit, PR, issue, review, label, or GitHub workflow.",
+  "human_description": "Manage git and GitHub workflows",
   "category": "Engineering",
   "root": "./SKILL.md",
   "tags": [

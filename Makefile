@@ -1,17 +1,18 @@
 .PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
-.PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
+.PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-developers-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 IMAGE   ?= usehivy/hivy
 SANDBOX_RUNTIME_DIR ?= sandboxes/runtime
-SANDBOX_RUNTIME_LINUX_TARGET ?= $(shell arch=`uname -m`; if [ "$$arch" = "arm64" ] || [ "$$arch" = "aarch64" ]; then echo aarch64-unknown-linux-gnu; else echo x86_64-unknown-linux-gnu; fi)
 SANDBOX_RUNTIME_LINUX_AMD64_TARGET := x86_64-unknown-linux-gnu
 SANDBOX_RUNTIME_LINUX_ARM64_TARGET := aarch64-unknown-linux-gnu
+SANDBOX_RUNTIME_LINUX_TARGET ?= $(SANDBOX_RUNTIME_LINUX_AMD64_TARGET)
 SANDBOX_RUNTIME_LINUX_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_TARGET)
 SANDBOX_RUNTIME_LINUX_AMD64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_AMD64_TARGET)
 SANDBOX_RUNTIME_LINUX_ARM64_BINARY := dist/hivy-sandboxes-runtime-$(SANDBOX_RUNTIME_LINUX_ARM64_TARGET)
-SANDBOX_RUNTIME_IMAGE ?= hivy-sandboxes-runtime:runtime
+SANDBOX_RUNTIME_IMAGE ?= ghcr.io/usehivy/hivy-sandboxes-runtime:runtime
+SANDBOX_RUNTIME_DEVELOPERS_IMAGE ?= ghcr.io/usehivy/hivy-sandboxes-runtime-developers:runtime
 MICROSANDBOX_BINARY ?= bin/microsandbox
 MICROSANDBOX_RELEASE_GO_IMAGE ?= golang:1.25-bookworm
 GO_BIN ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /opt/homebrew/bin/go ]; then echo /opt/homebrew/bin/go; elif [ -x /usr/local/go/bin/go ]; then echo /usr/local/go/bin/go; else echo go; fi)
@@ -30,7 +31,7 @@ AGENT_RUNTIME_E2E_TIMEOUT ?= 5m
 AGENT_SESSIONS_E2E_TIMEOUT ?= 35m
 AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE ?= 1
 ifeq ($(AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE),1)
-TEST_AGENT_SESSIONS_E2E_DEPS := sandbox-runtime-image
+TEST_AGENT_SESSIONS_E2E_DEPS := sandbox-runtime-image sandbox-runtime-developers-image
 endif
 SHARD_INDEX ?= 0
 SHARD_TOTAL ?= 1
@@ -153,6 +154,9 @@ sandbox-runtime-openapi runtime-openapi:
 
 sandbox-runtime-image: sandbox-runtime-linux-build
 	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)" scripts/build_runtime_image.sh
+
+sandbox-runtime-developers-image: sandbox-runtime-linux-build
+	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_DEVELOPERS_IMAGE)" HIVY_SANDBOXES_RUNTIME_DOCKERFILE="Dockerfile.developers" scripts/build_runtime_image.sh
 
 sandbox-runtime-image-amd64: sandbox-runtime-linux-build-amd64
 	cd $(SANDBOX_RUNTIME_DIR) && HIVY_SANDBOXES_RUNTIME_BINARY="$(SANDBOX_RUNTIME_LINUX_AMD64_BINARY)" HIVY_SANDBOXES_RUNTIME_IMAGE="$(SANDBOX_RUNTIME_IMAGE)-amd64" scripts/build_runtime_image.sh

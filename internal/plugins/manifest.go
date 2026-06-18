@@ -20,6 +20,8 @@ type Manifest struct {
 	LongDescription     string                  `json:"long_description,omitempty"`
 	PluginVersion       string                  `json:"plugin_version"`
 	Enabled             *bool                   `json:"enabled,omitempty"`
+	AutoInstall         *bool                   `json:"auto_install,omitempty"`
+	Locked              *bool                   `json:"locked,omitempty"`
 	RequiredConnections []ConnectionRequirement `json:"required_connections,omitempty"`
 	raw                 json.RawMessage         `json:"-"`
 	sourcePath          string                  `json:"-"`
@@ -41,6 +43,7 @@ type ConnectionRequirement struct {
 type skillManifest struct {
 	Name                         string              `json:"name"`
 	Description                  string              `json:"description"`
+	HumanDescription             string              `json:"human_description,omitempty"`
 	Category                     string              `json:"category"`
 	Root                         string              `json:"root"`
 	Tags                         []string            `json:"tags"`

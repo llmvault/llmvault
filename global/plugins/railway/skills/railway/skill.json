@@ -1,6 +1,7 @@
 {
   "name": "railway",
-  "description": "Deploy and manage services, environments, variables, domains, volumes, and databases on Railway through Hivy's pre-authenticated Railway GraphQL proxy using HIVY_RAILWAY_API_URL and HIVY_RAILWAY_API_KEY.",
+  "description": "Use this skill when the user asks to inspect, deploy, or manage Railway projects, services, deployments, environments, variables, domains, volumes, databases, buckets, logs, templates, or infrastructure status. Pick it for Railway troubleshooting, release operations, configuration changes, and deployment investigations. Do not use it for Vercel or non-Railway infrastructure.",
+  "human_description": "Manage Railway apps and infrastructure",
   "category": "Infrastructure",
   "root": "./SKILL.md",
   "tags": [

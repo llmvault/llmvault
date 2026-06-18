@@ -198,6 +198,27 @@ def image_slug(kind, tag, size):
     return f"hivy-sandboxes-runtime{'-developers' if kind == 'developers' else ''}-{clean_tag}-{size}"
 
 
+def base_tool_command(out_dir):
+    return (
+        "set -eu; "
+        f"node --version >{out_dir}/node-version.txt; "
+        f"npm --version >{out_dir}/npm-version.txt; "
+        f"git --version >{out_dir}/git-version.txt; "
+        f"curl --version | head -n 1 >{out_dir}/curl-version.txt; "
+        f"command -v browser >{out_dir}/browser-path.txt; "
+        f"command -v agent-browser >{out_dir}/agent-browser-path.txt; "
+        f"browser doctor --offline --quick >{out_dir}/browser-doctor.txt"
+    )
+
+
+def docker_tool_command(out_dir):
+    return (
+        "set -eu; "
+        f"docker info >{out_dir}/docker-info.txt; "
+        f"docker compose version >{out_dir}/docker-compose-version.txt"
+    )
+
+
 def snapshot_commands(kind, image, tag, size, marker):
     manifest = json.dumps(
         {
@@ -214,12 +235,7 @@ def snapshot_commands(kind, image, tag, size, marker):
         "set -eu; mkdir -p /opt/hivy-base-snapshot; "
         f"printf %s {shlex.quote(manifest)} > /opt/hivy-base-snapshot/manifest.json; "
         "cat /opt/hivy-base-snapshot/manifest.json",
-        "set -eu; docker info >/opt/hivy-base-snapshot/docker-info.txt; "
-        "docker compose version >/opt/hivy-base-snapshot/docker-compose-version.txt",
-        "set -eu; node --version >/opt/hivy-base-snapshot/node-version.txt; "
-        "npm --version >/opt/hivy-base-snapshot/npm-version.txt; "
-        "git --version >/opt/hivy-base-snapshot/git-version.txt; "
-        "curl --version >/opt/hivy-base-snapshot/curl-version.txt",
+        base_tool_command("/opt/hivy-base-snapshot"),
     ]
     if kind == "developers":
         commands.append(
@@ -227,11 +243,26 @@ def snapshot_commands(kind, image, tag, size, marker):
             "bun --version >/opt/hivy-base-snapshot/bun-version.txt; "
             "deno --version >/opt/hivy-base-snapshot/deno-version.txt; "
             "go version >/opt/hivy-base-snapshot/go-version.txt; "
-            "ruby --version >/opt/hivy-base-snapshot/ruby-version.txt; "
-            "(chromium --version || chromium-browser --version) >/opt/hivy-base-snapshot/chromium-version.txt; "
-            "firefox --version >/opt/hivy-base-snapshot/firefox-version.txt"
+            "ruby --version >/opt/hivy-base-snapshot/ruby-version.txt"
         )
+        commands.append(docker_tool_command("/opt/hivy-base-snapshot"))
     return commands
+
+
+def verify_snapshot_command(kind, marker):
+    manifest_check = (
+        f"grep -F {shlex.quote(marker)} /opt/hivy-base-snapshot/manifest.json"
+        if marker
+        else "test -s /opt/hivy-base-snapshot/manifest.json"
+    )
+    commands = [
+        "set -eu",
+        manifest_check,
+        base_tool_command("/tmp"),
+    ]
+    if kind == "developers":
+        commands.append(docker_tool_command("/tmp"))
+    return "; ".join(commands)
 
 
 def assert_exec_success(payload, context):
@@ -265,10 +296,7 @@ def verify_snapshot(control, org_id, kind, image, size, snapshot_id, marker):
         exec_start = time.monotonic()
         out = control.exec(
             sandbox_id,
-            "set -eu; "
-            f"grep -F {shlex.quote(marker)} /opt/hivy-base-snapshot/manifest.json; "
-            "docker info >/tmp/hivy-snapshot-verify-docker-info.txt; "
-            "docker compose version >/tmp/hivy-snapshot-verify-compose-version.txt",
+            verify_snapshot_command(kind, marker),
             timeout_seconds=180,
         )
         assert_exec_success(out, "snapshot verification exec")

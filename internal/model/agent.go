@@ -20,6 +20,7 @@ type Agent struct {
 	Icon                string           `gorm:"type:text;not null;default:''"`
 	IsDefault           bool             `gorm:"not null;default:false;index"`
 	SandboxStrategy     string           `gorm:"type:text;not null;default:'per_session'"`
+	SandboxImage        string           `gorm:"type:text;not null;default:'default'"`
 	SandboxSize         string           `gorm:"type:text;not null;default:'small'"`
 	WorkspaceSnapshotID *uuid.UUID       `gorm:"type:uuid"`
 	SandboxTemplateID   *uuid.UUID       `gorm:"type:uuid"`

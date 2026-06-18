@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
@@ -56,6 +58,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 
 	agents := agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
 	defaultAgent := findDefaultAgent(t, agents)
+	assertAgentSessionsAgentSandboxImage(t, "default Hivy", defaultAgent, model.SandboxImageDefault)
 	t.Logf("default agent id=%s name=%s sandbox_present=%t", defaultAgent.ID, defaultAgent.Name, defaultAgent.Sandbox != nil)
 	pluginFixture := agentSessionsSeedPluginFixture(t, orgID, ownerAuth.User.ID, runID)
 	t.Logf("seeded plugin slug=%s id=%s connection=%s", pluginFixture.PluginSlug, pluginFixture.PluginID, pluginFixture.ConnectionID)
@@ -138,6 +141,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	if !looksLikeDockerContainerID(defaultAgent.Sandbox.ExternalID) {
 		t.Fatalf("sandbox external_id does not look like a Docker container id: %q", defaultAgent.Sandbox.ExternalID)
 	}
+	assertAgentSessionsDockerContainerImage(t, ctx, "default Hivy", defaultAgent.Sandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
 	t.Logf("sandbox id=%s status=%s external_id=%s", defaultAgent.Sandbox.ID, defaultAgent.Sandbox.Status, defaultAgent.Sandbox.ExternalID)
 
 	requireAgentSessionsHindsightHealthy(t, ctx)

@@ -1,6 +1,7 @@
 {
   "name": "slack",
-  "description": "Read and act on the connected Slack workspace through Hivy's backend Slack proxy using HIVY_SLACK_API_URL and HIVY_SLACK_TOKEN. Normal mention replies are handled by Hivy automatically.",
+  "description": "Use this skill when the user asks to read Slack conversations, search workspace messages, summarize channels or threads, inspect users or channels, draft replies, or send messages to Slack. Pick it when the task mentions Slack, channels, DMs, threads, messages, or workspace communication. Do not use it for unrelated chat or email systems.",
+  "human_description": "Bring your agents to where you work, right inside of slack.",
   "category": "Communication",
   "root": "./SKILL.md",
   "tags": [

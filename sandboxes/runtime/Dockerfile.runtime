@@ -6,7 +6,6 @@ ENV MISE_DATA_DIR=/usr/local/share/mise
 ENV MISE_CONFIG_DIR=/usr/local/etc/mise
 ENV MISE_CACHE_DIR=/usr/local/cache/mise
 ENV PATH=/usr/local/share/mise/shims:${PATH}
-ARG JUST_VERSION=1.38.0
 ARG VERSION=dev
 ARG COMMIT=unknown
 
@@ -17,13 +16,9 @@ LABEL org.opencontainers.image.revision="${COMMIT}"
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
-    build-essential \
     ca-certificates \
-    cmake \
     coreutils \
     curl \
-    direnv \
-    dnsutils \
     fd-find \
     file \
     findutils \
@@ -31,36 +26,20 @@ RUN apt-get update \
     git \
     git-lfs \
     gzip \
-    iputils-ping \
     jq \
     less \
-    libsqlite3-dev \
-    libyaml-dev \
     lsof \
-    make \
     netcat-openbsd \
     openssh-client \
-    pkg-config \
     procps \
-    psmisc \
     python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
     ripgrep \
-    rsync \
     shellcheck \
     shfmt \
-    sox \
-    sqlite3 \
     tar \
-    tesseract-ocr \
     tini \
-    tree \
     unzip \
-    vim-tiny \
     wget \
-    xmlstarlet \
     xz-utils \
     yq \
     zip \
@@ -72,8 +51,6 @@ RUN apt-get update \
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    csvkit \
-    exiftool \
     ffmpeg \
     fontconfig \
     fonts-dejavu \
@@ -81,44 +58,70 @@ RUN apt-get update \
     fonts-noto \
     fonts-noto-color-emoji \
     ghostscript \
-    graphicsmagick \
     imagemagick \
-    libvips-tools \
-    mediainfo \
     pandoc \
     poppler-utils \
-    sox \
     tesseract-ocr \
   && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    docker-cli \
-    docker-compose \
-    docker.io \
-    fuse-overlayfs \
-    iptables \
+    fonts-freefont-ttf \
+    fonts-noto-cjk \
+    libasound2t64 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libatspi2.0-0 \
+    libcairo2 \
+    libcairo-gobject2 \
+    libcups2t64 \
+    libdbus-1-3 \
+    libdrm2 \
+    libfreetype6 \
+    libfontconfig1 \
+    libgbm1 \
+    libgdk-pixbuf-2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcb-shm0 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxkbcommon0 \
+    libxrandr2 \
+    libxrender1 \
+    libxshmfence1 \
   && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://mise.run | sh \
   && mv /root/.local/bin/mise /usr/local/bin/mise \
-  && mise use -g just@${JUST_VERSION} \
-  && mise use -g node@lts \
-  && npm install -g pnpm@10
-
-RUN python3 -m pip install --break-system-packages --no-cache-dir \
-    beautifulsoup4 \
-    fpdf2 \
-    lxml \
-    openpyxl \
-    pillow \
-    pypdf \
-    python-docx \
-    python-pptx \
-    reportlab \
-    requests \
-    uv \
   && printf '%s\n' 'if [ -n "${BASH_VERSION:-}" ]; then' '  eval "$(mise activate bash)"' 'fi' >/etc/profile.d/mise.sh
+
+RUN mise use -g node@lts \
+  && node_bin="$(mise which node)" \
+  && node_dir="$(dirname "$node_bin")" \
+  && ln -sf "$node_dir/node" /usr/local/bin/node \
+  && printf '%s\n' '#!/bin/sh' 'exec /usr/local/share/mise/installs/node/lts/bin/node /usr/local/share/mise/installs/node/lts/lib/node_modules/npm/bin/npm-cli.js "$@"' >/usr/local/bin/npm \
+  && printf '%s\n' '#!/bin/sh' 'exec /usr/local/share/mise/installs/node/lts/bin/node /usr/local/share/mise/installs/node/lts/lib/node_modules/npm/bin/npx-cli.js "$@"' >/usr/local/bin/npx \
+  && chmod +x /usr/local/bin/npm /usr/local/bin/npx \
+  && npm cache clean --force
+
+RUN npm config set fetch-retries 5 \
+  && npm config set fetch-retry-mintimeout 20000 \
+  && npm config set fetch-retry-maxtimeout 120000 \
+  && npm install -g --prefix=/usr/local agent-browser \
+  && ln -sf /usr/local/bin/agent-browser /usr/local/bin/browser \
+  && agent-browser install \
+  && npm cache clean --force
 
 WORKDIR /app
 
@@ -129,7 +132,7 @@ COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
 
 RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
-  && mkdir -p /app/data /workspace /var/lib/docker /var/run \
+  && mkdir -p /app/data /workspace \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
   && chmod +x /usr/local/bin/git-credential-hivy \
   && chmod +x /usr/local/bin/gh-wrapper \
@@ -142,9 +145,6 @@ ENV HIVY_WORKSPACE_ROOT=/workspace
 ENV HIVY_RUNTIME_BIND_ADDR=0.0.0.0:7080
 ENV HIVY_SANDBOXES_RUNTIME_VERSION=${VERSION}
 ENV HIVY_SANDBOXES_RUNTIME_COMMIT=${COMMIT}
-ENV DOCKER_HOST=unix:///var/run/docker.sock
-ENV DOCKER_BUILDKIT=1
-ENV COMPOSE_DOCKER_CLI_BUILD=1
 
 EXPOSE 7080
 

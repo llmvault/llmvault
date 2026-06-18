@@ -24,7 +24,7 @@ type Orchestrator struct {
 	encKey            *crypto.SymmetricKey
 	cfg               *config.Config
 	warmPool          *WarmPool
-	reconcileWarmPool func(context.Context, string, string) error
+	reconcileWarmPool func(context.Context, string, string, string) error
 	pushRuntimeConfig func(context.Context, *model.Sandbox) error
 
 	// healthFailureCounts tracks consecutive bad provider health observations per sandbox so a
@@ -52,7 +52,7 @@ func (o *Orchestrator) WarmPool() *WarmPool {
 	return o.warmPool
 }
 
-func (o *Orchestrator) SetWarmPoolReconciler(fn func(context.Context, string, string) error) {
+func (o *Orchestrator) SetWarmPoolReconciler(fn func(context.Context, string, string, string) error) {
 	o.reconcileWarmPool = fn
 }
 
@@ -70,17 +70,24 @@ func (o *Orchestrator) pushAgentRuntimeConfig(ctx context.Context, sb *model.San
 	return nil
 }
 
-func (o *Orchestrator) enqueueWarmPoolReconcile(ctx context.Context, mode string) {
+func (o *Orchestrator) enqueueWarmPoolReconcile(ctx context.Context, mode, runtimeImage string) {
 	if o.reconcileWarmPool == nil {
 		return
 	}
-	if err := o.reconcileWarmPool(ctx, o.provider.ID(), mode); err != nil {
+	if err := o.reconcileWarmPool(ctx, o.provider.ID(), mode, runtimeImage); err != nil {
 		logging.Capture(ctx, fmt.Errorf("enqueue warm pool reconcile: %w", err))
 	}
 }
 
 func (o *Orchestrator) ProviderID() string {
 	return o.providerID()
+}
+
+func (o *Orchestrator) Config() *config.Config {
+	if o == nil {
+		return nil
+	}
+	return o.cfg
 }
 
 func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) (*agentruntime.Client, error) {

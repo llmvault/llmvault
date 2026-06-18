@@ -92,6 +92,75 @@ func TestCreateAgentSandboxUsesConfiguredSandboxSize(t *testing.T) {
 	}
 }
 
+func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
+	db := connectSandboxTestDB(t)
+	orgID := uuid.New()
+	org := model.Org{ID: orgID, Name: "Sandbox Image Test", RateLimit: 1000, Active: true}
+	if err := db.Create(&org).Error; err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	agent := model.Agent{
+		ID:              uuid.New(),
+		OrgID:           &orgID,
+		Name:            "Developer Agent",
+		SandboxStrategy: "per_session",
+		SandboxImage:    model.SandboxImageDeveloper,
+		SandboxSize:     "large",
+		Model:           "gpt-5.4",
+		Status:          "active",
+		Tools:           model.JSON{},
+		McpServers:      model.RawJSON("[]"),
+		Skills:          model.JSON{},
+		RuntimeConfig:   model.JSON{},
+		Permissions:     model.JSON{},
+		Resources:       model.JSON{},
+	}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("agent_id = ?", agent.ID).Delete(&model.Sandbox{})
+		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
+		db.Where("id = ?", org.ID).Delete(&model.Org{})
+	})
+
+	runtime := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/healthz" {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer runtime.Close()
+
+	provider := &agentCreateProvider{endpoint: runtime.URL}
+	orch := NewOrchestrator(db, provider, sandboxTestSymmetricKey(t), &config.Config{
+		SandboxProviderID:        ProviderMicrosandbox,
+		SandboxesRuntimeImageTag: "v3.4.0-amd64",
+		APIWebhookBaseURL:        "https://api.example",
+		ProxyHost:                "https://proxy.example",
+	})
+
+	created, err := orch.CreateAgentSandbox(context.Background(), &agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"})
+	if err != nil {
+		t.Fatalf("CreateAgentSandbox: %v", err)
+	}
+	wantSnapshot := "hivy-sandboxes-runtime-developers-v3-4-0-amd64-large"
+	if created.SnapshotID == nil || *created.SnapshotID != wantSnapshot {
+		t.Fatalf("snapshot id = %v, want %s", created.SnapshotID, wantSnapshot)
+	}
+	if len(provider.created) != 1 {
+		t.Fatalf("provider creates = %d, want 1", len(provider.created))
+	}
+	opts := provider.created[0]
+	if opts.TemplateRef != wantSnapshot {
+		t.Fatalf("template ref = %q, want %q", opts.TemplateRef, wantSnapshot)
+	}
+	if opts.Labels["sandbox_image"] != model.SandboxImageDeveloper {
+		t.Fatalf("sandbox_image label = %q, want developer", opts.Labels["sandbox_image"])
+	}
+}
+
 func connectSandboxTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := testdb.DatabaseURL("DATABASE_URL", "HIVY_DATABASE_URL", "TEST_DATABASE_URL")

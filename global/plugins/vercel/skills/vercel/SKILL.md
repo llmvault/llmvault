@@ -1,15 +1,15 @@
 ---
 name: vercel
-description: Use when deploying to Vercel, managing projects, domains, environment variables, DNS records, rollbacks, checking Git/GitHub linkage, or reading logs - provides pre-authenticated REST API patterns for Vercel resources via the Hivy ${HIVY_VERCEL_API_URL} proxy
+description: Use when inspecting, deploying, troubleshooting, or managing Vercel projects, deployments, domains, environment variables, DNS records, Git links, logs, aliases, rollbacks, or status.
 ---
 
 # Managing Vercel Infrastructure
 
 ## Overview
 
-Manage Vercel cloud infrastructure through a pre-authenticated REST API proxy. All requests go to `${HIVY_VERCEL_API_URL}` with `Authorization: Bearer $HIVY_VERCEL_API_KEY`. Vercel uses a standard REST API (not GraphQL).
+Manage Vercel cloud infrastructure through the provided REST API proxy endpoint. All requests go to `${HIVY_VERCEL_API_URL}` with `Authorization: Bearer $HIVY_VERCEL_API_KEY`. Vercel uses a standard REST API (not GraphQL).
 
-You are running inside the Hivy runtime. All external Vercel API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+Do not call the real Vercel API directly. Use the provided proxy endpoint and environment variables.
 
 ## When to Use
 
@@ -353,7 +353,7 @@ curl -s -X POST "${HIVY_VERCEL_API_URL}/v9/projects/my-app/domains/app.example.c
 | Polling deployment status in tight loop | Check every 5-10 seconds, not continuously |
 | Not checking `.error` field | Always check for errors before processing response |
 
-Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Vercel.
+Delete, remove, archive, trash, and destroy operations are blocked by the provided proxy. If the user asks for one of these actions, explain that they must perform it themselves in Vercel.
 | Using wrong API version in path | Each endpoint has a specific version — use the versions from this doc |
 
 ## Env Var Types
@@ -768,7 +768,7 @@ curl -s -X PATCH "${HIVY_VERCEL_API_URL}/v1/edge-config/EC_ID/items" \
   | jq '{status}'
 ```
 
-Allowed operations: `create`, `update`, `upsert`. Delete operations are blocked by the Hivy proxy.
+Allowed operations: `create`, `update`, `upsert`. Delete operations are blocked by the provided proxy.
 
 ---
 

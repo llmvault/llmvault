@@ -2,7 +2,7 @@
 set -euo pipefail
 export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
 
-IMAGE="${HIVY_SANDBOXES_RUNTIME_IMAGE:-hivy-sandboxes-runtime:runtime}"
+IMAGE="${HIVY_SANDBOXES_RUNTIME_IMAGE:-ghcr.io/usehivy/hivy-sandboxes-runtime:runtime}"
 NAME="${HIVY_SANDBOXES_RUNTIME_CONTAINER:-hivy-sandboxes-runtime-smoke}"
 AUTH_NAME="${HIVY_SANDBOXES_RUNTIME_AUTH_CONTAINER:-$NAME-auth}"
 SECRET="${HIVY_RUNTIME_SECRET:-runtime-test-token}"
@@ -149,8 +149,12 @@ curl -fsS \
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "$(git config --system credential.helper)" = "/usr/local/bin/git-credential-hivy"'
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "$(git config --system user.name)" = "Runtime Smoke"'
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "$(git config --system user.email)" = "runtime-smoke@usehivy.com"'
-"$DOCKER_BIN" exec "$NAME" docker info >/tmp/runtime-docker-info.txt
-"$DOCKER_BIN" exec "$NAME" docker compose version >/tmp/runtime-docker-compose-version.txt
+"$DOCKER_BIN" exec "$NAME" node --version >/tmp/runtime-node-version.txt
+"$DOCKER_BIN" exec "$NAME" npm --version >/tmp/runtime-npm-version.txt
+"$DOCKER_BIN" exec "$NAME" browser doctor --offline --quick >/tmp/runtime-browser-doctor.txt
+"$DOCKER_BIN" exec "$NAME" sh -lc '! command -v docker >/dev/null 2>&1'
+"$DOCKER_BIN" exec "$NAME" sh -lc '! command -v dockerd >/dev/null 2>&1'
+"$DOCKER_BIN" exec "$NAME" sh -lc '! command -v docker-compose >/dev/null 2>&1'
 
 "$DOCKER_BIN" run -d \
   "${run_args[@]+"${run_args[@]}"}" \

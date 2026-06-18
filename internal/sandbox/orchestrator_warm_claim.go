@@ -18,11 +18,11 @@ var (
 	warmRuntimeClaimMaxDelay     = 10 * time.Second
 )
 
-func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, mode string) error {
+func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, mode, runtimeImage string) error {
 	if o.warmPool == nil {
 		return fmt.Errorf("railway warm pool is not configured")
 	}
-	claimed, err := o.claimWarmRuntimeSlot(ctx, mode, sb.ID)
+	claimed, err := o.claimWarmRuntimeSlot(ctx, mode, runtimeImage, sb.ID)
 	if err != nil {
 		return fmt.Errorf("claim warm runtime: %w", err)
 	}
@@ -66,16 +66,16 @@ func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, 
 	if err := o.warmPool.MarkClaimed(ctx, claimed.ID); err != nil {
 		return fmt.Errorf("mark warm slot claimed: %w", err)
 	}
-	o.enqueueWarmPoolReconcile(ctx, mode)
+	o.enqueueWarmPoolReconcile(ctx, mode, runtimeImage)
 	return nil
 }
 
-func (o *Orchestrator) claimWarmRuntimeSlot(ctx context.Context, mode string, sandboxID uuid.UUID) (*ClaimedWarmSlot, error) {
+func (o *Orchestrator) claimWarmRuntimeSlot(ctx context.Context, mode, runtimeImage string, sandboxID uuid.UUID) (*ClaimedWarmSlot, error) {
 	deadline := time.Now().Add(warmRuntimeClaimMaxWait)
 	delay := warmRuntimeClaimInitialDelay
 	var lastErr error
 	for {
-		claimed, err := o.warmPool.Claim(ctx, mode, sandboxID)
+		claimed, err := o.warmPool.Claim(ctx, mode, runtimeImage, sandboxID)
 		if err == nil {
 			return claimed, nil
 		}
@@ -83,7 +83,7 @@ func (o *Orchestrator) claimWarmRuntimeSlot(ctx context.Context, mode string, sa
 		if !isNoWarmSlotAvailable(err) {
 			return nil, err
 		}
-		o.enqueueWarmPoolReconcile(ctx, mode)
+		o.enqueueWarmPoolReconcile(ctx, mode, runtimeImage)
 		if time.Now().Add(delay).After(deadline) {
 			return nil, fmt.Errorf("no warm %s runtime available after %s: %w", mode, warmRuntimeClaimMaxWait, lastErr)
 		}

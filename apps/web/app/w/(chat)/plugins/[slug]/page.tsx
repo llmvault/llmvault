@@ -477,7 +477,9 @@ function SkillsSection({
                 {skill.name || "Skill"}
               </p>
               <p className="text-sm leading-5 text-muted-foreground">
-                {skill.description || "No description available."}
+                {skill.human_description ||
+                  skill.description ||
+                  "No description available."}
               </p>
             </div>
           </div>

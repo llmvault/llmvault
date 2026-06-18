@@ -1,6 +1,7 @@
 {
   "name": "mysql",
-  "description": "Query the connected MySQL database through Hivy's read-only database proxy using HIVY_MYSQL_URL and HIVY_MYSQL_TOKEN. Credentials are never exposed to the runtime.",
+  "description": "Use this skill when the user asks to inspect, query, aggregate, count, join, or troubleshoot data in a connected MySQL database. Pick it for table discovery, read-only SQL analysis, schema exploration, and reporting from MySQL data. Do not use it for PostgreSQL, MongoDB, or write, delete, or migration tasks.",
+  "human_description": "Query connected MySQL databases",
   "category": "Databases",
   "root": "./SKILL.md",
   "tags": [

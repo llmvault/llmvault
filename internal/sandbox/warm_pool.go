@@ -49,11 +49,11 @@ func (p *WarmPool) DesiredCount(mode string) int {
 	}
 }
 
-func (p *WarmPool) Claim(ctx context.Context, mode string, sandboxID uuid.UUID) (*ClaimedWarmSlot, error) {
+func (p *WarmPool) Claim(ctx context.Context, mode, runtimeImage string, sandboxID uuid.UUID) (*ClaimedWarmSlot, error) {
 	if p == nil {
 		return nil, fmt.Errorf("warm pool is not configured")
 	}
-	image := p.runtimeImage(mode)
+	image := p.runtimeImage(mode, runtimeImage)
 	if image == "" {
 		return nil, fmt.Errorf("runtime image for warm %s sandbox is not configured", mode)
 	}
@@ -169,9 +169,14 @@ func (p *WarmPool) ReapStaleSlots(ctx context.Context) error {
 }
 
 func (p *WarmPool) SlotMode(ctx context.Context, slotID uuid.UUID) (string, error) {
+	mode, _, err := p.SlotModeAndRuntimeImage(ctx, slotID)
+	return mode, err
+}
+
+func (p *WarmPool) SlotModeAndRuntimeImage(ctx context.Context, slotID uuid.UUID) (string, string, error) {
 	var slot model.SandboxWarmSlot
-	if err := p.db.WithContext(ctx).Select("mode").First(&slot, "id = ?", slotID).Error; err != nil {
-		return "", err
+	if err := p.db.WithContext(ctx).Select("mode", "runtime_image").First(&slot, "id = ?", slotID).Error; err != nil {
+		return "", "", err
 	}
-	return slot.Mode, nil
+	return slot.Mode, slot.RuntimeImage, nil
 }

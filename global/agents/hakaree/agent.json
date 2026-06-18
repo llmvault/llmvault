@@ -12,6 +12,7 @@
   "default": true,
   "runtime": {
     "sandbox_strategy": "per_session",
+    "sandbox_image": "developer",
     "model": "deepseek-v4-pro",
     "available_models": [
       "deepseek-v4-pro",

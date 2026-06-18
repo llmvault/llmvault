@@ -49,3 +49,27 @@ func TestAgentRuntimeTemplateRefLeavesNonMicrosandboxImageRef(t *testing.T) {
 		t.Fatalf("runtime template ref = %q, want %q", got, want)
 	}
 }
+
+func TestAgentRuntimeImageRefDerivesProfilesFromImageTag(t *testing.T) {
+	cfg := &config.Config{SandboxesRuntimeImageTag: "v3.4.0-amd64"}
+
+	if got, want := AgentRuntimeImageRef(cfg, "default"), "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.4.0-amd64"; got != want {
+		t.Fatalf("default runtime image = %q, want %q", got, want)
+	}
+	if got, want := AgentRuntimeImageRef(cfg, "developer"), "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:v3.4.0-amd64"; got != want {
+		t.Fatalf("developer runtime image = %q, want %q", got, want)
+	}
+}
+
+func TestAgentRuntimeTemplateRefUsesDeveloperMicrosandboxSnapshotAlias(t *testing.T) {
+	cfg := &config.Config{
+		SandboxProviderID:        ProviderMicrosandbox,
+		SandboxesRuntimeImageTag: "v3.4.0-amd64",
+	}
+
+	got := AgentRuntimeTemplateRefForSandboxImageAndSize(cfg, "developer", "large")
+	want := "hivy-sandboxes-runtime-developers-v3-4-0-amd64-large"
+	if got != want {
+		t.Fatalf("developer runtime template ref = %q, want %q", got, want)
+	}
+}

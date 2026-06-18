@@ -25,6 +25,7 @@ type Manifest struct {
 
 type RuntimeManifest struct {
 	SandboxStrategy string   `json:"sandbox_strategy"`
+	SandboxImage    string   `json:"sandbox_image"`
 	Model           string   `json:"model"`
 	AvailableModels []string `json:"available_models"`
 	MultimodalModel string   `json:"multimodal_model"`

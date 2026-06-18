@@ -58,16 +58,13 @@ func TestLiveProviderSnapshotE2E(t *testing.T) {
 
 			marker := fmt.Sprintf("%s-%d", image.name, time.Now().UnixNano())
 			templateID, err := driver.BuildTemplateWithLogs(ctx, sandbox.TemplateBuildRequest{
-				Name:      "live-e2e-" + image.name,
-				OrgID:     "org_live_e2e",
-				BaseImage: image.ref,
-				CPU:       2,
-				Memory:    4,
-				Disk:      60,
-				BuildCommands: []string{
-					fmt.Sprintf("set -eu; mkdir -p /opt/hivy-e2e; printf %%s %q > /opt/hivy-e2e/marker.txt; echo marker=%s", marker, marker),
-					"set -eu; docker info >/opt/hivy-e2e/docker-info.txt; docker compose version >/opt/hivy-e2e/docker-compose-version.txt",
-				},
+				Name:          "live-e2e-" + image.name,
+				OrgID:         "org_live_e2e",
+				BaseImage:     image.ref,
+				CPU:           2,
+				Memory:        4,
+				Disk:          60,
+				BuildCommands: liveE2ETemplateCommands(image.name, marker),
 			}, nil)
 			if err != nil {
 				t.Fatalf("BuildTemplateWithLogs: %v", err)
@@ -111,7 +108,7 @@ func TestLiveProviderSnapshotE2E(t *testing.T) {
 				}
 			}()
 
-			out, err := driver.ExecuteCommand(ctx, info.ExternalID, fmt.Sprintf("set -eu; test \"$(cat /opt/hivy-e2e/marker.txt)\" = %q; docker info >/tmp/docker-info.txt; docker compose version", marker))
+			out, err := driver.ExecuteCommand(ctx, info.ExternalID, liveE2EVerifyCommand(image.name, marker))
 			if err != nil {
 				t.Fatalf("ExecuteCommand: %v\n%s", err, out)
 			}
@@ -127,6 +124,25 @@ func TestLiveProviderSnapshotE2E(t *testing.T) {
 			}
 		})
 	}
+}
+
+func liveE2ETemplateCommands(imageName, marker string) []string {
+	commands := []string{
+		fmt.Sprintf("set -eu; mkdir -p /opt/hivy-e2e; printf %%s %q > /opt/hivy-e2e/marker.txt; echo marker=%s", marker, marker),
+		"set -eu; node --version >/opt/hivy-e2e/node-version.txt; npm --version >/opt/hivy-e2e/npm-version.txt; git --version >/opt/hivy-e2e/git-version.txt; command -v browser >/opt/hivy-e2e/browser-path.txt; command -v agent-browser >/opt/hivy-e2e/agent-browser-path.txt; browser doctor --offline --quick >/opt/hivy-e2e/browser-doctor.txt",
+	}
+	if imageName == "developers" {
+		commands = append(commands, "set -eu; docker info >/opt/hivy-e2e/docker-info.txt; docker compose version >/opt/hivy-e2e/docker-compose-version.txt")
+	}
+	return commands
+}
+
+func liveE2EVerifyCommand(imageName, marker string) string {
+	cmd := fmt.Sprintf("set -eu; test \"$(cat /opt/hivy-e2e/marker.txt)\" = %q; node --version >/tmp/node-version.txt; npm --version >/tmp/npm-version.txt; git --version >/tmp/git-version.txt; command -v browser >/tmp/browser-path.txt; command -v agent-browser >/tmp/agent-browser-path.txt; browser doctor --offline --quick >/tmp/browser-doctor.txt", marker)
+	if imageName == "developers" {
+		cmd += "; docker info >/tmp/docker-info.txt; docker compose version >/tmp/docker-compose-version.txt"
+	}
+	return cmd
 }
 
 func tail(value string, n int) string {

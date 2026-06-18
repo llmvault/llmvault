@@ -12,6 +12,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	pluginstore "github.com/usehivy/hivy/internal/plugins"
 	"github.com/usehivy/hivy/internal/registry"
 )
 
@@ -73,6 +74,7 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 	desc := hivyAgentDescription
 	avatarURL := hivyAgentAvatarURL
 	strategy := agentStrategyAlwaysOn
+	sandboxImage := model.SandboxImageDefault
 	var catalogID *uuid.UUID
 	if hasCatalog {
 		catalogID = &catalog.ID
@@ -83,6 +85,9 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		}
 		if isValidAgentSandboxStrategy(catalog.SandboxStrategy) {
 			strategy = catalog.SandboxStrategy
+		}
+		if model.ValidSandboxImage(catalog.SandboxImage) {
+			sandboxImage = model.NormalizeSandboxImage(catalog.SandboxImage)
 		}
 	}
 	availableModels := []string(nil)
@@ -97,6 +102,7 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 		AvatarURL:       ptrString(avatarURL),
 		IsDefault:       true,
 		SandboxStrategy: strategy,
+		SandboxImage:    sandboxImage,
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
 		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
@@ -111,6 +117,9 @@ func createHivyAgentTx(ctx context.Context, tx *gorm.DB, orgID uuid.UUID) (*mode
 	}
 	if err := tx.WithContext(ctx).Create(&agent).Error; err != nil {
 		return nil, fmt.Errorf("create Hivy agent: %w", err)
+	}
+	if err := pluginstore.EnsureAutoInstalledForAgent(ctx, tx, orgID, agent.ID); err != nil {
+		return nil, err
 	}
 
 	return &agent, nil

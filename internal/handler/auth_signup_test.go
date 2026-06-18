@@ -98,6 +98,59 @@ func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	if resp.Model != agentruntime.DefaultAgentModel {
 		t.Fatalf("agent model = %q, want %q", resp.Model, agentruntime.DefaultAgentModel)
 	}
+	if resp.SandboxImage != model.SandboxImageDefault {
+		t.Fatalf("agent sandbox_image = %q, want %q", resp.SandboxImage, model.SandboxImageDefault)
+	}
+}
+
+func TestCreateUserDefaultOrg_AutoInstallsRuntimePlugin(t *testing.T) {
+	db := connectInternalTestDB(t)
+	user := seedSignupUser(t, db)
+	plugin := model.Plugin{
+		ID:       uuid.New(),
+		Slug:     "runtime-default-" + uuid.NewString()[:8],
+		Name:     "Runtime",
+		Status:   model.PluginStatusActive,
+		Manifest: model.RawJSON(`{"auto_install":true,"locked":true}`),
+	}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create runtime plugin: %v", err)
+	}
+	t.Cleanup(func() { db.Where("id = ?", plugin.ID).Delete(&model.Plugin{}) })
+
+	var org model.Org
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var e error
+		org, e = createUserDefaultOrg(tx, nil, user)
+		return e
+	})
+	if err != nil {
+		t.Fatalf("createUserDefaultOrg: %v", err)
+	}
+	cleanupOrgAndLedger(t, db, org.ID)
+
+	var agent model.Agent
+	if err := db.Where("org_id = ?", org.ID).First(&agent).Error; err != nil {
+		t.Fatalf("load Hivy agent: %v", err)
+	}
+	var agentInstallCount int64
+	if err := db.Model(&model.AgentPluginInstall{}).
+		Where("org_id = ? AND agent_id = ? AND plugin_id = ?", org.ID, agent.ID, plugin.ID).
+		Count(&agentInstallCount).Error; err != nil {
+		t.Fatalf("count agent runtime install: %v", err)
+	}
+	if agentInstallCount != 1 {
+		t.Fatalf("agent runtime install count = %d, want 1", agentInstallCount)
+	}
+	var orgInstallCount int64
+	if err := db.Model(&model.OrgPluginInstall{}).
+		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
+		Count(&orgInstallCount).Error; err != nil {
+		t.Fatalf("count org runtime install: %v", err)
+	}
+	if orgInstallCount != 1 {
+		t.Fatalf("org runtime install count = %d, want 1", orgInstallCount)
+	}
 }
 
 func TestCreateUserDefaultOrg_GrantsWelcomeCredits(t *testing.T) {

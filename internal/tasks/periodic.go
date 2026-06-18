@@ -8,6 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/usehivy/hivy/internal/config"
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/rag/scheduler"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
@@ -153,7 +154,7 @@ func sandboxPeriodicTasksConfigured(cfg *config.Config) bool {
 		return strings.TrimSpace(cfg.RailwayAPIToken) != "" &&
 			strings.TrimSpace(cfg.RailwayProjectID) != "" &&
 			strings.TrimSpace(cfg.RailwayEnvironmentID) != "" &&
-			strings.TrimSpace(cfg.SandboxesRuntimeBaseImage) != ""
+			strings.TrimSpace(sandbox.AgentRuntimeImageRef(cfg, model.SandboxImageDefault)) != ""
 	case sandbox.ProviderMicrosandbox:
 		return strings.TrimSpace(cfg.MicrosandboxControlURL) != "" &&
 			strings.TrimSpace(cfg.MicrosandboxControlAPIToken) != ""

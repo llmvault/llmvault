@@ -16,6 +16,10 @@ if ! command -v dockerd >/dev/null 2>&1; then
 	echo no-dockerd
 	exit 0
 fi
+if ! command -v docker >/dev/null 2>&1; then
+	echo no-docker
+	exit 0
+fi
 if docker info >/dev/null 2>&1; then
 	echo already-running
 	exit 0

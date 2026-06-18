@@ -1,17 +1,17 @@
 ---
 name: bugsink
-description: Use when investigating Bugsink errors, issues, projects, events, stacktraces, regressions, or production exceptions. Provides verified curl and jq commands through the Hivy Bugsink proxy using HIVY_BUGSINK_URL and HIVY_BUGSINK_TOKEN, and explains how to construct dashboard links using HIVY_BUGSINK_DASHBOARD_BASE_URL instead of the proxy URL.
+description: Use when investigating Bugsink errors, issues, projects, events, stack traces, regressions, affected users, releases, or production exceptions.
 ---
 
 # Bugsink issue investigation
 
-Use Bugsink through the Hivy-provided Bugsink proxy at `$HIVY_BUGSINK_URL/api/canonical/0`.
+Use Bugsink through the provided proxy endpoint at `$HIVY_BUGSINK_URL/api/canonical/0`.
 
-You are running inside the Hivy runtime. All external Bugsink API calls must go through the Hivy proxy for security, credential isolation, and tracking.
+Do not call the real Bugsink API directly. Use the provided proxy endpoint and environment variables.
 
-`HIVY_BUGSINK_URL` is provided by the Hivy runtime. Always call the provided `HIVY_BUGSINK_URL` exactly; the runtime handles forwarding for the configured Bugsink connection.
+Always call `HIVY_BUGSINK_URL` exactly as provided; the runtime handles forwarding for the configured Bugsink connection.
 
-`HIVY_BUGSINK_DASHBOARD_BASE_URL` is the real Bugsink dashboard base URL. Use it only for human-facing links. Never construct dashboard links from `HIVY_BUGSINK_URL`; `HIVY_BUGSINK_URL` is a Hivy API proxy and is not the Bugsink UI host.
+`HIVY_BUGSINK_DASHBOARD_BASE_URL` is the Bugsink dashboard base URL. Use it only for human-facing links. Never construct dashboard links from `HIVY_BUGSINK_URL`; that endpoint is for API calls and is not the Bugsink UI host.
 
 ## Environment
 
@@ -19,7 +19,7 @@ Required:
 
 | Variable | Purpose |
 |---|---|
-| `HIVY_BUGSINK_URL` | Hivy-provided Bugsink proxy base URL |
+| `HIVY_BUGSINK_URL` | Provided Bugsink proxy base URL |
 | `HIVY_BUGSINK_TOKEN` | Bearer token for the provided Bugsink endpoint |
 
 Optional:
@@ -54,14 +54,14 @@ curl -fsS "$BUGSINK_API/projects/" \
 - Use Bugsink internal event `id` for `/events/{id}/` and `/events/{id}/stacktrace/`; `event_id` is the event id from the client payload.
 - Treat `next` and `previous` as pagination cursors/links. Follow `next` only when the user needs more results.
 - Do not print `$HIVY_BUGSINK_TOKEN`.
-- Delete, remove, archive, trash, and destroy operations are blocked by the Hivy proxy. If the user asks for one of these actions, explain that they must perform it themselves in Bugsink.
+- Delete, remove, archive, trash, and destroy operations are blocked by the provided proxy. If the user asks for one of these actions, explain that they must perform it themselves in Bugsink.
 - When reporting results to a teammate, summarize only user-relevant fields and outcomes. Do not mention proxy URLs, bearer-token mechanics, schema probing, filtering commands, or internal API path discovery unless troubleshooting the Bugsink integration itself.
 
 ## Dashboard links
 
 Construct human-facing Bugsink links with `HIVY_BUGSINK_DASHBOARD_BASE_URL`, not `HIVY_BUGSINK_URL`.
 
-If `HIVY_BUGSINK_DASHBOARD_BASE_URL` is unset, say that the dashboard base URL is unavailable and provide the issue/project/event IDs instead. Do not substitute the Hivy proxy URL.
+If `HIVY_BUGSINK_DASHBOARD_BASE_URL` is unset, say that the dashboard base URL is unavailable and provide the issue/project/event IDs instead. Do not substitute the API endpoint URL.
 
 Known link patterns:
 

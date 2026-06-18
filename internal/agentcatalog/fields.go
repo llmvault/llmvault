@@ -18,6 +18,7 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 	if strategy == "" {
 		strategy = "per_session"
 	}
+	sandboxImage := model.NormalizeSandboxImage(manifest.Runtime.SandboxImage)
 	return map[string]any{
 		"name":                strings.TrimSpace(manifest.Name),
 		"description":         strings.TrimSpace(manifest.Description),
@@ -30,6 +31,7 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		"available_models":    pq.StringArray(normalizeCatalogAvailableModels(manifest.Runtime.Model, manifest.Runtime.AvailableModels)),
 		"multimodal_model":    strings.TrimSpace(manifest.Runtime.MultimodalModel),
 		"sandbox_strategy":    strategy,
+		"sandbox_image":       sandboxImage,
 		"instructions":        strings.TrimSpace(manifest.instructions),
 		"sub_agents":          catalogSubAgentsJSON(manifest),
 		"required_plugins":    pq.StringArray(normalizeStrings(manifest.Plugins.Required)),
@@ -52,6 +54,7 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.AvailableModels = updates["available_models"].(pq.StringArray)
 	row.MultimodalModel = updates["multimodal_model"].(string)
 	row.SandboxStrategy = updates["sandbox_strategy"].(string)
+	row.SandboxImage = updates["sandbox_image"].(string)
 	row.Instructions = updates["instructions"].(string)
 	row.SubAgents = updates["sub_agents"].(model.RawJSON)
 	row.RequiredPlugins = updates["required_plugins"].(pq.StringArray)

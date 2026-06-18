@@ -415,6 +415,8 @@ definitions:
         items:
           $ref: '#/definitions/agentCatalogPluginSummary'
         type: array
+      sandbox_image:
+        type: string
       sandbox_strategy:
         type: string
       slug:
@@ -446,6 +448,8 @@ definitions:
         items:
           type: string
         type: array
+      sandbox_image:
+        type: string
       slug:
         type: string
     type: object
@@ -508,6 +512,8 @@ definitions:
         $ref: '#/definitions/JSON'
       sandbox:
         $ref: '#/definitions/agentSandboxSummary'
+      sandbox_image:
+        type: string
       sandbox_size:
         type: string
       sandbox_strategy:
@@ -623,6 +629,8 @@ definitions:
         $ref: '#/definitions/JSON'
       resources:
         $ref: '#/definitions/JSON'
+      sandbox_image:
+        type: string
       sandbox_size:
         type: string
       sandbox_strategy:
@@ -693,6 +701,8 @@ definitions:
   agentSkillSummary:
     properties:
       description:
+        type: string
+      human_description:
         type: string
       id:
         type: string
@@ -1193,6 +1203,8 @@ definitions:
         type: string
       hidden:
         type: boolean
+      human_description:
+        type: string
       integration_ids:
         items:
           type: string
@@ -1982,6 +1994,8 @@ definitions:
     type: object
   pluginResponse:
     properties:
+      auto_install:
+        type: boolean
       capabilities:
         items:
           type: string
@@ -2016,6 +2030,8 @@ definitions:
         type: boolean
       links:
         $ref: '#/definitions/pluginLinksResponse'
+      locked:
+        type: boolean
       long_description:
         type: string
       missing_requirements:
@@ -2052,6 +2068,8 @@ definitions:
       category:
         type: string
       description:
+        type: string
+      human_description:
         type: string
       id:
         type: string
@@ -2810,6 +2828,8 @@ definitions:
         type: boolean
       hidden:
         type: boolean
+      human_description:
+        type: string
       hydration_error:
         type: string
       hydration_status:
@@ -2860,6 +2880,8 @@ definitions:
         type: boolean
       hidden:
         type: boolean
+      human_description:
+        type: string
       hydration_error:
         type: string
       hydration_status:
@@ -3258,6 +3280,8 @@ definitions:
         type: string
       hidden:
         type: boolean
+      human_description:
+        type: string
       integration_ids:
         items:
           type: string

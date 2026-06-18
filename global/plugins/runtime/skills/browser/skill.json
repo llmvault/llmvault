@@ -1,0 +1,14 @@
+{
+  "name": "browser",
+  "description": "Use this skill when the user asks to open or inspect a website, click through a web app, fill forms, log in, extract page content, take screenshots, verify UI behavior, test browser flows, or debug a page visually. Pick it for interactive web tasks and visual verification. Do not use it for API-only tasks when a direct API skill exists.",
+  "human_description": "Your agents can browse and test websites in a real browser.",
+  "category": "Browser",
+  "root": "./SKILL.md",
+  "tags": [
+    "browser",
+    "automation",
+    "screenshots",
+    "web-testing"
+  ],
+  "files": []
+}

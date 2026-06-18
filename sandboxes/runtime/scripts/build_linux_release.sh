@@ -5,14 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.cargo/bin:$PATH"
 
 host_os="$(uname -s)"
-case "$(uname -m)" in
-  arm64|aarch64)
-    default_target="aarch64-unknown-linux-gnu"
-    ;;
-  *)
-    default_target="x86_64-unknown-linux-gnu"
-    ;;
-esac
+default_target="x86_64-unknown-linux-gnu"
 
 TARGET="${HIVY_SANDBOXES_RUNTIME_LINUX_TARGET:-$default_target}"
 OUT="${HIVY_SANDBOXES_RUNTIME_LINUX_BINARY:-$ROOT/dist/hivy-sandboxes-runtime-$TARGET}"

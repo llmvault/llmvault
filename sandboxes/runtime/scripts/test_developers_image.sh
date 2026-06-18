@@ -2,7 +2,7 @@
 set -euo pipefail
 export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
 
-IMAGE="${HIVY_SANDBOXES_RUNTIME_IMAGE:-hivy-sandboxes-runtime-developers:local-smoke-test}"
+IMAGE="${HIVY_SANDBOXES_RUNTIME_IMAGE:-ghcr.io/usehivy/hivy-sandboxes-runtime-developers:runtime}"
 DOCKER_BIN="${DOCKER_BIN:-$(command -v docker)}"
 PLATFORM="${HIVY_SANDBOXES_RUNTIME_PLATFORM:-$("$DOCKER_BIN" image inspect -f '{{.Os}}/{{.Architecture}}' "$IMAGE" 2>/dev/null || true)}"
 TMP_DIR="$(mktemp -d)"

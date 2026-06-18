@@ -1,13 +1,13 @@
 ---
 name: glitchtip
-description: Use when investigating GlitchTip errors, issues, projects, events, stacktraces, releases, environments, monitors, logs, performance, or production exceptions. Provides verified curl and jq commands through the Hivy GlitchTip proxy using HIVY_GLITCHTIP_URL and HIVY_GLITCHTIP_TOKEN, and explains how to construct dashboard links using HIVY_GLITCHTIP_DASHBOARD_BASE_URL instead of the proxy URL.
+description: Use when investigating GlitchTip errors, issues, projects, events, stack traces, releases, environments, monitors, logs, performance, or production exceptions.
 ---
 
 # GlitchTip Error Monitoring
 
 ## Overview
 
-Use GlitchTip through the Hivy-provided proxy at `$HIVY_GLITCHTIP_URL`.
+Use GlitchTip through the provided proxy endpoint at `$HIVY_GLITCHTIP_URL`.
 
 GlitchTip exposes a Sentry-compatible REST API under `/api/0`. Every API call must use:
 
@@ -15,7 +15,7 @@ GlitchTip exposes a Sentry-compatible REST API under `/api/0`. Every API call mu
 Authorization: Bearer $HIVY_GLITCHTIP_TOKEN
 ```
 
-`HIVY_GLITCHTIP_URL` is a Hivy API proxy URL. Do not use it for links shown to users.
+Do not call the real GlitchTip API directly. Use the provided proxy endpoint and environment variables. Do not use `HIVY_GLITCHTIP_URL` for links shown to users.
 
 `HIVY_GLITCHTIP_DASHBOARD_BASE_URL` is the real GlitchTip dashboard base URL. Use it only for human-facing links. If it is unset, provide IDs and slugs instead of inventing links.
 
@@ -23,7 +23,7 @@ Authorization: Bearer $HIVY_GLITCHTIP_TOKEN
 
 | Variable | Purpose |
 | --- | --- |
-| `HIVY_GLITCHTIP_URL` | Hivy-provided GlitchTip proxy base URL |
+| `HIVY_GLITCHTIP_URL` | Provided GlitchTip proxy base URL |
 | `HIVY_GLITCHTIP_TOKEN` | Bearer token for the provided proxy endpoint |
 
 Optional:
@@ -57,7 +57,7 @@ curl -fsS "$GLITCHTIP_API/" \
 - Event and log payloads can be large and may include sensitive request context. Start with small `limit` values and summarize fields instead of dumping full payloads unless the user asks for raw data.
 - Do not delete organizations, teams, projects, issues, releases, files, comments, monitors, alerts, or API tokens.
 - Do not mutate issue state, alert rules, teams, members, subscriptions, billing, project keys, releases, or monitors unless the user explicitly asks.
-- Never call GlitchTip directly with the raw provider token when the Hivy proxy variables are available.
+- Never call GlitchTip directly when the provided proxy variables are available.
 
 ## Dashboard Links
 
