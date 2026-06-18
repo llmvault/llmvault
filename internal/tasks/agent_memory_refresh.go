@@ -15,15 +15,21 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 type AgentMemoryRefreshHandler struct {
-	db          *gorm.DB
-	compileDeps agentruntime.CompileDeps
+	db           *gorm.DB
+	orchestrator *sandbox.Orchestrator
+	compileDeps  agentruntime.CompileDeps
 }
 
-func NewAgentMemoryRefreshHandler(db *gorm.DB, compileDeps agentruntime.CompileDeps) *AgentMemoryRefreshHandler {
-	return &AgentMemoryRefreshHandler{db: db, compileDeps: compileDeps}
+func NewAgentMemoryRefreshHandler(db *gorm.DB, compileDeps agentruntime.CompileDeps, orchestrator ...*sandbox.Orchestrator) *AgentMemoryRefreshHandler {
+	var orch *sandbox.Orchestrator
+	if len(orchestrator) > 0 {
+		orch = orchestrator[0]
+	}
+	return &AgentMemoryRefreshHandler{db: db, orchestrator: orch, compileDeps: compileDeps}
 }
 
 func (h *AgentMemoryRefreshHandler) Handle(ctx context.Context, task *asynq.Task) error {
@@ -103,7 +109,13 @@ func (h *AgentMemoryRefreshHandler) refresh(ctx context.Context, payload AgentMe
 	fields["memory_context_entries"] = runtimeMemoryContextEntryCount(configUpdate)
 	fields["runtime_env_count"] = len(configUpdate.RuntimeEnv)
 	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
-	if err := client.Healthz(ctx); err != nil {
+	if h.orchestrator != nil {
+		var err error
+		client, err = h.orchestrator.GetRuntimeClient(ctx, sb)
+		if err != nil {
+			return fmt.Errorf("agent runtime client: %w", err)
+		}
+	} else if err := client.Healthz(ctx); err != nil {
 		return fmt.Errorf("agent runtime healthz: %w", err)
 	}
 	if _, err := client.PutRuntimeConfig(ctx, configUpdate); err != nil {

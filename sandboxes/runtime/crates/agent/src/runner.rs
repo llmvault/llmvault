@@ -16,7 +16,7 @@ use outbound::OutboundEmitter;
 use safety::error_tracker::ToolErrorTracker;
 use safety::thinking_guard::ThinkingStreamFilter;
 use safety::{overthinking_feedback, xml_repair_reminder, SafetyHarness, TurnSafety};
-use storage::{CronJobRepo, SubagentTaskRepo};
+use storage::SubagentTaskRepo;
 use tools::{JsonTool, ToolBuildContext};
 use tracing::warn;
 
@@ -30,7 +30,7 @@ use crate::primitives::{
     AgentMessage, FinishReason, MessagePart, ModelRequest, ModelStreamEvent, ToolCall,
 };
 use crate::rig_tool_registry::{
-    build_agent_tools, emit_tool_error, emit_tool_invoked, DynamicTool, ToolContext,
+    build_agent_tools, emit_tool_error, emit_tool_invoked, DynamicTool, ToolContext, WakeScheduler,
 };
 use crate::{AgentEvent, AgentRunner, Result, TurnInput};
 use crate::{PlanUpdater, QuestionRequester};
@@ -48,7 +48,7 @@ pub struct RigAgentRunner {
     config: ConfigStore,
     tool_context: ToolBuildContext,
     outbound_emitter: Option<Arc<OutboundEmitter>>,
-    cron_repo: Option<Arc<dyn CronJobRepo>>,
+    wake_scheduler: Option<Arc<dyn WakeScheduler>>,
     subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     question_requester: Option<Arc<dyn QuestionRequester>>,
     plan_updater: Option<Arc<dyn PlanUpdater>>,
@@ -63,7 +63,7 @@ impl RigAgentRunner {
             config,
             tool_context: ToolBuildContext::new(workspace_root),
             outbound_emitter: None,
-            cron_repo: None,
+            wake_scheduler: None,
             subagent_task_repo: None,
             question_requester: None,
             plan_updater: None,
@@ -78,8 +78,8 @@ impl RigAgentRunner {
         self
     }
 
-    pub fn with_cron_repo(mut self, cron_repo: Arc<dyn CronJobRepo>) -> Self {
-        self.cron_repo = Some(cron_repo);
+    pub fn with_wake_scheduler(mut self, wake_scheduler: Arc<dyn WakeScheduler>) -> Self {
+        self.wake_scheduler = Some(wake_scheduler);
         self
     }
 
@@ -160,7 +160,6 @@ impl AgentRunner for RigAgentRunner {
         }
         let mut tool_context = self.tool_context.clone();
         tool_context.runtime_env = runtime_env;
-        let cron_repo = self.cron_repo.clone();
         let subagent_task_repo = self.subagent_task_repo.clone();
         let event_repo_for_tools = self.event_repo.clone();
         let process_registry = self.tool_context.process_registry.clone();
@@ -172,7 +171,7 @@ impl AgentRunner for RigAgentRunner {
             session_id,
             &tool_context,
             &ToolContext {
-                cron_repo: cron_repo.clone(),
+                wake_scheduler: self.wake_scheduler.clone(),
                 subagent_task_repo: subagent_task_repo.clone(),
                 question_requester: self.question_requester.clone(),
                 plan_updater: self.plan_updater.clone(),
@@ -1194,7 +1193,6 @@ mod tests {
             "bash",
             "read_file",
             "write_file",
-            "cron",
             "subagent_task",
             "check_subagent_task_status",
             "check_bash_status",

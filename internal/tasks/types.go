@@ -23,6 +23,7 @@ const (
 	TypeAgentSandboxUpgrade       = "agent:sandbox_upgrade"
 	TypeAgentSandboxAutoUpgrade   = "agent:sandbox_auto_upgrade"
 	TypeAgentSandboxRetire        = "agent:sandbox_retire"
+	TypeAgentScheduleDeliver      = "agent_schedule:deliver"
 	TypeOrgHivyAgentProvision     = "org:hivy_agent_provision"
 	TypePluginInstallSync         = "plugin:install_sync"
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
@@ -37,6 +38,7 @@ const (
 	TypeCreditsExpire        = "periodic:credits_expire"
 	TypeBillingBatchProcess  = "periodic:billing_batch_process"
 	TypeBillingRenewSweep    = "periodic:billing_renew_sweep"
+	TypeAgentScheduleScan    = "periodic:agent_schedule_scan"
 
 	// On-demand task enqueued by the sweep for each due subscription.
 	TypeBillingRenewSubscription = "billing:renew_subscription"

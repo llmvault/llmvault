@@ -13,10 +13,10 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// lastActiveTouchInterval is the minimum gap between persisted last_active_at
+// defaultLastActiveTouchInterval is the maximum gap between persisted last_active_at
 // writes for a single sandbox. It must stay well under the idle-stop cutoff so
 // the lifecycle sweep never sees a stale timestamp for an active sandbox.
-const lastActiveTouchInterval = 60 * time.Second
+const defaultLastActiveTouchInterval = 60 * time.Second
 
 func (o *Orchestrator) touchLastActive(ctx context.Context, sb *model.Sandbox) {
 	now := time.Now()
@@ -44,7 +44,17 @@ func (o *Orchestrator) shouldPersistLastActive(id uuid.UUID, now time.Time) bool
 	if o.lastActiveTouch == nil {
 		o.lastActiveTouch = make(map[uuid.UUID]time.Time)
 	}
-	if last, ok := o.lastActiveTouch[id]; ok && now.Sub(last) < lastActiveTouchInterval {
+	interval := defaultLastActiveTouchInterval
+	if o.cfg != nil && o.cfg.SandboxIdleTimeout > 0 {
+		interval = o.cfg.SandboxIdleTimeout / 4
+		if interval < time.Second {
+			interval = time.Second
+		}
+		if interval > defaultLastActiveTouchInterval {
+			interval = defaultLastActiveTouchInterval
+		}
+	}
+	if last, ok := o.lastActiveTouch[id]; ok && now.Sub(last) < interval {
 		return false
 	}
 	o.lastActiveTouch[id] = now

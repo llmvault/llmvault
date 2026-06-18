@@ -3,9 +3,11 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 import redis
 
@@ -15,13 +17,47 @@ PORT = int(os.environ.get("HIVY_MICROSANDBOX_PREVIEW_CACHE_PORT", "8091"))
 REDIS_URL = os.environ.get("HIVY_MICROSANDBOX_PREVIEW_CACHE_REDIS_URL", "redis://127.0.0.1:6379/0")
 TOKEN = os.environ.get("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN", "")
 BASE_DOMAIN = os.environ.get("HIVY_MICROSANDBOX_PREVIEW_BASE_DOMAIN", "preview.usehivy.com").strip(".")
+PREVIEW_ACTIVITY_API_URL = os.environ.get("HIVY_PREVIEW_ACTIVITY_API_URL", "").rstrip("/")
+PREVIEW_ACTIVITY_TOKEN = os.environ.get("HIVY_PREVIEW_ACTIVITY_TOKEN", "")
+MICROSANDBOX_CONTROL_URL = os.environ.get("HIVY_MICROSANDBOX_CONTROL_URL", "").rstrip("/")
+MICROSANDBOX_PREVIEW_WAKE_TOKEN = (
+    os.environ.get("HIVY_MICROSANDBOX_PREVIEW_WAKE_TOKEN", "")
+    or os.environ.get("HIVY_MICROSANDBOX_RUNNER_API_TOKEN", "")
+)
+PREVIEW_WAKE_TIMEOUT = os.environ.get("HIVY_MICROSANDBOX_PREVIEW_WAKE_TIMEOUT", "55s")
 KEY_PREFIX = "microsandbox:preview-route:"
+ACTIVITY_PREFIX = "microsandbox:preview-activity:"
+ACTIVITY_DEBOUNCE_PREFIX = "microsandbox:preview-activity-debounce:"
+WAKE_LOCK_PREFIX = "microsandbox:preview-wake:"
 
 client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 
 def key_for(sandbox_id):
     return KEY_PREFIX + sandbox_id
+
+
+def activity_key_for(sandbox_id):
+    return ACTIVITY_PREFIX + sandbox_id
+
+
+def parse_duration_seconds(raw, default):
+    value = str(raw or "").strip().lower()
+    if not value:
+        return default
+    try:
+        if value.endswith("ms"):
+            return max(1, int(float(value[:-2]) / 1000))
+        if value.endswith("s"):
+            return max(1, int(float(value[:-1])))
+        if value.endswith("m"):
+            return max(1, int(float(value[:-1]) * 60))
+        return max(1, int(float(value)))
+    except Exception:
+        return default
+
+
+WAKE_TIMEOUT_SECONDS = parse_duration_seconds(PREVIEW_WAKE_TIMEOUT, 55)
 
 
 def response(handler, status, payload=None, headers=None):
@@ -95,6 +131,103 @@ def store_route(route):
         client.set(key_for(route["sandbox_id"]), payload)
 
 
+def load_route(sandbox_id):
+    raw = client.get(key_for(sandbox_id))
+    if not raw:
+        return None
+    return json.loads(raw)
+
+
+def route_running(route):
+    return (route.get("status") or "running") in ("running", "ready", "")
+
+
+def upstream_for(route, port):
+    upstream = (route.get("upstreams") or {}).get(str(port))
+    if not upstream:
+        return ""
+    parsed_upstream = urlparse(upstream)
+    if parsed_upstream.scheme in ("http", "https") and parsed_upstream.netloc:
+        return parsed_upstream.netloc
+    return upstream
+
+
+def post_json(url, token, payload, timeout):
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if token:
+        headers["Authorization"] = "Bearer " + token
+        headers["X-Hivy-Preview-Activity-Token"] = token
+    req = Request(
+        url,
+        data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    with urlopen(req, timeout=timeout) as resp:
+        return resp.status, resp.read()
+
+
+def report_preview_activity(sandbox_id, wake=False):
+    now = int(time.time())
+    client.set(activity_key_for(sandbox_id), str(now), ex=3600)
+    if not PREVIEW_ACTIVITY_API_URL or not PREVIEW_ACTIVITY_TOKEN:
+        return
+    debounce_key = ACTIVITY_DEBOUNCE_PREFIX + sandbox_id
+    if not wake and not client.set(debounce_key, str(now), nx=True, ex=5):
+        return
+    url = (
+        f"{PREVIEW_ACTIVITY_API_URL}/internal/preview/sandboxes/{sandbox_id}/activity"
+        f"?wake={'true' if wake else 'false'}&timeout_seconds={WAKE_TIMEOUT_SECONDS if wake else 5}"
+    )
+    payload = {"wake": wake, "timeout_seconds": WAKE_TIMEOUT_SECONDS if wake else 5}
+
+    def send():
+        try:
+            post_json(url, PREVIEW_ACTIVITY_TOKEN, payload, WAKE_TIMEOUT_SECONDS if wake else 5)
+        except Exception as exc:
+            sys.stderr.write(f"preview activity report failed sandbox={sandbox_id}: {exc}\n")
+
+    if wake:
+        send()
+    else:
+        threading.Thread(target=send, daemon=True).start()
+
+
+def fallback_control_wake(sandbox_id):
+    if not MICROSANDBOX_CONTROL_URL or not MICROSANDBOX_PREVIEW_WAKE_TOKEN:
+        return
+    url = f"{MICROSANDBOX_CONTROL_URL}/v1/sandboxes/{sandbox_id}/start"
+    post_json(url, MICROSANDBOX_PREVIEW_WAKE_TOKEN, {}, WAKE_TIMEOUT_SECONDS)
+
+
+def wake_sandbox(sandbox_id):
+    lock_key = WAKE_LOCK_PREFIX + sandbox_id
+    acquired = client.set(lock_key, str(int(time.time())), nx=True, ex=WAKE_TIMEOUT_SECONDS + 5)
+    if not acquired:
+        return
+    if PREVIEW_ACTIVITY_API_URL and PREVIEW_ACTIVITY_TOKEN:
+        report_preview_activity(sandbox_id, wake=True)
+    else:
+        fallback_control_wake(sandbox_id)
+
+
+def wait_for_running_route(sandbox_id, port):
+    deadline = time.time() + WAKE_TIMEOUT_SECONDS
+    last_route = None
+    while time.time() < deadline:
+        route = load_route(sandbox_id)
+        if route:
+            last_route = route
+            if route_running(route):
+                upstream = upstream_for(route, port)
+                if upstream:
+                    return route, upstream
+        time.sleep(0.25)
+    return last_route, ""
+
+
 def parse_preview_host(host):
     host = host.split(":", 1)[0].strip(".").lower()
     suffix = "." + BASE_DOMAIN.lower()
@@ -133,21 +266,25 @@ class Handler(BaseHTTPRequestHandler):
             if not sandbox_id:
                 response(self, 404, {"error": "invalid preview host"})
                 return
-            raw = client.get(key_for(sandbox_id))
-            if not raw:
+            route = load_route(sandbox_id)
+            if not route:
                 response(self, 404, {"error": "route not found"})
                 return
-            route = json.loads(raw)
-            if route.get("status") not in ("running", "ready", ""):
-                response(self, 503, {"error": "sandbox is not running"})
-                return
-            upstream = (route.get("upstreams") or {}).get(str(port))
+            upstream = upstream_for(route, port)
             if not upstream:
                 response(self, 404, {"error": "port not previewable"})
                 return
-            parsed_upstream = urlparse(upstream)
-            if parsed_upstream.scheme in ("http", "https") and parsed_upstream.netloc:
-                upstream = parsed_upstream.netloc
+            if not route_running(route):
+                try:
+                    wake_sandbox(sandbox_id)
+                    route, upstream = wait_for_running_route(sandbox_id, port)
+                except Exception as exc:
+                    response(self, 503, {"error": "wake failed", "detail": str(exc)}, {"Retry-After": "2"})
+                    return
+                if not route_running(route or {}) or not upstream:
+                    response(self, 503, {"error": "sandbox wake timed out"}, {"Retry-After": "2"})
+                    return
+            report_preview_activity(sandbox_id, wake=False)
             self.send_response(204)
             self.send_header("X-Microsandbox-Upstream", upstream)
             self.end_headers()

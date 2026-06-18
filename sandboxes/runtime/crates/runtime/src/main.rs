@@ -1,13 +1,13 @@
 mod db_sync;
 mod handler;
-mod scheduler;
 mod sentry_support;
 mod session_coordinator;
 mod subagent_worker;
+mod wake_timer;
 
-use scheduler::CronScheduler;
 use session_coordinator::SessionCoordinator;
 use subagent_worker::SubagentWorker;
+use wake_timer::RuntimeWakeScheduler;
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -32,9 +32,8 @@ use outbound::{
 };
 use skills::SkillWriter;
 use storage::{
-    init_sqlite_store, SqliteConfigRepo, SqliteCronJobRepo, SqliteEventRepo,
-    SqliteInboundDedupeRepo, SqliteOutboxRepo, SqliteQuestionRequestRepo, SqliteSessionRepo,
-    SqliteSubagentTaskRepo,
+    init_sqlite_store, SqliteConfigRepo, SqliteEventRepo, SqliteInboundDedupeRepo,
+    SqliteOutboxRepo, SqliteQuestionRequestRepo, SqliteSessionRepo, SqliteSubagentTaskRepo,
 };
 use tokio::sync::{mpsc, RwLock};
 use tools::LocalBashOperations;
@@ -103,7 +102,6 @@ async fn main() -> Result<()> {
     let outbox_repo: Arc<dyn storage::OutboxRepo> = Arc::new(SqliteOutboxRepo::new(&sqlite_store));
     let _dedupe_repo: Arc<dyn storage::InboundDedupeRepo> =
         Arc::new(SqliteInboundDedupeRepo::new(&sqlite_store));
-    let cron_repo: Arc<dyn storage::CronJobRepo> = Arc::new(SqliteCronJobRepo::new(&sqlite_store));
     let subagent_task_repo: Arc<dyn storage::SubagentTaskRepo> =
         Arc::new(SqliteSubagentTaskRepo::new(&sqlite_store));
     let question_request_repo: Arc<dyn storage::QuestionRequestRepo> =
@@ -172,7 +170,6 @@ async fn main() -> Result<()> {
         config_repo.clone(),
         session_repo.clone(),
         event_repo.clone(),
-        cron_repo.clone(),
         runtime_secret,
         workspace_root.clone(),
         Arc::new(LocalBashOperations),
@@ -226,10 +223,15 @@ async fn main() -> Result<()> {
         "database event queue enabled"
     );
     let _database_event_queue_handle = database_event_queue.clone().spawn();
+    let wake_scheduler = Arc::new(RuntimeWakeScheduler::new(
+        inbound_sink.clone(),
+        Some(emitter.clone()),
+        std::time::Duration::from_secs(10),
+    ));
 
     let rig_runner = RigAgentRunner::new(config.clone(), workspace_root.clone())
         .with_outbound_emitter(emitter.clone())
-        .with_cron_repo(cron_repo.clone())
+        .with_wake_scheduler(wake_scheduler)
         .with_subagent_task_repo(subagent_task_repo.clone())
         .with_plan_updater(plan_manager.clone())
         .with_question_requester(question_manager.clone())
@@ -237,12 +239,6 @@ async fn main() -> Result<()> {
         .with_mcp_registry(mcp_registry.clone());
     let agent_runner: Arc<dyn AgentRunner> = Arc::new(rig_runner);
 
-    let scheduler = CronScheduler::new(
-        cron_repo.clone(),
-        inbound_sink.clone(),
-        Some(emitter.clone()),
-    );
-    let _scheduler_handle = tokio::spawn(scheduler.run());
     let subagent_worker = SubagentWorker::new(
         subagent_task_repo.clone(),
         config.clone(),
@@ -262,7 +258,6 @@ async fn main() -> Result<()> {
             let session_repo = session_repo.clone();
             let coordinator = coordinator.clone();
             let turn_event_sink: Arc<dyn handler::TurnEventSink> = session_stream_broker.clone();
-            let cron_repo = cron_repo.clone();
             let subagent_task_repo = subagent_task_repo.clone();
             let inbound_sink = inbound_sink.clone();
             // Capture the session id before moving `inbound` into the task so a
@@ -279,7 +274,6 @@ async fn main() -> Result<()> {
                     session_repo,
                     coordinator,
                     turn_event_sink,
-                    cron_repo,
                     subagent_task_repo,
                     inbound_sink,
                     inbound,

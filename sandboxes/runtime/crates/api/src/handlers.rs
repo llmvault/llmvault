@@ -11,11 +11,11 @@ use chrono::{DateTime, Utc};
 use domain::cron::CronJob;
 use domain::{AgentDefinition, QuestionAnswerPayload, SessionId, SessionStatus};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::Duration;
-use storage::{CronJobRepo, SessionListCursor, SessionListFilter};
+use storage::{SessionListCursor, SessionListFilter};
 use tools::{BashExecOptions, BashOperations};
 use tracing::warn;
 
@@ -314,7 +314,6 @@ pub async fn put_config(
             *token = secret;
         }
     }
-    sync_config_schedules(&state, &request.schedules).await?;
     let definition = request.definition;
     apply_definition(&state, definition.clone()).await?;
     Ok(Json(ConfigResponse {
@@ -323,86 +322,6 @@ pub async fn put_config(
         env_key_count,
         secret_rotated,
     }))
-}
-
-async fn sync_config_schedules(
-    state: &ApiState,
-    schedules: &[CronJob],
-) -> Result<(), (StatusCode, String)> {
-    let mut pushed_system_ids = HashSet::new();
-    for schedule in schedules {
-        upsert_config_schedule(state.cron_repo.as_ref(), schedule)
-            .await
-            .map_err(|error| internal_error_response("config.sync_schedules", error))?;
-        if is_control_plane_system_schedule(&schedule.id) {
-            pushed_system_ids.insert(schedule.id.clone());
-        }
-    }
-    let existing = state
-        .cron_repo
-        .list_all()
-        .await
-        .map_err(|error| internal_error_response("config.list_schedules", error))?;
-    for schedule in existing {
-        if !is_control_plane_system_schedule(&schedule.id) {
-            continue;
-        }
-        if pushed_system_ids.contains(&schedule.id) {
-            continue;
-        }
-        state
-            .cron_repo
-            .delete(&schedule.id)
-            .await
-            .map_err(|error| internal_error_response("config.prune_system_schedule", error))?;
-    }
-    Ok(())
-}
-
-async fn upsert_config_schedule(repo: &dyn CronJobRepo, schedule: &CronJob) -> storage::Result<()> {
-    let Some(existing) = repo.get(&schedule.id).await? else {
-        return repo.create(schedule).await;
-    };
-    if schedule_requires_recreate(&existing, schedule) {
-        repo.delete(&schedule.id).await?;
-        return repo.create(schedule).await;
-    }
-    if existing.task_prompt != schedule.task_prompt {
-        repo.update_prompt(&schedule.id, schedule.task_prompt.clone())
-            .await?;
-    }
-    if existing.interval_seconds != schedule.interval_seconds {
-        match schedule.interval_seconds {
-            Some(interval_seconds) => {
-                repo.update_interval(&schedule.id, interval_seconds).await?;
-            }
-            None => {
-                repo.delete(&schedule.id).await?;
-                return repo.create(schedule).await;
-            }
-        }
-    }
-    if existing.next_run_at != schedule.next_run_at {
-        repo.update_next_run(&schedule.id, schedule.next_run_at)
-            .await?;
-    }
-    if existing.state != schedule.state {
-        repo.set_state(&schedule.id, schedule.state).await?;
-    }
-    Ok(())
-}
-
-fn schedule_requires_recreate(existing: &CronJob, incoming: &CronJob) -> bool {
-    existing.description != incoming.description
-        || existing.channel != incoming.channel
-        || existing.cron_expression != incoming.cron_expression
-        || existing.repeat_count != incoming.repeat_count
-        || existing.session_continuation_id != incoming.session_continuation_id
-        || existing.created_by_session != incoming.created_by_session
-}
-
-fn is_control_plane_system_schedule(id: &str) -> bool {
-    id.starts_with("system:service-discovery:")
 }
 
 async fn apply_definition(

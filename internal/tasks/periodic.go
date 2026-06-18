@@ -87,16 +87,19 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			})
 		}
 
-		// Sandbox lifecycle policy (every 5 min): stops sandboxes idle >10 min,
-		// archives sandboxes stopped >24 h.
+		// Sandbox lifecycle policy: stops idle sandboxes and archives old stopped rows.
+		lifecycleInterval := cfg.SandboxLifecycleInterval
+		if lifecycleInterval <= 0 {
+			lifecycleInterval = 5 * time.Second
+		}
 		configs = append(configs, &asynq.PeriodicTaskConfig{
-			Cronspec: "@every 5m",
+			Cronspec: fmt.Sprintf("@every %s", lifecycleInterval),
 			Task:     asynq.NewTask(TypeSandboxLifecycle, nil),
 			Opts: []asynq.Option{
 				asynq.Queue(QueuePeriodic),
 				asynq.MaxRetry(1),
 				asynq.Timeout(10 * time.Minute),
-				asynq.Unique(5 * time.Minute),
+				asynq.Unique(lifecycleInterval),
 			},
 		})
 
@@ -110,6 +113,23 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 				asynq.MaxRetry(1),
 				asynq.Timeout(10 * time.Minute),
 				asynq.Unique(5 * time.Minute),
+			},
+		})
+	}
+
+	if sandboxPeriodicTasksConfigured(cfg) {
+		scheduleScanInterval := cfg.AgentScheduleScanInterval
+		if scheduleScanInterval <= 0 {
+			scheduleScanInterval = 5 * time.Second
+		}
+		configs = append(configs, &asynq.PeriodicTaskConfig{
+			Cronspec: fmt.Sprintf("@every %s", scheduleScanInterval),
+			Task:     asynq.NewTask(TypeAgentScheduleScan, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic),
+				asynq.MaxRetry(1),
+				asynq.Timeout(time.Minute),
+				asynq.Unique(scheduleScanInterval),
 			},
 		})
 	}
@@ -134,6 +154,9 @@ func sandboxPeriodicTasksConfigured(cfg *config.Config) bool {
 			strings.TrimSpace(cfg.RailwayProjectID) != "" &&
 			strings.TrimSpace(cfg.RailwayEnvironmentID) != "" &&
 			strings.TrimSpace(cfg.SandboxesRuntimeBaseImage) != ""
+	case sandbox.ProviderMicrosandbox:
+		return strings.TrimSpace(cfg.MicrosandboxControlURL) != "" &&
+			strings.TrimSpace(cfg.MicrosandboxControlAPIToken) != ""
 	default:
 		return false
 	}

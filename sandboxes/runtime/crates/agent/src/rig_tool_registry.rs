@@ -7,7 +7,6 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::agent_registry::AgentDefinitionRegistry;
-use domain::cron::{CronJob, CronJobState};
 use domain::{
     event_types, validate_request_user_input_payload, validate_update_plan_payload, OutboundEvent,
     RequestUserInputPayload, SessionId, SubagentTask, SubagentTaskConfig, SubagentTaskState,
@@ -16,7 +15,7 @@ use domain::{
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
 use serde_json::{json, Value};
-use storage::{CronJobRepo, EventRepo, SubagentTaskRepo};
+use storage::{EventRepo, SubagentTaskRepo};
 use tools::{JsonTool, ProcessRegistry, ToolDefinition};
 
 use crate::{PlanUpdater, QuestionRequester};
@@ -52,7 +51,7 @@ impl JsonTool for DynamicTool {
 }
 
 pub struct ToolContext {
-    pub cron_repo: Option<Arc<dyn CronJobRepo>>,
+    pub wake_scheduler: Option<Arc<dyn WakeScheduler>>,
     pub subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     pub event_repo: Option<Arc<dyn EventRepo>>,
     pub process_registry: Option<Arc<ProcessRegistry>>,
@@ -65,6 +64,17 @@ pub struct ToolContext {
     pub session_stream_id: Option<String>,
 }
 
+#[async_trait]
+pub trait WakeScheduler: Send + Sync {
+    async fn schedule_wake(
+        &self,
+        session_id: SessionId,
+        stream_id: Option<String>,
+        seconds: u64,
+        task_prompt: String,
+    ) -> Result<(String, DateTime<Utc>)>;
+}
+
 pub fn build_agent_tools(
     specs: &[ToolSpec],
     session_id: &SessionId,
@@ -75,22 +85,12 @@ pub fn build_agent_tools(
 
     for spec in specs {
         match spec {
-            ToolSpec::Cron => {
-                if let Some(repo) = &ctx.cron_repo {
-                    if !session_is_cron {
-                        tools.push(cron_tool(
-                            repo.clone(),
-                            session_id.clone(),
-                            ctx.outbound_emitter.clone(),
-                        ));
-                    }
-                }
-            }
+            ToolSpec::Cron => {}
             ToolSpec::Wake => {
-                if let Some(repo) = &ctx.cron_repo {
+                if let Some(wake_scheduler) = &ctx.wake_scheduler {
                     if !session_is_cron {
                         tools.push(wake_tool(
-                            repo.clone(),
+                            wake_scheduler.clone(),
                             session_id.clone(),
                             ctx.session_stream_id.clone(),
                         ));
@@ -378,28 +378,8 @@ fn truncate_search_text(value: &str, max_chars: usize) -> String {
     out
 }
 
-fn cron_tool(
-    repo: Arc<dyn CronJobRepo>,
-    session_id: SessionId,
-    emitter: Option<Arc<OutboundEmitter>>,
-) -> Arc<dyn JsonTool> {
-    Arc::new(DynamicTool::new(
-        ToolDefinition {
-            name: "cron".into(),
-            description: "Manage recurring scheduled cron jobs. Actions: create, list, update, cancel, pause, resume.".into(),
-            parameters: json!({"type":"object","properties":{"action":{"type":"string"},"job_id":{"type":"string"},"task_prompt":{"type":"string"},"interval_seconds":{"type":"integer"},"description":{"type":"string"},"repeat_count":{"type":"integer"},"channel_id":{"type":"string"}},"required":["action"]}),
-        },
-        move |args| {
-            let repo = repo.clone();
-            let session_id = session_id.clone();
-            let emitter = emitter.clone();
-            Box::pin(async move { execute_cron(repo, session_id, emitter, args).await })
-        },
-    ))
-}
-
 fn wake_tool(
-    repo: Arc<dyn CronJobRepo>,
+    scheduler: Arc<dyn WakeScheduler>,
     session_id: SessionId,
     session_stream_id: Option<String>,
 ) -> Arc<dyn JsonTool> {
@@ -410,7 +390,7 @@ fn wake_tool(
             parameters: json!({"type":"object","properties":{"seconds":{"type":"integer"},"task_prompt":{"type":"string"}},"required":["seconds","task_prompt"]}),
         },
         move |args| {
-            let repo = repo.clone();
+            let scheduler = scheduler.clone();
             let session_id = session_id.clone();
             let session_stream_id = session_stream_id.clone();
             Box::pin(async move {
@@ -423,29 +403,15 @@ fn wake_tool(
                     .and_then(Value::as_str)
                     .ok_or_else(|| anyhow!("task_prompt required"))?
                     .to_string();
-                let now = Utc::now();
-                let id = format!("wake-{}", now.timestamp_millis());
-                let job = domain::cron::CronJob {
-                    id: id.clone(),
-                    description: task_prompt.chars().take(80).collect(),
-                    channel: derive_channel(&session_id),
-                    task_prompt,
-                    cron_expression: None,
-                    interval_seconds: None,
-                    repeat_count: Some(1),
-                    repeat_completed: 0,
-                    state: domain::cron::CronJobState::Active,
-                    next_run_at: now + chrono::Duration::seconds(seconds as i64),
-                    last_run_at: None,
-                    last_status: None,
-                    last_error: None,
-                    session_continuation_id: Some(session_id.as_str().to_string()),
-                    stream_id: session_stream_id.clone(),
-                    created_at: now,
-                    created_by_session: session_id.as_str().to_string(),
-                };
-                repo.create(&job).await?;
-                Ok(json!({"job_id": id, "next_run_at": job.next_run_at.to_rfc3339()}))
+                let (id, next_run_at) = scheduler
+                    .schedule_wake(
+                        session_id.clone(),
+                        session_stream_id.clone(),
+                        seconds,
+                        task_prompt,
+                    )
+                    .await?;
+                Ok(json!({"job_id": id, "next_run_at": next_run_at.to_rfc3339()}))
             })
         },
     ))
@@ -833,261 +799,6 @@ fn subagent_task_state_string(state: SubagentTaskState) -> &'static str {
         SubagentTaskState::Completed => "completed",
         SubagentTaskState::Failed => "failed",
     }
-}
-
-async fn execute_cron(
-    repo: Arc<dyn CronJobRepo>,
-    session_id: SessionId,
-    emitter: Option<Arc<OutboundEmitter>>,
-    args: Value,
-) -> Result<Value> {
-    let action = args
-        .get("action")
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("action required"))?;
-    match action {
-        "create" => {
-            let task_prompt = args
-                .get("task_prompt")
-                .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("task_prompt required"))?
-                .to_string();
-            let interval_seconds = args
-                .get("interval_seconds")
-                .and_then(Value::as_u64)
-                .ok_or_else(|| anyhow!("interval_seconds required"))?;
-            let now = Utc::now();
-            let id = format!("cron-{}", now.timestamp_millis());
-            let channel = args
-                .get("channel_id")
-                .and_then(Value::as_str)
-                .map(ToString::to_string)
-                .unwrap_or_else(|| derive_channel(&session_id));
-            let job = domain::cron::CronJob {
-                id: id.clone(),
-                description: args
-                    .get("description")
-                    .and_then(Value::as_str)
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| task_prompt.chars().take(80).collect()),
-                channel,
-                task_prompt,
-                cron_expression: None,
-                interval_seconds: Some(interval_seconds),
-                repeat_count: args
-                    .get("repeat_count")
-                    .and_then(Value::as_u64)
-                    .map(|v| v as u32),
-                repeat_completed: 0,
-                state: domain::cron::CronJobState::Active,
-                next_run_at: now + chrono::Duration::seconds(interval_seconds as i64),
-                last_run_at: None,
-                last_status: None,
-                last_error: None,
-                session_continuation_id: None,
-                stream_id: None,
-                created_at: now,
-                created_by_session: session_id.as_str().to_string(),
-            };
-            repo.create(&job).await?;
-            emit_schedule_event(
-                emitter.clone(),
-                event_types::SCHEDULE_CREATED,
-                &job,
-                &session_id,
-                "tool",
-                None,
-            )
-            .await;
-            Ok(
-                json!({"job_id": id, "next_run_at": job.next_run_at.to_rfc3339(), "interval_seconds": interval_seconds, "channel": job.channel}),
-            )
-        }
-
-        "list" => {
-            let jobs = repo
-                .list_all()
-                .await?
-                .into_iter()
-                .filter(is_persistent_schedule_job)
-                .collect::<Vec<_>>();
-            Ok(json!({"jobs": jobs, "total": jobs.len()}))
-        }
-        "cancel" => {
-            let id = args
-                .get("job_id")
-                .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("job_id required"))?;
-            let job = repo
-                .get(id)
-                .await?
-                .ok_or_else(|| anyhow!("job not found"))?;
-            repo.delete(id).await?;
-            emit_schedule_event(
-                emitter.clone(),
-                event_types::SCHEDULE_CANCELLED,
-                &job,
-                &session_id,
-                "tool",
-                None,
-            )
-            .await;
-            Ok(json!({"cancelled": true, "job_id": id}))
-        }
-        "pause" => {
-            let id = args
-                .get("job_id")
-                .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("job_id required"))?;
-            repo.set_state(id, domain::cron::CronJobState::Paused)
-                .await?;
-            if let Some(job) = repo.get(id).await? {
-                emit_schedule_event(
-                    emitter.clone(),
-                    event_types::SCHEDULE_PAUSED,
-                    &job,
-                    &session_id,
-                    "tool",
-                    None,
-                )
-                .await;
-            }
-            Ok(json!({"paused": true, "job_id": id}))
-        }
-        "resume" => {
-            let id = args
-                .get("job_id")
-                .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("job_id required"))?;
-            repo.set_state(id, domain::cron::CronJobState::Active)
-                .await?;
-            if let Some(job) = repo.get(id).await? {
-                emit_schedule_event(
-                    emitter.clone(),
-                    event_types::SCHEDULE_RESUMED,
-                    &job,
-                    &session_id,
-                    "tool",
-                    None,
-                )
-                .await;
-            }
-            Ok(json!({"resumed": true, "job_id": id}))
-        }
-        "update" => {
-            let id = args
-                .get("job_id")
-                .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("job_id required"))?;
-            if let Some(prompt) = args.get("task_prompt").and_then(Value::as_str) {
-                repo.update_prompt(id, prompt.to_string()).await?;
-            }
-            if let Some(interval_seconds) = args.get("interval_seconds").and_then(Value::as_u64) {
-                repo.update_interval(id, interval_seconds).await?;
-            }
-            if let Some(job) = repo.get(id).await? {
-                emit_schedule_event(
-                    emitter.clone(),
-                    event_types::SCHEDULE_UPDATED,
-                    &job,
-                    &session_id,
-                    "tool",
-                    None,
-                )
-                .await;
-            }
-            Ok(json!({"updated": true, "job_id": id}))
-        }
-        _ => Err(anyhow!("unknown cron action")),
-    }
-}
-
-pub async fn emit_schedule_event(
-    emitter: Option<Arc<OutboundEmitter>>,
-    event_type: &str,
-    job: &CronJob,
-    session_id: &SessionId,
-    origin: &str,
-    run: Option<ScheduleRunPayload>,
-) {
-    if !is_persistent_schedule_job(job) {
-        return;
-    }
-    let Some(emitter) = emitter else { return };
-    let mut payload = schedule_payload(job, session_id, origin);
-    if let Some(run) = run {
-        payload["run_key"] = Value::String(run.run_key);
-        payload["scheduled_at"] = Value::String(run.scheduled_at.to_rfc3339());
-        if let Some(started_at) = run.started_at {
-            payload["started_at"] = Value::String(started_at.to_rfc3339());
-        }
-        if let Some(completed_at) = run.completed_at {
-            payload["completed_at"] = Value::String(completed_at.to_rfc3339());
-        }
-        if let Some(duration_ms) = run.duration_ms {
-            payload["duration_ms"] = Value::from(duration_ms);
-        }
-        if let Some(error) = run.error {
-            payload["error"] = Value::String(error);
-        }
-    }
-    emitter.emit(OutboundEvent::new(event_type, payload)).await;
-}
-
-pub struct ScheduleRunPayload {
-    pub run_key: String,
-    pub scheduled_at: DateTime<Utc>,
-    pub started_at: Option<DateTime<Utc>>,
-    pub completed_at: Option<DateTime<Utc>>,
-    pub duration_ms: Option<i64>,
-    pub error: Option<String>,
-}
-
-pub fn schedule_run_key(job_id: &str, scheduled_at: DateTime<Utc>) -> String {
-    format!("{job_id}:{}", scheduled_at.to_rfc3339())
-}
-
-fn is_persistent_schedule_job(job: &CronJob) -> bool {
-    job.session_continuation_id.is_none()
-}
-
-fn schedule_payload(job: &CronJob, session_id: &SessionId, origin: &str) -> Value {
-    json!({
-        "job_id": job.id,
-        "state": cron_state_string(job.state),
-        "channel": job.channel,
-        "description": job.description,
-        "task_prompt": job.task_prompt,
-        "cron_expression": job.cron_expression,
-        "interval_seconds": job.interval_seconds,
-        "repeat_count": job.repeat_count,
-        "repeat_completed": job.repeat_completed,
-        "next_run_at": job.next_run_at.to_rfc3339(),
-        "last_run_at": job.last_run_at.map(|t| t.to_rfc3339()),
-        "last_status": job.last_status,
-        "last_error": job.last_error,
-        "created_by_session": job.created_by_session,
-        "created_at": job.created_at.to_rfc3339(),
-        "session_id": session_id.as_str(),
-        "origin": origin,
-    })
-}
-
-fn cron_state_string(state: CronJobState) -> &'static str {
-    match state {
-        CronJobState::Active => "active",
-        CronJobState::Running => "running",
-        CronJobState::Paused => "paused",
-        CronJobState::Completed => "completed",
-    }
-}
-
-fn derive_channel(session_id: &SessionId) -> String {
-    session_id
-        .as_str()
-        .split_once('-')
-        .map(|(c, _)| c.to_string())
-        .unwrap_or_else(|| session_id.as_str().to_string())
 }
 
 #[cfg(test)]

@@ -15,6 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/nango"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 func setupPublicRoutes(
@@ -35,6 +36,7 @@ func setupPublicRoutes(
 	kms *crypto.KeyWrapper,
 	uploadsHandler *handler.UploadsHandler,
 	sqliteBackupHandler *handler.AgentSQLiteBackupHandler,
+	orchestrator *sandbox.Orchestrator,
 	orchestratorMissing bool,
 ) {
 	r.Get("/healthz", healthz)
@@ -70,6 +72,10 @@ func setupPublicRoutes(
 	r.Post("/internal/webhooks/agent/{sandboxID}", agentOutboundWebhookHandler.Handle)
 	r.Post("/internal/webhooks/agent/{sandboxID}/batch", agentOutboundWebhookHandler.HandleBatch)
 	r.Post("/internal/webhooks/nango", nangoWebhookHandler.Handle)
+	if cfg.PreviewActivityToken != "" {
+		previewActivityHandler := handler.NewPreviewActivityHandler(database, orchestrator, cfg.PreviewActivityToken)
+		r.Post("/internal/preview/sandboxes/{externalID}/activity", previewActivityHandler.Handle)
+	}
 
 	// Sandbox proxy endpoints (bearer-token auth, no middleware)
 	if nangoClient != nil && sandboxEncKey != nil {

@@ -10,10 +10,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/usehivy/hivy/internal/agentschedule"
 	"github.com/usehivy/hivy/internal/model"
 )
 
 func syncAgentScheduleEvent(tx *gorm.DB, event model.SessionEvent) error {
+	if event.EventType == "turn_completed" || event.EventType == "turn_failed" {
+		return completeBackendScheduleRunFromTerminalTurn(tx, event)
+	}
 	if !strings.HasPrefix(event.EventType, "schedule.") {
 		return nil
 	}
@@ -29,12 +33,85 @@ func syncAgentScheduleEvent(tx *gorm.DB, event model.SessionEvent) error {
 		return nil
 	}
 
-	schedule, err := upsertAgentScheduleFromEvent(tx, event, payload, jobID)
-	if err != nil {
+	if strings.HasPrefix(event.EventType, "schedule.run_") {
+		var schedule model.AgentSchedule
+		err := tx.Where("agent_id = ? AND runtime_job_id = ?", event.AgentID, jobID).First(&schedule).Error
+		if err == nil {
+			return upsertAgentScheduleRunFromEvent(tx, event, payload, &schedule, jobID)
+		}
+		if err != gorm.ErrRecordNotFound {
+			return fmt.Errorf("load agent schedule: %w", err)
+		}
+		schedulePtr, err := upsertAgentScheduleFromEvent(tx, event, payload, jobID)
+		if err != nil {
+			return err
+		}
+		return upsertAgentScheduleRunFromEvent(tx, event, payload, schedulePtr, jobID)
+	}
+	if _, err := upsertAgentScheduleFromEvent(tx, event, payload, jobID); err != nil {
 		return err
 	}
-	if strings.HasPrefix(event.EventType, "schedule.run_") {
-		return upsertAgentScheduleRunFromEvent(tx, event, payload, schedule, jobID)
+	return nil
+}
+
+func completeBackendScheduleRunFromTerminalTurn(tx *gorm.DB, event model.SessionEvent) error {
+	if event.SessionID == uuid.Nil {
+		return nil
+	}
+	status := agentschedule.RunStatusCompleted
+	if event.EventType == "turn_failed" {
+		status = agentschedule.RunStatusFailed
+	}
+	var run model.AgentScheduleRun
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("session_id = ? AND status IN ?", event.SessionID, []string{
+			agentschedule.RunStatusQueued,
+			agentschedule.RunStatusProcessing,
+			"running",
+		}).
+		Order("created_at DESC").
+		First(&run).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load schedule run for terminal turn: %w", err)
+	}
+	payload := map[string]any{}
+	if len(event.Payload) > 0 {
+		payload = map[string]any(event.Payload)
+	}
+	var durationMS *int64
+	if run.StartedAt != nil {
+		duration := event.EventAt.Sub(*run.StartedAt).Milliseconds()
+		durationMS = &duration
+	}
+	updates := map[string]any{
+		"status":        status,
+		"completed_at":  event.EventAt,
+		"duration_ms":   durationMS,
+		"error":         "",
+		"event_payload": rawScheduleEventPayload(event.Payload),
+		"lease_owner":   "",
+		"leased_until":  nil,
+		"updated_at":    time.Now(),
+	}
+	if event.SandboxID != nil {
+		updates["sandbox_id"] = *event.SandboxID
+	}
+	if status == agentschedule.RunStatusFailed {
+		updates["error"] = firstNonEmpty(stringValue(payload, "error"), stringValue(payload, "message"))
+	}
+	if err := tx.Model(&model.AgentScheduleRun{}).Where("id = ?", run.ID).Updates(updates).Error; err != nil {
+		return fmt.Errorf("complete schedule run from terminal turn: %w", err)
+	}
+	scheduleUpdates := map[string]any{
+		"last_status": status,
+		"last_error":  updates["error"],
+		"updated_at":  time.Now(),
+	}
+	if err := tx.Model(&model.AgentSchedule{}).Where("id = ?", run.ScheduleID).Updates(scheduleUpdates).Error; err != nil {
+		return fmt.Errorf("update schedule terminal status: %w", err)
 	}
 	return nil
 }
@@ -146,11 +223,12 @@ func upsertAgentScheduleRunFromEvent(tx *gorm.DB, event model.SessionEvent, payl
 	}).Create(&run).Error
 }
 
-func sessionEventSandboxID(event model.SessionEvent) uuid.UUID {
+func sessionEventSandboxID(event model.SessionEvent) *uuid.UUID {
 	if event.SandboxID == nil {
-		return uuid.Nil
+		return nil
 	}
-	return *event.SandboxID
+	id := *event.SandboxID
+	return &id
 }
 
 func rawScheduleEventPayload(payload model.JSON) model.RawJSON {

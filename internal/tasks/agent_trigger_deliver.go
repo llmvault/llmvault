@@ -12,7 +12,6 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload AgentTriggerDispatchPayload, trigger model.AgentTrigger, webhookPayload map[string]any) error {
@@ -31,27 +30,10 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 		captureTriggerDispatchBoundary(ctx, "load_agent_sandbox", payload, trigger, "", "", err)
 		return err
 	}
-	if strings.EqualFold(sb.Status, string(sandbox.StatusStopped)) {
-		if err := h.orchestrator.StartAgentSandbox(ctx, sb); err != nil {
-			captureTriggerDispatchBoundary(ctx, "start_agent_sandbox", payload, trigger, "", "", err)
-			return err
-		}
-	} else if h.orchestrator.NeedsURLRefresh(sb) {
-		if err := h.orchestrator.RefreshAgentSandboxURL(ctx, sb); err != nil {
-			captureTriggerDispatchBoundary(ctx, "refresh_agent_sandbox_url", payload, trigger, "", "", err)
-			return err
-		}
-	}
-
-	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
+	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
 	if err != nil {
-		captureTriggerDispatchBoundary(ctx, "decrypt_agent_runtime_key", payload, trigger, "", "", err)
-		return fmt.Errorf("decrypt agent runtime key: %w", err)
-	}
-	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
-	if err := client.Healthz(ctx); err != nil {
-		captureTriggerDispatchBoundary(ctx, "agent_runtime_healthz", payload, trigger, "", "", err)
-		return fmt.Errorf("agent runtime healthz: %w", err)
+		captureTriggerDispatchBoundary(ctx, "agent_runtime_client", payload, trigger, "", "", err)
+		return err
 	}
 	if err := client.Readyz(ctx); err != nil {
 		if err := h.syncRuntime(ctx, &agent, sb, client); err != nil {
@@ -115,15 +97,15 @@ func (h *AgentTriggerDispatchHandler) claimTriggerDelivery(ctx context.Context, 
 		raw = []byte("{}")
 	}
 	row := model.AgentTriggerDelivery{
-		OrgID:                 trigger.OrgID,
-		AgentID:               trigger.AgentID,
-		TriggerID:             trigger.ID,
-		ConnectionID:          trigger.ConnectionID,
-		DeliveryID:            payload.DeliveryID,
-		EventKey:              eventKey(payload.EventType, payload.EventAction),
-		ResourceKey:           compiled.ResourceKey,
-		SessionID:             session.ID,
-		Payload:               model.RawJSON(raw),
+		OrgID:        trigger.OrgID,
+		AgentID:      trigger.AgentID,
+		TriggerID:    trigger.ID,
+		ConnectionID: trigger.ConnectionID,
+		DeliveryID:   payload.DeliveryID,
+		EventKey:     eventKey(payload.EventType, payload.EventAction),
+		ResourceKey:  compiled.ResourceKey,
+		SessionID:    session.ID,
+		Payload:      model.RawJSON(raw),
 	}
 	result := h.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
@@ -160,14 +142,14 @@ func captureTriggerDispatchBoundary(ctx context.Context, stage string, payload A
 		return
 	}
 	logging.CaptureWithFields(ctx, fmt.Errorf("agent trigger dispatch %s: %w", stage, err), map[string]any{
-		"stage":           stage,
-		"org_id":          payload.OrgID.String(),
-		"agent_id":        trigger.AgentID.String(),
-		"trigger_id":      trigger.ID.String(),
-		"delivery_id":     payload.DeliveryID,
-		"event_key":       eventKey(payload.EventType, payload.EventAction),
-		"resource_key":    resourceKey,
-		"session_id":     sessionID,
+		"stage":        stage,
+		"org_id":       payload.OrgID.String(),
+		"agent_id":     trigger.AgentID.String(),
+		"trigger_id":   trigger.ID.String(),
+		"delivery_id":  payload.DeliveryID,
+		"event_key":    eventKey(payload.EventType, payload.EventAction),
+		"resource_key": resourceKey,
+		"session_id":   sessionID,
 	})
 }
 

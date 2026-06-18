@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	sandboxIdleTimeoutMinutes = 10
+	defaultSandboxIdleTimeout = 5 * time.Minute
 	sandboxArchiveAfterHours  = 24
 )
 
@@ -21,7 +21,7 @@ const (
 func (o *Orchestrator) sandboxStillIdle(ctx context.Context, id uuid.UUID, idleCutoff time.Time) (bool, error) {
 	var current model.Sandbox
 	if err := o.db.WithContext(ctx).
-		Select("id", "status", "last_active_at").
+		Select("id", "status", "last_active_at", "last_preview_at").
 		Where("id = ?", id).
 		First(&current).Error; err != nil {
 		return false, err
@@ -32,19 +32,76 @@ func (o *Orchestrator) sandboxStillIdle(ctx context.Context, id uuid.UUID, idleC
 	if current.LastActiveAt == nil {
 		return false, nil
 	}
-	return current.LastActiveAt.Before(idleCutoff), nil
+	if !current.LastActiveAt.Before(idleCutoff) {
+		return false, nil
+	}
+	if current.LastPreviewAt != nil && !current.LastPreviewAt.Before(idleCutoff) {
+		return false, nil
+	}
+	var blockers int64
+	if err := o.db.WithContext(ctx).Raw(`
+		SELECT COALESCE(SUM(blocked), 0) FROM (
+			SELECT COUNT(*) AS blocked FROM (
+				SELECT 1
+				FROM sessions s
+				LEFT JOIN agents a ON a.id = s.agent_id
+				WHERE s.agent_turn_status = ?
+				  AND (
+					s.sandbox_id = ?
+					OR (
+						s.sandbox_id IS NULL
+						AND s.agent_id = (SELECT agent_id FROM sandboxes WHERE id = ?)
+						AND a.sandbox_strategy = 'always_on'
+					)
+				  )
+				LIMIT 1
+			) active_turns
+			UNION ALL
+			SELECT COUNT(*) AS blocked FROM (
+				SELECT 1
+				FROM session_message_queue q
+				JOIN sessions s ON s.id = q.session_id
+				LEFT JOIN agents a ON a.id = s.agent_id
+				WHERE q.status IN ('pending', 'processing')
+				  AND (
+					s.sandbox_id = ?
+					OR (
+						s.sandbox_id IS NULL
+						AND s.agent_id = (SELECT agent_id FROM sandboxes WHERE id = ?)
+						AND a.sandbox_strategy = 'always_on'
+					)
+				  )
+				LIMIT 1
+			) queued_messages
+			UNION ALL
+			SELECT COUNT(*) AS blocked FROM (
+				SELECT 1
+				FROM agent_schedule_runs
+				WHERE sandbox_id = ? AND status IN ('queued', 'processing', 'running')
+				LIMIT 1
+			) queued_schedules
+		) blockers
+	`, model.SessionAgentTurnActive, id, id, id, id, id).Scan(&blockers).Error; err != nil {
+		return false, err
+	}
+	return blockers == 0, nil
 }
 
 func (o *Orchestrator) RunSandboxLifecycle(ctx context.Context) {
 	now := time.Now()
-	idleCutoff := now.Add(-time.Duration(sandboxIdleTimeoutMinutes) * time.Minute)
+	idleTimeout := defaultSandboxIdleTimeout
+	if o.cfg != nil && o.cfg.SandboxIdleTimeout > 0 {
+		idleTimeout = o.cfg.SandboxIdleTimeout
+	}
+	idleCutoff := now.Add(-idleTimeout)
 	archiveCutoff := now.Add(-time.Duration(sandboxArchiveAfterHours) * time.Hour)
 
 	var idleRunning []model.Sandbox
 	if err := o.db.Where(
 		`status = ? AND last_active_at IS NOT NULL AND last_active_at < ?
-		 AND NOT EXISTS (SELECT 1 FROM agents a WHERE a.id = sandboxes.agent_id AND a.harness = 'agent-sandbox')`,
+		 AND (last_preview_at IS NULL OR last_preview_at < ?)`,
 		string(StatusRunning),
+		idleCutoff,
 		idleCutoff,
 	).Find(&idleRunning).Error; err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "sandbox lifecycle: query idle running sandboxes failed", "error", err)
@@ -72,8 +129,7 @@ func (o *Orchestrator) RunSandboxLifecycle(ctx context.Context) {
 
 	var staleStopped []model.Sandbox
 	if err := o.db.Where(
-		`status = ? AND stopped_at IS NOT NULL AND stopped_at < ?
-		 AND NOT EXISTS (SELECT 1 FROM agents a WHERE a.id = sandboxes.agent_id AND a.harness = 'agent-sandbox')`,
+		`status = ? AND stopped_at IS NOT NULL AND stopped_at < ? AND agent_id IS NULL`,
 		string(StatusStopped),
 		archiveCutoff,
 	).Find(&staleStopped).Error; err != nil {

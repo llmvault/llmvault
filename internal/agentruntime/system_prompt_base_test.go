@@ -97,7 +97,7 @@ func TestRenderEnvironmentContextUsesDefaultSandboxSizeWithoutTemplate(t *testin
 		SnapshotID:             &snapshotID,
 		ProviderID:             "microsandbox",
 		ExternalID:             "environment-test",
-		RuntimeURL:             "http://runtime.test",
+		RuntimeURL:             "https://7080-environment-test.preview.usehivy.com",
 		EncryptedRuntimeSecret: []byte("secret"),
 		Status:                 "running",
 	}
@@ -114,6 +114,16 @@ func TestRenderEnvironmentContextUsesDefaultSandboxSizeWithoutTemplate(t *testin
 	want := "This sandbox has 1 CPU core, 2 GB of memory, and 10 GB of disk available."
 	if !strings.Contains(got, want) {
 		t.Fatalf("environment context=%q, want %q", got, want)
+	}
+	for _, want := range []string{
+		"https://<port>-environment-test.preview.usehivy.com",
+		"Strict requirement: never share localhost, 127.0.0.1, or any other sandbox-local URL with the user",
+		"make sure the app or server is running in the background",
+		"include the public preview URL in your response",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("environment context missing preview guidance %q:\n%s", want, got)
+		}
 	}
 }
 
@@ -166,6 +176,72 @@ func TestRenderEnvironmentContextUsesAgentSandboxSize(t *testing.T) {
 	want := "This sandbox has 8 CPU cores, 16 GB of memory, and 60 GB of disk available."
 	if !strings.Contains(got, want) {
 		t.Fatalf("environment context=%q, want %q", got, want)
+	}
+}
+
+func TestSandboxPreviewEnvironmentContextUsesFallbackDomain(t *testing.T) {
+	got := sandboxPreviewEnvironmentContext(model.Sandbox{
+		ProviderID: "microsandbox",
+		ExternalID: "fallback-test",
+		RuntimeURL: "http://runtime.test",
+	})
+
+	if !strings.Contains(got, "https://<port>-fallback-test.preview.usehivy.com") {
+		t.Fatalf("preview context should fall back to production preview domain:\n%s", got)
+	}
+}
+
+func TestSandboxPreviewEnvironmentContextSkipsNonMicrosandbox(t *testing.T) {
+	got := sandboxPreviewEnvironmentContext(model.Sandbox{
+		ProviderID: "docker",
+		ExternalID: "container-test",
+		RuntimeURL: "http://localhost:7080",
+	})
+
+	if got != "" {
+		t.Fatalf("preview context should skip non-microsandbox provider, got %q", got)
+	}
+}
+
+func TestPreviewBaseDomainFromRuntimeURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		rawURL    string
+		sandboxID string
+		want      string
+	}{
+		{
+			name:      "microsandbox preview URL",
+			rawURL:    "https://7080-sbx-test.preview.usehivy.com/healthz",
+			sandboxID: "sbx-test",
+			want:      "preview.usehivy.com",
+		},
+		{
+			name:      "custom preview domain",
+			rawURL:    "https://3000-sbx-test.preview.example.com",
+			sandboxID: "sbx-test",
+			want:      "preview.example.com",
+		},
+		{
+			name:      "localhost is not a preview domain",
+			rawURL:    "http://localhost:7080",
+			sandboxID: "sbx-test",
+			want:      "",
+		},
+		{
+			name:      "ip address is not a preview domain",
+			rawURL:    "http://127.0.0.1:7080",
+			sandboxID: "sbx-test",
+			want:      "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := previewBaseDomainFromRuntimeURL(tt.rawURL, tt.sandboxID); got != tt.want {
+				t.Fatalf("previewBaseDomainFromRuntimeURL(%q, %q) = %q, want %q", tt.rawURL, tt.sandboxID, got, tt.want)
+			}
+		})
 	}
 }
 

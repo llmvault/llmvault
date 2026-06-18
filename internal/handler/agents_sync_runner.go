@@ -124,10 +124,6 @@ func (h *AgentHandler) runAgentSync(ctx context.Context, agent *model.Agent, sb 
 	if err != nil {
 		return nil, fmt.Errorf("decrypt runtime secret: %w", err)
 	}
-	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
-	if err := client.Healthz(ctx); err != nil {
-		return nil, fmt.Errorf("agent runtime healthz: %w", err)
-	}
 	proxyToken, err := agentruntime.MintProxyToken(ctx, h.compileDeps, agent, sb.ID)
 	if err != nil {
 		return nil, fmt.Errorf("mint proxy token: %w", err)
@@ -141,15 +137,15 @@ func (h *AgentHandler) runAgentSync(ctx context.Context, agent *model.Agent, sb 
 		return nil, fmt.Errorf("compile: %w", err)
 	}
 	def.OutboundChannels = agentruntime.ControlPlaneOutboundChannels(h.compileDeps.Cfg, sb.ID)
-	schedules, err := agentruntime.BuildRuntimeSchedules(ctx, h.db, agent, sb)
+
+	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
 	if err != nil {
-		return nil, fmt.Errorf("load runtime schedules: %w", err)
+		return nil, fmt.Errorf("agent runtime client: %w", err)
 	}
 
 	resp, err := client.PutRuntimeConfig(ctx, agentruntime.ConfigUpdateRequest{
 		Definition: def,
 		RuntimeEnv: runtimeEnv,
-		Schedules:  schedules,
 	})
 	if err != nil {
 		return nil, err

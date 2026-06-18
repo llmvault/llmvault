@@ -9,6 +9,7 @@ tmp/
 *.test
 *.out
 vendor/
+dist/
 
 # ZITADEL bootstrap secrets (generated at runtime)
 docker/zitadel/bootstrap/*.pat

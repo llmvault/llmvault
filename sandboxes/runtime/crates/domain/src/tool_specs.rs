@@ -87,7 +87,6 @@ pub struct SubagentTaskConfig {
 pub fn default_parent_builtin_tool_specs() -> Vec<ToolSpec> {
     let mut specs = default_subagent_builtin_tool_specs();
     specs.extend([
-        ToolSpec::Cron,
         ToolSpec::SubagentTask(Default::default()),
         ToolSpec::CheckSubagentTaskStatus,
         ToolSpec::Wake,

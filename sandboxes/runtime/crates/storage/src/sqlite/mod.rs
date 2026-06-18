@@ -1,5 +1,4 @@
 mod config;
-mod cron;
 mod dedupe;
 mod event;
 mod outbox;
@@ -10,7 +9,6 @@ mod subagent;
 mod write_gateway;
 
 pub use config::SqliteConfigRepo;
-pub use cron::SqliteCronJobRepo;
 pub use dedupe::SqliteInboundDedupeRepo;
 pub use event::SqliteEventRepo;
 pub use outbox::SqliteOutboxRepo;

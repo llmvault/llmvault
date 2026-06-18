@@ -57,9 +57,6 @@ func PushAgentRuntimeConfigForSessionModel(
 	if err := client.Readyz(ctx); err != nil {
 		return nil, fmt.Errorf("agent runtime readyz: %w", err)
 	}
-	if err := RepointAgentSchedules(ctx, deps.DB, agent, sb); err != nil {
-		return nil, fmt.Errorf("repoint agent schedules: %w", err)
-	}
 	return &sessionModel, nil
 }
 

@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::cron::{CronJob, CronJobState};
 use domain::{
     AgentDefinition, EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionEvent,
     SessionId, SessionStatus, SubagentTask, SubagentTaskState,
@@ -136,36 +135,6 @@ pub trait OutboxRepo: Send + Sync + 'static {
 pub trait InboundDedupeRepo: Send + Sync + 'static {
     async fn check_and_record(&self, envelope_id: &str) -> Result<bool>;
     async fn cleanup_older_than(&self, before: DateTime<Utc>) -> Result<u64>;
-}
-
-#[async_trait]
-pub trait CronJobRepo: Send + Sync + 'static {
-    async fn create(&self, job: &CronJob) -> Result<()>;
-    async fn get(&self, id: &str) -> Result<Option<CronJob>>;
-    async fn list_all(&self) -> Result<Vec<CronJob>>;
-    async fn list_due(&self) -> Result<Vec<CronJob>>;
-    async fn update_prompt(&self, id: &str, task_prompt: String) -> Result<()>;
-    async fn update_interval(&self, id: &str, interval_seconds: u64) -> Result<()>;
-    async fn update_next_run(&self, id: &str, next_run_at: DateTime<Utc>) -> Result<()>;
-    async fn set_state(&self, id: &str, state: CronJobState) -> Result<()>;
-    async fn claim_due_run(
-        &self,
-        id: &str,
-        now: DateTime<Utc>,
-        started_at: DateTime<Utc>,
-    ) -> Result<bool>;
-    async fn reset_stale_running(&self, _before: DateTime<Utc>) -> Result<u64> {
-        Ok(0)
-    }
-    async fn record_run(
-        &self,
-        id: &str,
-        run_at: DateTime<Utc>,
-        status: &str,
-        error: Option<&str>,
-    ) -> Result<()>;
-    async fn increment_repeat(&self, id: &str) -> Result<()>;
-    async fn delete(&self, id: &str) -> Result<()>;
 }
 
 #[async_trait]

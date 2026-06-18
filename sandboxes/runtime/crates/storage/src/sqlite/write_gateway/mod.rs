@@ -1,4 +1,3 @@
-mod cron_ops;
 mod event_ops;
 mod outbox_ops;
 mod question_ops;
@@ -10,7 +9,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use domain::cron::{CronJob, CronJobState};
 use domain::{
     AgentDefinition, EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionId,
     SessionStatus, SubagentTask, SubagentTaskState,
@@ -151,112 +149,6 @@ impl SqliteWriteGateway {
         let (resp, rx) = oneshot::channel();
         self.send(WriteRequest::InboundDedupeCleanup { before, resp })
             .await?;
-        recv(rx).await
-    }
-
-    pub async fn create_cron(&self, job: CronJob) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronCreate {
-            job: Box::new(job),
-            resp,
-        })
-        .await?;
-        recv(rx).await
-    }
-
-    pub async fn update_cron_prompt(&self, id: String, task_prompt: String) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronUpdatePrompt {
-            id,
-            task_prompt,
-            resp,
-        })
-        .await?;
-        recv(rx).await
-    }
-
-    pub async fn update_cron_interval(&self, id: String, interval_seconds: u64) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronUpdateInterval {
-            id,
-            interval_seconds,
-            resp,
-        })
-        .await?;
-        recv(rx).await
-    }
-
-    pub async fn update_cron_next_run(&self, id: String, next_run_at: DateTime<Utc>) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronUpdateNextRun {
-            id,
-            next_run_at,
-            resp,
-        })
-        .await?;
-        recv(rx).await
-    }
-
-    pub async fn set_cron_state(&self, id: String, state: CronJobState) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronSetState { id, state, resp })
-            .await?;
-        recv(rx).await
-    }
-
-    pub async fn claim_due_cron_run(
-        &self,
-        id: String,
-        now: DateTime<Utc>,
-        started_at: DateTime<Utc>,
-    ) -> Result<bool> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronClaimDueRun {
-            id,
-            now,
-            started_at,
-            resp,
-        })
-        .await?;
-        recv(rx).await
-    }
-
-    pub async fn reset_stale_cron_running(&self, before: DateTime<Utc>) -> Result<u64> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronResetStaleRunning { before, resp })
-            .await?;
-        recv(rx).await
-    }
-
-    pub async fn record_cron_run(
-        &self,
-        id: String,
-        run_at: DateTime<Utc>,
-        status: String,
-        error: Option<String>,
-    ) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronRecordRun {
-            id,
-            run_at,
-            status,
-            error,
-            resp,
-        })
-        .await?;
-        recv(rx).await
-    }
-
-    pub async fn increment_cron_repeat(&self, id: String) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronIncrementRepeat { id, resp })
-            .await?;
-        recv(rx).await
-    }
-
-    pub async fn delete_cron(&self, id: String) -> Result<()> {
-        let (resp, rx) = oneshot::channel();
-        self.send(WriteRequest::CronDelete { id, resp }).await?;
         recv(rx).await
     }
 

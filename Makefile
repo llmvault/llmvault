@@ -27,7 +27,7 @@ AGENT_SESSIONS_E2E_WORKER_BASE_URL ?= http://localhost:$(or $(HIVY_COMPOSE_WORKE
 HANDLER_TEST_SHARDS ?= 8
 HANDLER_TEST_TIMEOUT ?= 5m
 AGENT_RUNTIME_E2E_TIMEOUT ?= 5m
-AGENT_SESSIONS_E2E_TIMEOUT ?= 20m
+AGENT_SESSIONS_E2E_TIMEOUT ?= 35m
 AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE ?= 1
 ifeq ($(AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE),1)
 TEST_AGENT_SESSIONS_E2E_DEPS := sandbox-runtime-image
@@ -209,7 +209,7 @@ test-agent-runtime-e2e:
 # This registers a real org, uses the default #general channel, and requires
 # the worker to provision a Docker-backed agent sandbox and persist a response.
 test-agent-sessions-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
-	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run TestAgentSessionsDefaultGeneralChannelE2E -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v
+	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run 'Test(AgentSessions(DefaultGeneralChannel|SleepWakeCronLifecycle)|MicrosandboxPreviewCacheWake)E2E' -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v
 
 # Run internal/handler tests split across stable parallel shards.
 test-handler-sharded:

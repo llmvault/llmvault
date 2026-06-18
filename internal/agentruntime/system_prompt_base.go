@@ -4,11 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+)
+
+const (
+	defaultPreviewBaseDomain = "preview.usehivy.com"
+	microsandboxProviderID   = "microsandbox"
 )
 
 func renderBaseSystemPrompt(ctx context.Context, db *gorm.DB, agent *model.Agent, org model.Org, hasOrg bool, description string) string {
@@ -52,6 +59,17 @@ func renderEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Age
 	if err != nil {
 		return ""
 	}
+	var sections []string
+	if resources := sandboxResourceEnvironmentContext(ctx, db, agent, sandbox); resources != "" {
+		sections = append(sections, resources)
+	}
+	if preview := sandboxPreviewEnvironmentContext(sandbox); preview != "" {
+		sections = append(sections, preview)
+	}
+	return strings.Join(sections, "\n\n")
+}
+
+func sandboxResourceEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Agent, sandbox model.Sandbox) string {
 	size := sandboxEnvironmentSize(ctx, db, agent, sandbox)
 	if resources, ok := model.TemplateSizes[size]; ok {
 		return fmt.Sprintf(
@@ -65,6 +83,56 @@ func renderEnvironmentContext(ctx context.Context, db *gorm.DB, agent *model.Age
 		return fmt.Sprintf("This sandbox is configured with the %s size.", size)
 	}
 	return ""
+}
+
+func sandboxPreviewEnvironmentContext(sandbox model.Sandbox) string {
+	if !strings.EqualFold(strings.TrimSpace(sandbox.ProviderID), microsandboxProviderID) {
+		return ""
+	}
+	sandboxID := strings.TrimSpace(sandbox.ExternalID)
+	baseDomain := previewBaseDomainFromRuntimeURL(sandbox.RuntimeURL, sandboxID)
+	if baseDomain == "" {
+		baseDomain = defaultPreviewBaseDomain
+	}
+	previewPattern := fmt.Sprintf("https://<port>-%s.%s", sandboxID, baseDomain)
+	if sandboxID == "" {
+		previewPattern = fmt.Sprintf("https://<port>-<sandbox-id>.%s", baseDomain)
+	}
+	return strings.Join([]string{
+		fmt.Sprintf("User-facing previews for this sandbox use %s, replacing <port> with the port your app is listening on.", previewPattern),
+		"Strict requirement: never share localhost, 127.0.0.1, or any other sandbox-local URL with the user; the human cannot reach URLs inside this isolated environment.",
+		"When the user asks to preview, make sure the app or server is running in the background, verify the listening port, then share the public preview URL for that port.",
+		"Whenever browser-visible work is ready to inspect, include the public preview URL in your response.",
+	}, "\n")
+}
+
+func previewBaseDomainFromRuntimeURL(rawURL, sandboxID string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	sandboxID = strings.TrimSpace(sandboxID)
+	if rawURL == "" || sandboxID == "" {
+		return ""
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Hostname() == "" {
+		parsed, err = url.Parse("//" + rawURL)
+	}
+	if err != nil {
+		return ""
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" || strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil {
+		return ""
+	}
+	marker := "-" + sandboxID + "."
+	idx := strings.Index(host, marker)
+	if idx < 0 {
+		return ""
+	}
+	domain := strings.Trim(host[idx+len(marker):], ".")
+	if domain == "" || !strings.Contains(domain, ".") {
+		return ""
+	}
+	return domain
 }
 
 func sandboxEnvironmentSize(ctx context.Context, db *gorm.DB, agent *model.Agent, sandbox model.Sandbox) string {
