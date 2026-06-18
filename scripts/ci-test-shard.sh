@@ -29,12 +29,13 @@ shard_lines() {
 
 run_packages() {
   local packages="$1"
+  shift || true
   if [[ -z "$packages" ]]; then
     echo "No packages assigned to shard $shard_index/$shard_total"
     return 0
   fi
   echo "$packages"
-  printf '%s\n' "$packages" | xargs env "${test_env[@]}" go test -count=1 -timeout="$timeout"
+  printf '%s\n' "$packages" | xargs env "${test_env[@]}" go test -count=1 -timeout="$timeout" "$@"
 }
 
 run_test_names() {
@@ -134,6 +135,25 @@ case "$suite" in
     ;;
   internal-storage)
     run_packages "$(printf '%s\n' github.com/usehivy/hivy/internal/storage | shard_lines)"
+    ;;
+  internal-extra)
+    run_packages "$(printf '%s\n' \
+      github.com/usehivy/hivy/internal/agentcatalog \
+      github.com/usehivy/hivy/internal/agentschedule \
+      github.com/usehivy/hivy/internal/connectionaccess \
+      github.com/usehivy/hivy/internal/databaseintegration \
+      github.com/usehivy/hivy/internal/microsandbox/api \
+      github.com/usehivy/hivy/internal/microsandbox/control \
+      github.com/usehivy/hivy/internal/microsandbox/runner \
+      github.com/usehivy/hivy/internal/microsandbox/security \
+      github.com/usehivy/hivy/internal/microsandbox/storage \
+      github.com/usehivy/hivy/internal/netguard \
+      github.com/usehivy/hivy/internal/plugins \
+      github.com/usehivy/hivy/internal/precontext \
+      github.com/usehivy/hivy/internal/railway \
+      github.com/usehivy/hivy/internal/sandbox/microsandbox \
+      github.com/usehivy/hivy/internal/sandbox/railway \
+      github.com/usehivy/hivy/internal/token | shard_lines)" -skip '^TestLiveProviderSnapshotE2E$'
     ;;
   e2e)
     run_test_names ./e2e

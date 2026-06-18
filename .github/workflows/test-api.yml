@@ -358,6 +358,46 @@ jobs:
         if: always()
         run: make ci-cleanup-containers
 
+  internal-extra:
+    name: internal extra packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: hivy_test
+          POSTGRES_USER: hivy
+          POSTGRES_PASSWORD: localdev
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U hivy -d hivy_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 16279:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: wait for services
+        run: make ci-wait-services
+        timeout-minutes: 2
+      - name: test extra internal packages
+        run: make ci-test-internal-extra
+        timeout-minutes: 5
+
   e2e:
     name: e2e
     runs-on: ubuntu-latest
@@ -434,6 +474,28 @@ jobs:
         run: make ci-test-web
         timeout-minutes: 5
 
+  web-unit:
+    name: web unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+        timeout-minutes: 5
+      - name: test web units
+        run: make ci-test-web-unit
+        timeout-minutes: 5
+
   runtime:
     name: sandbox runtime
     runs-on: ubuntu-latest
@@ -478,9 +540,11 @@ jobs:
       - internal-hindsight
       - internal-integrations
       - internal-storage
+      - internal-extra
       - e2e
       - cmd
       - web
+      - web-unit
       - runtime
       - quality
     steps:
@@ -494,9 +558,11 @@ jobs:
             "${{ needs.internal-hindsight.result }}" \
             "${{ needs.internal-integrations.result }}" \
             "${{ needs.internal-storage.result }}" \
+            "${{ needs.internal-extra.result }}" \
             "${{ needs.e2e.result }}" \
             "${{ needs.cmd.result }}" \
             "${{ needs.web.result }}" \
+            "${{ needs.web-unit.result }}" \
             "${{ needs.runtime.result }}" \
             "${{ needs.quality.result }}"; do
             test "$result" = success

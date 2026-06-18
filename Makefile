@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-e2e ci-test-cmd ci-test-web ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
+.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-hindsight ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-hindsight ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi sandbox-runtime-image sandbox-runtime-developers-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -371,6 +371,9 @@ ci-test-internal-integrations:
 ci-test-internal-storage:
 	SHARD_INDEX="$(SHARD_INDEX)" SHARD_TOTAL="$(SHARD_TOTAL)" ./scripts/ci-test-shard.sh internal-storage
 
+ci-test-internal-extra:
+	SHARD_INDEX="$(SHARD_INDEX)" SHARD_TOTAL="$(SHARD_TOTAL)" ./scripts/ci-test-shard.sh internal-extra
+
 ci-test-e2e:
 	SHARD_INDEX="$(SHARD_INDEX)" SHARD_TOTAL="$(SHARD_TOTAL)" ./scripts/ci-test-shard.sh e2e
 
@@ -382,6 +385,9 @@ ci-test-web:
 	node scripts/ci-web-plans-api.mjs & pid=$$!; \
 	trap 'kill $$pid' EXIT; \
 	HIVY_API_URL=http://127.0.0.1:18081 pnpm --dir apps/web build
+
+ci-test-web-unit:
+	pnpm --dir apps/web test
 
 ci-test-runtime:
 	$(MAKE) sandbox-runtime-fmt-check
