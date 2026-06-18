@@ -36,6 +36,7 @@ RUN apt-get update \
     ripgrep \
     shellcheck \
     shfmt \
+    sqlite3 \
     tar \
     tini \
     unzip \
