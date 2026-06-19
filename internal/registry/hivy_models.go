@@ -1,6 +1,6 @@
 package registry
 
-var supportedHivyModels = []HivyModel{
+var coreHivyModels = []HivyModel{
 	{
 		ID: "claude-opus-4.7",
 		Routes: []ModelRoute{
@@ -225,13 +225,6 @@ var supportedHivyModels = []HivyModel{
 		},
 	},
 	{
-		ID: "kimi-k2.7-code",
-		Routes: []ModelRoute{
-			{ProviderID: "moonshotai", ModelID: "kimi-k2.7-code"},
-			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.7-code"},
-		},
-	},
-	{
 		ID: "mimo-v2.5-pro",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "xiaomi/mimo-v2.5-pro"},
@@ -247,18 +240,6 @@ var supportedHivyModels = []HivyModel{
 		ID: "minimax-m2.7",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m2.7"},
-		},
-	},
-	{
-		ID: "minimax-m3",
-		Routes: []ModelRoute{
-			{ProviderID: "openrouter", ModelID: "minimax/minimax-m3"},
-		},
-	},
-	{
-		ID: "glm-5.2",
-		Routes: []ModelRoute{
-			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.2"},
 		},
 	},
 	{
