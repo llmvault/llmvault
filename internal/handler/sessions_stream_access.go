@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -33,15 +34,9 @@ func (h *SessionHandler) SandboxAccess(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "runtime sandbox access is not configured"})
 		return
 	}
-	if session.SandboxID == nil {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "session sandbox is not available yet"})
-		return
-	}
-	var sb model.Sandbox
-	if err := h.db.WithContext(r.Context()).
-		Where("id = ? AND org_id = ?", *session.SandboxID, session.OrgID).
-		First(&sb).Error; err != nil {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "session sandbox is not available yet"})
+	sb, err := h.sessionSandboxForAccess(r.Context(), &session)
+	if err != nil {
+		h.writeSessionSandboxWakeError(w, err)
 		return
 	}
 	runtimeSecret, err := h.runtimeEncKey.DecryptString(sb.EncryptedRuntimeSecret)
@@ -81,4 +76,18 @@ func (h *SessionHandler) SandboxAccess(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:      expiresAt.Format(time.RFC3339),
 		Scopes:         scopes,
 	})
+}
+
+func (h *SessionHandler) sessionSandboxForAccess(ctx context.Context, session *model.Session) (*model.Sandbox, error) {
+	if h.orchestrator != nil {
+		return h.ensureSessionSandboxReady(ctx, session)
+	}
+	sb, err := h.loadSessionSandbox(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	if sb.Status != "running" {
+		return nil, errSessionSandboxWakeOffline
+	}
+	return sb, nil
 }

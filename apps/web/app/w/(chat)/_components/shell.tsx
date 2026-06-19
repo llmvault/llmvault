@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -17,8 +18,9 @@ import {
   type PanelImperativeHandle,
 } from "react-resizable-panels"
 import { animate, type AnimationPlaybackControls } from "motion/react"
-import { Button, Popover } from "@heroui/react"
+import { Button, Popover, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 import {
@@ -75,11 +77,22 @@ interface WorkspaceContextValue {
   ) => void
   setModel: (modelId: string) => void
   openView: (id: PanelViewID) => void
+  sandboxAccess?: SessionSandboxAccessResponse
+  sandboxAccessPending: boolean
+  sandboxAccessError: unknown
+  refreshSandboxAccess: () => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 type SessionResponse = components["schemas"]["sessionResponse"]
 type AgentResponse = components["schemas"]["agentListItem"]
+type SessionSandboxAccessResponse =
+  components["schemas"]["sessionSandboxAccessResponse"]
+type SandboxRuntimeState = {
+  sessionId: string
+  pending: boolean
+  error: unknown
+}
 
 export function useWorkspace() {
   const context = useContext(WorkspaceContext)
@@ -102,6 +115,9 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     session: ChatSession
   } | null>(null)
   const [rightMaximized, setRightMaximized] = useState(false)
+  const [sandboxRuntimeState, setSandboxRuntimeState] =
+    useState<SandboxRuntimeState | null>(null)
+  const sandboxRuntimeRequestRef = useRef(0)
 
   const routeParams = useMemo(
     () => sessionRouteFromPathname(pathname),
@@ -109,6 +125,21 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   )
   const routeSessionID = routeParams?.sessionId
   const routeIsOptimistic = routeSessionID?.startsWith("tmp_") ?? false
+  const sandboxWakeMutation = $api.useMutation(
+    "post",
+    "/v1/sessions/{id}/sandbox/wake"
+  )
+  const { mutateAsync: wakeSandbox, reset: resetSandboxWake } =
+    sandboxWakeMutation
+  const sandboxAccessMutation = $api.useMutation(
+    "post",
+    "/v1/sessions/{id}/sandbox-access"
+  )
+  const {
+    data: sandboxAccess,
+    mutateAsync: requestSandboxAccess,
+    reset: resetSandboxAccess,
+  } = sandboxAccessMutation
   const routeSessionQuery = $api.useQuery(
     "get",
     "/v1/sessions/{id}",
@@ -323,6 +354,80 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const sandboxRuntimeReady =
+    Boolean(routeSessionID) &&
+    !routeIsOptimistic &&
+    sandboxAccess?.session_id === routeSessionID &&
+    Boolean(sandboxAccess?.sandbox_base_url) &&
+    Boolean(sandboxAccess?.token)
+  const sandboxRuntimeStateMatches =
+    sandboxRuntimeState?.sessionId === routeSessionID
+  const sandboxRuntimeError = sandboxRuntimeStateMatches
+    ? sandboxRuntimeState?.error
+    : null
+  const sandboxRuntimePending =
+    Boolean(routeSessionID) &&
+    !routeIsOptimistic &&
+    !sandboxRuntimeReady &&
+    !sandboxRuntimeError
+  const sandboxAccessPendingForSession = sandboxRuntimePending
+
+  const refreshSandboxAccess = useCallback(() => {
+    if (!routeSessionID || routeIsOptimistic) return
+    const requestID = sandboxRuntimeRequestRef.current + 1
+    sandboxRuntimeRequestRef.current = requestID
+    resetSandboxWake()
+    resetSandboxAccess()
+    setSandboxRuntimeState({
+      sessionId: routeSessionID,
+      pending: true,
+      error: null,
+    })
+    void (async () => {
+      try {
+        await wakeSandbox({ params: { path: { id: routeSessionID } } })
+        await requestSandboxAccess({ params: { path: { id: routeSessionID } } })
+        if (sandboxRuntimeRequestRef.current !== requestID) return
+        setSandboxRuntimeState({
+          sessionId: routeSessionID,
+          pending: false,
+          error: null,
+        })
+      } catch (error) {
+        if (sandboxRuntimeRequestRef.current !== requestID) return
+        setSandboxRuntimeState({
+          sessionId: routeSessionID,
+          pending: false,
+          error,
+        })
+      }
+    })()
+  }, [
+    requestSandboxAccess,
+    resetSandboxAccess,
+    resetSandboxWake,
+    routeIsOptimistic,
+    routeSessionID,
+    wakeSandbox,
+  ])
+
+  useEffect(() => {
+    if (!routeSessionID || routeIsOptimistic) {
+      sandboxRuntimeRequestRef.current += 1
+      setSandboxRuntimeState(null)
+      resetSandboxWake()
+      resetSandboxAccess()
+      return
+    }
+    refreshSandboxAccess()
+  }, [
+    refreshSandboxAccess,
+    resetSandboxAccess,
+    resetSandboxWake,
+    routeIsOptimistic,
+    routeSessionID,
+  ])
+
   const workspace = useMemo(
     () => ({
       session,
@@ -332,6 +437,10 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       startSession,
       setModel,
       openView,
+      sandboxAccess,
+      sandboxAccessPending: sandboxAccessPendingForSession,
+      sandboxAccessError: sandboxRuntimeError,
+      refreshSandboxAccess,
     }),
     [
       session,
@@ -341,6 +450,10 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       startSession,
       setModel,
       openView,
+      sandboxAccess,
+      sandboxAccessPendingForSession,
+      sandboxRuntimeError,
+      refreshSandboxAccess,
     ]
   )
 
@@ -377,7 +490,16 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                 rightOpen={rightOpen}
                 onToggleRight={toggleRight}
               />
-              <div className="min-h-0 flex-1">{children}</div>
+              <div className="relative min-h-0 flex-1">
+                {children}
+                <SandboxRuntimeGate
+                  sessionId={routeSessionID}
+                  ready={sandboxRuntimeReady}
+                  pending={sandboxAccessPendingForSession}
+                  error={sandboxRuntimeError}
+                  onRetry={refreshSandboxAccess}
+                />
+              </div>
             </div>
           </Panel>
 
@@ -396,6 +518,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           >
             <div className="h-full min-w-[360px]">
               <RightPanel
+                sessionId={routeSessionID}
+                sandboxAccess={sandboxAccess}
+                sandboxAccessPending={sandboxAccessPendingForSession}
+                sandboxAccessError={sandboxRuntimeError}
+                onRefreshSandboxAccess={refreshSandboxAccess}
                 openViews={openViews}
                 activeView={activeView}
                 maximized={rightMaximized}
@@ -410,6 +537,49 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         </Group>
       </div>
     </WorkspaceContext.Provider>
+  )
+}
+
+function SandboxRuntimeGate({
+  sessionId,
+  ready,
+  pending,
+  error,
+  onRetry,
+}: {
+  sessionId?: string
+  ready: boolean
+  pending: boolean
+  error: unknown
+  onRetry: () => void
+}) {
+  if (!sessionId || ready || (!pending && !error)) return null
+
+  return (
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-surface px-4">
+      <div
+        className="flex max-w-sm flex-col items-center gap-3 text-center"
+        role="status"
+        aria-live="polite"
+      >
+        {pending ? <Spinner size="lg" aria-label="Waking sandbox" /> : null}
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium text-foreground">
+            {pending ? "Waking sandbox" : "Sandbox unavailable"}
+          </p>
+          <p className="text-sm text-muted">
+            {pending
+              ? "Preparing the agent runtime for this session."
+              : extractErrorMessage(error, "Could not wake the sandbox.")}
+          </p>
+        </div>
+        {!pending && error ? (
+          <Button variant="secondary" size="sm" onPress={onRetry}>
+            Retry
+          </Button>
+        ) : null}
+      </div>
+    </div>
   )
 }
 

@@ -32,6 +32,7 @@
     "@nangohq/frontend": "^0.69.47",
     "@paystack/inline-js": "^2.22.8",
     "@pierre/diffs": "^1.1.19",
+    "@pierre/trees": "1.0.0-beta.4",
     "@sentry/nextjs": "^10.51.0",
     "@tanstack/query-persist-client-core": "^5.96.2",
     "@tanstack/react-query": "^5.96.2",
