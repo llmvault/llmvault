@@ -595,7 +595,7 @@ function AttachmentPreviewTile({
           isIconOnly
           aria-label={`Retry ${fileName}`}
           onPress={onRetry}
-          className="!bg-danger !text-danger-foreground !absolute bottom-1.5 left-1.5 z-10 !h-7 !w-7 !min-w-7 !rounded-full !p-0 shadow-sm"
+          className="bg-danger text-danger-foreground absolute bottom-1.5 left-1.5 z-10 h-5 w-5 min-w-5 rounded-full p-0 shadow-sm"
         >
           <Icon icon="lucide:rotate-ccw" className="h-3.5 w-3.5" />
         </Button>
@@ -606,9 +606,9 @@ function AttachmentPreviewTile({
         isIconOnly
         aria-label={`Remove ${fileName}`}
         onPress={onRemove}
-        className="!absolute -top-2 -right-2 z-20 !h-7 !w-7 !min-w-7 !rounded-full !bg-foreground !p-0 !text-background shadow-sm hover:!bg-foreground/90"
+        className="absolute top-2 -right-2 z-20 h-5 w-5 min-w-5 rounded-full bg-foreground p-0 text-background shadow-sm hover:bg-foreground/90"
       >
-        <Icon icon="lucide:x" className="h-4 w-4" />
+        <Icon icon="lucide:x" className="h-3 w-3" />
       </Button>
     </div>
   )
