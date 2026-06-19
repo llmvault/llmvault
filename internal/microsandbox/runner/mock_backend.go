@@ -82,12 +82,6 @@ func (m *MockBackend) ProxyURL(_ context.Context, sandboxID string, guestPort in
 	return "http://127.0.0.1:1", nil
 }
 
-func (m *MockBackend) CreateSnapshot(_ context.Context, req CreateSnapshotRequest) (*CreateSnapshotResponse, error) {
-	return &CreateSnapshotResponse{ID: req.ID, ArtifactURL: "mock://" + req.ID, Logs: "mock snapshot built\n"}, nil
-}
-
-func (m *MockBackend) DeleteSnapshot(context.Context, string) error { return nil }
-
 func (m *MockBackend) CreateTemplate(_ context.Context, req CreateTemplateRequest, onEvent func(TemplateBuildEvent)) (*CreateTemplateResponse, error) {
 	if onEvent != nil {
 		onEvent(TemplateBuildEvent{Type: "log", Message: "mock template built"})

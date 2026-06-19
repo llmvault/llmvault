@@ -1,9 +1,11 @@
 package runner
 
 import (
-	"os"
-	"strings"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/usehivy/hivy/internal/microsandbox/config"
 )
 
 func TestRecoverSandboxStateFromLabelsAndPorts(t *testing.T) {
@@ -79,7 +81,7 @@ func TestHivyLabelsAddsRecoveryLabels(t *testing.T) {
 }
 
 func TestHivyLabelsDoesNotMarkNonSandboxBuildsAsSandboxes(t *testing.T) {
-	labels := hivyLabels("snp_build", nil)
+	labels := hivyLabels("bld_build", nil)
 	if labels[hivyManagedLabel] != "true" {
 		t.Fatalf("labels = %#v", labels)
 	}
@@ -116,40 +118,13 @@ func TestDockerDataVolumeLabelsAreRecoverable(t *testing.T) {
 	}
 }
 
-func TestPinnedImageRefUsesDigestWithoutLosingRegistryPort(t *testing.T) {
-	digest := "sha256:123456"
-	cases := map[string]string{
-		"ghcr.io/usehivy/runtime:v1":     "ghcr.io/usehivy/runtime@" + digest,
-		"localhost:5000/team/runtime:v1": "localhost:5000/team/runtime@" + digest,
-		"ubuntu":                         "ubuntu@" + digest,
-		"ubuntu@sha256:old":              "ubuntu@sha256:old",
-	}
-	for input, want := range cases {
-		if got := pinnedImageRef(input, digest); got != want {
-			t.Fatalf("pinnedImageRef(%q) = %q, want %q", input, got, want)
-		}
-	}
-}
-
-func TestSnapshotImportArchivePathIsUniquePerCall(t *testing.T) {
-	dir := t.TempDir()
-	first, err := snapshotImportArchivePath(dir, "snp123", "s3://bucket/snapshots/snp123.tar.zst")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(first)
-	second, err := snapshotImportArchivePath(dir, "snp123", "s3://bucket/snapshots/snp123.tar.zst")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(second)
-
-	if first == second {
-		t.Fatalf("snapshot import archive path was reused: %s", first)
-	}
-	for _, path := range []string{first, second} {
-		if !strings.HasPrefix(path, dir+"/snp123-import-") || !strings.HasSuffix(path, ".tar.zst") {
-			t.Fatalf("unexpected import archive path %q", path)
-		}
+func TestSnapshotRoutesAreNotRegistered(t *testing.T) {
+	s := &Server{cfg: config.Config{RunnerAPIToken: "runner-token"}, backend: NewMockBackend()}
+	req := httptest.NewRequest(http.MethodPost, "/v1/snapshots", nil)
+	req.Header.Set("Authorization", "Bearer runner-token")
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("snapshot route status = %d, want 404", rec.Code)
 	}
 }

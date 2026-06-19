@@ -30,7 +30,6 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.RELEASE_TAG }}
       version: ${{ steps.version.outputs.RELEASE_VERSION }}
-      dashed: ${{ steps.version.outputs.RELEASE_DASHED }}
       prerelease: ${{ steps.version.outputs.RELEASE_IS_PRERELEASE }}
       commit: ${{ steps.version.outputs.RELEASE_COMMIT }}
     steps:
@@ -41,7 +40,7 @@ jobs:
 
       - name: derive version
         id: version
-        run: ./scripts/release/derive-version.sh "${{ github.event.release.tag_name || inputs.tag }}" "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: bash ./scripts/release/derive-version.sh "${{ github.event.release.tag_name || inputs.tag }}" "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: verify release commit is on main
         run: |
@@ -228,53 +227,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ needs.prepare.outputs.tag }}" release-manifest.json --clobber
 
-  microsandbox-snapshots:
-    name: microsandbox snapshots (${{ matrix.size }})
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs:
-      - prepare
-      - release-manifest
-    strategy:
-      fail-fast: false
-      matrix:
-        size:
-          - small
-          - medium
-          - large
-          - xlarge
-    env:
-      HIVY_MICROSANDBOX_API_TOKEN: ${{ secrets.HIVY_MICROSANDBOX_API_TOKEN }}
-      HIVY_MICROSANDBOX_CONTROL_URL: ${{ secrets.HIVY_MICROSANDBOX_CONTROL_URL || vars.HIVY_MICROSANDBOX_CONTROL_URL }}
-      HIVY_MICROSANDBOX_SNAPSHOT_ORG_ID: ${{ vars.HIVY_MICROSANDBOX_SNAPSHOT_ORG_ID || 'org_system' }}
-      HIVY_MICROSANDBOX_IMAGE_ARCH_SUFFIX: amd64
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.prepare.outputs.tag }}
-
-      - name: publish snapshots
-        run: |
-          control_url="${HIVY_MICROSANDBOX_CONTROL_URL:-https://msb.usehivy.com}"
-          scripts/microsandbox/publish-latest-snapshots.py \
-            --control-url "${control_url}" \
-            --tag "${{ needs.prepare.outputs.tag }}" \
-            --size "${{ matrix.size }}" \
-            --concurrency 2 \
-            --output "dist/microsandbox-snapshots-${{ needs.prepare.outputs.tag }}-${{ matrix.size }}.json"
-
-      - name: archive snapshot manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: microsandbox-snapshots-${{ matrix.size }}
-          path: dist/microsandbox-snapshots-${{ needs.prepare.outputs.tag }}-${{ matrix.size }}.json
-
   update-railway-runtime-config:
     name: update Railway runtime config
     runs-on: ubuntu-latest
     needs:
       - prepare
       - release-manifest
-      - microsandbox-snapshots
     steps:
       - uses: actions/checkout@v6
         with:

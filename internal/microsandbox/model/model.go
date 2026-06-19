@@ -38,7 +38,6 @@ type Sandbox struct {
 	RunnerID     string `gorm:"not null;index"`
 	Name         string `gorm:"not null"`
 	ImageRef     string `gorm:"not null"`
-	SnapshotID   string `gorm:"index"`
 	Status       string `gorm:"not null;index"`
 	CPU          int    `gorm:"not null"`
 	MemoryMB     int    `gorm:"not null"`
@@ -58,28 +57,6 @@ type SandboxPort struct {
 	Protocol  string `gorm:"not null;default:'http'"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-}
-
-type Snapshot struct {
-	ID                  string `gorm:"primaryKey"`
-	OrgID               string `gorm:"not null;index"`
-	RunnerID            string `gorm:"not null;index"`
-	Name                string `gorm:"not null"`
-	Alias               string `gorm:"type:text;not null;default:''"`
-	Global              bool   `gorm:"not null;default:false;index"`
-	BaseImageRef        string `gorm:"not null"`
-	Status              string `gorm:"not null;index"`
-	ArtifactURL         string `gorm:"type:text;not null;default:''"`
-	ArtifactDigest      string `gorm:"type:text;not null;default:''"`
-	ArtifactSizeBytes   int64  `gorm:"not null;default:0"`
-	ArtifactMediaType   string `gorm:"type:text;not null;default:''"`
-	SnapshotDigest      string `gorm:"type:text;not null;default:''"`
-	ImageManifestDigest string `gorm:"type:text;not null;default:''"`
-	CommandsJSON        string `gorm:"type:text;not null;default:'[]'"`
-	Logs                string `gorm:"type:text;not null;default:''"`
-	ErrorMessage        string `gorm:"type:text;not null;default:''"`
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
 }
 
 type Template struct {
@@ -116,8 +93,6 @@ func (Sandbox) TableName() string { return "microsandbox_sandboxes" }
 
 func (SandboxPort) TableName() string { return "microsandbox_sandbox_ports" }
 
-func (Snapshot) TableName() string { return "microsandbox_snapshots" }
-
 func (Template) TableName() string { return "microsandbox_templates" }
 
 func (Event) TableName() string { return "microsandbox_events" }
@@ -130,10 +105,6 @@ const (
 	SandboxStatusRunning  = "running"
 	SandboxStatusStopped  = "stopped"
 	SandboxStatusError    = "error"
-
-	SnapshotStatusBuilding = "building"
-	SnapshotStatusReady    = "ready"
-	SnapshotStatusError    = "error"
 
 	TemplateStatusBuilding = "building"
 	TemplateStatusReady    = "ready"

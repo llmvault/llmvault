@@ -24,7 +24,6 @@ if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; t
 fi
 
 version="${tag#v}"
-dashed="${version//./-}"
 is_prerelease=false
 if [[ "${version}" == *-* ]]; then
   is_prerelease=true
@@ -32,17 +31,14 @@ fi
 
 short_commit="${commit:0:7}"
 
-# Keep image, snapshot, and manifest naming derived from the release tag.
+# Keep image and manifest naming derived from the release tag.
 cat <<EOF
 RELEASE_TAG=${tag}
 RELEASE_VERSION=${version}
-RELEASE_DASHED=${dashed}
 RELEASE_IS_PRERELEASE=${is_prerelease}
 RELEASE_COMMIT=${commit}
 RELEASE_SHORT_COMMIT=${short_commit}
 API_IMAGE=ghcr.io/usehivy/hivy:${tag}
 SANDBOXES_RUNTIME_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime:${tag}
 SANDBOXES_RUNTIME_DEVELOPERS_IMAGE=ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${tag}
-SANDBOXES_RUNTIME_SNAPSHOT_SMALL=hivy-sandboxes-runtime-${dashed}-small
-SANDBOXES_RUNTIME_DEVELOPERS_SNAPSHOT_SMALL=hivy-sandboxes-runtime-developers-${dashed}-small
 EOF

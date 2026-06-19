@@ -21,7 +21,6 @@ type createSandboxRequest struct {
 	Name            string             `json:"name"`
 	ImageRef        string             `json:"image_ref"`
 	TemplateID      string             `json:"template_id"`
-	SnapshotID      string             `json:"snapshot_id"`
 	Size            string             `json:"size"`
 	CPU             int                `json:"cpu"`
 	MemoryMB        int                `json:"memory_mb"`
@@ -46,12 +45,8 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid request body"})
 		return
 	}
-	if req.OrgID == "" || (req.ImageRef == "" && req.SnapshotID == "" && req.TemplateID == "") {
-		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and image_ref, template_id, or snapshot_id are required"})
-		return
-	}
-	if req.TemplateID != "" && req.SnapshotID != "" {
-		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "template_id and snapshot_id cannot both be provided"})
+	if req.OrgID == "" || (req.ImageRef == "" && req.TemplateID == "") {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and image_ref or template_id are required"})
 		return
 	}
 	size := resolveSize(req)
@@ -82,25 +77,6 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		}
 		req.ImageRef = template.ImageRef
 	}
-	var snapshot model.Snapshot
-	if req.SnapshotID != "" {
-		var err error
-		snapshot, err = s.loadSnapshotByRef(r.Context(), req.SnapshotID)
-		if err != nil {
-			httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "snapshot not found"})
-			return
-		}
-		if !snapshotUsableByOrg(snapshot, req.OrgID) {
-			httpx.JSON(w, http.StatusForbidden, api.ErrorResponse{Error: "snapshot does not belong to org"})
-			return
-		}
-		if snapshot.Status != model.SnapshotStatusReady {
-			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "snapshot is not ready"})
-			return
-		}
-		req.SnapshotID = snapshot.ID
-		req.ImageRef = snapshot.BaseImageRef
-	}
 	metadata, _ := json.Marshal(req.Metadata)
 
 	password, err := s.ensureOrgPassword(r.Context(), req.OrgID, req.PreviewPassword)
@@ -112,13 +88,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	var sb model.Sandbox
 	var runner model.Runner
 	err = s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		var selected model.Runner
-		var err error
-		if req.SnapshotID != "" {
-			selected, err = selectRunnerForSnapshotSandbox(tx, snapshot, size)
-		} else {
-			selected, err = selectRunnerForUpdate(tx, size)
-		}
+		selected, err := selectRunnerForUpdate(tx, size)
 		if err != nil {
 			return err
 		}
@@ -128,8 +98,8 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		}
 		sb = model.Sandbox{
 			ID: id, OrgID: req.OrgID, RunnerID: runner.ID, Name: req.Name, ImageRef: req.ImageRef,
-			SnapshotID: req.SnapshotID, Status: model.SandboxStatusCreating, CPU: size.CPU,
-			MemoryMB: size.MemoryMB, DiskGB: size.DiskGB, MetadataJSON: string(metadata),
+			Status: model.SandboxStatusCreating, CPU: size.CPU, MemoryMB: size.MemoryMB,
+			DiskGB: size.DiskGB, MetadataJSON: string(metadata),
 		}
 		return tx.Create(&sb).Error
 	})
@@ -140,10 +110,8 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 
 	var createResp runnerCreateSandboxResponse
 	err = s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes", runnerCreateSandboxRequest{
-		ID: sb.ID, Name: sb.Name, ImageRef: sb.ImageRef, SnapshotID: sb.SnapshotID,
-		SnapshotArtifactURL: snapshot.ArtifactURL, SnapshotArtifactDigest: snapshot.ArtifactDigest,
-		SnapshotImageDigest: snapshot.ImageManifestDigest,
-		CPU:                 sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB, Env: req.Env,
+		ID: sb.ID, Name: sb.Name, ImageRef: sb.ImageRef,
+		CPU: sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB, Env: req.Env,
 		PreviewPorts: req.PreviewPorts,
 		Init:         req.Init,
 		Labels:       map[string]string{"org_id": sb.OrgID, "sandbox_id": sb.ID},

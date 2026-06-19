@@ -71,7 +71,7 @@ jobs:
 
       - name: derive version
         id: version
-        run: ./scripts/release/derive-version.sh "${{ inputs.tag }}" "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: bash ./scripts/release/derive-version.sh "${{ inputs.tag }}" "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: register default runtime snapshots
         if: inputs.runtime

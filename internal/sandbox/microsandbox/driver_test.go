@@ -47,7 +47,7 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 
 	info, err := driver.CreateSandbox(context.Background(), sandbox.CreateSandboxOpts{
 		Name:        "agent-test",
-		TemplateRef: "snp_template",
+		TemplateRef: "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
 		Labels:      map[string]string{"org_id": "org_123", "agent_id": "emp_123"},
 		EnvVars:     map[string]string{"HIVY_RUNTIME_SECRET": "secret"},
 	})
@@ -60,8 +60,8 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if createReq["org_id"] != "org_123" {
 		t.Fatalf("org_id = %v, want org_123", createReq["org_id"])
 	}
-	if createReq["snapshot_id"] != "snp_template" {
-		t.Fatalf("snapshot_id = %v, want snp_template", createReq["snapshot_id"])
+	if _, ok := createReq["snapshot_id"]; ok {
+		t.Fatalf("snapshot_id must not be sent: %#v", createReq)
 	}
 	if createReq["image_ref"] != "ghcr.io/usehivy/hivy-sandboxes-runtime:latest" {
 		t.Fatalf("image_ref = %v", createReq["image_ref"])
@@ -138,8 +138,8 @@ func TestDriverCreateSandboxUsesTemplateIDForMicrosandboxTemplate(t *testing.T) 
 	if createReq["template_id"] != "tpl_abc12345" {
 		t.Fatalf("template_id = %v, want tpl_abc12345", createReq["template_id"])
 	}
-	if createReq["snapshot_id"] != "" {
-		t.Fatalf("snapshot_id = %v, want empty", createReq["snapshot_id"])
+	if _, ok := createReq["snapshot_id"]; ok {
+		t.Fatalf("snapshot_id must not be sent: %#v", createReq)
 	}
 	if createReq["image_ref"] != "" {
 		t.Fatalf("image_ref = %v, want empty", createReq["image_ref"])

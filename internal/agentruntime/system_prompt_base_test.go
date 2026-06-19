@@ -89,7 +89,7 @@ func TestRenderEnvironmentContextUsesDefaultSandboxSizeWithoutTemplate(t *testin
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
-	snapshotID := "hivy-sandboxes-runtime-v3-2-1-amd64-small"
+	snapshotID := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.2.1-amd64"
 	sandbox := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  &orgID,
@@ -151,7 +151,7 @@ func TestRenderEnvironmentContextUsesAgentSandboxSize(t *testing.T) {
 	if err := db.Create(&agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
-	snapshotID := "hivy-sandboxes-runtime-v3-2-1-amd64-xlarge"
+	snapshotID := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.2.1-amd64"
 	sandbox := model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  &orgID,

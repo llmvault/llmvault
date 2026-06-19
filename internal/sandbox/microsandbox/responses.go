@@ -16,13 +16,6 @@ type sandboxResponse struct {
 	Status string `json:"Status"`
 }
 
-type snapshotResponse struct {
-	ID           string `json:"ID"`
-	Status       string `json:"Status"`
-	Logs         string `json:"Logs"`
-	ErrorMessage string `json:"ErrorMessage"`
-}
-
 type templateResponse struct {
 	ID           string `json:"ID"`
 	Status       string `json:"Status"`

@@ -68,15 +68,16 @@ func TestCreateAgentSandboxUsesConfiguredSandboxSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAgentSandbox: %v", err)
 	}
-	if created.SnapshotID == nil || *created.SnapshotID != "hivy-sandboxes-runtime-v3-3-0-amd64-xlarge" {
-		t.Fatalf("snapshot id = %v, want xlarge runtime snapshot", created.SnapshotID)
+	wantRuntimeRef := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.3.0-amd64"
+	if created.SnapshotID == nil || *created.SnapshotID != wantRuntimeRef {
+		t.Fatalf("snapshot id = %v, want runtime image ref %s", created.SnapshotID, wantRuntimeRef)
 	}
 	if len(provider.created) != 1 {
 		t.Fatalf("provider creates = %d, want 1", len(provider.created))
 	}
 	opts := provider.created[0]
-	if opts.TemplateRef != "hivy-sandboxes-runtime-v3-3-0-amd64-xlarge" {
-		t.Fatalf("template ref = %q, want xlarge snapshot alias", opts.TemplateRef)
+	if opts.TemplateRef != wantRuntimeRef {
+		t.Fatalf("template ref = %q, want %q", opts.TemplateRef, wantRuntimeRef)
 	}
 	if opts.CPU != 8 || opts.Memory != 16 || opts.Disk != 60 {
 		t.Fatalf("resources = cpu:%d memory:%d disk:%d, want 8/16/60", opts.CPU, opts.Memory, opts.Disk)
@@ -139,16 +140,16 @@ func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAgentSandbox: %v", err)
 	}
-	wantSnapshot := "hivy-sandboxes-runtime-developers-v3-4-0-amd64-large"
-	if created.SnapshotID == nil || *created.SnapshotID != wantSnapshot {
-		t.Fatalf("snapshot id = %v, want %s", created.SnapshotID, wantSnapshot)
+	wantRuntimeRef := "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:v3.4.0-amd64"
+	if created.SnapshotID == nil || *created.SnapshotID != wantRuntimeRef {
+		t.Fatalf("snapshot id = %v, want %s", created.SnapshotID, wantRuntimeRef)
 	}
 	if len(provider.created) != 1 {
 		t.Fatalf("provider creates = %d, want 1", len(provider.created))
 	}
 	opts := provider.created[0]
-	if opts.TemplateRef != wantSnapshot {
-		t.Fatalf("template ref = %q, want %q", opts.TemplateRef, wantSnapshot)
+	if opts.TemplateRef != wantRuntimeRef {
+		t.Fatalf("template ref = %q, want %q", opts.TemplateRef, wantRuntimeRef)
 	}
 	if opts.Labels["sandbox_image"] != model.SandboxImageDeveloper {
 		t.Fatalf("sandbox_image label = %q, want developer", opts.Labels["sandbox_image"])
