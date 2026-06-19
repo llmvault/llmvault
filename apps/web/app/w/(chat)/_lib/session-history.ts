@@ -2,6 +2,7 @@ import type { components } from "@/lib/api/schema"
 import {
   currentCollaborator,
   type ConversationBlock,
+  type MediaAttachment,
 } from "@/app/w/(chat)/_lib/static-data"
 import {
   mergeToolBlocks,
@@ -95,13 +96,15 @@ export function sessionEventsToConversationBlocks(
     if (hiddenEventTypes.has(type)) continue
 
     if (type === "user.message" || type === "user.message.received") {
-      const text = eventText(event)
-      if (text) {
+      const text = stripAttachmentTags(eventText(event))
+      const attachments = eventAttachments(event)
+      if (text || attachments.length) {
         items.push({
           block: {
             type: "user",
             key: eventBlockKey(event, "user"),
             text,
+            ...(attachments.length ? { attachments } : {}),
             author: currentCollaborator,
             clientEventID: event.id ?? event.event_id ?? undefined,
             clientStatus: clientStatus(event),
@@ -328,6 +331,47 @@ function eventText(event: SessionEventResponse): string {
     stringValue(payload, "markdown") ||
     stringValue(payload, "result_summary")
   )
+}
+
+function eventAttachments(event: SessionEventResponse): MediaAttachment[] {
+  const value = payloadRecord(event).attachments
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return []
+    const record = entry as Record<string, unknown>
+    const url =
+      stringRecordValue(record, "asset_url") || stringRecordValue(record, "url")
+    const filename =
+      stringRecordValue(record, "filename") || `Image ${index + 1}`
+    const contentType =
+      stringRecordValue(record, "content_type") ||
+      stringRecordValue(record, "mime_type")
+    if (!url || !contentType.startsWith("image/")) return []
+    const id =
+      stringRecordValue(record, "drive_asset_id") ||
+      stringRecordValue(record, "id") ||
+      `attachment:${event.id ?? event.event_id ?? eventTime(event)}:${index}`
+    return [
+      {
+        id,
+        filename,
+        kind: "image" as const,
+        url,
+      },
+    ]
+  })
+}
+
+function stringRecordValue(
+  record: Record<string, unknown>,
+  key: string
+): string {
+  const value = record[key]
+  return typeof value === "string" ? value : ""
+}
+
+function stripAttachmentTags(text: string): string {
+  return text.replace(/<attachment\b[\s\S]*?<\/attachment>/gi, "").trim()
 }
 
 function eventTurnID(event: SessionEventResponse): string {

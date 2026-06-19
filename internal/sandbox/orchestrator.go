@@ -12,6 +12,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/keyedlock"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -36,6 +37,8 @@ type Orchestrator struct {
 	// fetch so the hot path does not issue a DB UPDATE per request.
 	lastActiveTouchMu sync.Mutex
 	lastActiveTouch   map[uuid.UUID]time.Time
+
+	lifecycle keyedlock.Locker
 }
 
 func NewOrchestrator(db *gorm.DB, provider Provider, encKey *crypto.SymmetricKey, cfg *config.Config) *Orchestrator {

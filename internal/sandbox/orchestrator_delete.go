@@ -14,6 +14,17 @@ func (o *Orchestrator) StopSandbox(ctx context.Context, sb *model.Sandbox) error
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return err
 	}
+
+	unlock := o.lifecycle.Lock(sb.ID.String())
+	defer unlock()
+
+	var fresh model.Sandbox
+	if err := o.db.First(&fresh, "id = ?", sb.ID).Error; err == nil {
+		sb = &fresh
+	}
+	if sb.Status == string(StatusStopped) {
+		return nil
+	}
 	if err := o.provider.StopSandbox(ctx, sb.ExternalID); err != nil {
 		if errors.Is(err, ErrSandboxNotFound) {
 			return o.purgeMissingSandbox(sb)
@@ -45,6 +56,9 @@ func (o *Orchestrator) DeleteSandbox(ctx context.Context, sb *model.Sandbox) err
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return err
 	}
+	unlock := o.lifecycle.Lock(sb.ID.String())
+	defer unlock()
+
 	if err := o.provider.DeleteSandbox(ctx, sb.ExternalID); err != nil && !errors.Is(err, ErrSandboxNotFound) {
 		logging.Capture(ctx, fmt.Errorf("delete sandbox %s from provider: %w", sb.ID, err))
 	}
@@ -57,6 +71,9 @@ func (o *Orchestrator) DeleteSandboxResource(ctx context.Context, sb *model.Sand
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return err
 	}
+	unlock := o.lifecycle.Lock(sb.ID.String())
+	defer unlock()
+
 	if err := o.provider.DeleteSandbox(ctx, sb.ExternalID); err != nil && !errors.Is(err, ErrSandboxNotFound) {
 		logging.Capture(ctx, fmt.Errorf("delete sandbox %s from provider: %w", sb.ID, err))
 		return fmt.Errorf("delete sandbox resource %s: %w", sb.ID, err)

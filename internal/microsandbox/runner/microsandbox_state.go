@@ -238,13 +238,3 @@ func (m *MicrosandboxBackend) setSandboxStatus(sandboxID, status string) {
 	state.Status = status
 	m.sandboxes[sandboxID] = state
 }
-
-func (m *MicrosandboxBackend) sandboxStatus(sandboxID string) (string, bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	state, ok := m.sandboxes[sandboxID]
-	if !ok {
-		return "", false
-	}
-	return state.Status, true
-}

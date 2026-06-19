@@ -64,6 +64,38 @@ func TestResolveModel_GPT4OMiniRoutes(t *testing.T) {
 	}
 }
 
+func TestElevenLabsScribeV2Catalog(t *testing.T) {
+	reg := Global()
+
+	provider, ok := reg.GetProvider("elevenlabs")
+	if !ok {
+		t.Fatal("elevenlabs provider not found")
+	}
+	if provider.API != "https://api.elevenlabs.io" {
+		t.Fatalf("elevenlabs API = %q, want https://api.elevenlabs.io", provider.API)
+	}
+
+	route, ok := reg.ResolveModel("elevenlabs", "scribe-v2")
+	if !ok {
+		t.Fatal("scribe-v2 route not found")
+	}
+	if route.UpstreamID != "scribe_v2" {
+		t.Fatalf("scribe-v2 upstream = %q, want scribe_v2", route.UpstreamID)
+	}
+	if route.Model.Family != "scribe" {
+		t.Fatalf("scribe-v2 family = %q, want scribe", route.Model.Family)
+	}
+	if route.Model.Modalities == nil {
+		t.Fatal("scribe-v2 modalities missing")
+	}
+	if len(route.Model.Modalities.Input) != 1 || route.Model.Modalities.Input[0] != "audio" {
+		t.Fatalf("scribe-v2 input modalities = %v, want [audio]", route.Model.Modalities.Input)
+	}
+	if len(route.Model.Modalities.Output) != 1 || route.Model.Modalities.Output[0] != "text" {
+		t.Fatalf("scribe-v2 output modalities = %v, want [text]", route.Model.Modalities.Output)
+	}
+}
+
 func TestOpenRouterQwen37Catalog(t *testing.T) {
 	reg := Global()
 

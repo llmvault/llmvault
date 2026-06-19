@@ -38,6 +38,21 @@ func TestIntegration_ResolveForModelUsesSystemCredential(t *testing.T) {
 	}
 }
 
+func TestIntegration_ResolveForModelUsesElevenLabsCredential(t *testing.T) {
+	db := connectTestDB(t)
+	orgID := seedBYOKOrg(t, db)
+	elevenlabs := seedSystemCred(t, db, "elevenlabs", false)
+	seedSystemCred(t, db, "openai", false)
+
+	got, err := credentials.ResolveForModel(context.Background(), db, registry.Global(), orgID, "scribe-v2")
+	if err != nil {
+		t.Fatalf("ResolveForModel: %v", err)
+	}
+	if got.ID != elevenlabs.ID {
+		t.Fatalf("resolved %s, want elevenlabs credential %s", got.ID, elevenlabs.ID)
+	}
+}
+
 func TestIntegration_ResolveForModelUsesFirstCreatedCredential(t *testing.T) {
 	db := connectTestDB(t)
 	orgID := seedBYOKOrg(t, db)

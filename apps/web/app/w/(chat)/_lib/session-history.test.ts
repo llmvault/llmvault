@@ -72,6 +72,43 @@ describe("sessionEventsToConversationBlocks", () => {
     expect(blocks).toEqual([])
   })
 
+  it("renders image attachments from user message metadata without XML tags", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event("user.message", {
+        text: `Please use this screenshot
+
+<attachment name="screen.png" url="https://api.test/v1/assets/preview?path=x" mime_type="image/png">
+<description>
+Primary category: Product UI
+</description>
+</attachment>`,
+        attachments: [
+          {
+            drive_asset_id: "asset-1",
+            asset_url: "https://api.test/v1/assets/preview?path=x",
+            filename: "screen.png",
+            content_type: "image/png",
+            rendered_description: "Primary category: Product UI",
+          },
+        ],
+      }),
+    ])
+
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0]).toMatchObject({
+      type: "user",
+      text: "Please use this screenshot",
+      attachments: [
+        {
+          id: "asset-1",
+          filename: "screen.png",
+          kind: "image",
+          url: "https://api.test/v1/assets/preview?path=x",
+        },
+      ],
+    })
+  })
+
   it("treats command-bearing tool results as shell commands", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("tool_result", {

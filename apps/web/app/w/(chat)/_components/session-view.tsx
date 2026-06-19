@@ -48,6 +48,10 @@ import {
   sessionEventsToConversationBlocks,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history"
+import {
+  composeMessageWithAttachments,
+  type ImageAttachmentMetadata,
+} from "@/app/w/(chat)/_lib/image-attachments"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
 
 const HISTORY_TOP_LOAD_THRESHOLD = 160
@@ -60,12 +64,8 @@ export function SessionThreadView({
   session: ChatSession
   sessionId?: string
 }) {
-  const {
-    setModel,
-    sandboxAccess,
-    sandboxAccessError,
-    sandboxAccessPending,
-  } = useWorkspace()
+  const { setModel, sandboxAccess, sandboxAccessError, sandboxAccessPending } =
+    useWorkspace()
   const queryClient = useQueryClient()
   const agent = safeAgentById(session.agentId)
   const [liveEvents, setLiveEvents] = useState<SessionEventResponse[]>([])
@@ -387,7 +387,15 @@ export function SessionThreadView({
     streaming,
   ])
 
-  const send = async (text: string, retryEventID?: string) => {
+  const send = async (
+    text: string,
+    options: {
+      retryEventID?: string
+      attachments?: ImageAttachmentMetadata[]
+    } = {}
+  ) => {
+    const retryEventID = options.retryEventID
+    const attachments = options.attachments ?? []
     if (streaming || interruptSession.isPending) return false
     if (optimisticSession) {
       toast.danger("This chat was not created. Start a new chat to try again.")
@@ -398,9 +406,10 @@ export function SessionThreadView({
       return false
     }
 
+    const outboundText = composeMessageWithAttachments(text, attachments)
     const optimisticMessage = retryEventID
       ? null
-      : optimisticUserEvent(sessionId, text)
+      : optimisticUserEvent(sessionId, text, undefined, attachments)
     const optimisticEventID =
       retryEventID ?? optimisticMessage?.event_id ?? optimisticMessage?.id ?? ""
     const optimisticThinking = optimisticThinkingEvent(sessionId)
@@ -414,7 +423,10 @@ export function SessionThreadView({
     try {
       const response = await sendSessionMessage.mutateAsync({
         params: { path: { id: sessionId } },
-        body: { text },
+        body: {
+          text: outboundText,
+          raw: attachments.length ? { attachments } : undefined,
+        },
       })
       if (response.event) {
         replaceOptimisticEvent(
@@ -455,7 +467,7 @@ export function SessionThreadView({
   }
 
   const retryMessage = (eventID: string, text: string) => {
-    void send(text, eventID)
+    void send(text, { retryEventID: eventID })
   }
 
   const isBusy =
@@ -503,9 +515,10 @@ export function SessionThreadView({
         ) : null}
         <Composer
           agent={agent}
+          agentId={session.agentId}
           modelId={session.modelId}
           onModelChange={setModel}
-          onSend={send}
+          onSend={(text, attachments) => send(text, { attachments })}
           isStreaming={isBusy}
           onStop={stop}
         />

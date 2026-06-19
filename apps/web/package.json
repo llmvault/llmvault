@@ -52,6 +52,7 @@
     "pino": "^10.3.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.72.1",
     "react-markdown": "^10.1.0",
     "react-masonry-css": "^1.0.16",

@@ -32,11 +32,24 @@ func (o *Orchestrator) StartAgentSandbox(ctx context.Context, sb *model.Sandbox)
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return err
 	}
-	if err := o.provider.StartSandbox(ctx, sb.ExternalID); err != nil {
-		return fmt.Errorf("starting agent sandbox %s: %w", sb.ID, err)
+
+	unlock := o.lifecycle.Lock(sb.ID.String())
+	defer unlock()
+
+	var fresh model.Sandbox
+	if err := o.db.First(&fresh, "id = ?", sb.ID).Error; err == nil {
+		sb = &fresh
+	}
+	if sb.Status != string(StatusRunning) {
+		if err := o.provider.StartSandbox(ctx, sb.ExternalID); err != nil {
+			return fmt.Errorf("starting agent sandbox %s: %w", sb.ID, err)
+		}
 	}
 	if err := o.RefreshAgentSandboxURL(ctx, sb); err != nil {
 		return err
+	}
+	if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
+		return fmt.Errorf("waiting for agent runtime: %w", err)
 	}
 	now := time.Now()
 	if err := o.db.Model(sb).Updates(map[string]any{
@@ -51,9 +64,6 @@ func (o *Orchestrator) StartAgentSandbox(ctx context.Context, sb *model.Sandbox)
 	sb.LastActiveAt = &now
 	sb.StoppedAt = nil
 	sb.ErrorMessage = nil
-	if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
-		return fmt.Errorf("waiting for agent runtime: %w", err)
-	}
 	if err := o.pushAgentRuntimeConfig(ctx, sb, "start"); err != nil {
 		return err
 	}
@@ -65,11 +75,17 @@ func (o *Orchestrator) RestartAgentSandbox(ctx context.Context, sb *model.Sandbo
 		return err
 	}
 	if restarter, ok := o.provider.(RestartableProvider); ok {
+		unlock := o.lifecycle.Lock(sb.ID.String())
+		defer unlock()
+
 		if err := restarter.RestartSandbox(ctx, sb.ExternalID); err != nil {
 			return fmt.Errorf("restarting agent sandbox %s: %w", sb.ID, err)
 		}
 		if err := o.RefreshAgentSandboxURL(ctx, sb); err != nil {
 			return err
+		}
+		if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
+			return fmt.Errorf("waiting for agent runtime: %w", err)
 		}
 		now := time.Now()
 		if err := o.db.Model(sb).Updates(map[string]any{
@@ -84,9 +100,6 @@ func (o *Orchestrator) RestartAgentSandbox(ctx context.Context, sb *model.Sandbo
 		sb.LastActiveAt = &now
 		sb.StoppedAt = nil
 		sb.ErrorMessage = nil
-		if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
-			return fmt.Errorf("waiting for agent runtime: %w", err)
-		}
 		if err := o.pushAgentRuntimeConfig(ctx, sb, "restart"); err != nil {
 			return err
 		}

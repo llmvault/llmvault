@@ -208,6 +208,24 @@ var curatedProviders = []Provider{
 		},
 	},
 	// cohere, deepseek removed — not in supported provider set
+	{ // elevenlabs — ElevenLabs
+		ID:   "elevenlabs",
+		Name: "ElevenLabs",
+		API:  "https://api.elevenlabs.io",
+		Doc:  "https://elevenlabs.io/docs/api-reference/speech-to-text/convert",
+		Models: map[string]Model{
+			"scribe_v2": {
+				ID:     "scribe_v2",
+				Name:   "Scribe v2",
+				Family: "scribe",
+				Modalities: &Modalities{
+					Input:  []string{"audio"},
+					Output: []string{"text"},
+				},
+				Description: "Speech-to-text transcription model; direct API pricing is duration-based.",
+			},
+		},
+	},
 	{ // fireworks-ai — Fireworks AI
 		ID:   "fireworks-ai",
 		Name: "Fireworks AI",
