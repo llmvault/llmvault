@@ -25,6 +25,10 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		return nil, fmt.Errorf("CreateAgentSandbox: proxy token is required")
 	}
 	orgID := *agent.OrgID
+	exposedPorts, err := o.loadOrgSandboxExposedPorts(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
 
 	gitIdentity, err := o.loadAgentGitIdentity(ctx, agent)
 	if err != nil {
@@ -75,6 +79,7 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		ProviderID:             o.provider.ID(),
 		EncryptedRuntimeSecret: encryptedSecret,
 		Status:                 "creating",
+		ExposedPorts:           model.SandboxExposedPortsInt64Array(exposedPorts),
 	}
 	if err := o.db.Create(&sb).Error; err != nil {
 		return nil, fmt.Errorf("saving sandbox: %w", err)
@@ -110,13 +115,14 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	}
 
 	info, err := o.provider.CreateSandbox(ctx, CreateSandboxOpts{
-		Name:        buildAgentSandboxName(agent),
-		TemplateRef: snapshotID,
-		EnvVars:     envVars,
-		Labels:      labels,
-		CPU:         resourceSpec.CPU,
-		Memory:      resourceSpec.Memory,
-		Disk:        resourceSpec.Disk,
+		Name:         buildAgentSandboxName(agent),
+		TemplateRef:  snapshotID,
+		EnvVars:      envVars,
+		Labels:       labels,
+		CPU:          resourceSpec.CPU,
+		Memory:       resourceSpec.Memory,
+		Disk:         resourceSpec.Disk,
+		ExposedPorts: exposedPorts,
 	})
 	if err != nil {
 		if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {

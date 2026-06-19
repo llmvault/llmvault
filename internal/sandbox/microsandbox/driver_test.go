@@ -146,6 +146,48 @@ func TestDriverCreateSandboxUsesTemplateIDForMicrosandboxTemplate(t *testing.T) 
 	}
 }
 
+func TestDriverCreateSandboxUsesConfiguredPreviewPortsWithRuntimePort(t *testing.T) {
+	var createReq map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
+			t.Fatalf("decode create request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ID": "sbx_ports", "Status": "running"})
+	}))
+	defer server.Close()
+
+	driver, err := NewDriver(Config{
+		ControlURL:   server.URL,
+		APIToken:     "test-token",
+		RuntimeImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
+	})
+	if err != nil {
+		t.Fatalf("NewDriver: %v", err)
+	}
+	if _, err := driver.CreateSandbox(context.Background(), sandbox.CreateSandboxOpts{
+		Name:         "agent-ports",
+		TemplateRef:  "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
+		Labels:       map[string]string{"org_id": "org_123"},
+		ExposedPorts: []int{5173, 3000, 5173},
+	}); err != nil {
+		t.Fatalf("CreateSandbox: %v", err)
+	}
+	got := jsonNumberArray(t, createReq["preview_ports"])
+	want := []int{5173, 3000, sandbox.AgentSandboxPort}
+	if len(got) != len(want) {
+		t.Fatalf("preview_ports = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("preview_ports = %v, want %v", got, want)
+		}
+	}
+}
+
 func TestDriverLifecycleStatusExecAndTemplate(t *testing.T) {
 	var calls []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -219,4 +261,21 @@ func TestDriverLifecycleStatusExecAndTemplate(t *testing.T) {
 	if logs != "built\n" {
 		t.Fatalf("logs = %q, want built", logs)
 	}
+}
+
+func jsonNumberArray(t *testing.T, value any) []int {
+	t.Helper()
+	raw, ok := value.([]any)
+	if !ok {
+		t.Fatalf("value = %T, want array", value)
+	}
+	out := make([]int, 0, len(raw))
+	for _, item := range raw {
+		number, ok := item.(float64)
+		if !ok {
+			t.Fatalf("array item = %T, want number", item)
+		}
+		out = append(out, int(number))
+	}
+	return out
 }

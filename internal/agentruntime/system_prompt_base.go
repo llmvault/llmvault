@@ -98,12 +98,24 @@ func sandboxPreviewEnvironmentContext(sandbox model.Sandbox) string {
 	if sandboxID == "" {
 		previewPattern = fmt.Sprintf("https://<port>-<sandbox-id>.%s", baseDomain)
 	}
-	return strings.Join([]string{
+	lines := []string{
 		fmt.Sprintf("User-facing previews for this sandbox use %s, replacing <port> with the port your app is listening on.", previewPattern),
 		"Strict requirement: never share localhost, 127.0.0.1, or any other sandbox-local URL with the user; the human cannot reach URLs inside this isolated environment.",
 		"When the user asks to preview, make sure the app or server is running in the background, verify the listening port, then share the public preview URL for that port.",
 		"Whenever browser-visible work is ready to inspect, include the public preview URL in your response.",
-	}, "\n")
+	}
+	if ports, err := model.NormalizeSandboxExposedPorts(model.SandboxExposedPortsFromInt64Array(sandbox.ExposedPorts)); err == nil && len(ports) > 0 {
+		lines = append(lines[:1], append([]string{fmt.Sprintf("Configured user-facing preview ports: %s.", formatPorts(ports))}, lines[1:]...)...)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatPorts(ports []int) string {
+	parts := make([]string, 0, len(ports))
+	for _, port := range ports {
+		parts = append(parts, fmt.Sprintf("%d", port))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func previewBaseDomainFromRuntimeURL(rawURL, sandboxID string) string {

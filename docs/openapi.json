@@ -13617,6 +13617,12 @@
           "rate_limit": {
             "type": "integer"
           },
+          "sandbox_exposed_ports": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
           "website": {
             "type": "string"
           }
@@ -14848,6 +14854,12 @@
           "error_message": {
             "type": "string"
           },
+          "exposed_ports": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
           "external_id": {
             "type": "string"
           },
@@ -14856,6 +14868,12 @@
           },
           "last_active_at": {
             "type": "string"
+          },
+          "preview_urls": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "status": {
             "type": "string"
@@ -15897,6 +15915,12 @@
           },
           "prompt_company": {
             "type": "string"
+          },
+          "sandbox_exposed_ports": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
           },
           "sync": {
             "type": "boolean"

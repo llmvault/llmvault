@@ -257,7 +257,15 @@ function ActiveView({
 }) {
   switch (id) {
     case "review":
-      return <ReviewView />
+      return (
+        <ReviewView
+          sessionId={sessionId}
+          sandboxAccess={sandboxAccess}
+          sandboxAccessPending={sandboxAccessPending}
+          sandboxAccessError={sandboxAccessError}
+          onRefreshSandboxAccess={onRefreshSandboxAccess}
+        />
+      )
     case "terminal":
       return <TerminalView />
     case "browser":

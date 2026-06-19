@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -84,6 +85,75 @@ func TestCreateAgentSandboxUsesConfiguredSandboxSize(t *testing.T) {
 	}
 	if opts.Labels["sandbox_size"] != "xlarge" {
 		t.Fatalf("sandbox_size label = %q, want xlarge", opts.Labels["sandbox_size"])
+	}
+}
+
+func TestCreateAgentSandboxUsesOrgSandboxExposedPorts(t *testing.T) {
+	db := connectSandboxTestDB(t)
+	orgID := uuid.New()
+	org := model.Org{
+		ID:                  orgID,
+		Name:                "Sandbox Ports Test",
+		RateLimit:           1000,
+		Active:              true,
+		SandboxExposedPorts: model.SandboxExposedPortsInt64Array([]int{9000, 3000, 9000}),
+	}
+	if err := db.Create(&org).Error; err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	agent := model.Agent{
+		ID:              uuid.New(),
+		OrgID:           &orgID,
+		Name:            "Preview Agent",
+		SandboxStrategy: "always_on",
+		Model:           "gpt-5.4",
+		Status:          "active",
+		Tools:           model.JSON{},
+		McpServers:      model.RawJSON("[]"),
+		Skills:          model.JSON{},
+		RuntimeConfig:   model.JSON{},
+		Permissions:     model.JSON{},
+		Resources:       model.JSON{},
+	}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Where("agent_id = ?", agent.ID).Delete(&model.Sandbox{})
+		db.Where("id = ?", agent.ID).Delete(&model.Agent{})
+		db.Where("id = ?", org.ID).Delete(&model.Org{})
+	})
+
+	runtime := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/healthz" {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer runtime.Close()
+
+	provider := &agentCreateProvider{endpoint: runtime.URL}
+	orch := NewOrchestrator(db, provider, sandboxTestSymmetricKey(t), &config.Config{
+		SandboxProviderID:         ProviderMicrosandbox,
+		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.3.0-amd64",
+		APIWebhookBaseURL:         "https://api.example",
+		ProxyHost:                 "https://proxy.example",
+	})
+
+	created, err := orch.CreateAgentSandbox(context.Background(), &agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"})
+	if err != nil {
+		t.Fatalf("CreateAgentSandbox: %v", err)
+	}
+	wantPorts := []int{3000, 9000}
+	if len(provider.created) != 1 {
+		t.Fatalf("provider creates = %d, want 1", len(provider.created))
+	}
+	if !slices.Equal(provider.created[0].ExposedPorts, wantPorts) {
+		t.Fatalf("provider exposed ports = %v, want %v", provider.created[0].ExposedPorts, wantPorts)
+	}
+	if !slices.Equal(model.SandboxExposedPortsFromInt64Array(created.ExposedPorts), wantPorts) {
+		t.Fatalf("created sandbox exposed ports = %v, want %v", created.ExposedPorts, wantPorts)
 	}
 }
 

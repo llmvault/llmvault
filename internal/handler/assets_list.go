@@ -13,16 +13,17 @@ import (
 )
 
 type assetListItem struct {
-	ID          string `json:"id"`
-	AgentID     string `json:"agent_id"`
-	Path        string `json:"path"`
-	Filename    string `json:"filename"`
-	Key         string `json:"key"`
-	PublicURL   string `json:"asset_url"`
-	ContentType string `json:"content_type"`
-	Bytes       int64  `json:"bytes"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID          string         `json:"id"`
+	AgentID     string         `json:"agent_id"`
+	Path        string         `json:"path"`
+	Filename    string         `json:"filename"`
+	Key         string         `json:"key"`
+	PublicURL   string         `json:"asset_url"`
+	ContentType string         `json:"content_type"`
+	Bytes       int64          `json:"bytes"`
+	Description *model.RawJSON `json:"description,omitempty"`
+	CreatedAt   string         `json:"created_at"`
+	UpdatedAt   string         `json:"updated_at"`
 }
 
 // ListAssets handles GET /v1/assets.
@@ -228,6 +229,7 @@ func (h *UploadsHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 			PublicURL:   h.publicAssetURL(r.Key, r.PublicURL),
 			ContentType: r.ContentType,
 			Bytes:       r.Bytes,
+			Description: r.Description,
 			CreatedAt:   r.CreatedAt.UTC().Format(time.RFC3339),
 			UpdatedAt:   r.UpdatedAt.UTC().Format(time.RFC3339),
 		}

@@ -60,16 +60,21 @@ func (h *OrgHandler) planFor(slug string) *planDTO {
 }
 
 func (h *OrgHandler) buildOrgResponse(org model.Org) orgResponse {
+	sandboxExposedPorts, err := model.NormalizeSandboxExposedPorts(model.SandboxExposedPortsFromInt64Array(org.SandboxExposedPorts))
+	if err != nil {
+		sandboxExposedPorts = model.DefaultSandboxExposedPorts()
+	}
 	return orgResponse{
-		ID:            org.ID.String(),
-		Name:          org.Name,
-		RateLimit:     org.RateLimit,
-		Active:        org.Active,
-		LogoURL:       org.LogoURL,
-		Website:       org.Website,
-		PromptCompany: org.PromptCompany,
-		Plan:          h.planFor(org.PlanSlug),
-		CreatedAt:     org.CreatedAt.Format(time.RFC3339),
+		ID:                  org.ID.String(),
+		Name:                org.Name,
+		RateLimit:           org.RateLimit,
+		Active:              org.Active,
+		LogoURL:             org.LogoURL,
+		Website:             org.Website,
+		PromptCompany:       org.PromptCompany,
+		SandboxExposedPorts: sandboxExposedPorts,
+		Plan:                h.planFor(org.PlanSlug),
+		CreatedAt:           org.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -78,23 +83,25 @@ type createOrgRequest struct {
 }
 
 type updateOrgRequest struct {
-	Name          *string `json:"name,omitempty"`
-	LogoURL       *string `json:"logo_url,omitempty"`
-	Website       *string `json:"website,omitempty"`
-	PromptCompany *string `json:"prompt_company,omitempty"`
-	Sync          bool    `json:"sync,omitempty"`
+	Name                *string `json:"name,omitempty"`
+	LogoURL             *string `json:"logo_url,omitempty"`
+	Website             *string `json:"website,omitempty"`
+	PromptCompany       *string `json:"prompt_company,omitempty"`
+	SandboxExposedPorts *[]int  `json:"sandbox_exposed_ports,omitempty"`
+	Sync                bool    `json:"sync,omitempty"`
 }
 
 type orgResponse struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	RateLimit     int      `json:"rate_limit"`
-	Active        bool     `json:"active"`
-	LogoURL       string   `json:"logo_url,omitempty"`
-	Website       string   `json:"website,omitempty"`
-	PromptCompany string   `json:"prompt_company,omitempty"`
-	Plan          *planDTO `json:"plan,omitempty"`
-	CreatedAt     string   `json:"created_at"`
+	ID                  string   `json:"id"`
+	Name                string   `json:"name"`
+	RateLimit           int      `json:"rate_limit"`
+	Active              bool     `json:"active"`
+	LogoURL             string   `json:"logo_url,omitempty"`
+	Website             string   `json:"website,omitempty"`
+	PromptCompany       string   `json:"prompt_company,omitempty"`
+	SandboxExposedPorts []int    `json:"sandbox_exposed_ports"`
+	Plan                *planDTO `json:"plan,omitempty"`
+	CreatedAt           string   `json:"created_at"`
 }
 
 // Create handles POST /v1/orgs.
@@ -133,7 +140,8 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		org = model.Org{
-			Name: req.Name,
+			Name:                req.Name,
+			SandboxExposedPorts: model.SandboxExposedPortsInt64Array(model.DefaultSandboxExposedPorts()),
 		}
 		if err := tx.Create(&org).Error; err != nil {
 			return fmt.Errorf("creating org: %w", err)
@@ -213,7 +221,7 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
-	if req.Name == nil && req.LogoURL == nil && req.Website == nil && req.PromptCompany == nil {
+	if req.Name == nil && req.LogoURL == nil && req.Website == nil && req.PromptCompany == nil && req.SandboxExposedPorts == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no fields to update"})
 		return
 	}
@@ -235,6 +243,14 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.PromptCompany != nil {
 		updates["prompt_company"] = strings.TrimSpace(*req.PromptCompany)
+	}
+	if req.SandboxExposedPorts != nil {
+		ports, err := model.NormalizeExplicitSandboxExposedPorts(*req.SandboxExposedPorts)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		updates["sandbox_exposed_ports"] = model.SandboxExposedPortsInt64Array(ports)
 	}
 
 	if err := h.db.Model(&model.Org{}).Where("id = ?", ctxOrg.ID).Updates(updates).Error; err != nil {

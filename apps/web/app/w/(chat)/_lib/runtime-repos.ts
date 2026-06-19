@@ -32,6 +32,25 @@ interface RuntimeTreeResponse {
   entries: RuntimeTreeEntry[]
 }
 
+export interface RuntimeRepoContent {
+  repo_id: string
+  path: string
+  content: string
+  encoding: string
+  truncated: boolean
+  total_lines: number
+  total_bytes: number
+  shown_lines: number
+  offset?: number | null
+  limit?: number | null
+}
+
+export interface RuntimeRepoDiff {
+  repo_id: string
+  path?: string | null
+  diff: string
+}
+
 export type RuntimeGitStatus =
   | "added"
   | "deleted"
@@ -66,6 +85,49 @@ export async function fetchRuntimeRepoTreeDirectory(
 ): Promise<RuntimeRepoTreeSnapshot> {
   const tree = await fetchRuntimeRepoTree(access, repoId, path, signal)
   return treeEntriesToSnapshot(tree.entries)
+}
+
+export async function fetchRuntimeRepoFileContent(
+  access: RuntimeSandboxAccess,
+  repoId: string,
+  path: string,
+  signal?: AbortSignal,
+  options: { offset?: number; limit?: number } = {}
+): Promise<RuntimeRepoContent> {
+  const search = new URLSearchParams()
+  search.set("path", path)
+  if (typeof options.offset === "number") {
+    search.set("offset", String(options.offset))
+  }
+  if (typeof options.limit === "number") {
+    search.set("limit", String(options.limit))
+  }
+  return runtimeJSON<RuntimeRepoContent>(
+    access,
+    `/repos/${encodeURIComponent(repoId)}/content?${search.toString()}`,
+    signal
+  )
+}
+
+export async function fetchRuntimeRepoDiff(
+  access: RuntimeSandboxAccess,
+  repoId: string,
+  signal?: AbortSignal,
+  options: { path?: string; context?: number } = {}
+): Promise<RuntimeRepoDiff> {
+  const search = new URLSearchParams()
+  if (options.path) {
+    search.set("path", options.path)
+  }
+  if (typeof options.context === "number") {
+    search.set("context", String(options.context))
+  }
+  const query = search.toString()
+  return runtimeJSON<RuntimeRepoDiff>(
+    access,
+    `/repos/${encodeURIComponent(repoId)}/diff${query ? `?${query}` : ""}`,
+    signal
+  )
 }
 
 async function fetchRuntimeRepoTree(

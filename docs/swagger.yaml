@@ -1754,6 +1754,10 @@ definitions:
         type: string
       rate_limit:
         type: integer
+      sandbox_exposed_ports:
+        items:
+          type: integer
+        type: array
       website:
         type: string
     type: object
@@ -2558,12 +2562,20 @@ definitions:
         type: string
       error_message:
         type: string
+      exposed_ports:
+        items:
+          type: integer
+        type: array
       external_id:
         type: string
       id:
         type: string
       last_active_at:
         type: string
+      preview_urls:
+        additionalProperties:
+          type: string
+        type: object
       status:
         type: string
     type: object
@@ -3244,6 +3256,10 @@ definitions:
         type: string
       prompt_company:
         type: string
+      sandbox_exposed_ports:
+        items:
+          type: integer
+        type: array
       sync:
         type: boolean
       website:

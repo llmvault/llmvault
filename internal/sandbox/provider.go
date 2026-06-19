@@ -34,13 +34,14 @@ const (
 
 // CreateSandboxOpts configures a new sandbox.
 type CreateSandboxOpts struct {
-	Name        string            // human-readable name
-	TemplateRef string            // provider template/image reference
-	EnvVars     map[string]string // runtime environment variables
-	Labels      map[string]string // metadata labels (org_id, sandbox_id, agent_id)
-	CPU         int               // CPU cores (0 = provider default)
-	Memory      int               // memory in GB (0 = provider default)
-	Disk        int               // disk in GB (0 = provider default)
+	Name         string            // human-readable name
+	TemplateRef  string            // provider template/image reference
+	EnvVars      map[string]string // runtime environment variables
+	Labels       map[string]string // metadata labels (org_id, sandbox_id, agent_id)
+	CPU          int               // CPU cores (0 = provider default)
+	Memory       int               // memory in GB (0 = provider default)
+	Disk         int               // disk in GB (0 = provider default)
+	ExposedPorts []int             // user-facing preview ports to expose
 }
 
 // SandboxInfo is returned after creating a sandbox.
