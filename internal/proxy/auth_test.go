@@ -28,6 +28,17 @@ func TestAttachAuth_XAPIKey(t *testing.T) {
 	}
 }
 
+func TestAttachAuth_XIAPIKey(t *testing.T) {
+	req := &http.Request{Header: make(http.Header)}
+	AttachAuth(req, "xi-api-key", []byte("elevenlabs-key"))
+
+	got := req.Header.Get("xi-api-key")
+	want := "elevenlabs-key"
+	if got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
 func TestAttachAuth_APIKey(t *testing.T) {
 	req := &http.Request{Header: make(http.Header)}
 	AttachAuth(req, "api-key", []byte("azure-key-123"))

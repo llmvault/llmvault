@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/goroutine"
+	"github.com/usehivy/hivy/internal/keyedlock"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
@@ -18,10 +19,11 @@ import (
 )
 
 type Server struct {
-	db           *gorm.DB
-	cfg          config.Config
-	client       *RunnerClient
-	previewCache *PreviewCacheClient
+	db             *gorm.DB
+	cfg            config.Config
+	client         *RunnerClient
+	previewCache   *PreviewCacheClient
+	lifecycleLocks keyedlock.Locker
 }
 
 func NewServer(ctx context.Context, db *gorm.DB, cfg config.Config) *Server {

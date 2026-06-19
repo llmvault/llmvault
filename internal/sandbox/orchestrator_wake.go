@@ -13,8 +13,19 @@ func (o *Orchestrator) WakeSandbox(ctx context.Context, sb *model.Sandbox) (*mod
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return nil, err
 	}
-	if err := o.provider.StartSandbox(ctx, sb.ExternalID); err != nil {
-		return nil, fmt.Errorf("starting sandbox %s: %w", sb.ID, err)
+
+	unlock := o.lifecycle.Lock(sb.ID.String())
+	defer unlock()
+
+	var fresh model.Sandbox
+	if err := o.db.First(&fresh, "id = ?", sb.ID).Error; err == nil {
+		sb = &fresh
+	}
+
+	if sb.Status != string(StatusRunning) {
+		if err := o.provider.StartSandbox(ctx, sb.ExternalID); err != nil {
+			return nil, fmt.Errorf("starting sandbox %s: %w", sb.ID, err)
+		}
 	}
 
 	if err := o.RefreshAgentSandboxURL(ctx, sb); err != nil {

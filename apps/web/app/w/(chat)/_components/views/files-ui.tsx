@@ -8,6 +8,11 @@ import { Icon } from "@iconify/react"
 
 type TreeCSSProperties = CSSProperties & Record<`--${string}`, string | number>
 
+const TREE_ICONS = {
+  colored: true,
+  set: "complete",
+} as const
+
 const TREE_THEME_STYLE: TreeCSSProperties = {
   height: "100%",
   minHeight: 0,
@@ -84,6 +89,7 @@ export function RuntimeFileTree({
     density: "compact",
     flattenEmptyDirectories: true,
     gitStatus,
+    icons: TREE_ICONS,
     initialExpansion: "closed",
     initialSelectedPaths: selectedPath ? [selectedPath] : [],
     paths,

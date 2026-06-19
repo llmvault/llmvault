@@ -137,7 +137,7 @@ function Block({
                 onOpen={onOpenAttachment}
               />
             ) : null}
-            <span>{block.text}</span>
+            {block.text ? <span>{block.text}</span> : null}
             {block.link ? (
               <a
                 href={block.link}

@@ -134,8 +134,24 @@ type reasoningSpec struct {
 }
 
 type LLMMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string    `json:"role"`
+	Content string    `json:"content"`
+	Parts   []LLMPart `json:"-"`
+}
+
+type LLMPart struct {
+	Kind        string
+	Text        string
+	ContentType string
+}
+
+const (
+	LLMPartText  = "text"
+	LLMPartMedia = "media"
+)
+
+func JSONResponseSpec() *responseSpec {
+	return &responseSpec{Type: "json_object"}
 }
 
 type responseSpec struct {

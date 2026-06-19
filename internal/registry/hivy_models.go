@@ -99,6 +99,12 @@ var supportedHivyModels = []HivyModel{
 		},
 	},
 	{
+		ID: "scribe-v2",
+		Routes: []ModelRoute{
+			{ProviderID: "elevenlabs", ModelID: "scribe_v2"},
+		},
+	},
+	{
 		ID: "gpt-5.3-codex",
 		Routes: []ModelRoute{
 			{ProviderID: "openai", ModelID: "gpt-5.3-codex"},

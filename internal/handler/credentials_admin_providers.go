@@ -43,7 +43,7 @@ func defaultCredentialAuthScheme(providerID string) string {
 
 func validCredentialAuthScheme(scheme string) bool {
 	switch scheme {
-	case "bearer", "x-api-key", "api-key", "query_param":
+	case "bearer", "x-api-key", "xi-api-key", "api-key", "query_param":
 		return true
 	default:
 		return false

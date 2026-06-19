@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
 
+	"github.com/usehivy/hivy/internal/keyedlock"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 )
 
@@ -17,6 +17,7 @@ type MicrosandboxBackend struct {
 	sandboxes     map[string]sandboxState
 	allocator     *portAllocator
 	imageRegistry string
+	lifecycle     keyedlock.Locker
 }
 
 type sandboxState struct {
@@ -72,6 +73,12 @@ func (m *MicrosandboxBackend) Reconcile(ctx context.Context) (*ReconcileReport, 
 			report.Skipped++
 			continue
 		}
+		if state.Status != "running" {
+			actual := m.actualState(ctx, state.ID)
+			if actual.healthyRunning() {
+				state.Status = "running"
+			}
+		}
 		recoveredSandboxes[state.ID] = state
 		if len(state.Ports) > 0 {
 			recoveredPorts[state.ID] = cloneIntMap(state.Ports)
@@ -112,6 +119,9 @@ func (m *MicrosandboxBackend) Status(ctx context.Context) (map[string]any, error
 }
 
 func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*CreateSandboxResponse, error) {
+	unlock := m.lifecycle.Lock(req.ID)
+	defer unlock()
+
 	previewPorts := uniquePorts(req.PreviewPorts)
 	hostPorts, err := m.allocator.reserve(len(previewPorts))
 	if err != nil {
@@ -204,7 +214,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		return nil, err
 	}
 	if err := m.ensureDockerDaemon(ctx, req.ID); err != nil {
-		_ = m.DeleteSandbox(context.WithoutCancel(ctx), req.ID)
+		_ = m.deleteSandboxLocked(context.WithoutCancel(ctx), req.ID)
 		return nil, err
 	}
 	m.mu.Lock()
@@ -225,51 +235,19 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 }
 
 func (m *MicrosandboxBackend) StartSandbox(ctx context.Context, sandboxID string) error {
-	if status, ok := m.sandboxStatus(sandboxID); ok && status == "running" {
-		return nil
-	}
-	sb, err := microsandbox.StartSandboxDetached(ctx, sandboxID)
-	if err != nil {
-		return err
-	}
-	if err := sb.Detach(ctx); err != nil {
-		return err
-	}
-	if err := m.ensureDockerDaemon(ctx, sandboxID); err != nil {
-		return err
-	}
-	m.setSandboxStatus(sandboxID, "running")
-	return nil
+	unlock := m.lifecycle.Lock(sandboxID)
+	defer unlock()
+	return m.startSandboxLocked(ctx, sandboxID)
 }
 
 func (m *MicrosandboxBackend) StopSandbox(ctx context.Context, sandboxID string) error {
-	if status, ok := m.sandboxStatus(sandboxID); ok && status == "stopped" {
-		return nil
-	}
-	handle, err := microsandbox.GetSandbox(ctx, sandboxID)
-	if err != nil {
-		return err
-	}
-	if err := handle.Stop(ctx, microsandbox.WithStopTimeout(time.Second)); err != nil {
-		return err
-	}
-	m.setSandboxStatus(sandboxID, "stopped")
-	return nil
+	unlock := m.lifecycle.Lock(sandboxID)
+	defer unlock()
+	return m.stopSandboxLocked(ctx, sandboxID)
 }
 
 func (m *MicrosandboxBackend) DeleteSandbox(ctx context.Context, sandboxID string) error {
-	handle, err := microsandbox.GetSandbox(ctx, sandboxID)
-	if err == nil {
-		_ = handle.Stop(ctx)
-		_ = handle.Remove(ctx)
-	}
-	_ = microsandbox.RemoveVolume(ctx, workspaceVolumeName(sandboxID))
-	_ = microsandbox.RemoveVolume(ctx, dockerDataVolumeName(sandboxID))
-	m.mu.Lock()
-	released := mapValues(m.ports[sandboxID])
-	delete(m.ports, sandboxID)
-	delete(m.sandboxes, sandboxID)
-	m.mu.Unlock()
-	m.allocator.release(released)
-	return nil
+	unlock := m.lifecycle.Lock(sandboxID)
+	defer unlock()
+	return m.deleteSandboxLocked(ctx, sandboxID)
 }

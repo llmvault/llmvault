@@ -2,11 +2,13 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/bootstrap"
+	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
@@ -23,7 +25,7 @@ func buildSystemTaskHandler(db *gorm.DB, deps *bootstrap.Deps, redisClient *redi
 	httpClient := &http.Client{
 		Transport: &proxy.CaptureTransport{Inner: proxy.NewTransport()},
 	}
-	fwd := system.NewForwarder(httpClient)
+	gateway := system.NewGenkitGateway(httpClient)
 	cache := system.NewRedisCache(redisClient)
 	return handler.NewSystemTaskHandler(
 		db,
@@ -31,8 +33,23 @@ func buildSystemTaskHandler(db *gorm.DB, deps *bootstrap.Deps, redisClient *redi
 		deps.KMS,
 		registry.Global(),
 		cache,
-		fwd,
+		gateway,
 		deps.Credits,
 		catalog.Global(),
+	)
+}
+
+func buildImageDescribeHandler(db *gorm.DB, cfg *config.Config, deps *bootstrap.Deps) *handler.ImageDescribeHandler {
+	httpClient := &http.Client{
+		Transport: &proxy.CaptureTransport{Inner: proxy.NewTransport()},
+		Timeout:   15 * time.Second,
+	}
+	gateway := system.NewGenkitGateway(httpClient)
+	return handler.NewImageDescribeHandler(
+		db,
+		deps.KMS,
+		registry.Global(),
+		gateway,
+		cfg.APIWebhookBaseURL,
 	)
 }

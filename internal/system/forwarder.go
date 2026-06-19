@@ -19,9 +19,10 @@ import (
 // All fields are required; the forwarder doesn't reach into a wider
 // dependency graph — the handler resolves credential + model upfront.
 type ForwardCall struct {
+	ProviderID string
 	BaseURL    string // e.g. "https://api.openai.com/v1"
 	APIKey     string // bare key (already decrypted by caller)
-	AuthScheme string // "bearer" / "x-api-key" / "api-key"
+	AuthScheme string // "bearer" / "x-api-key" / "xi-api-key" / "api-key"
 	Request    *LLMRequest
 	Stream     bool
 }
@@ -221,6 +222,8 @@ func attachAuth(req *http.Request, scheme, apiKey string) {
 	switch scheme {
 	case "x-api-key":
 		req.Header.Set("x-api-key", apiKey)
+	case "xi-api-key":
+		req.Header.Set("xi-api-key", apiKey)
 	case "api-key":
 		req.Header.Set("api-key", apiKey)
 	default: // bearer is the default

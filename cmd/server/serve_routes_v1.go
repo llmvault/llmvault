@@ -43,6 +43,7 @@ func setupV1Routes(
 	ragSourceHandler *handler.RAGSourceHandler,
 	ragSearchHandler *handler.RAGSearchHandler,
 	uploadsHandler *handler.UploadsHandler,
+	imageDescribeHandler *handler.ImageDescribeHandler,
 	systemTaskHandler *handler.SystemTaskHandler,
 	agentHandler *handler.AgentHandler,
 	orchestrator *sandbox.Orchestrator,
@@ -268,6 +269,13 @@ func setupV1Routes(
 					r.Post("/upload", uploadsHandler.Upload)
 				})
 				r.Get("/assets", uploadsHandler.ListAssets)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.ResolveUser(database))
+					r.Post("/assets/upload", uploadsHandler.UploadAgentAsset)
+				})
+			}
+			if imageDescribeHandler != nil {
+				r.Post("/images/describe", imageDescribeHandler.Describe)
 			}
 		})
 	})

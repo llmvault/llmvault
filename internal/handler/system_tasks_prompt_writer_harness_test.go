@@ -108,10 +108,10 @@ func newPromptWriterHarness(t *testing.T, upstreamFn fakeUpstream) *promptWriter
 	}
 
 	cache := system.NewMemCache()
-	fwd := system.NewForwarder(&http.Client{Timeout: 5 * time.Second})
+	gateway := system.NewGenkitGateway(&http.Client{Timeout: 5 * time.Second})
 	h := handler.NewSystemTaskHandler(
 		db, credentials.NewPicker(db), kms,
-		registry.Global(), cache, fwd, billing.NewCreditsService(db),
+		registry.Global(), cache, gateway, billing.NewCreditsService(db),
 		catalog.Global(),
 	)
 

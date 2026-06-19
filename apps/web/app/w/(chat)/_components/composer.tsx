@@ -1,9 +1,27 @@
 "use client"
 
-import { useRef, useState, type ComponentType } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { useDropzone } from "react-dropzone"
+import { cn } from "@/lib/utils"
+import {
+  useOrgDriveFileUploads,
+  type OrgDriveUploadItem,
+} from "@/hooks/use-org-drive-file-uploads"
 import { modelById, type Agent } from "@/app/w/(chat)/_lib/agents"
+import {
+  attachmentMetadataFromDescription,
+  describeDriveImage,
+  type ImageAttachmentMetadata,
+} from "@/app/w/(chat)/_lib/image-attachments"
 
 const ACCESS_MODES = [
   {
@@ -38,6 +56,20 @@ type DisplayModel = {
   Icon?: ComponentType<{ className?: string }>
 }
 
+type AttachmentStatus = "uploading" | "describing" | "ready" | "error"
+
+type AttachmentDescriptionState =
+  | { status: "describing" }
+  | { status: "ready"; metadata: ImageAttachmentMetadata }
+  | { status: "error"; error: string }
+
+type ComposerImageAttachment = {
+  upload: OrgDriveUploadItem
+  status: AttachmentStatus
+  error?: string
+  metadata?: ImageAttachmentMetadata
+}
+
 function displayModel(id: string): DisplayModel {
   try {
     return modelById(id)
@@ -66,6 +98,7 @@ function ModelIcon({
 
 export function Composer({
   agent,
+  agentId,
   modelId,
   onModelChange,
   onSend,
@@ -74,9 +107,13 @@ export function Composer({
   onStop,
 }: {
   agent: Agent
+  agentId: string
   modelId: string
   onModelChange: (modelId: string) => void
-  onSend: (text: string) => boolean | void | Promise<boolean | void>
+  onSend: (
+    text: string,
+    attachments: ImageAttachmentMetadata[]
+  ) => boolean | void | Promise<boolean | void>
   placeholder?: string
   isStreaming?: boolean
   onStop?: () => void
@@ -87,10 +124,164 @@ export function Composer({
   const [accessOpen, setAccessOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [recording, setRecording] = useState(false)
+  const [attachmentDescriptions, setAttachmentDescriptions] = useState<
+    Record<string, AttachmentDescriptionState>
+  >({})
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const describedUploadsRef = useRef<Set<string>>(new Set())
+  const { uploads, addFiles, retryUpload, removeUpload, clearUploads } =
+    useOrgDriveFileUploads({ agentId })
 
   const selectedModel = displayModel(modelId)
-  const canSend = value.trim().length > 0
+  const attachments = useMemo(
+    () =>
+      uploads.map((upload): ComposerImageAttachment => {
+        if (upload.status === "uploading") {
+          return { upload, status: "uploading" }
+        }
+        if (upload.status === "error") {
+          return {
+            upload,
+            status: "error",
+            error: upload.error || "Image upload failed",
+          }
+        }
+        if (!upload.asset?.content_type.startsWith("image/")) {
+          return {
+            upload,
+            status: "error",
+            error: "Uploaded file is not an image",
+          }
+        }
+
+        const description = attachmentDescriptions[upload.id]
+        if (description?.status === "ready") {
+          return {
+            upload,
+            status: "ready",
+            metadata: description.metadata,
+          }
+        }
+        if (description?.status === "error") {
+          return {
+            upload,
+            status: "error",
+            error: description.error,
+          }
+        }
+        return { upload, status: "describing" }
+      }),
+    [attachmentDescriptions, uploads]
+  )
+  const hasPendingAttachment = attachments.some(
+    (attachment) =>
+      attachment.status === "uploading" || attachment.status === "describing"
+  )
+  const hasFailedAttachment = attachments.some(
+    (attachment) => attachment.status === "error"
+  )
+  const readyAttachments = attachments
+    .map((attachment) => attachment.metadata)
+    .filter((attachment): attachment is ImageAttachmentMetadata =>
+      Boolean(attachment)
+    )
+  const canSend =
+    !hasPendingAttachment &&
+    !hasFailedAttachment &&
+    (value.trim().length > 0 || readyAttachments.length > 0)
+
+  const describeUpload = useCallback(async (upload: OrgDriveUploadItem) => {
+    if (!upload.asset) return
+    setAttachmentDescriptions((current) => ({
+      ...current,
+      [upload.id]: { status: "describing" },
+    }))
+    try {
+      const description = await describeDriveImage(upload.asset.id)
+      const metadata = attachmentMetadataFromDescription(
+        upload.asset,
+        description
+      )
+      setAttachmentDescriptions((current) => ({
+        ...current,
+        [upload.id]: { status: "ready", metadata },
+      }))
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Image processing failed"
+      setAttachmentDescriptions((current) => ({
+        ...current,
+        [upload.id]: { status: "error", error: message },
+      }))
+    }
+  }, [])
+
+  useEffect(() => {
+    for (const upload of uploads) {
+      if (upload.status !== "uploaded" || !upload.asset) continue
+      if (describedUploadsRef.current.has(upload.id)) continue
+      describedUploadsRef.current.add(upload.id)
+      if (!upload.asset.content_type.startsWith("image/")) {
+        setAttachmentDescriptions((current) => ({
+          ...current,
+          [upload.id]: {
+            status: "error",
+            error: "Uploaded file is not an image",
+          },
+        }))
+        continue
+      }
+      void describeUpload(upload)
+    }
+  }, [describeUpload, uploads])
+
+  const retryAttachment = (attachment: ComposerImageAttachment) => {
+    const id = attachment.upload.id
+    setAttachmentDescriptions((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+    describedUploadsRef.current.delete(id)
+    if (attachment.upload.status === "error" || !attachment.upload.asset) {
+      retryUpload(id)
+      return
+    }
+    describedUploadsRef.current.add(id)
+    void describeUpload(attachment.upload)
+  }
+
+  const removeAttachment = (id: string) => {
+    removeUpload(id)
+    describedUploadsRef.current.delete(id)
+    setAttachmentDescriptions((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+  }
+
+  const resetAttachments = () => {
+    clearUploads()
+    describedUploadsRef.current.clear()
+    setAttachmentDescriptions({})
+  }
+
+  const onDropAccepted = useCallback(
+    (files: File[]) => {
+      addFiles(files)
+    },
+    [addFiles]
+  )
+
+  const { getRootProps, getInputProps, open, isDragActive, isDragReject } =
+    useDropzone({
+      accept: { "image/*": [] },
+      multiple: true,
+      noClick: true,
+      noKeyboard: true,
+      onDropAccepted,
+    })
 
   const submit = async () => {
     if (!canSend || isStreaming) {
@@ -98,16 +289,18 @@ export function Composer({
     }
 
     const text = value.trim()
+    const sendingAttachments = readyAttachments
     setValue("")
-    const node = textareaRef.current
-    if (node) {
-      node.style.height = "auto"
-    }
-
     try {
-      const sent = await onSend(text)
+      const sent = await onSend(text, sendingAttachments)
       if (sent === false) {
         setValue((current) => (current === "" ? text : current))
+        return
+      }
+      resetAttachments()
+      const node = textareaRef.current
+      if (node) {
+        node.style.height = "auto"
       }
     } catch {
       setValue((current) => (current === "" ? text : current))
@@ -116,7 +309,25 @@ export function Composer({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-      <div className="bg-surface flex flex-col gap-2 rounded-3xl border border-border px-3 pt-3 pb-2 shadow-sm">
+      <div
+        {...getRootProps({
+          className: cn(
+            "bg-surface flex flex-col gap-2 rounded-3xl border px-3 pt-3 pb-2 shadow-sm transition-colors",
+            isDragActive && !isDragReject
+              ? "border-primary bg-primary/5"
+              : "border-border",
+            isDragReject && "border-danger bg-danger/5"
+          ),
+        })}
+      >
+        <input {...getInputProps({ "aria-label": "Attach images" })} />
+        {attachments.length ? (
+          <AttachmentPreviewTray
+            attachments={attachments}
+            onRetry={retryAttachment}
+            onRemove={removeAttachment}
+          />
+        ) : null}
         <textarea
           ref={textareaRef}
           rows={1}
@@ -137,7 +348,13 @@ export function Composer({
         />
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" isIconOnly aria-label="Attach">
+          <Button
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            aria-label="Attach image"
+            onPress={open}
+          >
             <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
           </Button>
 
@@ -277,7 +494,7 @@ export function Composer({
               size="sm"
               isIconOnly
               aria-label="Send"
-              isDisabled={!canSend}
+              isDisabled={!canSend || isStreaming}
               onPress={() => void submit()}
               className="rounded-full"
             >
@@ -288,4 +505,119 @@ export function Composer({
       </div>
     </div>
   )
+}
+
+function AttachmentPreviewTray({
+  attachments,
+  onRetry,
+  onRemove,
+}: {
+  attachments: ComposerImageAttachment[]
+  onRetry: (attachment: ComposerImageAttachment) => void
+  onRemove: (id: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 px-1 pt-0.5">
+      {attachments.map((attachment) => (
+        <AttachmentPreviewTile
+          key={attachment.upload.id}
+          attachment={attachment}
+          onRetry={() => onRetry(attachment)}
+          onRemove={() => onRemove(attachment.upload.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function AttachmentPreviewTile({
+  attachment,
+  onRetry,
+  onRemove,
+}: {
+  attachment: ComposerImageAttachment
+  onRetry: () => void
+  onRemove: () => void
+}) {
+  const fileName =
+    attachment.metadata?.filename ||
+    attachment.upload.asset?.filename ||
+    attachment.upload.file.name ||
+    "Image"
+  const label =
+    attachment.status === "uploading"
+      ? "Uploading"
+      : attachment.status === "describing"
+        ? "Analyzing"
+        : attachment.status === "error"
+          ? attachment.error || "Image failed"
+          : attachment.metadata?.category
+            ? humanAttachmentCategory(attachment.metadata.category)
+            : "Ready"
+  const pending =
+    attachment.status === "uploading" || attachment.status === "describing"
+  const error = attachment.status === "error"
+
+  return (
+    <div
+      className={cn(
+        "group bg-default/50 relative h-[72px] w-[72px] shrink-0 rounded-lg border shadow-sm sm:h-24 sm:w-24",
+        error ? "border-danger/70" : "border-border"
+      )}
+      title={`${fileName}: ${label}`}
+    >
+      <img
+        src={attachment.upload.previewUrl}
+        alt={fileName}
+        className={cn(
+          "h-full w-full rounded-[7px] object-cover",
+          pending && "opacity-60",
+          error && "opacity-75"
+        )}
+      />
+      {pending ? (
+        <div className="absolute inset-0 flex items-center justify-center rounded-[7px] bg-background/50">
+          <Icon
+            icon="lucide:loader-2"
+            className="h-4 w-4 animate-spin text-muted"
+          />
+        </div>
+      ) : null}
+      {attachment.status === "ready" ? (
+        <span className="absolute bottom-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 text-muted shadow-sm">
+          <Icon icon="lucide:check" className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+      {error ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          aria-label={`Retry ${fileName}`}
+          onPress={onRetry}
+          className="!bg-danger !text-danger-foreground !absolute bottom-1.5 left-1.5 z-10 !h-7 !w-7 !min-w-7 !rounded-full !p-0 shadow-sm"
+        >
+          <Icon icon="lucide:rotate-ccw" className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+      <Button
+        variant="ghost"
+        size="sm"
+        isIconOnly
+        aria-label={`Remove ${fileName}`}
+        onPress={onRemove}
+        className="!absolute -top-2 -right-2 z-20 !h-7 !w-7 !min-w-7 !rounded-full !bg-foreground !p-0 !text-background shadow-sm hover:!bg-foreground/90"
+      >
+        <Icon icon="lucide:x" className="h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
+
+function humanAttachmentCategory(category: string) {
+  return category
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ")
 }

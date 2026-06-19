@@ -196,8 +196,16 @@ func (s *Server) stopSandbox(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextStatus string) {
+	sandboxID := chi.URLParam(r, "sandboxID")
+	unlock := s.lifecycleLocks.Lock(sandboxID)
+	defer unlock()
+
 	sb, runner, ok := s.loadSandboxRunner(w, r)
 	if !ok {
+		return
+	}
+	if sb.Status == nextStatus {
+		httpx.JSON(w, http.StatusOK, map[string]string{"status": nextStatus})
 		return
 	}
 	if err := s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes/"+sb.ID+"/"+action, nil, nil); err != nil {
@@ -210,7 +218,10 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 	} else if nextStatus == model.SandboxStatusRunning {
 		updates["stopped_at"] = nil
 	}
-	s.db.Model(&sb).Updates(updates)
+	if err := s.db.Model(&sb).Updates(updates).Error; err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to update sandbox status"})
+		return
+	}
 	sb.Status = nextStatus
 	var ports []model.SandboxPort
 	if err := s.db.Order("guest_port asc").Find(&ports, "sandbox_id = ?", sb.ID).Error; err == nil {
@@ -220,6 +231,10 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 }
 
 func (s *Server) deleteSandbox(w http.ResponseWriter, r *http.Request) {
+	sandboxID := chi.URLParam(r, "sandboxID")
+	unlock := s.lifecycleLocks.Lock(sandboxID)
+	defer unlock()
+
 	sb, runner, ok := s.loadSandboxRunner(w, r)
 	if !ok {
 		return

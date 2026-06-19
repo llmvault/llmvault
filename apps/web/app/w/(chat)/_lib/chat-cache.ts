@@ -1,6 +1,7 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query"
 import { createStore, clear } from "idb-keyval"
 import type { components } from "@/lib/api/schema"
+import type { ImageAttachmentMetadata } from "@/app/w/(chat)/_lib/image-attachments"
 
 export const CHAT_QUERY_STALE_TIME_MS = 5 * 60 * 1000
 export const SESSION_HISTORY_PAGE_LIMIT = 100
@@ -273,7 +274,8 @@ export function replaceOptimisticEvent(
 export function optimisticUserEvent(
   sessionID: string,
   text: string,
-  eventID = `optimistic_msg_${crypto.randomUUID()}`
+  eventID = `optimistic_msg_${crypto.randomUUID()}`,
+  attachments: ImageAttachmentMetadata[] = []
 ): SessionEventResponse {
   const now = new Date().toISOString()
   return {
@@ -285,6 +287,7 @@ export function optimisticUserEvent(
     source: "web",
     payload: {
       text,
+      ...(attachments.length ? { attachments } : {}),
       client_status: "pending",
     },
   }

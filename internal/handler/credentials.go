@@ -34,6 +34,7 @@ func NewCredentialHandler(db *gorm.DB, kms *crypto.KeyWrapper, cm *cache.Manager
 // Providers not listed default to "bearer".
 var providerAuthSchemes = map[string]string{
 	"anthropic":      "x-api-key",
+	"elevenlabs":     "xi-api-key",
 	"google":         "query_param",
 	"azure":          "api-key",
 	"amazon-bedrock": "bearer",
@@ -115,15 +116,10 @@ func (h *CredentialHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.AuthScheme == "" {
-		if scheme, ok := providerAuthSchemes[req.ProviderID]; ok {
-			req.AuthScheme = scheme
-		} else {
-			req.AuthScheme = "bearer"
-		}
+		req.AuthScheme = defaultCredentialAuthScheme(req.ProviderID)
 	}
 
-	validSchemes := map[string]bool{"bearer": true, "x-api-key": true, "api-key": true, "query_param": true}
-	if !validSchemes[req.AuthScheme] {
+	if !validCredentialAuthScheme(req.AuthScheme) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid auth_scheme"})
 		return
 	}

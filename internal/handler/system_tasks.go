@@ -32,7 +32,7 @@ type SystemTaskHandler struct {
 	kms            *crypto.KeyWrapper
 	registry       *registry.Registry
 	cache          system.Cache
-	forwarder      *system.Forwarder
+	gateway        system.Gateway
 	credits        CreditsSpender
 	actionsCatalog *catalog.Catalog
 }
@@ -45,7 +45,7 @@ func NewSystemTaskHandler(
 	kms *crypto.KeyWrapper,
 	reg *registry.Registry,
 	cache system.Cache,
-	forwarder *system.Forwarder,
+	gateway system.Gateway,
 	credits CreditsSpender,
 	actionsCatalog *catalog.Catalog,
 ) *SystemTaskHandler {
@@ -55,7 +55,7 @@ func NewSystemTaskHandler(
 		kms:            kms,
 		registry:       reg,
 		cache:          cache,
-		forwarder:      forwarder,
+		gateway:        gateway,
 		credits:        credits,
 		actionsCatalog: actionsCatalog,
 	}
@@ -260,6 +260,7 @@ func (h *SystemTaskHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	call := system.ForwardCall{
+		ProviderID: cred.ProviderID,
 		BaseURL:    cred.BaseURL,
 		APIKey:     string(apiKey),
 		AuthScheme: cred.AuthScheme,
@@ -268,7 +269,7 @@ func (h *SystemTaskHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if stream {
-		res, err := h.forwarder.ForwardStream(r.Context(), call, w)
+		res, err := h.gateway.Stream(r.Context(), call, w)
 		if err != nil {
 			h.logForwardError(logger, err, true)
 			h.handleForwardError(w, err, true)
@@ -278,7 +279,7 @@ func (h *SystemTaskHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.forwarder.ForwardJSON(r.Context(), call)
+	res, err := h.gateway.Complete(r.Context(), call)
 	if err != nil {
 		h.logForwardError(logger, err, false)
 		h.handleForwardError(w, err, false)
