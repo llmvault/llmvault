@@ -53,3 +53,20 @@ func TestAgentAllowsModelUsesCatalogAvailableModels(t *testing.T) {
 		t.Fatal("unexpectedly allowed model outside catalog")
 	}
 }
+
+func TestAgentAllowsModelMergesCatalogAndInstalledAvailableModels(t *testing.T) {
+	agent := &model.Agent{
+		Model:           "deepseek-v4-flash",
+		AvailableModels: []string{"deepseek-v4-flash"},
+		AgentCatalog: &model.AgentCatalog{
+			Model:           "deepseek-v4-pro",
+			AvailableModels: []string{"deepseek-v4-pro", "qwen3.7-plus"},
+		},
+	}
+	if !agentAllowsModel(agent, "deepseek-v4-flash") {
+		t.Fatal("expected installed available model to be allowed")
+	}
+	if !agentAllowsModel(agent, "qwen3.7-plus") {
+		t.Fatal("expected catalog available model to be allowed")
+	}
+}
