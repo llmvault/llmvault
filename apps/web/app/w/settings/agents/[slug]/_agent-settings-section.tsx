@@ -3,7 +3,12 @@
 import Image from "next/image"
 import { ListBox, Select, Spinner } from "@heroui/react"
 import { modelLogoURL } from "@/lib/model-logos"
-import { AGENT_SANDBOX_SIZE_OPTIONS, type AgentSandboxSize } from "../_lib"
+import {
+  AGENT_SANDBOX_IMAGE_OPTIONS,
+  AGENT_SANDBOX_SIZE_OPTIONS,
+  type AgentSandboxImage,
+  type AgentSandboxSize,
+} from "../_lib"
 
 export function AgentSettingsSection({
   availableModels,
@@ -19,9 +24,7 @@ export function AgentSettingsSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold text-foreground">
-          Default model
-        </h2>
+        <h2 className="text-sm font-semibold text-foreground">Default model</h2>
         <p className="text-sm leading-5 text-muted-foreground">
           Select from this agent&apos;s catalog models.
         </p>
@@ -65,6 +68,77 @@ export function AgentSettingsSection({
   )
 }
 
+export function SandboxImageSection({
+  selectedSandboxImage,
+  isBusy,
+  onSandboxImageChange,
+}: {
+  selectedSandboxImage: AgentSandboxImage
+  isBusy: boolean
+  onSandboxImageChange: (image: AgentSandboxImage) => void
+}) {
+  const selectedSandboxOption =
+    AGENT_SANDBOX_IMAGE_OPTIONS.find(
+      (option) => option.key === selectedSandboxImage
+    ) ?? AGENT_SANDBOX_IMAGE_OPTIONS[0]
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-sm font-semibold text-foreground">
+          Image template
+        </h2>
+        <p className="text-sm leading-5 text-muted-foreground">
+          Choose the base image used when this agent&apos;s sandbox is created.
+        </p>
+      </div>
+      <Select
+        aria-label="Image template"
+        selectedKey={selectedSandboxImage}
+        onSelectionChange={(key) => {
+          if (key !== null) {
+            onSandboxImageChange(String(key) as AgentSandboxImage)
+          }
+        }}
+        isDisabled={isBusy}
+        className="w-full"
+      >
+        <Select.Trigger className="h-9 w-full justify-between rounded-md px-3 text-sm transition-colors">
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="shrink-0">{selectedSandboxOption.label}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {selectedSandboxOption.description}
+            </span>
+          </span>
+          {isBusy ? (
+            <Spinner color="current" size="sm" />
+          ) : (
+            <Select.Indicator />
+          )}
+        </Select.Trigger>
+        <Select.Popover className="rounded-xl p-1.5">
+          <ListBox>
+            {AGENT_SANDBOX_IMAGE_OPTIONS.map((option) => (
+              <ListBox.Item
+                key={option.key}
+                id={option.key}
+                textValue={`${option.label} ${option.description}`}
+              >
+                <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <span className="text-sm font-medium">{option.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
+                </span>
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
+      </Select>
+    </section>
+  )
+}
+
 export function SandboxSizeSection({
   selectedSandboxSize,
   isBusy,
@@ -82,9 +156,7 @@ export function SandboxSizeSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold text-foreground">
-          Sandbox size
-        </h2>
+        <h2 className="text-sm font-semibold text-foreground">Sandbox size</h2>
         <p className="text-sm leading-5 text-muted-foreground">
           Choose the resources used when this agent&apos;s sandbox is created.
         </p>

@@ -6,6 +6,7 @@ const displayableEvents = new Set([
   "token",
   "tool_call",
   "tool_result",
+  "plan_updated",
   "final",
   "error",
 ])

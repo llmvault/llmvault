@@ -65,13 +65,67 @@ func TestAgentHandlerUpdateRejectsInvalidSandboxSize(t *testing.T) {
 	}
 }
 
+func TestAgentHandlerUpdateStoresSandboxImage(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	agent := createSandboxConfigTestAgent(t, db, org.ID, model.SandboxImageDefault, "small")
+	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
+
+	rr := patchAgentSandboxImage(t, h, &org, agent.ID, model.SandboxImageDeveloper)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+
+	var stored model.Agent
+	if err := db.First(&stored, "id = ?", agent.ID).Error; err != nil {
+		t.Fatalf("load stored agent: %v", err)
+	}
+	if stored.SandboxImage != model.SandboxImageDeveloper {
+		t.Fatalf("stored sandbox_image = %q, want developer", stored.SandboxImage)
+	}
+
+	var payload map[string]map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := payload["agent"]["sandbox_image"]; got != model.SandboxImageDeveloper {
+		t.Fatalf("response sandbox_image = %v, want developer", got)
+	}
+}
+
+func TestAgentHandlerUpdateRejectsInvalidSandboxImage(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	agent := createSandboxConfigTestAgent(t, db, org.ID, model.SandboxImageDefault, "small")
+	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
+
+	rr := patchAgentSandboxImage(t, h, &org, agent.ID, "gpu")
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rr.Code, rr.Body.String())
+	}
+
+	var stored model.Agent
+	if err := db.First(&stored, "id = ?", agent.ID).Error; err != nil {
+		t.Fatalf("load stored agent: %v", err)
+	}
+	if stored.SandboxImage != model.SandboxImageDefault {
+		t.Fatalf("stored sandbox_image = %q, want default", stored.SandboxImage)
+	}
+}
+
 func createSandboxSizeTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, size string) model.Agent {
+	t.Helper()
+	return createSandboxConfigTestAgent(t, db, orgID, model.SandboxImageDefault, size)
+}
+
+func createSandboxConfigTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, image, size string) model.Agent {
 	t.Helper()
 	agent := model.Agent{
 		ID:              uuid.New(),
 		OrgID:           &orgID,
-		Name:            "sandbox-size-" + randSuffix(),
+		Name:            "sandbox-config-" + randSuffix(),
 		SandboxStrategy: "always_on",
+		SandboxImage:    image,
 		SandboxSize:     size,
 		Model:           agentruntime.DefaultAgentModel,
 		AvailableModels: []string{agentruntime.DefaultAgentModel},
@@ -93,6 +147,20 @@ func createSandboxSizeTestAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID, size
 func patchAgentSandboxSize(t *testing.T, h *handler.AgentHandler, org *model.Org, agentID uuid.UUID, size string) *httptest.ResponseRecorder {
 	t.Helper()
 	body, err := json.Marshal(map[string]string{"sandbox_size": size})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPatch, "/v1/agents/"+agentID.String(), bytes.NewReader(body))
+	req = withChiURLParam(req, "id", agentID.String())
+	req = middleware.WithOrg(req, org)
+	rr := httptest.NewRecorder()
+	h.Update(rr, req)
+	return rr
+}
+
+func patchAgentSandboxImage(t *testing.T, h *handler.AgentHandler, org *model.Org, agentID uuid.UUID, image string) *httptest.ResponseRecorder {
+	t.Helper()
+	body, err := json.Marshal(map[string]string{"sandbox_image": image})
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
 	}

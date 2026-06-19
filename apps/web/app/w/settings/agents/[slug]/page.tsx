@@ -25,11 +25,13 @@ import {
   agentMissingPlugins,
   agentName,
   agentRequiredPlugins,
+  normalizeAgentSandboxImage,
   normalizeAgentSandboxSize,
   pluginForRequirement,
   pluginRequirementName,
   pluginRequirementSlug,
   pluginsBySlug,
+  type AgentSandboxImage,
   type AgentSandboxSize,
   type AgentPluginRequirement,
   type CatalogAgent,
@@ -37,6 +39,7 @@ import {
 } from "../_lib"
 import {
   AgentSettingsSection,
+  SandboxImageSection,
   SandboxSizeSection,
 } from "./_agent-settings-section"
 import {
@@ -113,6 +116,9 @@ export default function AgentDetailPage({
   const availableModels = agentAvailableModels(agent)
   const selectedModel =
     installedAgent?.model || agent?.model || availableModels[0] || ""
+  const selectedSandboxImage = normalizeAgentSandboxImage(
+    installedAgent?.sandbox_image ?? agent?.sandbox_image
+  )
   const selectedSandboxSize = normalizeAgentSandboxSize(
     installedAgent?.sandbox_size
   )
@@ -120,7 +126,8 @@ export default function AgentDetailPage({
   const canInstall = agentCanInstall(agent)
   const busy = installAgent.isPending
   const modelBusy = installedAgentQuery.isLoading || updateAgentModel.isPending
-  const sandboxSizeBusy = installedAgentQuery.isLoading || updateAgent.isPending
+  const sandboxConfigBusy =
+    installedAgentQuery.isLoading || updateAgent.isPending
   const alwaysOnAgent = installedAgent?.sandbox_strategy === "always_on"
   const sandboxUpgradeBusy =
     startSandboxUpgrade.isPending ||
@@ -214,6 +221,26 @@ export default function AgentDetailPage({
     )
   }
 
+  function handleSandboxImageChange(image: AgentSandboxImage) {
+    if (!installedAgentID || image === selectedSandboxImage) return
+    updateAgent.mutate(
+      {
+        params: { path: { id: installedAgentID } },
+        body: { sandbox_image: image },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Image template updated")
+          refresh()
+        },
+        onError: (error) =>
+          toast.danger(
+            extractErrorMessage(error, "Could not update image template")
+          ),
+      }
+    )
+  }
+
   function handleSandboxUpgrade() {
     if (!installedAgentID) return
     startSandboxUpgrade.mutate(
@@ -297,9 +324,14 @@ export default function AgentDetailPage({
             isBusy={modelBusy}
             onModelChange={handleModelChange}
           />
+          <SandboxImageSection
+            selectedSandboxImage={selectedSandboxImage}
+            isBusy={sandboxConfigBusy}
+            onSandboxImageChange={handleSandboxImageChange}
+          />
           <SandboxSizeSection
             selectedSandboxSize={selectedSandboxSize}
-            isBusy={sandboxSizeBusy}
+            isBusy={sandboxConfigBusy}
             onSandboxSizeChange={handleSandboxSizeChange}
           />
           {alwaysOnAgent ? (

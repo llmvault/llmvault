@@ -565,6 +565,8 @@ definitions:
         $ref: '#/definitions/JSON'
       resources:
         $ref: '#/definitions/JSON'
+      sandbox_image:
+        type: string
       sandbox_size:
         type: string
       sandbox_strategy:

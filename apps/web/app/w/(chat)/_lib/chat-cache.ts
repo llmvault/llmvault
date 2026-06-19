@@ -1,19 +1,11 @@
-import {
-  persistQueryClient,
-  type Persister,
-} from "@tanstack/query-persist-client-core"
-import type { InfiniteData, QueryClient, QueryKey } from "@tanstack/react-query"
-import { createStore, del, get, set, clear } from "idb-keyval"
-import { api } from "@/lib/api/client"
+import type { InfiniteData, QueryClient } from "@tanstack/react-query"
+import { createStore, clear } from "idb-keyval"
 import type { components } from "@/lib/api/schema"
 
 export const CHAT_QUERY_STALE_TIME_MS = 5 * 60 * 1000
-export const CHAT_QUERY_GC_TIME_MS = 7 * 24 * 60 * 60 * 1000
-export const CHAT_QUERY_PERSIST_MAX_AGE_MS = 24 * 60 * 60 * 1000
 export const SESSION_HISTORY_PAGE_LIMIT = 100
 export const SIDEBAR_SESSION_PAGE_LIMIT = 5
 const CHAT_CACHE_STORE = createStore("hivy-chat-query-cache", "queries")
-const CHAT_CACHE_VERSION = "v2"
 export const CHANNEL_SESSIONS_INFINITE_KEY = "channel-sessions-infinite-v1"
 export const SESSION_EVENTS_INFINITE_KEY = "session-events-infinite-v1"
 
@@ -64,77 +56,17 @@ export const chatQueryKeys = {
     ["get", "/v1/agents", { params: { query: { status, limit } } }] as const,
 }
 
-export function isPersistableChatQuery(queryKey: QueryKey) {
-  const [method, path] = queryKey
-  if (method !== "get" || typeof path !== "string") return false
-  return (
-    path === "/v1/channels" ||
-    path === "/v1/channels/{id}/sessions" ||
-    path === "/v1/sessions/{id}" ||
-    path === "/v1/sessions/{id}/events" ||
-    path === "/v1/agents"
-  )
-}
-
-export function persistChatQueries(
-  queryClient: QueryClient,
-  scope: string
-): () => void {
-  const cacheScope = `${CHAT_CACHE_VERSION}:${scope}`
-  const [unsubscribe] = persistQueryClient({
-    queryClient,
-    persister: indexedDBPersister(`chat:${cacheScope}`),
-    buster: cacheScope,
-    maxAge: CHAT_QUERY_PERSIST_MAX_AGE_MS,
-    dehydrateOptions: {
-      shouldDehydrateQuery: (query) =>
-        query.state.status === "success" &&
-        isPersistableChatQuery(query.queryKey),
-    },
-  })
-  return unsubscribe
-}
-
 export function clearPersistedChatQueries() {
   return clear(CHAT_CACHE_STORE)
 }
 
-export function prefetchSessionRoute(
-  queryClient: QueryClient,
-  sessionID: string
-) {
-  if (!sessionID || sessionID.startsWith("tmp_")) return
-  void queryClient.prefetchQuery({
-    queryKey: chatQueryKeys.session(sessionID),
-    queryFn: async () => {
-      const response = await api.GET("/v1/sessions/{id}", {
-        params: { path: { id: sessionID } },
-      })
-      if (response.error) throw response.error
-      return response.data
-    },
-    staleTime: CHAT_QUERY_STALE_TIME_MS,
+export function invalidateSessionListQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({
+    queryKey: ["get", "/v1/channels/{id}/sessions"],
   })
-  void queryClient.prefetchInfiniteQuery({
-    queryKey: chatQueryKeys.sessionEvents(sessionID),
-    queryFn: async ({ pageParam }) => {
-      const cursor = typeof pageParam === "string" ? pageParam : undefined
-      const response = await api.GET("/v1/sessions/{id}/events", {
-        params: {
-          path: { id: sessionID },
-          query: {
-            limit: SESSION_HISTORY_PAGE_LIMIT,
-            ...(cursor ? { cursor } : {}),
-          },
-        },
-      })
-      if (response.error) throw response.error
-      return response.data
-    },
-    initialPageParam: "0",
-    getNextPageParam: (lastPage: PaginatedSessionEvents | undefined) =>
-      lastPage?.has_more ? lastPage.next_cursor : undefined,
-    staleTime: CHAT_QUERY_STALE_TIME_MS,
+  queryClient.invalidateQueries({ queryKey: ["get", "/v1/sessions"] })
+  queryClient.invalidateQueries({
+    queryKey: ["sidebar-channel-latest-session"],
   })
 }
 
@@ -438,12 +370,4 @@ function payloadRecord(event: SessionEventResponse): Record<string, unknown> {
   return payload && typeof payload === "object" && !Array.isArray(payload)
     ? (payload as Record<string, unknown>)
     : {}
-}
-
-function indexedDBPersister(key: string): Persister {
-  return {
-    persistClient: (client) => set(key, client, CHAT_CACHE_STORE),
-    restoreClient: () => get(key, CHAT_CACHE_STORE),
-    removeClient: () => del(key, CHAT_CACHE_STORE),
-  }
 }

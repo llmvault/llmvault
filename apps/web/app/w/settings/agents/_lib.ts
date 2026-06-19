@@ -6,7 +6,25 @@ export type InstalledAgent = components["schemas"]["agentListItem"]
 export type AgentPluginRequirement =
   components["schemas"]["agentCatalogPluginSummary"]
 export type AgentCategory = "All" | "Featured" | string
+export type AgentSandboxImage = "default" | "developer"
 export type AgentSandboxSize = "small" | "medium" | "large" | "xlarge"
+
+export const AGENT_SANDBOX_IMAGE_OPTIONS: Array<{
+  key: AgentSandboxImage
+  label: string
+  description: string
+}> = [
+  {
+    key: "default",
+    label: "Default",
+    description: "Standard runtime for general agent work",
+  },
+  {
+    key: "developer",
+    label: "Developer",
+    description: "Runtime with developer tooling preinstalled",
+  },
+]
 
 export const AGENT_SANDBOX_SIZE_OPTIONS: Array<{
   key: AgentSandboxSize
@@ -95,6 +113,14 @@ export function normalizeAgentSandboxSize(
   return AGENT_SANDBOX_SIZE_OPTIONS.some((option) => option.key === value)
     ? (value as AgentSandboxSize)
     : "small"
+}
+
+export function normalizeAgentSandboxImage(
+  value: string | undefined
+): AgentSandboxImage {
+  return AGENT_SANDBOX_IMAGE_OPTIONS.some((option) => option.key === value)
+    ? (value as AgentSandboxImage)
+    : "default"
 }
 
 export function agentMissingPlugins(

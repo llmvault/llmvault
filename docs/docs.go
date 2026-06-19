@@ -9502,6 +9502,9 @@ const docTemplate = `{
                 "resources": {
                     "$ref": "#/definitions/JSON"
                 },
+                "sandbox_image": {
+                    "type": "string"
+                },
                 "sandbox_size": {
                     "type": "string"
                 },

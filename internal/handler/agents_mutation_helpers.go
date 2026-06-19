@@ -171,6 +171,18 @@ func normalizeAgentSandboxSizeForRequest(w http.ResponseWriter, value *string) (
 	return model.NormalizeTemplateSize(size), true
 }
 
+func normalizeAgentSandboxImageForRequest(w http.ResponseWriter, value *string) (string, bool) {
+	image := cleanStringPtr(value)
+	if image == "" {
+		return model.SandboxImageDefault, true
+	}
+	if !model.ValidSandboxImage(image) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_image must be default or developer"})
+		return "", false
+	}
+	return model.NormalizeSandboxImage(image), true
+}
+
 func isValidAgentSandboxStrategy(strategy string) bool {
 	return strategy == agentStrategyAlwaysOn || strategy == agentStrategyPerSession
 }

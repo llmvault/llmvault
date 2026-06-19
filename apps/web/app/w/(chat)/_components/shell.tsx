@@ -4,13 +4,11 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
 import {
   Group,
   Panel,
@@ -22,7 +20,6 @@ import { animate, type AnimationPlaybackControls } from "motion/react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { $api } from "@/lib/api/hooks"
-import { useAuth } from "@/lib/auth/auth-context"
 import type { components } from "@/lib/api/schema"
 import {
   RightPanel,
@@ -42,11 +39,7 @@ import {
   sessionDisplayName,
   sessionRouteFromPathname,
 } from "@/app/w/(chat)/_lib/sidebar-data"
-import {
-  CHAT_QUERY_STALE_TIME_MS,
-  persistChatQueries,
-  prefetchSessionRoute,
-} from "@/app/w/(chat)/_lib/chat-cache"
+import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
 
 const SIDEBAR_WIDTH = 300
 const RIGHT_SIZE = 42 // percent
@@ -99,8 +92,6 @@ export function useWorkspace() {
 export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const queryClient = useQueryClient()
-  const { user, activeOrg } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(false)
   const [openViews, setOpenViews] = useState<PanelViewID[]>([])
@@ -213,11 +204,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     []
   )
 
-  useEffect(() => {
-    if (!user?.id || !activeOrg?.id) return
-    return persistChatQueries(queryClient, `${user.id}:${activeOrg.id}`)
-  }, [activeOrg?.id, queryClient, user?.id])
-
   const toggleSidebar = useCallback(() => {
     animatePanel(
       sidebarPanelRef.current,
@@ -298,7 +284,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     ) => {
       setDraftSession(null)
       setRoutePreviewSession(session ? { sessionId, session } : null)
-      prefetchSessionRoute(queryClient, sessionId)
       const href = `/w/channels/${channelSlug}/${sessionId}`
       if (options.replace) {
         router.replace(href)
@@ -306,7 +291,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         router.push(href)
       }
     },
-    [queryClient, router]
+    [router]
   )
 
   const startSession = useCallback(

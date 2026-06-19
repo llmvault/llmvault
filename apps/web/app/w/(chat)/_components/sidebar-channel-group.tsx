@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { usePathname } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { Tooltip } from "@heroui/react"
 import { Icon } from "@iconify/react"
@@ -15,8 +14,6 @@ import {
   CHAT_QUERY_STALE_TIME_MS,
   CHANNEL_SESSIONS_INFINITE_KEY,
   SIDEBAR_SESSION_PAGE_LIMIT,
-  prefetchSessionRoute,
-  seedSessionDetail,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import { $api } from "@/lib/api/hooks"
 import {
@@ -51,7 +48,6 @@ export function ChannelGroup({
   slugAmbiguous: boolean
 }) {
   const { openChannel, openChat } = useWorkspace()
-  const queryClient = useQueryClient()
   const pathname = usePathname()
   const slug = channelRouteSlug(channel)
   const channelPath = `/w/channels/${slug}`
@@ -91,12 +87,6 @@ export function ChannelGroup({
   const sessions = dedupeSessions(
     sessionsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? []
   )
-
-  const warmSession = (session: SidebarSessionResponse) => {
-    if (!session.id) return
-    seedSessionDetail(queryClient, session)
-    prefetchSessionRoute(queryClient, session.id)
-  }
 
   return (
     <div className="flex flex-col">
@@ -159,9 +149,7 @@ export function ChannelGroup({
                       agent={sessionAgent}
                       meta={sessionActivityLabel(session)}
                       active={chatActive(id)}
-                      onIntent={() => warmSession(session)}
                       onSelect={() => {
-                        warmSession(session)
                         openChat(
                           slug,
                           id,
