@@ -8,6 +8,11 @@ import {
   type ReactNode,
 } from "react"
 import type { AnnotationSide } from "@pierre/diffs/react"
+import {
+  formatCodeLineCommentLine as formatPersistedCodeLineCommentLine,
+  formatCodeLineCommentLocation as formatPersistedCodeLineCommentLocation,
+  type CodeLineCommentPayload,
+} from "@/app/w/(chat)/_lib/code-line-comments"
 
 export type CodeLineCommentSourceKind = "review" | "file" | "tool"
 
@@ -146,16 +151,38 @@ export function composeMessageWithLineComments(
   return trimmed ? `${trimmed}\n\n${commentBlock}` : commentBlock
 }
 
+export function codeLineCommentPayloads(
+  comments: CodeLineComment[]
+): CodeLineCommentPayload[] {
+  return comments.map((comment) => ({
+    id: comment.id,
+    source_key: comment.sourceKey,
+    source_kind: comment.sourceKind,
+    path: comment.path,
+    display_path: comment.displayPath,
+    repo_id: comment.repoId,
+    repo_name: comment.repoName,
+    repo_path: comment.repoPath,
+    line_number: comment.lineNumber,
+    side: comment.side,
+    body: comment.body,
+    created_at: comment.createdAt,
+  }))
+}
+
 export function formatCodeLineCommentLocation(comment: CodeLineComment) {
-  return `${comment.displayPath}:${formatCodeLineCommentLine(comment)}`
+  return formatPersistedCodeLineCommentLocation({
+    displayPath: comment.displayPath,
+    path: comment.path,
+    lineNumber: comment.lineNumber,
+    side: comment.side,
+  })
 }
 
 export function formatCodeLineCommentLine(
   comment: Pick<CodeLineComment, "lineNumber" | "side">
 ) {
-  if (comment.side === "additions") return `R${comment.lineNumber}`
-  if (comment.side === "deletions") return `L${comment.lineNumber}`
-  return String(comment.lineNumber)
+  return formatPersistedCodeLineCommentLine(comment)
 }
 
 function createCodeLineCommentsStore(scopeKey: string): CodeLineCommentsStore {

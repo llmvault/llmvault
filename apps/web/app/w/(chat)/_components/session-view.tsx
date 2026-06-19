@@ -49,10 +49,12 @@ import {
   sessionEventsToConversationBlocks,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history"
+import type { ImageAttachmentMetadata } from "@/app/w/(chat)/_lib/image-attachments"
 import {
-  composeMessageWithAttachments,
-  type ImageAttachmentMetadata,
-} from "@/app/w/(chat)/_lib/image-attachments"
+  codeLineCommentReferenceToPayload,
+  type CodeLineCommentPayload,
+  type CodeLineCommentReference,
+} from "@/app/w/(chat)/_lib/code-line-comments"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
 import { reviewDiffsQueryKey } from "@/app/w/(chat)/_lib/review-diffs-query"
 
@@ -406,10 +408,12 @@ export function SessionThreadView({
     options: {
       retryEventID?: string
       attachments?: ImageAttachmentMetadata[]
+      codeLineComments?: CodeLineCommentPayload[]
     } = {}
   ) => {
     const retryEventID = options.retryEventID
     const attachments = options.attachments ?? []
+    const codeLineComments = options.codeLineComments ?? []
     if (streaming || interruptSession.isPending) return false
     if (optimisticSession) {
       toast.danger("This chat was not created. Start a new chat to try again.")
@@ -420,10 +424,21 @@ export function SessionThreadView({
       return false
     }
 
-    const outboundText = composeMessageWithAttachments(text, attachments)
+    const raw = {
+      ...(attachments.length ? { attachments } : {}),
+      ...(codeLineComments.length
+        ? { code_line_comments: codeLineComments }
+        : {}),
+    }
     const optimisticMessage = retryEventID
       ? null
-      : optimisticUserEvent(sessionId, text, undefined, attachments)
+      : optimisticUserEvent(
+          sessionId,
+          text,
+          undefined,
+          attachments,
+          codeLineComments
+        )
     const optimisticEventID =
       retryEventID ?? optimisticMessage?.event_id ?? optimisticMessage?.id ?? ""
     const optimisticThinking = optimisticThinkingEvent(sessionId)
@@ -438,8 +453,8 @@ export function SessionThreadView({
       const response = await sendSessionMessage.mutateAsync({
         params: { path: { id: sessionId } },
         body: {
-          text: outboundText,
-          raw: attachments.length ? { attachments } : undefined,
+          text,
+          raw: Object.keys(raw).length ? raw : undefined,
         },
       })
       if (response.event) {
@@ -480,8 +495,17 @@ export function SessionThreadView({
       })
   }
 
-  const retryMessage = (eventID: string, text: string) => {
-    void send(text, { retryEventID: eventID })
+  const retryMessage = (
+    eventID: string,
+    text: string,
+    codeLineComments?: CodeLineCommentReference[]
+  ) => {
+    void send(text, {
+      retryEventID: eventID,
+      codeLineComments: codeLineComments?.map(
+        codeLineCommentReferenceToPayload
+      ),
+    })
   }
 
   const isBusy =
@@ -532,7 +556,9 @@ export function SessionThreadView({
           agentId={session.agentId}
           modelId={session.modelId}
           onModelChange={setModel}
-          onSend={(text, attachments) => send(text, { attachments })}
+          onSend={(text, attachments, codeLineComments) =>
+            send(text, { attachments, codeLineComments })
+          }
           isStreaming={isBusy}
           onStop={stop}
         />
