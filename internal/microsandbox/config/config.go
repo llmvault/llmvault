@@ -45,14 +45,6 @@ type Config struct {
 	RunnerPreviewPortRangeStart int
 	RunnerPreviewPortRangeEnd   int
 	ImageRegistry               string
-
-	SnapshotS3Bucket          string
-	SnapshotS3Region          string
-	SnapshotS3Endpoint        string
-	SnapshotS3AccessKeyID     string
-	SnapshotS3SecretAccessKey string
-	SnapshotS3Prefix          string
-	SnapshotS3PathStyle       bool
 }
 
 func Load() Config {
@@ -89,13 +81,6 @@ func Load() Config {
 		RunnerPreviewPortRangeStart: integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_START", api.DefaultPreviewHostPortRangeStart),
 		RunnerPreviewPortRangeEnd:   integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_END", api.DefaultPreviewHostPortRangeEnd),
 		ImageRegistry:               get("HIVY_MICROSANDBOX_IMAGE_REGISTRY", "10.80.0.3:5000"),
-		SnapshotS3Bucket:            os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_BUCKET"),
-		SnapshotS3Region:            get("HIVY_MICROSANDBOX_SNAPSHOT_S3_REGION", "us-east-1"),
-		SnapshotS3Endpoint:          os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_ENDPOINT"),
-		SnapshotS3AccessKeyID:       os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_ACCESS_KEY_ID"),
-		SnapshotS3SecretAccessKey:   os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_SECRET_ACCESS_KEY"),
-		SnapshotS3Prefix:            get("HIVY_MICROSANDBOX_SNAPSHOT_S3_PREFIX", "snapshots"),
-		SnapshotS3PathStyle:         boolean("HIVY_MICROSANDBOX_SNAPSHOT_S3_PATH_STYLE", true),
 	}
 }
 

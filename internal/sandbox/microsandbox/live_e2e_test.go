@@ -14,7 +14,7 @@ import (
 const liveE2EControlURL = "https://msb.usehivy.com"
 const defaultLiveE2EImageTag = "v3.1.18-amd64"
 
-func TestLiveProviderSnapshotE2E(t *testing.T) {
+func TestLiveProviderTemplateE2E(t *testing.T) {
 	if os.Getenv("HIVY_MICROSANDBOX_LIVE_E2E") != "1" {
 		t.Skip("set HIVY_MICROSANDBOX_LIVE_E2E=1 to run live Microsandbox provider E2E")
 	}

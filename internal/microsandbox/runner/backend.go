@@ -16,8 +16,6 @@ type Backend interface {
 	Logs(ctx context.Context, sandboxID string, w io.Writer) error
 	Proxy(ctx context.Context, sandboxID string, guestPort int, w io.Writer, r io.Reader) error
 	ProxyURL(ctx context.Context, sandboxID string, guestPort int) (string, error)
-	CreateSnapshot(ctx context.Context, req CreateSnapshotRequest) (*CreateSnapshotResponse, error)
-	DeleteSnapshot(ctx context.Context, snapshotID string) error
 	CreateTemplate(ctx context.Context, req CreateTemplateRequest, onEvent func(TemplateBuildEvent)) (*CreateTemplateResponse, error)
 }
 
@@ -28,20 +26,16 @@ type ReconcileReport struct {
 }
 
 type CreateSandboxRequest struct {
-	ID                     string             `json:"id"`
-	Name                   string             `json:"name"`
-	ImageRef               string             `json:"image_ref"`
-	SnapshotID             string             `json:"snapshot_id"`
-	SnapshotArtifactURL    string             `json:"snapshot_artifact_url"`
-	SnapshotArtifactDigest string             `json:"snapshot_artifact_digest"`
-	SnapshotImageDigest    string             `json:"snapshot_image_digest"`
-	CPU                    int                `json:"cpu"`
-	MemoryMB               int                `json:"memory_mb"`
-	DiskGB                 int                `json:"disk_gb"`
-	Env                    map[string]string  `json:"env"`
-	Labels                 map[string]string  `json:"labels"`
-	PreviewPorts           []int              `json:"preview_ports"`
-	Init                   *SandboxInitConfig `json:"init"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	ImageRef     string             `json:"image_ref"`
+	CPU          int                `json:"cpu"`
+	MemoryMB     int                `json:"memory_mb"`
+	DiskGB       int                `json:"disk_gb"`
+	Env          map[string]string  `json:"env"`
+	Labels       map[string]string  `json:"labels"`
+	PreviewPorts []int              `json:"preview_ports"`
+	Init         *SandboxInitConfig `json:"init"`
 }
 
 type SandboxInitConfig struct {
@@ -64,28 +58,6 @@ type ExecResponse struct {
 	Stdout   string `json:"stdout"`
 	Stderr   string `json:"stderr"`
 	ExitCode int    `json:"exit_code"`
-}
-
-type CreateSnapshotRequest struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	BaseImageRef string            `json:"base_image_ref"`
-	Commands     []string          `json:"commands"`
-	Env          map[string]string `json:"env"`
-	CPU          int               `json:"cpu"`
-	MemoryMB     int               `json:"memory_mb"`
-	DiskGB       int               `json:"disk_gb"`
-}
-
-type CreateSnapshotResponse struct {
-	ID                  string `json:"id"`
-	ArtifactURL         string `json:"artifact_url"`
-	ArtifactDigest      string `json:"artifact_digest"`
-	ArtifactSizeBytes   int64  `json:"artifact_size_bytes"`
-	ArtifactMediaType   string `json:"artifact_media_type"`
-	SnapshotDigest      string `json:"snapshot_digest"`
-	ImageManifestDigest string `json:"image_manifest_digest"`
-	Logs                string `json:"logs"`
 }
 
 type CreateTemplateRequest struct {

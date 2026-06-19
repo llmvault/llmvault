@@ -6,7 +6,7 @@ out="${2:?usage: write-manifest.sh <tag> <output-path> [commit]}"
 commit="${3:-${GITHUB_SHA:-}}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-eval "$("${script_dir}/derive-version.sh" "${tag}" "${commit}")"
+eval "$(bash "${script_dir}/derive-version.sh" "${tag}" "${commit}")"
 
 latest=false
 if [[ "${RELEASE_IS_PRERELEASE}" != "true" ]]; then
@@ -30,20 +30,6 @@ cat >"${out}" <<EOF
   },
   "runtimeConfig": {
     "HIVY_SANDBOXES_RUNTIME_IMAGE_TAG": "${RELEASE_TAG}"
-  },
-  "snapshots": {
-    "sandboxesRuntime": {
-      "small": "hivy-sandboxes-runtime-${RELEASE_DASHED}-small",
-      "medium": "hivy-sandboxes-runtime-${RELEASE_DASHED}-medium",
-      "large": "hivy-sandboxes-runtime-${RELEASE_DASHED}-large",
-      "xlarge": "hivy-sandboxes-runtime-${RELEASE_DASHED}-xlarge"
-    },
-    "sandboxesRuntimeDevelopers": {
-      "small": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-small",
-      "medium": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-medium",
-      "large": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-large",
-      "xlarge": "hivy-sandboxes-runtime-developers-${RELEASE_DASHED}-xlarge"
-    }
   }
 }
 EOF

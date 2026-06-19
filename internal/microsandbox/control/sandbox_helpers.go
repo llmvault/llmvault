@@ -71,29 +71,6 @@ func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {
 	return *best, nil
 }
 
-func selectRunnerByIDForUpdate(tx *gorm.DB, runnerID string, size api.Size) (model.Runner, error) {
-	var runner model.Runner
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id = ? AND status = ? AND drain = ?", runnerID, model.RunnerStatusHealthy, false).
-		First(&runner).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return model.Runner{}, fmt.Errorf("snapshot runner is unavailable")
-		}
-		return model.Runner{}, err
-	}
-	if !runnerHasCapacity(runner, size) {
-		return model.Runner{}, fmt.Errorf("snapshot runner has insufficient capacity")
-	}
-	return runner, nil
-}
-
-func selectRunnerForSnapshotSandbox(tx *gorm.DB, snapshot model.Snapshot, size api.Size) (model.Runner, error) {
-	if snapshot.ArtifactURL == "" {
-		return selectRunnerByIDForUpdate(tx, snapshot.RunnerID, size)
-	}
-	return selectRunnerForUpdate(tx, size)
-}
-
 func runnerHasCapacity(runner model.Runner, size api.Size) bool {
 	cpuLimit := overcommitLimit(runner.TotalCPU, runner.CPUOvercommit, 1.5)
 	memoryLimit := overcommitLimit(runner.TotalMemoryMB, runner.MemoryOvercommit, 1)
@@ -142,20 +119,16 @@ func max(a, b int) int {
 }
 
 type runnerCreateSandboxRequest struct {
-	ID                     string             `json:"id"`
-	Name                   string             `json:"name"`
-	ImageRef               string             `json:"image_ref"`
-	SnapshotID             string             `json:"snapshot_id"`
-	SnapshotArtifactURL    string             `json:"snapshot_artifact_url"`
-	SnapshotArtifactDigest string             `json:"snapshot_artifact_digest"`
-	SnapshotImageDigest    string             `json:"snapshot_image_digest"`
-	CPU                    int                `json:"cpu"`
-	MemoryMB               int                `json:"memory_mb"`
-	DiskGB                 int                `json:"disk_gb"`
-	Env                    map[string]string  `json:"env"`
-	Labels                 map[string]string  `json:"labels"`
-	PreviewPorts           []int              `json:"preview_ports"`
-	Init                   *sandboxInitConfig `json:"init"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	ImageRef     string             `json:"image_ref"`
+	CPU          int                `json:"cpu"`
+	MemoryMB     int                `json:"memory_mb"`
+	DiskGB       int                `json:"disk_gb"`
+	Env          map[string]string  `json:"env"`
+	Labels       map[string]string  `json:"labels"`
+	PreviewPorts []int              `json:"preview_ports"`
+	Init         *sandboxInitConfig `json:"init"`
 }
 
 type sandboxInitConfig struct {

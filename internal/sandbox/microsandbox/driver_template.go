@@ -39,40 +39,32 @@ func (d *Driver) BuildTemplateWithLogs(ctx context.Context, opts sandbox.Templat
 }
 
 func (d *Driver) GetTemplateStatus(ctx context.Context, externalID string) (*sandbox.TemplateBuildStatus, error) {
-	if isTemplateRef(externalID) {
-		var out templateResponse
-		if err := d.do(ctx, http.MethodGet, "/v1/templates/"+externalID, nil, &out); err != nil {
-			return nil, err
-		}
-		return &sandbox.TemplateBuildStatus{State: out.Status, ErrorMsg: out.ErrorMessage}, nil
+	if !isTemplateRef(externalID) {
+		return nil, fmt.Errorf("microsandbox: invalid template id %q", externalID)
 	}
-	var out snapshotResponse
-	if err := d.do(ctx, http.MethodGet, "/v1/snapshots/"+externalID, nil, &out); err != nil {
+	var out templateResponse
+	if err := d.do(ctx, http.MethodGet, "/v1/templates/"+externalID, nil, &out); err != nil {
 		return nil, err
 	}
 	return &sandbox.TemplateBuildStatus{State: out.Status, ErrorMsg: out.ErrorMessage}, nil
 }
 
 func (d *Driver) GetTemplateLogs(ctx context.Context, externalID string) (string, error) {
-	if isTemplateRef(externalID) {
-		var out templateResponse
-		if err := d.do(ctx, http.MethodGet, "/v1/templates/"+externalID, nil, &out); err != nil {
-			return "", err
-		}
-		return out.Logs, nil
+	if !isTemplateRef(externalID) {
+		return "", fmt.Errorf("microsandbox: invalid template id %q", externalID)
 	}
-	var out snapshotResponse
-	if err := d.do(ctx, http.MethodGet, "/v1/snapshots/"+externalID, nil, &out); err != nil {
+	var out templateResponse
+	if err := d.do(ctx, http.MethodGet, "/v1/templates/"+externalID, nil, &out); err != nil {
 		return "", err
 	}
 	return out.Logs, nil
 }
 
 func (d *Driver) DeleteTemplate(ctx context.Context, externalID string) error {
-	if isTemplateRef(externalID) {
-		return d.do(ctx, http.MethodDelete, "/v1/templates/"+externalID, nil, nil)
+	if !isTemplateRef(externalID) {
+		return fmt.Errorf("microsandbox: invalid template id %q", externalID)
 	}
-	return d.do(ctx, http.MethodDelete, "/v1/snapshots/"+externalID, nil, nil)
+	return d.do(ctx, http.MethodDelete, "/v1/templates/"+externalID, nil, nil)
 }
 
 func isTemplateRef(ref string) bool {

@@ -150,8 +150,19 @@ func TestCreateSandboxFromTemplateImageCanUseAnyRunner(t *testing.T) {
 	if got.ImageRef != "10.80.0.3:5000/images/org_1/tpl_ready@sha256:abc" {
 		t.Fatalf("image ref = %q", got.ImageRef)
 	}
-	if got.SnapshotID != "" || got.SnapshotArtifactURL != "" {
-		t.Fatalf("snapshot fields should be empty: %+v", got)
+}
+
+func TestSnapshotRoutesAreNotRegistered(t *testing.T) {
+	db := newTemplateControlTestDB(t)
+	cfg := config.Config{APIToken: "api-token", RunnerAPIToken: "runner-token", PreviewPasswordKey: "preview-password-key"}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/snapshots/snp_removed", nil)
+	req.Header.Set("Authorization", "Bearer api-token")
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("snapshot route status = %d, want 404", rec.Code)
 	}
 }
 
@@ -161,7 +172,7 @@ func newTemplateControlTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Runner{}, &model.OrgPreviewSecret{}, &model.Sandbox{}, &model.SandboxPort{}, &model.Snapshot{}, &model.Template{}); err != nil {
+	if err := db.AutoMigrate(&model.Runner{}, &model.OrgPreviewSecret{}, &model.Sandbox{}, &model.SandboxPort{}, &model.Template{}); err != nil {
 		t.Fatal(err)
 	}
 	return db

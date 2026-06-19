@@ -9,17 +9,14 @@ import (
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
 
 	"github.com/usehivy/hivy/internal/microsandbox/config"
-	"github.com/usehivy/hivy/internal/microsandbox/storage"
 )
 
 type MicrosandboxBackend struct {
-	mu               sync.Mutex
-	snapshotImportMu sync.Mutex
-	ports            map[string]map[int]int
-	sandboxes        map[string]sandboxState
-	store            *storage.SnapshotStore
-	allocator        *portAllocator
-	imageRegistry    string
+	mu            sync.Mutex
+	ports         map[string]map[int]int
+	sandboxes     map[string]sandboxState
+	allocator     *portAllocator
+	imageRegistry string
 }
 
 type sandboxState struct {
@@ -47,10 +44,6 @@ func NewMicrosandboxBackend(ctx context.Context, cfg config.Config) (*Microsandb
 	if err := microsandbox.EnsureInstalled(ctx); err != nil {
 		return nil, fmt.Errorf("microsandbox install check: %w", err)
 	}
-	store, err := storage.NewSnapshotStore(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("snapshot store: %w", err)
-	}
 	allocator, err := newPortAllocator(cfg.RunnerPreviewPortRangeStart, cfg.RunnerPreviewPortRangeEnd)
 	if err != nil {
 		return nil, err
@@ -58,7 +51,6 @@ func NewMicrosandboxBackend(ctx context.Context, cfg config.Config) (*Microsandb
 	return &MicrosandboxBackend{
 		ports:         map[string]map[int]int{},
 		sandboxes:     map[string]sandboxState{},
-		store:         store,
 		allocator:     allocator,
 		imageRegistry: cfg.ImageRegistry,
 	}, nil
@@ -170,13 +162,6 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
 		return nil, err
 	}
-	if req.SnapshotID != "" {
-		if err := m.ensureSnapshotAvailable(ctx, req); err != nil {
-			_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
-			_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), dockerVolName)
-			return nil, err
-		}
-	}
 	cpu, err := positiveUint8("cpu", req.CPU)
 	if err != nil {
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
@@ -201,11 +186,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 			workspaceMountPath:  microsandbox.Mount.Named(workspaceVolName, microsandbox.MountOptions{}),
 			dockerDataMountPath: microsandbox.Mount.Named(dockerVolName, microsandbox.MountOptions{}),
 		}),
-	}
-	if req.SnapshotID != "" {
-		opts = append(opts, microsandbox.WithSnapshot(req.SnapshotID))
-	} else {
-		opts = append(opts, microsandbox.WithImage(req.ImageRef))
+		microsandbox.WithImage(req.ImageRef),
 	}
 	if req.Init != nil && req.Init.Cmd != "" {
 		opts = append(opts, microsandbox.WithInit(microsandbox.Init.Cmd(req.Init.Cmd, microsandbox.InitOptions{

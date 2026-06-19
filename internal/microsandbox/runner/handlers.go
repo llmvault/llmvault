@@ -74,28 +74,6 @@ func (s *Server) logsSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
-	var req CreateSnapshotRequest
-	if err := httpx.Decode(r, &req); err != nil || req.ID == "" || req.BaseImageRef == "" {
-		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
-		return
-	}
-	resp, err := s.backend.CreateSnapshot(r.Context(), req)
-	if err != nil {
-		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	httpx.JSON(w, http.StatusCreated, resp)
-}
-
-func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
-	if err := s.backend.DeleteSnapshot(r.Context(), chi.URLParam(r, "snapshotID")); err != nil {
-		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	httpx.JSON(w, http.StatusOK, map[string]string{"status": "deleted"})
-}
-
 func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 	var req CreateTemplateRequest
 	if err := httpx.Decode(r, &req); err != nil || req.ID == "" || req.OrgID == "" || req.BaseImageRef == "" {

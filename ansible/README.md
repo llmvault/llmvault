@@ -16,7 +16,7 @@ Create the local Ansible env file:
 cp ansible/.env.example ansible/.env
 ```
 
-Fill `ansible/.env` with the Railway control URL, runner secrets, and required R2/S3 snapshot storage settings.
+Fill `ansible/.env` with the Railway control URL, runner secrets, and the private Zot registry host used for template images.
 
 Update `ansible/inventory/hosts.yml` with each runner host:
 

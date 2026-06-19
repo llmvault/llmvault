@@ -16,11 +16,6 @@ func TestAgentRuntimeVersionLabel(t *testing.T) {
 		want string
 	}{
 		{
-			name: "microsandbox snapshot alias",
-			ref:  "hivy-sandboxes-runtime-v3-2-1-amd64-small",
-			want: "v3.2.1",
-		},
-		{
 			name: "image tag",
 			ref:  "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.2.1-amd64",
 			want: "v3.2.1",
@@ -42,7 +37,7 @@ func TestAgentRuntimeVersionLabel(t *testing.T) {
 }
 
 func TestSandboxSummaryIncludesRuntimeVersion(t *testing.T) {
-	snapshotID := "hivy-sandboxes-runtime-v3-2-1-amd64-small"
+	snapshotID := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.2.1-amd64"
 	sb := model.Sandbox{
 		ID:         uuid.New(),
 		Status:     "running",

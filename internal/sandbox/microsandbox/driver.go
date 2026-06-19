@@ -82,13 +82,9 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	templateRef := strings.TrimSpace(opts.TemplateRef)
 	imageRef := templateRef
 	templateID := ""
-	snapshotID := ""
 	if isTemplateRef(templateRef) {
 		templateID = templateRef
 		imageRef = ""
-	} else if imageRef != "" && !strings.Contains(imageRef, "/") && !strings.Contains(imageRef, ":") {
-		snapshotID = imageRef
-		imageRef = d.runtimeImage
 	}
 	if imageRef == "" && templateID == "" {
 		imageRef = d.runtimeImage
@@ -101,7 +97,6 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		"name":          opts.Name,
 		"image_ref":     imageRef,
 		"template_id":   templateID,
-		"snapshot_id":   snapshotID,
 		"size":          msbapi.DefaultSize,
 		"cpu":           opts.CPU,
 		"memory_mb":     opts.Memory * 1024,
