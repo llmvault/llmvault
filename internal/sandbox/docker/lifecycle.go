@@ -29,6 +29,7 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		PortBindings: bindings,
 		Privileged:   true,
 		Resources:    resourceLimits(opts.CPU, opts.Memory),
+		StorageOpt:   storageOpt(opts.Disk),
 		ExtraHosts:   []string{"host.docker.internal:host-gateway"},
 	}
 	cfg := &container.Config{
