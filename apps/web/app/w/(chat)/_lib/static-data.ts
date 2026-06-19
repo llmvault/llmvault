@@ -1,3 +1,5 @@
+import type { CodeLineCommentReference } from "@/app/w/(chat)/_lib/code-line-comments"
+
 export interface MediaAttachment {
   id: string
   filename: string
@@ -35,6 +37,7 @@ export type ConversationBlock = (
       text: string
       link?: string
       attachments?: MediaAttachment[]
+      codeLineComments?: CodeLineCommentReference[]
       author?: Collaborator
       clientEventID?: string
       clientStatus?: "pending" | "failed"

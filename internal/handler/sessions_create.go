@@ -43,8 +43,9 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	text := strings.TrimSpace(firstNonEmptyString(req.Text, req.Message))
-	if text == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text is required"})
+	raw := normalizeJSONPtr(&req.Raw)
+	if !sessionMessageHasContent(text, raw) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text or message payload is required"})
 		return
 	}
 	channel, ok := h.loadUsableChannel(w, r, org.ID, req.ChannelID)
@@ -97,7 +98,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		var err error
-		event, err = h.createUserMessageEvent(tx, &session, userID, text, normalizeJSONPtr(&req.Raw))
+		event, err = h.createUserMessageEvent(tx, &session, userID, text, raw)
 		return err
 	})
 	if err != nil {

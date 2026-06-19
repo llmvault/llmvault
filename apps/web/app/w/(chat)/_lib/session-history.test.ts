@@ -109,6 +109,42 @@ Primary category: Product UI
     })
   })
 
+  it("renders code comments from user message metadata without requiring text", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event("user.message", {
+        text: "",
+        code_line_comments: [
+          {
+            id: "comment-1",
+            source_key: "repo:apps/web/lib/diffs-theme.ts",
+            source_kind: "review",
+            path: "apps/web/lib/diffs-theme.ts",
+            display_path: "apps/web/lib/diffs-theme.ts",
+            line_number: 148,
+            side: "additions",
+            body: "Use the HeroUI token here.",
+            created_at: 1781900000000,
+          },
+        ],
+      }),
+    ])
+
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0]).toMatchObject({
+      type: "user",
+      text: "",
+      codeLineComments: [
+        {
+          id: "comment-1",
+          displayPath: "apps/web/lib/diffs-theme.ts",
+          lineNumber: 148,
+          side: "additions",
+          body: "Use the HeroUI token here.",
+        },
+      ],
+    })
+  })
+
   it("treats command-bearing tool results as shell commands", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("tool_result", {

@@ -28,12 +28,13 @@ import {
   type ComposerImageAttachment,
 } from "./composer-attachments"
 import {
-  composeMessageWithLineComments,
+  codeLineCommentPayloads,
   formatCodeLineCommentLine,
   useCodeLineCommentActions,
   useCodeLineComments,
   type CodeLineComment,
 } from "@/app/w/(chat)/_components/line-comments"
+import type { CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 
 const ACCESS_MODES = [
   {
@@ -109,7 +110,7 @@ function ComposerLineComments({
         type="button"
         aria-label={`${comments.length} ${comments.length === 1 ? "code comment" : "code comments"}`}
         aria-haspopup="dialog"
-        className="hover:bg-default bg-surface-secondary flex h-8 items-center gap-2 rounded-2xl border border-border px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+        className="hover:bg-default bg-surface-secondary focus-visible:ring-offset-surface flex h-8 items-center gap-2 rounded-2xl border border-border px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
@@ -117,7 +118,7 @@ function ComposerLineComments({
         {comments.length} {comments.length === 1 ? "comment" : "comments"}
       </button>
       <div
-        className="absolute bottom-full left-1 z-50 hidden w-[min(24rem,calc(100vw-2rem))] pb-2 group-hover:block group-focus-within:block"
+        className="absolute bottom-full left-1 z-50 hidden w-[min(24rem,calc(100vw-2rem))] pb-2 group-focus-within:block group-hover:block"
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         aria-label="Code comments"
@@ -192,7 +193,8 @@ export function Composer({
   onModelChange: (modelId: string) => void
   onSend: (
     text: string,
-    attachments: ImageAttachmentMetadata[]
+    attachments: ImageAttachmentMetadata[],
+    codeLineComments: CodeLineCommentPayload[]
   ) => boolean | void | Promise<boolean | void>
   placeholder?: string
   isStreaming?: boolean
@@ -382,10 +384,14 @@ export function Composer({
     const sendingLineCommentIds = sendingLineComments.map(
       (comment) => comment.id
     )
-    const text = composeMessageWithLineComments(promptText, sendingLineComments)
+    const sendingCodeLineComments = codeLineCommentPayloads(sendingLineComments)
     setValue("")
     try {
-      const sent = await onSend(text, sendingAttachments)
+      const sent = await onSend(
+        promptText,
+        sendingAttachments,
+        sendingCodeLineComments
+      )
       if (sent === false) {
         setValue((current) => (current === "" ? promptText : current))
         return

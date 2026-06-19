@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,14 +26,91 @@ func runtimeMessageFromEvent(session model.Session, event model.SessionEvent, mo
 		user = event.ActorUserID.String()
 	}
 	return agentruntime.HTTPMessageRequest{
-		Text:            strings.TrimSpace(text),
+		Text:            runtimeTextFromPayload(text, payload),
 		SessionID:       session.ID.String(),
 		User:            strings.TrimSpace(user),
 		UserDisplayName: strings.TrimSpace(display),
 		ModelDefinition: modelDef,
+		Attachments:     anySlice(payload["attachments"]),
 		DynamicContext:  stringSlice(payload["dynamic_context"]),
 		Raw:             payload,
 	}
+}
+
+func runtimeTextFromPayload(text string, payload map[string]any) string {
+	text = strings.TrimSpace(text)
+	parts := make([]string, 0, 3)
+	if text != "" {
+		parts = append(parts, text)
+	}
+	if !strings.Contains(text, "<attachment ") {
+		if block := runtimeAttachmentBlock(payload["attachments"]); block != "" {
+			parts = append(parts, block)
+		}
+	}
+	if !strings.Contains(text, "Code comments to address:") {
+		if block := runtimeCodeLineCommentsBlock(payload["code_line_comments"]); block != "" {
+			parts = append(parts, block)
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func runtimeAttachmentBlock(value any) string {
+	items := anySlice(value)
+	if len(items) == 0 {
+		return ""
+	}
+	tags := make([]string, 0, len(items))
+	for _, item := range items {
+		record, ok := mapRecord(item)
+		if !ok {
+			continue
+		}
+		url := firstRuntimeString(record, "asset_url", "url")
+		mimeType := firstRuntimeString(record, "content_type", "mime_type")
+		if url == "" || mimeType == "" {
+			continue
+		}
+		filename := firstRuntimeString(record, "filename", "name")
+		if filename == "" {
+			filename = "attachment"
+		}
+		description := firstRuntimeString(record, "rendered_description", "description")
+		tags = append(tags, fmt.Sprintf("<attachment name=\"%s\" url=\"%s\" mime_type=\"%s\">\n<description>\n%s\n</description>\n</attachment>",
+			escapeXMLText(filename),
+			escapeXMLText(url),
+			escapeXMLText(mimeType),
+			escapeXMLText(description),
+		))
+	}
+	return strings.Join(tags, "\n")
+}
+
+func runtimeCodeLineCommentsBlock(value any) string {
+	items := anySlice(value)
+	if len(items) == 0 {
+		return ""
+	}
+	entries := make([]string, 0, len(items))
+	for _, item := range items {
+		record, ok := mapRecord(item)
+		if !ok {
+			continue
+		}
+		body := strings.TrimSpace(firstRuntimeString(record, "body"))
+		path := firstRuntimeString(record, "display_path", "path")
+		lineNumber := runtimeInt(record["line_number"])
+		if body == "" || path == "" || lineNumber <= 0 {
+			continue
+		}
+		location := fmt.Sprintf("%s:%s", path, runtimeLineLabel(lineNumber, firstRuntimeString(record, "side")))
+		entries = append(entries, fmt.Sprintf("%d. %s\n%s", len(entries)+1, location, indentRuntimeMessageBody(body)))
+	}
+	if len(entries) == 0 {
+		return ""
+	}
+	return "Code comments to address:\n\n" + strings.Join(entries, "\n\n")
 }
 
 func stringSlice(value any) []string {
@@ -50,6 +128,78 @@ func stringSlice(value any) []string {
 		}
 	}
 	return out
+}
+
+func anySlice(value any) []any {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	return append([]any(nil), items...)
+}
+
+func mapRecord(value any) (map[string]any, bool) {
+	if record, ok := value.(map[string]any); ok {
+		return record, true
+	}
+	return nil, false
+}
+
+func firstRuntimeString(record map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value, ok := record[key].(string)
+		if ok && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func runtimeInt(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(typed))
+		if err == nil {
+			return parsed
+		}
+	}
+	return 0
+}
+
+func runtimeLineLabel(lineNumber int, side string) string {
+	switch side {
+	case "additions":
+		return fmt.Sprintf("R%d", lineNumber)
+	case "deletions":
+		return fmt.Sprintf("L%d", lineNumber)
+	default:
+		return strconv.Itoa(lineNumber)
+	}
+}
+
+func indentRuntimeMessageBody(body string) string {
+	lines := strings.Split(strings.TrimSpace(body), "\n")
+	for i, line := range lines {
+		lines[i] = "   " + line
+	}
+	return strings.Join(lines, "\n")
+}
+
+func escapeXMLText(value string) string {
+	replacer := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`"`, "&quot;",
+		"'", "&apos;",
+	)
+	return replacer.Replace(value)
 }
 
 func (h *SessionMessageDeliverHandler) markDelivered(ctx context.Context, queue *model.SessionMessageQueue, delivery *agentruntime.HTTPMessageResponse) error {

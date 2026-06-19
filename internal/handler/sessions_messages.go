@@ -42,8 +42,9 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	text := strings.TrimSpace(firstNonEmptyString(req.Text, req.Message))
-	if text == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text is required"})
+	payload := normalizeJSONPtr(&req.Raw)
+	if !sessionMessageHasContent(text, payload) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text or message payload is required"})
 		return
 	}
 	var selectedModel string
@@ -76,7 +77,6 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	payload := normalizeJSONPtr(&req.Raw)
 	if req.User != "" {
 		payload["user"] = strings.TrimSpace(req.User)
 	}

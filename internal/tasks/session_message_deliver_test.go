@@ -10,6 +10,58 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
+func TestRuntimeMessageFromEventRendersStructuredAttachmentsAndComments(t *testing.T) {
+	sessionID := uuid.New()
+	msg := runtimeMessageFromEvent(
+		model.Session{ID: sessionID},
+		model.SessionEvent{
+			Payload: model.JSON{
+				"text": "Please review this",
+				"attachments": []any{
+					map[string]any{
+						"filename":             "screen.png",
+						"asset_url":            "https://api.example.test/assets/screen.png",
+						"content_type":         "image/png",
+						"rendered_description": "Primary category: Product UI",
+					},
+				},
+				"code_line_comments": []any{
+					map[string]any{
+						"path":         "apps/web/lib/diffs-theme.ts",
+						"display_path": "apps/web/lib/diffs-theme.ts",
+						"line_number":  float64(148),
+						"side":         "additions",
+						"body":         "Use the HeroUI token here.",
+					},
+				},
+			},
+		},
+		nil,
+	)
+
+	want := `Please review this
+
+<attachment name="screen.png" url="https://api.example.test/assets/screen.png" mime_type="image/png">
+<description>
+Primary category: Product UI
+</description>
+</attachment>
+
+Code comments to address:
+
+1. apps/web/lib/diffs-theme.ts:R148
+   Use the HeroUI token here.`
+	if msg.Text != want {
+		t.Fatalf("runtime text mismatch\nwant:\n%s\n\ngot:\n%s", want, msg.Text)
+	}
+	if msg.Raw["text"] != "Please review this" {
+		t.Fatalf("raw text was not preserved: %#v", msg.Raw["text"])
+	}
+	if len(msg.Attachments) != 1 {
+		t.Fatalf("attachments len=%d, want 1", len(msg.Attachments))
+	}
+}
+
 func TestLoadRuntimeSandboxDoesNotReuseAgentRuntimeForPerSessionWithoutAttachedSandbox(t *testing.T) {
 	db := connectTestDB(t)
 	org, agent, channel := seedSessionRuntimeSelectionFixture(t, db, "per_session")

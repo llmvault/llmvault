@@ -10,6 +10,7 @@ import {
   toolBlock,
   toolEventID,
 } from "@/app/w/(chat)/_lib/session-tools"
+import { codeLineCommentReferenceFromPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 
 export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
 
@@ -98,13 +99,15 @@ export function sessionEventsToConversationBlocks(
     if (type === "user.message" || type === "user.message.received") {
       const text = stripAttachmentTags(eventText(event))
       const attachments = eventAttachments(event)
-      if (text || attachments.length) {
+      const codeLineComments = eventCodeLineComments(event)
+      if (text || attachments.length || codeLineComments.length) {
         items.push({
           block: {
             type: "user",
             key: eventBlockKey(event, "user"),
             text,
             ...(attachments.length ? { attachments } : {}),
+            ...(codeLineComments.length ? { codeLineComments } : {}),
             author: currentCollaborator,
             clientEventID: event.id ?? event.event_id ?? undefined,
             clientStatus: clientStatus(event),
@@ -359,6 +362,18 @@ function eventAttachments(event: SessionEventResponse): MediaAttachment[] {
         url,
       },
     ]
+  })
+}
+
+function eventCodeLineComments(event: SessionEventResponse) {
+  const value = payloadRecord(event).code_line_comments
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry, index) => {
+    const comment = codeLineCommentReferenceFromPayload(
+      entry,
+      `code-comment:${event.id ?? event.event_id ?? eventTime(event)}:${index}`
+    )
+    return comment ? [comment] : []
   })
 }
 

@@ -144,6 +144,25 @@ type sendSessionMessageRequest struct {
 	Raw             model.JSON                     `json:"raw,omitempty"`
 }
 
+func sessionMessageHasContent(text string, raw model.JSON) bool {
+	if strings.TrimSpace(text) != "" {
+		return true
+	}
+	return rawArrayLen(raw, "attachments") > 0 ||
+		rawArrayLen(raw, "code_line_comments") > 0
+}
+
+func rawArrayLen(raw model.JSON, key string) int {
+	if raw == nil {
+		return 0
+	}
+	items, ok := raw[key].([]any)
+	if !ok {
+		return 0
+	}
+	return len(items)
+}
+
 type updateSessionRequest struct {
 	Name      *string `json:"name,omitempty"`
 	ChannelID *string `json:"channel_id,omitempty"`
