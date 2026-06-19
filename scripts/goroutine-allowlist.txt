@@ -29,7 +29,7 @@ internal/precontext/service.go:96              # wg fan-out (3 goroutines); each
 # cancellation via ctx.Done().
 
 internal/rag/connectors/website/runnable.go:36 # channel producer; ctx.Done() + channel close bound the lifetime
-internal/rag/connectors/slack/connector.go:139 # channel producer (runIngest); channel close bounds the lifetime
+internal/rag/connectors/slack/connector.go:138 # channel producer (runIngest); channel close bounds the lifetime
 internal/spider/stream.go:34                   # channel producer; ctx embedded in request; channel close bounds lifetime
 
 # --- Infrastructure / SDK bridging goroutines ---
