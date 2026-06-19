@@ -13,31 +13,6 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (o *Orchestrator) cloneAgentRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Agent) error {
-	if len(agent.Resources) == 0 {
-		return nil
-	}
-
-	var repos []repoResource
-	for _, resourceTypes := range agent.Resources {
-		typesMap, ok := resourceTypes.(map[string]any)
-		if !ok {
-			continue
-		}
-		selected, err := selectedGitHubRepositoriesFromResources(model.JSON(typesMap))
-		if err != nil {
-			return err
-		}
-		repos = append(repos, selected...)
-	}
-
-	repos = dedupeRepoResources(repos)
-	if len(repos) == 0 {
-		return nil
-	}
-	return o.cloneRepositories(ctx, sb, repos, o.runtimeLayout().WorkspaceRepoDir)
-}
-
 func (o *Orchestrator) cloneAgentSelectedRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Agent) error {
 	return o.SyncAgentSelectedRepositories(ctx, sb, agent)
 }

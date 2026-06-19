@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/usehivy/hivy/internal/logging"
 )
 
 type Client struct {
@@ -164,22 +165,24 @@ func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest)
 		body.RuntimeEnv = map[string]string{}
 	}
 	if os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD") == "true" {
+		logger := logging.FromContext(ctx)
 		// Redact secrets before logging so a debug flag can't exfiltrate credentials.
 		payload, err := json.Marshal(redactConfigUpdateRequest(body))
 		if err != nil {
-			slog.WarnContext(ctx, "runtime config debug payload marshal failed", "error", err)
+			logger.WarnContext(ctx, "runtime config debug payload marshal failed", "error", err)
 		} else {
-			slog.InfoContext(ctx, "runtime config debug payload", "base_url", c.baseURL, "payload", string(payload))
+			logger.InfoContext(ctx, "runtime config debug payload", "base_url", c.baseURL, "payload", string(payload))
 		}
 	}
 	if path := strings.TrimSpace(os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD_FILE")); path != "" {
+		logger := logging.FromContext(ctx)
 		payload, err := json.MarshalIndent(redactConfigUpdateRequest(body), "", "  ")
 		if err != nil {
-			slog.WarnContext(ctx, "runtime config debug payload file marshal failed", "error", err)
+			logger.WarnContext(ctx, "runtime config debug payload file marshal failed", "error", err)
 		} else if err := os.WriteFile(path, payload, 0o600); err != nil {
-			slog.WarnContext(ctx, "runtime config debug payload file write failed", "path", path, "error", err)
+			logger.WarnContext(ctx, "runtime config debug payload file write failed", "path", path, "error", err)
 		} else {
-			slog.InfoContext(ctx, "runtime config debug payload written", "path", path, "bytes", len(payload), "base_url", c.baseURL)
+			logger.InfoContext(ctx, "runtime config debug payload written", "path", path, "bytes", len(payload), "base_url", c.baseURL)
 		}
 	}
 	resp, err := c.do(ctx, http.MethodPut, "/config", body)

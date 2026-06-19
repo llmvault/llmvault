@@ -270,7 +270,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 			Name:        managedAgentName,
 			Description: description,
 		},
-		SystemPrompt:     buildAgentSystemPrompt(fragments),
+		SystemPrompt:     buildAgentSystemPrompt(ctx, fragments),
 		Model:            proxyModel(deps.Cfg, modelID),
 		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel)),
 		Limits:           defaultLimits(),

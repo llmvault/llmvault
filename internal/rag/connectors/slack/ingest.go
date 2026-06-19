@@ -3,7 +3,6 @@ package slack
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
@@ -187,13 +186,4 @@ func mapKeys(m map[string]struct{}) []string {
 		keys = append(keys, k)
 	}
 	return keys
-}
-
-// cleanMessageText strips leading/trailing whitespace and replaces
-// non-breaking spaces for cleaner indexing.
-func cleanMessageText(text string) string {
-	text = strings.TrimSpace(text)
-	text = strings.ReplaceAll(text, "\u00a0", " ")
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	return text
 }

@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 )
@@ -190,8 +189,4 @@ func connectionFromSource(src interfaces.Source) (string, string) {
 		return cs.NangoConnectionID(), cs.NangoProviderConfigKey()
 	}
 	return "", Kind
-}
-
-func (c *SlackConnector) log(ctx context.Context, msg string, args ...interface{}) {
-	logging.FromContext(ctx).InfoContext(ctx, msg, args...)
 }

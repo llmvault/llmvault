@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
@@ -59,17 +58,4 @@ func BuildServer(
 	addCronTool(server, token, db)
 
 	return server, nil
-}
-
-// buildInputSchema converts the JSON Schema from the catalog into a format
-// accepted by the MCP SDK. The SDK expects an any that marshals to JSON Schema.
-func buildInputSchema(params json.RawMessage) any {
-	if len(params) == 0 {
-		return map[string]any{"type": "object"}
-	}
-	var schema any
-	if err := json.Unmarshal(params, &schema); err != nil {
-		return map[string]any{"type": "object"}
-	}
-	return schema
 }

@@ -117,7 +117,7 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 	}
 
 	var createdOrgID uuid.UUID
-	err = h.db.Transaction(func(tx *gorm.DB) error {
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		user = model.User{
 			Email:            email,
 			Name:             name,
@@ -127,7 +127,7 @@ func (h *OAuthHandler) findOrCreateUser(ctx context.Context, provider string, pr
 			return fmt.Errorf("creating user: %w", err)
 		}
 
-		org, err := createUserDefaultOrg(tx, h.credits, &user)
+		org, err := createUserDefaultOrg(ctx, tx, h.credits, &user)
 		if err != nil {
 			return err
 		}

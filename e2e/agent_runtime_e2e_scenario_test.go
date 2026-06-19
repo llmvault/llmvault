@@ -51,7 +51,7 @@ func startAgentRuntimeE2EScenario(
 	if workspaceRoot == "" {
 		workspaceRoot = t.TempDir()
 	}
-	runtimeSecret := "agent-runtime-e2e-secret"
+	runtimeSecret := "agent-runtime-e2e-secret" // #nosec G101 -- fixed local E2E runtime secret.
 	agentID := uuid.NewString()
 	sandboxID := uuid.NewString()
 	controlPlane := newAgentRuntimeMockControlPlane(t, trace, runtimeSecret, agentID, sandboxID)

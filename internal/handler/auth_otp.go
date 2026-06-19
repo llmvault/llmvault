@@ -98,6 +98,7 @@ func (h *AuthHandler) OTPRequest(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} errorResponse
 // @Router /auth/otp/verify [post]
 func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var req otpVerifyPayload
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -133,7 +134,7 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 
 		var org model.Org
-		txErr := h.db.Transaction(func(tx *gorm.DB) error {
+		txErr := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			user = model.User{
 				Email:            req.Email,
 				Name:             strings.Split(req.Email, "@")[0],
@@ -144,7 +145,7 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var orgErr error
-			org, orgErr = createUserDefaultOrg(tx, h.credits, &user)
+			org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user)
 			return orgErr
 		})
 		if txErr != nil {

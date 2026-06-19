@@ -69,7 +69,7 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 		},
 	}
 
-	prompt := buildAgentSystemPrompt(fragments)
+	prompt := buildAgentSystemPrompt(context.Background(), fragments)
 	cacheable := requireCacheableSegments(t, prompt)
 	dynamic := requireDynamicSegments(t, prompt)
 

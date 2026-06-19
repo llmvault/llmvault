@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-func streamDockerLogs(t *testing.T, trace *agentRuntimeE2ETrace, containerID string) func() {
+func streamDockerLogs(ctx context.Context, t *testing.T, trace *agentRuntimeE2ETrace, containerID string) func() {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(ctx, "docker", "logs", "-f", containerID)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

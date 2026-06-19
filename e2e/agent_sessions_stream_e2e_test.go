@@ -41,7 +41,7 @@ func agentSessionsOpenDirectStream(t *testing.T, ctx context.Context, directURL,
 		t.Fatalf("parse direct stream url: %v", err)
 	}
 
-	resp := openDirectStreamWithRetry(t, ctx, parsed.String(), token)
+	resp := openDirectStreamWithRetry(t, ctx, parsed.String(), token) //nolint:bodyclose // Closed by the stream reader goroutine.
 
 	stream := &agentSessionsLiveDirectStream{
 		events: make(chan runtimeSSEEvent, 256),

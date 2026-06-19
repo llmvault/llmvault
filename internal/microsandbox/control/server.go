@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/goroutine"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
@@ -24,18 +24,18 @@ type Server struct {
 	previewCache *PreviewCacheClient
 }
 
-func NewServer(db *gorm.DB, cfg config.Config) *Server {
+func NewServer(ctx context.Context, db *gorm.DB, cfg config.Config) *Server {
 	s := &Server{
 		db:           db,
 		cfg:          cfg,
 		client:       NewRunnerClient(cfg.RunnerAPIToken),
-		previewCache: NewPreviewCacheClient(cfg),
+		previewCache: NewPreviewCacheClient(ctx, cfg),
 	}
-	goroutine.Go(context.Background(), func(ctx context.Context) {
+	goroutine.Go(ctx, func(ctx context.Context) {
 		s.watchRunners(ctx)
 	})
 	if s.previewCache != nil {
-		goroutine.Go(context.Background(), func(ctx context.Context) {
+		goroutine.Go(ctx, func(ctx context.Context) {
 			s.watchPreviewRoutes(ctx)
 		})
 	}
@@ -102,14 +102,14 @@ func (s *Server) watchRunners(ctx context.Context) {
 		cutoff := time.Now().Add(-s.cfg.RunnerUnhealthyAfter)
 		var runners []model.Runner
 		if err := s.db.WithContext(ctx).Where("last_heartbeat_at IS NULL OR last_heartbeat_at < ?", cutoff).Find(&runners).Error; err != nil {
-			slog.Error("runner health query failed", "error", err)
+			logging.FromContext(ctx).ErrorContext(ctx, "runner health query failed", "error", err)
 			continue
 		}
 		for _, runner := range runners {
 			s.db.WithContext(ctx).Model(&runner).Update("status", model.RunnerStatusUnhealthy)
 			err := &runnerUnhealthyError{RunnerID: runner.ID, Name: runner.Name, LastHeartbeatAt: runner.LastHeartbeatAt}
 			sentry.CaptureException(err)
-			slog.Error("runner heartbeat overdue", "runner_id", runner.ID, "name", runner.Name, "last_heartbeat_at", runner.LastHeartbeatAt)
+			logging.FromContext(ctx).ErrorContext(ctx, "runner heartbeat overdue", "runner_id", runner.ID, "name", runner.Name, "last_heartbeat_at", runner.LastHeartbeatAt)
 		}
 	}
 }

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/errdefs"
 
 	"github.com/usehivy/hivy/internal/sandbox"
 )
@@ -56,7 +56,7 @@ func (d *Driver) BuildTemplateWithLogs(ctx context.Context, opts sandbox.Templat
 
 func (d *Driver) GetTemplateStatus(ctx context.Context, externalID string) (*sandbox.TemplateBuildStatus, error) {
 	if _, err := d.cli.ImageInspect(ctx, externalID); err != nil {
-		if errdefs.IsNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return &sandbox.TemplateBuildStatus{
 				State:    "error",
 				ErrorMsg: "docker image not found",
@@ -73,7 +73,7 @@ func (d *Driver) GetTemplateLogs(context.Context, string) (string, error) {
 
 func (d *Driver) DeleteTemplate(ctx context.Context, externalID string) error {
 	_, err := d.cli.ImageRemove(ctx, externalID, image.RemoveOptions{Force: true, PruneChildren: false})
-	if errdefs.IsNotFound(err) {
+	if cerrdefs.IsNotFound(err) {
 		return nil
 	}
 	if err != nil {

@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	agentRuntimeE2EToken      = "HIVY_AGENT_RUNTIME_E2E_TOKEN_7d4f1c"
-	agentRuntimeProxyToken    = "ptok_agent_runtime_e2e_proxy_7d4f1c"
+	agentRuntimeE2EToken      = "HIVY_AGENT_RUNTIME_E2E_TOKEN_7d4f1c" // #nosec G101 -- fixed local E2E sentinel token.
+	agentRuntimeProxyToken    = "ptok_agent_runtime_e2e_proxy_7d4f1c" // #nosec G101 -- fixed local E2E sentinel token.
 	agentRuntimeContainerPort = "7080"
 )
 
@@ -48,7 +48,7 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 	proxy := newAgentRuntimeModelProxy(t, trace, systemModelKey, agentRuntimeProxyToken)
 	defer proxy.server.Close()
 
-	runtimeSecret := "agent-runtime-e2e-secret"
+	runtimeSecret := "agent-runtime-e2e-secret" // #nosec G101 -- fixed local E2E runtime secret.
 	agentID := uuid.NewString()
 	sandboxID := uuid.NewString()
 	controlPlane := newAgentRuntimeMockControlPlane(t, trace, runtimeSecret, agentID, sandboxID)

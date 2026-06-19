@@ -8,12 +8,12 @@ import (
 	"time"
 )
 
-func agentSessionsDeleteSandbox(t *testing.T, _ context.Context, baseURL, token, orgID, sandboxID string) {
+func agentSessionsDeleteSandbox(t *testing.T, ctx context.Context, baseURL, token, orgID, sandboxID string) {
 	t.Helper()
 	if sandboxID == "" {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, baseURL+"/v1/sandboxes/"+sandboxID, nil)
 	if err != nil {

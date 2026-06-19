@@ -3,9 +3,10 @@ package runner
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/usehivy/hivy/internal/logging"
 )
 
 const dockerDaemonBootstrapTimeoutSeconds = 90
@@ -56,7 +57,7 @@ func (m *MicrosandboxBackend) ensureDockerDaemon(ctx context.Context, sandboxID 
 	if resp.ExitCode != 0 {
 		return fmt.Errorf("bootstrap docker daemon exited with code %d: %s", resp.ExitCode, strings.TrimSpace(resp.Stdout+resp.Stderr))
 	}
-	slog.Info("sandbox docker daemon bootstrap completed",
+	logging.FromContext(ctx).InfoContext(ctx, "sandbox docker daemon bootstrap completed",
 		"sandbox_id", sandboxID,
 		"duration_ms", time.Since(start).Milliseconds(),
 		"status", strings.TrimSpace(resp.Stdout),

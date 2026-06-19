@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	DefaultDatabaseURL      = "postgres://hivy:localdev@localhost:5433/hivy_test?sslmode=disable"
-	DefaultNangoDatabaseURL = "postgres://hivy:localdev@localhost:5433/nango?sslmode=disable"
+	DefaultDatabaseURL      = "postgres://hivy:localdev@localhost:5433/hivy_test?sslmode=disable" // #nosec G101 -- local-only test database DSN.
+	DefaultNangoDatabaseURL = "postgres://hivy:localdev@localhost:5433/nango?sslmode=disable"     // #nosec G101 -- local-only test database DSN.
 	DefaultRedisAddr        = "localhost:16279"
 )
 

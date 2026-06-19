@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
 )
@@ -30,12 +30,12 @@ type previewCacheRoute struct {
 	Upstreams map[string]string `json:"upstreams"`
 }
 
-func NewPreviewCacheClient(cfg config.Config) *PreviewCacheClient {
+func NewPreviewCacheClient(ctx context.Context, cfg config.Config) *PreviewCacheClient {
 	if cfg.PreviewCacheURL == "" && cfg.PreviewCacheToken == "" {
 		return nil
 	}
 	if cfg.PreviewCacheURL == "" || cfg.PreviewCacheToken == "" {
-		slog.Warn("preview cache partially configured; route sync disabled",
+		logging.FromContext(ctx).WarnContext(ctx, "preview cache partially configured; route sync disabled",
 			"has_url", cfg.PreviewCacheURL != "",
 			"has_token", cfg.PreviewCacheToken != "",
 		)
@@ -143,36 +143,38 @@ func (s *Server) syncPreviewRoute(ctx context.Context, sb model.Sandbox, runner 
 	if s.previewCache == nil {
 		return
 	}
+	logger := logging.FromContext(ctx)
 	if len(ports) == 0 {
-		slog.Warn("preview route sync skipped because sandbox has no ports", "sandbox_id", sb.ID)
+		logger.WarnContext(ctx, "preview route sync skipped because sandbox has no ports", "sandbox_id", sb.ID)
 		return
 	}
 	route, err := previewCacheRouteFor(sb, runner, ports)
 	if err != nil {
-		slog.Error("preview route build failed", "sandbox_id", sb.ID, "runner_id", runner.ID, "error", err)
+		logger.ErrorContext(ctx, "preview route build failed", "sandbox_id", sb.ID, "runner_id", runner.ID, "error", err)
 		return
 	}
 	if err := s.previewCache.UpsertRoute(ctx, route); err != nil {
-		slog.Error("preview route sync failed", "sandbox_id", sb.ID, "error", err)
+		logger.ErrorContext(ctx, "preview route sync failed", "sandbox_id", sb.ID, "error", err)
 		return
 	}
-	slog.Info("preview route synced", "sandbox_id", sb.ID, "ports", len(ports))
+	logger.InfoContext(ctx, "preview route synced", "sandbox_id", sb.ID, "ports", len(ports))
 }
 
 func (s *Server) deletePreviewRoute(ctx context.Context, sandboxID string) {
 	if s.previewCache == nil {
 		return
 	}
+	logger := logging.FromContext(ctx)
 	if err := s.previewCache.DeleteRoute(ctx, sandboxID); err != nil {
-		slog.Error("preview route delete failed", "sandbox_id", sandboxID, "error", err)
+		logger.ErrorContext(ctx, "preview route delete failed", "sandbox_id", sandboxID, "error", err)
 		return
 	}
-	slog.Info("preview route deleted", "sandbox_id", sandboxID)
+	logger.InfoContext(ctx, "preview route deleted", "sandbox_id", sandboxID)
 }
 
 func (s *Server) watchPreviewRoutes(ctx context.Context) {
 	if s.cfg.PreviewCacheSync <= 0 {
-		slog.Warn("preview route periodic sync disabled because interval is not positive", "interval", s.cfg.PreviewCacheSync)
+		logging.FromContext(ctx).WarnContext(ctx, "preview route periodic sync disabled because interval is not positive", "interval", s.cfg.PreviewCacheSync)
 		return
 	}
 	ticker := time.NewTicker(s.cfg.PreviewCacheSync)
@@ -191,21 +193,22 @@ func (s *Server) bulkSyncPreviewRoutes(ctx context.Context) {
 	if s.previewCache == nil {
 		return
 	}
+	logger := logging.FromContext(ctx)
 	var sandboxes []model.Sandbox
 	if err := s.db.WithContext(ctx).Find(&sandboxes).Error; err != nil {
-		slog.Error("preview route bulk sync sandbox query failed", "error", err)
+		logger.ErrorContext(ctx, "preview route bulk sync sandbox query failed", "error", err)
 		return
 	}
 	routes := make([]previewCacheRoute, 0, len(sandboxes))
 	for _, sb := range sandboxes {
 		var runner model.Runner
 		if err := s.db.WithContext(ctx).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
-			slog.Warn("preview route bulk sync skipped sandbox without runner", "sandbox_id", sb.ID, "runner_id", sb.RunnerID)
+			logger.WarnContext(ctx, "preview route bulk sync skipped sandbox without runner", "sandbox_id", sb.ID, "runner_id", sb.RunnerID)
 			continue
 		}
 		var ports []model.SandboxPort
 		if err := s.db.WithContext(ctx).Order("guest_port asc").Find(&ports, "sandbox_id = ?", sb.ID).Error; err != nil {
-			slog.Warn("preview route bulk sync skipped sandbox without ports", "sandbox_id", sb.ID, "error", err)
+			logger.WarnContext(ctx, "preview route bulk sync skipped sandbox without ports", "sandbox_id", sb.ID, "error", err)
 			continue
 		}
 		if len(ports) == 0 {
@@ -213,7 +216,7 @@ func (s *Server) bulkSyncPreviewRoutes(ctx context.Context) {
 		}
 		route, err := previewCacheRouteFor(sb, runner, ports)
 		if err != nil {
-			slog.Warn("preview route bulk sync skipped sandbox", "sandbox_id", sb.ID, "runner_id", runner.ID, "error", err)
+			logger.WarnContext(ctx, "preview route bulk sync skipped sandbox", "sandbox_id", sb.ID, "runner_id", runner.ID, "error", err)
 			continue
 		}
 		routes = append(routes, route)
@@ -222,8 +225,8 @@ func (s *Server) bulkSyncPreviewRoutes(ctx context.Context) {
 		return
 	}
 	if err := s.previewCache.BulkUpsertRoutes(ctx, routes); err != nil {
-		slog.Error("preview route bulk sync failed", "routes", len(routes), "error", err)
+		logger.ErrorContext(ctx, "preview route bulk sync failed", "routes", len(routes), "error", err)
 		return
 	}
-	slog.Info("preview routes bulk synced", "routes", len(routes))
+	logger.InfoContext(ctx, "preview routes bulk synced", "routes", len(routes))
 }

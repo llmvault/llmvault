@@ -31,6 +31,7 @@ type createTemplateRequest struct {
 }
 
 func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var req createTemplateRequest
 	if err := httpx.Decode(r, &req); err != nil || req.OrgID == "" || req.BaseImageRef == "" {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and base_image_ref are required"})
@@ -53,7 +54,7 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 	commands, _ := json.Marshal(req.Commands)
 
 	var selected model.Runner
-	err = s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		runner, err := selectRunnerForUpdate(tx, size)
 		if err != nil {
 			return err
@@ -89,7 +90,7 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 
 	var result runner.CreateTemplateResponse
 	var templateErr error
-	callErr := s.client.PostStream(r.Context(), selected.APIURL, "/v1/templates", runner.CreateTemplateRequest{
+	callErr := s.client.PostStream(ctx, selected.APIURL, "/v1/templates", runner.CreateTemplateRequest{
 		ID: id, BuildID: "bld-" + buildID, OrgID: req.OrgID, Name: req.Name, BaseImageRef: req.BaseImageRef,
 		Commands: req.Commands, Env: req.Env, CPU: size.CPU, MemoryMB: size.MemoryMB, DiskGB: size.DiskGB,
 	}, func(raw []byte) error {
@@ -99,10 +100,10 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 		switch event.Type {
 		case "log":
-			appendTemplateLog(r.Context(), s.db, id, event.Message)
+			appendTemplateLog(ctx, s.db, id, event.Message)
 		case "error":
 			templateErr = errors.New(event.Message)
-			_ = s.db.WithContext(r.Context()).Model(&model.Template{}).Where("id = ?", id).Updates(map[string]any{
+			_ = s.db.WithContext(ctx).Model(&model.Template{}).Where("id = ?", id).Updates(map[string]any{
 				"status": model.TemplateStatusError, "error_message": event.Message,
 			}).Error
 		case "result":
@@ -121,7 +122,7 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 		templateErr = errors.New("runner template build did not return image metadata")
 	}
 
-	_ = s.db.Transaction(func(tx *gorm.DB) error {
+	_ = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		_ = releaseRunner(tx, &selected, size)
 		updates := map[string]any{}
 		if templateErr != nil {

@@ -142,7 +142,8 @@ func (h *RawProviderProxyHandler) Handle(w http.ResponseWriter, r *http.Request)
 	forwardPath := h.nangoProxyPath(path)
 	resp, err := h.nango.RawProxyRequestWithHeaders(ctx, r.Method, providerConfigKey, conn.NangoConnectionID, forwardPath, r.URL.RawQuery, proxyRequestBodyFromBytes(r.Method, body), rawProviderProxyHeaders(r))
 	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, h.provider+"-proxy: nango proxy failed",
+		logging.FromContext(ctx).ErrorContext(ctx, "provider proxy nango request failed",
+			"provider", h.provider,
 			"agent_id", agentID,
 			"owner_agent_id", agent.ID,
 			"connection_id", conn.ID,

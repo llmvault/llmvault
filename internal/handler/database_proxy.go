@@ -134,6 +134,6 @@ func (h *DatabaseProxyHandler) capture(ctx context.Context, provider string, sta
 	if err == nil {
 		err = fmt.Errorf("%s", reason)
 	}
-	logging.FromContext(ctx).ErrorContext(ctx, reason, "provider", provider, "status", status, "error", err)
+	logging.FromContext(ctx).ErrorContext(ctx, "database proxy request failed", "reason", reason, "provider", provider, "status", status, "error", err)
 	logging.Capture(ctx, fmt.Errorf("database proxy %s %d: %w", provider, status, err))
 }

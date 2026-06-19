@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const AdminSecretHeader = "X-Hivy-Admin-Secret"
+const AdminSecretHeader = "X-Hivy-Admin-Secret" // #nosec G101 -- header name, not a credential value.
 
 // RequireAdminSecret validates the shared admin secret before serving admin APIs.
 func RequireAdminSecret(secret string) func(http.Handler) http.Handler {

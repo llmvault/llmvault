@@ -19,7 +19,8 @@ func TestAgentSQLiteBackup_ExtendsReadDeadlineForSlowBody(t *testing.T) {
 	defer server.Close()
 
 	body := []byte("slow-backup")
-	req, err := http.NewRequest(
+	req, err := http.NewRequestWithContext(
+		t.Context(),
 		http.MethodPut,
 		server.URL+"/internal/agents/"+h.agentID.String()+"/sqlite-backup",
 		&slowReadCloser{data: body, delay: 30 * time.Millisecond},

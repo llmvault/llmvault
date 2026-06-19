@@ -83,18 +83,3 @@ func (c *SlackTextCleaner) resolveUserName(ctx context.Context, userID string) s
 	c.nameCache[userID] = name
 	return name
 }
-
-// resolveUserEmail resolves a user ID to their email.
-func (c *SlackTextCleaner) resolveUserEmail(ctx context.Context, userID string) string {
-	if email, ok := c.emailCache[userID]; ok {
-		return email
-	}
-	u, err := c.userCache.get(ctx, c.api, userID)
-	if err != nil {
-		c.emailCache[userID] = ""
-		return ""
-	}
-	email := userEmail(u)
-	c.emailCache[userID] = email
-	return email
-}

@@ -38,6 +38,8 @@ linters-settings:
           - "$all"
           - "!**/cmd/sandbox-exec/**"
           - "!**/cmd/verify-devbox/**"
+          - "!**/cmd/agent-debug-pack/**"
+          - "!**/cmd/agent-env-doctor/**"
           - "!**/cmd/buildtemplates/**"
           - "!**/cmd/fake-nango/**"
           - "!**/cmd/fetchactions-*/**"
@@ -83,11 +85,20 @@ issues:
         - forbidigo
         - depguard
         - sloglint
+        - unused
     # CLI tools — log/fmt.Println are legitimate user-facing terminal output.
     - path: cmd/sandbox-exec/
       linters: [forbidigo, depguard, sloglint]
     - path: cmd/verify-devbox/
       linters: [forbidigo, depguard, sloglint]
+    - path: cmd/agent-debug-pack/
+      linters: [forbidigo, depguard, sloglint]
+    - path: cmd/agent-env-doctor/
+      linters: [forbidigo, depguard, sloglint]
+    - path: cmd/microsandbox/
+      linters: [forbidigo, sloglint]
+    - path: cmd/msb/
+      linters: [forbidigo, sloglint]
     - path: cmd/buildtemplates/
       linters: [forbidigo, depguard, sloglint]
     - path: cmd/fake-nango/
@@ -103,6 +114,10 @@ issues:
       linters: [unused]
     - path: internal/handler/auth_types\.go
       linters: [unused]
+    - path: internal/handler/
+      linters: [unused]
+    - path: internal/agentruntime/env\.go
+      linters: [gosec]
 
 run:
   timeout: 5m

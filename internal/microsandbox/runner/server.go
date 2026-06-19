@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 )
@@ -78,9 +78,10 @@ func (s *Server) requireControl(next http.Handler) http.Handler {
 }
 
 func (s *Server) RegisterAndHeartbeat(ctx context.Context) {
+	logger := logging.FromContext(ctx)
 	for {
 		if err := s.register(ctx); err != nil {
-			slog.Error("runner registration failed", "error", err)
+			logger.ErrorContext(ctx, "runner registration failed", "error", err)
 			sleep(ctx, 5*time.Second)
 			continue
 		}
@@ -88,9 +89,9 @@ func (s *Server) RegisterAndHeartbeat(ctx context.Context) {
 	}
 	report, err := s.backend.Reconcile(ctx)
 	if err != nil {
-		slog.Error("runner sandbox reconciliation failed", "error", err)
+		logger.ErrorContext(ctx, "runner sandbox reconciliation failed", "error", err)
 	} else {
-		slog.Info("runner sandbox reconciliation complete", "sandboxes", report.Sandboxes, "ports", report.Ports, "skipped", report.Skipped)
+		logger.InfoContext(ctx, "runner sandbox reconciliation complete", "sandboxes", report.Sandboxes, "ports", report.Ports, "skipped", report.Skipped)
 	}
 	ticker := time.NewTicker(s.cfg.HeartbeatInterval)
 	defer ticker.Stop()
@@ -100,7 +101,7 @@ func (s *Server) RegisterAndHeartbeat(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := s.heartbeat(ctx); err != nil {
-				slog.Error("runner heartbeat failed", "error", err)
+				logger.ErrorContext(ctx, "runner heartbeat failed", "error", err)
 			}
 		}
 	}
@@ -132,7 +133,7 @@ func (s *Server) register(ctx context.Context) error {
 	s.runnerID = out.RunnerID
 	s.token = out.RunnerToken
 	s.tokenMu.Unlock()
-	slog.Info("runner registered", "runner_id", out.RunnerID)
+	logging.FromContext(ctx).InfoContext(ctx, "runner registered", "runner_id", out.RunnerID)
 	return nil
 }
 

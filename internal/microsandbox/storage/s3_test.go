@@ -10,7 +10,7 @@ import (
 func TestFileArtifactUploadReportsDigestAndDownloadCopies(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "snapshot.tar.zst")
-	if err := os.WriteFile(src, []byte("snapshot data"), 0o644); err != nil {
+	if err := os.WriteFile(src, []byte("snapshot data"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

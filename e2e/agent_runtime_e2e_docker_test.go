@@ -67,7 +67,7 @@ func startAgentRuntimeContainerWithOptions(t *testing.T, trace *agentRuntimeE2ET
 		t.Fatalf("docker run returned empty container id")
 	}
 	trace.Logf("docker", "container started id=%s", containerID)
-	stopLogStream := streamDockerLogs(t, trace, containerID)
+	stopLogStream := streamDockerLogs(ctx, t, trace, containerID)
 
 	var stopped atomic.Bool
 	stop := func() {

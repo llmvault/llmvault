@@ -3,12 +3,12 @@ package control
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
@@ -164,10 +164,10 @@ func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
 	if snapshot.ArtifactURL != "" {
 		store, err := storage.NewSnapshotStore(r.Context(), s.cfg)
 		if err != nil {
-			slog.Error("snapshot artifact store init failed", "snapshot_id", snapshot.ID, "error", err)
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "snapshot artifact store init failed", "snapshot_id", snapshot.ID, "error", err)
 		} else if store != nil {
 			if err := store.Delete(r.Context(), snapshot.ArtifactURL); err != nil {
-				slog.Error("snapshot artifact delete failed", "snapshot_id", snapshot.ID, "artifact_url", snapshot.ArtifactURL, "error", err)
+				logging.FromContext(r.Context()).ErrorContext(r.Context(), "snapshot artifact delete failed", "snapshot_id", snapshot.ID, "artifact_url", snapshot.ArtifactURL, "error", err)
 			}
 		}
 	}

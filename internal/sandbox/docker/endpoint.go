@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/errdefs"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/go-connections/nat"
 
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -15,7 +15,7 @@ import (
 func (d *Driver) GetEndpoint(ctx context.Context, externalID string, port int) (string, error) {
 	info, err := d.cli.ContainerInspect(ctx, externalID)
 	if err != nil {
-		if errdefs.IsNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return "", sandbox.ErrSandboxNotFound
 		}
 		return "", fmt.Errorf("inspecting docker container %s: %w", externalID, err)

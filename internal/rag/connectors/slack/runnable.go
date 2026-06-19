@@ -31,8 +31,3 @@ func (c *SlackConnector) FinalCheckpoint() (json.RawMessage, error) {
 	}
 	return json.Marshal(*cp)
 }
-
-// marshalCP is a helper used internally to serialize any SlackCheckpoint.
-func marshalCP(cp SlackCheckpoint) (json.RawMessage, error) {
-	return json.Marshal(cp)
-}

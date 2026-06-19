@@ -129,14 +129,6 @@ func mergeAgentEnvVars(deps CompileDeps, env map[string]string, agent *model.Age
 	return nil
 }
 
-func addAgentRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]string, agent *model.Agent, runtimeSecret string) error {
-	if err := mergeAgentEnvVars(deps, env, agent); err != nil {
-		return err
-	}
-	addControlPlaneRuntimeEnv(ctx, deps, env, agent, runtimeSecret)
-	return nil
-}
-
 func addControlPlaneRuntimeEnv(ctx context.Context, deps CompileDeps, env map[string]string, agent *model.Agent, runtimeSecret string) {
 	if env == nil || deps.Cfg == nil || agent == nil || agent.ID == uuid.Nil || runtimeSecret == "" {
 		return

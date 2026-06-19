@@ -51,7 +51,6 @@ func listPreloadMemories(ctx context.Context, client HindsightMemoryClient, bank
 	resultsByQuery := make([][]any, len(queries))
 	p := pool.New().WithErrors().WithMaxGoroutines(8)
 	for index, query := range queries {
-		index, query := index, query
 		p.Go(func() error {
 			resp, err := client.ListMemoriesFiltered(ctx, bankID, hindsight.ListMemoriesOptions{
 				Limit:       memoryPreloadPerQueryLimit,

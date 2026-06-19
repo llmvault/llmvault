@@ -1,17 +1,12 @@
 package tasks
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -110,49 +105,6 @@ func (h *AgentSandboxUpgradeHandler) syncAgentRuntime(ctx context.Context, agent
 			return fmt.Errorf("mark agent active: %w", err)
 		}
 		agent.Status = "active"
-	}
-	return nil
-}
-
-func (h *AgentSandboxUpgradeHandler) runSmokeTest(ctx context.Context, sb *model.Sandbox) error {
-	apiKey, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
-	if err != nil {
-		return fmt.Errorf("decrypt runtime secret for smoke test: %w", err)
-	}
-	client := agentruntime.NewClient(sb.RuntimeURL, apiKey)
-	if err := client.Healthz(ctx); err != nil {
-		return fmt.Errorf("smoke healthz: %w", err)
-	}
-	if err := client.Readyz(ctx); err != nil {
-		return fmt.Errorf("smoke readyz: %w", err)
-	}
-	sessionID := uuid.NewString()
-	body, err := json.Marshal(map[string]any{
-		"text": "upgrade smoke test",
-		"user": "hivy-control-plane",
-		"raw": map[string]any{
-			"upgrade_smoke": true,
-			"sandbox_id":    sb.ID.String(),
-		},
-	})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		strings.TrimRight(sb.RuntimeURL, "/")+"/sessions/"+sessionID+"/messages", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
-		return fmt.Errorf("smoke session message: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode/100 != 2 {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("smoke session message: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
 	}
 	return nil
 }

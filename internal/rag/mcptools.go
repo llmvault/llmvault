@@ -63,9 +63,9 @@ Use semantic, natural-language queries that describe the information you need, n
 			if params.Query == "" {
 				return toolError("query is required"), nil
 			}
-			limit := uint32(params.Limit)
-			if limit == 0 {
-				limit = 25
+			limit := 25
+			if params.Limit > 0 {
+				limit = params.Limit
 			}
 			if limit > 100 {
 				limit = 100
@@ -86,7 +86,7 @@ Use semantic, natural-language queries that describe the information you need, n
 				Collection:  collection,
 				Vector:      vectors[0],
 				Filter:      qdrant.BuildACLFilter(token.OrgID.String(), nil, true),
-				Limit:       limit,
+				Limit:       uint32(limit), // #nosec G115 -- limit is clamped to 1..100 above.
 				WithPayload: true,
 			})
 			if err != nil {

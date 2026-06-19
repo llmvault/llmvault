@@ -196,8 +196,11 @@ func (h *AgentHandler) loadRuntimeEnv(ctx context.Context, agent *model.Agent, s
 }
 
 func (h *AgentHandler) mainAgentRuntimeSelector() agentsandbox.Selector {
+	if h == nil {
+		return agentsandbox.Selector{}
+	}
 	selector := agentsandbox.Selector{DB: h.db}
-	if h != nil && h.compileDeps.Cfg != nil {
+	if h.compileDeps.Cfg != nil {
 		selector.AgentRuntimeImage = sandbox.AgentRuntimeImageRef(h.compileDeps.Cfg, model.SandboxImageDefault)
 	}
 	return selector

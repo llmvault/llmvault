@@ -34,7 +34,7 @@ func ExecuteMongo(ctx context.Context, dsn string, body []byte, policy Policy) (
 	if err != nil {
 		return nil, err
 	}
-	defer client.Disconnect(context.WithoutCancel(ctx))
+	defer func() { _ = client.Disconnect(context.WithoutCancel(ctx)) }()
 	var result bson.M
 	if err := client.Database(dbName).RunCommand(ctx, bson.M(cmd)).Decode(&result); err != nil {
 		return nil, fmt.Errorf("execute MongoDB command: %w", err)
@@ -47,7 +47,7 @@ func TestMongo(ctx context.Context, dsn string) error {
 	if err != nil {
 		return err
 	}
-	defer client.Disconnect(context.WithoutCancel(ctx))
+	defer func() { _ = client.Disconnect(context.WithoutCancel(ctx)) }()
 	return client.Ping(ctx, nil)
 }
 
@@ -56,7 +56,7 @@ func IntrospectMongo(ctx context.Context, dsn string) ([]MongoCollectionInfo, er
 	if err != nil {
 		return nil, err
 	}
-	defer client.Disconnect(context.WithoutCancel(ctx))
+	defer func() { _ = client.Disconnect(context.WithoutCancel(ctx)) }()
 	db := client.Database(dbName)
 	names, err := db.ListCollectionNames(ctx, bson.M{})
 	if err != nil {
