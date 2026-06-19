@@ -67,4 +67,26 @@ describe("live session stream", () => {
       true
     )
   })
+
+  it("passes plan updates through as live session events", () => {
+    const events = appendLiveSessionStreamFrame(
+      [],
+      frame("plan_updated", {
+        event_id: "event-plan-1",
+        sequence: 3,
+        occurred_at: "2026-06-19T07:04:16.927Z",
+        plan: [{ status: "in_progress", step: "1. Inspect project" }],
+      })
+    )
+
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      id: "event-plan-1",
+      event_type: "plan_updated",
+      sequence_number: 3,
+      payload: {
+        plan: [{ status: "in_progress", step: "1. Inspect project" }],
+      },
+    } satisfies Partial<SessionEventResponse>)
+  })
 })

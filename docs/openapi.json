@@ -11608,6 +11608,9 @@
           "resources": {
             "$ref": "#/components/schemas/JSON"
           },
+          "sandbox_image": {
+            "type": "string"
+          },
           "sandbox_size": {
             "type": "string"
           },

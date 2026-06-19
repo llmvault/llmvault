@@ -37,6 +37,7 @@ const hiddenEventTypes = new Set([
   "model_usage",
   "model_request_started",
   "model_request_completed",
+  "plan_updated",
 ])
 
 export function sessionHistoryPagesToEvents(

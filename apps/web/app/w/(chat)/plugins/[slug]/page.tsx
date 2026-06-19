@@ -6,6 +6,7 @@ import { Button, Modal, Spinner, toast, useOverlayState } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { invalidateSessionListQueries } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   type ConnectOptions,
   useConnectIntegration,
@@ -96,6 +97,7 @@ export default function PluginDetailPage({
   function refresh() {
     queryClient.invalidateQueries({ queryKey: PLUGINS_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: ["get", "/v1/plugins/{slug}"] })
+    invalidateSessionListQueries(queryClient)
     pluginQuery.refetch()
   }
 

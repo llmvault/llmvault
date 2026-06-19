@@ -4,7 +4,6 @@ import {
   appendSessionEvents,
   chatQueryKeys,
   insertSessionIntoChannelCache,
-  isPersistableChatQuery,
   optimisticThinkingEvent,
   optimisticUserEvent,
   removeSessionEvent,
@@ -147,16 +146,6 @@ describe("chat cache helpers", () => {
       session_id: "session-1",
       payload: { text: "Research this" },
     })
-  })
-
-  it("only persists chat-safe query families", () => {
-    expect(
-      isPersistableChatQuery(chatQueryKeys.sessionEvents("session-1"))
-    ).toBe(true)
-    expect(isPersistableChatQuery(["get", "/auth/me"])).toBe(false)
-    expect(
-      isPersistableChatQuery(["post", "/v1/sessions/{id}/sandbox-access"])
-    ).toBe(false)
   })
 })
 

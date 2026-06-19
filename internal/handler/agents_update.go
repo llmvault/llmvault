@@ -130,6 +130,14 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		updates["sandbox_strategy"] = strategy
 		agent.SandboxStrategy = strategy
 	}
+	if req.SandboxImage != nil {
+		image, ok := normalizeAgentSandboxImageForRequest(w, req.SandboxImage)
+		if !ok {
+			return false
+		}
+		updates["sandbox_image"] = image
+		agent.SandboxImage = image
+	}
 	if req.SandboxSize != nil {
 		size, ok := normalizeAgentSandboxSizeForRequest(w, req.SandboxSize)
 		if !ok {

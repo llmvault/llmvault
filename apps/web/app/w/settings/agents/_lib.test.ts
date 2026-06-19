@@ -8,6 +8,7 @@ import {
   agentMatchesQuery,
   agentMissingPlugins,
   groupAgents,
+  normalizeAgentSandboxImage,
   normalizeAgentSandboxSize,
   pluginForRequirement,
   pluginsBySlug,
@@ -119,6 +120,12 @@ describe("agent catalog helpers", () => {
     expect(normalizeAgentSandboxSize("xlarge")).toBe("xlarge")
     expect(normalizeAgentSandboxSize("jumbo")).toBe("small")
     expect(normalizeAgentSandboxSize(undefined)).toBe("small")
+  })
+
+  it("normalizes agent sandbox image values", () => {
+    expect(normalizeAgentSandboxImage("developer")).toBe("developer")
+    expect(normalizeAgentSandboxImage("gpu")).toBe("default")
+    expect(normalizeAgentSandboxImage(undefined)).toBe("default")
   })
 
   it("resolves required plugin logo data from the plugin catalog", () => {

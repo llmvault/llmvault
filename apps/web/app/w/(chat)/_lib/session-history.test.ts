@@ -62,6 +62,16 @@ describe("sessionEventsToConversationBlocks", () => {
     expect(prependedAnswer?.key).toBe(currentAnswer?.key)
   })
 
+  it("does not render plan updates in the transcript", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event("plan_updated", {
+        plan: [{ status: "in_progress", step: "1. Inspect project" }],
+      }),
+    ])
+
+    expect(blocks).toEqual([])
+  })
+
   it("treats command-bearing tool results as shell commands", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("tool_result", {

@@ -10804,6 +10804,7 @@ export interface components {
             name?: string;
             permissions?: components["schemas"]["JSON"];
             resources?: components["schemas"]["JSON"];
+            sandbox_image?: string;
             sandbox_size?: string;
             sandbox_strategy?: string;
             sandbox_template_id?: string;

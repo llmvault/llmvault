@@ -111,13 +111,15 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if upgrade, ok, err := activeAgentSandboxUpgrade(ctx, h.db, org.ID, agentID); err != nil {
-		log.ErrorContext(ctx, "load active agent sandbox upgrade for model update", "error", err, "agent_id", agentID)
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load active upgrade"})
-		return
-	} else if ok {
-		writeAgentUpgradeConflict(w, upgrade)
-		return
+	if agent.SandboxStrategy != agentStrategyPerSession {
+		if upgrade, ok, err := activeAgentSandboxUpgrade(ctx, h.db, org.ID, agentID); err != nil {
+			log.ErrorContext(ctx, "load active agent sandbox upgrade for model update", "error", err, "agent_id", agentID)
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load active upgrade"})
+			return
+		} else if ok {
+			writeAgentUpgradeConflict(w, upgrade)
+			return
+		}
 	}
 
 	if agent.Model != modelID {
@@ -130,6 +132,18 @@ func (h *AgentHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		agent.Model = modelID
+	}
+
+	if agent.SandboxStrategy == agentStrategyPerSession {
+		log.InfoContext(ctx, "per-session agent model updated",
+			"agent_id", agent.ID,
+			"model", modelID,
+		)
+		writeJSON(w, http.StatusOK, updateAgentModelResponse{
+			Agent: toAgentResponse(agent),
+			Sync:  toSyncResponseDTO(nil),
+		})
+		return
 	}
 
 	sb, syncResp, err := h.SyncAgent(ctx, &agent)

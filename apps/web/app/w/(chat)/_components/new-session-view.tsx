@@ -11,13 +11,6 @@ import { AGENTS } from "@/app/w/(chat)/_lib/agents"
 import {
   CHAT_QUERY_STALE_TIME_MS,
   insertSessionIntoChannelCache,
-  markOptimisticEventFailed,
-  optimisticThinkingEvent,
-  optimisticUserEvent,
-  removeSessionFromChannelCache,
-  removeSessionEvent,
-  replaceOptimisticEvent,
-  replaceOptimisticSessionID,
   seedSessionDetail,
   seedSessionEvents,
 } from "@/app/w/(chat)/_lib/chat-cache"
@@ -106,49 +99,8 @@ export function SessionView({
       return false
     }
 
-    const tempSessionID = `tmp_${crypto.randomUUID()}`
-    const title = sessionTitle(text)
-    const now = new Date().toISOString()
-    const tempSession = {
-      id: tempSessionID,
-      channel_id: activeChannel.id,
-      agent_id: selectedAgent?.id,
-      model: modelId,
-      name: title,
-      status: "creating",
-      created_at: now,
-      updated_at: now,
-      last_activity_at: now,
-    }
-    const previewSession: ChatSession = {
-      title,
-      agentId: selectedAgent?.id ?? fallbackAgent.id,
-      agentName: selectedAgent ? agentDisplayName(selectedAgent) : undefined,
-      agentIcon: agentIcon(selectedAgent),
-      agentAvatarURL: agentAvatarURL(selectedAgent),
-      modelId,
-    }
-
-    seedSessionDetail(queryClient, tempSession)
-    insertSessionIntoChannelCache(queryClient, tempSession)
-    const optimisticMessage = optimisticUserEvent(tempSessionID, text)
-    const optimisticThinking = optimisticThinkingEvent(tempSessionID)
-    const optimisticMessageID =
-      optimisticMessage.event_id ?? optimisticMessage.id ?? ""
-    const optimisticThinkingID =
-      optimisticThinking.event_id ?? optimisticThinking.id ?? ""
-    seedSessionEvents(queryClient, tempSessionID, [
-      optimisticMessage,
-      optimisticThinking,
-    ])
-    onSessionCreated(
-      channelRouteSlug(activeChannel),
-      tempSessionID,
-      previewSession
-    )
-
-    void createSession
-      .mutateAsync({
+    try {
+      const response = await createSession.mutateAsync({
         body: {
           channel_id: activeChannel.id,
           agent_id: selectedAgent?.id,
@@ -158,58 +110,38 @@ export function SessionView({
           access_mode: "full",
         },
       })
-      .then((response) => {
-        const created = response.session
-        if (!created?.id) {
-          toast.danger("Session was created without an id")
-          return
-        }
-        seedSessionDetail(queryClient, created)
-        insertSessionIntoChannelCache(queryClient, created)
-        removeSessionFromChannelCache(
-          queryClient,
-          activeChannel.id,
-          tempSessionID
-        )
-        replaceOptimisticSessionID(queryClient, tempSessionID, created)
-        if (response.event) {
-          replaceOptimisticEvent(
-            queryClient,
-            created.id,
-            optimisticMessageID,
-            response.event
-          )
-        }
-        removeSessionEvent(queryClient, created.id, optimisticThinkingID)
-        onSessionCreated(
-          channelRouteSlug(activeChannel),
-          created.id,
-          {
-            title: sessionDisplayName(created),
-            agentId: selectedAgent?.id ?? fallbackAgent.id,
-            agentName: selectedAgent
-              ? agentDisplayName(selectedAgent)
-              : undefined,
-            agentIcon: agentIcon(selectedAgent),
-            agentAvatarURL: agentAvatarURL(selectedAgent),
-            modelId,
-          },
-          { replace: true }
-        )
-      })
-      .catch((error) => {
-        const message = extractErrorMessage(error, "Could not create session")
-        markOptimisticEventFailed(
-          queryClient,
-          tempSessionID,
-          optimisticMessageID,
-          message
-        )
-        removeSessionEvent(queryClient, tempSessionID, optimisticThinkingID)
-        toast.danger(message)
-      })
 
-    return true
+      const created = response.session
+      if (!created?.id) {
+        toast.danger("Session was created without an id")
+        return false
+      }
+
+      seedSessionDetail(queryClient, created)
+      insertSessionIntoChannelCache(queryClient, created)
+      if (response.event) {
+        seedSessionEvents(queryClient, created.id, [response.event])
+      }
+      onSessionCreated(
+        channelRouteSlug(activeChannel),
+        created.id,
+        {
+          title: sessionDisplayName(created),
+          agentId: selectedAgent?.id ?? fallbackAgent.id,
+          agentName: selectedAgent
+            ? agentDisplayName(selectedAgent)
+            : undefined,
+          agentIcon: agentIcon(selectedAgent),
+          agentAvatarURL: agentAvatarURL(selectedAgent),
+          modelId,
+        },
+        { replace: true }
+      )
+      return true
+    } catch (error) {
+      toast.danger(extractErrorMessage(error, "Could not create session"))
+      return false
+    }
   }
 
   return (
@@ -248,8 +180,4 @@ export function SessionView({
       </div>
     </div>
   )
-}
-
-function sessionTitle(text: string) {
-  return text.length > 44 ? `${text.slice(0, 44).trimEnd()}...` : text
 }

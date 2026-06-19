@@ -15,6 +15,7 @@ import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { Composer } from "@/app/w/(chat)/_components/composer"
 import { Conversation } from "@/app/w/(chat)/_components/conversation"
+import { SessionPlanCard } from "@/app/w/(chat)/_components/session-plan-card"
 import {
   useWorkspace,
   type ChatSession,
@@ -47,6 +48,7 @@ import {
   sessionEventsToConversationBlocks,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history"
+import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
 
 const HISTORY_TOP_LOAD_THRESHOLD = 160
 const STREAM_WATCHDOG_MS = 10 * 60 * 1000
@@ -129,6 +131,10 @@ export function SessionThreadView({
   const liveBlocks = useMemo(
     () => sessionEventsToConversationBlocks(liveEvents, { mode: "live" }),
     [liveEvents]
+  )
+  const latestPlan = useMemo(
+    () => latestSessionPlan([...historyEvents, ...liveEvents]),
+    [historyEvents, liveEvents]
   )
   const fetchNextHistoryPage = sessionHistoryQuery.fetchNextPage
   const loadNextHistoryPage = useCallback(
@@ -467,36 +473,74 @@ export function SessionThreadView({
     sendSessionMessage.isPending ||
     interruptSession.isPending
   const visibleBlocks = [...baseBlocks, ...liveBlocks]
+  const showHistorySkeleton =
+    !optimisticSession && sessionHistoryQuery.isPending && !historyPages?.length
+  const followButtonClassName = `!absolute ${
+    latestPlan ? "!bottom-20" : "!bottom-6"
+  } !left-1/2 !right-auto !flex !h-9 !w-9 !-translate-x-1/2 !items-center !justify-center !rounded-full !border !border-border !bg-surface !p-0 !text-muted !shadow-sm !transition-colors after:content-['↓'] hover:!bg-default hover:!text-foreground`
 
   return (
     <div className="relative flex h-full min-w-0 flex-col">
       <ScrollToBottom
         className="min-h-0 flex-1"
         scrollViewClassName="min-h-0 [overflow-anchor:none]"
-        followButtonClassName="!absolute !bottom-6 !left-1/2 !right-auto !flex !h-9 !w-9 !-translate-x-1/2 !items-center !justify-center !rounded-full !border !border-border !bg-surface !p-0 !text-muted !shadow-sm !transition-colors after:content-['↓'] hover:!bg-default hover:!text-foreground"
+        followButtonClassName={followButtonClassName}
         initialScrollBehavior="auto"
         mode="bottom"
       >
-        <SessionHistoryTopLoader
-          hasMore={Boolean(sessionHistoryQuery.hasNextPage)}
-          isFetching={sessionHistoryQuery.isFetchingNextPage}
-          loadedEventCount={historyEvents.length}
-          onLoadMore={loadNextHistoryPage}
-        />
-        <Conversation
-          blocks={visibleBlocks}
-          onRetryMessage={optimisticSession ? undefined : retryMessage}
-        />
+        {showHistorySkeleton ? (
+          <SessionHistorySkeleton />
+        ) : (
+          <>
+            <SessionHistoryTopLoader
+              hasMore={Boolean(sessionHistoryQuery.hasNextPage)}
+              isFetching={sessionHistoryQuery.isFetchingNextPage}
+              loadedEventCount={historyEvents.length}
+              onLoadMore={loadNextHistoryPage}
+            />
+            <Conversation
+              blocks={visibleBlocks}
+              onRetryMessage={optimisticSession ? undefined : retryMessage}
+            />
+          </>
+        )}
       </ScrollToBottom>
 
-      <Composer
-        agent={agent}
-        modelId={session.modelId}
-        onModelChange={setModel}
-        onSend={send}
-        isStreaming={isBusy}
-        onStop={stop}
-      />
+      <div className="relative z-20 shrink-0">
+        {latestPlan ? (
+          <SessionPlanCard plan={latestPlan} turnActive={streaming} />
+        ) : null}
+        <Composer
+          agent={agent}
+          modelId={session.modelId}
+          onModelChange={setModel}
+          onSend={send}
+          isStreaming={isBusy}
+          onStop={stop}
+        />
+      </div>
+    </div>
+  )
+}
+
+function SessionHistorySkeleton() {
+  return (
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6"
+      role="status"
+      aria-label="Loading session"
+    >
+      <div className="flex max-w-[85%] flex-col items-end gap-1 self-end">
+        <div className="bg-default h-4 w-20 animate-pulse rounded" />
+        <div className="bg-default h-14 w-72 max-w-full animate-pulse rounded-2xl" />
+      </div>
+      <div className="flex flex-col gap-3">
+        <div className="bg-default h-4 w-28 animate-pulse rounded" />
+        <div className="bg-default h-4 w-full max-w-xl animate-pulse rounded" />
+        <div className="bg-default h-4 w-5/6 animate-pulse rounded" />
+        <div className="bg-default h-4 w-2/3 animate-pulse rounded" />
+      </div>
+      <div className="bg-default/70 h-24 w-full max-w-lg animate-pulse rounded-xl" />
     </div>
   )
 }
@@ -526,6 +570,7 @@ function isActiveStreamFrame(event: string) {
     event === "token" ||
     event === "tool_call" ||
     event === "tool_result" ||
+    event === "plan_updated" ||
     event === "final"
   )
 }
