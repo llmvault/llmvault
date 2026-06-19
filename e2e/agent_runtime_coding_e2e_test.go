@@ -55,7 +55,7 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 	defer controlPlane.server.Close()
 	trace.Logf("ids", "agent_id=%s sandbox_id=%s", agentID, sandboxID)
 
-	runtimeBaseURL, stopRuntime := startAgentRuntimeContainer(
+	runtimeBaseURL, stopRuntime := startAgentRuntimeContainerWithOptions(
 		t,
 		trace,
 		ctx,
@@ -66,6 +66,7 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 		agentID,
 		sandboxID,
 		controlPlane.containerURL,
+		agentRuntimeContainerOptions{developerImage: true},
 	)
 	defer stopRuntime()
 	trace.Logf("runtime", "container API is available at %s", runtimeBaseURL)
@@ -117,7 +118,7 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 	assertRuntimeSharedSubagentStream(t, trace, "bearer parent stream", events)
 	assertRuntimeSharedSubagentStream(t, trace, "direct browser stream", directSessionEvents)
 	assertRuntimeE2EEvents(t, trace, events)
-	assertRuntimeSessionFinal(t, trace, directSessionEvents, []string{"E2E_PASS", agentRuntimeE2EToken})
+	assertRuntimeSessionFinal(t, trace, directSessionEvents, []string{"E2E_PASS", agentRuntimeE2EToken, "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"})
 	assertAgentRuntimePostRunAPIs(t, trace, ctx, runtimeBaseURL, runtimeSecret, messageResponse.SessionID, messageResponse.TraceID, workspaceRoot)
 	assertFixtureProjectCompleted(t, trace, workspaceRoot)
 	if got := fixture.calls.Load(); got < 1 {
@@ -140,13 +141,22 @@ func agentRuntimeCodingRequest() map[string]any {
 			"You are running the flagship Hivy agent runtime E2E. Complete every numbered step and use the exact named tools.",
 			"1. Call search_sessions with query agent-runtime-e2e.",
 			"2. Call fixture_requirements to retrieve the exact token and requirement phrases.",
-			"3. Read calc.py with read_file.",
-			"4. Use write_file to create e2e_notes.txt containing the retrieved token.",
-			"5. Use edit_file on calc.py with two replacements: replace PLACEHOLDER_TOKEN with the retrieved token, and replace PLACEHOLDER_HELPER with PLANNER_SUBAGENT_CONFIRMED.",
-			"6. Use bash to run a background command: python3 -c 'print(\"background-ok\")' with run_in_background=true, then call check_bash_status with its process_id.",
-			"7. Use subagent_task once for each configured agent: planner, qa, and reviewer. Use each returned job_id with check_subagent_task_status exactly once.",
-			"8. Use bash to run python3 -m unittest -v.",
-			"9. After the tests pass and all three subagent completion notifications arrive, final answer must include E2E_PASS, the exact token, and PLANNER_SUBAGENT_CONFIRMED, QA_SUBAGENT_CONFIRMED, REVIEW_SUBAGENT_CONFIRMED.",
+			"3. Use bash to clone two real public codebases into repos/: run mkdir -p repos && git clone --depth=1 https://github.com/tidwall/gjson repos/gjson && git clone --depth=1 https://github.com/pallets/itsdangerous repos/itsdangerous.",
+			"4. Call file_search with query serializer.py and path repos/itsdangerous.",
+			"5. Call glob with pattern **/*.go and path repos/gjson.",
+			"6. Call grep with pattern func Get, path repos/gjson, and include **/*.go.",
+			"7. Call multi_grep with patterns [\"func Get\", \"class Serializer\"], path repos, and include **/*.{go,py}.",
+			"8. Call lsp with operation diagnostics separately for every file in this exact list to verify every built-in LSP server: lsp-fixtures/deno/mod.ts, lsp-fixtures/typescript/src/app.ts, lsp-fixtures/python/app.py, lsp-fixtures/go/main.go, lsp-fixtures/rust/src/lib.rs, lsp-fixtures/cpp/main.cpp, lsp-fixtures/json/package.json, lsp-fixtures/yaml/config.yaml, lsp-fixtures/html/index.html, lsp-fixtures/css/styles.css, lsp-fixtures/tailwind/src/App.tsx, lsp-fixtures/bash/script.sh, lsp-fixtures/docker/Dockerfile.",
+			"9. Call lsp with operation documentSymbol for filePath repos/gjson/gjson.go.",
+			"10. Call lsp with operation diagnostics for filePath calc.py.",
+			"11. Read calc.py with read_file.",
+			"12. Use apply_patch to add TOOLING_E2E.md containing the retrieved token and the phrases REAL_REPOS_CONFIRMED, FFF_TOOLS_CONFIRMED, APPLY_PATCH_CONFIRMED, LSP_CONFIRMED, and ALL_LSP_SERVERS_CONFIRMED. The patch argument must follow this exact shape: *** Begin Patch\\n*** Add File: TOOLING_E2E.md\\n+token: <retrieved token>\\n+REAL_REPOS_CONFIRMED\\n+FFF_TOOLS_CONFIRMED\\n+APPLY_PATCH_CONFIRMED\\n+LSP_CONFIRMED\\n+ALL_LSP_SERVERS_CONFIRMED\\n*** End Patch",
+			"13. Use write_file to create e2e_notes.txt containing the retrieved token.",
+			"14. Use edit_file on calc.py with two replacements: replace PLACEHOLDER_TOKEN with the retrieved token, and replace PLACEHOLDER_HELPER with PLANNER_SUBAGENT_CONFIRMED.",
+			"15. Use bash to run a background command: python3 -c 'print(\"background-ok\")' with run_in_background=true, then call check_bash_status with its process_id. If check_bash_status returns next_cursor, include that cursor if you check again.",
+			"16. Use subagent_task once for each configured agent: planner, qa, and reviewer. Use each returned job_id with check_subagent_task_status exactly once.",
+			"17. Use bash to run python3 -m unittest -v.",
+			"18. After the tests pass and all three subagent completion notifications arrive, final answer must include E2E_PASS, the exact token, REAL_REPOS_CONFIRMED, FFF_TOOLS_CONFIRMED, APPLY_PATCH_CONFIRMED, LSP_CONFIRMED, ALL_LSP_SERVERS_CONFIRMED, and PLANNER_SUBAGENT_CONFIRMED, QA_SUBAGENT_CONFIRMED, REVIEW_SUBAGENT_CONFIRMED.",
 		}, "\n"),
 		"raw": map[string]any{"source": "session", "test": "agent-runtime-coding-e2e"},
 	}

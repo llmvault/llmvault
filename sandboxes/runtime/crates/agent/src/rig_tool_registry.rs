@@ -588,8 +588,15 @@ fn check_bash_status_tool(registry: Arc<ProcessRegistry>) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "check_bash_status".into(),
-            description: "Check the status of a background bash process.".into(),
-            parameters: json!({"type":"object","properties":{"process_id":{"type":"string"}},"required":["process_id"]}),
+            description: "Check the status of a background bash process. Pass cursor from the previous response to receive only new output.".into(),
+            parameters: json!({
+                "type":"object",
+                "properties":{
+                    "process_id":{"type":"string"},
+                    "cursor":{"type":"integer","description":"Optional output cursor returned by the previous status response."}
+                },
+                "required":["process_id"]
+            }),
         },
         move |args| {
             let registry = registry.clone();
@@ -598,14 +605,17 @@ fn check_bash_status_tool(registry: Arc<ProcessRegistry>) -> Arc<dyn JsonTool> {
                     .get("process_id")
                     .and_then(Value::as_str)
                     .ok_or_else(|| anyhow!("process_id required"))?;
+                let cursor = args.get("cursor").and_then(Value::as_u64).map(|value| value as usize);
                 let status = registry
-                    .status(id)
+                    .status(id, cursor)
                     .ok_or_else(|| anyhow!("process not found"))?;
                 let mut result = json!({
                     "process_id": id,
                     "running": status.running,
                     "exit_code": status.exit_code,
                     "output": status.output,
+                    "next_cursor": status.next_cursor,
+                    "truncated": status.truncated,
                 });
                 if status.running {
                     result["_hint"] = serde_json::json!(format!(

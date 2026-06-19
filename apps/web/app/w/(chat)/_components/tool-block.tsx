@@ -3,17 +3,22 @@
 import { AnimatePresence, motion } from "motion/react"
 import { Icon } from "@iconify/react"
 import { Link, Spinner } from "@heroui/react"
-import { PatchDiff } from "@pierre/diffs/react"
 import { useState } from "react"
+import { CommentablePatchDiff } from "@/app/w/(chat)/_components/diff-line-comments"
 import type {
   ConversationBlock,
   ToolCallDetail,
 } from "@/app/w/(chat)/_lib/static-data"
+import { HIVY_DIFF_STYLE, hivyDiffOptions } from "@/lib/diffs-theme"
 
 const COLLAPSE_TRANSITION = {
   duration: 0.25,
   ease: [0.32, 0.72, 0, 1] as const,
 }
+
+const TOOL_DIFF_OPTIONS = hivyDiffOptions({
+  diffStyle: "unified",
+})
 
 export function ToolBlock({
   block,
@@ -195,14 +200,15 @@ function FileMutationDetail({ detail }: { detail: ToolCallDetail }) {
       {patches.length > 0 ? (
         <div className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-background">
           {patches.map((patch, index) => (
-            <PatchDiff
+            <CommentablePatchDiff
               key={`${index}-${patch.slice(0, 32)}`}
               patch={patch}
-              options={{
-                theme: "pierre-dark",
-                themeType: "dark",
-                diffStyle: "unified",
+              options={TOOL_DIFF_OPTIONS}
+              source={{
+                kind: "tool",
+                path: file,
               }}
+              style={HIVY_DIFF_STYLE}
               disableWorkerPool
             />
           ))}

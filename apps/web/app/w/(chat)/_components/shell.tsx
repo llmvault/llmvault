@@ -28,6 +28,7 @@ import {
   type PanelViewID,
 } from "@/app/w/(chat)/_components/right-panel"
 import { Sidebar } from "@/app/w/(chat)/_components/sidebar"
+import { LineCommentsProvider } from "@/app/w/(chat)/_components/line-comments"
 import {
   agentById,
   DEFAULT_AGENT_ID,
@@ -414,12 +415,12 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!routeSessionID || routeIsOptimistic) {
       sandboxRuntimeRequestRef.current += 1
-      setSandboxRuntimeState(null)
+      window.queueMicrotask(() => setSandboxRuntimeState(null))
       resetSandboxWake()
       resetSandboxAccess()
       return
     }
-    refreshSandboxAccess()
+    window.queueMicrotask(refreshSandboxAccess)
   }, [
     refreshSandboxAccess,
     resetSandboxAccess,
@@ -459,83 +460,85 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkspaceContext.Provider value={workspace}>
-      <div className="bg-surface h-screen w-screen overflow-hidden text-foreground">
-        <Group orientation="horizontal" className="h-full w-full">
-          <Panel
-            id="sidebar"
-            panelRef={sidebarPanelRef}
-            defaultSize={SIDEBAR_WIDTH}
-            minSize={0}
-            maxSize={420}
-            className="min-w-0 overflow-hidden"
-            onResize={(size) => setSidebarOpen(size.inPixels > 8)}
-          >
-            <div className="h-full min-w-[230px]">
-              <Sidebar onCollapse={toggleSidebar} />
-            </div>
-          </Panel>
-          <Separator
-            className={`shrink-0 bg-border transition-colors hover:bg-accent data-[resizing]:bg-accent ${
-              sidebarOpen ? "w-px" : "w-0"
-            }`}
-          />
+      <LineCommentsProvider scopeKey={routeSessionID ?? "new-chat"}>
+        <div className="bg-surface h-screen w-screen overflow-hidden text-foreground">
+          <Group orientation="horizontal" className="h-full w-full">
+            <Panel
+              id="sidebar"
+              panelRef={sidebarPanelRef}
+              defaultSize={SIDEBAR_WIDTH}
+              minSize={0}
+              maxSize={420}
+              className="min-w-0 overflow-hidden"
+              onResize={(size) => setSidebarOpen(size.inPixels > 8)}
+            >
+              <div className="h-full min-w-[230px]">
+                <Sidebar onCollapse={toggleSidebar} />
+              </div>
+            </Panel>
+            <Separator
+              className={`shrink-0 bg-border transition-colors hover:bg-accent data-[resizing]:bg-accent ${
+                sidebarOpen ? "w-px" : "w-0"
+              }`}
+            />
 
-          <Panel id="chat" minSize={480} className="min-w-0">
-            <div className="flex h-full min-w-0 flex-col">
-              <ChatHeader
-                title={session?.title ?? "New chat"}
-                agent={session ? chatHeaderAgent(session) : null}
-                sidebarOpen={sidebarOpen}
-                onExpandSidebar={toggleSidebar}
-                rightOpen={rightOpen}
-                onToggleRight={toggleRight}
-              />
-              <div className="relative min-h-0 flex-1">
-                {children}
-                <SandboxRuntimeGate
+            <Panel id="chat" minSize={480} className="min-w-0">
+              <div className="flex h-full min-w-0 flex-col">
+                <ChatHeader
+                  title={session?.title ?? "New chat"}
+                  agent={session ? chatHeaderAgent(session) : null}
+                  sidebarOpen={sidebarOpen}
+                  onExpandSidebar={toggleSidebar}
+                  rightOpen={rightOpen}
+                  onToggleRight={toggleRight}
+                />
+                <div className="relative min-h-0 flex-1">
+                  {children}
+                  <SandboxRuntimeGate
+                    sessionId={routeSessionID}
+                    ready={sandboxRuntimeReady}
+                    pending={sandboxAccessPendingForSession}
+                    error={sandboxRuntimeError}
+                    onRetry={refreshSandboxAccess}
+                  />
+                </div>
+              </div>
+            </Panel>
+
+            <Separator
+              className={`shrink-0 bg-border transition-colors hover:bg-accent data-[resizing]:bg-accent ${
+                rightOpen ? "w-px" : "w-0"
+              }`}
+            />
+            <Panel
+              id="side"
+              panelRef={rightPanelRef}
+              defaultSize={0}
+              minSize={0}
+              className="min-w-0 overflow-hidden"
+              onResize={(size) => setRightOpen(size.inPixels > 8)}
+            >
+              <div className="h-full min-w-[360px]">
+                <RightPanel
                   sessionId={routeSessionID}
-                  ready={sandboxRuntimeReady}
-                  pending={sandboxAccessPendingForSession}
-                  error={sandboxRuntimeError}
-                  onRetry={refreshSandboxAccess}
+                  sandboxAccess={sandboxAccess}
+                  sandboxAccessPending={sandboxAccessPendingForSession}
+                  sandboxAccessError={sandboxRuntimeError}
+                  onRefreshSandboxAccess={refreshSandboxAccess}
+                  openViews={openViews}
+                  activeView={activeView}
+                  maximized={rightMaximized}
+                  onSelectView={setActiveView}
+                  onOpenView={openView}
+                  onCloseView={closeView}
+                  onToggleMaximize={toggleMaximize}
+                  onClosePanel={toggleRight}
                 />
               </div>
-            </div>
-          </Panel>
-
-          <Separator
-            className={`shrink-0 bg-border transition-colors hover:bg-accent data-[resizing]:bg-accent ${
-              rightOpen ? "w-px" : "w-0"
-            }`}
-          />
-          <Panel
-            id="side"
-            panelRef={rightPanelRef}
-            defaultSize={0}
-            minSize={0}
-            className="min-w-0 overflow-hidden"
-            onResize={(size) => setRightOpen(size.inPixels > 8)}
-          >
-            <div className="h-full min-w-[360px]">
-              <RightPanel
-                sessionId={routeSessionID}
-                sandboxAccess={sandboxAccess}
-                sandboxAccessPending={sandboxAccessPendingForSession}
-                sandboxAccessError={sandboxRuntimeError}
-                onRefreshSandboxAccess={refreshSandboxAccess}
-                openViews={openViews}
-                activeView={activeView}
-                maximized={rightMaximized}
-                onSelectView={setActiveView}
-                onOpenView={openView}
-                onCloseView={closeView}
-                onToggleMaximize={toggleMaximize}
-                onClosePanel={toggleRight}
-              />
-            </div>
-          </Panel>
-        </Group>
-      </div>
+            </Panel>
+          </Group>
+        </div>
+      </LineCommentsProvider>
     </WorkspaceContext.Provider>
   )
 }
@@ -556,7 +559,7 @@ function SandboxRuntimeGate({
   if (!sessionId || ready || (!pending && !error)) return null
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-surface px-4">
+    <div className="bg-surface absolute inset-0 z-30 flex items-center justify-center px-4">
       <div
         className="flex max-w-sm flex-col items-center gap-3 text-center"
         role="status"

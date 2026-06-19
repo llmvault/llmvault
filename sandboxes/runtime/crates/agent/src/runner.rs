@@ -32,6 +32,7 @@ use crate::primitives::{
 use crate::rig_tool_registry::{
     build_agent_tools, emit_tool_error, emit_tool_invoked, DynamicTool, ToolContext, WakeScheduler,
 };
+use crate::tool_executor::ToolExecutor;
 use crate::{AgentEvent, AgentRunner, Result, TurnInput};
 use crate::{PlanUpdater, QuestionRequester};
 
@@ -186,6 +187,10 @@ impl AgentRunner for RigAgentRunner {
             mcp_registry.clone(),
         );
         available_tools.sort_by(|a, b| a.definition().name.cmp(&b.definition().name));
+        let tool_executor = ToolExecutor::new(
+            available_tools.clone(),
+            snapshot.limits.tool_call_timeout_seconds,
+        );
 
         let max_turns = snapshot.limits.max_turns_per_session.max(1);
         let session_id = session_id.clone();
@@ -688,32 +693,7 @@ impl AgentRunner for RigAgentRunner {
                     }
                     consecutive_repeat_rejections = 0;
 
-                    let Some(tool) = available_tools.iter().find(|tool| tool.definition().name == call.name).cloned() else {
-                        let error_msg = format!("tool '{}' not found", call.name);
-                        capture_tool_error(&session_id, &call.name, &call.arguments, &error_msg);
-                        let result = json_safe_error(&error_msg);
-                        let message = AgentMessage::tool_result(call.id, result.to_string());
-                        if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
-                            yield AgentEvent::Error { message: error.to_string() };
-                            return;
-                        }
-                        messages.push(message);
-                        continue;
-                    };
-                    if let Some(error_msg) = missing_required_argument_message(&tool.definition(), &call.arguments) {
-                        error_tracker.record_failure(&call.name);
-                        capture_tool_error(&session_id, &call.name, &call.arguments, &error_msg);
-                        let result = json_safe_error(&error_msg);
-                        yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
-                        let message = AgentMessage::tool_result(call.id, result.to_string());
-                        if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
-                            yield AgentEvent::Error { message: error.to_string() };
-                            return;
-                        }
-                        messages.push(message);
-                        continue;
-                    }
-                    match tool.call(call.arguments.clone()).await {
+                    match tool_executor.execute(&call).await {
                         Ok(result) => {
                             error_tracker.reset(&call.name);
                             emit_tool_invoked(emitter.clone(), &session_id, &call.name, &call.arguments, &result).await;
@@ -727,11 +707,11 @@ impl AgentRunner for RigAgentRunner {
                         }
                             Err(error) => {
                                 error_tracker.record_failure(&call.name);
-                                let raw_error = error.to_string();
+                                let raw_error = error.raw_message();
                                 capture_tool_error(&session_id, &call.name, &call.arguments, &raw_error);
                                 let error_msg = error_tracker.format_retry_hint(&call.name, &raw_error);
                                 emit_tool_error(emitter.clone(), &session_id, &call.name, &call.arguments, &error_msg).await;
-                                let result = if is_safe_tool_argument_error(&raw_error) {
+                                let result = if error.is_safe_argument_error() {
                                     json_safe_error(&error_msg)
                                 } else {
                                     json_error(&error_msg)
@@ -1953,51 +1933,6 @@ fn replace_empty_tool_call_arguments_from_xml(
 
 fn is_empty_json_object(value: &serde_json::Value) -> bool {
     value.as_object().is_some_and(|object| object.is_empty())
-}
-
-fn missing_required_argument_message(
-    definition: &tools::ToolDefinition,
-    arguments: &serde_json::Value,
-) -> Option<String> {
-    let required = definition
-        .parameters
-        .get("required")
-        .and_then(serde_json::Value::as_array)?;
-    if required.is_empty() {
-        return None;
-    }
-    let required: Vec<&str> = required
-        .iter()
-        .filter_map(serde_json::Value::as_str)
-        .collect();
-    if required.is_empty() {
-        return None;
-    }
-    let Some(object) = arguments.as_object() else {
-        return Some(format!(
-            "The model produced an invalid `{}` tool call: arguments must be a JSON object with required argument(s): {}.",
-            definition.name,
-            required.join(", ")
-        ));
-    };
-    let missing: Vec<&str> = required
-        .iter()
-        .copied()
-        .filter(|field| object.get(*field).map_or(true, serde_json::Value::is_null))
-        .collect();
-    if missing.is_empty() {
-        None
-    } else {
-        Some(format!(
-            "The model produced an invalid `{}` tool call: missing required argument(s): {}.",
-            definition.name,
-            missing.join(", ")
-        ))
-    }
-}
-
-fn is_safe_tool_argument_error(error: &str) -> bool {
-    error.starts_with("invalid ") && error.contains(" arguments")
 }
 
 fn json_error(message: &str) -> serde_json::Value {

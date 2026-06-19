@@ -117,6 +117,10 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 	}
 	eventNames := map[string]int{}
 	tools := map[string]int{}
+	toolResults := map[string]int{}
+	toolErrors := map[string][]string{}
+	toolByID := map[string]string{}
+	lspServers := map[string]int{}
 	agents := map[string]int{}
 	var finalText strings.Builder
 	for _, event := range events {
@@ -124,6 +128,22 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 		if event.Name == "tool_call" {
 			if tool, _ := event.Payload["tool"].(string); tool != "" {
 				tools[tool]++
+				if id, _ := event.Payload["id"].(string); id != "" {
+					toolByID[id] = tool
+				}
+			}
+		}
+		if event.Name == "tool_result" {
+			tool := toolByID[agentSessionsEventID(event)]
+			if tool != "" && agentSessionsToolResultError(event) == "" {
+				toolResults[tool]++
+				if tool == "lsp" {
+					for _, serverID := range lspServerIDsFromToolResult(event) {
+						lspServers[serverID]++
+					}
+				}
+			} else if tool != "" {
+				toolErrors[tool] = append(toolErrors[tool], agentSessionsToolResultError(event))
 			}
 		}
 		if event.Name == "subagent_started" || event.Name == "subagent_completed" {
@@ -140,15 +160,31 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 	}
 	trace.Logf("assert", "stream event counts=%v", eventNames)
 	trace.Logf("assert", "stream tool counts=%v", tools)
+	trace.Logf("assert", "stream completed tool result counts=%v", toolResults)
+	trace.Logf("assert", "stream tool error counts=%v", toolErrors)
+	trace.Logf("assert", "stream lsp server result counts=%v", lspServers)
 	trace.Logf("assert", "stream subagent lifecycle counts=%v", agents)
 	for _, want := range []string{"tool_call", "tool_result", "subagent_started", "subagent_completed", "final", "turn_completed"} {
 		if eventNames[want] == 0 {
 			t.Fatalf("stream did not contain %s; names=%v events=%s", want, eventNames, summarizeEvents(events))
 		}
 	}
-	for _, tool := range []string{"search_sessions", "fixture_requirements", "read_file", "write_file", "edit_file", "bash", "check_bash_status", "subagent_task", "check_subagent_task_status"} {
+	requiredTools := []string{"search_sessions", "fixture_requirements", "file_search", "glob", "grep", "multi_grep", "lsp", "apply_patch", "read_file", "write_file", "edit_file", "bash", "check_bash_status", "subagent_task", "check_subagent_task_status"}
+	for _, tool := range requiredTools {
 		if tools[tool] == 0 {
 			t.Fatalf("missing required tool call %s; tools=%v events=%s", tool, tools, summarizeEvents(events))
+		}
+		if toolResults[tool] == 0 {
+			t.Fatalf("missing completed tool result for %s; results=%v errors=%v events=%s", tool, toolResults, toolErrors, summarizeEvents(events))
+		}
+	}
+	expectedLSPServers := []string{"deno", "typescript", "pyright", "gopls", "rust-analyzer", "clangd", "json", "yaml", "html", "css", "tailwindcss", "bash", "dockerfile"}
+	if tools["lsp"] < len(expectedLSPServers) || toolResults["lsp"] < len(expectedLSPServers) {
+		t.Fatalf("expected at least %d completed lsp calls; tools=%v results=%v errors=%v servers=%v events=%s", len(expectedLSPServers), tools, toolResults, toolErrors, lspServers, summarizeEvents(events))
+	}
+	for _, serverID := range expectedLSPServers {
+		if lspServers[serverID] == 0 {
+			t.Fatalf("missing completed lsp result from server %s; servers=%v results=%v errors=%v events=%s", serverID, lspServers, toolResults, toolErrors, summarizeEvents(events))
 		}
 	}
 	if tools["subagent_task"] < 3 || tools["check_subagent_task_status"] < 3 {
@@ -160,13 +196,51 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 		}
 	}
 	text := finalText.String()
-	for _, want := range []string{agentRuntimeE2EToken, "E2E_PASS", "PLANNER_SUBAGENT_CONFIRMED", "QA_SUBAGENT_CONFIRMED", "REVIEW_SUBAGENT_CONFIRMED"} {
+	for _, want := range []string{agentRuntimeE2EToken, "E2E_PASS", "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED", "PLANNER_SUBAGENT_CONFIRMED", "QA_SUBAGENT_CONFIRMED", "REVIEW_SUBAGENT_CONFIRMED"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("final text missing %q; events=%s\nfinals:\n%s", want, summarizeEvents(events), text)
 		}
 	}
 	trace.Body("assert", "final text", []byte(text))
 	trace.Logf("assert", "stream assertions passed")
+}
+
+func lspServerIDsFromToolResult(event runtimeSSEEvent) []string {
+	ids := lspServerIDsFromResult(event.Payload["result"])
+	if len(ids) > 0 {
+		return ids
+	}
+	summary, _ := event.Payload["result_summary"].(string)
+	if summary == "" {
+		return nil
+	}
+	var result any
+	if err := json.Unmarshal([]byte(summary), &result); err != nil {
+		return nil
+	}
+	return lspServerIDsFromResult(result)
+}
+
+func lspServerIDsFromResult(result any) []string {
+	resultMap, _ := result.(map[string]any)
+	if resultMap == nil {
+		return nil
+	}
+	servers, _ := resultMap["servers"].([]any)
+	if len(servers) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(servers))
+	for _, server := range servers {
+		serverMap, _ := server.(map[string]any)
+		if serverMap == nil {
+			continue
+		}
+		if serverID, _ := serverMap["server_id"].(string); serverID != "" {
+			ids = append(ids, serverID)
+		}
+	}
+	return ids
 }
 
 func assertRuntimeSessionFinal(t *testing.T, trace *agentRuntimeE2ETrace, events []runtimeSSEEvent, requiredText []string) {

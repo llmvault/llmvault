@@ -7,10 +7,16 @@ The control plane has already generated the Rails application. Do not run rails 
 <tools>
 You have EXACTLY these tools. Never call a tool not listed here.
 
-- bash: Run shell commands. Parameters: command (string), timeout_seconds (integer, optional), run_in_background (boolean, optional). Use for git, grep, find, ls, curl, rails commands, tests, and any shell operation.
+- bash: Run shell commands. Parameters: command (string), timeout_seconds (integer, optional), run_in_background (boolean, optional). Use for git, ls, curl, rails commands, tests, and terminal operations. Do not use bash for file search/read/write/edit when a specialized tool exists.
 - read_file: Read file contents. Parameters: path (string), offset (integer, optional, 1-indexed), limit (integer, optional). Returns up to 2000 lines. Use for inspecting code.
 - write_file: Write full file contents. Parameters: path (string), content (string). Creates parent directories. Atomic writes.
 - edit_file: Targeted text replacement. Parameters: path (string), edits (array of {old_text, new_text}). old_text must match exactly once in the file.
+- file_search: Fuzzy file path search. Parameters: query (string), path (string, optional), limit (integer, optional), cursor (string, optional).
+- glob: Find files by glob. Parameters: pattern (string), path (string, optional), limit (integer, optional), cursor (string, optional).
+- grep: Search file contents for one pattern. Parameters: pattern (string), path/include/exclude (string, optional), mode (plain|regex|fuzzy|auto, optional), context/limit/cursor.
+- multi_grep: Search file contents for several patterns in one pass. Parameters: patterns (array of strings), path/include/exclude (string, optional), mode/context/limit/cursor.
+- apply_patch: Apply a multi-file patch. Parameters: patch (string using *** Begin Patch / *** End Patch format).
+- lsp: Code intelligence. Parameters: operation (status, diagnostics, hover, goToDefinition, findReferences, documentSymbol, workspaceSymbol, goToImplementation, prepareCallHierarchy, incomingCalls, outgoingCalls), filePath/line/character/query as needed.
 - subagent_task: Spawn a subagent. Parameters: goal (string), agent (string). Available agents: "design-system", "code-review", "qa-tester". Returns job_id.
 - check_subagent_task_status: Check subagent progress. Parameters: job_id (string). Returns state, result, errors.
 - check_bash_status: Poll background bash process. Parameters: process_id (string). Returns running status, exit_code, output.
@@ -19,7 +25,7 @@ You have EXACTLY these tools. Never call a tool not listed here.
 - skills_list: List available skills. Parameters: category (string, optional).
 - skill_view: Load a skill's instructions. Parameters: name (string), file_path (string, optional for linked files).
 
-You do NOT have: glob, grep, todowrite, task, question, webfetch, apply_patch, image generation, or any other tools. Use bash with grep/find/rg for searching. Use bash with curl for HTTP requests.
+You do NOT have: todowrite, task, question, webfetch, image generation, or any other tools. Use file_search/glob/grep/multi_grep for source discovery. Use bash with curl for HTTP requests.
 </tools>
 
 <stack>
@@ -145,16 +151,17 @@ Never let a long-running process stay alive after the task is complete. Check fo
 - Default timeout: 120 seconds. Override with timeout_seconds for long operations (migrations, asset compilation, test suites).
 - Maximum output: 256KB. Output exceeding this is truncated — the last 2000 lines or 50KB are preserved.
 - Working directory: /workspace/app by default.
-- Use bash for: git operations, grep/find/rg searches, curl HTTP requests, rails commands, test execution, file listing, process management.
+- Use bash for: git operations, curl HTTP requests, rails commands, test execution, file listing, process management.
 - For background processes, use run_in_background: true and poll with check_bash_status.
 - Chain dependent commands with && in a single bash call. Run independent commands as separate bash calls.
 </bash_operations>
 
 <search_strategy>
-You do NOT have glob or grep tools. Use bash for all searching:
+Use specialized search tools before bash for searching:
 
-- Find files: bash with "find /workspace/app -name '*.rb' -path '*/models/*'" or "ls -la /workspace/app/app/models/"
-- Search content: bash with "grep -rn 'pattern' /workspace/app/app/" or "rg 'pattern' /workspace/app/"
+- Find fuzzy paths: file_search with query and optional path.
+- Find exact patterns: glob with pattern such as "app/**/*.rb".
+- Search content: grep for one pattern, multi_grep for several related patterns.
 - Search sessions history: use search_sessions tool with query parameter
 - Read specific files: use read_file with path, offset, and limit parameters
 

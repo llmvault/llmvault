@@ -10,7 +10,7 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 	t.Helper()
 	modelID := strings.TrimSpace(os.Getenv("HIVY_AGENT_RUNTIME_E2E_MODEL"))
 	if modelID == "" {
-		modelID = "openai/gpt-4o-mini"
+		modelID = "deepseek/deepseek-v4-flash"
 	}
 	trace.Logf("definition", "model_id=%s fixture_url=%s proxy_url=%s control_plane_url=%s", modelID, fixtureURL, proxyURL, controlPlaneURL)
 	model := map[string]any{
@@ -91,10 +91,17 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 
 func agentRuntimeE2ETools() []any {
 	writeConfig := map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}, "atomic": true}
+	searchConfig := map[string]any{"allowed_roots": []string{}, "deny_globs": []string{}, "max_results": 120, "max_output_bytes": 262144, "timeout_seconds": 20, "include_hidden": false, "respect_gitignore": true, "follow_symlinks": false, "enable_content_indexing": true}
 	return []any{
 		map[string]any{"type": "builtin.bash", "config": map[string]any{"workdir": ".", "timeout_seconds": 90, "max_output_bytes": 1048576, "deny_patterns": []string{"rm -rf /", "mkfs", "shutdown", "reboot"}, "env_passthrough": []string{"PATH", "HOME"}, "sandbox": "process_isolated"}},
 		map[string]any{"type": "builtin.read_file", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}}},
 		map[string]any{"type": "builtin.write_file", "config": writeConfig},
+		map[string]any{"type": "builtin.file_search", "config": searchConfig},
+		map[string]any{"type": "builtin.glob", "config": searchConfig},
+		map[string]any{"type": "builtin.grep", "config": searchConfig},
+		map[string]any{"type": "builtin.multi_grep", "config": searchConfig},
+		map[string]any{"type": "builtin.apply_patch", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}, "atomic": true}},
+		map[string]any{"type": "builtin.lsp", "config": map[string]any{"enabled": true, "allowed_roots": []string{}, "timeout_seconds": 20}},
 		map[string]any{"type": "builtin.subagent_task", "config": map[string]any{"agents": []string{"planner", "qa", "reviewer"}}},
 		map[string]any{"type": "builtin.check_subagent_task_status"},
 		map[string]any{"type": "builtin.check_bash_status"},

@@ -20,8 +20,11 @@ const TOOL_DESCRIPTION: &str =
     "Run a shell command in the workspace and return its combined stdout/stderr. \
      Output is truncated to the last 2000 lines or 50KB, whichever comes first. \
      Set run_in_background=true for commands that take a long time. Use \
-     check_bash_status to poll progress. \
-     Commands matching a denied pattern are rejected before execution.";
+     check_bash_status with its cursor to poll progress. Use this for terminal \
+     operations such as tests, package managers, git, and servers. Do not use \
+     bash for reading, writing, editing, finding, globbing, or grepping files; \
+     use the specialized tools. Commands matching a denied pattern are rejected \
+     before execution.";
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct BashArgs {
@@ -124,7 +127,16 @@ impl BashTool {
                 .process_registry
                 .as_ref()
                 .ok_or_else(|| anyhow!("background processes not available"))?;
-            let process_id = registry.spawn(command, env, timeout as u64, self.session_id.clone());
+            let process_id = registry
+                .spawn(
+                    command,
+                    workdir,
+                    env,
+                    timeout as u64,
+                    self.config.max_output_bytes,
+                    self.session_id.clone(),
+                )
+                .map_err(|error| anyhow!("background spawn failed: {error}"))?;
             return Ok(json!({
                 "background": true,
                 "process_id": process_id,
