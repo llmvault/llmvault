@@ -2767,6 +2767,19 @@ definitions:
       token:
         type: string
     type: object
+  sessionSandboxWakeResponse:
+    properties:
+      runtime_url:
+        type: string
+      sandbox_id:
+        type: string
+      session_id:
+        type: string
+      status:
+        type: string
+      woke:
+        type: boolean
+    type: object
   sessionSummary:
     properties:
       created_at:
@@ -8097,7 +8110,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a channel-scoped session and dispatches or queues the first user message.
+      description: Creates a channel-scoped session and dispatches or queues the first
+        user message.
       parameters:
       - description: Session create payload
         in: body
@@ -8497,6 +8511,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Mint direct sandbox access
+      tags:
+      - sessions
+  /v1/sessions/{id}/sandbox/wake:
+    post:
+      description: Ensures the sandbox backing a session is running and its runtime
+        health endpoint is reachable.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sessionSandboxWakeResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Wake a session sandbox
       tags:
       - sessions
   /v1/skills:

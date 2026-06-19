@@ -3,8 +3,13 @@
 import { useState } from "react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import type { components } from "@/lib/api/schema"
 import { BrowserView } from "@/app/w/(chat)/_components/views/browser"
-import { FilesView } from "@/app/w/(chat)/_components/views/files"
+import {
+  FilesRepoSelector,
+  FilesView,
+  type FilesRepoSelectorProps,
+} from "@/app/w/(chat)/_components/views/files"
 import { ReviewView } from "@/app/w/(chat)/_components/views/review"
 import { SideChatView } from "@/app/w/(chat)/_components/views/side-chat"
 import { TerminalView } from "@/app/w/(chat)/_components/views/terminal"
@@ -39,7 +44,15 @@ const PANEL_VIEWS: {
   },
 ]
 
+type SessionSandboxAccessResponse =
+  components["schemas"]["sessionSandboxAccessResponse"]
+
 export function RightPanel({
+  sessionId,
+  sandboxAccess,
+  sandboxAccessPending,
+  sandboxAccessError,
+  onRefreshSandboxAccess,
   openViews,
   activeView,
   maximized,
@@ -49,6 +62,11 @@ export function RightPanel({
   onToggleMaximize,
   onClosePanel,
 }: {
+  sessionId?: string
+  sandboxAccess?: SessionSandboxAccessResponse
+  sandboxAccessPending: boolean
+  sandboxAccessError: unknown
+  onRefreshSandboxAccess: () => void
   openViews: PanelViewID[]
   activeView: PanelViewID | null
   maximized: boolean
@@ -60,6 +78,9 @@ export function RightPanel({
 }) {
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const unopened = PANEL_VIEWS.filter((view) => !openViews.includes(view.id))
+  const [filesHeader, setFilesHeader] = useState<FilesRepoSelectorProps | null>(
+    null
+  )
 
   return (
     <div className="bg-surface flex h-full min-w-0 flex-col">
@@ -86,6 +107,9 @@ export function RightPanel({
                   <Icon icon={view.icon} className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{view.label}</span>
                 </button>
+                {id === "files" && filesHeader ? (
+                  <FilesRepoSelector {...filesHeader} />
+                ) : null}
                 <button
                   type="button"
                   aria-label={`Close ${view.label}`}
@@ -171,7 +195,15 @@ export function RightPanel({
             </div>
           </div>
         ) : (
-          <ActiveView id={activeView} />
+          <ActiveView
+            id={activeView}
+            sessionId={sessionId}
+            sandboxAccess={sandboxAccess}
+            sandboxAccessPending={sandboxAccessPending}
+            sandboxAccessError={sandboxAccessError}
+            onRefreshSandboxAccess={onRefreshSandboxAccess}
+            onFilesHeaderChange={setFilesHeader}
+          />
         )}
       </div>
     </div>
@@ -206,7 +238,23 @@ function LauncherRow({
   )
 }
 
-function ActiveView({ id }: { id: PanelViewID }) {
+function ActiveView({
+  id,
+  sessionId,
+  sandboxAccess,
+  sandboxAccessPending,
+  sandboxAccessError,
+  onRefreshSandboxAccess,
+  onFilesHeaderChange,
+}: {
+  id: PanelViewID
+  sessionId?: string
+  sandboxAccess?: SessionSandboxAccessResponse
+  sandboxAccessPending: boolean
+  sandboxAccessError: unknown
+  onRefreshSandboxAccess: () => void
+  onFilesHeaderChange: (props: FilesRepoSelectorProps | null) => void
+}) {
   switch (id) {
     case "review":
       return <ReviewView />
@@ -215,7 +263,16 @@ function ActiveView({ id }: { id: PanelViewID }) {
     case "browser":
       return <BrowserView />
     case "files":
-      return <FilesView />
+      return (
+        <FilesView
+          sessionId={sessionId}
+          sandboxAccess={sandboxAccess}
+          sandboxAccessPending={sandboxAccessPending}
+          sandboxAccessError={sandboxAccessError}
+          onRefreshSandboxAccess={onRefreshSandboxAccess}
+          onHeaderChange={onFilesHeaderChange}
+        />
+      )
     case "side-chat":
       return <SideChatView />
   }

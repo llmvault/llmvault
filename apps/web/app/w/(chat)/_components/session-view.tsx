@@ -60,7 +60,12 @@ export function SessionThreadView({
   session: ChatSession
   sessionId?: string
 }) {
-  const { setModel } = useWorkspace()
+  const {
+    setModel,
+    sandboxAccess,
+    sandboxAccessError,
+    sandboxAccessPending,
+  } = useWorkspace()
   const queryClient = useQueryClient()
   const agent = safeAgentById(session.agentId)
   const [liveEvents, setLiveEvents] = useState<SessionEventResponse[]>([])
@@ -80,16 +85,6 @@ export function SessionThreadView({
     "post",
     "/v1/sessions/{id}/interrupt"
   )
-  const sandboxAccessMutation = $api.useMutation(
-    "post",
-    "/v1/sessions/{id}/sandbox-access"
-  )
-  const {
-    data: sandboxAccess,
-    error: sandboxAccessError,
-    isPending: sandboxAccessPending,
-    mutate: requestSandboxAccess,
-  } = sandboxAccessMutation
   const sessionHistoryQuery = $api.useInfiniteQuery(
     "get",
     "/v1/sessions/{id}/events",
@@ -254,13 +249,6 @@ export function SessionThreadView({
   }, [streaming])
 
   useEffect(() => {
-    if (!sessionId || optimisticSession) {
-      return
-    }
-    requestSandboxAccess({ params: { path: { id: sessionId } } })
-  }, [optimisticSession, requestSandboxAccess, sessionId])
-
-  useEffect(() => {
     return () => {
       clearStreamWatchdog()
       clearStreamReconnectTimer()
@@ -270,6 +258,9 @@ export function SessionThreadView({
   useEffect(() => {
     if (!sessionId || !historyReadyForStream) return
     if (!sandboxAccess) return
+    if (sandboxAccess.session_id && sandboxAccess.session_id !== sessionId) {
+      return
+    }
     const sandboxBaseUrl = sandboxAccess.sandbox_base_url
     const sandboxToken = sandboxAccess.token
     if (!sandboxBaseUrl || !sandboxToken) {

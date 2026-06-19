@@ -60,6 +60,7 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 		r.Post("/sessions/{id}/messages", h.SendMessage)
 		r.Post("/sessions/{id}/interrupt", h.Interrupt)
 		r.Get("/sessions/{id}/events", h.ListEvents)
+		r.Post("/sessions/{id}/sandbox/wake", h.WakeSandbox)
 		r.Post("/sessions/{id}/sandbox-access", h.SandboxAccess)
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)
@@ -130,6 +131,7 @@ type sessionSyncSandboxProvider struct {
 	endpoint  string
 	createErr error
 	created   []sandboxpkg.CreateSandboxOpts
+	started   []string
 	deleted   []string
 }
 
@@ -149,7 +151,10 @@ func (p *sessionSyncSandboxProvider) CreateSandbox(_ context.Context, opts sandb
 	return &sandboxpkg.SandboxInfo{ExternalID: fmt.Sprintf("sync-sandbox-%d", len(p.created)), Status: sandboxpkg.StatusRunning}, nil
 }
 
-func (p *sessionSyncSandboxProvider) StartSandbox(context.Context, string) error { return nil }
+func (p *sessionSyncSandboxProvider) StartSandbox(_ context.Context, externalID string) error {
+	p.started = append(p.started, externalID)
+	return nil
+}
 
 func (p *sessionSyncSandboxProvider) StopSandbox(context.Context, string) error { return nil }
 
