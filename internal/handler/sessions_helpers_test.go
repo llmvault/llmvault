@@ -125,7 +125,7 @@ func seedSessionAgent(t *testing.T, db *gorm.DB, orgID uuid.UUID) model.Agent {
 		OrgID:           &orgID,
 		Name:            "Agent-" + uuid.NewString()[:8],
 		Description:     ptrString("session test agent"),
-		SandboxStrategy: "per_session",
+		SandboxStrategy: "always_on",
 		Model:           "deepseek-v4-flash",
 		Tools:           model.JSON{},
 		McpServers:      model.RawJSON("[]"),

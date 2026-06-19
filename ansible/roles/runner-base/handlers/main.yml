@@ -1,0 +1,6 @@
+---
+- name: Restart buildkit
+  ansible.builtin.systemd:
+    name: buildkit
+    state: restarted
+    daemon_reload: true

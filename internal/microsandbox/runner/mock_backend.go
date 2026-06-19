@@ -88,4 +88,17 @@ func (m *MockBackend) CreateSnapshot(_ context.Context, req CreateSnapshotReques
 
 func (m *MockBackend) DeleteSnapshot(context.Context, string) error { return nil }
 
+func (m *MockBackend) CreateTemplate(_ context.Context, req CreateTemplateRequest, onEvent func(TemplateBuildEvent)) (*CreateTemplateResponse, error) {
+	if onEvent != nil {
+		onEvent(TemplateBuildEvent{Type: "log", Message: "mock template built"})
+	}
+	return &CreateTemplateResponse{
+		ID:                  req.ID,
+		ImageRef:            "mock-registry/images/" + req.OrgID + "/" + req.ID + "@sha256:mock",
+		ImageDigest:         "sha256:mock",
+		ValidationSandboxID: "mock-validation",
+		Logs:                "mock template built\n",
+	}, nil
+}
+
 var _ = http.MethodGet

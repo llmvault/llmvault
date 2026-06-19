@@ -183,6 +183,7 @@ func setupV1Routes(
 					r.Post("/", sandboxTemplateHandler.Create)
 					r.Get("/", sandboxTemplateHandler.List)
 					r.Get("/public", sandboxTemplateHandler.ListPublic)
+					r.Get("/{id}/build-events", sandboxTemplateHandler.BuildEvents)
 					r.Get("/{id}", sandboxTemplateHandler.Get)
 					r.Put("/{id}", sandboxTemplateHandler.Update)
 					r.Delete("/{id}", sandboxTemplateHandler.Delete)

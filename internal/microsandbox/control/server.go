@@ -72,6 +72,9 @@ func (s *Server) Routes() http.Handler {
 		r.Post("/v1/snapshots", s.createSnapshot)
 		r.Get("/v1/snapshots/{snapshotID}", s.getSnapshot)
 		r.Delete("/v1/snapshots/{snapshotID}", s.deleteSnapshot)
+		r.Post("/v1/templates", s.createTemplate)
+		r.Get("/v1/templates/{templateID}", s.getTemplate)
+		r.Delete("/v1/templates/{templateID}", s.deleteTemplate)
 	})
 
 	return r

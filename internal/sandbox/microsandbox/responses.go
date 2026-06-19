@@ -23,6 +23,20 @@ type snapshotResponse struct {
 	ErrorMessage string `json:"ErrorMessage"`
 }
 
+type templateResponse struct {
+	ID           string `json:"ID"`
+	Status       string `json:"Status"`
+	Logs         string `json:"Logs"`
+	ErrorMessage string `json:"ErrorMessage"`
+}
+
+type templateBuildEvent struct {
+	Type    string `json:"type"`
+	Status  string `json:"status,omitempty"`
+	Message string `json:"message,omitempty"`
+	ID      string `json:"id,omitempty"`
+}
+
 func mapStatus(status string) sandbox.SandboxStatus {
 	switch strings.ToLower(status) {
 	case "running":

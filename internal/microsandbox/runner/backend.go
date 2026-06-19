@@ -18,6 +18,7 @@ type Backend interface {
 	ProxyURL(ctx context.Context, sandboxID string, guestPort int) (string, error)
 	CreateSnapshot(ctx context.Context, req CreateSnapshotRequest) (*CreateSnapshotResponse, error)
 	DeleteSnapshot(ctx context.Context, snapshotID string) error
+	CreateTemplate(ctx context.Context, req CreateTemplateRequest, onEvent func(TemplateBuildEvent)) (*CreateTemplateResponse, error)
 }
 
 type ReconcileReport struct {
@@ -85,4 +86,35 @@ type CreateSnapshotResponse struct {
 	SnapshotDigest      string `json:"snapshot_digest"`
 	ImageManifestDigest string `json:"image_manifest_digest"`
 	Logs                string `json:"logs"`
+}
+
+type CreateTemplateRequest struct {
+	ID           string            `json:"id"`
+	BuildID      string            `json:"build_id"`
+	OrgID        string            `json:"org_id"`
+	Name         string            `json:"name"`
+	BaseImageRef string            `json:"base_image_ref"`
+	Commands     []string          `json:"commands"`
+	Env          map[string]string `json:"env"`
+	CPU          int               `json:"cpu"`
+	MemoryMB     int               `json:"memory_mb"`
+	DiskGB       int               `json:"disk_gb"`
+}
+
+type CreateTemplateResponse struct {
+	ID                  string `json:"id"`
+	ImageRef            string `json:"image_ref"`
+	ImageDigest         string `json:"image_digest"`
+	ValidationSandboxID string `json:"validation_sandbox_id,omitempty"`
+	Logs                string `json:"logs"`
+}
+
+type TemplateBuildEvent struct {
+	Type                string `json:"type"`
+	Status              string `json:"status,omitempty"`
+	Message             string `json:"message,omitempty"`
+	ID                  string `json:"id,omitempty"`
+	ImageRef            string `json:"image_ref,omitempty"`
+	ImageDigest         string `json:"image_digest,omitempty"`
+	ValidationSandboxID string `json:"validation_sandbox_id,omitempty"`
 }

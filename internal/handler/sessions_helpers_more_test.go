@@ -67,6 +67,7 @@ func cleanupSessionFixture(db *gorm.DB, orgID uuid.UUID, userIDs ...uuid.UUID) {
 		db.Where("session_id IN ?", sessionIDs).Delete(&model.SessionParticipant{})
 	}
 	db.Where("org_id = ?", orgID).Delete(&model.Session{})
+	db.Where("org_id = ?", orgID).Delete(&model.Token{})
 	db.Where("org_id = ?", orgID).Delete(&model.Credential{})
 	db.Where("org_id = ?", orgID).Delete(&model.Channel{})
 	db.Where("org_id = ?", orgID).Delete(&model.Agent{})

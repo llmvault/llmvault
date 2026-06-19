@@ -541,6 +541,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
                     }
                 }
             }
@@ -7194,7 +7200,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a channel-scoped session and queues the first user message.",
+                "description": "Creates a channel-scoped session and dispatches or queues the first user message.",
                 "consumes": [
                     "application/json"
                 ],

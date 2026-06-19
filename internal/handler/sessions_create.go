@@ -18,7 +18,7 @@ import (
 
 // Create handles POST /v1/sessions.
 // @Summary Create a session
-// @Description Creates a channel-scoped session and queues the first user message.
+// @Description Creates a channel-scoped session and dispatches or queues the first user message.
 // @Tags sessions
 // @Accept json
 // @Produce json
@@ -29,6 +29,7 @@ import (
 // @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
 // @Failure 500 {object} errorResponse
+// @Failure 502 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/sessions [post]
 func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +68,18 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
+	var perSessionSandbox *model.Sandbox
+	if agent.SandboxStrategy == agentStrategyPerSession {
+		sb, err := h.provisionPerSessionSandbox(r.Context(), &agent)
+		if err != nil {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "provision per-session sandbox for session create failed", "agent_id", agent.ID, "error", err)
+			logging.Capture(r.Context(), err)
+			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to provision session sandbox"})
+			return
+		}
+		perSessionSandbox = sb
+		session.SandboxID = &sb.ID
+	}
 	var event model.SessionEvent
 	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&session).Error; err != nil {
@@ -88,13 +101,31 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return err
 	})
 	if err != nil {
+		if perSessionSandbox != nil {
+			h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
+		}
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 		return
 	}
-	queued, err := h.dispatchOrQueueSessionDelivery(r.Context(), session.ID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
-		return
+	queued := false
+	if agent.SandboxStrategy == agentStrategyPerSession {
+		if err := h.dispatchInitialPerSessionDelivery(r.Context(), session.ID); err != nil {
+			h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "send initial per-session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
+			logging.Capture(r.Context(), err)
+			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send initial session message"})
+			return
+		}
+		if err := h.db.WithContext(r.Context()).First(&session, "id = ?", session.ID).Error; err != nil {
+			logging.FromContext(r.Context()).WarnContext(r.Context(), "reload per-session session after initial delivery failed", "session_id", session.ID, "error", err)
+		}
+	} else {
+		var err error
+		queued, err = h.dispatchOrQueueSessionDelivery(r.Context(), session.ID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
+			return
+		}
 	}
 	if strings.TrimSpace(req.Name) == "" {
 		if err := h.enqueueSessionName(r.Context(), session.ID); err != nil {
