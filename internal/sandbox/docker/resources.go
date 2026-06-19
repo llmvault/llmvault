@@ -37,10 +37,9 @@ func resourceLimits(cpu, memoryGB int) container.Resources {
 	}
 }
 
-// storageOpt returns a StorageOpt map that sets a per-container disk size limit
-// when diskGB > 0. This only takes effect with the devicemapper storage driver;
-// for overlay2 the limit is informational and enforcement happens at the daemon
-// or filesystem level.
+// storageOpt returns a per-container disk size limit compatible with the
+// devicemapper driver or overlay2 on XFS with pquota. Returns nil when
+// the caller did not request a limit, to avoid passing unsupported opts.
 func storageOpt(diskGB int) map[string]string {
 	if diskGB <= 0 {
 		return nil
