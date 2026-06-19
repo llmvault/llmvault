@@ -37,6 +37,16 @@ func resourceLimits(cpu, memoryGB int) container.Resources {
 	}
 }
 
+// storageOpt returns a per-container disk size limit compatible with the
+// devicemapper driver or overlay2 on XFS with pquota. Returns nil when
+// the caller did not request a limit, to avoid passing unsupported opts.
+func storageOpt(diskGB int) map[string]string {
+	if diskGB <= 0 {
+		return nil
+	}
+	return map[string]string{"size": strconv.Itoa(diskGB) + "G"}
+}
+
 func (d *Driver) GetResourceUsage(ctx context.Context, externalID string) (*sandbox.ResourceUsage, error) {
 	stats, err := d.readStats(ctx, externalID)
 	if err != nil {

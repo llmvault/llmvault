@@ -1,14 +1,19 @@
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { MODEL_LOGOS, modelLogoURL } from "@/lib/model-logos"
 
 function backendCanonicalModelIDs(): string[] {
-  const source = readFileSync(
-    join(process.cwd(), "..", "..", "internal", "registry", "hivy_models.go"),
-    "utf8"
-  )
-  return Array.from(source.matchAll(/\bID:\s*"([^"]+)"/g), (match) => match[1])
+  const registryDir = join(process.cwd(), "..", "..", "internal", "registry")
+  return readdirSync(registryDir)
+    .filter((name) => /^hivy_models.*\.go$/.test(name))
+    .flatMap((name) => {
+      const source = readFileSync(join(registryDir, name), "utf8")
+      return Array.from(
+        source.matchAll(/\bID:\s*"([^"]+)"/g),
+        (match) => match[1]
+      )
+    })
 }
 
 describe("model logos", () => {

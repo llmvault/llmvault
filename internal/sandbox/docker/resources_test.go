@@ -37,3 +37,34 @@ func TestResourceLimitsHonorsExplicitSizes(t *testing.T) {
 		t.Errorf("PidsLimit = %v, want %d", res.PidsLimit, defaultPidsLimit)
 	}
 }
+
+func TestStorageOpt(t *testing.T) {
+	t.Run("zero disk returns nil", func(t *testing.T) {
+		if got := storageOpt(0); got != nil {
+			t.Errorf("storageOpt(0) = %v, want nil", got)
+		}
+	})
+	t.Run("negative disk returns nil", func(t *testing.T) {
+		if got := storageOpt(-1); got != nil {
+			t.Errorf("storageOpt(-1) = %v, want nil", got)
+		}
+	})
+	t.Run("positive disk returns size opt", func(t *testing.T) {
+		got := storageOpt(10)
+		if got == nil {
+			t.Fatal("storageOpt(10) = nil, want non-nil")
+		}
+		if got["size"] != "10G" {
+			t.Errorf("storageOpt(10)[\"size\"] = %q, want %q", got["size"], "10G")
+		}
+	})
+	t.Run("large disk value", func(t *testing.T) {
+		got := storageOpt(200)
+		if got == nil {
+			t.Fatal("storageOpt(200) = nil, want non-nil")
+		}
+		if got["size"] != "200G" {
+			t.Errorf("storageOpt(200)[\"size\"] = %q, want %q", got["size"], "200G")
+		}
+	})
+}
