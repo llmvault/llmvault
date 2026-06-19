@@ -18,19 +18,30 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-const maxDriveImageUploadBytes = 25 * 1024 * 1024
+const maxDriveAssetUploadBytes = 25 * 1024 * 1024
 
-var driveImageTypes = map[string]bool{
-	"image/png":  true,
-	"image/jpeg": true,
-	"image/webp": true,
-	"image/gif":  true,
+var driveAssetTypes = map[string]bool{
+	"audio/m4a":   true,
+	"audio/mp3":   true,
+	"audio/mp4":   true,
+	"audio/mpeg":  true,
+	"audio/ogg":   true,
+	"audio/wav":   true,
+	"audio/webm":  true,
+	"audio/x-m4a": true,
+	"audio/x-wav": true,
+	"image/gif":   true,
+	"image/jpeg":  true,
+	"image/png":   true,
+	"image/webp":  true,
+	"video/mp4":   true,
+	"video/webm":  true,
 }
 
 // UploadAgentAsset handles POST /v1/assets/upload.
 //
 // The request is multipart/form-data with:
-//   - file: image file
+//   - file: image or audio file
 //   - agent_id: destination agent
 //   - path: optional drive folder, default "uploads"
 func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request) {
@@ -44,8 +55,8 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, maxDriveImageUploadBytes+(1<<20))
-	if err := r.ParseMultipartForm(maxDriveImageUploadBytes + (1 << 20)); err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, maxDriveAssetUploadBytes+(1<<20))
+	if err := r.ParseMultipartForm(maxDriveAssetUploadBytes + (1 << 20)); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid multipart form"})
 		return
 	}
@@ -84,7 +95,7 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 	}
 	defer file.Close()
 
-	if header.Size > maxDriveImageUploadBytes {
+	if header.Size > maxDriveAssetUploadBytes {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "file exceeds maximum size"})
 		return
 	}
@@ -94,7 +105,7 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	contentType, body, err := sniffImageUpload(file, header.Header.Get("Content-Type"))
+	contentType, body, err := sniffDriveAssetUpload(file, header.Header.Get("Content-Type"))
 	if err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 		return
@@ -115,7 +126,7 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 	key := buildAgentAssetKey(agentID, folder, storedName)
 	stored, err := h.streamer.Stream(r.Context(), key, contentType, &uploadLimitReader{
 		r: body,
-		n: maxDriveImageUploadBytes + 1,
+		n: maxDriveAssetUploadBytes + 1,
 	})
 	if err != nil {
 		if errors.Is(err, errUploadTooLarge) {
@@ -131,7 +142,7 @@ func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "upload failed"})
 		return
 	}
-	if stored.Bytes > maxDriveImageUploadBytes {
+	if stored.Bytes > maxDriveAssetUploadBytes {
 		_ = h.streamer.Delete(r.Context(), key)
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "file exceeds maximum size"})
 		return
@@ -184,7 +195,7 @@ func cleanUploadFilename(raw string) string {
 	return name
 }
 
-func sniffImageUpload(file io.Reader, headerType string) (string, io.Reader, error) {
+func sniffDriveAssetUpload(file io.Reader, headerType string) (string, io.Reader, error) {
 	var head [512]byte
 	n, err := io.ReadFull(file, head[:])
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
@@ -193,13 +204,13 @@ func sniffImageUpload(file io.Reader, headerType string) (string, io.Reader, err
 	prefix := head[:n]
 	detected := http.DetectContentType(prefix)
 	headerType = strings.ToLower(strings.TrimSpace(strings.Split(headerType, ";")[0]))
-	if driveImageTypes[headerType] {
+	if driveAssetTypes[headerType] {
 		return headerType, io.MultiReader(bytes.NewReader(prefix), file), nil
 	}
-	if driveImageTypes[detected] {
+	if driveAssetTypes[detected] {
 		return detected, io.MultiReader(bytes.NewReader(prefix), file), nil
 	}
-	return "", nil, fmt.Errorf("content_type must be an image")
+	return "", nil, fmt.Errorf("content_type must be an image or audio file")
 }
 
 var errUploadTooLarge = errors.New("upload too large")

@@ -3127,6 +3127,18 @@ definitions:
       user_id:
         type: string
     type: object
+  transcribeSessionAudioRequest:
+    properties:
+      drive_asset_id:
+        type: string
+      language_code:
+        type: string
+    type: object
+  transcribeSessionAudioResponse:
+    properties:
+      text:
+        type: string
+    type: object
   triggerResponse:
     properties:
       deduplicated:
@@ -8549,6 +8561,64 @@ paths:
       security:
       - BearerAuth: []
       summary: Wake a session sandbox
+      tags:
+      - sessions
+  /v1/sessions/{id}/transcriptions:
+    post:
+      consumes:
+      - application/json
+      description: Transcribes an uploaded drive audio asset for a session and returns
+        text only.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Transcription payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/transcribeSessionAudioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/transcribeSessionAudioResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Transcribe a session audio asset
       tags:
       - sessions
   /v1/skills:

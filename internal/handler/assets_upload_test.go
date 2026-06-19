@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -65,7 +68,47 @@ func TestUploadAgentAsset_ImageCreatesDriveAsset(t *testing.T) {
 	}
 }
 
+func TestUploadAgentAsset_AudioCreatesDriveAsset(t *testing.T) {
+	h := newStreamHarness(t)
+
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			req = middleware.WithOrg(req, &model.Org{ID: h.orgID})
+			next.ServeHTTP(w, req)
+		})
+	})
+	r.Post("/v1/assets/upload", h.publicAsset.UploadAgentAsset)
+
+	body, contentType := multipartAssetUploadBody(t, h.agentID, "voice.webm", "audio/webm", []byte("fake webm voice note"))
+	req := httptest.NewRequest(http.MethodPost, "/v1/assets/upload", body)
+	req.Header.Set("Content-Type", contentType)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		ID          uuid.UUID `json:"id"`
+		Filename    string    `json:"filename"`
+		ContentType string    `json:"content_type"`
+		Bytes       int64     `json:"bytes"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Filename != "voice.webm" || resp.ContentType != "audio/webm" || resp.Bytes == 0 {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
 func multipartImageUploadBody(t *testing.T, agentID uuid.UUID, filename string, fileBytes []byte) (*bytes.Buffer, string) {
+	t.Helper()
+	return multipartAssetUploadBody(t, agentID, filename, "", fileBytes)
+}
+
+func multipartAssetUploadBody(t *testing.T, agentID uuid.UUID, filename, contentType string, fileBytes []byte) (*bytes.Buffer, string) {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -75,7 +118,16 @@ func multipartImageUploadBody(t *testing.T, agentID uuid.UUID, filename string, 
 	if err := writer.WriteField("path", "uploads"); err != nil {
 		t.Fatalf("write path: %v", err)
 	}
-	part, err := writer.CreateFormFile("file", filename)
+	var part io.Writer
+	var err error
+	if contentType == "" {
+		part, err = writer.CreateFormFile("file", filename)
+	} else {
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename))
+		header.Set("Content-Type", contentType)
+		part, err = writer.CreatePart(header)
+	}
 	if err != nil {
 		t.Fatalf("create file part: %v", err)
 	}

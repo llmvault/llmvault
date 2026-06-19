@@ -29,6 +29,13 @@ func (h *UploadsHandler) WithAssetPreviewBaseURL(baseURL string) *UploadsHandler
 	return h
 }
 
+func (h *UploadsHandler) AssetReader() storage.Reader {
+	if reader, ok := h.presigner.(storage.Reader); ok {
+		return reader
+	}
+	return nil
+}
+
 // WithStreamer enables the agent-facing streaming upload endpoint. The
 // streamer is normally the same S3Presigner that satisfies both interfaces;
 // the encryption key is needed to verify the runtime bearer token.

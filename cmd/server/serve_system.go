@@ -42,7 +42,7 @@ func buildSystemTaskHandler(db *gorm.DB, deps *bootstrap.Deps, redisClient *redi
 func buildImageDescribeHandler(db *gorm.DB, cfg *config.Config, deps *bootstrap.Deps) *handler.ImageDescribeHandler {
 	httpClient := &http.Client{
 		Transport: &proxy.CaptureTransport{Inner: proxy.NewTransport()},
-		Timeout:   15 * time.Second,
+		Timeout:   65 * time.Second,
 	}
 	gateway := system.NewGenkitGateway(httpClient)
 	return handler.NewImageDescribeHandler(

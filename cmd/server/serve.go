@@ -26,6 +26,7 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/spider"
 	"github.com/usehivy/hivy/internal/tasks"
+	"github.com/usehivy/hivy/internal/transcription"
 )
 
 func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEnqueuer) error {
@@ -170,6 +171,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
 	imageDescribeHandler := buildImageDescribeHandler(database, cfg, deps)
+	if imageDescribeHandler != nil && uploadsHandler != nil {
+		imageDescribeHandler.WithAssetReader(uploadsHandler.AssetReader())
+	}
 
 	billingHandler := handler.NewBillingHandler(database, deps.BillingRegistry, deps.Credits)
 	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)
@@ -179,6 +183,17 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).
 		WithRuntimeStreamKey(sandboxEncKey).
 		WithRuntimeDelivery(orchestrator, runtimeCompileDeps)
+	if uploadsHandler != nil && deps.KMS != nil {
+		sessionHandler.WithTranscription(
+			deps.KMS,
+			uploadsHandler.AssetReader(),
+			transcription.NewElevenLabsTranscriber(&http.Client{
+				Transport: &proxy.CaptureTransport{Inner: proxy.NewTransport()},
+				Timeout:   65 * time.Second,
+			}, 60*time.Second),
+			reg,
+		)
+	}
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)

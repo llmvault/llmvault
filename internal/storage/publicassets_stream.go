@@ -65,6 +65,20 @@ func (p *S3Presigner) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+func (p *S3Presigner) Open(ctx context.Context, key string) (io.ReadCloser, error) {
+	if key == "" {
+		return nil, fmt.Errorf("key is required")
+	}
+	out, err := p.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(p.cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("s3 get %q: %w", key, err)
+	}
+	return out.Body, nil
+}
+
 type countingReader struct {
 	r io.Reader
 	n int64

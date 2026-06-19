@@ -63,6 +63,10 @@ type Streamer interface {
 	Delete(ctx context.Context, key string) error
 }
 
+type Reader interface {
+	Open(ctx context.Context, key string) (io.ReadCloser, error)
+}
+
 type AssetPolicy struct {
 	MaxBytes     int64
 	AllowedTypes map[string]string
