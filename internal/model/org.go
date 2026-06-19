@@ -33,6 +33,8 @@ type Org struct {
 
 	PromptCompany string `gorm:"type:text;not null;default:''"`
 
+	SandboxExposedPorts pq.Int64Array `gorm:"type:integer[];not null;default:'{3000,5173,8000,8080}'"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

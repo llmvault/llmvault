@@ -103,7 +103,7 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		"disk_gb":       opts.Disk,
 		"env":           opts.EnvVars,
 		"metadata":      opts.Labels,
-		"preview_ports": d.defaultPreviewPorts,
+		"preview_ports": d.previewPorts(opts.ExposedPorts),
 		"init":          agentRuntimeInit,
 	}
 	var out createSandboxResponse
@@ -111,6 +111,29 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		return nil, err
 	}
 	return &sandbox.SandboxInfo{ExternalID: out.ID, Status: sandbox.StatusRunning}, nil
+}
+
+func (d *Driver) previewPorts(exposedPorts []int) []int {
+	if len(exposedPorts) == 0 {
+		return append([]int(nil), d.defaultPreviewPorts...)
+	}
+	return uniqueValidPorts(append(append([]int(nil), exposedPorts...), d.runtimePort))
+}
+
+func uniqueValidPorts(ports []int) []int {
+	out := make([]int, 0, len(ports))
+	seen := map[int]struct{}{}
+	for _, port := range ports {
+		if port <= 0 || port > 65535 {
+			continue
+		}
+		if _, ok := seen[port]; ok {
+			continue
+		}
+		seen[port] = struct{}{}
+		out = append(out, port)
+	}
+	return out
 }
 
 func (d *Driver) StartSandbox(ctx context.Context, externalID string) error {

@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  type CSSProperties,
   useCallback,
   useEffect,
   useMemo,
@@ -10,6 +11,8 @@ import type { GitStatusEntry } from "@pierre/trees"
 import { Button, Popover } from "@heroui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Icon } from "@iconify/react"
+import { File as DiffFile, type FileOptions } from "@pierre/diffs/react"
+import { Group, Panel, Separator } from "react-resizable-panels"
 import {
   FilesEmptyState,
   FilesErrorState,
@@ -20,8 +23,10 @@ import {
 import {
   RuntimeRepoAccessError,
   RuntimeRepoHTTPError,
+  fetchRuntimeRepoFileContent,
   fetchRuntimeRepoTreeDirectory,
   fetchRuntimeRepos,
+  type RuntimeRepoContent,
   type RuntimeRepoInfo,
   type RuntimeRepoTreeSnapshot,
   type RuntimeSandboxAccess,
@@ -40,6 +45,24 @@ export interface FilesRepoSelectorProps {
   repos: RuntimeRepoInfo[]
   selectedRepo: RuntimeRepoInfo | null
   onSelect: (repoId: string) => void
+}
+
+const FILE_TREE_DEFAULT_WIDTH = 260
+const FILE_TREE_MIN_WIDTH = 190
+const FILE_TREE_MAX_WIDTH = 420
+const FILE_PREVIEW_MIN_WIDTH = 120
+const FILE_PREVIEW_LARGE_FILE_LINE_LIMIT = 2000
+const FILE_PREVIEW_OPTIONS = {
+  disableFileHeader: true,
+  overflow: "scroll",
+  theme: "pierre-dark",
+  themeType: "dark",
+} satisfies FileOptions<undefined>
+const FILE_PREVIEW_STYLE: CSSProperties & Record<`--${string}`, string> = {
+  minHeight: "100%",
+  width: "100%",
+  "--diffs-font-size": "12px",
+  "--diffs-line-height": "20px",
 }
 
 interface RepoTreeCache {
@@ -138,6 +161,29 @@ export function FilesView({
       selectedRepoTreeCache?.paths,
     ]
   )
+  const directoryPathSet = useMemo(
+    () => new Set(mergedTree.directoryPaths),
+    [mergedTree.directoryPaths]
+  )
+  const filePreviewQuery = useQuery({
+    enabled: accessReady && Boolean(selectedRepo?.id && selectedPath),
+    queryKey: [
+      "sandbox-runtime-repo-content",
+      sessionId,
+      sandboxAccess?.sandbox_base_url,
+      sandboxAccess?.token,
+      selectedRepo?.id,
+      selectedPath,
+    ],
+    queryFn: ({ signal }) =>
+      fetchPreviewFileContent(
+        sandboxAccess ?? {},
+        selectedRepo?.id ?? "",
+        selectedPath ?? "",
+        signal
+      ),
+    retry: false,
+  })
   const loadDirectory = useCallback(
     (directoryPath: string) => {
       if (!accessReady || !selectedRepo?.id) return
@@ -292,64 +338,190 @@ export function FilesView({
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-surface">
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(190px,260px)_minmax(0,1fr)]">
-        <aside className="min-h-0 border-r border-border bg-surface">
-          {rootTreeQuery.isPending ? (
-            <TreeSkeleton />
-          ) : rootTreeQuery.isError ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
-              <Icon icon="lucide:circle-alert" className="h-5 w-5 text-muted" />
-              <p className="text-sm text-muted">
-                {errorMessage(rootTreeQuery.error, "Could not load file tree.")}
-              </p>
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => {
-                  if (isUnauthorizedRuntimeError(rootTreeQuery.error)) {
-                    onRefreshSandboxAccess()
-                  }
-                  void rootTreeQuery.refetch()
-                }}
-              >
-                Retry
-              </Button>
+      <Group
+        id="files-view-layout"
+        orientation="horizontal"
+        className="min-h-0 flex-1"
+      >
+        <Panel
+          id="files-preview"
+          minSize={FILE_PREVIEW_MIN_WIDTH}
+          className="min-w-0 overflow-hidden"
+        >
+          <section className="flex h-full min-w-0 flex-col bg-background">
+            <div className="flex h-10 shrink-0 items-center border-b border-border px-3 text-sm text-muted">
+              {selectedPath ? (
+                <span className="truncate">
+                  {selectedPath.replace(/\/$/, "")}
+                </span>
+              ) : (
+                <span>Select a file to preview</span>
+              )}
             </div>
-          ) : (
-            <RuntimeFileTree
-              directoryPaths={mergedTree.directoryPaths}
-              gitStatus={mergedTree.gitStatus}
-              loadedDirectoryPaths={loadedDirectoryPaths}
-              loadingDirectoryPaths={loadingDirectoryPaths}
-              paths={mergedTree.paths}
-              selectedPath={selectedPath}
-              onDirectoryExpand={loadDirectory}
-              onSelectPath={(path) =>
-                setSelectedFile(
-                  path && selectedRepo
-                    ? {
-                        path,
-                        repoId: selectedRepo.id,
-                      }
-                    : null
-                )
-              }
-            />
-          )}
-        </aside>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <FilePreview
+                content={filePreviewQuery.data}
+                error={filePreviewQuery.error}
+                isPending={filePreviewQuery.isPending}
+                path={selectedPath}
+                onRefreshSandboxAccess={onRefreshSandboxAccess}
+                onRetry={() => void filePreviewQuery.refetch()}
+              />
+            </div>
+          </section>
+        </Panel>
 
-        <section className="flex min-w-0 flex-col bg-background">
-          <div className="flex h-10 shrink-0 items-center border-b border-border px-3 text-sm text-muted">
-            {selectedPath ? (
-              <span className="truncate">{selectedPath.replace(/\/$/, "")}</span>
+        <Separator
+          id="files-tree-resize-handle"
+          className="w-px shrink-0 bg-border transition-colors hover:bg-accent data-[resizing]:bg-accent"
+        />
+
+        <Panel
+          id="files-tree"
+          defaultSize={FILE_TREE_DEFAULT_WIDTH}
+          minSize={FILE_TREE_MIN_WIDTH}
+          maxSize={FILE_TREE_MAX_WIDTH}
+          groupResizeBehavior="preserve-pixel-size"
+          className="min-w-0 overflow-hidden"
+        >
+          <aside className="h-full min-w-0 bg-surface">
+            {rootTreeQuery.isPending ? (
+              <TreeSkeleton />
+            ) : rootTreeQuery.isError ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+                <Icon
+                  icon="lucide:circle-alert"
+                  className="h-5 w-5 text-muted"
+                />
+                <p className="text-sm text-muted">
+                  {errorMessage(
+                    rootTreeQuery.error,
+                    "Could not load file tree."
+                  )}
+                </p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => {
+                    if (isUnauthorizedRuntimeError(rootTreeQuery.error)) {
+                      onRefreshSandboxAccess()
+                    }
+                    void rootTreeQuery.refetch()
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
             ) : (
-              <span>Select a file to preview</span>
+              <RuntimeFileTree
+                directoryPaths={mergedTree.directoryPaths}
+                gitStatus={mergedTree.gitStatus}
+                loadedDirectoryPaths={loadedDirectoryPaths}
+                loadingDirectoryPaths={loadingDirectoryPaths}
+                paths={mergedTree.paths}
+                selectedPath={selectedPath}
+                onDirectoryExpand={loadDirectory}
+                onSelectPath={(path) => {
+                  if (!path || !selectedRepo || directoryPathSet.has(path)) {
+                    setSelectedFile(null)
+                    return
+                  }
+                  setSelectedFile({
+                    path,
+                    repoId: selectedRepo.id,
+                  })
+                }}
+              />
             )}
-          </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm text-muted">
-            File contents will appear here.
-          </div>
-        </section>
+          </aside>
+        </Panel>
+      </Group>
+    </div>
+  )
+}
+
+function FilePreview({
+  path,
+  content,
+  isPending,
+  error,
+  onRefreshSandboxAccess,
+  onRetry,
+}: {
+  path: string | null
+  content?: RuntimeRepoContent
+  isPending: boolean
+  error: unknown
+  onRefreshSandboxAccess: () => void
+  onRetry: () => void
+}) {
+  if (!path) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
+        Select a file to preview.
+      </div>
+    )
+  }
+
+  if (isPending) {
+    return <FilesLoadingState label="Loading file" />
+  }
+
+  if (error) {
+    return (
+      <FilesErrorState
+        message={errorMessage(error, "Could not load file.")}
+        onRetry={() => {
+          if (isUnauthorizedRuntimeError(error)) {
+            onRefreshSandboxAccess()
+          }
+          onRetry()
+        }}
+      />
+    )
+  }
+
+  if (!content) {
+    return null
+  }
+
+  if (content.content.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
+        File is empty.
+      </div>
+    )
+  }
+
+  const cacheKey = [
+    content.repo_id,
+    content.path,
+    content.total_bytes,
+    content.shown_lines,
+    content.offset ?? 0,
+    content.limit ?? 0,
+  ].join(":")
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      {content.truncated ? (
+        <div className="shrink-0 border-b border-border px-3 py-2 text-xs text-muted">
+          Showing {formatNumber(content.shown_lines)} of{" "}
+          {formatNumber(content.total_lines)} lines.
+        </div>
+      ) : null}
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <DiffFile
+          file={{
+            name: content.path || path,
+            contents: content.content,
+            cacheKey,
+          }}
+          options={FILE_PREVIEW_OPTIONS}
+          className="block min-w-full"
+          style={FILE_PREVIEW_STYLE}
+          disableWorkerPool
+        />
       </div>
     </div>
   )
@@ -407,6 +579,25 @@ function emptyRepoTreeCache(): RepoTreeCache {
     loadedDirectories: [],
     loadingDirectories: [],
     paths: [],
+  }
+}
+
+async function fetchPreviewFileContent(
+  access: RuntimeSandboxAccess,
+  repoId: string,
+  path: string,
+  signal?: AbortSignal
+) {
+  try {
+    return await fetchRuntimeRepoFileContent(access, repoId, path, signal)
+  } catch (error) {
+    if (isLargeFileRuntimeError(error)) {
+      return fetchRuntimeRepoFileContent(access, repoId, path, signal, {
+        offset: 1,
+        limit: FILE_PREVIEW_LARGE_FILE_LINE_LIMIT,
+      })
+    }
+    throw error
   }
 }
 
@@ -480,8 +671,20 @@ function isUnauthorizedRuntimeError(error: unknown) {
   return error instanceof RuntimeRepoHTTPError && error.status === 401
 }
 
+function isLargeFileRuntimeError(error: unknown) {
+  return (
+    error instanceof RuntimeRepoHTTPError &&
+    error.status === 400 &&
+    error.message.includes("file too large")
+  )
+}
+
 function errorMessage(error: unknown, fallback: string) {
   if (error instanceof RuntimeRepoAccessError) return error.message
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value)
 }

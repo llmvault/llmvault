@@ -11608,6 +11608,7 @@ export interface components {
             plan?: components["schemas"]["planDTO"];
             prompt_company?: string;
             rate_limit?: number;
+            sandbox_exposed_ports?: number[];
             website?: string;
         };
         otpRequestPayload: {
@@ -12003,9 +12004,13 @@ export interface components {
             agent_id?: string;
             created_at?: string;
             error_message?: string;
+            exposed_ports?: number[];
             external_id?: string;
             id?: string;
             last_active_at?: string;
+            preview_urls?: {
+                [key: string]: string;
+            };
             status?: string;
         };
         sandboxTemplateResponse: {
@@ -12367,6 +12372,7 @@ export interface components {
             logo_url?: string;
             name?: string;
             prompt_company?: string;
+            sandbox_exposed_ports?: number[];
             sync?: boolean;
             website?: string;
         };

@@ -1,7 +1,12 @@
 package handler
 
 import (
+	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -23,20 +28,28 @@ func NewSandboxHandler(db *gorm.DB, orchestrator *sandbox.Orchestrator) *Sandbox
 }
 
 type sandboxResponse struct {
-	ID           string  `json:"id"`
-	Status       string  `json:"status"`
-	ExternalID   string  `json:"external_id"`
-	AgentID      *string `json:"agent_id,omitempty"`
-	ErrorMessage *string `json:"error_message,omitempty"`
-	LastActiveAt *string `json:"last_active_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
+	ID           string            `json:"id"`
+	Status       string            `json:"status"`
+	ExternalID   string            `json:"external_id"`
+	AgentID      *string           `json:"agent_id,omitempty"`
+	ExposedPorts []int             `json:"exposed_ports"`
+	PreviewURLs  map[string]string `json:"preview_urls,omitempty"`
+	ErrorMessage *string           `json:"error_message,omitempty"`
+	LastActiveAt *string           `json:"last_active_at,omitempty"`
+	CreatedAt    string            `json:"created_at"`
 }
 
 func toSandboxResponse(s model.Sandbox) sandboxResponse {
+	exposedPorts, err := model.NormalizeSandboxExposedPorts(model.SandboxExposedPortsFromInt64Array(s.ExposedPorts))
+	if err != nil {
+		exposedPorts = model.DefaultSandboxExposedPorts()
+	}
 	resp := sandboxResponse{
 		ID:           s.ID.String(),
 		Status:       s.Status,
 		ExternalID:   s.ExternalID,
+		ExposedPorts: exposedPorts,
+		PreviewURLs:  sandboxPreviewURLs(s, exposedPorts),
 		ErrorMessage: s.ErrorMessage,
 		CreatedAt:    s.CreatedAt.Format(time.RFC3339),
 	}
@@ -49,6 +62,47 @@ func toSandboxResponse(s model.Sandbox) sandboxResponse {
 		resp.LastActiveAt = &t
 	}
 	return resp
+}
+
+func sandboxPreviewURLs(s model.Sandbox, ports []int) map[string]string {
+	if !strings.EqualFold(strings.TrimSpace(s.ProviderID), sandbox.ProviderMicrosandbox) {
+		return nil
+	}
+	sandboxID := strings.TrimSpace(s.ExternalID)
+	baseDomain := previewBaseDomainFromRuntimeURL(s.RuntimeURL, sandboxID)
+	if sandboxID == "" || baseDomain == "" || len(ports) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(ports))
+	for _, port := range ports {
+		out[strconv.Itoa(port)] = fmt.Sprintf("https://%d-%s.%s", port, sandboxID, baseDomain)
+	}
+	return out
+}
+
+func previewBaseDomainFromRuntimeURL(rawURL, sandboxID string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	sandboxID = strings.TrimSpace(sandboxID)
+	if rawURL == "" || sandboxID == "" {
+		return ""
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Hostname() == "" {
+		parsed, err = url.Parse("//" + rawURL)
+	}
+	if err != nil {
+		return ""
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" || strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil {
+		return ""
+	}
+	marker := "-" + sandboxID + "."
+	idx := strings.Index(host, marker)
+	if idx < 0 {
+		return ""
+	}
+	return strings.Trim(host[idx+len(marker):], ".")
 }
 
 // List handles GET /v1/sandboxes.

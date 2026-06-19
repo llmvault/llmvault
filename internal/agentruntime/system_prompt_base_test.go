@@ -117,6 +117,7 @@ func TestRenderEnvironmentContextUsesDefaultSandboxSizeWithoutTemplate(t *testin
 	}
 	for _, want := range []string{
 		"https://<port>-environment-test.preview.usehivy.com",
+		"Configured user-facing preview ports: 3000, 5173, 8000, 8080.",
 		"Strict requirement: never share localhost, 127.0.0.1, or any other sandbox-local URL with the user",
 		"make sure the app or server is running in the background",
 		"include the public preview URL in your response",

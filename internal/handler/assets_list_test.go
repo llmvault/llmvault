@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func TestListAssets_OrgScopeIsolatesOtherOrgs(t *testing.T) {
@@ -46,6 +48,26 @@ func TestListAssets_FilterByAgent(t *testing.T) {
 	}
 	if page.Data[0]["agent_id"] != h.agentA2.String() {
 		t.Fatalf("agent_id field: %v", page.Data[0]["agent_id"])
+	}
+}
+
+func TestListAssets_IncludesDescription(t *testing.T) {
+	h := newAssetsListHarness(t)
+	now := time.Now()
+	asset := seedAssetRow(t, h.db, h.orgA.ID, h.agentA1, h.sandboxA1, "images", "ui.png", "image/png", 10, now)
+	desc := model.RawJSON(`{"category":"product_ui","confidence":0.94}`)
+	if err := h.db.Model(&asset).Update("description", desc).Error; err != nil {
+		t.Fatalf("update description: %v", err)
+	}
+
+	rr := h.get(t, "?agent_id="+h.agentA1.String(), &h.orgA)
+	page := decodeAssetList(t, rr)
+	if len(page.Data) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(page.Data))
+	}
+	description, ok := page.Data[0]["description"].(map[string]any)
+	if !ok || description["category"] != "product_ui" {
+		t.Fatalf("description missing from asset response: %+v", page.Data[0])
 	}
 }
 

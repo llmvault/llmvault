@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type Sandbox struct {
@@ -21,6 +22,7 @@ type Sandbox struct {
 	RuntimeURLExpiresAt    *time.Time       // when RuntimeURL expires (nil = never)
 	EncryptedRuntimeSecret []byte           `gorm:"type:bytea;not null"`         // AES-256-GCM encrypted Runtime API key
 	Status                 string           `gorm:"not null;default:'creating'"` // creating, running, stopped, starting, archived, archiving, error
+	ExposedPorts           pq.Int64Array    `gorm:"type:integer[];not null;default:'{3000,5173,8000,8080}'"`
 	ErrorMessage           *string
 	LastActiveAt           *time.Time
 	LastPreviewAt          *time.Time
