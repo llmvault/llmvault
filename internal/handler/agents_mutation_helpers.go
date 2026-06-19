@@ -51,19 +51,16 @@ func agentAllowsModel(agent *model.Agent, modelID string) bool {
 	if modelID == "" {
 		return false
 	}
-	availableModels := agent.AvailableModels
-	defaultModel := agent.Model
-	if agent.AgentCatalog != nil && len(agent.AgentCatalog.AvailableModels) > 0 {
-		catalogModels := append([]string(nil), agent.AgentCatalog.AvailableModels...)
-		availableModels = normalizeAgentAvailableModels(agent.AgentCatalog.Model, &catalogModels)
-		defaultModel = agent.AgentCatalog.Model
+	if containsString(agent.AvailableModels, modelID) {
+		return true
 	}
-	for _, allowed := range availableModels {
-		if strings.TrimSpace(allowed) == modelID {
+	if agent.AgentCatalog != nil {
+		catalogModels := append([]string(nil), agent.AgentCatalog.AvailableModels...)
+		if containsString(normalizeAgentAvailableModels(agent.AgentCatalog.Model, &catalogModels), modelID) {
 			return true
 		}
 	}
-	return len(availableModels) == 0 && strings.TrimSpace(defaultModel) == modelID
+	return len(agent.AvailableModels) == 0 && strings.TrimSpace(agent.Model) == modelID
 }
 
 func containsString(values []string, target string) bool {

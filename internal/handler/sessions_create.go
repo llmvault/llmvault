@@ -194,6 +194,7 @@ func (h *SessionHandler) resolveSessionAgent(w http.ResponseWriter, r *http.Requ
 	}
 	var agent model.Agent
 	err := h.db.WithContext(r.Context()).
+		Preload("AgentCatalog").
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived").
 		First(&agent).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

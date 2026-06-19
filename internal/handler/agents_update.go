@@ -51,6 +51,7 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	var agent model.Agent
 	if err := h.db.WithContext(ctx).
+		Preload("AgentCatalog").
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "archived").
 		First(&agent).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
