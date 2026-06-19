@@ -26,6 +26,7 @@ import (
 // @Failure 500 {object} errorResponse
 // @Router /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -63,7 +64,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var user model.User
 	var org model.Org
 
-	err = h.db.Transaction(func(tx *gorm.DB) error {
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		user = model.User{
 			Email:        req.Email,
 			PasswordHash: hash,
@@ -74,7 +75,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var orgErr error
-		org, orgErr = createUserDefaultOrg(tx, h.credits, &user)
+		org, orgErr = createUserDefaultOrg(ctx, tx, h.credits, &user)
 		return orgErr
 	})
 	if err != nil {

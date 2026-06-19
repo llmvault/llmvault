@@ -48,6 +48,7 @@ func (h *PluginHandler) ListAgentPlugins(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	org, agent, ok := h.loadAgentFromRoute(w, r)
 	if !ok {
 		return
@@ -67,13 +68,13 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin must be installed for the org before enabling it on an agent"})
 		return
 	}
-	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		return enablePluginForAgent(r.Context(), tx, org.ID, agent.ID, plugin.ID)
+	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return enablePluginForAgent(ctx, tx, org.ID, agent.ID, plugin.ID)
 	}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to enable plugin for agent"})
 		return
 	}
-	resp, err := h.toPluginResponse(r.Context(), org.ID, plugin)
+	resp, err := h.toPluginResponse(ctx, org.ID, plugin)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
 		return
@@ -82,6 +83,7 @@ func (h *PluginHandler) EnableForAgent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PluginHandler) DisableForAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	org, agent, ok := h.loadAgentFromRoute(w, r)
 	if !ok {
 		return
@@ -94,8 +96,8 @@ func (h *PluginHandler) DisableForAgent(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required and cannot be disabled"})
 		return
 	}
-	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		return disablePluginForAgent(r.Context(), tx, org.ID, agent.ID, plugin.ID)
+	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return disablePluginForAgent(ctx, tx, org.ID, agent.ID, plugin.ID)
 	}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to disable plugin for agent"})
 		return

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/errdefs"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -207,7 +207,7 @@ func cleanupIntegrationArtifacts(ctx context.Context, driver *Driver) error {
 			Force:         true,
 			RemoveVolumes: true,
 		})
-		if err != nil && !errdefs.IsNotFound(err) {
+		if err != nil && !cerrdefs.IsNotFound(err) {
 			return fmt.Errorf("removing docker test container %s: %w", item.ID, err)
 		}
 	}
@@ -222,7 +222,7 @@ func cleanupIntegrationArtifacts(ctx context.Context, driver *Driver) error {
 				continue
 			}
 			_, err := driver.cli.ImageRemove(ctx, ref, image.RemoveOptions{Force: true, PruneChildren: false})
-			if err != nil && !errdefs.IsNotFound(err) {
+			if err != nil && !cerrdefs.IsNotFound(err) {
 				return fmt.Errorf("removing docker test image %s: %w", ref, err)
 			}
 		}

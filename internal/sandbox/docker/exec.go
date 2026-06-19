@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
 
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -35,7 +35,7 @@ func (d *Driver) ExecuteCommandWithTimeout(ctx context.Context, externalID strin
 		Cmd:          []string{"/bin/sh", "-lc", command},
 	})
 	if err != nil {
-		if errdefs.IsNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return "", sandbox.ErrSandboxNotFound
 		}
 		return "", fmt.Errorf("creating docker exec in %s: %w", externalID, err)
@@ -43,7 +43,7 @@ func (d *Driver) ExecuteCommandWithTimeout(ctx context.Context, externalID strin
 
 	attached, err := d.cli.ContainerExecAttach(ctx, execID.ID, container.ExecStartOptions{})
 	if err != nil {
-		if errdefs.IsNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return "", sandbox.ErrSandboxNotFound
 		}
 		return "", fmt.Errorf("attaching docker exec in %s: %w", externalID, err)

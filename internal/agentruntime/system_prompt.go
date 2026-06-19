@@ -56,10 +56,10 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 	return fragments
 }
 
-func buildAgentSystemPrompt(fragments PromptSections) SystemPromptConfig {
+func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) SystemPromptConfig {
 	basePrompt := strings.TrimSpace(fragments.Base)
 	if basePrompt == "" {
-		basePrompt = renderBaseSystemPrompt(context.Background(), nil, nil, model.Org{}, false, "")
+		basePrompt = renderBaseSystemPrompt(ctx, nil, nil, model.Org{}, false, "")
 	}
 	cacheable := []SystemPromptSegment{
 		staticPromptSegment("", basePrompt),

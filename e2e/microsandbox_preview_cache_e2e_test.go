@@ -28,10 +28,13 @@ func TestMicrosandboxPreviewCacheWakeE2E(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read preview-cache template: %v", err)
 	}
-	if err := os.WriteFile(scriptPath, rawScript, 0o755); err != nil {
+	if err := os.WriteFile(scriptPath, rawScript, 0o600); err != nil {
 		t.Fatalf("write preview-cache script: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tempDir, "redis.py"), []byte(fakePreviewCacheRedisModule), 0o644); err != nil {
+	if err := os.Chmod(scriptPath, 0o700); err != nil {
+		t.Fatalf("chmod preview-cache script: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "redis.py"), []byte(fakePreviewCacheRedisModule), 0o600); err != nil {
 		t.Fatalf("write fake redis module: %v", err)
 	}
 

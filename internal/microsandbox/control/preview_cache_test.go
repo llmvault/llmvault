@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -94,7 +95,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 		PreviewCacheURL:    cache.URL,
 		PreviewCacheToken:  cacheToken,
 	}
-	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken), previewCache: NewPreviewCacheClient(cfg)}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken), previewCache: NewPreviewCacheClient(context.Background(), cfg)}
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes", strings.NewReader(`{
 		"org_id":"org_1",

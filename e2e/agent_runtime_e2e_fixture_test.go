@@ -89,11 +89,11 @@ class RuntimeE2ETest(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 `, agentRuntimeE2EToken)
-	if err := os.WriteFile(filepath.Join(workspaceRoot, "calc.py"), []byte(calc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "calc.py"), []byte(calc), 0o600); err != nil {
 		t.Fatalf("write calc.py: %v", err)
 	}
 	trace.Body("fixture-files", filepath.Join(workspaceRoot, "calc.py"), []byte(calc))
-	if err := os.WriteFile(filepath.Join(workspaceRoot, "test_calc.py"), []byte(testFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "test_calc.py"), []byte(testFile), 0o600); err != nil {
 		t.Fatalf("write test_calc.py: %v", err)
 	}
 	trace.Body("fixture-files", filepath.Join(workspaceRoot, "test_calc.py"), []byte(testFile))

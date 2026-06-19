@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -118,17 +117,4 @@ func (h *SessionMessageDeliverHandler) releaseSessionTurn(ctx context.Context, s
 			"agent_stream_id":       "",
 			"agent_turn_started_at": nil,
 		}).Error
-}
-
-func (h *SessionMessageDeliverHandler) hasPending(ctx context.Context, sessionID uuid.UUID) bool {
-	var count int64
-	if err := h.db.WithContext(ctx).Model(&model.SessionMessageQueue{}).
-		Where("session_id = ? AND status <> ?", sessionID, "delivered").
-		Count(&count).Error; err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("count pending session messages: %w", err), map[string]any{
-			"session_id": sessionID.String(),
-		})
-		return false
-	}
-	return count > 0
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -79,7 +80,7 @@ func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(tx, nil, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, nil, user)
 		return e
 	})
 	if err != nil {
@@ -121,7 +122,7 @@ func TestCreateUserDefaultOrg_AutoInstallsRuntimePlugin(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(tx, nil, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, nil, user)
 		return e
 	})
 	if err != nil {
@@ -162,7 +163,7 @@ func TestCreateUserDefaultOrg_GrantsWelcomeCredits(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(tx, credits, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
 		return e
 	})
 	if err != nil {
@@ -202,7 +203,7 @@ func TestCreateUserDefaultOrg_ZeroWelcomeCreditsSkipsGrant(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(tx, credits, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
 		return e
 	})
 	if err != nil {
@@ -234,7 +235,7 @@ func TestCreateUserDefaultOrg_NoFreePlanRowSucceeds(t *testing.T) {
 	var org model.Org
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		org, e = createUserDefaultOrg(tx, credits, user)
+		org, e = createUserDefaultOrg(context.Background(), tx, credits, user)
 		return e
 	})
 	if err != nil {

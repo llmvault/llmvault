@@ -105,17 +105,18 @@ func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Router /v1/plugins/{slug}/install [post]
 func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
+	ctx := r.Context()
+	org, ok := middleware.OrgFromContext(ctx)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
 		return
 	}
-	user, _ := middleware.UserFromContext(r.Context())
+	user, _ := middleware.UserFromContext(ctx)
 	plugin, ok := h.loadPluginBySlug(w, r, chi.URLParam(r, "slug"))
 	if !ok {
 		return
 	}
-	missing, err := h.missingRequirements(r.Context(), org.ID, plugin.ID)
+	missing, err := h.missingRequirements(ctx, org.ID, plugin.ID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to check plugin requirements"})
 		return
@@ -128,7 +129,7 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var install model.OrgPluginInstall
-	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing model.OrgPluginInstall
 		err := tx.Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).First(&existing).Error
 		if err == nil {
@@ -150,17 +151,17 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 		} else {
 			return fmt.Errorf("load org plugin install: %w", err)
 		}
-		agent, err := ensureHivyAgent(r.Context(), tx, org.ID)
+		agent, err := ensureHivyAgent(ctx, tx, org.ID)
 		if err != nil {
 			return err
 		}
-		return enablePluginForAgent(r.Context(), tx, org.ID, agent.ID, plugin.ID)
+		return enablePluginForAgent(ctx, tx, org.ID, agent.ID, plugin.ID)
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to install plugin"})
 		return
 	}
-	if err := tasks.EnqueuePluginInstallSync(r.Context(), h.enqueuer, tasks.PluginInstallSyncPayload{
+	if err := tasks.EnqueuePluginInstallSync(ctx, h.enqueuer, tasks.PluginInstallSyncPayload{
 		OrgID:     org.ID,
 		PluginID:  plugin.ID,
 		InstallID: install.ID,
@@ -168,7 +169,7 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to queue plugin install sync"})
 		return
 	}
-	resp, err := h.toPluginResponse(r.Context(), org.ID, plugin)
+	resp, err := h.toPluginResponse(ctx, org.ID, plugin)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load plugin details"})
 		return
@@ -188,7 +189,8 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Router /v1/plugins/{slug}/install [delete]
 func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
+	ctx := r.Context()
+	org, ok := middleware.OrgFromContext(ctx)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
 		return
@@ -202,13 +204,13 @@ func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
-	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.OrgPluginInstall{}).
 			Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
 			Update("revoked_at", &now).Error; err != nil {
 			return err
 		}
-		return disablePluginForOrg(r.Context(), tx, org.ID, plugin.ID)
+		return disablePluginForOrg(ctx, tx, org.ID, plugin.ID)
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to uninstall plugin"})

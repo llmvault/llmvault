@@ -111,7 +111,8 @@ type orgResponse struct {
 // @Security BearerAuth
 // @Router /v1/orgs [post]
 func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.AuthClaimsFromContext(r.Context())
+	ctx := r.Context()
+	claims, ok := middleware.AuthClaimsFromContext(ctx)
 	if !ok || claims.UserID == "" {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
@@ -130,7 +131,7 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var org model.Org
 	var membership model.OrgMembership
 
-	err := h.db.Transaction(func(tx *gorm.DB) error {
+	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		org = model.Org{
 			Name: req.Name,
 		}
@@ -147,11 +148,11 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("creating membership: %w", err)
 		}
 
-		agent, err := createHivyAgentWithDefaultsTx(r.Context(), tx, org.ID)
+		agent, err := createHivyAgentWithDefaultsTx(ctx, tx, org.ID)
 		if err != nil {
 			return fmt.Errorf("creating Hivy agent: %w", err)
 		}
-		if _, err := createDefaultGeneralChannelTx(r.Context(), tx, org.ID, uuid.MustParse(claims.UserID), agent.ID); err != nil {
+		if _, err := createDefaultGeneralChannelTx(ctx, tx, org.ID, uuid.MustParse(claims.UserID), agent.ID); err != nil {
 			return fmt.Errorf("creating default channel: %w", err)
 		}
 

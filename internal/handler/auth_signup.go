@@ -32,7 +32,7 @@ import (
 // Welcome credits are intentionally only granted here. Subsequent orgs the
 // user creates via /v1/orgs do not receive them — that handler stays
 // untouched and goes through its own (un-helped) path.
-func createUserDefaultOrg(tx *gorm.DB, credits *billing.CreditsService, user *model.User) (model.Org, error) {
+func createUserDefaultOrg(ctx context.Context, tx *gorm.DB, credits *billing.CreditsService, user *model.User) (model.Org, error) {
 	org := model.Org{
 		Name: fmt.Sprintf("%s's Workspace", user.Name),
 	}
@@ -52,11 +52,11 @@ func createUserDefaultOrg(tx *gorm.DB, credits *billing.CreditsService, user *mo
 	if err := grantWelcomeCredits(tx, credits, org.ID, user.ID); err != nil {
 		return org, err
 	}
-	agent, err := createHivyAgentWithDefaultsTx(context.TODO(), tx, org.ID)
+	agent, err := createHivyAgentWithDefaultsTx(ctx, tx, org.ID)
 	if err != nil {
 		return org, fmt.Errorf("creating Hivy agent: %w", err)
 	}
-	if _, err := createDefaultGeneralChannelTx(context.TODO(), tx, org.ID, user.ID, agent.ID); err != nil {
+	if _, err := createDefaultGeneralChannelTx(ctx, tx, org.ID, user.ID, agent.ID); err != nil {
 		return org, fmt.Errorf("creating default channel: %w", err)
 	}
 	return org, nil

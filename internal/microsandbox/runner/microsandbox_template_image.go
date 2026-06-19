@@ -75,7 +75,7 @@ func buildTemplateImage(ctx context.Context, baseImage, imageRef string, command
 	defer func() {
 		_ = os.RemoveAll(workDir)
 	}()
-	if err := os.WriteFile(filepath.Join(workDir, "Dockerfile"), []byte(templateDockerfile(baseImage, commands)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(workDir, "Dockerfile"), []byte(templateDockerfile(baseImage, commands)), 0o600); err != nil {
 		return "", "", err
 	}
 	metadataPath := filepath.Join(workDir, "metadata.json")

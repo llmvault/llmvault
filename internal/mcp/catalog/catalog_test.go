@@ -1,7 +1,6 @@
 package catalog
 
 import (
-	"sort"
 	"testing"
 )
 
@@ -179,38 +178,4 @@ func TestHasConfigurableResources(t *testing.T) {
 			}
 		})
 	}
-}
-
-func mapKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func sameStringSet(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	a = append([]string(nil), a...)
-	b = append([]string(nil), b...)
-	sort.Strings(a)
-	sort.Strings(b)
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }

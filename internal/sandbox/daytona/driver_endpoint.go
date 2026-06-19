@@ -9,6 +9,9 @@ import (
 // Goes through api-client-go's GetSignedPortPreviewUrl since pkg/daytona's
 // Sandbox.GetPreviewLink only exposes the un-signed (URL + token) variant.
 func (d *Driver) GetEndpoint(ctx context.Context, externalID string, port int) (string, error) {
+	if port <= 0 || port > 1<<31-1 {
+		return "", fmt.Errorf("invalid preview port %d", port)
+	}
 	resp, _, err := d.apiClient.SandboxAPI.
 		GetSignedPortPreviewUrl(d.authCtx(ctx), externalID, int32(port)).
 		ExpiresInSeconds(signedURLTTLSeconds).

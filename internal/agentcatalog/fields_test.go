@@ -63,7 +63,7 @@ func TestLoadManifestLoadsSubAgentInstructions(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	instructionsPath := filepath.Join(dir, "sub_agents", "codebase-explorer", "instructions.md")
-	if err := os.WriteFile(instructionsPath, []byte("Trace code paths with evidence."), 0o644); err != nil {
+	if err := os.WriteFile(instructionsPath, []byte("Trace code paths with evidence."), 0o600); err != nil {
 		t.Fatalf("write instructions: %v", err)
 	}
 	manifestPath := filepath.Join(dir, "agent.json")
@@ -83,7 +83,7 @@ func TestLoadManifestLoadsSubAgentInstructions(t *testing.T) {
     }
   }
 }`
-	if err := os.WriteFile(manifestPath, []byte(manifestJSON), 0o644); err != nil {
+	if err := os.WriteFile(manifestPath, []byte(manifestJSON), 0o600); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
 
@@ -112,7 +112,7 @@ func TestLoadManifestLoadsSubAgentInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first hash: %v", err)
 	}
-	if err := os.WriteFile(instructionsPath, []byte("Trace deeper paths."), 0o644); err != nil {
+	if err := os.WriteFile(instructionsPath, []byte("Trace deeper paths."), 0o600); err != nil {
 		t.Fatalf("rewrite instructions: %v", err)
 	}
 	updatedManifest, err := loadManifest(manifestPath)

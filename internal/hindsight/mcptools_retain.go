@@ -134,33 +134,6 @@ func memoryRetainResponse(bankID, documentID string, result *RetainResponse) mem
 	return out
 }
 
-func upsertMemoryTag(tags []string, key, value string) []string {
-	value = sanitizeMemoryTagValue(value)
-	if value == "" {
-		return tags
-	}
-	prefix := key + ":"
-	out := tags[:0]
-	for _, tag := range tags {
-		if !strings.HasPrefix(tag, prefix) {
-			out = append(out, tag)
-		}
-	}
-	return append(out, prefix+value)
-}
-
-func addMetadataValue(metadata map[string]string, key, value string) {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return
-	}
-	runes := []rune(value)
-	if len(runes) > 256 {
-		value = string(runes[:256])
-	}
-	metadata[key] = value
-}
-
 func sanitizeMemoryTagValue(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value == "" {

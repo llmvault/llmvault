@@ -119,6 +119,7 @@ func (h *AgentHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} errorResponse
 // @Router /v1/agents/catalog/{slug}/install [post]
 func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
@@ -128,7 +129,7 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	missing, err := h.missingInstalledPlugins(r.Context(), org.ID, catalog.RequiredPlugins)
+	missing, err := h.missingInstalledPlugins(ctx, org.ID, catalog.RequiredPlugins)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate required plugins"})
 		return
@@ -141,8 +142,8 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var agent model.Agent
-	err = h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		existing, found, err := activeAgentForCatalog(r.Context(), tx, org.ID, catalog.ID)
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		existing, found, err := activeAgentForCatalog(ctx, tx, org.ID, catalog.ID)
 		if err != nil {
 			return err
 		}
@@ -150,12 +151,12 @@ func (h *AgentHandler) InstallCatalog(w http.ResponseWriter, r *http.Request) {
 			agent = existing
 			return nil
 		}
-		created, err := h.createCatalogAgent(r.Context(), tx, org.ID, catalog)
+		created, err := h.createCatalogAgent(ctx, tx, org.ID, catalog)
 		if err != nil {
 			return err
 		}
 		agent = created
-		return enableRequiredCatalogPlugins(r.Context(), tx, org.ID, agent.ID, catalog.RequiredPlugins)
+		return enableRequiredCatalogPlugins(ctx, tx, org.ID, agent.ID, catalog.RequiredPlugins)
 	})
 	if err != nil {
 		if isDuplicateKeyError(err) {

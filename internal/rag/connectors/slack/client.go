@@ -53,18 +53,6 @@ func (p *slackProxy) get(ctx context.Context, path string, query url.Values) (in
 	return resp.StatusCode, resp.Body, nil
 }
 
-func (p *slackProxy) post(ctx context.Context, path string, body url.Values) (int, []byte, error) {
-	encoded := body.Encode()
-	resp, err := p.nango.RawProxyRequest(
-		ctx, "POST", p.providerConfigKey, p.connectionID, path, encoded, nil,
-		"application/x-www-form-urlencoded",
-	)
-	if err != nil {
-		return 0, nil, err
-	}
-	return resp.StatusCode, resp.Body, nil
-}
-
 func (p *slackProxy) getJSON(ctx context.Context, path string, query url.Values, dest interface{}) error {
 	status, body, err := p.get(ctx, path, query)
 	if err != nil {

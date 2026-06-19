@@ -76,7 +76,7 @@ func runControl(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	app := control.NewServer(database, cfg)
+	app := control.NewServer(ctx, database, cfg)
 	return serve(ctx, cfg.Addr, app.Routes())
 }
 
@@ -93,7 +93,7 @@ func serve(ctx context.Context, addr string, h http.Handler) error {
 	})
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	case err := <-errCh:

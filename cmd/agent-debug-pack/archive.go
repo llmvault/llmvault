@@ -53,7 +53,7 @@ func extractTarGz(archivePath string, localDir string) ([]string, error) {
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return nil, err
 			}
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			if err := writeTarFile(target, tr); err != nil {
 				return nil, err
 			}

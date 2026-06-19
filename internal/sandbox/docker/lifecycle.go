@@ -6,10 +6,10 @@ import (
 	"io"
 	"strconv"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-connections/nat"
 
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -51,7 +51,7 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 
 func (d *Driver) StartSandbox(ctx context.Context, externalID string) error {
 	if err := d.cli.ContainerStart(ctx, externalID, container.StartOptions{}); err != nil {
-		if errdefs.IsNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return sandbox.ErrSandboxNotFound
 		}
 		return fmt.Errorf("starting docker container %s: %w", externalID, err)
@@ -62,7 +62,7 @@ func (d *Driver) StartSandbox(ctx context.Context, externalID string) error {
 func (d *Driver) StopSandbox(ctx context.Context, externalID string) error {
 	timeout := 10
 	if err := d.cli.ContainerStop(ctx, externalID, container.StopOptions{Timeout: &timeout}); err != nil {
-		if errdefs.IsNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return sandbox.ErrSandboxNotFound
 		}
 		return fmt.Errorf("stopping docker container %s: %w", externalID, err)
@@ -76,7 +76,7 @@ func (d *Driver) ArchiveSandbox(ctx context.Context, externalID string) error {
 
 func (d *Driver) DeleteSandbox(ctx context.Context, externalID string) error {
 	err := d.cli.ContainerRemove(ctx, externalID, container.RemoveOptions{Force: true, RemoveVolumes: true})
-	if errdefs.IsNotFound(err) {
+	if cerrdefs.IsNotFound(err) {
 		return sandbox.ErrSandboxNotFound
 	}
 	return err
@@ -85,7 +85,7 @@ func (d *Driver) DeleteSandbox(ctx context.Context, externalID string) error {
 func (d *Driver) GetStatus(ctx context.Context, externalID string) (sandbox.SandboxStatus, error) {
 	info, err := d.cli.ContainerInspect(ctx, externalID)
 	if err != nil {
-		if errdefs.IsNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return sandbox.StatusError, sandbox.ErrSandboxNotFound
 		}
 		return sandbox.StatusError, fmt.Errorf("inspecting docker container %s: %w", externalID, err)
@@ -106,7 +106,7 @@ func (d *Driver) GetStatus(ctx context.Context, externalID string) (sandbox.Sand
 func (d *Driver) ensureImage(ctx context.Context, ref string) error {
 	if _, err := d.cli.ImageInspect(ctx, ref); err == nil {
 		return nil
-	} else if !errdefs.IsNotFound(err) {
+	} else if !cerrdefs.IsNotFound(err) {
 		return fmt.Errorf("inspecting docker image %s: %w", ref, err)
 	}
 	body, err := d.cli.ImagePull(ctx, ref, image.PullOptions{})

@@ -79,7 +79,11 @@ func TestSign_AvatarHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("presign get: %v", err)
 	}
-	signedResp, err := http.Get(signedGet)
+	signedReq, err := http.NewRequestWithContext(t.Context(), http.MethodGet, signedGet, nil)
+	if err != nil {
+		t.Fatalf("signed GET request: %v", err)
+	}
+	signedResp, err := http.DefaultClient.Do(signedReq)
 	if err != nil {
 		t.Fatalf("signed GET: %v", err)
 	}
@@ -268,7 +272,11 @@ func TestPresignGet_ExpiredURL(t *testing.T) {
 	}
 	time.Sleep(2 * time.Second)
 
-	getResp, err := http.Get(signedGet)
+	getReq, err := http.NewRequestWithContext(t.Context(), http.MethodGet, signedGet, nil)
+	if err != nil {
+		t.Fatalf("expired signed GET request: %v", err)
+	}
+	getResp, err := http.DefaultClient.Do(getReq)
 	if err != nil {
 		t.Fatalf("expired signed GET: %v", err)
 	}

@@ -6,17 +6,17 @@ import (
 )
 
 const (
-	AgentEnvRuntimeSecret              = "HIVY_RUNTIME_SECRET"
-	AgentEnvProxyAPIKey                = "HIVY_PROXY_API_KEY"
+	AgentEnvRuntimeSecret              = "HIVY_RUNTIME_SECRET" // #nosec G101 -- environment variable name, not a credential value.
+	AgentEnvProxyAPIKey                = "HIVY_PROXY_API_KEY"  // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvAgentModel                 = "HIVY_AGENT_MODEL"
 	AgentEnvAgentBaseURL               = "HIVY_AGENT_BASE_URL"
-	AgentEnvAgentAPIKeyEnv             = "HIVY_AGENT_API_KEY_ENV"
+	AgentEnvAgentAPIKeyEnv             = "HIVY_AGENT_API_KEY_ENV" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvAgentMultimodalModel       = "HIVY_AGENT_MULTIMODAL_MODEL"
 	AgentEnvAgentMultimodalBaseURL     = "HIVY_AGENT_MULTIMODAL_BASE_URL"
-	AgentEnvAgentMultimodalAPIKeyEnv   = "HIVY_AGENT_MULTIMODAL_API_KEY_ENV"
+	AgentEnvAgentMultimodalAPIKeyEnv   = "HIVY_AGENT_MULTIMODAL_API_KEY_ENV" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvAgentID                    = "HIVY_AGENT_ID"
 	AgentEnvCloudControlPlaneURL       = "HIVY_CONTROL_PLANE_URL"
-	AgentEnvDriveUploadBearer          = "HIVY_DRIVE_UPLOAD_BEARER"
+	AgentEnvDriveUploadBearer          = "HIVY_DRIVE_UPLOAD_BEARER" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvWorkspaceRoot              = "HIVY_WORKSPACE_ROOT"
 	AgentEnvDBPath                     = "HIVY_DB_PATH"
 	AgentEnvRuntimeBindAddr            = "HIVY_RUNTIME_BIND_ADDR"
@@ -25,17 +25,17 @@ const (
 	AgentEnvOrgID                      = "HIVY_ORG_ID"
 	AgentEnvGitUsername                = "HIVY_GIT_USERNAME"
 	AgentEnvGitEmail                   = "HIVY_GIT_EMAIL"
-	AgentEnvGitCredentialsURL          = "HIVY_GIT_CREDENTIALS_URL"
+	AgentEnvGitCredentialsURL          = "HIVY_GIT_CREDENTIALS_URL" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvGitHubNoKeyring            = "GH_NO_KEYRING"
 	AgentEnvDriveUploadURL             = "HIVY_DRIVE_UPLOAD_URL"
 	AgentEnvBugsinkURL                 = "HIVY_BUGSINK_URL"
 	AgentEnvBugsinkDashboardBaseURL    = "HIVY_BUGSINK_DASHBOARD_BASE_URL"
-	AgentEnvBugsinkToken               = "HIVY_BUGSINK_TOKEN"
+	AgentEnvBugsinkToken               = "HIVY_BUGSINK_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvGlitchTipURL               = "HIVY_GLITCHTIP_URL"
 	AgentEnvGlitchTipDashboardBaseURL  = "HIVY_GLITCHTIP_DASHBOARD_BASE_URL"
-	AgentEnvGlitchTipToken             = "HIVY_GLITCHTIP_TOKEN"
+	AgentEnvGlitchTipToken             = "HIVY_GLITCHTIP_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvLinearURL                  = "HIVY_LINEAR_URL"
-	AgentEnvLinearToken                = "HIVY_LINEAR_TOKEN"
+	AgentEnvLinearToken                = "HIVY_LINEAR_TOKEN" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvNotionAPIURL               = "HIVY_NOTION_API_URL"
 	AgentEnvNotionToken                = "HIVY_NOTION_TOKEN"
 	AgentEnvRailwayAPIURL              = "HIVY_RAILWAY_API_URL"

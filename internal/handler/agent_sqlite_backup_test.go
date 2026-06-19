@@ -157,7 +157,11 @@ func (h *sqliteBackupHarness) readBackupKey(t *testing.T, key string) []byte {
 	if err != nil {
 		t.Fatalf("presign backup object: %v", err)
 	}
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatalf("get backup object request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get backup object: %v", err)
 	}

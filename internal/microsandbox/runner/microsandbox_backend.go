@@ -136,11 +136,19 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	msbBindings := make([]microsandbox.PortBinding, 0, len(previewPorts))
 	for i, guest := range previewPorts {
 		host := hostPorts[i]
+		hostPort, err := toUint16Port("host port", host)
+		if err != nil {
+			return nil, err
+		}
+		guestPort, err := toUint16Port("guest port", guest)
+		if err != nil {
+			return nil, err
+		}
 		bindings = append(bindings, PortBinding{GuestPort: guest, HostPort: host})
 		msbBindings = append(msbBindings, microsandbox.PortBinding{
 			Bind:      "0.0.0.0",
-			HostPort:  uint16(host),
-			GuestPort: uint16(guest),
+			HostPort:  hostPort,
+			GuestPort: guestPort,
 			Protocol:  microsandbox.PortProtocolTCP,
 		})
 	}
@@ -169,9 +177,22 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 			return nil, err
 		}
 	}
+	cpu, err := positiveUint8("cpu", req.CPU)
+	if err != nil {
+		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
+		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), dockerVolName)
+		return nil, err
+	}
+	memoryMB, err := positiveUint32("memory_mb", req.MemoryMB)
+	if err != nil {
+		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
+		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), dockerVolName)
+		return nil, err
+	}
+
 	opts := []microsandbox.SandboxOption{
-		microsandbox.WithCPUs(uint8(req.CPU)),
-		microsandbox.WithMemory(uint32(req.MemoryMB)),
+		microsandbox.WithCPUs(cpu),
+		microsandbox.WithMemory(memoryMB),
 		microsandbox.WithEnv(req.Env),
 		microsandbox.WithLabels(hivyLabels(req.ID, req.Labels)),
 		microsandbox.WithPortBindings(msbBindings...),
@@ -220,6 +241,27 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	m.mu.Unlock()
 	releaseReserved = false
 	return &CreateSandboxResponse{ID: req.ID, Ports: bindings}, nil
+}
+
+func toUint16Port(name string, value int) (uint16, error) {
+	if value <= 0 || value > 65535 {
+		return 0, fmt.Errorf("%s %d is outside tcp port range", name, value)
+	}
+	return uint16(value), nil
+}
+
+func positiveUint8(name string, value int) (uint8, error) {
+	if value <= 0 || value > 255 {
+		return 0, fmt.Errorf("%s %d is outside uint8 range", name, value)
+	}
+	return uint8(value), nil
+}
+
+func positiveUint32(name string, value int) (uint32, error) {
+	if value <= 0 {
+		return 0, fmt.Errorf("%s %d must be positive", name, value)
+	}
+	return uint32(value), nil // #nosec G115 -- value is positive and int cannot exceed uint32 on supported 32/64-bit platforms.
 }
 
 func (m *MicrosandboxBackend) StartSandbox(ctx context.Context, sandboxID string) error {

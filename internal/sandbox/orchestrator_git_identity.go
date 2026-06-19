@@ -61,14 +61,6 @@ func gitIdentityFromProfile(agent *model.Agent) *agentGitIdentity {
 	}
 }
 
-func setGitIdentityEnvVars(envVars map[string]string, agent *model.Agent, identity *agentGitIdentity) {
-	if agent == nil {
-		return
-	}
-	envVars[agentruntime.AgentEnvGitUsername] = agentGitUsername(agent, identity)
-	envVars[agentruntime.AgentEnvGitEmail] = agentGitEmail(agent, identity)
-}
-
 func agentGitUsername(agent *model.Agent, identity *agentGitIdentity) string {
 	if identity != nil && strings.TrimSpace(identity.Username) != "" {
 		return strings.TrimSpace(identity.Username)

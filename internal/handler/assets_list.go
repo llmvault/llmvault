@@ -162,7 +162,7 @@ func (h *UploadsHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sortBy := strings.TrimSpace(r.URL.Query().Get("sort_by"))
-	sortColumn := "ea.created_at"
+	var sortColumn string
 	switch sortBy {
 	case "", "created_at":
 		sortColumn = "ea.created_at"

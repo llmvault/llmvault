@@ -225,7 +225,7 @@ func (cp *agentRuntimeMockControlPlane) recordBatch(path string, body []byte) er
 
 func newPublicHTTPServer(t *testing.T, handler http.Handler) *httptest.Server {
 	t.Helper()
-	listener, err := net.Listen("tcp", "0.0.0.0:0")
+	listener, err := net.Listen("tcp", "0.0.0.0:0") // #nosec G102 -- e2e server must be reachable from Docker.
 	if err != nil {
 		t.Fatalf("listen public test server: %v", err)
 	}
