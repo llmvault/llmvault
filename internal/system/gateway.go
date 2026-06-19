@@ -17,6 +17,8 @@ import (
 	"github.com/openai/openai-go/shared"
 )
 
+const genkitGatewayMaxRetries = 3
+
 type Gateway interface {
 	Complete(ctx context.Context, call ForwardCall) (*CompletionResult, error)
 	Stream(ctx context.Context, call ForwardCall, w http.ResponseWriter) (*CompletionResult, error)
@@ -129,7 +131,10 @@ func (g *GenkitGateway) init(ctx context.Context, call ForwardCall) (*genkit.Gen
 		provider = "openai"
 	}
 
-	opts := []option.RequestOption{option.WithAPIKey(call.APIKey)}
+	opts := []option.RequestOption{
+		option.WithAPIKey(call.APIKey),
+		option.WithMaxRetries(genkitGatewayMaxRetries),
+	}
 	opts = append(opts, option.WithBaseURL(strings.TrimRight(call.BaseURL, "/")))
 	if g.HTTPClient != nil {
 		opts = append(opts, option.WithHTTPClient(g.HTTPClient))

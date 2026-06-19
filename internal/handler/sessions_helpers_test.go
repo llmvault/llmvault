@@ -54,10 +54,17 @@ type sessionEventOut struct {
 }
 
 func newSessionHarness(t *testing.T) *sessionHarness {
+	return newSessionHarnessWith(t, nil)
+}
+
+func newSessionHarnessWith(t *testing.T, configure func(*handler.SessionHandler)) *sessionHarness {
 	t.Helper()
 	db := connectTestDB(t)
 	enq := &enqueue.MockClient{}
 	h := handler.NewSessionHandler(db, enq).WithRuntimeStreamKey(sessionTestEncKey(t))
+	if configure != nil {
+		configure(h)
+	}
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(middleware.ResolveOrgFromHeader(db))
@@ -68,6 +75,7 @@ func newSessionHarness(t *testing.T) *sessionHarness {
 		r.Get("/sessions/{id}", h.Get)
 		r.Patch("/sessions/{id}", h.Update)
 		r.Post("/sessions/{id}/messages", h.SendMessage)
+		r.Post("/sessions/{id}/transcriptions", h.TranscribeAudio)
 		r.Post("/sessions/{id}/interrupt", h.Interrupt)
 		r.Get("/sessions/{id}/events", h.ListEvents)
 		r.Post("/sessions/{id}/sandbox/wake", h.WakeSandbox)

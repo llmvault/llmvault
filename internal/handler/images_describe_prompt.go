@@ -93,6 +93,7 @@ Allowed categories:
 
 Global extraction rules:
 - Be exhaustive but factual. Prefer many precise short fields over vague prose.
+- The user message may include auto-extracted image metadata from the original image bytes. Treat that metadata as factual supporting evidence about format, dimensions, transparency, visible bounds, and sampled visible colors. Use it alongside the visual image content.
 - Use approximate values when exact values are not possible. Mark uncertainty in limitations.
 - Transcribe visible text, including headings, labels, buttons, error messages, table headers, code snippets, and warnings. Preserve line breaks only when they matter.
 - For colors, provide approximate hex values. Include background, surface, primary text, secondary text, key accents, borders, and status colors where visible.

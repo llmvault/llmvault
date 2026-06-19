@@ -16,16 +16,23 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/sandbox"
+	"github.com/usehivy/hivy/internal/storage"
 	"github.com/usehivy/hivy/internal/tasks"
+	"github.com/usehivy/hivy/internal/transcription"
 )
 
 type SessionHandler struct {
-	db            *gorm.DB
-	enqueuer      enqueue.TaskEnqueuer
-	runtimeEncKey *crypto.SymmetricKey
-	orchestrator  *sandbox.Orchestrator
-	compileDeps   agentruntime.CompileDeps
+	db                       *gorm.DB
+	enqueuer                 enqueue.TaskEnqueuer
+	runtimeEncKey            *crypto.SymmetricKey
+	orchestrator             *sandbox.Orchestrator
+	compileDeps              agentruntime.CompileDeps
+	transcriptionKMS         *crypto.KeyWrapper
+	transcriptionReader      storage.Reader
+	transcriptionTranscriber transcription.Transcriber
+	transcriptionRegistry    *registry.Registry
 }
 
 func formatRuntimeTime(t time.Time) string {
@@ -81,6 +88,17 @@ func (h *SessionHandler) WithRuntimeStreamKey(key *crypto.SymmetricKey) *Session
 func (h *SessionHandler) WithRuntimeDelivery(orchestrator *sandbox.Orchestrator, compileDeps agentruntime.CompileDeps) *SessionHandler {
 	h.orchestrator = orchestrator
 	h.compileDeps = compileDeps
+	return h
+}
+
+func (h *SessionHandler) WithTranscription(kms *crypto.KeyWrapper, reader storage.Reader, transcriber transcription.Transcriber, reg *registry.Registry) *SessionHandler {
+	h.transcriptionKMS = kms
+	h.transcriptionReader = reader
+	h.transcriptionTranscriber = transcriber
+	if reg == nil {
+		reg = registry.Global()
+	}
+	h.transcriptionRegistry = reg
 	return h
 }
 

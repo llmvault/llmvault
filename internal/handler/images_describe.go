@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -21,14 +22,15 @@ import (
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
+	"github.com/usehivy/hivy/internal/storage"
 	"github.com/usehivy/hivy/internal/system"
 )
 
 const (
 	imageDescribeCanonicalModel = "gemini-3.5-flash"
 	imageDescribeProviderID     = "openrouter"
-	imageDescribeTimeout        = 12 * time.Second
-	imageDescribeMaxTokens      = 1800
+	imageDescribeTimeout        = time.Minute
+	imageDescribeMaxTokens      = 6000
 )
 
 type ImageDescribeHandler struct {
@@ -36,6 +38,7 @@ type ImageDescribeHandler struct {
 	kms                 *crypto.KeyWrapper
 	registry            *registry.Registry
 	gateway             system.Gateway
+	assetReader         storage.Reader
 	assetPreviewBaseURL string
 }
 
@@ -50,6 +53,11 @@ func NewImageDescribeHandler(db *gorm.DB, kms *crypto.KeyWrapper, reg *registry.
 		gateway:             gateway,
 		assetPreviewBaseURL: strings.TrimRight(strings.TrimSpace(assetPreviewBaseURL), "/"),
 	}
+}
+
+func (h *ImageDescribeHandler) WithAssetReader(reader storage.Reader) *ImageDescribeHandler {
+	h.assetReader = reader
+	return h
 }
 
 type imageDescribeRequest struct {
@@ -75,6 +83,9 @@ type imageDescribeError struct {
 
 // Describe handles POST /v1/images/describe.
 func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) {
+	startedAt := time.Now()
+	userID := currentUserID(r)
+
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
 		writeJSON(w, http.StatusUnauthorized, imageDescribeError{Error: "missing org context", ErrorCode: "unauthorized"})
@@ -112,6 +123,17 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 			writeJSON(w, http.StatusNotFound, imageDescribeError{Error: "asset not found", ErrorCode: "asset_not_found"})
 			return
 		}
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe asset lookup failed",
+			"operation", "images.describe",
+			"request_path", "/v1/images/describe",
+			"org_id", org.ID,
+			"user_id", userID,
+			"drive_asset_id", assetID,
+			"error_code", "internal_error",
+			"http_status", http.StatusInternalServerError,
+			"duration_ms", time.Since(startedAt).Milliseconds(),
+			"error", err,
+		)
 		writeJSON(w, http.StatusInternalServerError, imageDescribeError{Error: "failed to load asset", ErrorCode: "internal_error"})
 		return
 	}
@@ -119,44 +141,103 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusUnprocessableEntity, imageDescribeError{Error: "asset is not an image", ErrorCode: "unsupported_content_type"})
 		return
 	}
+	baseLogAttrs := func() []any {
+		return imageDescribeLogAttrs(startedAt, org.ID, userID, asset, detailLevel)
+	}
 
 	cred, err := h.openRouterSystemCredential(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe system credential unavailable",
+				appendLogAttrs(baseLogAttrs(),
+					"error_code", "system_credential_unavailable",
+					"http_status", http.StatusServiceUnavailable,
+					"provider_id", imageDescribeProviderID,
+					"error", err,
+				)...,
+			)
 			writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "OpenRouter system credential unavailable", ErrorCode: "system_credential_unavailable"})
 			return
 		}
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe system credential lookup failed",
+			appendLogAttrs(baseLogAttrs(),
+				"error_code", "internal_error",
+				"http_status", http.StatusInternalServerError,
+				"provider_id", imageDescribeProviderID,
+				"error", err,
+			)...,
+		)
 		writeJSON(w, http.StatusInternalServerError, imageDescribeError{Error: "failed to load system credential", ErrorCode: "internal_error"})
 		return
 	}
 	if strings.TrimSpace(cred.BaseURL) == "" {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe system credential endpoint unavailable",
+			appendLogAttrs(baseLogAttrs(),
+				"error_code", "system_credential_unavailable",
+				"http_status", http.StatusServiceUnavailable,
+				"provider_id", imageDescribeProviderID,
+				"credential_id", cred.ID,
+			)...,
+		)
 		writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "OpenRouter system credential endpoint unavailable", ErrorCode: "system_credential_unavailable"})
 		return
 	}
 
 	route, ok := h.registry.ResolveModel(imageDescribeProviderID, imageDescribeCanonicalModel)
 	if !ok {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe model route unavailable",
+			appendLogAttrs(baseLogAttrs(),
+				"error_code", "system_model_unavailable",
+				"http_status", http.StatusServiceUnavailable,
+				"provider_id", imageDescribeProviderID,
+				"canonical_model", imageDescribeCanonicalModel,
+				"credential_id", cred.ID,
+				"credential_base_url_host", urlHost(cred.BaseURL),
+			)...,
+		)
 		writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "image description model unavailable", ErrorCode: "system_model_unavailable"})
-		return
-	}
-
-	apiKey, err := decryptCredentialKey(r.Context(), h.kms, cred)
-	if err != nil {
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe credential decrypt failed", "error", err, "credential_id", cred.ID)
-		writeJSON(w, http.StatusInternalServerError, imageDescribeError{Error: "failed to decrypt system credential", ErrorCode: "internal_error"})
 		return
 	}
 
 	assetURL := h.assetURL(asset)
 	if assetURL == "" {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe asset preview unavailable",
+			appendLogAttrs(baseLogAttrs(),
+				"error_code", "asset_preview_unavailable",
+				"http_status", http.StatusServiceUnavailable,
+				"provider_id", imageDescribeProviderID,
+				"canonical_model", imageDescribeCanonicalModel,
+				"upstream_model", route.UpstreamID,
+				"credential_id", cred.ID,
+				"credential_base_url_host", urlHost(cred.BaseURL),
+				"asset_preview_base_url_host", urlHost(h.assetPreviewBaseURL),
+			)...,
+		)
 		writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "asset preview unavailable", ErrorCode: "asset_preview_unavailable"})
+		return
+	}
+	imageMetadata := h.loadImageMetadata(r.Context(), asset)
+	describeLogAttrs := func() []any {
+		return imageDescribeGatewayLogAttrs(baseLogAttrs(), cred, route, assetURL, imageMetadata)
+	}
+
+	apiKey, err := decryptCredentialKey(r.Context(), h.kms, cred)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe credential decrypt failed",
+			appendLogAttrs(describeLogAttrs(),
+				"error_code", "internal_error",
+				"http_status", http.StatusInternalServerError,
+				"error", err,
+			)...,
+		)
+		writeJSON(w, http.StatusInternalServerError, imageDescribeError{Error: "failed to decrypt system credential", ErrorCode: "internal_error"})
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), imageDescribeTimeout)
 	defer cancel()
 
-	llmReq := buildImageDescribeLLMRequest(route.UpstreamID, asset, assetURL, detailLevel)
+	llmReq := buildImageDescribeLLMRequest(route.UpstreamID, asset, assetURL, detailLevel, imageMetadata)
 	res, err := h.gateway.Complete(ctx, system.ForwardCall{
 		ProviderID: imageDescribeProviderID,
 		BaseURL:    cred.BaseURL,
@@ -166,19 +247,35 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 		Stream:     false,
 	})
 	if err != nil {
-		h.handleDescribeUpstreamError(w, r, err)
+		h.handleDescribeUpstreamError(w, r, err, describeLogAttrs())
 		return
 	}
 
 	analysis, category, confidence, err := parseImageAnalysis(res.Text)
 	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe model returned invalid output",
+			appendLogAttrs(describeLogAttrs(),
+				"error_code", "invalid_model_output",
+				"http_status", http.StatusBadGateway,
+				"completion_model", res.Model,
+				"model_output_bytes", len(res.Text),
+				"input_tokens", res.Usage.InputTokens,
+				"output_tokens", res.Usage.OutputTokens,
+				"cached_tokens", res.Usage.CachedTokens,
+				"reasoning_tokens", res.Usage.ReasoningTokens,
+				"error", err,
+			)...,
+		)
 		writeJSON(w, http.StatusBadGateway, imageDescribeError{Error: "invalid image analysis output", ErrorCode: "invalid_model_output"})
 		return
+	}
+	if imageMetadata != nil {
+		analysis["auto_extracted_image_metadata"] = imageMetadata
 	}
 	rendered := renderImageDescription(category, confidence, analysis)
 	rendered = stripBackendModelNames(rendered)
 
-	h.writeImageDescribeGeneration(r.Context(), cred, org.ID, currentUserID(r), res)
+	h.writeImageDescribeGeneration(r.Context(), cred, org.ID, userID, res)
 
 	writeJSON(w, http.StatusOK, imageDescribeResponse{
 		DriveAssetID:        asset.ID.String(),
@@ -210,14 +307,43 @@ func (h *ImageDescribeHandler) assetURL(asset model.AgentAsset) string {
 	return asset.PublicURL
 }
 
-func buildImageDescribeLLMRequest(modelID string, asset model.AgentAsset, assetURL, detailLevel string) *system.LLMRequest {
+func (h *ImageDescribeHandler) loadImageMetadata(ctx context.Context, asset model.AgentAsset) map[string]any {
+	if h.assetReader == nil || strings.TrimSpace(asset.Key) == "" {
+		return nil
+	}
+	metadata, err := extractImageMetadataFromAsset(ctx, h.assetReader, asset)
+	if err != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "image metadata extraction failed",
+			"operation", "images.describe",
+			"org_id", asset.OrgID,
+			"asset_id", asset.ID,
+			"agent_id", asset.AgentID,
+			"sandbox_id", asset.SandboxID,
+			"key", asset.Key,
+			"filename", asset.Filename,
+			"content_type", asset.ContentType,
+			"bytes", asset.Bytes,
+			"error_code", "metadata_extraction_failed",
+			"error", err,
+		)
+		return nil
+	}
+	return metadata
+}
+
+func buildImageDescribeLLMRequest(modelID string, asset model.AgentAsset, assetURL, detailLevel string, imageMetadata map[string]any) *system.LLMRequest {
 	userPrompt := fmt.Sprintf(`Analyze the uploaded image as structured attachment context.
 
 Filename: %s
 Content type: %s
 Detail level: %s
-
-Return only the JSON object required by the system instructions.`, asset.Filename, asset.ContentType, detailLevel)
+`, asset.Filename, asset.ContentType, detailLevel)
+	if len(imageMetadata) > 0 {
+		if raw, err := json.MarshalIndent(imageMetadata, "", "  "); err == nil {
+			userPrompt += "\nAuto-extracted image metadata from original image bytes:\n" + string(raw) + "\n"
+		}
+	}
+	userPrompt += "\nReturn only the JSON object required by the system instructions."
 	temperature := float32(0)
 	return &system.LLMRequest{
 		Model: modelID,
@@ -237,20 +363,111 @@ Return only the JSON object required by the system instructions.`, asset.Filenam
 	}
 }
 
-func (h *ImageDescribeHandler) handleDescribeUpstreamError(w http.ResponseWriter, r *http.Request, err error) {
+func (h *ImageDescribeHandler) handleDescribeUpstreamError(w http.ResponseWriter, r *http.Request, err error, logAttrs []any) {
 	logger := logging.FromContext(r.Context())
 	var upErr *system.UpstreamError
 	if errors.As(err, &upErr) {
 		logger.ErrorContext(r.Context(), "image describe upstream rejected request",
-			"status", upErr.StatusCode,
-			"body", truncateForLog(upErr.Body, 512),
-			"error", err,
+			appendLogAttrs(logAttrs,
+				"error_code", "upstream_error",
+				"http_status", http.StatusBadGateway,
+				"upstream_status", upErr.StatusCode,
+				"upstream_body", truncateForLog(upErr.Body, 512),
+				"error_type", fmt.Sprintf("%T", err),
+				"error", err,
+			)...,
 		)
 		writeJSON(w, http.StatusBadGateway, imageDescribeError{Error: "upstream error", ErrorCode: "upstream_error"})
 		return
 	}
-	logger.ErrorContext(r.Context(), "image describe upstream failed", "error", err)
+	logger.ErrorContext(r.Context(), "image describe upstream failed",
+		appendLogAttrs(logAttrs,
+			"error_code", "upstream_error",
+			"http_status", http.StatusBadGateway,
+			"context_deadline_exceeded", errors.Is(err, context.DeadlineExceeded),
+			"context_canceled", errors.Is(err, context.Canceled),
+			"error_type", fmt.Sprintf("%T", err),
+			"error", err,
+		)...,
+	)
 	writeJSON(w, http.StatusBadGateway, imageDescribeError{Error: "upstream error", ErrorCode: "upstream_error"})
+}
+
+func imageDescribeLogAttrs(startedAt time.Time, orgID uuid.UUID, userID string, asset model.AgentAsset, detailLevel string) []any {
+	return []any{
+		"operation", "images.describe",
+		"request_path", "/v1/images/describe",
+		"org_id", orgID,
+		"user_id", userID,
+		"drive_asset_id", asset.ID,
+		"agent_id", asset.AgentID,
+		"sandbox_id", asset.SandboxID,
+		"asset_path", asset.Path,
+		"asset_key", asset.Key,
+		"filename", asset.Filename,
+		"content_type", asset.ContentType,
+		"bytes", asset.Bytes,
+		"detail_level", detailLevel,
+		"timeout_ms", imageDescribeTimeout.Milliseconds(),
+		"max_output_tokens", imageDescribeMaxTokens,
+		"duration_ms", time.Since(startedAt).Milliseconds(),
+	}
+}
+
+func imageDescribeGatewayLogAttrs(base []any, cred *model.Credential, route registry.ResolvedModelRoute, assetURL string, imageMetadata map[string]any) []any {
+	attrs := appendLogAttrs(base,
+		"provider_id", imageDescribeProviderID,
+		"canonical_model", imageDescribeCanonicalModel,
+		"route_provider_id", route.ProviderID,
+		"upstream_model", route.UpstreamID,
+		"credential_id", cred.ID,
+		"credential_base_url_host", urlHost(cred.BaseURL),
+		"auth_scheme", cred.AuthScheme,
+		"asset_url_host", urlHost(assetURL),
+		"response_format", "json_object",
+		"stream", false,
+		"temperature", 0,
+		"metadata_extracted", len(imageMetadata) > 0,
+	)
+	if len(imageMetadata) == 0 {
+		return attrs
+	}
+	for _, key := range []string{
+		"format",
+		"width",
+		"height",
+		"pixel_count",
+		"has_alpha",
+		"has_transparency",
+		"transparent_pixel_ratio",
+		"visible_nontransparent_ratio",
+		"pixel_analysis_skipped",
+		"pixel_analysis_skip_reason",
+	} {
+		if value, ok := imageMetadata[key]; ok {
+			attrs = append(attrs, "metadata_"+key, value)
+		}
+	}
+	return attrs
+}
+
+func appendLogAttrs(base []any, extra ...any) []any {
+	out := make([]any, 0, len(base)+len(extra))
+	out = append(out, base...)
+	out = append(out, extra...)
+	return out
+}
+
+func urlHost(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return u.Host
 }
 
 func (h *ImageDescribeHandler) writeImageDescribeGeneration(ctx context.Context, cred *model.Credential, orgID uuid.UUID, userID string, res *system.CompletionResult) {
@@ -345,6 +562,7 @@ func renderImageDescription(category string, confidence float64, analysis map[st
 	writeAnalysisSection(&b, "Visible states", analysis["states"])
 	writeAnalysisSection(&b, "Relationships", analysis["relationships"])
 	writeAnalysisSection(&b, "Important details", analysis["important_details"])
+	writeAnalysisSection(&b, "Auto-extracted image metadata", analysis["auto_extracted_image_metadata"])
 	writeAnalysisSection(&b, "Limitations", analysis["limitations"])
 	writeAnalysisSection(&b, "Untrusted image instructions", analysis["untrusted_image_instructions"])
 	writeAnalysisSection(&b, "Category-specific details", analysis["category_specific"])

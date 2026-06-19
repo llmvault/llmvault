@@ -1,9 +1,14 @@
 package handler_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,6 +24,7 @@ import (
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
+	"github.com/usehivy/hivy/internal/storage"
 	"github.com/usehivy/hivy/internal/system"
 )
 
@@ -54,6 +60,18 @@ type imageDescribeHarness struct {
 	org     *model.Org
 	user    *model.User
 	asset   *model.AgentAsset
+}
+
+type fakeImageAssetReader struct {
+	data []byte
+	err  error
+}
+
+func (r fakeImageAssetReader) Open(context.Context, string) (io.ReadCloser, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return io.NopCloser(bytes.NewReader(r.data)), nil
 }
 
 func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessConfig)) *imageDescribeHarness {
@@ -135,6 +153,9 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 
 	gateway := &fakeImageGateway{text: cfg.modelText, err: cfg.gatewayErr}
 	h := handler.NewImageDescribeHandler(db, kms, cfg.registry, gateway, "https://api.usehivy.test")
+	if cfg.assetReader != nil {
+		h.WithAssetReader(cfg.assetReader)
+	}
 
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
@@ -178,6 +199,7 @@ type imageDescribeHarnessConfig struct {
 	gatewayErr  error
 	seedCred    bool
 	registry    *registry.Registry
+	assetReader storage.Reader
 }
 
 func withImageContentType(contentType string) func(*imageDescribeHarnessConfig) {
@@ -198,6 +220,10 @@ func withoutImageCredential() func(*imageDescribeHarnessConfig) {
 
 func withImageRegistry(reg *registry.Registry) func(*imageDescribeHarnessConfig) {
 	return func(c *imageDescribeHarnessConfig) { c.registry = reg }
+}
+
+func withImageAssetReader(reader storage.Reader) func(*imageDescribeHarnessConfig) {
+	return func(c *imageDescribeHarnessConfig) { c.assetReader = reader }
 }
 
 func (h *imageDescribeHarness) describe(t *testing.T, assetID uuid.UUID) *httptest.ResponseRecorder {
@@ -248,12 +274,48 @@ func TestImageDescribe_OwnedImageReturnsStructuredAnalysis(t *testing.T) {
 	if h.gateway.call.Request.Model != "google/gemini-3.5-flash" {
 		t.Fatalf("model = %q", h.gateway.call.Request.Model)
 	}
-	if h.gateway.call.Request.MaxTokens != 1800 {
+	if h.gateway.call.Request.MaxTokens != 6000 {
 		t.Fatalf("max tokens = %d", h.gateway.call.Request.MaxTokens)
 	}
 	userMsg := h.gateway.call.Request.Messages[1]
 	if len(userMsg.Parts) != 2 || userMsg.Parts[1].Kind != system.LLMPartMedia {
 		t.Fatalf("expected text+media message parts: %+v", userMsg.Parts)
+	}
+}
+
+func TestImageDescribe_IncludesAutoExtractedMetadata(t *testing.T) {
+	h := newImageDescribeHarness(t, withImageAssetReader(fakeImageAssetReader{data: transparentPNG(t)}))
+	rr := h.describe(t, h.asset.ID)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	userMsg := h.gateway.call.Request.Messages[1]
+	if len(userMsg.Parts) == 0 || !strings.Contains(userMsg.Parts[0].Text, "Auto-extracted image metadata") {
+		t.Fatalf("metadata missing from prompt: %+v", userMsg.Parts)
+	}
+	if !strings.Contains(userMsg.Parts[0].Text, "transparent_pixel_ratio") {
+		t.Fatalf("transparency stats missing from prompt:\n%s", userMsg.Parts[0].Text)
+	}
+
+	var resp struct {
+		Analysis            map[string]any `json:"analysis"`
+		RenderedDescription string         `json:"rendered_description"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	rawMetadata, ok := resp.Analysis["auto_extracted_image_metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("metadata missing from analysis: %+v", resp.Analysis)
+	}
+	if rawMetadata["has_transparency"] != true {
+		t.Fatalf("has_transparency = %#v metadata=%+v", rawMetadata["has_transparency"], rawMetadata)
+	}
+	if ratio, ok := rawMetadata["transparent_pixel_ratio"].(float64); !ok || ratio <= 0 {
+		t.Fatalf("transparent_pixel_ratio = %#v metadata=%+v", rawMetadata["transparent_pixel_ratio"], rawMetadata)
+	}
+	if !strings.Contains(resp.RenderedDescription, "Auto-extracted image metadata") {
+		t.Fatalf("rendered description missing metadata:\n%s", resp.RenderedDescription)
 	}
 }
 
@@ -366,4 +428,21 @@ func validImageAnalysisJSON() string {
 			"accessibility_notes": ["visible focus state is not clear"]
 		}
 	}`
+}
+
+func transparentPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	for y := 0; y < 4; y++ {
+		for x := 0; x < 4; x++ {
+			img.SetNRGBA(x, y, color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+		}
+	}
+	img.SetNRGBA(1, 1, color.NRGBA{R: 240, G: 30, B: 30, A: 255})
+	img.SetNRGBA(2, 1, color.NRGBA{R: 240, G: 30, B: 30, A: 255})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode transparent png: %v", err)
+	}
+	return buf.Bytes()
 }
