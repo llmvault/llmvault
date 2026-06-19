@@ -561,7 +561,7 @@ function AttachmentPreviewTile({
   return (
     <div
       className={cn(
-        "group bg-default/50 relative h-[72px] w-[72px] shrink-0 rounded-lg border shadow-sm sm:h-24 sm:w-24",
+        "group bg-default/50 relative h-16 w-16 shrink-0 rounded-2xl border shadow-sm sm:h-20 sm:w-20",
         error ? "border-danger/70" : "border-border"
       )}
       title={`${fileName}: ${label}`}
