@@ -16,6 +16,7 @@
       - jq
       - lsof
       - procps
+      - runc
       - tar
       - ufw
       - unzip
@@ -58,6 +59,70 @@
 - name: Verify Microsandbox CLI is available
   ansible.builtin.command: msb --version
   register: microsandbox_cli_version
+  changed_when: false
+
+- name: Install BuildKit binaries
+  ansible.builtin.unarchive:
+    src: "https://github.com/moby/buildkit/releases/download/{{ buildkit_version }}/buildkit-{{ buildkit_version }}.linux-amd64.tar.gz"
+    dest: /usr/local
+    remote_src: true
+    creates: /usr/local/bin/buildctl
+
+- name: Create BuildKit config directory
+  ansible.builtin.file:
+    path: /etc/buildkit
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure BuildKit private registry
+  ansible.builtin.copy:
+    dest: /etc/buildkit/buildkitd.toml
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [registry."{{ buildkit_registry }}"]
+        http = true
+        insecure = true
+  notify: Restart buildkit
+
+- name: Install BuildKit systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/buildkit.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=BuildKit daemon
+      Documentation=https://github.com/moby/buildkit
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/buildkitd --config /etc/buildkit/buildkitd.toml
+      Restart=always
+      RestartSec=3
+      LimitNOFILE=1048576
+      TasksMax=infinity
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart buildkit
+
+- name: Enable and start BuildKit
+  ansible.builtin.systemd:
+    name: buildkit
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Verify BuildKit client is available
+  ansible.builtin.command: buildctl --version
+  register: buildkit_client_version
   changed_when: false
 
 - name: Create Hivy config directory

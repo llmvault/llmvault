@@ -20,6 +20,7 @@ type createSandboxRequest struct {
 	OrgID           string             `json:"org_id"`
 	Name            string             `json:"name"`
 	ImageRef        string             `json:"image_ref"`
+	TemplateID      string             `json:"template_id"`
 	SnapshotID      string             `json:"snapshot_id"`
 	Size            string             `json:"size"`
 	CPU             int                `json:"cpu"`
@@ -45,8 +46,12 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid request body"})
 		return
 	}
-	if req.OrgID == "" || (req.ImageRef == "" && req.SnapshotID == "") {
-		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and image_ref or snapshot_id are required"})
+	if req.OrgID == "" || (req.ImageRef == "" && req.SnapshotID == "" && req.TemplateID == "") {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and image_ref, template_id, or snapshot_id are required"})
+		return
+	}
+	if req.TemplateID != "" && req.SnapshotID != "" {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "template_id and snapshot_id cannot both be provided"})
 		return
 	}
 	size := resolveSize(req)
@@ -60,6 +65,22 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.PreviewPorts) == 0 {
 		req.PreviewPorts = api.DefaultPreviewPorts()
+	}
+	if req.TemplateID != "" {
+		template, err := s.loadTemplateByID(r.Context(), req.TemplateID)
+		if err != nil {
+			httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "template not found"})
+			return
+		}
+		if template.OrgID != req.OrgID {
+			httpx.JSON(w, http.StatusForbidden, api.ErrorResponse{Error: "template does not belong to org"})
+			return
+		}
+		if template.Status != model.TemplateStatusReady || template.ImageRef == "" {
+			httpx.JSON(w, http.StatusConflict, api.ErrorResponse{Error: "template is not ready"})
+			return
+		}
+		req.ImageRef = template.ImageRef
 	}
 	var snapshot model.Snapshot
 	if req.SnapshotID != "" {

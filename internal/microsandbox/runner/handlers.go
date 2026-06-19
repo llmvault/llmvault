@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -93,6 +94,36 @@ func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
+	var req CreateTemplateRequest
+	if err := httpx.Decode(r, &req); err != nil || req.ID == "" || req.OrgID == "" || req.BaseImageRef == "" {
+		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	flush := func() {
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
+	emit := func(event TemplateBuildEvent) {
+		_ = enc.Encode(event)
+		flush()
+	}
+	emit(TemplateBuildEvent{Type: "status", Status: "building", ID: req.ID})
+	resp, err := s.backend.CreateTemplate(r.Context(), req, emit)
+	if err != nil {
+		emit(TemplateBuildEvent{Type: "error", Status: "error", ID: req.ID, Message: err.Error()})
+		return
+	}
+	emit(TemplateBuildEvent{
+		Type: "result", Status: "ready", ID: resp.ID, ImageRef: resp.ImageRef, ImageDigest: resp.ImageDigest,
+		ValidationSandboxID: resp.ValidationSandboxID,
+	})
 }
 
 func (s *Server) proxySandbox() http.Handler {

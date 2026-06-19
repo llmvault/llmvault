@@ -599,6 +599,16 @@
                 }
               }
             }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8857,7 +8867,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Creates a channel-scoped session and queues the first user message.",
+        "description": "Creates a channel-scoped session and dispatches or queues the first user message.",
         "tags": [
           "sessions"
         ],

@@ -44,6 +44,7 @@ type Config struct {
 	RunnerDiskOvercommit        float64
 	RunnerPreviewPortRangeStart int
 	RunnerPreviewPortRangeEnd   int
+	ImageRegistry               string
 
 	SnapshotS3Bucket          string
 	SnapshotS3Region          string
@@ -87,6 +88,7 @@ func Load() Config {
 		RunnerDiskOvercommit:        float("HIVY_MICROSANDBOX_RUNNER_DISK_OVERCOMMIT", 1),
 		RunnerPreviewPortRangeStart: integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_START", api.DefaultPreviewHostPortRangeStart),
 		RunnerPreviewPortRangeEnd:   integer("HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_END", api.DefaultPreviewHostPortRangeEnd),
+		ImageRegistry:               get("HIVY_MICROSANDBOX_IMAGE_REGISTRY", "10.80.0.3:5000"),
 		SnapshotS3Bucket:            os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_BUCKET"),
 		SnapshotS3Region:            get("HIVY_MICROSANDBOX_SNAPSHOT_S3_REGION", "us-east-1"),
 		SnapshotS3Endpoint:          os.Getenv("HIVY_MICROSANDBOX_SNAPSHOT_S3_ENDPOINT"),

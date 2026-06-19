@@ -6,6 +6,7 @@ runner_disk_overcommit: 1
 runner_preview_port_range_start: 30000
 runner_preview_port_range_end: 60999
 runner_preview_allowed_source: "{{ hostvars[groups['preview_proxy'][0]].preview_proxy_private_ip }}"
+buildkit_registry: "10.80.0.3:5000"
 
 microsandbox_binary_local_path: "{{ playbook_dir }}/../../dist/microsandbox-linux-amd64"
 microsandbox_binary_remote_path: /usr/local/bin/microsandbox

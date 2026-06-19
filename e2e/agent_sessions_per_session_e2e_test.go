@@ -66,8 +66,11 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	if sessionA.Session.AgentID != agent.ID || sessionB.Session.AgentID != agent.ID {
 		t.Fatalf("per-session sessions used wrong agent: a=%s b=%s want=%s", sessionA.Session.AgentID, sessionB.Session.AgentID, agent.ID)
 	}
-	if !sessionA.Queued || !sessionB.Queued {
-		t.Fatalf("per-session first turns should queue while worker provisions sandboxes: a=%t b=%t", sessionA.Queued, sessionB.Queued)
+	if sessionA.Queued || sessionB.Queued {
+		t.Fatalf("per-session first turns should be accepted synchronously: a=%t b=%t", sessionA.Queued, sessionB.Queued)
+	}
+	if sessionA.Session.SandboxID == nil || sessionB.Session.SandboxID == nil {
+		t.Fatalf("per-session sessions should return sandbox ids immediately: a=%v b=%v", sessionA.Session.SandboxID, sessionB.Session.SandboxID)
 	}
 	t.Logf("created per-session sessions a=%s b=%s", sessionA.Session.ID, sessionB.Session.ID)
 

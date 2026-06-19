@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
@@ -40,13 +41,36 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	}
 
 	sandboxSize := model.NormalizeTemplateSize(agent.SandboxSize)
+	templateRef := ""
+	if agent.SandboxTemplateID != nil {
+		var tmpl model.SandboxTemplate
+		if err := o.db.WithContext(ctx).
+			Where("id = ? AND (org_id = ? OR org_id IS NULL)", *agent.SandboxTemplateID, orgID).
+			First(&tmpl).Error; err != nil {
+			return nil, fmt.Errorf("loading sandbox template: %w", err)
+		}
+		if err := o.ensureTemplateProvider(&tmpl); err != nil {
+			return nil, err
+		}
+		if tmpl.BuildStatus != "ready" || tmpl.ExternalID == nil || strings.TrimSpace(*tmpl.ExternalID) == "" {
+			return nil, fmt.Errorf("sandbox template %s is not ready", tmpl.ID)
+		}
+		templateRef = strings.TrimSpace(*tmpl.ExternalID)
+		if strings.TrimSpace(tmpl.Size) != "" {
+			sandboxSize = model.NormalizeTemplateSize(tmpl.Size)
+		}
+	}
 	resourceSpec, _ := model.TemplateSizeSpec(sandboxSize)
 	sandboxImage := model.NormalizeSandboxImage(agent.SandboxImage)
 	runtimeImage := AgentRuntimeImageRef(o.cfg, sandboxImage)
 	snapshotID := RuntimeTemplateRefForImageRef(o.cfg, runtimeImage, sandboxSize)
+	if templateRef != "" {
+		snapshotID = templateRef
+	}
 	sb := model.Sandbox{
 		OrgID:                  &orgID,
 		AgentID:                &agent.ID,
+		SandboxTemplateID:      agent.SandboxTemplateID,
 		SnapshotID:             &snapshotID,
 		ProviderID:             o.provider.ID(),
 		EncryptedRuntimeSecret: encryptedSecret,
@@ -68,7 +92,7 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		"sandbox_image": sandboxImage,
 	}
 
-	if _, usesWarmPool := o.provider.(WarmPoolCapable); usesWarmPool {
+	if _, usesWarmPool := o.provider.(WarmPoolCapable); usesWarmPool && templateRef == "" {
 		if err := o.claimWarmRuntime(ctx, &sb, model.SandboxWarmSlotModeAgent, runtimeImage); err != nil {
 			if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {
 				logging.FromContext(ctx).ErrorContext(ctx, "delete orphaned agent sandbox row after warm claim failure",

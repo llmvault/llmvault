@@ -106,6 +106,46 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	}
 }
 
+func TestDriverCreateSandboxUsesTemplateIDForMicrosandboxTemplate(t *testing.T) {
+	var createReq map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
+			t.Fatalf("decode create request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ID": "sbx_template", "Status": "running"})
+	}))
+	defer server.Close()
+
+	driver, err := NewDriver(Config{
+		ControlURL:   server.URL,
+		APIToken:     "test-token",
+		RuntimeImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
+	})
+	if err != nil {
+		t.Fatalf("NewDriver: %v", err)
+	}
+	if _, err := driver.CreateSandbox(context.Background(), sandbox.CreateSandboxOpts{
+		Name:        "agent-template",
+		TemplateRef: "tpl_abc12345",
+		Labels:      map[string]string{"org_id": "org_123"},
+	}); err != nil {
+		t.Fatalf("CreateSandbox: %v", err)
+	}
+	if createReq["template_id"] != "tpl_abc12345" {
+		t.Fatalf("template_id = %v, want tpl_abc12345", createReq["template_id"])
+	}
+	if createReq["snapshot_id"] != "" {
+		t.Fatalf("snapshot_id = %v, want empty", createReq["snapshot_id"])
+	}
+	if createReq["image_ref"] != "" {
+		t.Fatalf("image_ref = %v, want empty", createReq["image_ref"])
+	}
+}
+
 func TestDriverLifecycleStatusExecAndTemplate(t *testing.T) {
 	var calls []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -123,10 +163,12 @@ func TestDriverLifecycleStatusExecAndTemplate(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"ID": "sbx_test", "Status": "stopped"})
 		case "/v1/sandboxes/sbx_test/exec":
 			_ = json.NewEncoder(w).Encode(map[string]any{"stdout": "ok\n", "stderr": "", "exit_code": 0})
-		case "/v1/snapshots":
-			_ = json.NewEncoder(w).Encode(map[string]any{"ID": "snp_test", "Status": "ready"})
-		case "/v1/snapshots/snp_test":
-			_ = json.NewEncoder(w).Encode(map[string]any{"ID": "snp_test", "Status": "ready", "Logs": "built"})
+		case "/v1/templates":
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			_, _ = w.Write([]byte(`{"type":"log","id":"tpl_test","message":"built"}` + "\n"))
+			_, _ = w.Write([]byte(`{"type":"result","id":"tpl_test","status":"ready"}` + "\n"))
+		case "/v1/templates/tpl_test":
+			_ = json.NewEncoder(w).Encode(map[string]any{"ID": "tpl_test", "Status": "ready", "Logs": "built\n"})
 		default:
 			http.NotFound(w, r)
 		}
@@ -167,14 +209,14 @@ func TestDriverLifecycleStatusExecAndTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildTemplate: %v", err)
 	}
-	if templateID != "snp_test" {
-		t.Fatalf("template id = %q, want snp_test", templateID)
+	if templateID != "tpl_test" {
+		t.Fatalf("template id = %q, want tpl_test", templateID)
 	}
-	logs, err := driver.GetTemplateLogs(ctx, "snp_test")
+	logs, err := driver.GetTemplateLogs(ctx, "tpl_test")
 	if err != nil {
 		t.Fatalf("GetTemplateLogs: %v", err)
 	}
-	if logs != "built" {
+	if logs != "built\n" {
 		t.Fatalf("logs = %q, want built", logs)
 	}
 }

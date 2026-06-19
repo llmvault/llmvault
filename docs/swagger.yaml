@@ -8095,7 +8095,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a channel-scoped session and queues the first user message.
+      description: Creates a channel-scoped session and dispatches or queues the first user message.
       parameters:
       - description: Session create payload
         in: body
@@ -8128,6 +8128,10 @@ paths:
             $ref: '#/definitions/errorResponse'
         "500":
           description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
           schema:
             $ref: '#/definitions/errorResponse'
       security:

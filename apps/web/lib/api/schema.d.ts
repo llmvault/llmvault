@@ -360,6 +360,15 @@ export interface paths {
                         "application/json": components["schemas"]["errorResponse"];
                     };
                 };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
             };
         };
         options?: never;
@@ -8786,7 +8795,7 @@ export interface paths {
         put?: never;
         /**
          * Create a session
-         * @description Creates a channel-scoped session and queues the first user message.
+         * @description Creates a channel-scoped session and dispatches or queues the first user message.
          */
         post: {
             parameters: {

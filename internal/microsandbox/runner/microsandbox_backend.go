@@ -19,6 +19,7 @@ type MicrosandboxBackend struct {
 	sandboxes        map[string]sandboxState
 	store            *storage.SnapshotStore
 	allocator        *portAllocator
+	imageRegistry    string
 }
 
 type sandboxState struct {
@@ -55,10 +56,11 @@ func NewMicrosandboxBackend(ctx context.Context, cfg config.Config) (*Microsandb
 		return nil, err
 	}
 	return &MicrosandboxBackend{
-		ports:     map[string]map[int]int{},
-		sandboxes: map[string]sandboxState{},
-		store:     store,
-		allocator: allocator,
+		ports:         map[string]map[int]int{},
+		sandboxes:     map[string]sandboxState{},
+		store:         store,
+		allocator:     allocator,
+		imageRegistry: cfg.ImageRegistry,
 	}, nil
 }
 
