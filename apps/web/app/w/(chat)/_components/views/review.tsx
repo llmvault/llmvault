@@ -3,8 +3,11 @@
 import { useMemo, useState, type CSSProperties } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { PatchDiff, type PatchDiffProps } from "@pierre/diffs/react"
 import { useQuery } from "@tanstack/react-query"
+import {
+  CommentablePatchDiff,
+  type CommentablePatchDiffProps,
+} from "@/app/w/(chat)/_components/diff-line-comments"
 import {
   RuntimeRepoAccessError,
   RuntimeRepoHTTPError,
@@ -13,9 +16,11 @@ import {
   type RuntimeRepoInfo,
   type RuntimeSandboxAccess,
 } from "@/app/w/(chat)/_lib/runtime-repos"
+import { reviewDiffsQueryKey } from "@/app/w/(chat)/_lib/review-diffs-query"
+import { HIVY_DIFF_STYLE, hivyDiffOptions } from "@/lib/diffs-theme"
 
 type ReviewDiffStyle = "unified" | "split"
-type ReviewDiffOptions = NonNullable<PatchDiffProps<undefined>["options"]>
+type ReviewDiffOptions = NonNullable<CommentablePatchDiffProps["options"]>
 
 interface ReviewViewProps {
   sessionId?: string
@@ -35,13 +40,12 @@ interface ReviewDiffsResult {
   repoDiffs: ReviewRepoDiff[]
 }
 
-const REVIEW_DIFF_BASE_OPTIONS = {
+const REVIEW_DIFF_BASE_OPTIONS = hivyDiffOptions({
   overflow: "scroll",
-  theme: "pierre-dark",
-  themeType: "dark",
-} satisfies ReviewDiffOptions
+}) satisfies ReviewDiffOptions
 
 const REVIEW_DIFF_STYLE: CSSProperties & Record<`--${string}`, string> = {
+  ...HIVY_DIFF_STYLE,
   "--diffs-font-size": "12px",
   "--diffs-line-height": "20px",
 }
@@ -66,18 +70,13 @@ export function ReviewView({
   const accessMatchesSession = sandboxAccess?.session_id === sessionId
   const accessReady = Boolean(
     sessionId &&
-      accessMatchesSession &&
-      sandboxAccess?.sandbox_base_url &&
-      sandboxAccess?.token
+    accessMatchesSession &&
+    sandboxAccess?.sandbox_base_url &&
+    sandboxAccess?.token
   )
   const reviewQuery = useQuery({
     enabled: accessReady,
-    queryKey: [
-      "sandbox-runtime-review-diffs",
-      sessionId,
-      sandboxAccess?.sandbox_base_url,
-      sandboxAccess?.token,
-    ],
+    queryKey: reviewDiffsQueryKey(sessionId, sandboxAccess),
     queryFn: ({ signal }) => fetchReviewDiffs(sandboxAccess ?? {}, signal),
     retry: false,
   })
@@ -158,7 +157,10 @@ export function ReviewView({
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Icon icon="lucide:file-diff" className="h-4 w-4 shrink-0 text-muted" />
+          <Icon
+            icon="lucide:file-diff"
+            className="h-4 w-4 shrink-0 text-muted"
+          />
           <span className="truncate text-sm font-medium">Changes</span>
           <span className="shrink-0 text-xs text-muted">
             {formatPatchCount(patchCount)}
@@ -182,7 +184,7 @@ export function ReviewView({
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface">
+      <div className="bg-surface min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         {changedRepoDiffs.length > 0 ? (
           <div className="flex min-h-full min-w-0 flex-col gap-3">
             {changedRepoDiffs.map((repoDiff) => (
@@ -213,7 +215,7 @@ function DiffStyleToggle({
   onChange: (value: ReviewDiffStyle) => void
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-surface-secondary p-0.5">
+    <div className="bg-surface-secondary flex shrink-0 items-center gap-0.5 rounded-lg p-0.5">
       {DIFF_STYLE_OPTIONS.map((option) => (
         <button
           key={option.id}
@@ -244,7 +246,10 @@ function RepoDiffSection({
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
       <div className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3">
-        <Icon icon="lucide:git-branch" className="h-3.5 w-3.5 shrink-0 text-muted" />
+        <Icon
+          icon="lucide:git-branch"
+          className="h-3.5 w-3.5 shrink-0 text-muted"
+        />
         <span className="min-w-0 truncate text-sm font-medium">
           {repoDiff.repo.name}
         </span>
@@ -257,10 +262,16 @@ function RepoDiffSection({
       </div>
       <div className="flex min-w-0 flex-col">
         {repoDiff.patches.map((patch, index) => (
-          <PatchDiff
+          <CommentablePatchDiff
             key={`${repoDiff.repo.id}:${index}:${patch.slice(0, 48)}`}
             patch={patch}
             options={options}
+            source={{
+              kind: "review",
+              repoId: repoDiff.repo.id,
+              repoName: repoDiff.repo.name,
+              repoPath: repoDiff.repo.relative_path,
+            }}
             className={index > 0 ? "border-t border-border" : undefined}
             style={REVIEW_DIFF_STYLE}
             disableWorkerPool
@@ -285,13 +296,13 @@ function ReviewLoadingState({ label }: { label: string }) {
             className="overflow-hidden rounded-lg border border-border bg-background"
           >
             <div className="h-9 border-b border-border px-3 py-2">
-              <div className="h-3.5 w-36 animate-pulse rounded bg-default" />
+              <div className="bg-default h-3.5 w-36 animate-pulse rounded" />
             </div>
             <div className="flex flex-col gap-2 p-3">
               {Array.from({ length: 4 }).map((__, lineIndex) => (
                 <div
                   key={lineIndex}
-                  className="h-3 animate-pulse rounded bg-default"
+                  className="bg-default h-3 animate-pulse rounded"
                   style={{ width: `${60 + ((lineIndex + index) % 4) * 9}%` }}
                 />
               ))}

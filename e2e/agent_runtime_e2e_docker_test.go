@@ -21,7 +21,8 @@ import (
 )
 
 type agentRuntimeContainerOptions struct {
-	dbPath string
+	dbPath         string
+	developerImage bool
 }
 
 func startAgentRuntimeContainer(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, repoRoot, workspaceRoot, runtimeSecret, proxyToken, agentID, sandboxID, controlPlaneURL string) (string, func()) {
@@ -30,7 +31,7 @@ func startAgentRuntimeContainer(t *testing.T, trace *agentRuntimeE2ETrace, ctx c
 
 func startAgentRuntimeContainerWithOptions(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, repoRoot, workspaceRoot, runtimeSecret, proxyToken, agentID, sandboxID, controlPlaneURL string, opts agentRuntimeContainerOptions) (string, func()) {
 	t.Helper()
-	image, removeImage := agentRuntimeImage(t, trace, ctx, repoRoot)
+	image, removeImage := agentRuntimeImage(t, trace, ctx, repoRoot, opts.developerImage)
 	port := allocateLocalPort(t)
 	trace.Logf("docker", "allocated host port=%s container_port=%s image=%s", port, agentRuntimeContainerPort, image)
 	dbPath := opts.dbPath
@@ -62,10 +63,7 @@ func startAgentRuntimeContainerWithOptions(t *testing.T, trace *agentRuntimeE2ET
 		image,
 	}
 	out := runCommand(t, trace, ctx, repoRoot, "docker", args...)
-	containerID := strings.TrimSpace(string(out))
-	if containerID == "" {
-		t.Fatalf("docker run returned empty container id")
-	}
+	containerID := containerIDFromDockerRunOutput(t, out)
 	trace.Logf("docker", "container started id=%s", containerID)
 	stopLogStream := streamDockerLogs(ctx, t, trace, containerID)
 
@@ -77,6 +75,7 @@ func startAgentRuntimeContainerWithOptions(t *testing.T, trace *agentRuntimeE2ET
 		trace.Logf("docker", "stopping container id=%s", containerID)
 		_ = exec.Command("docker", "rm", "-f", containerID).Run()
 		stopLogStream()
+		repairWorkspacePermissions(trace, image, workspaceRoot)
 		if removeImage {
 			trace.Logf("docker", "removing e2e image=%s", image)
 			_ = exec.Command("docker", "rmi", "-f", image).Run()
@@ -111,10 +110,11 @@ func startAgentRuntimeContainerWithOptions(t *testing.T, trace *agentRuntimeE2ET
 
 var agentRuntimeImageCache struct {
 	sync.Mutex
-	image string
+	runtimeImage   string
+	developerImage string
 }
 
-func agentRuntimeImage(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, repoRoot string) (string, bool) {
+func agentRuntimeImage(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, repoRoot string, developer bool) (string, bool) {
 	t.Helper()
 	if image := strings.TrimSpace(os.Getenv("HIVY_AGENT_RUNTIME_E2E_IMAGE")); image != "" {
 		trace.Logf("docker", "using prebuilt image from HIVY_AGENT_RUNTIME_E2E_IMAGE=%s", image)
@@ -125,14 +125,24 @@ func agentRuntimeImage(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Co
 	}
 	agentRuntimeImageCache.Lock()
 	defer agentRuntimeImageCache.Unlock()
-	if agentRuntimeImageCache.image != "" {
-		trace.Logf("docker", "reusing runtime image=%s", agentRuntimeImageCache.image)
-		return agentRuntimeImageCache.image, false
+	if developer && agentRuntimeImageCache.developerImage != "" {
+		trace.Logf("docker", "reusing developer runtime image=%s", agentRuntimeImageCache.developerImage)
+		return agentRuntimeImageCache.developerImage, false
+	}
+	if !developer && agentRuntimeImageCache.runtimeImage != "" {
+		trace.Logf("docker", "reusing runtime image=%s", agentRuntimeImageCache.runtimeImage)
+		return agentRuntimeImageCache.runtimeImage, false
 	}
 	image := "hivy-agent-runtime-e2e:" + strings.ToLower(strings.ReplaceAll(uuid.NewString(), "-", ""))
+	if developer {
+		trace.Logf("docker", "building developer runtime image=%s", image)
+		runCommand(t, trace, ctx, repoRoot, "make", "sandbox-runtime-developers-image", "SANDBOX_RUNTIME_DEVELOPERS_IMAGE="+image)
+		agentRuntimeImageCache.developerImage = image
+		return image, false
+	}
 	trace.Logf("docker", "building runtime image=%s", image)
 	runCommand(t, trace, ctx, repoRoot, "make", "sandbox-runtime-image", "SANDBOX_RUNTIME_IMAGE="+image)
-	agentRuntimeImageCache.image = image
+	agentRuntimeImageCache.runtimeImage = image
 	return image, false
 }
 
@@ -175,6 +185,52 @@ func runCommand(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, 
 	}
 	trace.Logf("command", "complete cmd=%s %s bytes=%d", name, strings.Join(args, " "), out.Len())
 	return out.Bytes()
+}
+
+func containerIDFromDockerRunOutput(t *testing.T, out []byte) string {
+	t.Helper()
+	for _, line := range strings.Split(string(out), "\n") {
+		candidate := strings.TrimSpace(line)
+		if isDockerID(candidate) {
+			return candidate
+		}
+	}
+	t.Fatalf("docker run returned no container id:\n%s", tailString(string(out), 12000))
+	return ""
+}
+
+func isDockerID(value string) bool {
+	if len(value) < 12 || len(value) > 64 {
+		return false
+	}
+	for _, char := range value {
+		if char >= '0' && char <= '9' {
+			continue
+		}
+		if char >= 'a' && char <= 'f' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func repairWorkspacePermissions(trace *agentRuntimeE2ETrace, image, workspaceRoot string) {
+	if strings.TrimSpace(workspaceRoot) == "" {
+		return
+	}
+	trace.Logf("docker", "repairing workspace permissions root=%s", workspaceRoot)
+	cmd := exec.Command(
+		"docker", "run", "--rm",
+		"-v", workspaceRoot+":/workspace",
+		"--entrypoint", "/bin/sh",
+		image,
+		"-lc",
+		fmt.Sprintf("chown -R %d:%d /workspace 2>/dev/null || true; chmod -R u+rwX,go+rwX /workspace 2>/dev/null || true", os.Getuid(), os.Getgid()),
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		trace.Logf("docker", "workspace permission repair failed: %v output=%s", err, tailString(string(out), 4000))
+	}
 }
 
 func scanCommandOutput(trace *agentRuntimeE2ETrace, wg *sync.WaitGroup, outMu *sync.Mutex, out *bytes.Buffer, command, stream string, reader io.Reader) {

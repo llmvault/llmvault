@@ -19,6 +19,8 @@ export interface DirectSessionStreamCursor {
   sequence: number
 }
 
+export const RUNTIME_REPO_CHANGE_EVENT = "repo.change_batch"
+
 export type DirectSessionStreamReplayMode =
   | { mode: "all" }
   | { mode: "none" }
@@ -120,6 +122,10 @@ export function directSessionStreamCursor(
     return null
   }
   return { streamId, sequence }
+}
+
+export function isRuntimeRepoChangeFrame(frame: DirectSessionStreamFrame) {
+  return frame.event === RUNTIME_REPO_CHANGE_EVENT
 }
 
 function parseStreamEventData(data: string) {

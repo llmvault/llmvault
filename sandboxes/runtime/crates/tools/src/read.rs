@@ -1,6 +1,5 @@
-use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -9,10 +8,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::lsp::LspService;
 use crate::operations::ReadOperations;
 use crate::path::{build_glob_set, enforce_deny_globs, resolve_read_path, PathPolicyError};
+use crate::search::SearchService;
 use crate::truncate::{truncate_head, TruncationReason, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES};
-use crate::{schema_for, JsonTool, ToolDefinition};
+use crate::{file_read_snapshot, schema_for, FileReadRegistry, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "read_file";
 const TOOL_DESCRIPTION: &str =
@@ -38,7 +39,9 @@ pub struct ReadTool {
     config: ReadFileConfig,
     workspace_root: PathBuf,
     operations: Arc<dyn ReadOperations>,
-    files_read: Option<Arc<Mutex<HashSet<PathBuf>>>>,
+    files_read: Option<FileReadRegistry>,
+    search: Option<SearchService>,
+    lsp: Option<LspService>,
 }
 
 impl ReadTool {
@@ -52,11 +55,23 @@ impl ReadTool {
             workspace_root,
             operations,
             files_read: None,
+            search: None,
+            lsp: None,
         }
     }
 
-    pub fn with_files_read(mut self, files_read: Arc<Mutex<HashSet<PathBuf>>>) -> Self {
+    pub fn with_files_read(mut self, files_read: FileReadRegistry) -> Self {
         self.files_read = Some(files_read);
+        self
+    }
+
+    pub fn with_search_service(mut self, search: SearchService) -> Self {
+        self.search = Some(search);
+        self
+    }
+
+    pub fn with_lsp_service(mut self, lsp: LspService) -> Self {
+        self.lsp = Some(lsp);
         self
     }
 
@@ -95,8 +110,14 @@ impl ReadTool {
         // Track that this file was read, for read-before-edit enforcement
         if let Some(ref files_read) = self.files_read {
             if let Ok(mut guard) = files_read.lock() {
-                guard.insert(resolved.clone());
+                guard.insert(resolved.clone(), file_read_snapshot(&bytes));
             }
+        }
+        if let Some(search) = &self.search {
+            search.track_access(&resolved);
+        }
+        if let Some(lsp) = &self.lsp {
+            lsp.touch_file(&resolved).await;
         }
         let max_bytes = self.config.max_file_size_bytes as usize;
         if bytes.len() > max_bytes {

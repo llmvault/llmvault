@@ -53,6 +53,79 @@
     }
   },
   {
+    "type": "builtin.file_search",
+    "config": {
+      "allowed_roots": ["/workspace"],
+      "deny_globs": ["**/.env", "**/.env.*", "**/secrets/**", "**/.git/**", "**/node_modules/**"],
+      "max_results": 120,
+      "max_output_bytes": 262144,
+      "timeout_seconds": 20,
+      "include_hidden": false,
+      "respect_gitignore": true,
+      "follow_symlinks": false,
+      "enable_content_indexing": true
+    }
+  },
+  {
+    "type": "builtin.glob",
+    "config": {
+      "allowed_roots": ["/workspace"],
+      "deny_globs": ["**/.env", "**/.env.*", "**/secrets/**", "**/.git/**", "**/node_modules/**"],
+      "max_results": 120,
+      "max_output_bytes": 262144,
+      "timeout_seconds": 20,
+      "include_hidden": false,
+      "respect_gitignore": true,
+      "follow_symlinks": false,
+      "enable_content_indexing": true
+    }
+  },
+  {
+    "type": "builtin.grep",
+    "config": {
+      "allowed_roots": ["/workspace"],
+      "deny_globs": ["**/.env", "**/.env.*", "**/secrets/**", "**/.git/**", "**/node_modules/**"],
+      "max_results": 120,
+      "max_output_bytes": 262144,
+      "timeout_seconds": 20,
+      "include_hidden": false,
+      "respect_gitignore": true,
+      "follow_symlinks": false,
+      "enable_content_indexing": true
+    }
+  },
+  {
+    "type": "builtin.multi_grep",
+    "config": {
+      "allowed_roots": ["/workspace"],
+      "deny_globs": ["**/.env", "**/.env.*", "**/secrets/**", "**/.git/**", "**/node_modules/**"],
+      "max_results": 120,
+      "max_output_bytes": 262144,
+      "timeout_seconds": 20,
+      "include_hidden": false,
+      "respect_gitignore": true,
+      "follow_symlinks": false,
+      "enable_content_indexing": true
+    }
+  },
+  {
+    "type": "builtin.apply_patch",
+    "config": {
+      "allowed_roots": ["/workspace"],
+      "max_file_size_bytes": 5242880,
+      "deny_globs": ["**/.env", "**/.env.*", "**/secrets/**", "**/.git/**", "**/node_modules/**"],
+      "atomic": true
+    }
+  },
+  {
+    "type": "builtin.lsp",
+    "config": {
+      "enabled": true,
+      "allowed_roots": ["/workspace"],
+      "timeout_seconds": 20
+    }
+  },
+  {
     "type": "builtin.check_bash_status"
   },
   {

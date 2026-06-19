@@ -7,6 +7,7 @@ import { PatchDiff } from "@pierre/diffs/react"
 import { useTheme } from "next-themes"
 import { usePreset } from "@/lib/theme/preset-provider"
 import { THEME_PRESETS } from "@/lib/theme/presets"
+import { HIVY_DIFF_STYLE, hivyDiffOptions } from "@/lib/diffs-theme"
 import {
   ControlledSwitch,
   IconSegmented,
@@ -39,6 +40,11 @@ const THEME_PREVIEW_PATCH = [
   "",
 ].join("\n")
 
+const THEME_PREVIEW_DIFF_OPTIONS = hivyDiffOptions({
+  diffStyle: "unified",
+  overflow: "scroll",
+})
+
 export default function AppearanceSettingsPage() {
   const { theme, setTheme } = useTheme()
   const [pointerCursors, setPointerCursors] = useState(false)
@@ -68,7 +74,8 @@ export default function AppearanceSettingsPage() {
         <div className="p-3">
           <PatchDiff
             patch={THEME_PREVIEW_PATCH}
-            options={{ theme: "pierre-light" }}
+            options={THEME_PREVIEW_DIFF_OPTIONS}
+            style={HIVY_DIFF_STYLE}
             disableWorkerPool
           />
         </div>
@@ -80,7 +87,7 @@ export default function AppearanceSettingsPage() {
         background="#FFFFFF"
         foreground="#0A0A0A"
         uiFont="-apple-system, BlinkMacSystemFont"
-        codeFont='ui-monospace, "SFMono-Regular"'
+        codeFont="Geist Mono"
         translucent={false}
         contrast={42}
       />
@@ -91,7 +98,7 @@ export default function AppearanceSettingsPage() {
         background="#181818"
         foreground="#FFFFFF"
         uiFont="-apple-system, BlinkMacSystemFont"
-        codeFont='ui-monospace, "SFMono-Regular"'
+        codeFont="Geist Mono"
         translucent
         contrast={60}
       />

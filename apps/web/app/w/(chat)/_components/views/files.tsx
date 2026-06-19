@@ -11,8 +11,11 @@ import type { GitStatusEntry } from "@pierre/trees"
 import { Button, Popover } from "@heroui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Icon } from "@iconify/react"
-import { File as DiffFile, type FileOptions } from "@pierre/diffs/react"
 import { Group, Panel, Separator } from "react-resizable-panels"
+import {
+  CommentableFile,
+  type CommentableFileProps,
+} from "@/app/w/(chat)/_components/diff-line-comments"
 import {
   FilesEmptyState,
   FilesErrorState,
@@ -31,6 +34,7 @@ import {
   type RuntimeRepoTreeSnapshot,
   type RuntimeSandboxAccess,
 } from "@/app/w/(chat)/_lib/runtime-repos"
+import { HIVY_DIFF_STYLE, hivyDiffOptions } from "@/lib/diffs-theme"
 
 interface FilesViewProps {
   sessionId?: string
@@ -52,17 +56,14 @@ const FILE_TREE_MIN_WIDTH = 190
 const FILE_TREE_MAX_WIDTH = 420
 const FILE_PREVIEW_MIN_WIDTH = 120
 const FILE_PREVIEW_LARGE_FILE_LINE_LIMIT = 2000
-const FILE_PREVIEW_OPTIONS = {
+const FILE_PREVIEW_OPTIONS = hivyDiffOptions({
   disableFileHeader: true,
   overflow: "scroll",
-  theme: "pierre-dark",
-  themeType: "dark",
-} satisfies FileOptions<undefined>
+}) satisfies NonNullable<CommentableFileProps["options"]>
 const FILE_PREVIEW_STYLE: CSSProperties & Record<`--${string}`, string> = {
+  ...HIVY_DIFF_STYLE,
   minHeight: "100%",
   width: "100%",
-  "--diffs-font-size": "12px",
-  "--diffs-line-height": "20px",
 }
 
 interface RepoTreeCache {
@@ -94,9 +95,9 @@ export function FilesView({
   const accessMatchesSession = sandboxAccess?.session_id === sessionId
   const accessReady = Boolean(
     sessionId &&
-      accessMatchesSession &&
-      sandboxAccess?.sandbox_base_url &&
-      sandboxAccess?.token
+    accessMatchesSession &&
+    sandboxAccess?.sandbox_base_url &&
+    sandboxAccess?.token
   )
   const reposQuery = useQuery({
     enabled: accessReady,
@@ -337,7 +338,7 @@ export function FilesView({
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-surface">
+    <div className="bg-surface flex h-full min-w-0 flex-col">
       <Group
         id="files-view-layout"
         orientation="horizontal"
@@ -364,6 +365,7 @@ export function FilesView({
                 error={filePreviewQuery.error}
                 isPending={filePreviewQuery.isPending}
                 path={selectedPath}
+                repo={selectedRepo}
                 onRefreshSandboxAccess={onRefreshSandboxAccess}
                 onRetry={() => void filePreviewQuery.refetch()}
               />
@@ -384,7 +386,7 @@ export function FilesView({
           groupResizeBehavior="preserve-pixel-size"
           className="min-w-0 overflow-hidden"
         >
-          <aside className="h-full min-w-0 bg-surface">
+          <aside className="bg-surface h-full min-w-0">
             {rootTreeQuery.isPending ? (
               <TreeSkeleton />
             ) : rootTreeQuery.isError ? (
@@ -442,6 +444,7 @@ export function FilesView({
 
 function FilePreview({
   path,
+  repo,
   content,
   isPending,
   error,
@@ -449,6 +452,7 @@ function FilePreview({
   onRetry,
 }: {
   path: string | null
+  repo: RuntimeRepoInfo | null
   content?: RuntimeRepoContent
   isPending: boolean
   error: unknown
@@ -511,13 +515,21 @@ function FilePreview({
         </div>
       ) : null}
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <DiffFile
+        <CommentableFile
+          key={cacheKey}
           file={{
             name: content.path || path,
             contents: content.content,
             cacheKey,
           }}
           options={FILE_PREVIEW_OPTIONS}
+          source={{
+            kind: "file",
+            path: content.path || path || undefined,
+            repoId: content.repo_id,
+            repoName: repo?.name,
+            repoPath: repo?.relative_path,
+          }}
           className="block min-w-full"
           style={FILE_PREVIEW_STYLE}
           disableWorkerPool
@@ -536,24 +548,24 @@ export function FilesRepoSelector({
   if (!selectedRepo) return null
   if (repos.length === 1) {
     return (
-      <span className="min-w-0 max-w-28 truncate rounded-md bg-surface-secondary px-1.5 py-0.5 text-xs text-muted">
+      <span className="bg-surface-secondary max-w-28 min-w-0 truncate rounded-md px-1.5 py-0.5 text-xs text-muted">
         {selectedRepo.name}
       </span>
     )
   }
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="hover:bg-surface-secondary flex min-w-0 max-w-32 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted transition-colors">
+      <Popover.Trigger className="hover:bg-surface-secondary flex max-w-32 min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted transition-colors">
         <span className="truncate">{selectedRepo.name}</span>
         <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0" />
       </Popover.Trigger>
-      <Popover.Content className="w-64 rounded-2xl border border-border bg-surface p-1.5">
+      <Popover.Content className="bg-surface w-64 rounded-2xl border border-border p-1.5">
         <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
           {repos.map((repo) => (
             <button
               key={repo.id}
               type="button"
-              className={`flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-surface-secondary ${
+              className={`hover:bg-surface-secondary flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors ${
                 repo.id === selectedRepo.id ? "text-foreground" : "text-muted"
               }`}
               onClick={() => {

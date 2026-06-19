@@ -401,13 +401,13 @@ func (e ToolSpec2Type) Valid() bool {
 
 // Defines values for ToolSpec3Type.
 const (
-	BuiltinCron ToolSpec3Type = "builtin.cron"
+	BuiltinFileSearch ToolSpec3Type = "builtin.file_search"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec3Type enum.
 func (e ToolSpec3Type) Valid() bool {
 	switch e {
-	case BuiltinCron:
+	case BuiltinFileSearch:
 		return true
 	default:
 		return false
@@ -416,13 +416,13 @@ func (e ToolSpec3Type) Valid() bool {
 
 // Defines values for ToolSpec4Type.
 const (
-	BuiltinSubagentTask ToolSpec4Type = "builtin.subagent_task"
+	BuiltinGlob ToolSpec4Type = "builtin.glob"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec4Type enum.
 func (e ToolSpec4Type) Valid() bool {
 	switch e {
-	case BuiltinSubagentTask:
+	case BuiltinGlob:
 		return true
 	default:
 		return false
@@ -431,13 +431,13 @@ func (e ToolSpec4Type) Valid() bool {
 
 // Defines values for ToolSpec5Type.
 const (
-	BuiltinCheckSubagentTaskStatus ToolSpec5Type = "builtin.check_subagent_task_status"
+	BuiltinGrep ToolSpec5Type = "builtin.grep"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec5Type enum.
 func (e ToolSpec5Type) Valid() bool {
 	switch e {
-	case BuiltinCheckSubagentTaskStatus:
+	case BuiltinGrep:
 		return true
 	default:
 		return false
@@ -446,13 +446,13 @@ func (e ToolSpec5Type) Valid() bool {
 
 // Defines values for ToolSpec6Type.
 const (
-	BuiltinCheckBashStatus ToolSpec6Type = "builtin.check_bash_status"
+	BuiltinMultiGrep ToolSpec6Type = "builtin.multi_grep"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec6Type enum.
 func (e ToolSpec6Type) Valid() bool {
 	switch e {
-	case BuiltinCheckBashStatus:
+	case BuiltinMultiGrep:
 		return true
 	default:
 		return false
@@ -461,13 +461,13 @@ func (e ToolSpec6Type) Valid() bool {
 
 // Defines values for ToolSpec7Type.
 const (
-	BuiltinWake ToolSpec7Type = "builtin.wake"
+	BuiltinApplyPatch ToolSpec7Type = "builtin.apply_patch"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec7Type enum.
 func (e ToolSpec7Type) Valid() bool {
 	switch e {
-	case BuiltinWake:
+	case BuiltinApplyPatch:
 		return true
 	default:
 		return false
@@ -476,13 +476,13 @@ func (e ToolSpec7Type) Valid() bool {
 
 // Defines values for ToolSpec8Type.
 const (
-	BuiltinSkillsList ToolSpec8Type = "builtin.skills_list"
+	BuiltinLsp ToolSpec8Type = "builtin.lsp"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec8Type enum.
 func (e ToolSpec8Type) Valid() bool {
 	switch e {
-	case BuiltinSkillsList:
+	case BuiltinLsp:
 		return true
 	default:
 		return false
@@ -491,13 +491,13 @@ func (e ToolSpec8Type) Valid() bool {
 
 // Defines values for ToolSpec9Type.
 const (
-	BuiltinSkillView ToolSpec9Type = "builtin.skill_view"
+	BuiltinCron ToolSpec9Type = "builtin.cron"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec9Type enum.
 func (e ToolSpec9Type) Valid() bool {
 	switch e {
-	case BuiltinSkillView:
+	case BuiltinCron:
 		return true
 	default:
 		return false
@@ -506,13 +506,13 @@ func (e ToolSpec9Type) Valid() bool {
 
 // Defines values for ToolSpec10Type.
 const (
-	BuiltinSkillManage ToolSpec10Type = "builtin.skill_manage"
+	BuiltinSubagentTask ToolSpec10Type = "builtin.subagent_task"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec10Type enum.
 func (e ToolSpec10Type) Valid() bool {
 	switch e {
-	case BuiltinSkillManage:
+	case BuiltinSubagentTask:
 		return true
 	default:
 		return false
@@ -521,13 +521,13 @@ func (e ToolSpec10Type) Valid() bool {
 
 // Defines values for ToolSpec11Type.
 const (
-	BuiltinSearchSessions ToolSpec11Type = "builtin.search_sessions"
+	BuiltinCheckSubagentTaskStatus ToolSpec11Type = "builtin.check_subagent_task_status"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec11Type enum.
 func (e ToolSpec11Type) Valid() bool {
 	switch e {
-	case BuiltinSearchSessions:
+	case BuiltinCheckSubagentTaskStatus:
 		return true
 	default:
 		return false
@@ -536,13 +536,13 @@ func (e ToolSpec11Type) Valid() bool {
 
 // Defines values for ToolSpec12Type.
 const (
-	BuiltinRequestUserInput ToolSpec12Type = "builtin.request_user_input"
+	BuiltinCheckBashStatus ToolSpec12Type = "builtin.check_bash_status"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec12Type enum.
 func (e ToolSpec12Type) Valid() bool {
 	switch e {
-	case BuiltinRequestUserInput:
+	case BuiltinCheckBashStatus:
 		return true
 	default:
 		return false
@@ -551,11 +551,101 @@ func (e ToolSpec12Type) Valid() bool {
 
 // Defines values for ToolSpec13Type.
 const (
-	BuiltinUpdatePlan ToolSpec13Type = "builtin.update_plan"
+	BuiltinWake ToolSpec13Type = "builtin.wake"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec13Type enum.
 func (e ToolSpec13Type) Valid() bool {
+	switch e {
+	case BuiltinWake:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSpec14Type.
+const (
+	BuiltinSkillsList ToolSpec14Type = "builtin.skills_list"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec14Type enum.
+func (e ToolSpec14Type) Valid() bool {
+	switch e {
+	case BuiltinSkillsList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSpec15Type.
+const (
+	BuiltinSkillView ToolSpec15Type = "builtin.skill_view"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec15Type enum.
+func (e ToolSpec15Type) Valid() bool {
+	switch e {
+	case BuiltinSkillView:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSpec16Type.
+const (
+	BuiltinSkillManage ToolSpec16Type = "builtin.skill_manage"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
+func (e ToolSpec16Type) Valid() bool {
+	switch e {
+	case BuiltinSkillManage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSpec17Type.
+const (
+	BuiltinSearchSessions ToolSpec17Type = "builtin.search_sessions"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec17Type enum.
+func (e ToolSpec17Type) Valid() bool {
+	switch e {
+	case BuiltinSearchSessions:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSpec18Type.
+const (
+	BuiltinRequestUserInput ToolSpec18Type = "builtin.request_user_input"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec18Type enum.
+func (e ToolSpec18Type) Valid() bool {
+	switch e {
+	case BuiltinRequestUserInput:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSpec19Type.
+const (
+	BuiltinUpdatePlan ToolSpec19Type = "builtin.update_plan"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpec19Type enum.
+func (e ToolSpec19Type) Valid() bool {
 	switch e {
 	case BuiltinUpdatePlan:
 		return true
@@ -584,6 +674,14 @@ type AgentDefinition struct {
 type AgentMeta struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
+}
+
+// ApplyPatchConfig defines model for ApplyPatchConfig.
+type ApplyPatchConfig struct {
+	AllowedRoots     []string  `json:"allowed_roots"`
+	Atomic           *bool     `json:"atomic,omitempty"`
+	DenyGlobs        *[]string `json:"deny_globs,omitempty"`
+	MaxFileSizeBytes int64     `json:"max_file_size_bytes"`
 }
 
 // Attachment defines model for Attachment.
@@ -755,6 +853,26 @@ type ListPromptSegment struct {
 type ListSessionsResponse struct {
 	Items      []Session `json:"items"`
 	NextCursor *string   `json:"next_cursor,omitempty"`
+}
+
+// LspConfig defines model for LspConfig.
+type LspConfig struct {
+	AllowedRoots    *[]string          `json:"allowed_roots,omitempty"`
+	Enabled         *bool              `json:"enabled,omitempty"`
+	FallbackEnabled *bool              `json:"fallback_enabled,omitempty"`
+	Servers         *[]LspServerConfig `json:"servers,omitempty"`
+	TimeoutSeconds  *int32             `json:"timeout_seconds,omitempty"`
+}
+
+// LspServerConfig defines model for LspServerConfig.
+type LspServerConfig struct {
+	Command               []string    `json:"command"`
+	Disabled              *bool       `json:"disabled,omitempty"`
+	Extensions            *[]string   `json:"extensions,omitempty"`
+	Id                    string      `json:"id"`
+	InitializationOptions interface{} `json:"initialization_options,omitempty"`
+	RootMarkers           *[]string   `json:"root_markers,omitempty"`
+	StrictRoot            *bool       `json:"strict_root,omitempty"`
 }
 
 // McpSpec defines model for McpSpec.
@@ -977,6 +1095,19 @@ type SafetyConfig struct {
 	XmlToolRepair   *bool                  `json:"xml_tool_repair,omitempty"`
 }
 
+// SearchConfig defines model for SearchConfig.
+type SearchConfig struct {
+	AllowedRoots          *[]string `json:"allowed_roots,omitempty"`
+	DenyGlobs             *[]string `json:"deny_globs,omitempty"`
+	EnableContentIndexing *bool     `json:"enable_content_indexing,omitempty"`
+	FollowSymlinks        *bool     `json:"follow_symlinks,omitempty"`
+	IncludeHidden         *bool     `json:"include_hidden,omitempty"`
+	MaxOutputBytes        *int64    `json:"max_output_bytes,omitempty"`
+	MaxResults            *int32    `json:"max_results,omitempty"`
+	RespectGitignore      *bool     `json:"respect_gitignore,omitempty"`
+	TimeoutSeconds        *int32    `json:"timeout_seconds,omitempty"`
+}
+
 // Session defines model for Session.
 type Session struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -1182,7 +1313,8 @@ type ToolSpec2Type string
 
 // ToolSpec3 defines model for .
 type ToolSpec3 struct {
-	Type ToolSpec3Type `json:"type"`
+	Config SearchConfig  `json:"config"`
+	Type   ToolSpec3Type `json:"type"`
 }
 
 // ToolSpec3Type defines model for ToolSpec.3.Type.
@@ -1190,8 +1322,8 @@ type ToolSpec3Type string
 
 // ToolSpec4 defines model for .
 type ToolSpec4 struct {
-	Config SubagentTaskConfig `json:"config"`
-	Type   ToolSpec4Type      `json:"type"`
+	Config SearchConfig  `json:"config"`
+	Type   ToolSpec4Type `json:"type"`
 }
 
 // ToolSpec4Type defines model for ToolSpec.4.Type.
@@ -1199,7 +1331,8 @@ type ToolSpec4Type string
 
 // ToolSpec5 defines model for .
 type ToolSpec5 struct {
-	Type ToolSpec5Type `json:"type"`
+	Config SearchConfig  `json:"config"`
+	Type   ToolSpec5Type `json:"type"`
 }
 
 // ToolSpec5Type defines model for ToolSpec.5.Type.
@@ -1207,7 +1340,8 @@ type ToolSpec5Type string
 
 // ToolSpec6 defines model for .
 type ToolSpec6 struct {
-	Type ToolSpec6Type `json:"type"`
+	Config SearchConfig  `json:"config"`
+	Type   ToolSpec6Type `json:"type"`
 }
 
 // ToolSpec6Type defines model for ToolSpec.6.Type.
@@ -1215,7 +1349,8 @@ type ToolSpec6Type string
 
 // ToolSpec7 defines model for .
 type ToolSpec7 struct {
-	Type ToolSpec7Type `json:"type"`
+	Config ApplyPatchConfig `json:"config"`
+	Type   ToolSpec7Type    `json:"type"`
 }
 
 // ToolSpec7Type defines model for ToolSpec.7.Type.
@@ -1223,7 +1358,8 @@ type ToolSpec7Type string
 
 // ToolSpec8 defines model for .
 type ToolSpec8 struct {
-	Type ToolSpec8Type `json:"type"`
+	Config LspConfig     `json:"config"`
+	Type   ToolSpec8Type `json:"type"`
 }
 
 // ToolSpec8Type defines model for ToolSpec.8.Type.
@@ -1239,7 +1375,8 @@ type ToolSpec9Type string
 
 // ToolSpec10 defines model for .
 type ToolSpec10 struct {
-	Type ToolSpec10Type `json:"type"`
+	Config SubagentTaskConfig `json:"config"`
+	Type   ToolSpec10Type     `json:"type"`
 }
 
 // ToolSpec10Type defines model for ToolSpec.10.Type.
@@ -1268,6 +1405,54 @@ type ToolSpec13 struct {
 
 // ToolSpec13Type defines model for ToolSpec.13.Type.
 type ToolSpec13Type string
+
+// ToolSpec14 defines model for .
+type ToolSpec14 struct {
+	Type ToolSpec14Type `json:"type"`
+}
+
+// ToolSpec14Type defines model for ToolSpec.14.Type.
+type ToolSpec14Type string
+
+// ToolSpec15 defines model for .
+type ToolSpec15 struct {
+	Type ToolSpec15Type `json:"type"`
+}
+
+// ToolSpec15Type defines model for ToolSpec.15.Type.
+type ToolSpec15Type string
+
+// ToolSpec16 defines model for .
+type ToolSpec16 struct {
+	Type ToolSpec16Type `json:"type"`
+}
+
+// ToolSpec16Type defines model for ToolSpec.16.Type.
+type ToolSpec16Type string
+
+// ToolSpec17 defines model for .
+type ToolSpec17 struct {
+	Type ToolSpec17Type `json:"type"`
+}
+
+// ToolSpec17Type defines model for ToolSpec.17.Type.
+type ToolSpec17Type string
+
+// ToolSpec18 defines model for .
+type ToolSpec18 struct {
+	Type ToolSpec18Type `json:"type"`
+}
+
+// ToolSpec18Type defines model for ToolSpec.18.Type.
+type ToolSpec18Type string
+
+// ToolSpec19 defines model for .
+type ToolSpec19 struct {
+	Type ToolSpec19Type `json:"type"`
+}
+
+// ToolSpec19Type defines model for ToolSpec.19.Type.
+type ToolSpec19Type string
 
 // ToolUsage defines model for ToolUsage.
 type ToolUsage struct {
@@ -2155,6 +2340,162 @@ func (t *ToolSpec) FromToolSpec13(v ToolSpec13) error {
 
 // MergeToolSpec13 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec13
 func (t *ToolSpec) MergeToolSpec13(v ToolSpec13) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolSpec14 returns the union data inside the ToolSpec as a ToolSpec14
+func (t ToolSpec) AsToolSpec14() (ToolSpec14, error) {
+	var body ToolSpec14
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec14 overwrites any union data inside the ToolSpec as the provided ToolSpec14
+func (t *ToolSpec) FromToolSpec14(v ToolSpec14) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec14 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec14
+func (t *ToolSpec) MergeToolSpec14(v ToolSpec14) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolSpec15 returns the union data inside the ToolSpec as a ToolSpec15
+func (t ToolSpec) AsToolSpec15() (ToolSpec15, error) {
+	var body ToolSpec15
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec15 overwrites any union data inside the ToolSpec as the provided ToolSpec15
+func (t *ToolSpec) FromToolSpec15(v ToolSpec15) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec15 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec15
+func (t *ToolSpec) MergeToolSpec15(v ToolSpec15) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolSpec16 returns the union data inside the ToolSpec as a ToolSpec16
+func (t ToolSpec) AsToolSpec16() (ToolSpec16, error) {
+	var body ToolSpec16
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec16 overwrites any union data inside the ToolSpec as the provided ToolSpec16
+func (t *ToolSpec) FromToolSpec16(v ToolSpec16) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec16 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec16
+func (t *ToolSpec) MergeToolSpec16(v ToolSpec16) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolSpec17 returns the union data inside the ToolSpec as a ToolSpec17
+func (t ToolSpec) AsToolSpec17() (ToolSpec17, error) {
+	var body ToolSpec17
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec17 overwrites any union data inside the ToolSpec as the provided ToolSpec17
+func (t *ToolSpec) FromToolSpec17(v ToolSpec17) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec17 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec17
+func (t *ToolSpec) MergeToolSpec17(v ToolSpec17) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolSpec18 returns the union data inside the ToolSpec as a ToolSpec18
+func (t ToolSpec) AsToolSpec18() (ToolSpec18, error) {
+	var body ToolSpec18
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec18 overwrites any union data inside the ToolSpec as the provided ToolSpec18
+func (t *ToolSpec) FromToolSpec18(v ToolSpec18) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec18 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec18
+func (t *ToolSpec) MergeToolSpec18(v ToolSpec18) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolSpec19 returns the union data inside the ToolSpec as a ToolSpec19
+func (t ToolSpec) AsToolSpec19() (ToolSpec19, error) {
+	var body ToolSpec19
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolSpec19 overwrites any union data inside the ToolSpec as the provided ToolSpec19
+func (t *ToolSpec) FromToolSpec19(v ToolSpec19) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolSpec19 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec19
+func (t *ToolSpec) MergeToolSpec19(v ToolSpec19) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

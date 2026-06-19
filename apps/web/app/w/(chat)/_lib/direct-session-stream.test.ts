@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   directSessionStreamCursor,
   directSessionStreamURL,
+  isRuntimeRepoChangeFrame,
   type DirectSessionStreamFrame,
 } from "@/app/w/(chat)/_lib/direct-session-stream"
 
@@ -54,5 +55,24 @@ describe("direct session stream", () => {
   it("ignores frames without a valid runtime cursor", () => {
     expect(directSessionStreamCursor(frame("plain text"))).toBeNull()
     expect(directSessionStreamCursor(frame({ stream_id: "abc" }))).toBeNull()
+  })
+
+  it("detects runtime repo change batches", () => {
+    expect(
+      isRuntimeRepoChangeFrame({
+        ...frame({
+          repo_id: "repo_1",
+          paths: ["README.md"],
+        }),
+        event: "repo.change_batch",
+      })
+    ).toBe(true)
+
+    expect(
+      isRuntimeRepoChangeFrame({
+        ...frame({ id: "tool_result_1" }),
+        event: "tool_result",
+      })
+    ).toBe(false)
   })
 })

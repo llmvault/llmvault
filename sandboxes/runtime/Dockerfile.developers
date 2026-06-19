@@ -29,6 +29,7 @@ RUN apt-get update \
     bash \
     build-essential \
     ca-certificates \
+    clangd \
     cmake \
     coreutils \
     curl \
@@ -77,6 +78,7 @@ RUN apt-get update \
     python3-venv \
     redis-tools \
     ripgrep \
+    rust-analyzer \
     rsync \
     shellcheck \
     shfmt \
@@ -202,12 +204,21 @@ RUN mise use -g node@${NODE_VERSION} \
   && npm install -g \
     markdownlint-cli \
     mongosh \
+    bash-language-server \
+    dockerfile-language-server-nodejs \
+    @tailwindcss/language-server \
     pnpm@10 \
+    pyright \
     prettier \
+    typescript \
+    typescript-language-server \
+    vscode-langservers-extracted \
+    yaml-language-server \
     yarn@1.22.22 \
   && npm cache clean --force
 
-RUN mise use -g go@${GO_VERSION}
+RUN mise use -g go@${GO_VERSION} \
+  && GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@latest
 
 RUN mise use -g bun@${BUN_VERSION}
 

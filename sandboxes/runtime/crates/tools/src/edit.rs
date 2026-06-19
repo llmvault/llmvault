@@ -1,6 +1,5 @@
-use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -10,10 +9,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::diff::{apply_edits, unified_diff, EditMatchError, PendingEdit};
+use crate::lsp::LspService;
 use crate::mutation_queue::with_file_lock;
 use crate::operations::EditOperations;
 use crate::path::{build_glob_set, enforce_deny_globs, resolve_writable_path, PathPolicyError};
-use crate::{schema_for, JsonTool, ToolDefinition};
+use crate::search::SearchService;
+use crate::{file_read_snapshot, schema_for, FileReadRegistry, JsonTool, ToolDefinition};
 
 const TOOL_NAME: &str = "edit_file";
 const TOOL_DESCRIPTION: &str =
@@ -44,7 +45,9 @@ pub struct EditTool {
     config: WriteFileConfig,
     workspace_root: PathBuf,
     operations: Arc<dyn EditOperations>,
-    files_read: Option<Arc<Mutex<HashSet<PathBuf>>>>,
+    files_read: Option<FileReadRegistry>,
+    search: Option<SearchService>,
+    lsp: Option<LspService>,
 }
 
 impl EditTool {
@@ -58,11 +61,23 @@ impl EditTool {
             workspace_root,
             operations,
             files_read: None,
+            search: None,
+            lsp: None,
         }
     }
 
-    pub fn with_files_read(mut self, files_read: Arc<Mutex<HashSet<PathBuf>>>) -> Self {
+    pub fn with_files_read(mut self, files_read: FileReadRegistry) -> Self {
         self.files_read = Some(files_read);
+        self
+    }
+
+    pub fn with_search_service(mut self, search: SearchService) -> Self {
+        self.search = Some(search);
+        self
+    }
+
+    pub fn with_lsp_service(mut self, lsp: LspService) -> Self {
+        self.lsp = Some(lsp);
         self
     }
 
@@ -86,23 +101,6 @@ impl EditTool {
         let deny_globs = build_glob_set(&self.config.deny_globs);
         enforce_deny_globs(&resolved, &deny_globs).map_err(map_path_error)?;
 
-        // Enforce read-before-edit: the file must have been read before editing
-        if let Some(ref files_read) = self.files_read {
-            let was_read = files_read
-                .lock()
-                .map(|guard| {
-                    guard.contains(&resolved) || guard.contains(&PathBuf::from(&parsed.path))
-                })
-                .unwrap_or(false);
-            if !was_read {
-                return Err(anyhow!(
-                    "You must read '{}' with read_file before editing it. \
-                     This prevents blind edits that could corrupt file content.",
-                    parsed.path
-                ));
-            }
-        }
-
         self.operations
             .access(&resolved)
             .await
@@ -112,6 +110,29 @@ impl EditTool {
             .read_file(&resolved)
             .await
             .map_err(|e| anyhow!("read failed for {}: {e}", parsed.path))?;
+        if let Some(ref files_read) = self.files_read {
+            let snapshot = file_read_snapshot(&original_bytes);
+            let read_snapshot = files_read
+                .lock()
+                .ok()
+                .and_then(|guard| guard.get(&resolved).cloned());
+            match read_snapshot {
+                Some(prior) if prior.hash == snapshot.hash && prior.len == snapshot.len => {}
+                Some(_) => {
+                    return Err(anyhow!(
+                        "File '{}' changed after it was read. Read it again with read_file before editing.",
+                        parsed.path
+                    ));
+                }
+                None => {
+                    return Err(anyhow!(
+                        "You must read '{}' with read_file before editing it. \
+                         This prevents blind edits that could corrupt file content.",
+                        parsed.path
+                    ));
+                }
+            }
+        }
         let original_text = String::from_utf8(original_bytes)
             .map_err(|_| anyhow!("{} is not valid UTF-8", parsed.path))?;
 
@@ -156,6 +177,12 @@ impl EditTool {
         })
         .await;
         outcome.map_err(|e| anyhow!("write failed for {}: {e}", parsed.path))?;
+        if let Some(search) = &self.search {
+            search.notify_files_changed();
+        }
+        if let Some(lsp) = &self.lsp {
+            lsp.touch_file(&resolved).await;
+        }
 
         let diff = unified_diff(&original_text, &final_text, &resolved.display().to_string());
 

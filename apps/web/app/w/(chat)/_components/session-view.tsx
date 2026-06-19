@@ -34,6 +34,7 @@ import {
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   directSessionStreamCursor,
+  isRuntimeRepoChangeFrame,
   subscribeToDirectSessionStream,
   type DirectSessionStreamCursor,
   type DirectSessionStreamFrame,
@@ -53,6 +54,7 @@ import {
   type ImageAttachmentMetadata,
 } from "@/app/w/(chat)/_lib/image-attachments"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
+import { reviewDiffsQueryKey } from "@/app/w/(chat)/_lib/review-diffs-query"
 
 const HISTORY_TOP_LOAD_THRESHOLD = 160
 const STREAM_WATCHDOG_MS = 10 * 60 * 1000
@@ -240,6 +242,13 @@ export function SessionThreadView({
     })
   }, [clearStreamReconnectTimer])
 
+  const invalidateReviewDiffs = useCallback(() => {
+    if (!sessionId) return
+    void queryClient.invalidateQueries({
+      queryKey: reviewDiffsQueryKey(sessionId, sandboxAccess),
+    })
+  }, [queryClient, sandboxAccess, sessionId])
+
   useEffect(() => {
     refetchHistoryRef.current = sessionHistoryQuery.refetch
   }, [sessionHistoryQuery.refetch])
@@ -324,6 +333,10 @@ export function SessionThreadView({
           return
         }
 
+        if (isRuntimeRepoChangeFrame(frame)) {
+          invalidateReviewDiffs()
+        }
+
         setLiveEvents((current) =>
           appendLiveSessionStreamFrame(
             shouldReplaceOptimisticWork(frame.event)
@@ -354,6 +367,7 @@ export function SessionThreadView({
     finishLiveStream,
     handleStreamResyncRequired,
     historyReadyForStream,
+    invalidateReviewDiffs,
     scheduleStreamReconnect,
     sessionId,
     sessionHistoryQuery.isSuccess,

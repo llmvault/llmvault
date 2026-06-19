@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Bricolage_Grotesque } from "next/font/google"
+import { Bricolage_Grotesque, Geist_Mono } from "next/font/google"
 import "./hero.css"
 import { Toast } from "@heroui/react"
 import { QueryProvider } from "@/components/query-provider"
@@ -10,6 +10,10 @@ import { ThemeProviders } from "@/components/theme-providers"
 const PRESET_NO_FLASH = `(function(){try{var p=localStorage.getItem('hivy-theme-preset');if(p&&p!=='default')document.documentElement.dataset.themePreset=p;}catch(e){}})();`
 
 const bricolage = Bricolage_Grotesque({})
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+})
 export const metadata: Metadata = {
   title: {
     default: "Hivy",
@@ -36,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="bg-background font-sans antialiased"
+      className={`${geistMono.variable} bg-background font-sans antialiased`}
       suppressHydrationWarning
     >
       <body className={bricolage.className}>

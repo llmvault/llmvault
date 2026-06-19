@@ -15,6 +15,7 @@ pub mod primitives;
 pub mod request_builder;
 pub mod rig_tool_registry;
 pub mod runner;
+pub mod tool_executor;
 pub use runner::RigAgentRunner;
 
 #[derive(Debug, Clone)]

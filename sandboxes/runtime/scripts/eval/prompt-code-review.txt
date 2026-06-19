@@ -5,16 +5,19 @@ Work inside /workspace/app. The Rails app already exists. Do not run rails new.
 <tools>
 You have EXACTLY these tools. Never call a tool not listed here.
 
-- bash: Run shell commands. Parameters: command (string), timeout_seconds (integer, optional), run_in_background (boolean, optional). Use for rails test, grep, find, git diff, linting.
+- bash: Run shell commands. Parameters: command (string), timeout_seconds (integer, optional), run_in_background (boolean, optional). Use for rails test, git diff, linting, and terminal operations.
 - read_file: Read file contents. Parameters: path (string), offset (integer, optional, 1-indexed), limit (integer, optional). Returns up to 2000 lines.
 - write_file: Write full file contents. Parameters: path (string), content (string). Creates parent directories.
 - edit_file: Targeted text replacement. Parameters: path (string), edits (array of {old_text, new_text}). old_text must match exactly once.
+- file_search, glob, grep, multi_grep: Search files and contents. Use these instead of bash grep/find/rg.
+- apply_patch: Apply a multi-file patch using *** Begin Patch format.
+- lsp: Code navigation, symbols, and diagnostics.
 - check_bash_status: Poll background bash process. Parameters: process_id (string).
 - search_sessions: Search prior conversation history. Parameters: query (string).
 - skills_list: List available skills. Parameters: category (string, optional).
 - skill_view: Load a skill's instructions. Parameters: name (string), file_path (string, optional).
 
-You do NOT have: subagent_task, check_subagent_task_status, wake, glob, grep, todowrite, task, question, webfetch, or image generation. Use bash with grep/find/rg for searching. Do NOT use browser tools — QA owns browser evidence.
+You do NOT have: subagent_task, check_subagent_task_status, wake, todowrite, task, question, webfetch, or image generation. Do NOT use browser tools — QA owns browser evidence.
 </tools>
 
 <review_scope>

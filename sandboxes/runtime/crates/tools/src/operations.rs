@@ -126,7 +126,8 @@ impl BashOperations for LocalBashOperations {
         command: &str,
         options: BashExecOptions,
     ) -> Result<BashExecResult, BashError> {
-        let mut child = tokio::process::Command::new("bash")
+        let mut command_builder = tokio::process::Command::new("bash");
+        command_builder
             .arg("-lc")
             .arg(command)
             .current_dir(&options.workdir)
@@ -134,9 +135,15 @@ impl BashOperations for LocalBashOperations {
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+        #[cfg(unix)]
+        {
+            command_builder.process_group(0);
+        }
+        let mut child = command_builder
             .spawn()
             .map_err(|e| BashError::Spawn(e.to_string()))?;
+        let child_pid = child.id();
 
         let mut stdout = child
             .stdout
@@ -195,6 +202,9 @@ impl BashOperations for LocalBashOperations {
                 tokio::select! {
                     result = child.wait() => Ok(result),
                     _ = tokio::time::sleep(duration) => {
+                        if let Some(pid) = child_pid {
+                            kill_process_group(pid);
+                        }
                         let _ = child.kill().await;
                         let _ = child.wait().await;
                         Err(BashError::Timeout(duration.as_secs()))
@@ -233,5 +243,19 @@ impl BashOperations for LocalBashOperations {
             timed_out,
             truncated,
         })
+    }
+}
+
+fn kill_process_group(pid: u32) {
+    #[cfg(unix)]
+    {
+        let _ = std::process::Command::new("kill")
+            .arg("-TERM")
+            .arg(format!("-{pid}"))
+            .status();
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
     }
 }
