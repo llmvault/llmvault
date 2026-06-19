@@ -296,6 +296,28 @@ var curatedProviders = []Provider{
 					Output:  256000,
 				},
 			},
+			"accounts/fireworks/models/kimi-k2p7-code": {
+				ID:          "accounts/fireworks/models/kimi-k2p7-code",
+				Name:        "Kimi K2.7 Code",
+				Family:      "kimi-k2",
+				Reasoning:   true,
+				ToolCall:    true,
+				OpenWeights: true,
+				ReleaseDate: "2026-06-12",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     0.95,
+					Output:    4,
+					CacheRead: 0.19,
+				},
+				Limit: &Limit{
+					Context: 262000,
+					Output:  262000,
+				},
+			},
 			"accounts/fireworks/models/minimax-m2p1": {
 				ID:          "accounts/fireworks/models/minimax-m2p1",
 				Name:        "MiniMax-M2.1",
@@ -677,6 +699,30 @@ var curatedProviders = []Provider{
 				Limit: &Limit{
 					Context: 262144,
 					Output:  131000,
+				},
+			},
+			"kimi-k2.7-code": {
+				ID:               "kimi-k2.7-code",
+				Name:             "Kimi K2.7 Code",
+				Family:           "kimi-k2",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				OpenWeights:      true,
+				Knowledge:        "2025-01",
+				ReleaseDate:      "2026-06-12",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image", "video"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     0.95,
+					Output:    4,
+					CacheRead: 0.19,
+				},
+				Limit: &Limit{
+					Context: 262144,
+					Output:  262144,
 				},
 			},
 			"kimi-k2.5": {
@@ -1461,6 +1507,30 @@ var curatedProviders = []Provider{
 					Output:  262142,
 				},
 			},
+			"moonshotai/kimi-k2.7-code": {
+				ID:               "moonshotai/kimi-k2.7-code",
+				Name:             "Kimi K2.7 Code",
+				Family:           "kimi-k2",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				OpenWeights:      true,
+				Knowledge:        "2025-01",
+				ReleaseDate:      "2026-06-12",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     0.74,
+					Output:    3.5,
+					CacheRead: 0.15,
+				},
+				Limit: &Limit{
+					Context: 262144,
+					Output:  16384,
+				},
+			},
 			"anthropic/claude-opus-4.7": {
 				ID:          "anthropic/claude-opus-4.7",
 				Name:        "Claude Opus 4.7",
@@ -1501,6 +1571,51 @@ var curatedProviders = []Provider{
 				Limit: &Limit{
 					Context: 196608,
 					Output:  131072,
+				},
+			},
+			"minimax/minimax-m3": {
+				ID:               "minimax/minimax-m3",
+				Name:             "MiniMax-M3",
+				Family:           "minimax",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				OpenWeights:      true,
+				ReleaseDate:      "2026-06-01",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image", "video"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     0.3,
+					Output:    1.2,
+					CacheRead: 0.06,
+				},
+				Limit: &Limit{
+					Context: 524288,
+					Output:  512000,
+				},
+			},
+			"z-ai/glm-5.2": {
+				ID:               "z-ai/glm-5.2",
+				Name:             "GLM-5.2",
+				Family:           "glm",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				ReleaseDate:      "2026-06-13",
+				Modalities: &Modalities{
+					Input:  []string{"text"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     1.4,
+					Output:    4.4,
+					CacheRead: 0.26,
+				},
+				Limit: &Limit{
+					Context: 262144,
+					Output:  262144,
 				},
 			},
 			"z-ai/glm-5-turbo": {
@@ -2260,6 +2375,28 @@ var curatedProviders = []Provider{
 		API:  "https://open.bigmodel.cn/api/paas/v4",
 		Doc:  "https://docs.z.ai/guides/overview/pricing",
 		Models: map[string]Model{
+			"glm-5.2": {
+				ID:               "glm-5.2",
+				Name:             "GLM-5.2",
+				Family:           "glm",
+				Reasoning:        true,
+				ToolCall:         true,
+				StructuredOutput: true,
+				ReleaseDate:      "2026-06-13",
+				Modalities: &Modalities{
+					Input:  []string{"text"},
+					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     1.4,
+					Output:    4.4,
+					CacheRead: 0.26,
+				},
+				Limit: &Limit{
+					Context: 1000000,
+					Output:  131072,
+				},
+			},
 			"glm-5": {
 				ID:          "glm-5",
 				Name:        "GLM-5",
