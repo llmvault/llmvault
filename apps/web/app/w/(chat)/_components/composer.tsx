@@ -606,7 +606,7 @@ function AttachmentPreviewTile({
         isIconOnly
         aria-label={`Remove ${fileName}`}
         onPress={onRemove}
-        className="absolute top-2 -right-2 z-20 h-5 w-5 min-w-5 rounded-full bg-foreground p-0 text-background shadow-sm hover:bg-foreground/90"
+        className="absolute top-1 right-1 z-20 h-5 w-5 min-w-5 rounded-full bg-foreground p-0 text-background shadow-sm hover:bg-foreground/90"
       >
         <Icon icon="lucide:x" className="h-3 w-3" />
       </Button>
