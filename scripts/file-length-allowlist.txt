@@ -8,8 +8,3 @@
 
 # Code generated from the curated model catalog snapshot.
 internal/registry/models.go
-
-# Pre-existing files grandfathered from main at the time the 300-line rule
-# was introduced.
-internal/handler/images_describe.go
-internal/handler/images_describe_test.go
