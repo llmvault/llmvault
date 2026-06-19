@@ -146,14 +146,13 @@ case "$suite" in
       github.com/usehivy/hivy/internal/microsandbox/control \
       github.com/usehivy/hivy/internal/microsandbox/runner \
       github.com/usehivy/hivy/internal/microsandbox/security \
-      github.com/usehivy/hivy/internal/microsandbox/storage \
       github.com/usehivy/hivy/internal/netguard \
       github.com/usehivy/hivy/internal/plugins \
       github.com/usehivy/hivy/internal/precontext \
       github.com/usehivy/hivy/internal/railway \
       github.com/usehivy/hivy/internal/sandbox/microsandbox \
       github.com/usehivy/hivy/internal/sandbox/railway \
-      github.com/usehivy/hivy/internal/token | shard_lines)" -skip '^TestLiveProviderSnapshotE2E$'
+      github.com/usehivy/hivy/internal/token | shard_lines)" -skip '^TestLiveProviderTemplateE2E$'
     ;;
   e2e)
     run_test_names ./e2e
