@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
@@ -21,6 +22,8 @@ use tools::{JsonTool, ProcessRegistry, ToolDefinition};
 use crate::{PlanUpdater, QuestionRequester};
 
 pub type ToolFuture = Pin<Box<dyn Future<Output = Result<Value>> + Send>>;
+
+static SUBAGENT_TASK_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 pub struct DynamicTool {
     definition: ToolDefinition,
@@ -725,7 +728,7 @@ fn subagent_task_tool(
                 }
 
                 let now = Utc::now();
-                let id = format!("subagent-task-{}", now.timestamp_millis());
+                let id = next_subagent_task_id(now);
                 let child_session_id = SessionId::from(format!("subagent-{}", id));
 
                 let task = SubagentTask {
@@ -757,6 +760,11 @@ fn subagent_task_tool(
             })
         },
     ))
+}
+
+fn next_subagent_task_id(now: DateTime<Utc>) -> String {
+    let sequence = SUBAGENT_TASK_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("subagent-task-{}-{}", now.timestamp_millis(), sequence)
 }
 
 fn check_subagent_task_status_tool(repo: Arc<dyn SubagentTaskRepo>) -> Arc<dyn JsonTool> {

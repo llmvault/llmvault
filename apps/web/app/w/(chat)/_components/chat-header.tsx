@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { memo, useState } from "react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { ChatHeaderAgentLogo } from "./chat-header-agent-logo"
@@ -29,7 +29,7 @@ const CHAT_ACTIONS = [
   { id: "delete", label: "Delete", icon: "lucide:trash-2", danger: true },
 ]
 
-export function ChatHeader({
+export const ChatHeader = memo(function ChatHeader({
   title,
   agent,
   sidebarOpen,
@@ -146,7 +146,7 @@ export function ChatHeader({
       </div>
     </div>
   )
-}
+})
 
 function PresenceStack() {
   return null

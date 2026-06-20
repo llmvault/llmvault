@@ -1108,6 +1108,8 @@ mod tests {
     use futures::StreamExt;
     use tokio::net::TcpListener;
 
+    use crate::tool_executor::{is_safe_tool_argument_error, missing_required_argument_message};
+
     use super::*;
 
     fn test_definition() -> AgentDefinition {
@@ -1144,6 +1146,12 @@ mod tests {
             ToolSpec::Bash(_) => "bash",
             ToolSpec::ReadFile(_) => "read_file",
             ToolSpec::WriteFile(_) => "write_file",
+            ToolSpec::FileSearch(_) => "file_search",
+            ToolSpec::Glob(_) => "glob",
+            ToolSpec::Grep(_) => "grep",
+            ToolSpec::MultiGrep(_) => "multi_grep",
+            ToolSpec::ApplyPatch(_) => "apply_patch",
+            ToolSpec::Lsp(_) => "lsp",
             ToolSpec::Cron => "cron",
             ToolSpec::SubagentTask(_) => "subagent_task",
             ToolSpec::CheckSubagentTaskStatus => "check_subagent_task_status",

@@ -30,7 +30,6 @@ import {
 } from "@/app/w/(chat)/_components/right-panel"
 import { Sidebar } from "@/app/w/(chat)/_components/sidebar"
 import { LineCommentsProvider } from "@/app/w/(chat)/_components/line-comments"
-import { SandboxRuntimeGate } from "@/app/w/(chat)/_components/sandbox-runtime-gate"
 import {
   agentById,
   DEFAULT_AGENT_ID,
@@ -46,6 +45,11 @@ import {
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
 import { hydrateSessionRuntimeFromResponse } from "@/app/w/(chat)/_stores/session-stream-manager"
+import {
+  getCachedSessionSandboxAccess,
+  getSessionSandboxAccess,
+  type SessionSandboxAccess,
+} from "@/app/w/(chat)/_lib/session-sandbox-access"
 import {
   selectSessionWorkspace,
   useSessionWorkspaceHydration,
@@ -87,7 +91,7 @@ interface WorkspaceContextValue {
   ) => void
   setModel: (modelId: string) => void
   openView: (id: PanelViewID) => void
-  sandboxAccess?: SessionSandboxAccessResponse
+  sandboxAccess?: SessionSandboxAccess
   sandboxAccessPending: boolean
   sandboxAccessError: unknown
   refreshSandboxAccess: () => void
@@ -96,10 +100,9 @@ interface WorkspaceContextValue {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 type SessionResponse = components["schemas"]["sessionResponse"]
 type AgentResponse = components["schemas"]["agentListItem"]
-type SessionSandboxAccessResponse =
-  components["schemas"]["sessionSandboxAccessResponse"]
 type SandboxRuntimeState = {
   sessionId: string
+  access?: SessionSandboxAccess
   pending: boolean
   error: unknown
 }
@@ -117,8 +120,10 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const queryClient = useQueryClient()
   const { user, activeOrg } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [rightOpen, setRightOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpenState] = useState(true)
+  const [rightOpen, setRightOpenState] = useState(false)
+  const sidebarOpenRef = useRef(true)
+  const rightOpenRef = useRef(false)
   const [draftSession, setDraftSession] = useState<ChatSession | null>(null)
   const [routePreviewSession, setRoutePreviewSession] = useState<{
     sessionId: string
@@ -139,8 +144,28 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     orgId: activeOrg?.id,
     userId: user?.id,
   })
-  const sessionWorkspace = useSessionWorkspaceStore((state) =>
-    selectSessionWorkspace(state, workspaceSessionKey)
+  const openViews = useSessionWorkspaceStore(
+    (state) =>
+      selectSessionWorkspace(state, workspaceSessionKey).rightPanel
+        .openViews as PanelViewID[]
+  )
+  const activeView = useSessionWorkspaceStore(
+    (state) =>
+      selectSessionWorkspace(state, workspaceSessionKey).rightPanel
+        .activeView as PanelViewID | null
+  )
+  const rightPanelOpen = useSessionWorkspaceStore(
+    (state) =>
+      selectSessionWorkspace(state, workspaceSessionKey).rightPanel.open
+  )
+  const rightMaximized = useSessionWorkspaceStore(
+    (state) =>
+      selectSessionWorkspace(state, workspaceSessionKey).rightPanel.maximized
+  )
+  const rightPanelSizePercent = useSessionWorkspaceStore(
+    (state) =>
+      selectSessionWorkspace(state, workspaceSessionKey).rightPanel
+        .sizePercent || RIGHT_SIZE
   )
   const openPanelView = useSessionWorkspaceStore((state) => state.openPanelView)
   const closePanelView = useSessionWorkspaceStore(
@@ -149,30 +174,15 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const setActivePanelView = useSessionWorkspaceStore(
     (state) => state.setActivePanelView
   )
+  const setRightPanelOpen = useSessionWorkspaceStore(
+    (state) => state.setRightPanelOpen
+  )
   const setRightPanelMaximized = useSessionWorkspaceStore(
     (state) => state.setRightPanelMaximized
   )
   const setRightPanelSize = useSessionWorkspaceStore(
     (state) => state.setRightPanelSize
   )
-  const openViews = sessionWorkspace.rightPanel.openViews as PanelViewID[]
-  const activeView = sessionWorkspace.rightPanel.activeView as PanelViewID | null
-  const rightMaximized = sessionWorkspace.rightPanel.maximized
-  const sandboxWakeMutation = $api.useMutation(
-    "post",
-    "/v1/sessions/{id}/sandbox/wake"
-  )
-  const { mutateAsync: wakeSandbox, reset: resetSandboxWake } =
-    sandboxWakeMutation
-  const sandboxAccessMutation = $api.useMutation(
-    "post",
-    "/v1/sessions/{id}/sandbox-access"
-  )
-  const {
-    data: sandboxAccess,
-    mutateAsync: requestSandboxAccess,
-    reset: resetSandboxAccess,
-  } = sandboxAccessMutation
   const routeSessionQuery = $api.useQuery(
     "get",
     "/v1/sessions/{id}",
@@ -241,21 +251,57 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     routeSessionQuery.isError,
   ])
   const session = routeSession ?? draftSession
+  const routeSandboxID = routeSessionQuery.data?.session?.sandbox_id ?? null
 
   const sidebarPanelRef = usePanelRef()
   const rightPanelRef = usePanelRef()
   const sidebarAnim = useRef<AnimationPlaybackControls | null>(null)
   const rightAnim = useRef<AnimationPlaybackControls | null>(null)
+  const rightProgrammaticResizeRef = useRef(false)
+  const rightPanelOpenRef = useRef(rightPanelOpen)
+  const rightPanelSizePercentRef = useRef(RIGHT_SIZE)
+  const workspaceSessionKeyRef = useRef(workspaceSessionKey)
+  const rightPanelSizePersistTimer = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null)
   const sidebarWasOpenRef = useRef(true)
+
+  useEffect(() => {
+    workspaceSessionKeyRef.current = workspaceSessionKey
+  }, [workspaceSessionKey])
+
+  useEffect(() => {
+    rightPanelOpenRef.current = rightPanelOpen
+  }, [rightPanelOpen])
+
+  useEffect(() => {
+    rightPanelSizePercentRef.current = rightPanelSizePercent
+  }, [rightPanelSizePercent])
+
+  const updateSidebarOpen = useCallback((open: boolean) => {
+    if (sidebarOpenRef.current === open) return
+    sidebarOpenRef.current = open
+    setSidebarOpenState(open)
+  }, [])
+
+  const updateRightOpen = useCallback((open: boolean) => {
+    if (rightOpenRef.current === open) return
+    rightOpenRef.current = open
+    setRightOpenState(open)
+  }, [])
 
   const animatePanel = useCallback(
     (
       handle: PanelImperativeHandle | null,
       anim: React.RefObject<AnimationPlaybackControls | null>,
       to: number,
-      unit: "px" | "%"
+      unit: "px" | "%",
+      onComplete?: () => void
     ) => {
-      if (!handle) return
+      if (!handle) {
+        onComplete?.()
+        return
+      }
       anim.current?.stop()
       const size = handle.getSize()
       const from = unit === "px" ? size.inPixels : size.asPercentage
@@ -263,67 +309,87 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         duration: 0.3,
         ease: PANEL_EASE,
         onUpdate: (value) => handle.resize(unit === "px" ? value : `${value}%`),
+        onComplete,
       })
     },
     []
   )
 
   const toggleSidebar = useCallback(() => {
+    const isOpen = sidebarOpenRef.current
     animatePanel(
       sidebarPanelRef.current,
       sidebarAnim,
-      sidebarOpen ? 0 : SIDEBAR_WIDTH,
+      isOpen ? 0 : SIDEBAR_WIDTH,
       "px"
     )
-  }, [animatePanel, sidebarOpen, sidebarPanelRef])
+  }, [animatePanel, sidebarPanelRef])
 
   const setRightSize = useCallback(
     (percent: number) => {
-      animatePanel(rightPanelRef.current, rightAnim, percent, "%")
+      rightProgrammaticResizeRef.current = true
+      animatePanel(rightPanelRef.current, rightAnim, percent, "%", () => {
+        rightProgrammaticResizeRef.current = false
+      })
     },
     [animatePanel, rightPanelRef]
   )
 
+  const scheduleRightPanelSizePersist = useCallback(
+    (percent: number) => {
+      rightPanelSizePercentRef.current = percent
+      if (rightPanelSizePersistTimer.current) {
+        clearTimeout(rightPanelSizePersistTimer.current)
+      }
+      const sessionKey = workspaceSessionKeyRef.current
+      rightPanelSizePersistTimer.current = setTimeout(() => {
+        rightPanelSizePersistTimer.current = null
+        setRightPanelSize(sessionKey, percent)
+      }, 200)
+    },
+    [setRightPanelSize]
+  )
+
+  useEffect(
+    () => () => {
+      if (rightPanelSizePersistTimer.current) {
+        clearTimeout(rightPanelSizePersistTimer.current)
+      }
+    },
+    []
+  )
+
   const toggleRight = useCallback(() => {
+    const nextOpen = !rightPanelOpen
     setRightPanelMaximized(workspaceSessionKey, false)
-    setRightSize(
-      rightOpen
-        ? 0
-        : sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE
-    )
+    setRightPanelOpen(workspaceSessionKey, nextOpen)
   }, [
-    rightOpen,
-    sessionWorkspace.rightPanel.sizePercent,
+    rightPanelOpen,
+    setRightPanelOpen,
     setRightPanelMaximized,
-    setRightSize,
     workspaceSessionKey,
   ])
 
   const toggleMaximize = useCallback(() => {
     const next = !rightMaximized
+    setRightPanelOpen(workspaceSessionKey, true)
     setRightPanelMaximized(workspaceSessionKey, next)
     if (next) {
       // Maximizing the right panel takes the sidebar's room; remember
       // whether it was open so restoring brings it back.
-      sidebarWasOpenRef.current = sidebarOpen
-      if (sidebarOpen) {
+      const sidebarOpenNow = sidebarOpenRef.current
+      sidebarWasOpenRef.current = sidebarOpenNow
+      if (sidebarOpenNow) {
         animatePanel(sidebarPanelRef.current, sidebarAnim, 0, "px")
       }
-    } else if (sidebarWasOpenRef.current && !sidebarOpen) {
+    } else if (sidebarWasOpenRef.current && !sidebarOpenRef.current) {
       animatePanel(sidebarPanelRef.current, sidebarAnim, SIDEBAR_WIDTH, "px")
     }
-    setRightSize(
-      next
-        ? RIGHT_MAX_SIZE
-        : sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE
-    )
   }, [
     animatePanel,
     rightMaximized,
-    sessionWorkspace.rightPanel.sizePercent,
+    setRightPanelOpen,
     setRightPanelMaximized,
-    setRightSize,
-    sidebarOpen,
     sidebarPanelRef,
     workspaceSessionKey,
   ])
@@ -331,22 +397,22 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const openView = useCallback(
     (id: PanelViewID) => {
       openPanelView(workspaceSessionKey, id as WorkspacePanelViewID)
-      if (!rightOpen) {
-        setRightSize(sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE)
-      }
     },
-    [
-      openPanelView,
-      rightOpen,
-      sessionWorkspace.rightPanel.sizePercent,
-      setRightSize,
-      workspaceSessionKey,
-    ]
+    [openPanelView, workspaceSessionKey]
   )
 
-  const closeView = (id: PanelViewID) => {
-    closePanelView(workspaceSessionKey, id as WorkspacePanelViewID)
-  }
+  const closeView = useCallback(
+    (id: PanelViewID) => {
+      closePanelView(workspaceSessionKey, id as WorkspacePanelViewID)
+    },
+    [closePanelView, workspaceSessionKey]
+  )
+
+  const selectView = useCallback(
+    (id: PanelViewID) =>
+      setActivePanelView(workspaceSessionKey, id as WorkspacePanelViewID),
+    [setActivePanelView, workspaceSessionKey]
+  )
 
   const startNewChat = useCallback(() => {
     setDraftSession(null)
@@ -411,30 +477,48 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  const sandboxRuntimeReady =
+  const runtimeAccessNeeded =
     Boolean(routeSessionID) &&
     !routeIsOptimistic &&
+    rightPanelOpen &&
+    panelViewNeedsRuntimeAccess(activeView)
+  const sandboxRuntimeStateMatches =
+    sandboxRuntimeState?.sessionId === routeSessionID
+  const sandboxAccess = sandboxRuntimeStateMatches
+    ? sandboxRuntimeState?.access
+    : undefined
+  const sandboxRuntimeReady =
+    runtimeAccessNeeded &&
     sandboxAccess?.session_id === routeSessionID &&
     Boolean(sandboxAccess?.sandbox_base_url) &&
     Boolean(sandboxAccess?.token)
-  const sandboxRuntimeStateMatches =
-    sandboxRuntimeState?.sessionId === routeSessionID
   const sandboxRuntimeError = sandboxRuntimeStateMatches
     ? sandboxRuntimeState?.error
     : null
   const sandboxRuntimePending =
-    Boolean(routeSessionID) &&
-    !routeIsOptimistic &&
+    runtimeAccessNeeded &&
     !sandboxRuntimeReady &&
     !sandboxRuntimeError
   const sandboxAccessPendingForSession = sandboxRuntimePending
 
-  const refreshSandboxAccess = useCallback(() => {
+  const loadSandboxAccess = useCallback((options: { force?: boolean } = {}) => {
     if (!routeSessionID || routeIsOptimistic) return
     const requestID = sandboxRuntimeRequestRef.current + 1
     sandboxRuntimeRequestRef.current = requestID
-    resetSandboxWake()
-    resetSandboxAccess()
+    const cached = options.force
+      ? null
+      : getCachedSessionSandboxAccess(routeSessionID, {
+          expectedSandboxId: routeSandboxID,
+        })
+    if (cached) {
+      setSandboxRuntimeState({
+        sessionId: routeSessionID,
+        access: cached,
+        pending: false,
+        error: null,
+      })
+      return
+    }
     setSandboxRuntimeState({
       sessionId: routeSessionID,
       pending: true,
@@ -442,11 +526,14 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     })
     void (async () => {
       try {
-        await wakeSandbox({ params: { path: { id: routeSessionID } } })
-        await requestSandboxAccess({ params: { path: { id: routeSessionID } } })
+        const access = await getSessionSandboxAccess(routeSessionID, {
+          expectedSandboxId: routeSandboxID,
+          force: options.force,
+        })
         if (sandboxRuntimeRequestRef.current !== requestID) return
         setSandboxRuntimeState({
           sessionId: routeSessionID,
+          access,
           pending: false,
           error: null,
         })
@@ -459,30 +546,34 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         })
       }
     })()
-  }, [
-    requestSandboxAccess,
-    resetSandboxAccess,
-    resetSandboxWake,
-    routeIsOptimistic,
-    routeSessionID,
-    wakeSandbox,
-  ])
+  }, [routeIsOptimistic, routeSandboxID, routeSessionID])
+
+  const refreshSandboxAccess = useCallback(() => {
+    loadSandboxAccess({ force: true })
+  }, [loadSandboxAccess])
 
   useEffect(() => {
-    if (!routeSessionID || routeIsOptimistic) {
+    if (!routeSessionID || routeIsOptimistic || !runtimeAccessNeeded) {
       sandboxRuntimeRequestRef.current += 1
-      window.queueMicrotask(() => setSandboxRuntimeState(null))
-      resetSandboxWake()
-      resetSandboxAccess()
+      if (!routeSessionID || routeIsOptimistic) {
+        window.queueMicrotask(() => setSandboxRuntimeState(null))
+      } else {
+        window.queueMicrotask(() =>
+          setSandboxRuntimeState((current) =>
+            current?.sessionId === routeSessionID && current.pending
+              ? { ...current, pending: false }
+              : current
+          )
+        )
+      }
       return
     }
-    window.queueMicrotask(refreshSandboxAccess)
+    window.queueMicrotask(() => loadSandboxAccess())
   }, [
-    refreshSandboxAccess,
-    resetSandboxAccess,
-    resetSandboxWake,
+    loadSandboxAccess,
     routeIsOptimistic,
     routeSessionID,
+    runtimeAccessNeeded,
   ])
 
   useEffect(() => {
@@ -490,19 +581,17 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   }, [queryClient, routeSessionQuery.data?.session])
 
   useEffect(() => {
-    const hasOpenViews = sessionWorkspace.rightPanel.openViews.length > 0
-    const nextSize = hasOpenViews
+    const nextSize = rightPanelOpen
       ? rightMaximized
         ? RIGHT_MAX_SIZE
-        : sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE
+        : rightPanelSizePercentRef.current
       : 0
     setRightSize(nextSize)
   }, [
     rightMaximized,
-    routeSessionID,
-    sessionWorkspace.rightPanel.openViews.length,
-    sessionWorkspace.rightPanel.sizePercent,
+    rightPanelOpen,
     setRightSize,
+    workspaceSessionKey,
   ])
 
   const workspace = useMemo(
@@ -533,6 +622,10 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       refreshSandboxAccess,
     ]
   )
+  const headerAgent = useMemo(
+    () => (session ? chatHeaderAgent(session) : null),
+    [session]
+  )
 
   return (
     <WorkspaceContext.Provider value={workspace}>
@@ -546,7 +639,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               minSize={0}
               maxSize={420}
               className="min-w-0 overflow-hidden"
-              onResize={(size) => setSidebarOpen(size.inPixels > 8)}
+              onResize={(size) => updateSidebarOpen(size.inPixels > 8)}
             >
               <div className="h-full min-w-[230px]">
                 <Sidebar onCollapse={toggleSidebar} />
@@ -562,28 +655,21 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               <div className="flex h-full min-w-0 flex-col">
                 <ChatHeader
                   title={session?.title ?? "New chat"}
-                  agent={session ? chatHeaderAgent(session) : null}
+                  agent={headerAgent}
                   sidebarOpen={sidebarOpen}
                   onExpandSidebar={toggleSidebar}
-                  rightOpen={rightOpen}
+                  rightOpen={rightPanelOpen || rightOpen}
                   onToggleRight={toggleRight}
                 />
                 <div className="relative min-h-0 flex-1">
                   {children}
-                  <SandboxRuntimeGate
-                    sessionId={routeSessionID}
-                    ready={sandboxRuntimeReady}
-                    pending={sandboxAccessPendingForSession}
-                    error={sandboxRuntimeError}
-                    onRetry={refreshSandboxAccess}
-                  />
                 </div>
               </div>
             </Panel>
 
             <Separator
               className={`shrink-0 bg-border transition-colors hover:bg-accent data-[resizing]:bg-accent ${
-                rightOpen ? "w-px" : "w-0"
+                rightPanelOpen || rightOpen ? "w-px" : "w-0"
               }`}
             />
             <Panel
@@ -594,9 +680,14 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               className="min-w-0 overflow-hidden"
               onResize={(size) => {
                 const open = size.inPixels > 8
-                setRightOpen(open)
-                if (open && !rightMaximized) {
-                  setRightPanelSize(workspaceSessionKey, size.asPercentage)
+                const programmatic = rightProgrammaticResizeRef.current
+                updateRightOpen(open)
+                if (!programmatic && open !== rightPanelOpenRef.current) {
+                  rightPanelOpenRef.current = open
+                  setRightPanelOpen(workspaceSessionKey, open)
+                }
+                if (open && !rightMaximized && !programmatic) {
+                  scheduleRightPanelSizePersist(size.asPercentage)
                 }
               }}
             >
@@ -610,12 +701,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                   openViews={openViews}
                   activeView={activeView}
                   maximized={rightMaximized}
-                  onSelectView={(id) =>
-                    setActivePanelView(
-                      workspaceSessionKey,
-                      id as WorkspacePanelViewID
-                    )
-                  }
+                  onSelectView={selectView}
                   onOpenView={openView}
                   onCloseView={closeView}
                   onToggleMaximize={toggleMaximize}
@@ -671,4 +757,8 @@ function chatHeaderAgent(session: ChatSession): ChatHeaderAgent {
     icon: session.agentIcon ?? fallback.icon,
     avatarURL: session.agentAvatarURL,
   }
+}
+
+function panelViewNeedsRuntimeAccess(view: PanelViewID | null) {
+  return view === "review" || view === "files"
 }

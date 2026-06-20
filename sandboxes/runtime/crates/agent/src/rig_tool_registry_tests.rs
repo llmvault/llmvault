@@ -391,6 +391,20 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
     assert_eq!(status["session_id"], format!("subagent-{job_id}").as_str());
 }
 
+#[test]
+fn subagent_task_ids_are_unique_with_same_timestamp() {
+    let now = DateTime::parse_from_rfc3339("2026-06-20T00:00:00Z")
+        .expect("fixed timestamp")
+        .with_timezone(&Utc);
+
+    let first = next_subagent_task_id(now);
+    let second = next_subagent_task_id(now);
+
+    assert_ne!(first, second);
+    assert!(first.starts_with("subagent-task-1781913600000-"));
+    assert!(second.starts_with("subagent-task-1781913600000-"));
+}
+
 #[tokio::test]
 async fn wake_tool_persists_parent_session_stream_id() {
     let scheduler = Arc::new(FakeWakeScheduler::default());

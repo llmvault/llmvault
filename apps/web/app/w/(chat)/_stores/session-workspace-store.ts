@@ -56,6 +56,7 @@ export interface SessionWorkspace {
   }
   lineComments: CodeLineComment[]
   rightPanel: {
+    open: boolean
     openViews: WorkspacePanelViewID[]
     activeView: WorkspacePanelViewID | null
     maximized: boolean
@@ -146,6 +147,7 @@ interface SessionWorkspaceStoreState {
     sessionId: string,
     view: WorkspacePanelViewID | null
   ) => void
+  setRightPanelOpen: (sessionId: string, open: boolean) => void
   setRightPanelMaximized: (sessionId: string, maximized: boolean) => void
   setRightPanelSize: (sessionId: string, sizePercent: number) => void
   setFilesSelectedRepo: (sessionId: string, repoId: string | null) => void
@@ -174,8 +176,12 @@ const SESSION_WORKSPACE_MAX_ENTRIES = 50
 const PERSIST_DEBOUNCE_MS = 350
 const DEFAULT_RIGHT_PANEL_SIZE = 42
 const WORKSPACE_STORE = createStore("hivy-session-workspaces", "ui-v1")
-const WORKSPACE_BLOB_STORE = createStore("hivy-session-workspaces", "blobs-v1")
+const WORKSPACE_BLOB_STORE = createStore(
+  "hivy-session-workspace-blobs",
+  "blobs-v1"
+)
 const EMPTY_WORKSPACES: Record<string, SessionWorkspace> = {}
+const DEFAULT_SESSION_WORKSPACE = createDefaultSessionWorkspace(0)
 let hydrationRun = 0
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -318,6 +324,7 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
           ...workspace,
           rightPanel: {
             ...workspace.rightPanel,
+            open: true,
             openViews: workspace.rightPanel.openViews.includes(view)
               ? workspace.rightPanel.openViews
               : [...workspace.rightPanel.openViews, view],
@@ -350,7 +357,23 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
       setState((state) =>
         updateWorkspaceState(state, sessionId, (workspace) => ({
           ...workspace,
-          rightPanel: { ...workspace.rightPanel, activeView: view },
+          rightPanel: {
+            ...workspace.rightPanel,
+            open: view ? true : workspace.rightPanel.open,
+            activeView: view,
+          },
+        }))
+      )
+    },
+    setRightPanelOpen(sessionId, open) {
+      setState((state) =>
+        updateWorkspaceState(state, sessionId, (workspace) => ({
+          ...workspace,
+          rightPanel: {
+            ...workspace.rightPanel,
+            open,
+            maximized: open ? workspace.rightPanel.maximized : false,
+          },
         }))
       )
     },
@@ -358,7 +381,11 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
       setState((state) =>
         updateWorkspaceState(state, sessionId, (workspace) => ({
           ...workspace,
-          rightPanel: { ...workspace.rightPanel, maximized },
+          rightPanel: {
+            ...workspace.rightPanel,
+            open: maximized ? true : workspace.rightPanel.open,
+            maximized,
+          },
         }))
       )
     },
@@ -449,10 +476,10 @@ export function useSessionWorkspaceHydration(scope: WorkspaceScope) {
 }
 
 export function sessionWorkspaceSnapshot(sessionId?: string) {
-  if (!sessionId) return defaultSessionWorkspace()
+  if (!sessionId) return DEFAULT_SESSION_WORKSPACE
   return (
     useSessionWorkspaceStore.getState().workspaces[sessionId] ??
-    defaultSessionWorkspace()
+    DEFAULT_SESSION_WORKSPACE
   )
 }
 
@@ -460,8 +487,8 @@ export function selectSessionWorkspace(
   state: SessionWorkspaceStoreState,
   sessionId?: string
 ) {
-  if (!sessionId) return defaultSessionWorkspace()
-  return state.workspaces[sessionId] ?? defaultSessionWorkspace()
+  if (!sessionId) return DEFAULT_SESSION_WORKSPACE
+  return state.workspaces[sessionId] ?? DEFAULT_SESSION_WORKSPACE
 }
 
 export function createDraftBlobKey(sessionId: string, uploadId: string) {
@@ -470,7 +497,7 @@ export function createDraftBlobKey(sessionId: string, uploadId: string) {
 }
 
 export async function storeDraftAttachmentBlob(key: string, file: File) {
-  await set(key, file, WORKSPACE_BLOB_STORE)
+  await bestEffortIDB(() => set(key, file, WORKSPACE_BLOB_STORE))
 }
 
 export async function readDraftAttachmentBlob(key: string) {
@@ -479,7 +506,7 @@ export async function readDraftAttachmentBlob(key: string) {
 
 export async function deleteDraftAttachmentBlob(key?: string) {
   if (!key) return
-  await del(key, WORKSPACE_BLOB_STORE)
+  await bestEffortIDB(() => del(key, WORKSPACE_BLOB_STORE))
 }
 
 export async function clearPersistedSessionWorkspaces() {
@@ -491,7 +518,7 @@ export async function clearPersistedSessionWorkspaces() {
     status: "idle",
     workspaces: EMPTY_WORKSPACES,
   })
-  await Promise.all([clear(WORKSPACE_STORE), clear(WORKSPACE_BLOB_STORE)])
+  await Promise.allSettled([clear(WORKSPACE_STORE), clear(WORKSPACE_BLOB_STORE)])
 }
 
 function updateWorkspaceState(
@@ -499,7 +526,7 @@ function updateWorkspaceState(
   sessionId: string,
   update: (workspace: SessionWorkspace) => SessionWorkspace
 ): Pick<SessionWorkspaceStoreState, "workspaces"> {
-  const current = state.workspaces[sessionId] ?? defaultSessionWorkspace()
+  const current = state.workspaces[sessionId] ?? createDefaultSessionWorkspace()
   const next = {
     ...update(current),
     lastTouchedAt: Date.now(),
@@ -512,9 +539,9 @@ function updateWorkspaceState(
   }
 }
 
-function defaultSessionWorkspace(): SessionWorkspace {
+function createDefaultSessionWorkspace(lastTouchedAt = Date.now()): SessionWorkspace {
   return {
-    lastTouchedAt: Date.now(),
+    lastTouchedAt,
     composer: {
       text: "",
       accessMode: "full",
@@ -524,6 +551,7 @@ function defaultSessionWorkspace(): SessionWorkspace {
     },
     lineComments: [],
     rightPanel: {
+      open: false,
       openViews: [],
       activeView: null,
       maximized: false,
@@ -573,11 +601,19 @@ function restoreWorkspaces(
   const restored: Record<string, SessionWorkspace> = {}
   for (const [sessionId, workspace] of Object.entries(persisted)) {
     if (now - workspace.lastTouchedAt > SESSION_WORKSPACE_TTL_MS) continue
+    const defaults = createDefaultSessionWorkspace(0)
     restored[sessionId] = {
-      ...defaultSessionWorkspace(),
+      ...defaults,
       ...workspace,
+      rightPanel: {
+        ...defaults.rightPanel,
+        ...workspace.rightPanel,
+        open:
+          workspace.rightPanel.open ??
+          (workspace.rightPanel.openViews?.length ?? 0) > 0,
+      },
       composer: {
-        ...defaultSessionWorkspace().composer,
+        ...defaults.composer,
         ...workspace.composer,
         uploads: workspace.composer.uploads.map((upload) => ({
           ...upload,
@@ -585,7 +621,7 @@ function restoreWorkspaces(
         })),
       },
       files: {
-        ...defaultSessionWorkspace().files,
+        ...defaults.files,
         ...workspace.files,
         repoTreeCaches: Object.fromEntries(
           Object.entries(workspace.files.repoTreeCaches ?? {}).map(
@@ -665,8 +701,8 @@ useSessionWorkspaceStore.subscribe(
           workspaces: persistableWorkspaces(workspaces),
         } satisfies PersistedSessionWorkspaces,
         WORKSPACE_STORE
-      )
-      void pruneStoredBlobs(workspaces)
+      ).catch(() => undefined)
+      void pruneStoredBlobs(workspaces).catch(() => undefined)
     }, PERSIST_DEBOUNCE_MS)
   }
 )
@@ -687,4 +723,13 @@ async function pruneStoredBlobs(workspaces: Record<string, SessionWorkspace>) {
         : Promise.resolve()
     )
   )
+}
+
+async function bestEffortIDB(operation: () => Promise<unknown>) {
+  try {
+    await operation()
+  } catch {
+    // Draft attachment blob persistence is opportunistic. Metadata still
+    // persists, and reads surface missing blobs back to the composer.
+  }
 }

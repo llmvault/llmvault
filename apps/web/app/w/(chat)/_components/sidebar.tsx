@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { memo, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useQueries, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
@@ -24,7 +24,11 @@ import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream
 const SIDEBAR_CHANNEL_PAGE_LIMIT = 100
 const CHANNELS_INFINITE_KEY = "channels-infinite-v1"
 
-export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
+export const Sidebar = memo(function Sidebar({
+  onCollapse,
+}: {
+  onCollapse: () => void
+}) {
   const { startNewChat } = useWorkspace()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -206,4 +210,4 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
       </div>
     </div>
   )
-}
+})

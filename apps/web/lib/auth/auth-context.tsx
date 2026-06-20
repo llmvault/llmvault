@@ -14,6 +14,7 @@ import { $api } from "@/lib/api/hooks"
 import { api } from "@/lib/api/client"
 import type { components } from "@/lib/api/schema"
 import { clearPersistedChatQueries } from "@/app/w/(chat)/_lib/chat-cache"
+import { clearSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 import { stopAllSessionStreams } from "@/app/w/(chat)/_stores/session-stream-manager"
 import { clearPersistedSessionWorkspaces } from "@/app/w/(chat)/_stores/session-workspace-store"
 
@@ -116,6 +117,7 @@ export function AuthProvider({
   const logout = useCallback(async () => {
     await api.POST("/auth/logout", { body: {} })
     stopAllSessionStreams()
+    clearSessionSandboxAccess()
     queryClient.clear()
     await clearPersistedChatQueries()
     await clearPersistedSessionWorkspaces()

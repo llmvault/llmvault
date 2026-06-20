@@ -9,12 +9,14 @@ import (
 func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace, label string, events []runtimeSSEEvent) {
 	t.Helper()
 	started := map[string]int{}
+	startOrder := map[string]int{}
 	completed := map[string]int{}
 	scopedFinals := map[string]int{}
 	scopedEvents := map[string]int{}
 	doneCount := 0
+	firstCompletedIndex := -1
 
-	for _, event := range events {
+	for index, event := range events {
 		if event.Name == "done" {
 			doneCount++
 		}
@@ -27,10 +29,16 @@ func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace
 			}
 			assertSubagentMarker(t, label, event, agent)
 			started[agent]++
+			if _, exists := startOrder[agent]; !exists {
+				startOrder[agent] = index
+			}
 		}
 		if event.Name == "subagent_completed" {
 			assertSubagentMarker(t, label, event, agent)
 			completed[agent]++
+			if firstCompletedIndex == -1 {
+				firstCompletedIndex = index
+			}
 		}
 		if scope == "subagent" {
 			assertSubagentMarker(t, label, event, agent)
@@ -47,7 +55,7 @@ func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace
 	if doneCount != 1 {
 		t.Fatalf("%s shared stream done count=%d want=1 events=%s", label, doneCount, summarizeEvents(events))
 	}
-	for _, agent := range []string{"planner", "qa", "reviewer"} {
+	for _, agent := range agentRuntimeE2EHakareeSubagents {
 		if started[agent] == 0 {
 			t.Fatalf("%s missing subagent_started for %s; started=%v events=%s", label, agent, started, summarizeEvents(events))
 		}
@@ -61,7 +69,24 @@ func assertRuntimeSharedSubagentStream(t *testing.T, trace *agentRuntimeE2ETrace
 			t.Fatalf("%s missing scoped final event for %s; finals=%v events=%s", label, agent, scopedFinals, summarizeEvents(events))
 		}
 	}
+	assertSubagentsStartedBeforeFirstCompletion(t, label, startOrder, firstCompletedIndex, events)
 	trace.Logf("assert", "%s shared subagent stream passed started=%v completed=%v scoped=%v finals=%v", label, started, completed, scopedEvents, scopedFinals)
+}
+
+func assertSubagentsStartedBeforeFirstCompletion(t *testing.T, label string, startOrder map[string]int, firstCompletedIndex int, events []runtimeSSEEvent) {
+	t.Helper()
+	if firstCompletedIndex < 0 {
+		t.Fatalf("%s missing first subagent completion; events=%s", label, summarizeEvents(events))
+	}
+	for _, agent := range agentRuntimeE2EHakareeSubagents {
+		startIndex, ok := startOrder[agent]
+		if !ok {
+			t.Fatalf("%s missing start order for %s; starts=%v events=%s", label, agent, startOrder, summarizeEvents(events))
+		}
+		if startIndex > firstCompletedIndex {
+			t.Fatalf("%s subagent %s started after first completion; starts=%v first_completed_index=%d events=%s", label, agent, startOrder, firstCompletedIndex, summarizeEvents(events))
+		}
+	}
 }
 
 func assertSubagentMarker(t *testing.T, label string, event runtimeSSEEvent, agent string) {
