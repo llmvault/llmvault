@@ -27,7 +27,7 @@ func agentSandboxEnvVars(cfg *config.Config, runtimeSecret string, sb *model.San
 		agentruntime.AgentEnvCloudControlPlaneURL:     controlPlaneBaseURL,
 		agentruntime.AgentEnvDriveUploadBearer:        runtimeSecret,
 		agentruntime.AgentEnvWorkspaceRoot:            "/workspace",
-		agentruntime.AgentEnvDBPath:                   "/app/data/hivy-sandboxes-runtime.db",
+		agentruntime.AgentEnvDBPath:                   agentruntime.AgentRuntimeDBPath,
 		agentruntime.AgentEnvRuntimeBindAddr:          fmt.Sprintf("0.0.0.0:%d", AgentSandboxPort),
 		// Provision a tunnel password so the tunnel proxy fails closed (an open proxy
 		// to every sandbox localhost port when unset).

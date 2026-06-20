@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -76,6 +77,9 @@ func TestDriverCreateWarmSlotCreatesRunningRuntimeEndpoint(t *testing.T) {
 	}
 	if env["HIVY_RUNTIME_SECRET"] != "runtime-secret" || env["HIVY_RUNTIME_BIND_ADDR"] != "0.0.0.0:7080" {
 		t.Fatalf("runtime env = %#v", env)
+	}
+	if env[agentruntime.AgentEnvDBPath] != agentruntime.AgentRuntimeDBPath {
+		t.Fatalf("runtime db path = %v, want %s", env[agentruntime.AgentEnvDBPath], agentruntime.AgentRuntimeDBPath)
 	}
 	metadata, ok := createReq["metadata"].(map[string]any)
 	if !ok {
