@@ -10,7 +10,7 @@ import (
 
 func (m *MicrosandboxBackend) startSandboxLocked(ctx context.Context, sandboxID string) error {
 	actual := m.actualState(ctx, sandboxID)
-	if actual.healthyRunning() {
+	if actual.infrastructureRunning() {
 		m.setSandboxStatus(sandboxID, "running")
 		return nil
 	}
@@ -25,7 +25,7 @@ func (m *MicrosandboxBackend) startSandboxLocked(ctx context.Context, sandboxID 
 			return err
 		}
 		actual = m.actualState(ctx, sandboxID)
-		if actual.healthyRunning() {
+		if actual.infrastructureRunning() {
 			m.setSandboxStatus(sandboxID, "running")
 			return nil
 		}
@@ -41,7 +41,7 @@ func (m *MicrosandboxBackend) startSandboxLocked(ctx context.Context, sandboxID 
 		}
 	}
 
-	if err := m.waitForHealthyRunning(ctx, sandboxID); err != nil {
+	if err := m.waitForInfrastructureRunning(ctx, sandboxID); err != nil {
 		return fmt.Errorf("verify running: %w", err)
 	}
 	m.setSandboxStatus(sandboxID, "running")

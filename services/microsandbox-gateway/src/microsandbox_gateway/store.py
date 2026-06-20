@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime
 from typing import Any, Protocol
 
 import redis.asyncio as redis
 
 ROUTE_PREFIX = "microsandbox:preview-route:"
-ACTIVITY_PREFIX = "microsandbox:preview-activity:"
 ACTIVITY_DEBOUNCE_PREFIX = "microsandbox:preview-activity-debounce:"
 WAKE_LOCK_PREFIX = "microsandbox:preview-wake:"
 
@@ -55,10 +55,6 @@ def route_key(sandbox_id: str) -> str:
     return ROUTE_PREFIX + sandbox_id
 
 
-def activity_key(sandbox_id: str) -> str:
-    return ACTIVITY_PREFIX + sandbox_id
-
-
 def activity_debounce_key(sandbox_id: str) -> str:
     return ACTIVITY_DEBOUNCE_PREFIX + sandbox_id
 
@@ -74,6 +70,8 @@ async def load_route(store: Store, sandbox_id: str) -> dict[str, Any] | None:
 async def store_route(store: Store, route: dict[str, Any]) -> None:
     route = normalize_route(route)
     ttl = int(route.get("ttl_seconds") or 0)
+    if ttl <= 0:
+        ttl = route_cache_ttl_seconds(route)
     await store.set_json(route_key(route["sandbox_id"]), route, ttl)
 
 
@@ -81,9 +79,8 @@ async def delete_route(store: Store, sandbox_id: str) -> bool:
     return bool(await store.delete(route_key(sandbox_id)))
 
 
-async def mark_activity(store: Store, sandbox_id: str, debounce_seconds: int) -> bool:
+async def acquire_activity_report(store: Store, sandbox_id: str, debounce_seconds: int) -> bool:
     now = str(int(time.time()))
-    await store.set_value(activity_key(sandbox_id), now, ttl=3600)
     return await store.set_value(
         activity_debounce_key(sandbox_id),
         now,
@@ -124,14 +121,47 @@ def route_running(route: dict[str, Any] | None) -> bool:
     return (route.get("status") or "running") in ("running", "ready", "")
 
 
-def route_stale(route: dict[str, Any] | None, stale_seconds: int) -> bool:
+def route_lease_valid(route: dict[str, Any] | None, now: float | None = None) -> bool:
     if not route:
+        return False
+    expires_at = parse_route_time(route.get("lease_expires_at"))
+    if expires_at is None:
+        return False
+    return expires_at > (now if now is not None else time.time())
+
+
+def route_activity_due(route: dict[str, Any] | None, now: float | None = None) -> bool:
+    if not route:
+        return False
+    next_after = parse_route_time(route.get("next_activity_after"))
+    if next_after is None:
         return True
+    return next_after <= (now if now is not None else time.time())
+
+
+def route_cache_ttl_seconds(route: dict[str, Any]) -> int:
+    expires_at = parse_route_time(route.get("lease_expires_at"))
+    if expires_at is None:
+        return 0
+    return max(1, int(expires_at - time.time()) + 60)
+
+
+def parse_route_time(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    raw = str(value).strip()
+    if not raw:
+        return None
+    if raw.isdigit():
+        return float(raw)
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
     try:
-        updated_at = int(route.get("updated_at") or 0)
-    except (TypeError, ValueError):
-        return True
-    return updated_at <= 0 or int(time.time()) - updated_at > stale_seconds
+        return datetime.fromisoformat(raw).timestamp()
+    except ValueError:
+        return None
 
 
 def upstream_for(route: dict[str, Any] | None, port: int) -> str:

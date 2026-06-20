@@ -78,7 +78,7 @@ func (m *MicrosandboxBackend) Reconcile(ctx context.Context) (*ReconcileReport, 
 		}
 		if state.Status != "running" {
 			actual := m.actualState(ctx, state.ID)
-			if actual.healthyRunning() {
+			if actual.infrastructureRunning() {
 				state.Status = "running"
 			}
 		}
@@ -253,27 +253,13 @@ func (m *MicrosandboxBackend) EnsureReady(ctx context.Context, sandboxID string,
 	if req.TimeoutSeconds > 0 {
 		timeout = time.Duration(req.TimeoutSeconds) * time.Second
 	}
-	readiness := req.Readiness
-	if readiness == "" {
-		readiness = "port_open"
-	}
 	if err := waitForCondition(ctx, timeout, func() (bool, string) {
-		switch readiness {
-		case "runtime_ready":
-			if req.ProbeToken != "" {
-				return runtimeInfraReadyOK(ctx, hostPort, actualProbeTimeout, req.ProbeToken),
-					fmt.Sprintf("host_port=%d runtime_infra_ready=false", hostPort)
-			}
-			return runtimeHealthOK(ctx, hostPort, actualProbeTimeout),
-				fmt.Sprintf("host_port=%d runtime_legacy_health=false", hostPort)
-		default:
-			return tcpPortOpen(hostPort, actualProbeTimeout), fmt.Sprintf("host_port=%d port_open=false", hostPort)
-		}
+		return tcpPortOpen(hostPort, actualProbeTimeout), fmt.Sprintf("host_port=%d port_open=false", hostPort)
 	}); err != nil {
 		return nil, err
 	}
 	m.setSandboxStatus(sandboxID, "running")
-	return &EnsureReadyResponse{Status: "running", HostPort: hostPort, Readiness: readiness}, nil
+	return &EnsureReadyResponse{Status: "running", HostPort: hostPort}, nil
 }
 
 func (m *MicrosandboxBackend) DeleteSandbox(ctx context.Context, sandboxID string) error {

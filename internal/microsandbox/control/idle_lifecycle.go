@@ -30,8 +30,9 @@ func (s *Server) watchIdleSandboxes(ctx context.Context) {
 func (s *Server) stopIdleSandboxes(ctx context.Context) {
 	logger := logging.FromContext(ctx)
 	var sandboxes []model.Sandbox
+	now := time.Now().UTC()
 	if err := s.db.WithContext(ctx).
-		Where("status = ? AND auto_sleep_after_seconds > 0", model.SandboxStatusRunning).
+		Where("status = ? AND auto_sleep_after_seconds > 0 AND sleep_after_at IS NOT NULL AND sleep_after_at <= ?", model.SandboxStatusRunning, now).
 		Find(&sandboxes).Error; err != nil {
 		logger.ErrorContext(ctx, "microsandbox idle lifecycle query failed", "error", err)
 		return
@@ -61,18 +62,20 @@ func (s *Server) sandboxIdleEnough(sb model.Sandbox, now time.Time) bool {
 			return false
 		}
 	}
-	last := sb.CreatedAt
-	for _, candidate := range []*time.Time{sb.LastGatewayActivityAt, sb.LastRuntimeActivityAt, sb.LastWakeAt} {
-		if candidate != nil && candidate.After(last) {
-			last = *candidate
-		}
+	if sb.SleepAfterAt != nil {
+		return !sb.SleepAfterAt.After(now)
 	}
-	return now.Sub(last) >= time.Duration(sb.AutoSleepAfterSeconds)*time.Second
+	return false
 }
 
 func (s *Server) stopIdleSandbox(ctx context.Context, sb model.Sandbox) error {
 	unlock := s.lifecycleLocks.Lock(sb.ID)
 	defer unlock()
+	distributedUnlock, err := s.acquireDistributedSandboxLock(ctx, sb.ID)
+	if err != nil {
+		return err
+	}
+	defer distributedUnlock()
 
 	var fresh model.Sandbox
 	if err := s.db.WithContext(ctx).First(&fresh, "id = ?", sb.ID).Error; err != nil {
@@ -85,6 +88,21 @@ func (s *Server) stopIdleSandbox(ctx context.Context, sb model.Sandbox) error {
 	if err := s.db.WithContext(ctx).First(&runner, "id = ?", fresh.RunnerID).Error; err != nil {
 		return err
 	}
+	if s.sandboxHasActiveConnections(ctx, runner, fresh) {
+		now := time.Now().UTC()
+		sleepAfterAt := nextSleepAfter(fresh, now)
+		if err := s.db.WithContext(ctx).Model(&fresh).Updates(map[string]any{
+			"last_gateway_activity_at": now,
+			"sleep_after_at":           sleepAfterAt,
+		}).Error; err != nil {
+			return err
+		}
+		fresh.LastGatewayActivityAt = &now
+		fresh.SleepAfterAt = sleepAfterAt
+		s.syncPreviewRoute(ctx, fresh, runner, routePorts(ctx, s.db, fresh.ID))
+		logging.FromContext(ctx).InfoContext(ctx, "microsandbox idle stop deferred for active connections", "sandbox_id", fresh.ID)
+		return nil
+	}
 	if err := s.client.Post(ctx, runner.APIURL, "/v1/sandboxes/"+fresh.ID+"/stop", nil, nil); err != nil {
 		return err
 	}
@@ -96,9 +114,11 @@ func (s *Server) stopIdleSandbox(ctx context.Context, sb model.Sandbox) error {
 			}
 		}
 		return tx.Model(&fresh).Updates(map[string]any{
-			"status":       model.SandboxStatusStopped,
-			"stopped_at":   now,
-			"runtime_busy": false,
+			"status":           model.SandboxStatusStopped,
+			"stopped_at":       now,
+			"runtime_busy":     false,
+			"sleep_after_at":   nil,
+			"route_generation": gorm.Expr("route_generation + 1"),
 		}).Error
 	}); err != nil {
 		return err
@@ -106,7 +126,22 @@ func (s *Server) stopIdleSandbox(ctx context.Context, sb model.Sandbox) error {
 	fresh.Status = model.SandboxStatusStopped
 	fresh.StoppedAt = &now
 	fresh.RuntimeBusy = false
+	fresh.SleepAfterAt = nil
+	fresh.RouteGeneration++
 	s.syncPreviewRoute(ctx, fresh, runner, routePorts(ctx, s.db, fresh.ID))
 	logging.FromContext(ctx).InfoContext(ctx, "microsandbox idle stopped", "sandbox_id", fresh.ID)
 	return nil
+}
+
+type runnerConnectionsResponse struct {
+	ActiveConnections int `json:"active_connections"`
+}
+
+func (s *Server) sandboxHasActiveConnections(ctx context.Context, runner model.Runner, sb model.Sandbox) bool {
+	var resp runnerConnectionsResponse
+	if err := s.client.GetJSON(ctx, runner.APIURL, "/v1/sandboxes/"+sb.ID+"/connections", &resp); err != nil {
+		logging.FromContext(ctx).WarnContext(ctx, "microsandbox active connection check failed", "sandbox_id", sb.ID, "error", err)
+		return false
+	}
+	return resp.ActiveConnections > 0
 }

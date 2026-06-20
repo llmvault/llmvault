@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,7 +17,6 @@ import (
 )
 
 const (
-	agentRuntimeGuestPort = 7080
 	actualProbeTimeout    = 750 * time.Millisecond
 	stopVerifyTimeout     = 30 * time.Second
 	startVerifyTimeout    = 90 * time.Second
@@ -26,30 +24,26 @@ const (
 )
 
 type actualSandboxState struct {
-	NativeStatus         string
-	ProcessPIDs          []int
-	VolumeDiskFDs        int
-	OpenPorts            []int
-	RuntimeHealthChecked bool
-	RuntimeHealthy       bool
+	NativeStatus  string
+	ProcessPIDs   []int
+	VolumeDiskFDs int
+	OpenPorts     []int
 }
 
-func (s actualSandboxState) healthyRunning() bool {
-	if len(s.ProcessPIDs) == 0 {
-		return false
+func (s actualSandboxState) infrastructureRunning() bool {
+	nativeRunning := strings.EqualFold(s.NativeStatus, "running")
+	if runtime.GOOS != "linux" {
+		return nativeRunning
 	}
-	if s.RuntimeHealthChecked {
-		return s.RuntimeHealthy
-	}
-	return false
+	return nativeRunning && len(s.ProcessPIDs) > 0
 }
 
 func (s actualSandboxState) hasHostResidue() bool {
-	return len(s.ProcessPIDs) > 0 || s.VolumeDiskFDs > 0 || len(s.OpenPorts) > 0 || s.RuntimeHealthy
+	return len(s.ProcessPIDs) > 0 || s.VolumeDiskFDs > 0 || len(s.OpenPorts) > 0
 }
 
 func (s actualSandboxState) fullyStopped() bool {
-	return len(s.ProcessPIDs) == 0 && s.VolumeDiskFDs == 0 && len(s.OpenPorts) == 0 && !s.RuntimeHealthy
+	return len(s.ProcessPIDs) == 0 && s.VolumeDiskFDs == 0 && len(s.OpenPorts) == 0
 }
 
 func (m *MicrosandboxBackend) actualState(ctx context.Context, sandboxID string) actualSandboxState {
@@ -61,24 +55,20 @@ func (m *MicrosandboxBackend) actualState(ctx context.Context, sandboxID string)
 	state.VolumeDiskFDs = countSandboxVolumeFDs(sandboxID)
 
 	ports := m.sandboxPorts(sandboxID)
-	for guestPort, hostPort := range ports {
+	for _, hostPort := range ports {
 		if tcpPortOpen(hostPort, actualProbeTimeout) {
 			state.OpenPorts = append(state.OpenPorts, hostPort)
-		}
-		if guestPort == agentRuntimeGuestPort {
-			state.RuntimeHealthChecked = true
-			state.RuntimeHealthy = runtimeHealthOK(ctx, hostPort, actualProbeTimeout)
 		}
 	}
 	return state
 }
 
-func (m *MicrosandboxBackend) waitForHealthyRunning(ctx context.Context, sandboxID string) error {
+func (m *MicrosandboxBackend) waitForInfrastructureRunning(ctx context.Context, sandboxID string) error {
 	return waitForCondition(ctx, startVerifyTimeout, func() (bool, string) {
 		actual := m.actualState(ctx, sandboxID)
-		return actual.healthyRunning(), fmt.Sprintf(
-			"native=%s pids=%v disk_fds=%d open_ports=%v runtime_healthy=%v",
-			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts, actual.RuntimeHealthy,
+		return actual.infrastructureRunning(), fmt.Sprintf(
+			"native=%s pids=%v disk_fds=%d open_ports=%v",
+			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts,
 		)
 	})
 }
@@ -87,8 +77,8 @@ func (m *MicrosandboxBackend) waitForFullyStopped(ctx context.Context, sandboxID
 	return waitForCondition(ctx, stopVerifyTimeout, func() (bool, string) {
 		actual := m.actualState(ctx, sandboxID)
 		return actual.fullyStopped(), fmt.Sprintf(
-			"native=%s pids=%v disk_fds=%d open_ports=%v runtime_healthy=%v",
-			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts, actual.RuntimeHealthy,
+			"native=%s pids=%v disk_fds=%d open_ports=%v",
+			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts,
 		)
 	})
 }
@@ -199,37 +189,6 @@ func tcpPortOpen(port int, timeout time.Duration) bool {
 	}
 	_ = conn.Close()
 	return true
-}
-
-func runtimeHealthOK(ctx context.Context, port int, timeout time.Duration) bool {
-	checkCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, "http://127.0.0.1:"+strconv.Itoa(port)+"/healthz", nil)
-	if err != nil {
-		return false
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode >= 200 && resp.StatusCode < 400
-}
-
-func runtimeInfraReadyOK(ctx context.Context, port int, timeout time.Duration, probeToken string) bool {
-	checkCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, "http://127.0.0.1:"+strconv.Itoa(port)+"/infra/readyz", nil)
-	if err != nil {
-		return false
-	}
-	req.Header.Set("Authorization", "Bearer "+probeToken)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
 func isAttachedDiskError(err error) bool {

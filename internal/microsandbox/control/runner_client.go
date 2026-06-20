@@ -65,6 +65,19 @@ func (c *RunnerClient) do(ctx context.Context, method, baseURL, path string, in,
 }
 
 func (c *RunnerClient) Get(ctx context.Context, baseURL, path string, out io.Writer) error {
+	return c.doGet(ctx, baseURL, path, func(resp *http.Response) error {
+		_, err := io.Copy(out, resp.Body)
+		return err
+	})
+}
+
+func (c *RunnerClient) GetJSON(ctx context.Context, baseURL, path string, out any) error {
+	return c.doGet(ctx, baseURL, path, func(resp *http.Response) error {
+		return json.NewDecoder(resp.Body).Decode(out)
+	})
+}
+
+func (c *RunnerClient) doGet(ctx context.Context, baseURL, path string, handle func(*http.Response) error) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+path, nil)
 	if err != nil {
 		return err
@@ -79,8 +92,7 @@ func (c *RunnerClient) Get(ctx context.Context, baseURL, path string, out io.Wri
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("runner returned %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
-	_, err = io.Copy(out, resp.Body)
-	return err
+	return handle(resp)
 }
 
 func (c *RunnerClient) PostStream(ctx context.Context, baseURL, path string, in any, onEvent func([]byte) error) error {

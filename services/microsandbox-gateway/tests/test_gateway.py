@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 import pytest
@@ -42,14 +43,17 @@ class MemoryStore:
 class FakeControl:
     def __init__(self) -> None:
         self.route_calls = 0
-        self.ensure_calls: list[tuple[str, int, str]] = []
+        self.ensure_calls: list[tuple[str, int]] = []
         self.ensure_delay = 0.0
         self.activity_calls: list[str] = []
+        self.activity_bulk_calls: list[list[str]] = []
         self.route_payload = {
             "sandbox_id": "sbx_test",
             "status": "running",
             "upstreams": {"3000": "http://10.0.0.2:43000", "7080": "http://10.0.0.2:47080"},
-            "updated_at": 9999999999,
+            "route_generation": 1,
+            "lease_expires_at": int(time.time()) + 300,
+            "next_activity_after": int(time.time()) + 30,
         }
 
     async def route(self, sandbox_id: str) -> dict[str, Any]:
@@ -60,17 +64,30 @@ class FakeControl:
         self,
         sandbox_id: str,
         guest_port: int,
-        readiness: str,
         timeout_seconds: int,
         request_id: str,
     ) -> dict[str, Any]:
         if self.ensure_delay > 0:
             await asyncio.sleep(self.ensure_delay)
-        self.ensure_calls.append((sandbox_id, guest_port, readiness))
+        self.ensure_calls.append((sandbox_id, guest_port))
         return dict(self.route_payload, sandbox_id=sandbox_id)
 
     async def activity(self, sandbox_id: str, source: str = "gateway") -> None:
         self.activity_calls.append(sandbox_id)
+
+    async def activity_bulk(self, sandbox_ids: list[str], source: str = "gateway") -> list[dict[str, Any]]:
+        self.activity_bulk_calls.append(list(sandbox_ids))
+        refreshed = []
+        for sandbox_id in sandbox_ids:
+            refreshed.append(
+                dict(
+                    self.route_payload,
+                    sandbox_id=sandbox_id,
+                    lease_expires_at=int(time.time()) + 300,
+                    next_activity_after=int(time.time()) + 30,
+                )
+            )
+        return refreshed
 
 
 def cfg() -> Config:
@@ -83,9 +100,8 @@ def cfg() -> Config:
         control_url="http://control.test",
         control_token="control-token",
         wake_timeout_seconds=2,
-        activity_debounce_seconds=5,
-        route_stale_seconds=30,
-        runtime_port=7080,
+        activity_debounce_seconds=30,
+        route_cache_size=100,
     )
 
 
@@ -107,7 +123,7 @@ def test_parse_preview_host() -> None:
     assert parse_preview_host("preview.test", "preview.test") == (None, None)
 
 
-async def test_lookup_uses_control_fallback_on_cache_miss(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
+async def test_lookup_ensure_ready_on_cache_miss(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
     test_client, _store, control = client
     resp = await test_client.get(
         "/v1/lookup",
@@ -118,8 +134,8 @@ async def test_lookup_uses_control_fallback_on_cache_miss(client: tuple[TestClie
     )
     assert resp.status == 204
     assert resp.headers["X-Microsandbox-Upstream"] == "10.0.0.2:43000"
-    assert control.route_calls == 1
-    assert control.ensure_calls == []
+    assert control.route_calls == 0
+    assert control.ensure_calls == [("sbx_test", 3000)]
 
 
 async def test_lookup_uses_control_fallback_when_cached_route_lacks_port(
@@ -132,7 +148,8 @@ async def test_lookup_uses_control_fallback_when_cached_route_lacks_port(
             "sandbox_id": "sbx_test",
             "status": "running",
             "upstreams": {"5173": "http://10.0.0.2:45173"},
-            "updated_at": 9999999999,
+            "lease_expires_at": int(time.time()) + 300,
+            "next_activity_after": int(time.time()) + 30,
         },
     )
 
@@ -140,10 +157,11 @@ async def test_lookup_uses_control_fallback_when_cached_route_lacks_port(
 
     assert resp.status == 204
     assert resp.headers["X-Microsandbox-Upstream"] == "10.0.0.2:43000"
-    assert control.route_calls == 1
+    assert control.route_calls == 0
+    assert control.ensure_calls == [("sbx_test", 3000)]
 
 
-async def test_lookup_always_ensures_runtime_port(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
+async def test_runtime_port_is_not_special_when_lease_is_valid(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
     test_client, store, control = client
     await store.set_json(route_key("sbx_test"), control.route_payload)
 
@@ -151,7 +169,75 @@ async def test_lookup_always_ensures_runtime_port(client: tuple[TestClient, Memo
 
     assert resp.status == 204
     assert resp.headers["X-Microsandbox-Upstream"] == "10.0.0.2:47080"
-    assert control.ensure_calls == [("sbx_test", 7080, "runtime_ready")]
+    assert control.ensure_calls == []
+
+
+async def test_runtime_paths_have_identical_lifecycle_behavior(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
+    test_client, store, control = client
+    await store.set_json(route_key("sbx_test"), control.route_payload)
+
+    responses = await asyncio.gather(
+        *(
+            test_client.get(
+                "/v1/lookup",
+                headers={"Host": "7080-sbx_test.preview.test", "X-Forwarded-Uri": path},
+            )
+            for path in ["/healthz", "/config", "/readyz", "/sessions/sess_1/messages"]
+        )
+    )
+
+    assert [resp.status for resp in responses] == [204, 204, 204, 204]
+    assert control.ensure_calls == []
+
+
+async def test_expired_lease_triggers_single_ensure_ready(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
+    test_client, store, control = client
+    control.ensure_delay = 0.05
+    await store.set_json(
+        route_key("sbx_test"),
+        dict(control.route_payload, lease_expires_at=int(time.time()) - 1),
+    )
+
+    async def lookup() -> str:
+        resp = await test_client.get("/v1/lookup", headers={"Host": "7080-sbx_test.preview.test"})
+        assert resp.status == 204
+        return resp.headers["X-Microsandbox-Upstream"]
+
+    upstreams = await asyncio.gather(*(lookup() for _ in range(5)))
+
+    assert upstreams == ["10.0.0.2:47080"] * 5
+    assert control.ensure_calls == [("sbx_test", 7080)]
+
+
+async def test_hot_leased_burst_uses_no_control_calls(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
+    test_client, store, control = client
+    await store.set_json(route_key("sbx_test"), control.route_payload)
+
+    async def lookup() -> int:
+        resp = await test_client.get("/v1/lookup", headers={"Host": "3000-sbx_test.preview.test"})
+        return resp.status
+
+    statuses = await asyncio.gather(*(lookup() for _ in range(200)))
+
+    assert statuses == [204] * 200
+    assert control.route_calls == 0
+    assert control.ensure_calls == []
+    assert control.activity_bulk_calls == []
+
+
+async def test_near_expiry_activity_refreshes_without_wake(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
+    test_client, store, control = client
+    await store.set_json(
+        route_key("sbx_test"),
+        dict(control.route_payload, next_activity_after=int(time.time()) - 1),
+    )
+
+    resp = await test_client.get("/v1/lookup", headers={"Host": "3000-sbx_test.preview.test"})
+    await asyncio.sleep(0.01)
+
+    assert resp.status == 204
+    assert control.ensure_calls == []
+    assert control.activity_bulk_calls == [["sbx_test"]]
 
 
 async def test_stopped_route_wake_is_singleflight(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
@@ -167,7 +253,7 @@ async def test_stopped_route_wake_is_singleflight(client: tuple[TestClient, Memo
     upstreams = await asyncio.gather(*(lookup() for _ in range(5)))
 
     assert upstreams == ["10.0.0.2:43000"] * 5
-    assert control.ensure_calls == [("sbx_test", 3000, "port_open")]
+    assert control.ensure_calls == [("sbx_test", 3000)]
 
 
 async def test_admin_route_round_trip(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:

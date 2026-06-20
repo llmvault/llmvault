@@ -54,6 +54,9 @@ type Sandbox struct {
 	LastRuntimeActivityAt *time.Time
 	LastWakeAt            *time.Time
 	LastWakeError         string `gorm:"type:text;not null;default:''"`
+	SleepAfterAt          *time.Time
+	RouteGeneration       int64  `gorm:"not null;default:1"`
+	ActivityToken         string `gorm:"type:text;not null;default:''"`
 }
 
 type SandboxPort struct {

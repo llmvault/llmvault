@@ -38,7 +38,6 @@ class ControlClient:
         self,
         sandbox_id: str,
         guest_port: int,
-        readiness: str,
         timeout_seconds: int,
         request_id: str,
     ) -> dict[str, Any]:
@@ -47,7 +46,6 @@ class ControlClient:
             f"/v1/sandboxes/{sandbox_id}/ensure-ready",
             {
                 "guest_port": guest_port,
-                "readiness": readiness,
                 "timeout_seconds": timeout_seconds,
                 "request_id": request_id,
             },
@@ -56,12 +54,16 @@ class ControlClient:
         return payload["route"]
 
     async def activity(self, sandbox_id: str, source: str = "gateway") -> None:
-        await self._request(
+        await self.activity_bulk([sandbox_id], source)
+
+    async def activity_bulk(self, sandbox_ids: list[str], source: str = "gateway") -> list[dict[str, Any]]:
+        payload = await self._request(
             "POST",
-            f"/v1/sandboxes/{sandbox_id}/activity",
-            {"source": source, "runtime_busy": False},
+            "/v1/sandboxes/activity/bulk",
+            {"source": source, "sandbox_ids": sandbox_ids, "runtime_busy": False},
             timeout=5,
         )
+        return list(payload.get("routes") or [])
 
     async def _request(
         self,

@@ -24,17 +24,17 @@ func TestIsMicrosandboxCommandRejectsOtherSandbox(t *testing.T) {
 }
 
 func TestActualSandboxStateHealthPredicates(t *testing.T) {
-	healthy := actualSandboxState{ProcessPIDs: []int{123}, RuntimeHealthChecked: true, RuntimeHealthy: true}
-	if !healthy.healthyRunning() {
-		t.Fatal("healthy state should be running")
+	running := actualSandboxState{NativeStatus: "running", ProcessPIDs: []int{123}}
+	if !running.infrastructureRunning() {
+		t.Fatal("native running state with process should be infrastructure running")
 	}
-	if healthy.fullyStopped() {
-		t.Fatal("healthy state should not be stopped")
+	if running.fullyStopped() {
+		t.Fatal("running state should not be stopped")
 	}
 
-	stale := actualSandboxState{ProcessPIDs: []int{123}, RuntimeHealthChecked: true, RuntimeHealthy: false}
-	if stale.healthyRunning() {
-		t.Fatal("stale state should not be healthy running")
+	stale := actualSandboxState{NativeStatus: "stopped", ProcessPIDs: []int{123}}
+	if stale.infrastructureRunning() {
+		t.Fatal("stale state should not be infrastructure running")
 	}
 	if !stale.hasHostResidue() {
 		t.Fatal("stale state should report host residue")

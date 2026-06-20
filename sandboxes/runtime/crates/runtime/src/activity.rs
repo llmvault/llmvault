@@ -11,7 +11,7 @@ use tracing::warn;
 pub struct RuntimeActivityReporter {
     control_url: String,
     sandbox_id: String,
-    probe_token: String,
+    activity_token: String,
     heartbeat_interval: Duration,
     client: Client,
 }
@@ -31,14 +31,14 @@ impl RuntimeActivityReporter {
             .or_else(|| env.get("HIVY_SANDBOX_ID"))
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())?;
-        let probe_token = env
-            .get("HIVY_INFRA_PROBE_TOKEN")
+        let activity_token = env
+            .get("HIVY_MICROSANDBOX_ACTIVITY_TOKEN")
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())?;
         Some(Arc::new(Self {
             control_url,
             sandbox_id,
-            probe_token,
+            activity_token,
             heartbeat_interval: Duration::from_secs(30),
             client: Client::new(),
         }))
@@ -71,7 +71,7 @@ impl RuntimeActivityReporter {
         let result = self
             .client
             .post(url)
-            .bearer_auth(&self.probe_token)
+            .bearer_auth(&self.activity_token)
             .json(&json!({
                 "source": "runtime",
                 "runtime_busy": busy,
