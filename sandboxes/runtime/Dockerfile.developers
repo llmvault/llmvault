@@ -267,7 +267,7 @@ COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
 
 RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
-  && mkdir -p /app/data /workspace /var/lib/docker /var/run \
+  && mkdir -p /app/data /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/lib/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
   && chmod +x /usr/local/bin/git-credential-hivy \
   && chmod +x /usr/local/bin/gh-wrapper \
@@ -276,6 +276,12 @@ RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
   && ln -sf /usr/local/bin/gh-wrapper /usr/local/bin/gh
 
 ENV HOME=/workspace
+ENV HIVY_SANDBOX_DATA_ROOT=/workspace/.hivy
+ENV HIVY_DOCKER_DATA_ROOT=/workspace/.hivy/docker
+ENV TMPDIR=/workspace/.hivy/tmp
+ENV TEMP=/workspace/.hivy/tmp
+ENV TMP=/workspace/.hivy/tmp
+ENV DOCKER_TMPDIR=/workspace/.hivy/tmp/docker
 ENV HIVY_DB_PATH=/app/data/hivy-sandboxes-runtime.db
 ENV HIVY_WORKSPACE_ROOT=/workspace
 ENV HIVY_RUNTIME_BIND_ADDR=0.0.0.0:7080

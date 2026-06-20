@@ -90,31 +90,45 @@ func TestHivyLabelsDoesNotMarkNonSandboxBuildsAsSandboxes(t *testing.T) {
 	}
 }
 
-func TestVolumeNamesUseSeparateDockerDataVolume(t *testing.T) {
+func TestVolumeNamesIncludeLegacyDockerDataVolume(t *testing.T) {
 	if got := workspaceVolumeName("abc123xy"); got != "hivy-abc123xy" {
 		t.Fatalf("workspace volume = %q", got)
 	}
 	if got := dockerDataVolumeName("abc123xy"); got != "hivy-docker-abc123xy" {
-		t.Fatalf("docker data volume = %q", got)
+		t.Fatalf("legacy docker data volume = %q", got)
 	}
 }
 
-func TestSandboxVolumeSizesReserveDockerDataInsideDiskBudget(t *testing.T) {
-	workspace, dockerData := sandboxVolumeSizesMiB(40)
-	if workspace != 30*1024 || dockerData != 10*1024 {
-		t.Fatalf("40GB split = workspace %d docker %d, want 30720/10240", workspace, dockerData)
+func TestSandboxVolumeSizesReserveRootOverlayInsideDiskBudget(t *testing.T) {
+	rootOverlay, workspace := sandboxVolumeSizesMiB(40)
+	if rootOverlay != 8*1024 || workspace != 32*1024 {
+		t.Fatalf("40GB split = root %d workspace %d, want 8192/32768", rootOverlay, workspace)
 	}
 
-	workspace, dockerData = sandboxVolumeSizesMiB(160)
-	if workspace != 140*1024 || dockerData != maxDockerDataVolumeMiB {
-		t.Fatalf("160GB split = workspace %d docker %d, want 143360/%d", workspace, dockerData, maxDockerDataVolumeMiB)
+	rootOverlay, workspace = sandboxVolumeSizesMiB(10)
+	if rootOverlay != 4*1024 || workspace != 6*1024 {
+		t.Fatalf("10GB split = root %d workspace %d, want 4096/6144", rootOverlay, workspace)
+	}
+
+	rootOverlay, workspace = sandboxVolumeSizesMiB(160)
+	if rootOverlay != maxRootOverlayMiB || workspace != 144*1024 {
+		t.Fatalf("160GB split = root %d workspace %d, want %d/147456", rootOverlay, workspace, maxRootOverlayMiB)
 	}
 }
 
-func TestDockerDataVolumeLabelsAreRecoverable(t *testing.T) {
-	labels := volumeLabels("abc123xy", dockerDataVolumePurpose)
-	if labels[hivyManagedLabel] != "true" || labels[sandboxIDLabel] != "abc123xy" || labels[volumePurposeLabel] != dockerDataVolumePurpose {
-		t.Fatalf("labels = %#v", labels)
+func TestSandboxEnvWithStorageDefaults(t *testing.T) {
+	env := sandboxEnvWithStorageDefaults(map[string]string{"TMPDIR": "/custom/tmp"})
+	if env["HIVY_SANDBOX_DATA_ROOT"] != sandboxDataRootPath {
+		t.Fatalf("HIVY_SANDBOX_DATA_ROOT = %q", env["HIVY_SANDBOX_DATA_ROOT"])
+	}
+	if env["HIVY_DOCKER_DATA_ROOT"] != dockerDataRootPath {
+		t.Fatalf("HIVY_DOCKER_DATA_ROOT = %q", env["HIVY_DOCKER_DATA_ROOT"])
+	}
+	if env["TMPDIR"] != "/custom/tmp" {
+		t.Fatalf("TMPDIR override = %q", env["TMPDIR"])
+	}
+	if env["TEMP"] != sandboxTmpPath || env["TMP"] != sandboxTmpPath || env["DOCKER_TMPDIR"] != sandboxTmpPath+"/docker" {
+		t.Fatalf("temp defaults = %#v", env)
 	}
 }
 

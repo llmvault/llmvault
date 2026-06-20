@@ -135,19 +135,22 @@ func dockerDataVolumeName(sandboxID string) string {
 	return "hivy-docker-" + sandboxID
 }
 
-func sandboxVolumeSizesMiB(diskGB int) (uint32, uint32) {
+func sandboxVolumeSizesMiB(diskGB int) (rootOverlayMiB, workspaceVolumeMiB uint32) {
 	total := sandboxDiskMiB(diskGB)
-	dockerData := total / 4
-	if dockerData > maxDockerDataVolumeMiB {
-		dockerData = maxDockerDataVolumeMiB
+	rootOverlay := total / 5
+	if rootOverlay < minRootOverlayMiB {
+		rootOverlay = minRootOverlayMiB
 	}
-	if total > minWorkspaceVolumeMiB && total-dockerData < minWorkspaceVolumeMiB {
-		dockerData = total - minWorkspaceVolumeMiB
+	if rootOverlay > maxRootOverlayMiB {
+		rootOverlay = maxRootOverlayMiB
 	}
-	if dockerData == 0 {
-		return total, 0
+	if total <= minWorkspaceVolumeMiB {
+		return 0, total
 	}
-	return total - dockerData, dockerData
+	if total-rootOverlay < minWorkspaceVolumeMiB {
+		rootOverlay = total - minWorkspaceVolumeMiB
+	}
+	return rootOverlay, total - rootOverlay
 }
 
 func sandboxDiskMiB(diskGB int) uint32 {
@@ -171,6 +174,23 @@ func ensureVolume(ctx context.Context, name string, opts ...microsandbox.VolumeO
 		return nil
 	}
 	return fmt.Errorf("create microsandbox volume %s: %w", name, err)
+}
+
+func sandboxEnvWithStorageDefaults(in map[string]string) map[string]string {
+	out := cloneStringMap(in)
+	setDefaultEnv(out, "HIVY_SANDBOX_DATA_ROOT", sandboxDataRootPath)
+	setDefaultEnv(out, "HIVY_DOCKER_DATA_ROOT", dockerDataRootPath)
+	setDefaultEnv(out, "TMPDIR", sandboxTmpPath)
+	setDefaultEnv(out, "TEMP", sandboxTmpPath)
+	setDefaultEnv(out, "TMP", sandboxTmpPath)
+	setDefaultEnv(out, "DOCKER_TMPDIR", sandboxTmpPath+"/docker")
+	return out
+}
+
+func setDefaultEnv(env map[string]string, key, value string) {
+	if strings.TrimSpace(env[key]) == "" {
+		env[key] = value
+	}
 }
 
 func isHivySandboxName(name string) bool {

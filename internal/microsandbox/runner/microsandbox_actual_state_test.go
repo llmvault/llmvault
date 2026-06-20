@@ -45,3 +45,22 @@ func TestActualSandboxStateHealthPredicates(t *testing.T) {
 		t.Fatal("empty state should be fully stopped")
 	}
 }
+
+func TestPathReferencesAnyVolume(t *testing.T) {
+	paths := []string{
+		"/root/.microsandbox/volumes/hivy-sbx123",
+		"/root/.microsandbox/volumes/hivy-docker-sbx123",
+	}
+	if !pathReferencesAnyVolume("/root/.microsandbox/volumes/hivy-sbx123/disk.raw", paths) {
+		t.Fatal("workspace disk path should match")
+	}
+	if !pathReferencesAnyVolume("/root/.microsandbox/volumes/hivy-docker-sbx123/disk.raw", paths) {
+		t.Fatal("legacy docker disk path should match")
+	}
+	if pathReferencesAnyVolume("/root/.microsandbox/volumes/hivy-other/disk.raw", paths) {
+		t.Fatal("unrelated volume should not match")
+	}
+	if pathReferencesAnyVolume("/root/.microsandbox/volumes/hivy-sbx1234/disk.raw", paths) {
+		t.Fatal("volume with matching prefix should not match")
+	}
+}
