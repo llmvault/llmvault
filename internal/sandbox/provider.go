@@ -94,8 +94,13 @@ type RuntimeLayout struct {
 type WarmSlotCreateOpts struct {
 	Name          string
 	Mode          string
+	ImageKind     string
+	SandboxSize   string
 	RuntimeImage  string
 	RuntimePort   int
+	CPU           int
+	Memory        int
+	Disk          int
 	RuntimeSecret string
 	EnvVars       map[string]string
 	Labels        map[string]string

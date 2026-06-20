@@ -37,30 +37,28 @@ func NewWarmPool(db *gorm.DB, provider Provider, encKey *crypto.SymmetricKey, cf
 	return &WarmPool{db: db, provider: provider, encKey: encKey, cfg: cfg}
 }
 
-func (p *WarmPool) DesiredCount(mode string) int {
+func (p *WarmPool) DesiredCount(profile WarmPoolProfile) int {
 	if p == nil || p.cfg == nil {
 		return 0
 	}
-	switch mode {
-	case model.SandboxWarmSlotModeAgent:
-		return p.cfg.SandboxWarmPoolAgentSize
-	default:
-		return 0
-	}
+	return warmPoolDesiredCount(p.cfg, normalizeWarmPoolProfile(p.cfg, profile))
 }
 
-func (p *WarmPool) Claim(ctx context.Context, mode, runtimeImage string, sandboxID uuid.UUID) (*ClaimedWarmSlot, error) {
+func (p *WarmPool) Claim(ctx context.Context, profile WarmPoolProfile, sandboxID uuid.UUID) (*ClaimedWarmSlot, error) {
 	if p == nil {
 		return nil, fmt.Errorf("warm pool is not configured")
 	}
-	image := p.runtimeImage(mode, runtimeImage)
-	if image == "" {
-		return nil, fmt.Errorf("runtime image for warm %s sandbox is not configured", mode)
+	profile = normalizeWarmPoolProfile(p.cfg, profile)
+	if profile.RuntimeImage == "" {
+		return nil, fmt.Errorf("runtime image for warm %s sandbox is not configured", profile.Mode)
 	}
 	var slot model.SandboxWarmSlot
 	err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Where("provider_id = ? AND mode = ? AND status = ? AND runtime_image = ?", p.provider.ID(), mode, model.SandboxWarmSlotStatusWarm, image).
+			Where(
+				"provider_id = ? AND mode = ? AND status = ? AND image_kind = ? AND runtime_image = ? AND sandbox_size = ? AND cpu = ? AND memory = ? AND disk = ?",
+				p.provider.ID(), profile.Mode, model.SandboxWarmSlotStatusWarm, profile.ImageKind, profile.RuntimeImage, profile.SandboxSize, profile.CPU, profile.Memory, profile.Disk,
+			).
 			Order("created_at ASC").
 			First(&slot).Error; err != nil {
 			return err
@@ -73,7 +71,7 @@ func (p *WarmPool) Claim(ctx context.Context, mode, runtimeImage string, sandbox
 	})
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("no warm %s sandbox slots available", mode)
+			return nil, fmt.Errorf("no warm %s sandbox slots available for profile %s", profile.Mode, profile.logValue())
 		}
 		return nil, err
 	}
@@ -169,14 +167,29 @@ func (p *WarmPool) ReapStaleSlots(ctx context.Context) error {
 }
 
 func (p *WarmPool) SlotMode(ctx context.Context, slotID uuid.UUID) (string, error) {
-	mode, _, err := p.SlotModeAndRuntimeImage(ctx, slotID)
-	return mode, err
+	profile, err := p.SlotProfile(ctx, slotID)
+	return profile.Mode, err
 }
 
 func (p *WarmPool) SlotModeAndRuntimeImage(ctx context.Context, slotID uuid.UUID) (string, string, error) {
+	profile, err := p.SlotProfile(ctx, slotID)
+	return profile.Mode, profile.RuntimeImage, err
+}
+
+func (p *WarmPool) SlotProfile(ctx context.Context, slotID uuid.UUID) (WarmPoolProfile, error) {
 	var slot model.SandboxWarmSlot
-	if err := p.db.WithContext(ctx).Select("mode", "runtime_image").First(&slot, "id = ?", slotID).Error; err != nil {
-		return "", "", err
+	if err := p.db.WithContext(ctx).
+		Select("mode", "image_kind", "runtime_image", "sandbox_size", "cpu", "memory", "disk").
+		First(&slot, "id = ?", slotID).Error; err != nil {
+		return WarmPoolProfile{}, err
 	}
-	return slot.Mode, slot.RuntimeImage, nil
+	return normalizeWarmPoolProfile(p.cfg, WarmPoolProfile{
+		Mode:         slot.Mode,
+		ImageKind:    slot.ImageKind,
+		RuntimeImage: slot.RuntimeImage,
+		SandboxSize:  slot.SandboxSize,
+		CPU:          slot.CPU,
+		Memory:       slot.Memory,
+		Disk:         slot.Disk,
+	}), nil
 }
