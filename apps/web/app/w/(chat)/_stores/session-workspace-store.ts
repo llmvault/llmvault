@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect } from "react"
-import { createStore, clear, del, get, keys, set } from "idb-keyval"
 import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
 import type { GitStatusEntry } from "@pierre/trees"
@@ -10,6 +9,23 @@ import type {
   AttachmentDescriptionState,
 } from "@/app/w/(chat)/_components/composer-attachments"
 import type { CodeLineComment } from "@/app/w/(chat)/_components/line-comments"
+import {
+  DEFAULT_SESSION_WORKSPACE,
+  EMPTY_WORKSPACES,
+  PERSIST_DEBOUNCE_MS,
+  clearWorkspacePersistence,
+  createDefaultSessionWorkspace,
+  loadPersistedWorkspaces,
+  persistWorkspaceState,
+  pruneStoredBlobs,
+  workspaceScopeKey,
+} from "./session-workspace-persistence"
+
+export {
+  deleteDraftAttachmentBlob,
+  readDraftAttachmentBlob,
+  storeDraftAttachmentBlob,
+} from "./session-workspace-persistence"
 
 export type SessionWorkspaceStatus = "idle" | "hydrating" | "ready"
 
@@ -84,33 +100,6 @@ export interface SessionWorkspace {
   }
 }
 
-interface PersistedSessionWorkspaces {
-  version: 1
-  savedAt: number
-  workspaces: Record<string, PersistedSessionWorkspace>
-}
-
-type PersistedSessionWorkspace = Omit<SessionWorkspace, "composer" | "files"> & {
-  composer: Omit<SessionWorkspace["composer"], "uploads"> & {
-    uploads: PersistedWorkspaceUploadItem[]
-  }
-  files: Omit<SessionWorkspace["files"], "repoTreeCaches"> & {
-    repoTreeCaches: Record<string, PersistedWorkspaceRepoTreeCache>
-  }
-}
-
-type PersistedWorkspaceUploadItem = Omit<
-  WorkspaceUploadItem,
-  "file" | "previewUrl"
->
-
-type PersistedWorkspaceRepoTreeCache = Omit<
-  WorkspaceRepoTreeCache,
-  "loadingDirectories"
-> & {
-  loadingDirectories?: string[]
-}
-
 interface WorkspaceScope {
   orgId?: string | null
   userId?: string | null
@@ -170,18 +159,6 @@ interface SessionWorkspaceStoreState {
   ) => void
 }
 
-const SESSION_WORKSPACE_VERSION = 1
-const SESSION_WORKSPACE_TTL_MS = 30 * 24 * 60 * 60 * 1000
-const SESSION_WORKSPACE_MAX_ENTRIES = 50
-const PERSIST_DEBOUNCE_MS = 350
-const DEFAULT_RIGHT_PANEL_SIZE = 42
-const WORKSPACE_STORE = createStore("hivy-session-workspaces", "ui-v1")
-const WORKSPACE_BLOB_STORE = createStore(
-  "hivy-session-workspace-blobs",
-  "blobs-v1"
-)
-const EMPTY_WORKSPACES: Record<string, SessionWorkspace> = {}
-const DEFAULT_SESSION_WORKSPACE = createDefaultSessionWorkspace(0)
 let hydrationRun = 0
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -496,19 +473,6 @@ export function createDraftBlobKey(sessionId: string, uploadId: string) {
   return `${scopeKey}:${sessionId}:${uploadId}`
 }
 
-export async function storeDraftAttachmentBlob(key: string, file: File) {
-  await bestEffortIDB(() => set(key, file, WORKSPACE_BLOB_STORE))
-}
-
-export async function readDraftAttachmentBlob(key: string) {
-  return get<File | Blob>(key, WORKSPACE_BLOB_STORE)
-}
-
-export async function deleteDraftAttachmentBlob(key?: string) {
-  if (!key) return
-  await bestEffortIDB(() => del(key, WORKSPACE_BLOB_STORE))
-}
-
 export async function clearPersistedSessionWorkspaces() {
   if (persistTimer) {
     clearTimeout(persistTimer)
@@ -518,7 +482,7 @@ export async function clearPersistedSessionWorkspaces() {
     status: "idle",
     workspaces: EMPTY_WORKSPACES,
   })
-  await Promise.allSettled([clear(WORKSPACE_STORE), clear(WORKSPACE_BLOB_STORE)])
+  await clearWorkspacePersistence()
 }
 
 function updateWorkspaceState(
@@ -539,197 +503,14 @@ function updateWorkspaceState(
   }
 }
 
-function createDefaultSessionWorkspace(lastTouchedAt = Date.now()): SessionWorkspace {
-  return {
-    lastTouchedAt,
-    composer: {
-      text: "",
-      accessMode: "full",
-      effort: "High",
-      uploads: [],
-      attachmentDescriptions: {},
-    },
-    lineComments: [],
-    rightPanel: {
-      open: false,
-      openViews: [],
-      activeView: null,
-      maximized: false,
-      sizePercent: DEFAULT_RIGHT_PANEL_SIZE,
-    },
-    files: {
-      selectedRepoId: null,
-      selectedFile: null,
-      repoTreeCaches: {},
-    },
-    browser: {
-      url: "usehivy.com",
-      src: "/",
-      reloadKey: 0,
-    },
-    review: {
-      diffStyle: "unified",
-    },
-    terminal: {},
-    scroll: {},
-  }
-}
-
-function workspaceScopeKey(scope: WorkspaceScope) {
-  return `${scope.orgId?.trim() || "org:unknown"}:${scope.userId?.trim() || "user:unknown"}`
-}
-
-function storageKey(scopeKey: string) {
-  return `session-workspaces:${scopeKey}`
-}
-
-async function loadPersistedWorkspaces(scopeKey: string) {
-  const persisted = await get<PersistedSessionWorkspaces>(
-    storageKey(scopeKey),
-    WORKSPACE_STORE
-  )
-  if (!persisted || persisted.version !== SESSION_WORKSPACE_VERSION) {
-    return EMPTY_WORKSPACES
-  }
-  return restoreWorkspaces(persisted.workspaces)
-}
-
-function restoreWorkspaces(
-  persisted: Record<string, PersistedSessionWorkspace>
-) {
-  const now = Date.now()
-  const restored: Record<string, SessionWorkspace> = {}
-  for (const [sessionId, workspace] of Object.entries(persisted)) {
-    if (now - workspace.lastTouchedAt > SESSION_WORKSPACE_TTL_MS) continue
-    const defaults = createDefaultSessionWorkspace(0)
-    restored[sessionId] = {
-      ...defaults,
-      ...workspace,
-      rightPanel: {
-        ...defaults.rightPanel,
-        ...workspace.rightPanel,
-        open:
-          workspace.rightPanel.open ??
-          (workspace.rightPanel.openViews?.length ?? 0) > 0,
-      },
-      composer: {
-        ...defaults.composer,
-        ...workspace.composer,
-        uploads: workspace.composer.uploads.map((upload) => ({
-          ...upload,
-          previewUrl: upload.asset?.asset_url,
-        })),
-      },
-      files: {
-        ...defaults.files,
-        ...workspace.files,
-        repoTreeCaches: Object.fromEntries(
-          Object.entries(workspace.files.repoTreeCaches ?? {}).map(
-            ([repoId, cache]) => [
-              repoId,
-              {
-                ...cache,
-                loadingDirectories: [],
-              } satisfies WorkspaceRepoTreeCache,
-            ]
-          )
-        ),
-      },
-    }
-  }
-  return pruneWorkspaces(restored)
-}
-
-function persistableWorkspaces(
-  workspaces: Record<string, SessionWorkspace>
-): Record<string, PersistedSessionWorkspace> {
-  return Object.fromEntries(
-    Object.entries(pruneWorkspaces(workspaces)).map(([sessionId, workspace]) => [
-      sessionId,
-      {
-        ...workspace,
-        composer: {
-          ...workspace.composer,
-          uploads: workspace.composer.uploads.map((upload) => {
-            const { file: _file, previewUrl: _previewUrl, ...persisted } = upload
-            return persisted
-          }),
-        },
-        files: {
-          ...workspace.files,
-          repoTreeCaches: Object.fromEntries(
-            Object.entries(workspace.files.repoTreeCaches).map(
-              ([repoId, cache]) => [
-                repoId,
-                {
-                  ...cache,
-                  loadingDirectories: [],
-                },
-              ]
-            )
-          ),
-        },
-      },
-    ])
-  )
-}
-
-function pruneWorkspaces(workspaces: Record<string, SessionWorkspace>) {
-  const now = Date.now()
-  return Object.fromEntries(
-    Object.entries(workspaces)
-      .filter(
-        ([, workspace]) =>
-          now - workspace.lastTouchedAt <= SESSION_WORKSPACE_TTL_MS
-      )
-      .sort((left, right) => right[1].lastTouchedAt - left[1].lastTouchedAt)
-      .slice(0, SESSION_WORKSPACE_MAX_ENTRIES)
-  )
-}
-
 useSessionWorkspaceStore.subscribe(
   (state) => [state.scopeKey, state.status, state.workspaces] as const,
   ([scopeKey, status, workspaces]) => {
     if (status !== "ready") return
     if (persistTimer) clearTimeout(persistTimer)
     persistTimer = setTimeout(() => {
-      void set(
-        storageKey(scopeKey),
-        {
-          version: SESSION_WORKSPACE_VERSION,
-          savedAt: Date.now(),
-          workspaces: persistableWorkspaces(workspaces),
-        } satisfies PersistedSessionWorkspaces,
-        WORKSPACE_STORE
-      ).catch(() => undefined)
+      void persistWorkspaceState(scopeKey, workspaces).catch(() => undefined)
       void pruneStoredBlobs(workspaces).catch(() => undefined)
     }, PERSIST_DEBOUNCE_MS)
   }
 )
-
-async function pruneStoredBlobs(workspaces: Record<string, SessionWorkspace>) {
-  const blobKeys = new Set(
-    Object.values(workspaces).flatMap((workspace) =>
-      workspace.composer.uploads.flatMap((upload) =>
-        upload.blobKey ? [upload.blobKey] : []
-      )
-    )
-  )
-  const storedKeys = await keys(WORKSPACE_BLOB_STORE)
-  await Promise.all(
-    storedKeys.map((key) =>
-      typeof key === "string" && !blobKeys.has(key)
-        ? del(key, WORKSPACE_BLOB_STORE)
-        : Promise.resolve()
-    )
-  )
-}
-
-async function bestEffortIDB(operation: () => Promise<unknown>) {
-  try {
-    await operation()
-  } catch {
-    // Draft attachment blob persistence is opportunistic. Metadata still
-    // persists, and reads surface missing blobs back to the composer.
-  }
-}
