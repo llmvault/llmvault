@@ -1,0 +1,16 @@
+---
+zot_registry_domain: registry.usehivy.com
+zot_registry_private_ip: 10.80.0.3
+zot_registry_tls_port: 5000
+zot_registry_upstream_addr: 127.0.0.1
+zot_registry_upstream_port: 5001
+zot_registry_storage_root: /mnt/HC_Volume_106075040/zot
+zot_registry_config_path: /etc/zot/config.json
+zot_registry_caddy_env_file: "{{ playbook_dir }}/../.env"
+zot_registry_caddy_service_name: caddy
+zot_registry_caddy_config_path: /etc/caddy/Caddyfile
+zot_registry_caddy_custom_binary: /usr/local/bin/caddy
+zot_registry_caddy_version: v2.9.1
+zot_registry_caddy_module: github.com/caddy-dns/vercel
+zot_registry_caddy_required_env:
+  - VERCEL_AUTH_API_TOKEN

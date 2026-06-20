@@ -49,6 +49,7 @@ Run phases from the `ansible/` directory:
 ansible-playbook playbooks/phase1-prepare.yml
 ansible-playbook playbooks/phase2-install.yml
 ansible-playbook playbooks/phase2b-runner-caddy.yml
+ansible-playbook playbooks/phase2c-registry-proxy.yml
 ansible-playbook playbooks/phase3-deploy.yml
 ansible-playbook playbooks/phase4-validate.yml
 ansible-playbook playbooks/phase5-caddy-proxy.yml
@@ -59,6 +60,8 @@ Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the offici
 Phase 2 copies `dist/microsandbox-linux-amd64` to `/usr/local/bin/microsandbox`.
 
 Phase 2b provisions Caddy on each runner for the HTTPS runner control API. It verifies that `runner_api_domain` has an A record pointing at the runner public IP before requesting a certificate with the Vercel DNS provider.
+
+Phase 2c provisions Caddy on the private Zot registry host. Caddy serves `registry.usehivy.com:5000` with a public ACME certificate on the private registry IP and proxies to Zot on localhost. Phase 1 maps that registry hostname to the private registry IP on runner hosts.
 
 Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner. The runner binds to `127.0.0.1:8081`; public control-plane traffic reaches it through runner-local Caddy over HTTPS.
 
