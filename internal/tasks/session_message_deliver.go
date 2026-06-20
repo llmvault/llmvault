@@ -206,13 +206,22 @@ FOR UPDATE SKIP LOCKED`, sessionID).Scan(&row)
 }
 
 func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *model.SessionMessageQueue) (*agentruntime.HTTPMessageResponse, error) {
-	if h.orchestrator == nil {
-		return nil, fmt.Errorf("session message delivery: orchestrator is required")
-	}
 	session := queue.Session
 	event := queue.SessionEvent
 	if session.ID == uuid.Nil || event.ID == uuid.Nil {
 		return nil, fmt.Errorf("session message delivery: queue row missing session or event")
+	}
+	return h.DeliverEvent(ctx, session, event)
+}
+
+// DeliverEvent posts a persisted session event directly to the runtime without
+// creating or updating any queue rows.
+func (h *SessionMessageDeliverHandler) DeliverEvent(ctx context.Context, session model.Session, event model.SessionEvent) (*agentruntime.HTTPMessageResponse, error) {
+	if h.orchestrator == nil {
+		return nil, fmt.Errorf("session message delivery: orchestrator is required")
+	}
+	if session.ID == uuid.Nil || event.ID == uuid.Nil {
+		return nil, fmt.Errorf("session message delivery: session and event are required")
 	}
 	var agent model.Agent
 	if err := h.db.WithContext(ctx).
@@ -220,7 +229,7 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 		First(&agent).Error; err != nil {
 		return nil, fmt.Errorf("load session agent: %w", err)
 	}
-	sb, _, err := h.ensureRuntimeClient(ctx, session, &agent)
+	sb, client, err := h.ensureRuntimeClient(ctx, session, &agent)
 	if err != nil {
 		return nil, err
 	}
@@ -230,16 +239,11 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 			Update("sandbox_id", sb.ID).Error; err != nil {
 			return nil, fmt.Errorf("attach session sandbox: %w", err)
 		}
+		session.SandboxID = &sb.ID
 	}
-	modelDef, err := agentruntime.PushAgentRuntimeConfigForSessionModel(
-		ctx, h.compileDeps, &agent, sb, session.ID, session.Model, session.ReasoningEffort,
-	)
+	modelDef, err := agentruntime.SessionModelDefinition(h.compileDeps, &agent, session.Model, session.ReasoningEffort)
 	if err != nil {
-		return nil, fmt.Errorf("sync session model runtime: %w", err)
-	}
-	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
-	if err != nil {
-		return nil, fmt.Errorf("get synced session runtime client: %w", err)
+		return nil, fmt.Errorf("build session model definition: %w", err)
 	}
 	msg := runtimeMessageFromEvent(session, event, modelDef)
 	resp, err := client.PostHTTPMessage(ctx, msg)

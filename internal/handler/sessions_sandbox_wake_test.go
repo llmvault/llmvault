@@ -13,6 +13,7 @@ func TestIntegration_SessionSandboxWakeStartsStoppedSandbox(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
+	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
 	created := h.createSession(t, fx, fx.owner, "Wake this sandbox")
 	sb := attachStoppedSessionSandbox(t, h, fx, created.Session.ID, runtime.server.URL)
 
@@ -49,6 +50,7 @@ func TestIntegration_SandboxAccessWakesStoppedSandboxBeforeMinting(t *testing.T)
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
+	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
 	created := h.createSession(t, fx, fx.owner, "Access should wake")
 	sb := attachStoppedSessionSandbox(t, h, fx, created.Session.ID, runtime.server.URL)
 

@@ -65,36 +65,36 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 			"option_id":  optionID,
 		},
 	}
-	var event model.SessionEvent
-	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := h.createQuestionAnsweredEvent(tx, &session, userID, requestID, text, optionID); err != nil {
-			return err
-		}
-		var err error
-		event, err = h.createUserMessageEvent(tx, &session, userID, messageText, payload)
-		if err != nil {
-			return err
-		}
-		return tx.Model(&model.Session{}).Where("id = ?", session.ID).Updates(map[string]any{
-			"updated_at":              event.EventAt,
-			"agent_turn_last_outcome": "",
-		}).Error
+	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, messageText, payload, sessionMessageDeliveryOptions{
+		ClearLastOutcome: true,
+		BeforeUserMessage: func(tx *gorm.DB, locked *model.Session) error {
+			return h.createQuestionAnsweredEvent(tx, locked, userID, requestID, text, optionID)
+		},
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue input response"})
 		return
 	}
-	queued, err := h.dispatchOrQueueSessionDelivery(r.Context(), session.ID)
+	queued, err := h.dispatchSessionMessageIntent(r.Context(), intent)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
+		if intent.Queued {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
+			return
+		}
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send input response"})
 		return
 	}
-	session.UpdatedAt = event.EventAt
-	session.AgentTurnLastOutcome = ""
+	session = intent.Session
+	if !queued {
+		if err := h.db.WithContext(r.Context()).First(&session, "id = ?", session.ID).Error; err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load session"})
+			return
+		}
+	}
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
-		Event:   ptrSessionEventResponse(eventToResponse(event)),
+		Event:   ptrSessionEventResponse(eventToResponse(intent.Event)),
 		Queued:  queued,
 	})
 }
