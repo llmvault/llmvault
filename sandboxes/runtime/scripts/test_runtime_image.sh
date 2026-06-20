@@ -151,7 +151,9 @@ curl -fsS \
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "$(git config --system user.email)" = "runtime-smoke@usehivy.com"'
 "$DOCKER_BIN" exec "$NAME" node --version >/tmp/runtime-node-version.txt
 "$DOCKER_BIN" exec "$NAME" npm --version >/tmp/runtime-npm-version.txt
+"$DOCKER_BIN" exec "$NAME" sh -lc 'test "${HOME:-}" = "/workspace"'
 "$DOCKER_BIN" exec "$NAME" browser doctor --offline --quick >/tmp/runtime-browser-doctor.txt
+"$DOCKER_BIN" exec "$NAME" sh -lc 'browser open "data:text/html,<title>runtime-browser-smoke</title><h1>Runtime Browser Smoke</h1>" >/tmp/runtime-browser-open.txt && test "$(browser get title)" = "runtime-browser-smoke" && browser close --all'
 "$DOCKER_BIN" exec "$NAME" sh -lc '! command -v docker >/dev/null 2>&1'
 "$DOCKER_BIN" exec "$NAME" sh -lc '! command -v dockerd >/dev/null 2>&1'
 "$DOCKER_BIN" exec "$NAME" sh -lc '! command -v docker-compose >/dev/null 2>&1'
