@@ -11,7 +11,6 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
 func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *model.Agent) (*model.Sandbox, error) {
@@ -36,18 +35,6 @@ func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *
 		return nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
 	}
 	return sb, nil
-}
-
-func (h *SessionHandler) dispatchInitialPerSessionDelivery(ctx context.Context, sessionID uuid.UUID) error {
-	if h == nil || h.orchestrator == nil {
-		return fmt.Errorf("session message delivery: orchestrator is required")
-	}
-	if h.compileDeps.EncKey == nil {
-		return fmt.Errorf("session message delivery: runtime encryption key is required")
-	}
-	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer).WithoutProvisioning()
-	_, err := dispatcher.DispatchNext(ctx, sessionID)
-	return err
 }
 
 func (h *SessionHandler) cleanupFailedPerSessionCreate(ctx context.Context, sessionID uuid.UUID, sb *model.Sandbox) {

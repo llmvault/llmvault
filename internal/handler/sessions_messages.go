@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -92,38 +91,34 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			"reasoning_effort": selectedReasoningEffort,
 		}
 	}
-	var event model.SessionEvent
-	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		var err error
-		event, err = h.createUserMessageEvent(tx, &session, userID, text, payload)
-		if err != nil {
-			return err
-		}
-		updates := map[string]any{"updated_at": event.EventAt}
-		if selectedModel != "" {
-			updates["model"] = selectedModel
-			updates["reasoning_effort"] = selectedReasoningEffort
-		}
-		return tx.Model(&model.Session{}).Where("id = ?", session.ID).Updates(updates).Error
+	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, text, payload, sessionMessageDeliveryOptions{
+		Model:           selectedModel,
+		ReasoningEffort: selectedReasoningEffort,
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session message"})
 		return
 	}
-	queued, err := h.dispatchOrQueueSessionDelivery(r.Context(), session.ID)
+	queued, err := h.dispatchSessionMessageIntent(r.Context(), intent)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
+		if intent.Queued {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
+			return
+		}
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send session message"})
 		return
 	}
-	session.UpdatedAt = event.EventAt
-	if selectedModel != "" {
-		session.Model = selectedModel
-		session.ReasoningEffort = selectedReasoningEffort
+	session = intent.Session
+	if !queued {
+		if err := h.db.WithContext(r.Context()).First(&session, "id = ?", session.ID).Error; err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load session"})
+			return
+		}
 	}
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
-		Event:   ptrSessionEventResponse(eventToResponse(event)),
+		Event:   ptrSessionEventResponse(eventToResponse(intent.Event)),
 		Queued:  queued,
 	})
 }

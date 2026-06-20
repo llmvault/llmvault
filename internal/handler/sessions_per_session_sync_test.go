@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -41,16 +42,29 @@ func TestIntegration_SessionsCreate_PerSessionCreatesSandboxAndSendsFirstMessage
 	if runtime.messageCalls != 1 {
 		t.Fatalf("runtime message calls=%d, want 1", runtime.messageCalls)
 	}
+	if runtime.configCalls != 1 {
+		t.Fatalf("runtime config calls=%d, want 1 sandbox-create config push only", runtime.configCalls)
+	}
 	if runtime.lastSessionID != out.Session.ID || runtime.lastMessageText != "Ship the synchronous session path" {
 		t.Fatalf("runtime message session=%q text=%q", runtime.lastSessionID, runtime.lastMessageText)
 	}
-
-	var queue model.SessionMessageQueue
-	if err := h.db.First(&queue, "session_id = ?", out.Session.ID).Error; err != nil {
-		t.Fatalf("load queue row: %v", err)
+	if runtime.lastAPIKeyEnv != agentruntime.ProxyAPIKeyEnv {
+		t.Fatalf("runtime message api_key_env=%q, want %q", runtime.lastAPIKeyEnv, agentruntime.ProxyAPIKeyEnv)
 	}
-	if queue.Status != "delivered" || queue.RuntimeTurnID == "" || queue.RuntimeStreamID == "" {
-		t.Fatalf("queue not delivered synchronously: %+v", queue)
+
+	var queueCount int64
+	if err := h.db.Model(&model.SessionMessageQueue{}).Where("session_id = ?", out.Session.ID).Count(&queueCount).Error; err != nil {
+		t.Fatalf("count queue rows: %v", err)
+	}
+	if queueCount != 0 {
+		t.Fatalf("queue rows=%d, want 0 for direct initial delivery", queueCount)
+	}
+	var stored model.Session
+	if err := h.db.First(&stored, "id = ?", out.Session.ID).Error; err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	if stored.AgentTurnStatus != model.SessionAgentTurnActive || stored.AgentTurnID == "" || stored.AgentStreamID == "" {
+		t.Fatalf("session turn not active after direct send: %+v", stored)
 	}
 	for _, task := range h.enqueuer.Tasks() {
 		if task.TypeName == tasks.TypeSessionMessageDeliver {

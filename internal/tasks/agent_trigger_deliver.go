@@ -36,10 +36,9 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 		return err
 	}
 	if err := client.Readyz(ctx); err != nil {
-		if err := h.syncRuntime(ctx, &agent, sb, client); err != nil {
-			captureTriggerDispatchBoundary(ctx, "agent_runtime_readyz_sync", payload, trigger, "", "", err)
-			return err
-		}
+		err = fmt.Errorf("agent runtime readyz: %w", err)
+		captureTriggerDispatchBoundary(ctx, "agent_runtime_readyz", payload, trigger, "", "", err)
+		return err
 	}
 
 	compiled := h.compileMessage(payload, trigger, webhookPayload)
@@ -159,22 +158,4 @@ func (h *AgentTriggerDispatchHandler) loadAgentSandbox(ctx context.Context, agen
 		return nil, fmt.Errorf("load agent sandbox: %w", err)
 	}
 	return sb, nil
-}
-
-func (h *AgentTriggerDispatchHandler) syncRuntime(ctx context.Context, agent *model.Agent, sb *model.Sandbox, client *agentruntime.Client) error {
-	runtimeSecret, err := h.compileDeps.EncKey.DecryptString(sb.EncryptedRuntimeSecret)
-	if err != nil {
-		return fmt.Errorf("decrypt runtime secret: %w", err)
-	}
-	configUpdate, _, err := agentruntime.BuildAgentRuntimeConfigUpdate(ctx, h.compileDeps, agent, sb, runtimeSecret)
-	if err != nil {
-		return fmt.Errorf("build agent runtime config: %w", err)
-	}
-	if _, err := client.PutRuntimeConfig(ctx, configUpdate); err != nil {
-		return fmt.Errorf("agent runtime put config: %w", err)
-	}
-	if err := client.Readyz(ctx); err != nil {
-		return fmt.Errorf("agent runtime readyz: %w", err)
-	}
-	return nil
 }

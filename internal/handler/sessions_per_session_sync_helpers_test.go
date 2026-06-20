@@ -76,6 +76,8 @@ type sessionSyncRuntime struct {
 	messageCalls    int
 	lastSessionID   string
 	lastMessageText string
+	lastModelID     string
+	lastAPIKeyEnv   string
 }
 
 func newSessionSyncRuntime(t *testing.T, messageStatus int) *sessionSyncRuntime {
@@ -110,10 +112,18 @@ func (rt *sessionSyncRuntime) handleMessage(w http.ResponseWriter, r *http.Reque
 		rt.lastSessionID = parts[1]
 	}
 	var body struct {
-		Text string `json:"text"`
+		Text            string `json:"text"`
+		ModelDefinition *struct {
+			ModelID   string `json:"model_id"`
+			APIKeyEnv string `json:"api_key_env"`
+		} `json:"model_definition"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	rt.lastMessageText = body.Text
+	if body.ModelDefinition != nil {
+		rt.lastModelID = body.ModelDefinition.ModelID
+		rt.lastAPIKeyEnv = body.ModelDefinition.APIKeyEnv
+	}
 	if rt.messageStatus >= http.StatusBadRequest {
 		http.Error(w, "runtime rejected message", rt.messageStatus)
 		return
@@ -216,6 +226,27 @@ func markSessionAgentPerSession(t *testing.T, h *sessionHarness, fx *sessionFixt
 		t.Fatalf("mark agent per-session: %v", err)
 	}
 	fx.agent.SandboxStrategy = "per_session"
+}
+
+func seedAlwaysOnRuntimeSandbox(t *testing.T, h *sessionHarness, fx sessionFixture, runtimeURL string, status string) model.Sandbox {
+	t.Helper()
+	encSecret, err := sessionTestEncKey(t).EncryptString("runtime-sync-secret-" + uuid.NewString())
+	if err != nil {
+		t.Fatalf("encrypt runtime secret: %v", err)
+	}
+	sb := model.Sandbox{
+		OrgID:                  &fx.org.ID,
+		AgentID:                &fx.agent.ID,
+		ProviderID:             sandboxpkg.ProviderMicrosandbox,
+		ExternalID:             "sync-existing-" + uuid.NewString()[:8],
+		RuntimeURL:             runtimeURL,
+		EncryptedRuntimeSecret: encSecret,
+		Status:                 status,
+	}
+	if err := h.db.Create(&sb).Error; err != nil {
+		t.Fatalf("create always-on runtime sandbox: %v", err)
+	}
+	return sb
 }
 
 func assertNoSessionCreateRows(t *testing.T, h *sessionHarness, orgID uuid.UUID) {

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -81,26 +80,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		perSessionSandbox = sb
 		session.SandboxID = &sb.ID
 	}
-	var event model.SessionEvent
-	err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&session).Error; err != nil {
-			return err
-		}
-		if userID != nil {
-			now := time.Now()
-			if err := tx.Create(&model.SessionParticipant{
-				SessionID: session.ID,
-				UserID:    *userID,
-				Role:      "owner",
-				JoinedAt:  &now,
-			}).Error; err != nil {
-				return err
-			}
-		}
-		var err error
-		event, err = h.createUserMessageEvent(tx, &session, userID, text, raw)
-		return err
-	})
+	intent, err := h.createInitialSessionMessageIntent(r.Context(), &session, userID, text, raw)
 	if err != nil {
 		if perSessionSandbox != nil {
 			h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
@@ -108,24 +88,23 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 		return
 	}
-	queued := false
-	if agent.SandboxStrategy == agentStrategyPerSession {
-		if err := h.dispatchInitialPerSessionDelivery(r.Context(), session.ID); err != nil {
+	queued, err := h.dispatchSessionMessageIntent(r.Context(), intent)
+	if err != nil {
+		if agent.SandboxStrategy == agentStrategyPerSession {
 			h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
 			logging.FromContext(r.Context()).ErrorContext(r.Context(), "send initial per-session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
 			logging.Capture(r.Context(), err)
 			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send initial session message"})
 			return
 		}
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "send initial session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)
+		logging.Capture(r.Context(), err)
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send initial session message"})
+		return
+	}
+	if !queued {
 		if err := h.db.WithContext(r.Context()).First(&session, "id = ?", session.ID).Error; err != nil {
-			logging.FromContext(r.Context()).WarnContext(r.Context(), "reload per-session session after initial delivery failed", "session_id", session.ID, "error", err)
-		}
-	} else {
-		var err error
-		queued, err = h.dispatchOrQueueSessionDelivery(r.Context(), session.ID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
-			return
+			logging.FromContext(r.Context()).WarnContext(r.Context(), "reload session after initial delivery failed", "session_id", session.ID, "error", err)
 		}
 	}
 	if strings.TrimSpace(req.Name) == "" {
@@ -136,7 +115,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusCreated, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
-		Event:   ptrSessionEventResponse(eventToResponse(event)),
+		Event:   ptrSessionEventResponse(eventToResponse(intent.Event)),
 		Queued:  queued,
 	})
 }
