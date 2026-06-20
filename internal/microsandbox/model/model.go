@@ -18,7 +18,7 @@ type Runner struct {
 	ReservedDiskGB   int     `gorm:"not null;default:0"`
 	CPUOvercommit    float64 `gorm:"not null;default:1.5"`
 	MemoryOvercommit float64 `gorm:"not null;default:1"`
-	DiskOvercommit   float64 `gorm:"not null;default:1"`
+	DiskOvercommit   float64 `gorm:"not null;default:4"`
 	MetadataJSON     string  `gorm:"type:text;not null;default:'{}'"`
 	LastHeartbeatAt  *time.Time
 	CreatedAt        time.Time
@@ -33,20 +33,27 @@ type OrgPreviewSecret struct {
 }
 
 type Sandbox struct {
-	ID           string `gorm:"primaryKey"`
-	OrgID        string `gorm:"not null;index"`
-	RunnerID     string `gorm:"not null;index"`
-	Name         string `gorm:"not null"`
-	ImageRef     string `gorm:"not null"`
-	Status       string `gorm:"not null;index"`
-	CPU          int    `gorm:"not null"`
-	MemoryMB     int    `gorm:"not null"`
-	DiskGB       int    `gorm:"not null"`
-	MetadataJSON string `gorm:"type:text;not null;default:'{}'"`
-	ErrorMessage string `gorm:"type:text;not null;default:''"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	StoppedAt    *time.Time
+	ID                    string `gorm:"primaryKey"`
+	OrgID                 string `gorm:"not null;index"`
+	RunnerID              string `gorm:"not null;index"`
+	Name                  string `gorm:"not null"`
+	ImageRef              string `gorm:"not null"`
+	Status                string `gorm:"not null;index"`
+	CPU                   int    `gorm:"not null"`
+	MemoryMB              int    `gorm:"not null"`
+	DiskGB                int    `gorm:"not null"`
+	MetadataJSON          string `gorm:"type:text;not null;default:'{}'"`
+	ErrorMessage          string `gorm:"type:text;not null;default:''"`
+	InfraProbeToken       string `gorm:"type:text;not null;default:''"`
+	AutoSleepAfterSeconds int    `gorm:"not null;default:0;index"`
+	RuntimeBusy           bool   `gorm:"not null;default:false;index"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	StoppedAt             *time.Time
+	LastGatewayActivityAt *time.Time
+	LastRuntimeActivityAt *time.Time
+	LastWakeAt            *time.Time
+	LastWakeError         string `gorm:"type:text;not null;default:''"`
 }
 
 type SandboxPort struct {

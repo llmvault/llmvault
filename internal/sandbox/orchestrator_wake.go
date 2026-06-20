@@ -13,6 +13,14 @@ func (o *Orchestrator) WakeSandbox(ctx context.Context, sb *model.Sandbox) (*mod
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return nil, err
 	}
+	if o.provider.ID() == ProviderMicrosandbox {
+		if sb.RuntimeURL == "" {
+			if err := o.RefreshAgentSandboxURL(ctx, sb); err != nil {
+				return nil, fmt.Errorf("refreshing runtime URL for infra-managed sandbox: %w", err)
+			}
+		}
+		return sb, nil
+	}
 
 	unlock := o.lifecycle.Lock(sb.ID.String())
 	defer unlock()

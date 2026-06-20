@@ -64,13 +64,14 @@ Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runn
 
 Phase 4 validates systemd, local health, and public runner health.
 
-Phase 5 provisions the Hetzner Cloud Caddy preview proxy host. It installs Redis, installs the local preview-cache service, installs Caddy with the Vercel DNS provider, enables UFW with SSH/HTTP/HTTPS, and serves wildcard preview routes for `*.preview.usehivy.com`.
+Phase 5 provisions the Hetzner Cloud Caddy preview proxy host. It installs Redis, installs the local Microsandbox lifecycle gateway, installs Caddy with the Vercel DNS provider, enables UFW with SSH/HTTP/HTTPS, and serves wildcard preview/runtime routes for `*.preview.usehivy.com`.
 
 ## Railway Requirements
 
 Configure the Railway-hosted Microsandbox control plane separately. The runners need:
 
 - `HIVY_MICROSANDBOX_CONTROL_URL`
+- `HIVY_MICROSANDBOX_CONTROL_API_TOKEN`
 - `HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET`
 - `HIVY_MICROSANDBOX_RUNNER_API_TOKEN`
 
@@ -92,9 +93,9 @@ Bootstrap health check:
 curl http://46.62.169.26/health
 ```
 
-Phase 5 also installs Redis and a tiny Python route-cache service on the Caddy VPS. Redis is local to the VPS; Caddy calls the local service for route lookups.
+Phase 5 also installs Redis and the Python Microsandbox gateway service on the Caddy VPS. Redis is local to the VPS; Caddy calls the local service for route lookups, runtime-port wake, and activity reporting. The gateway uses Microsandbox control as the authoritative route/lifecycle source when local Redis is empty, stale, or stopped.
 
-Control-plane route push API, exposed through Caddy:
+Route admin API, exposed through Caddy for compatibility:
 
 ```sh
 curl -X PUT http://46.62.169.26/_microsandbox/preview-cache/v1/routes/sbx_123 \
@@ -147,4 +148,4 @@ export HIVY_MICROSANDBOX_E2E_PREVIEW_RESOLVE_IP=46.62.169.26 # optional when DNS
 scripts/microsandbox/e2e-vite-preview.py --size medium
 ```
 
-The script creates a sandbox, installs and starts Vite on port `5173`, waits for preview `200`, sleeps the sandbox and waits for `503`, wakes it and waits for `200`, then deletes it and waits for `404`.
+The script creates a sandbox, installs and starts Vite on port `5173`, waits for preview `200`, stops the sandbox, verifies the next preview request auto-wakes back to `200`, then deletes it and waits for `404`.

@@ -9,7 +9,7 @@ import (
 	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
-func TestIntegration_SessionSandboxWakeStartsStoppedSandbox(t *testing.T) {
+func TestIntegration_SessionSandboxWakeIsInfraManagedNoop(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
@@ -27,26 +27,27 @@ func TestIntegration_SessionSandboxWakeStartsStoppedSandbox(t *testing.T) {
 		Status     string `json:"status"`
 		RuntimeURL string `json:"runtime_url"`
 		Woke       bool   `json:"woke"`
+		Managed    bool   `json:"managed_by_infra"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode wake response: %v\n%s", err, rr.Body.String())
 	}
-	if out.SessionID != created.Session.ID || out.SandboxID != sb.ID.String() || out.Status != "running" || !out.Woke {
+	if out.SessionID != created.Session.ID || out.SandboxID != sb.ID.String() || out.Status != "stopped" || out.Woke || !out.Managed {
 		t.Fatalf("bad wake response: %+v", out)
 	}
-	if len(provider.started) != 1 || provider.started[0] != sb.ExternalID {
-		t.Fatalf("provider started=%v, want %s", provider.started, sb.ExternalID)
+	if len(provider.started) != 0 {
+		t.Fatalf("provider started=%v, want no Go API wake", provider.started)
 	}
 	var current model.Sandbox
 	if err := h.db.First(&current, "id = ?", sb.ID).Error; err != nil {
 		t.Fatalf("load sandbox: %v", err)
 	}
-	if current.Status != "running" {
-		t.Fatalf("sandbox status=%q, want running", current.Status)
+	if current.Status != "stopped" {
+		t.Fatalf("sandbox status=%q, want stopped", current.Status)
 	}
 }
 
-func TestIntegration_SandboxAccessWakesStoppedSandboxBeforeMinting(t *testing.T) {
+func TestIntegration_SandboxAccessMintsWithoutGoWake(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
@@ -58,8 +59,8 @@ func TestIntegration_SandboxAccessWakesStoppedSandboxBeforeMinting(t *testing.T)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("sandbox access status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if len(provider.started) != 1 || provider.started[0] != sb.ExternalID {
-		t.Fatalf("provider started=%v, want %s", provider.started, sb.ExternalID)
+	if len(provider.started) != 0 {
+		t.Fatalf("provider started=%v, want no Go API wake", provider.started)
 	}
 	var access struct {
 		SandboxID      string `json:"sandbox_id"`

@@ -31,6 +31,9 @@ func TestIntegration_SessionsCreate_AlwaysOnSendsFirstMessageDirectWithoutQueueO
 	if runtime.configCalls != 0 {
 		t.Fatalf("runtime config calls=%d, want 0 for hot first message", runtime.configCalls)
 	}
+	if runtime.readyzCalls != 0 {
+		t.Fatalf("runtime readyz calls=%d, want 0 for hot first message", runtime.readyzCalls)
+	}
 	if runtime.lastAPIKeyEnv != agentruntime.ProxyAPIKeyEnv {
 		t.Fatalf("runtime message api_key_env=%q, want %q", runtime.lastAPIKeyEnv, agentruntime.ProxyAPIKeyEnv)
 	}
@@ -102,24 +105,27 @@ func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(
 	assertNoSessionMessageDeliverTask(t, h)
 }
 
-func TestIntegration_SessionsCreate_StoppedAlwaysOnSandboxWakesWithoutConfigPush(t *testing.T) {
+func TestIntegration_SessionsCreate_StoppedAlwaysOnSandboxSendsThroughGatewayWithoutGoWake(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)
 	fx := h.seed(t)
 	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "stopped")
 
-	out := h.createSession(t, fx, fx.owner, "Wake and send")
+	out := h.createSession(t, fx, fx.owner, "Gateway should wake and send")
 	if out.Queued {
-		t.Fatalf("queued=%t, want false after wake and direct send", out.Queued)
+		t.Fatalf("queued=%t, want false for gateway-managed direct send", out.Queued)
 	}
-	if len(provider.started) != 1 {
-		t.Fatalf("provider started=%v, want one wake", provider.started)
+	if len(provider.started) != 0 {
+		t.Fatalf("provider started=%v, want no Go wake", provider.started)
 	}
 	if runtime.messageCalls != 1 {
 		t.Fatalf("runtime message calls=%d, want 1", runtime.messageCalls)
 	}
 	if runtime.configCalls != 0 {
-		t.Fatalf("runtime config calls=%d, want 0 when waking stopped sandbox for message", runtime.configCalls)
+		t.Fatalf("runtime config calls=%d, want 0 for gateway-managed send", runtime.configCalls)
+	}
+	if runtime.readyzCalls != 0 {
+		t.Fatalf("runtime readyz calls=%d, want 0 for gateway-managed send", runtime.readyzCalls)
 	}
 	assertSessionQueueCount(t, h, out.Session.ID, 0)
 }

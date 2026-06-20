@@ -676,6 +676,23 @@ pub async fn readyz(State(state): State<ApiState>) -> impl IntoResponse {
 }
 
 #[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/infra/readyz",
+    responses(
+        (status = 200, description = "Runtime is ready for infrastructure routing"),
+        (status = 503, description = "Runtime is not ready")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn infra_readyz(State(state): State<ApiState>) -> impl IntoResponse {
+    if state.is_ready() {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
+}
+
+#[cfg_attr(feature = "openapi", utoipa::path(
     post,
     path = "/sessions/{session_id}/messages",
     params(("session_id" = String, Path, description = "Session identifier")),

@@ -4,6 +4,7 @@ caddy_preview_proxy_acme_email: ops@usehivy.com
 caddy_preview_proxy_service_name: caddy
 caddy_preview_proxy_config_path: /etc/caddy/Caddyfile
 caddy_preview_proxy_health_body: "ok\n"
+caddy_preview_proxy_forward_auth_timeout: 100s
 caddy_preview_proxy_env_file: "{{ playbook_dir }}/../.env"
 caddy_preview_proxy_custom_binary: /usr/local/bin/caddy
 caddy_preview_proxy_system_binary: /usr/bin/caddy

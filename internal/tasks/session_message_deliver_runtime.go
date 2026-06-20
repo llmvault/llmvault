@@ -86,8 +86,5 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 	if err != nil {
 		return nil, nil, fmt.Errorf("get runtime client: %w", err)
 	}
-	if err := client.Readyz(ctx); err != nil {
-		return nil, nil, fmt.Errorf("%w: runtime readyz: %v", ErrSessionRuntimeNotReady, err)
-	}
 	return sb, client, nil
 }

@@ -42,6 +42,20 @@ func (s *Server) stopSandbox(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "stopped"})
 }
 
+func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
+	var req EnsureReadyRequest
+	if err := httpx.Decode(r, &req); err != nil || req.GuestPort <= 0 {
+		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": "valid guest_port is required"})
+		return
+	}
+	resp, err := s.backend.EnsureReady(r.Context(), chi.URLParam(r, "sandboxID"), req)
+	if err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) deleteSandbox(w http.ResponseWriter, r *http.Request) {
 	if err := s.backend.DeleteSandbox(r.Context(), chi.URLParam(r, "sandboxID")); err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

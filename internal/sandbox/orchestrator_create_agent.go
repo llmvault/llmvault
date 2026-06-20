@@ -177,7 +177,11 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		return nil, fmt.Errorf("cloning agent repositories: %w", err)
 	}
 
-	disableProviderLifecycle(ctx, o.provider, &sb, info.ExternalID)
+	idleTimeout := time.Duration(0)
+	if o.cfg != nil {
+		idleTimeout = o.cfg.SandboxIdleTimeout
+	}
+	configureAgentSandboxLifecycle(ctx, o.provider, &sb, info.ExternalID, idleTimeout)
 	logging.FromContext(ctx).InfoContext(ctx, "agent sandbox created",
 		"sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID)
 	return &sb, nil

@@ -18,9 +18,17 @@ import (
 
 type wakeTestProvider struct {
 	agentCreateProvider
+	providerID string
 	mu         sync.Mutex
 	startCalls int
 	startDelay time.Duration
+}
+
+func (p *wakeTestProvider) ID() string {
+	if p.providerID != "" {
+		return p.providerID
+	}
+	return ProviderMicrosandbox
 }
 
 func (p *wakeTestProvider) StartSandbox(context.Context, string) error {
@@ -49,12 +57,13 @@ func TestWakeSandboxDedupesConcurrentProviderStarts(t *testing.T) {
 
 	provider := &wakeTestProvider{
 		agentCreateProvider: agentCreateProvider{endpoint: health.URL},
+		providerID:          ProviderDaytona,
 		startDelay:          40 * time.Millisecond,
 	}
 	orch := NewOrchestrator(db, provider, sandboxTestSymmetricKey(t), &config.Config{})
 	sb := model.Sandbox{
 		ID:                     uuid.New(),
-		ProviderID:             ProviderMicrosandbox,
+		ProviderID:             ProviderDaytona,
 		ExternalID:             "external-1",
 		RuntimeURL:             health.URL,
 		EncryptedRuntimeSecret: []byte("unused"),
@@ -88,5 +97,49 @@ func TestWakeSandboxDedupesConcurrentProviderStarts(t *testing.T) {
 	}
 	if got.Status != string(StatusRunning) {
 		t.Fatalf("status = %q, want running", got.Status)
+	}
+}
+
+func TestWakeSandboxMicrosandboxIsInfraManagedNoop(t *testing.T) {
+	db := connectSandboxTestDB(t)
+	health := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer health.Close()
+
+	provider := &wakeTestProvider{
+		agentCreateProvider: agentCreateProvider{endpoint: health.URL},
+		providerID:          ProviderMicrosandbox,
+	}
+	orch := NewOrchestrator(db, provider, sandboxTestSymmetricKey(t), &config.Config{})
+	sb := model.Sandbox{
+		ID:                     uuid.New(),
+		ProviderID:             ProviderMicrosandbox,
+		ExternalID:             "external-1",
+		RuntimeURL:             health.URL,
+		EncryptedRuntimeSecret: []byte("unused"),
+		Status:                 string(StatusStopped),
+	}
+	if err := db.Create(&sb).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := orch.WakeSandbox(context.Background(), &sb)
+	if err != nil {
+		t.Fatalf("wake sandbox: %v", err)
+	}
+	if provider.calls() != 0 {
+		t.Fatalf("provider starts = %d, want 0", provider.calls())
+	}
+	if got.Status != string(StatusStopped) {
+		t.Fatalf("status = %q, want stopped", got.Status)
+	}
+
+	var row model.Sandbox
+	if err := db.First(&row, "id = ?", sb.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.Status != string(StatusStopped) {
+		t.Fatalf("persisted status = %q, want stopped", row.Status)
 	}
 }

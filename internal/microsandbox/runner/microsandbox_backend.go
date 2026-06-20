@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	microsandbox "github.com/superradcompany/microsandbox/sdk/go"
 
@@ -236,6 +237,43 @@ func (m *MicrosandboxBackend) StopSandbox(ctx context.Context, sandboxID string)
 	unlock := m.lifecycle.Lock(sandboxID)
 	defer unlock()
 	return m.stopSandboxLocked(ctx, sandboxID)
+}
+
+func (m *MicrosandboxBackend) EnsureReady(ctx context.Context, sandboxID string, req EnsureReadyRequest) (*EnsureReadyResponse, error) {
+	unlock := m.lifecycle.Lock(sandboxID)
+	defer unlock()
+	if err := m.startSandboxLocked(ctx, sandboxID); err != nil {
+		return nil, err
+	}
+	hostPort := m.hostPortForGuest(sandboxID, req.GuestPort)
+	if hostPort == 0 {
+		return nil, fmt.Errorf("guest port %d is not published for sandbox %s", req.GuestPort, sandboxID)
+	}
+	timeout := startVerifyTimeout
+	if req.TimeoutSeconds > 0 {
+		timeout = time.Duration(req.TimeoutSeconds) * time.Second
+	}
+	readiness := req.Readiness
+	if readiness == "" {
+		readiness = "port_open"
+	}
+	if err := waitForCondition(ctx, timeout, func() (bool, string) {
+		switch readiness {
+		case "runtime_ready":
+			if req.ProbeToken != "" {
+				return runtimeInfraReadyOK(ctx, hostPort, actualProbeTimeout, req.ProbeToken),
+					fmt.Sprintf("host_port=%d runtime_infra_ready=false", hostPort)
+			}
+			return runtimeHealthOK(ctx, hostPort, actualProbeTimeout),
+				fmt.Sprintf("host_port=%d runtime_legacy_health=false", hostPort)
+		default:
+			return tcpPortOpen(hostPort, actualProbeTimeout), fmt.Sprintf("host_port=%d port_open=false", hostPort)
+		}
+	}); err != nil {
+		return nil, err
+	}
+	m.setSandboxStatus(sandboxID, "running")
+	return &EnsureReadyResponse{Status: "running", HostPort: hostPort, Readiness: readiness}, nil
 }
 
 func (m *MicrosandboxBackend) DeleteSandbox(ctx context.Context, sandboxID string) error {

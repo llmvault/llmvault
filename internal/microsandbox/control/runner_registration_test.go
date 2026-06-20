@@ -55,3 +55,43 @@ func TestRegisterRunnerPersistsMemoryAndDiskOvercommit(t *testing.T) {
 			runner.CPUOvercommit, runner.MemoryOvercommit, runner.DiskOvercommit)
 	}
 }
+
+func TestRegisterRunnerDefaultsDiskOvercommitToFour(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:runner-registration-default-overcommit?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{RunnerJoinSecret: "join-secret", HeartbeatInterval: time.Minute}
+	s := &Server{db: db, cfg: cfg}
+	req := httptest.NewRequest(http.MethodPost, "/v1/runners/register", strings.NewReader(`{
+		"name": "runner-1",
+		"api_url": "https://runner.example.com",
+		"preview_base_url": "http://10.80.1.2",
+		"capacity": {
+			"cpu": 16,
+			"memory_mb": 32768,
+			"disk_gb": 500
+		}
+	}`))
+	req.Header.Set("Authorization", "Bearer join-secret")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("register status = %d body = %s", rec.Code, rec.Body.String())
+	}
+
+	var runner model.Runner
+	if err := db.First(&runner, "name = ?", "runner-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.CPUOvercommit != defaultCPUOvercommit || runner.MemoryOvercommit != defaultMemoryOvercommit || runner.DiskOvercommit != defaultDiskOvercommit {
+		t.Fatalf("overcommit = cpu %.2f memory %.2f disk %.2f, want %.2f/%.2f/%.2f",
+			runner.CPUOvercommit, runner.MemoryOvercommit, runner.DiskOvercommit,
+			defaultCPUOvercommit, float64(defaultMemoryOvercommit), float64(defaultDiskOvercommit))
+	}
+}

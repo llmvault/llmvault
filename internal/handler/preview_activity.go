@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -90,32 +88,14 @@ func (h *PreviewActivityHandler) Handle(w http.ResponseWriter, r *http.Request) 
 	sb.LastPreviewAt = &now
 	sb.LastActiveAt = &now
 
-	if req.Wake {
-		if h.orchestrator == nil {
-			writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "sandbox orchestrator unavailable"})
-			return
-		}
-		ctx := r.Context()
-		if req.TimeoutSeconds > 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, time.Duration(req.TimeoutSeconds)*time.Second)
-			defer cancel()
-		}
-		activated, err := h.orchestrator.EnsureSandboxActive(ctx, &sb)
-		if err != nil {
-			writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: fmt.Sprintf("wake failed: %v", err)})
-			return
-		}
-		sb = *activated
-	}
-
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":          sb.Status,
-		"sandbox_id":      sb.ID.String(),
-		"external_id":     sb.ExternalID,
-		"runtime_url":     sb.RuntimeURL,
-		"last_active_at":  now.Format(time.RFC3339),
-		"last_preview_at": now.Format(time.RFC3339),
+		"status":           sb.Status,
+		"sandbox_id":       sb.ID.String(),
+		"external_id":      sb.ExternalID,
+		"runtime_url":      sb.RuntimeURL,
+		"last_active_at":   now.Format(time.RFC3339),
+		"last_preview_at":  now.Format(time.RFC3339),
+		"managed_by_infra": req.Wake,
 	})
 }
 

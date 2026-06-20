@@ -17,6 +17,10 @@ func (d *Driver) post(ctx context.Context, path string, in, out any) error {
 	return d.do(ctx, http.MethodPost, path, in, out)
 }
 
+func (d *Driver) patch(ctx context.Context, path string, in, out any) error {
+	return d.do(ctx, http.MethodPatch, path, in, out)
+}
+
 func (d *Driver) postTemplateStream(ctx context.Context, in any, onLog func(string)) (string, error) {
 	raw, err := json.Marshal(in)
 	if err != nil {

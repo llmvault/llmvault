@@ -11,6 +11,7 @@ type Backend interface {
 	CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*CreateSandboxResponse, error)
 	StartSandbox(ctx context.Context, sandboxID string) error
 	StopSandbox(ctx context.Context, sandboxID string) error
+	EnsureReady(ctx context.Context, sandboxID string, req EnsureReadyRequest) (*EnsureReadyResponse, error)
 	DeleteSandbox(ctx context.Context, sandboxID string) error
 	Exec(ctx context.Context, sandboxID, command string, timeoutSeconds int) (*ExecResponse, error)
 	Logs(ctx context.Context, sandboxID string, w io.Writer) error
@@ -47,6 +48,19 @@ type SandboxInitConfig struct {
 type CreateSandboxResponse struct {
 	ID    string        `json:"id"`
 	Ports []PortBinding `json:"ports"`
+}
+
+type EnsureReadyRequest struct {
+	GuestPort      int    `json:"guest_port"`
+	Readiness      string `json:"readiness"`
+	TimeoutSeconds int    `json:"timeout_seconds"`
+	ProbeToken     string `json:"probe_token,omitempty"`
+}
+
+type EnsureReadyResponse struct {
+	Status    string `json:"status"`
+	HostPort  int    `json:"host_port"`
+	Readiness string `json:"readiness"`
 }
 
 type PortBinding struct {

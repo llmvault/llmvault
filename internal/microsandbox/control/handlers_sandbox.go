@@ -1,9 +1,11 @@
 package control
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -84,6 +86,19 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to prepare preview password"})
 		return
 	}
+	probeToken, err := security.RandomToken(32)
+	if err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to allocate probe token"})
+		return
+	}
+	if req.Env == nil {
+		req.Env = map[string]string{}
+	}
+	req.Env["HIVY_INFRA_PROBE_TOKEN"] = probeToken
+	req.Env["HIVY_MICROSANDBOX_ID"] = id
+	if strings.TrimSpace(s.cfg.ControlURL) != "" {
+		req.Env["HIVY_MICROSANDBOX_CONTROL_URL"] = strings.TrimRight(s.cfg.ControlURL, "/")
+	}
 
 	var sb model.Sandbox
 	var runner model.Runner
@@ -99,7 +114,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		sb = model.Sandbox{
 			ID: id, OrgID: req.OrgID, RunnerID: runner.ID, Name: req.Name, ImageRef: req.ImageRef,
 			Status: model.SandboxStatusCreating, CPU: size.CPU, MemoryMB: size.MemoryMB,
-			DiskGB: size.DiskGB, MetadataJSON: string(metadata),
+			DiskGB: size.DiskGB, MetadataJSON: string(metadata), InfraProbeToken: probeToken,
 		}
 		return tx.Create(&sb).Error
 	})
@@ -208,7 +223,16 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": nextStatus})
 		return
 	}
+	if nextStatus == model.SandboxStatusRunning && !runtimeReservationHeld(sb.Status) {
+		if err := reserveRunnerReservationForSandbox(r.Context(), s.db, sb, runtimeReservationSize(sb)); err != nil {
+			httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
 	if err := s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes/"+sb.ID+"/"+action, nil, nil); err != nil {
+		if nextStatus == model.SandboxStatusRunning && !runtimeReservationHeld(sb.Status) {
+			_ = releaseRunnerReservationForSandbox(context.WithoutCancel(r.Context()), s.db, sb, runtimeReservationSize(sb))
+		}
 		httpx.JSON(w, http.StatusBadGateway, api.ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -218,7 +242,15 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 	} else if nextStatus == model.SandboxStatusRunning {
 		updates["stopped_at"] = nil
 	}
-	if err := s.db.Model(&sb).Updates(updates).Error; err != nil {
+	err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		if nextStatus == model.SandboxStatusStopped && runtimeReservationHeld(sb.Status) {
+			if err := releaseRunnerReservationForSandboxTx(tx, sb, runtimeReservationSize(sb)); err != nil {
+				return err
+			}
+		}
+		return tx.Model(&sb).Updates(updates).Error
+	})
+	if err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to update sandbox status"})
 		return
 	}
@@ -241,7 +273,15 @@ func (s *Server) deleteSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes/"+sb.ID+"/delete", nil, nil)
 	_ = s.db.Transaction(func(tx *gorm.DB) error {
-		_ = releaseRunner(tx, &runner, api.Size{CPU: sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB})
+		releaseSize := api.Size{}
+		if runtimeReservationHeld(sb.Status) {
+			releaseSize.CPU = sb.CPU
+			releaseSize.MemoryMB = sb.MemoryMB
+		}
+		if diskReservationHeld(sb.Status) {
+			releaseSize.DiskGB = sb.DiskGB
+		}
+		_ = releaseRunnerReservationForSandboxTx(tx, sb, releaseSize)
 		_ = tx.Where("sandbox_id = ?", sb.ID).Delete(&model.SandboxPort{}).Error
 		return tx.Delete(&sb).Error
 	})

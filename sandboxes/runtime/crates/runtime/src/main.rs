@@ -1,3 +1,4 @@
+mod activity;
 mod db_sync;
 mod handler;
 mod sentry_support;
@@ -14,6 +15,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use activity::RuntimeActivityReporter;
 use agent::{AgentRunner, RigAgentRunner};
 use anyhow::{Context, Result};
 use api::{ApiState, OutboundConfigReloader};
@@ -65,11 +67,16 @@ async fn main() -> Result<()> {
     }
 
     let runtime_env: HashMap<String, String> = std::env::vars().collect();
+    let activity_reporter = RuntimeActivityReporter::from_env(&runtime_env);
     let runtime_secret = required_runtime_env(
         &runtime_env,
         "HIVY_RUNTIME_SECRET",
         "shared runtime bearer token",
     )?;
+    let infra_probe_token = runtime_env
+        .get("HIVY_INFRA_PROBE_TOKEN")
+        .cloned()
+        .unwrap_or_default();
     let bind_addr_text = runtime_env
         .get("HIVY_RUNTIME_BIND_ADDR")
         .cloned()
@@ -171,6 +178,7 @@ async fn main() -> Result<()> {
         session_repo.clone(),
         event_repo.clone(),
         runtime_secret,
+        infra_probe_token,
         workspace_root.clone(),
         Arc::new(LocalBashOperations),
         skill_writer,
@@ -260,6 +268,7 @@ async fn main() -> Result<()> {
             let turn_event_sink: Arc<dyn handler::TurnEventSink> = session_stream_broker.clone();
             let subagent_task_repo = subagent_task_repo.clone();
             let inbound_sink = inbound_sink.clone();
+            let activity_reporter = activity_reporter.clone();
             // Capture the session id before moving `inbound` into the task so a
             // panicking turn can be cleaned up from the coordinator.
             let session_id = inbound.session_id.clone();
@@ -277,6 +286,7 @@ async fn main() -> Result<()> {
                     subagent_task_repo,
                     inbound_sink,
                     inbound,
+                    activity_reporter,
                 ))
                 .catch_unwind()
                 .await;

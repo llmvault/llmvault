@@ -8,17 +8,21 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
 type sessionHarness struct {
-	db       *gorm.DB
-	router   *chi.Mux
-	enqueuer *enqueue.MockClient
+	db           *gorm.DB
+	router       *chi.Mux
+	enqueuer     *enqueue.MockClient
+	orchestrator *sandboxpkg.Orchestrator
+	compileDeps  agentruntime.CompileDeps
 }
 
 type sessionFixture struct {

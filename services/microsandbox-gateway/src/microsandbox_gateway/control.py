@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from typing import Any
+
+from aiohttp import ClientSession, ClientTimeout
+
+
+class ControlClient:
+    def __init__(self, base_url: str, token: str, session: ClientSession | None = None) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        self.session = session
+        self._owned_session: ClientSession | None = None
+
+    async def __aenter__(self) -> "ControlClient":
+        if self.session is None:
+            self._owned_session = ClientSession(timeout=ClientTimeout(total=120))
+            self.session = self._owned_session
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        if self._owned_session is not None:
+            await self._owned_session.close()
+            self._owned_session = None
+            self.session = None
+
+    def configured(self) -> bool:
+        return bool(self.base_url and self.token)
+
+    async def route(self, sandbox_id: str) -> dict[str, Any]:
+        payload = await self._request("GET", f"/v1/sandboxes/{sandbox_id}/route")
+        return payload["route"]
+
+    async def ensure_ready(
+        self,
+        sandbox_id: str,
+        guest_port: int,
+        readiness: str,
+        timeout_seconds: int,
+        request_id: str,
+    ) -> dict[str, Any]:
+        payload = await self._request(
+            "POST",
+            f"/v1/sandboxes/{sandbox_id}/ensure-ready",
+            {
+                "guest_port": guest_port,
+                "readiness": readiness,
+                "timeout_seconds": timeout_seconds,
+                "request_id": request_id,
+            },
+            timeout_seconds + 5,
+        )
+        return payload["route"]
+
+    async def activity(self, sandbox_id: str, source: str = "gateway") -> None:
+        await self._request(
+            "POST",
+            f"/v1/sandboxes/{sandbox_id}/activity",
+            {"source": source, "runtime_busy": False},
+            timeout=5,
+        )
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
+    ) -> dict[str, Any]:
+        if not self.configured():
+            raise RuntimeError("microsandbox control is not configured")
+        if self.session is None:
+            self._owned_session = ClientSession(timeout=ClientTimeout(total=120))
+            self.session = self._owned_session
+        headers = {"Authorization": f"Bearer {self.token}"}
+        request_timeout = ClientTimeout(total=timeout) if timeout else None
+        async with self.session.request(
+            method,
+            self.base_url + path,
+            json=json_body,
+            headers=headers,
+            timeout=request_timeout,
+        ) as response:
+            if response.status >= 300:
+                body = await response.text()
+                raise RuntimeError(f"control returned {response.status}: {body.strip()}")
+            if response.content_length == 0:
+                return {}
+            return await response.json()

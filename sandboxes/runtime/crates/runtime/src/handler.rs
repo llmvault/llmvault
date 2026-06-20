@@ -27,6 +27,7 @@ use media::{collect_media_for_turn, DownloadResults};
 pub use media::{AttachmentDownloader, HttpAttachmentDownloader};
 use session::ensure_session_persisted;
 
+use crate::activity::RuntimeActivityReporter;
 use crate::session_coordinator::{SessionCoordinator, Submission, TurnCancellation};
 
 const USER_RETRY_MESSAGE: &str =
@@ -465,6 +466,7 @@ pub async fn handle_inbound(
     subagent_task_repo: Arc<dyn SubagentTaskRepo>,
     inbound_sink: mpsc::Sender<InboundEvent>,
     inbound: InboundEvent,
+    activity_reporter: Option<Arc<RuntimeActivityReporter>>,
 ) -> Result<()> {
     let submission = coordinator.submit_or_queue(inbound.clone());
     if matches!(submission, Submission::Queued) {
@@ -482,6 +484,9 @@ pub async fn handle_inbound(
     }
 
     let mut current_inbound = inbound;
+    let _activity_guard = activity_reporter
+        .as_ref()
+        .map(|reporter| reporter.busy_period());
     let session_stream_id = session_stream_id(&current_inbound);
     let mut queued_backlog = QueuedInboundBacklog::default();
     'turns: loop {

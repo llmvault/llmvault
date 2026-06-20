@@ -18,11 +18,12 @@
 	handle {
 		forward_auth http://127.0.0.1:8091 {
 			uri /v1/lookup
+			header_up -Authorization
 			header_up X-Forwarded-Host {host}
 			header_up X-Forwarded-Uri {uri}
 			copy_headers X-Microsandbox-Upstream
 			transport http {
-				response_header_timeout 60s
+				response_header_timeout {{ caddy_preview_proxy_forward_auth_timeout }}
 			}
 		}
 

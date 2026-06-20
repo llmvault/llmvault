@@ -99,10 +99,12 @@ func (o *Orchestrator) RunSandboxLifecycle(ctx context.Context) {
 	var idleRunning []model.Sandbox
 	if err := o.db.Where(
 		`status = ? AND last_active_at IS NOT NULL AND last_active_at < ?
-		 AND (last_preview_at IS NULL OR last_preview_at < ?)`,
+		 AND (last_preview_at IS NULL OR last_preview_at < ?)
+		 AND provider_id <> ?`,
 		string(StatusRunning),
 		idleCutoff,
 		idleCutoff,
+		ProviderMicrosandbox,
 	).Find(&idleRunning).Error; err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "sandbox lifecycle: query idle running sandboxes failed", "error", err)
 	} else {
