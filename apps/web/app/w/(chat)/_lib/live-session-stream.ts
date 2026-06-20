@@ -32,6 +32,7 @@ export function appendLiveSessionStreamFrame(
 export function isTerminalStreamFrame(frame: DirectSessionStreamFrame) {
   return (
     frame.event === "done" ||
+    frame.event === "turn_completed" ||
     frame.event === "turn_failed" ||
     frame.event === "error"
   )

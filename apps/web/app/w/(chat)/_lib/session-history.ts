@@ -1,4 +1,3 @@
-import type { components } from "@/lib/api/schema"
 import {
   currentCollaborator,
   type ConversationBlock,
@@ -11,15 +10,34 @@ import {
   toolEventID,
 } from "@/app/w/(chat)/_lib/session-tools"
 import { codeLineCommentReferenceFromPayload } from "@/app/w/(chat)/_lib/code-line-comments"
+import {
+  compareSessionEvents,
+  durationBetween,
+  eventText,
+  eventTime,
+  eventTurnID,
+  formatDuration,
+  parseTimestamp,
+  payloadRecord,
+  stringRecordValue,
+  stringValue,
+  stripAttachmentTags,
+  type Payload,
+  type SessionEventResponse,
+} from "@/app/w/(chat)/_lib/session-history-event-utils"
 
-export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
+export type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history-event-utils"
 
-type Payload = Record<string, unknown>
 type SessionHistoryPage = {
   data?: SessionEventResponse[]
 }
 type SessionBlocksMode = "history" | "live"
 type TimelineRole = "work" | "final" | "standalone"
+type SessionBlocksOptions = {
+  mode?: SessionBlocksMode
+  activeTurnID?: string
+  activeTurnStartedAt?: string
+}
 
 interface TimelineItem {
   block: ConversationBlock
@@ -50,11 +68,11 @@ export function sessionHistoryPagesToEvents(
 
   for (const page of pages) {
     for (const event of page.data ?? []) {
-      const key = event.id ?? event.event_id
-      if (key) {
-        if (seen.has(key)) continue
-        seen.add(key)
-      }
+      const keys = [event.id, event.event_id].filter((key): key is string =>
+        Boolean(key)
+      )
+      if (keys.some((key) => seen.has(key))) continue
+      for (const key of keys) seen.add(key)
       events.push(event)
     }
   }
@@ -64,12 +82,14 @@ export function sessionHistoryPagesToEvents(
 
 export function sessionEventsToConversationBlocks(
   events: SessionEventResponse[],
-  options: { mode?: SessionBlocksMode } = {}
+  options: SessionBlocksOptions = {}
 ): ConversationBlock[] {
   const mode = options.mode ?? "history"
   const ordered = [...events].sort(compareSessionEvents)
   const finalTurns = new Set<string>()
-  const lastTokenEventByTurn = new Map<string, string>()
+  const finalTextByTurn = new Map<string, string>()
+  const thinkingTurns = new Set<string>()
+  const lastTokenEventByTurn = new Map<string, SessionEventResponse>()
   const toolTurns = new Set<string>()
   const turnInfoByID = new Map<string, TurnInfo>()
 
@@ -77,17 +97,22 @@ export function sessionEventsToConversationBlocks(
     const turn = eventTurnID(event)
     if (!turn) continue
     captureTurnInfo(turnInfoByID, turn, event)
-    if (event.event_type === "final" && eventText(event)) finalTurns.add(turn)
+    if (event.event_type === "final" && eventText(event)) {
+      finalTurns.add(turn)
+      finalTextByTurn.set(turn, eventText(event))
+    }
+    if (event.event_type === "thinking") thinkingTurns.add(turn)
+    if (event.event_type === "token" && eventText(event)) {
+      lastTokenEventByTurn.set(turn, event)
+    }
     if (
       event.event_type === "tool_call" ||
       event.event_type === "tool_result"
     ) {
       toolTurns.add(turn)
     }
-    if (event.event_type === "token" && eventText(event)) {
-      lastTokenEventByTurn.set(turn, event.id ?? event.event_id ?? "")
-    }
   }
+  seedActiveTurnInfo(turnInfoByID, options)
 
   const items: TimelineItem[] = []
   const toolBlockIndexByID = new Map<string, number>()
@@ -124,9 +149,10 @@ export function sessionEventsToConversationBlocks(
       const text = eventText(event).trim()
       const turn = eventTurnID(event)
       const hasTool = Boolean(turn && toolTurns.has(turn))
+      const eventMode = turnMode(turn, mode, finalTurns, options)
       items.push({
-        block: thinkingBlock(event, text, mode),
-        role: hasTool ? "work" : "standalone",
+        block: thinkingBlock(event, text, eventMode),
+        role: hasTool || eventMode === "live" ? "work" : "standalone",
         turnID: turn,
         at: eventTime(event),
       })
@@ -186,27 +212,43 @@ export function sessionEventsToConversationBlocks(
     if (type === "token") {
       const turn = eventTurnID(event)
       const hasTool = Boolean(turn && toolTurns.has(turn))
-      const tokenID = event.id ?? event.event_id ?? ""
+      const hasWork = hasTool || Boolean(turn && thinkingTurns.has(turn))
+      const eventMode = turnMode(turn, mode, finalTurns, options)
       if (turn && finalTurns.has(turn) && !hasTool) continue
       if (
         turn &&
         hasTool &&
         finalTurns.has(turn) &&
-        lastTokenEventByTurn.get(turn) === tokenID
+        lastTokenEventByTurn.get(turn) === event &&
+        finalTextByTurn.get(turn)?.trim() === eventText(event).trim()
       ) {
         continue
       }
       appendAssistantItem(
         items,
         eventText(event),
-        mode,
-        hasTool && (mode === "live" || finalTurns.has(turn)) ? "work" : "final",
+        eventMode,
+        (eventMode === "live" && hasWork) || (hasTool && finalTurns.has(turn))
+          ? "work"
+          : "final",
         event
       )
     }
   }
 
-  return buildConversationBlocks(items, turnInfoByID, mode)
+  return buildConversationBlocks(items, turnInfoByID, mode, options)
+}
+
+function turnMode(
+  turnID: string,
+  mode: SessionBlocksMode,
+  finalTurns: Set<string>,
+  options: SessionBlocksOptions
+): SessionBlocksMode {
+  if (!turnID || !options.activeTurnID || turnID !== options.activeTurnID) {
+    return mode
+  }
+  return finalTurns.has(turnID) ? "history" : "live"
 }
 
 function appendAssistantItem(
@@ -234,7 +276,8 @@ function appendAssistantItem(
 function buildConversationBlocks(
   items: TimelineItem[],
   turnInfoByID: Map<string, TurnInfo>,
-  mode: SessionBlocksMode
+  mode: SessionBlocksMode,
+  options: SessionBlocksOptions
 ): ConversationBlock[] {
   const blocks: ConversationBlock[] = []
   let workTurnID: string | undefined
@@ -245,9 +288,14 @@ function buildConversationBlocks(
     const hasPendingWork = workItems.some(
       (item) => item.block.type === "thinking" && item.block.active
     )
+    const hasActiveTurnWork = Boolean(
+      !completed && workTurnID && workTurnID === options.activeTurnID
+    )
+    const shouldShowActiveWork =
+      hasPendingWork || hasActiveTurnWork || (!completed && mode === "live")
     const workBlocks = resolveLiveThinkingState(
       workItems.map((item) => item.block),
-      hasPendingWork || (!completed && mode === "live")
+      shouldShowActiveWork
     )
     blocks.push({
       type: "worklog",
@@ -255,8 +303,8 @@ function buildConversationBlocks(
       duration: workDuration(workTurnID, workItems, turnInfoByID),
       startedAt: workStartedAt(workTurnID, workItems, turnInfoByID),
       blocks: workBlocks,
-      active: hasPendingWork || (!completed && mode === "live"),
-      defaultExpanded: hasPendingWork || (!completed && mode === "live"),
+      active: shouldShowActiveWork,
+      defaultExpanded: shouldShowActiveWork,
     })
     workItems = []
     workTurnID = undefined
@@ -277,7 +325,8 @@ function buildConversationBlocks(
     if (
       item.role === "final" &&
       mode !== "live" &&
-      item.block.type === "assistant"
+      item.block.type === "assistant" &&
+      !item.block.streaming
     )
       blocks.push({
         type: "actions",
@@ -296,44 +345,6 @@ function eventBlockKey(event: SessionEventResponse, prefix: string) {
 function worklogBlockKey(turnID: string | undefined, items: TimelineItem[]) {
   if (turnID) return `worklog:${turnID}`
   return `worklog:${items.map((item) => item.block.key).join("|")}`
-}
-
-function compareSessionEvents(
-  left: SessionEventResponse,
-  right: SessionEventResponse
-) {
-  const byTime = eventTime(left) - eventTime(right)
-  if (byTime !== 0) return byTime
-  return (left.sequence_number ?? 0) - (right.sequence_number ?? 0)
-}
-
-function eventTime(event: SessionEventResponse): number {
-  const time = event.event_at ? Date.parse(event.event_at) : 0
-  return Number.isNaN(time) ? 0 : time
-}
-
-function payloadRecord(event: SessionEventResponse): Payload {
-  const payload = event.payload
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return {}
-  }
-  return payload as Payload
-}
-
-function stringValue(payload: Payload, key: string): string {
-  const value = payload[key]
-  return typeof value === "string" ? value : ""
-}
-
-function eventText(event: SessionEventResponse): string {
-  const payload = payloadRecord(event)
-  return (
-    stringValue(payload, "text") ||
-    stringValue(payload, "message") ||
-    stringValue(payload, "content") ||
-    stringValue(payload, "markdown") ||
-    stringValue(payload, "result_summary")
-  )
 }
 
 function eventAttachments(event: SessionEventResponse): MediaAttachment[] {
@@ -375,22 +386,6 @@ function eventCodeLineComments(event: SessionEventResponse) {
     )
     return comment ? [comment] : []
   })
-}
-
-function stringRecordValue(
-  record: Record<string, unknown>,
-  key: string
-): string {
-  const value = record[key]
-  return typeof value === "string" ? value : ""
-}
-
-function stripAttachmentTags(text: string): string {
-  return text.replace(/<attachment\b[\s\S]*?<\/attachment>/gi, "").trim()
-}
-
-function eventTurnID(event: SessionEventResponse): string {
-  return stringValue(payloadRecord(event), "turn_id")
 }
 
 function clientStatus(
@@ -438,11 +433,21 @@ function captureTurnInfo(
   infoByID.set(turnID, info)
 }
 
+function seedActiveTurnInfo(
+  infoByID: Map<string, TurnInfo>,
+  options: SessionBlocksOptions
+) {
+  if (!options.activeTurnID || !options.activeTurnStartedAt) return
+  const startedAt = parseTimestamp(options.activeTurnStartedAt)
+  if (startedAt === undefined) return
+  const info = infoByID.get(options.activeTurnID) ?? {}
+  if (info.startedAt === undefined) info.startedAt = startedAt
+  infoByID.set(options.activeTurnID, info)
+}
+
 function timestampValue(payload: Payload, key: string): number | undefined {
   const value = stringValue(payload, key)
-  if (!value) return undefined
-  const time = Date.parse(value)
-  return Number.isNaN(time) ? undefined : time
+  return parseTimestamp(value)
 }
 
 function workDuration(
@@ -556,34 +561,4 @@ function thoughtDuration(event: SessionEventResponse): string | undefined {
   const durationMs = durationBetween(startedAt, endedAt)
   if (durationMs === undefined) return undefined
   return formatDuration(durationMs)
-}
-
-function durationBetween(startedAt: string, endedAt: string) {
-  if (!startedAt || !endedAt) return undefined
-  const started = Date.parse(startedAt)
-  const ended = Date.parse(endedAt)
-  if (Number.isNaN(started) || Number.isNaN(ended) || ended < started) {
-    return undefined
-  }
-  return ended - started
-}
-
-function formatDuration(durationMs: number): string {
-  if (durationMs < 1000) {
-    return `${Math.max(0.1, Math.round(durationMs / 100) / 10)} seconds`
-  }
-  if (durationMs < 60_000) {
-    const seconds = Math.round(durationMs / 1000)
-    return seconds === 1 ? "1 second" : `${seconds} seconds`
-  }
-  if (durationMs < 3_600_000) {
-    const totalSeconds = Math.round(durationMs / 1000)
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`
-  }
-  const totalMinutes = Math.round(durationMs / 60_000)
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
 }
