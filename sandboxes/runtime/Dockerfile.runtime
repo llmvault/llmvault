@@ -121,8 +121,11 @@ RUN npm config set fetch-retries 5 \
   && npm config set fetch-retry-maxtimeout 120000 \
   && npm install -g --prefix=/usr/local agent-browser \
   && ln -sf /usr/local/bin/agent-browser /usr/local/bin/browser \
-  && agent-browser install \
+  && mkdir -p /workspace \
+  && HOME=/workspace agent-browser install \
   && npm cache clean --force
+
+ENV HOME=/workspace
 
 WORKDIR /app
 
