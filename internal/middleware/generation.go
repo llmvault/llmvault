@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -253,7 +254,7 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 		UpstreamStatus: captured.UpstreamStatus,
 
 		ErrorType:    captured.ErrorType,
-		ErrorMessage: truncate(captured.ErrorMessage, 1000),
+		ErrorMessage: truncateValidUTF8(captured.ErrorMessage, 1000),
 
 		CreatedAt: time.Now().UTC(),
 	}
@@ -279,9 +280,11 @@ func lookupProviderID(db *gorm.DB, credentialID string) string {
 	return providerID
 }
 
-func truncate(s string, maxLen int) string {
+func truncateValidUTF8(s string, maxLen int) string {
+	s = strings.ToValidUTF8(s, "?")
+	s = strings.ReplaceAll(s, "\x00", "?")
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen]
+	return strings.ToValidUTF8(s[:maxLen], "?")
 }

@@ -6,31 +6,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
 
-var (
-	warmRuntimeClaimMaxWait      = 2 * time.Minute
-	warmRuntimeClaimInitialDelay = 500 * time.Millisecond
-	warmRuntimeClaimMaxDelay     = 10 * time.Second
-)
-
-func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, mode, runtimeImage string) error {
+func (o *Orchestrator) tryClaimWarmRuntime(ctx context.Context, sb *model.Sandbox, profile WarmPoolProfile) (bool, error) {
 	if o.warmPool == nil {
-		return fmt.Errorf("railway warm pool is not configured")
+		return false, nil
 	}
-	claimed, err := o.claimWarmRuntimeSlot(ctx, mode, runtimeImage, sb.ID)
+	claimed, err := o.warmPool.Claim(ctx, profile, sb.ID)
 	if err != nil {
-		return fmt.Errorf("claim warm runtime: %w", err)
+		if isNoWarmSlotAvailable(err) {
+			o.enqueueWarmPoolReconcile(ctx, profile)
+			return false, nil
+		}
+		return false, fmt.Errorf("claim warm runtime: %w", err)
 	}
 
 	encryptedRuntimeSecret, err := o.encKey.EncryptString(claimed.RuntimeSecret)
 	if err != nil {
 		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("encrypt runtime secret: %v", err))
-		return fmt.Errorf("encrypt claimed runtime secret: %w", err)
+		return false, fmt.Errorf("encrypt claimed runtime secret: %w", err)
 	}
 
 	now := time.Now()
@@ -44,7 +41,7 @@ func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, 
 		"last_active_at":           now,
 	}).Error; err != nil {
 		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("update sandbox: %v", err))
-		return fmt.Errorf("updating claimed sandbox: %w", err)
+		return false, fmt.Errorf("updating claimed sandbox: %w", err)
 	}
 	sb.ExternalID = claimed.ExternalID
 	sb.RuntimeURL = claimed.EndpointURL
@@ -55,48 +52,19 @@ func (o *Orchestrator) claimWarmRuntime(ctx context.Context, sb *model.Sandbox, 
 
 	if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
 		_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime health: %v", err))
-		return fmt.Errorf("waiting for claimed runtime: %w", err)
+		return false, fmt.Errorf("waiting for claimed runtime: %w", err)
 	}
-	if mode == model.SandboxWarmSlotModeAgent {
+	if profile.Mode == model.SandboxWarmSlotModeAgent {
 		if err := o.pushAgentRuntimeConfig(ctx, sb, "warm claim"); err != nil {
 			_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime config push: %v", err))
-			return err
+			return false, err
 		}
 	}
 	if err := o.warmPool.MarkClaimed(ctx, claimed.ID); err != nil {
-		return fmt.Errorf("mark warm slot claimed: %w", err)
+		return false, fmt.Errorf("mark warm slot claimed: %w", err)
 	}
-	o.enqueueWarmPoolReconcile(ctx, mode, runtimeImage)
-	return nil
-}
-
-func (o *Orchestrator) claimWarmRuntimeSlot(ctx context.Context, mode, runtimeImage string, sandboxID uuid.UUID) (*ClaimedWarmSlot, error) {
-	deadline := time.Now().Add(warmRuntimeClaimMaxWait)
-	delay := warmRuntimeClaimInitialDelay
-	var lastErr error
-	for {
-		claimed, err := o.warmPool.Claim(ctx, mode, runtimeImage, sandboxID)
-		if err == nil {
-			return claimed, nil
-		}
-		lastErr = err
-		if !isNoWarmSlotAvailable(err) {
-			return nil, err
-		}
-		o.enqueueWarmPoolReconcile(ctx, mode, runtimeImage)
-		if time.Now().Add(delay).After(deadline) {
-			return nil, fmt.Errorf("no warm %s runtime available after %s: %w", mode, warmRuntimeClaimMaxWait, lastErr)
-		}
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("wait for warm %s runtime: %w: %w", mode, ctx.Err(), lastErr)
-		case <-time.After(delay):
-		}
-		delay *= 2
-		if delay > warmRuntimeClaimMaxDelay {
-			delay = warmRuntimeClaimMaxDelay
-		}
-	}
+	o.enqueueWarmPoolReconcile(ctx, profile)
+	return true, nil
 }
 
 func isNoWarmSlotAvailable(err error) bool {

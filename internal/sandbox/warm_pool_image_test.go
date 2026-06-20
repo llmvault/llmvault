@@ -21,13 +21,13 @@ func TestWarmPoolClaimUsesRequestedRuntimeImage(t *testing.T) {
 	cfg := &config.Config{SandboxesRuntimeImageTag: "v3.4.0-amd64"}
 	pool := &WarmPool{db: db, provider: provider, encKey: encKey, cfg: cfg}
 
-	defaultImage := AgentRuntimeImageRef(cfg, model.SandboxImageDefault)
-	developerImage := AgentRuntimeImageRef(cfg, model.SandboxImageDeveloper)
-	defaultSlotID := seedWarmSlot(t, db, encKey, provider.id, defaultImage, "default-external")
-	developerSlotID := seedWarmSlot(t, db, encKey, provider.id, developerImage, "developer-external")
+	defaultProfile := AgentWarmPoolProfile(cfg, model.SandboxImageDefault, model.DefaultAgentSandboxSize)
+	developerProfile := AgentWarmPoolProfile(cfg, model.SandboxImageDeveloper, model.DefaultAgentSandboxSize)
+	defaultSlotID := seedWarmSlot(t, db, encKey, provider.id, defaultProfile, "default-external")
+	developerSlotID := seedWarmSlot(t, db, encKey, provider.id, developerProfile, "developer-external")
 	sandboxID := seedClaimTargetSandbox(t, db, encKey, provider.id)
 
-	claimed, err := pool.Claim(context.Background(), model.SandboxWarmSlotModeAgent, developerImage, sandboxID)
+	claimed, err := pool.Claim(context.Background(), developerProfile, sandboxID)
 	if err != nil {
 		t.Fatalf("claim developer warm slot: %v", err)
 	}
@@ -44,22 +44,53 @@ func TestWarmPoolClaimUsesRequestedRuntimeImage(t *testing.T) {
 	}
 }
 
+func TestWarmPoolClaimUsesRequestedSandboxSize(t *testing.T) {
+	db := connectSandboxTestDB(t)
+	encKey := sandboxTestSymmetricKey(t)
+	provider := warmSlotImageTestProvider{id: "warm-size-provider-" + uuid.NewString()[:8]}
+	cfg := &config.Config{SandboxesRuntimeImageTag: "v3.4.0-amd64"}
+	pool := &WarmPool{db: db, provider: provider, encKey: encKey, cfg: cfg}
+
+	smallProfile := AgentWarmPoolProfile(cfg, model.SandboxImageDefault, "small")
+	largeProfile := AgentWarmPoolProfile(cfg, model.SandboxImageDefault, "large")
+	smallSlotID := seedWarmSlot(t, db, encKey, provider.id, smallProfile, "small-external")
+	largeSlotID := seedWarmSlot(t, db, encKey, provider.id, largeProfile, "large-external")
+	sandboxID := seedClaimTargetSandbox(t, db, encKey, provider.id)
+
+	claimed, err := pool.Claim(context.Background(), largeProfile, sandboxID)
+	if err != nil {
+		t.Fatalf("claim large warm slot: %v", err)
+	}
+	if claimed.ID != largeSlotID || claimed.ExternalID != "large-external" {
+		t.Fatalf("claimed slot = (%s,%s), want large slot (%s,large-external)", claimed.ID, claimed.ExternalID, largeSlotID)
+	}
+
+	var smallSlot model.SandboxWarmSlot
+	if err := db.First(&smallSlot, "id = ?", smallSlotID).Error; err != nil {
+		t.Fatalf("load small slot: %v", err)
+	}
+	if smallSlot.Status != model.SandboxWarmSlotStatusWarm {
+		t.Fatalf("small slot status = %q, want warm", smallSlot.Status)
+	}
+}
+
 func TestWarmPoolReconcileMaintainsSeparateRuntimeImagePools(t *testing.T) {
 	db := connectSandboxTestDB(t)
 	provider := &warmSlotImageTestProvider{id: "warm-reconcile-provider-" + uuid.NewString()[:8]}
 	cfg := &config.Config{
-		SandboxWarmPoolAgentSize: 1,
-		SandboxesRuntimeImageTag: "v3.4.0-amd64",
-		RailwayRuntimePort:       AgentSandboxPort,
+		SandboxWarmPoolDefaultSize:   1,
+		SandboxWarmPoolDeveloperSize: 1,
+		SandboxesRuntimeImageTag:     "v3.4.0-amd64",
+		RailwayRuntimePort:           AgentSandboxPort,
 	}
 	pool := &WarmPool{db: db, provider: provider, encKey: sandboxTestSymmetricKey(t), cfg: cfg}
 
-	defaultImage := AgentRuntimeImageRef(cfg, model.SandboxImageDefault)
-	developerImage := AgentRuntimeImageRef(cfg, model.SandboxImageDeveloper)
-	if _, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeAgent, defaultImage, nil); err != nil {
+	defaultProfile := AgentWarmPoolProfile(cfg, model.SandboxImageDefault, "small")
+	developerProfile := AgentWarmPoolProfile(cfg, model.SandboxImageDeveloper, "large")
+	if _, err := pool.Reconcile(context.Background(), defaultProfile, nil); err != nil {
 		t.Fatalf("reconcile default image: %v", err)
 	}
-	if _, err := pool.Reconcile(context.Background(), model.SandboxWarmSlotModeAgent, developerImage, nil); err != nil {
+	if _, err := pool.Reconcile(context.Background(), developerProfile, nil); err != nil {
 		t.Fatalf("reconcile developer image: %v", err)
 	}
 
@@ -69,13 +100,20 @@ func TestWarmPoolReconcileMaintainsSeparateRuntimeImagePools(t *testing.T) {
 	}
 	counts := map[string]int{}
 	for _, slot := range slots {
-		counts[slot.RuntimeImage]++
+		counts[slot.RuntimeImage+"|"+slot.SandboxSize]++
 	}
-	if counts[defaultImage] != 1 {
-		t.Fatalf("default warm slot count = %d, want 1", counts[defaultImage])
+	defaultKey := defaultProfile.RuntimeImage + "|small"
+	developerKey := developerProfile.RuntimeImage + "|large"
+	if counts[defaultKey] != 1 {
+		t.Fatalf("default warm slot count = %d, want 1", counts[defaultKey])
 	}
-	if counts[developerImage] != 1 {
-		t.Fatalf("developer warm slot count = %d, want 1", counts[developerImage])
+	if counts[developerKey] != 1 {
+		t.Fatalf("developer warm slot count = %d, want 1", counts[developerKey])
+	}
+	for _, opts := range provider.created {
+		if opts.SandboxSize == "large" && (opts.CPU != 4 || opts.Memory != 8 || opts.Disk != 40) {
+			t.Fatalf("large warm slot resources = cpu:%d memory:%d disk:%d, want 4/8/40", opts.CPU, opts.Memory, opts.Disk)
+		}
 	}
 }
 
@@ -99,7 +137,7 @@ func seedClaimTargetSandbox(t *testing.T, db *gorm.DB, encKey *crypto.SymmetricK
 	return sb.ID
 }
 
-func seedWarmSlot(t *testing.T, db *gorm.DB, encKey *crypto.SymmetricKey, providerID, runtimeImage, externalID string) uuid.UUID {
+func seedWarmSlot(t *testing.T, db *gorm.DB, encKey *crypto.SymmetricKey, providerID string, profile WarmPoolProfile, externalID string) uuid.UUID {
 	t.Helper()
 	encrypted, err := encKey.EncryptString("runtime-secret")
 	if err != nil {
@@ -111,7 +149,12 @@ func seedWarmSlot(t *testing.T, db *gorm.DB, encKey *crypto.SymmetricKey, provid
 		Status:                 model.SandboxWarmSlotStatusWarm,
 		ExternalID:             externalID,
 		EndpointURL:            "https://" + externalID + ".example",
-		RuntimeImage:           runtimeImage,
+		RuntimeImage:           profile.RuntimeImage,
+		ImageKind:              profile.ImageKind,
+		SandboxSize:            profile.SandboxSize,
+		CPU:                    profile.CPU,
+		Memory:                 profile.Memory,
+		Disk:                   profile.Disk,
 		RuntimePort:            AgentSandboxPort,
 		EncryptedRuntimeSecret: encrypted,
 	}
@@ -124,6 +167,7 @@ func seedWarmSlot(t *testing.T, db *gorm.DB, encKey *crypto.SymmetricKey, provid
 type warmSlotImageTestProvider struct {
 	id      string
 	creates int
+	created []WarmSlotCreateOpts
 }
 
 func (p warmSlotImageTestProvider) ID() string { return p.id }
@@ -136,6 +180,7 @@ func (p warmSlotImageTestProvider) RuntimeLayout() RuntimeLayout {
 
 func (p *warmSlotImageTestProvider) CreateWarmSlot(_ context.Context, opts WarmSlotCreateOpts) (*WarmSlotInfo, error) {
 	p.creates++
+	p.created = append(p.created, opts)
 	return &WarmSlotInfo{
 		ExternalID:  fmt.Sprintf("warm-%d-%s", p.creates, uuid.NewString()[:8]),
 		EndpointURL: fmt.Sprintf("https://warm-%d.example", p.creates),

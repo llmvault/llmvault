@@ -88,12 +88,13 @@ type Config struct {
 	MicrosandboxControlURL            string `env:"HIVY_MICROSANDBOX_CONTROL_URL"`
 	MicrosandboxControlAPIToken       string `env:"HIVY_MICROSANDBOX_CONTROL_API_TOKEN"`
 
-	RailwayAPIToken          string `env:"HIVY_RAILWAY_API_TOKEN"`
-	RailwayProjectID         string `env:"HIVY_RAILWAY_PROJECT_ID"`
-	RailwayEnvironmentID     string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
-	RailwayRegion            string `env:"HIVY_RAILWAY_REGION"`
-	RailwayRuntimePort       int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
-	SandboxWarmPoolAgentSize int    `env:"HIVY_SANDBOX_WARM_POOL_AGENT_SIZE" envDefault:"0"`
+	RailwayAPIToken              string `env:"HIVY_RAILWAY_API_TOKEN"`
+	RailwayProjectID             string `env:"HIVY_RAILWAY_PROJECT_ID"`
+	RailwayEnvironmentID         string `env:"HIVY_RAILWAY_ENVIRONMENT_ID"`
+	RailwayRegion                string `env:"HIVY_RAILWAY_REGION"`
+	RailwayRuntimePort           int    `env:"HIVY_RAILWAY_RUNTIME_PORT" envDefault:"7080"`
+	SandboxWarmPoolDefaultSize   int    `env:"HIVY_SANDBOX_WARM_POOL_DEFAULT_SIZE" envDefault:"0"`
+	SandboxWarmPoolDeveloperSize int    `env:"HIVY_SANDBOX_WARM_POOL_DEVELOPER_SIZE" envDefault:"0"`
 
 	DaytonaAPIURL string `env:"HIVY_DAYTONA_API_URL"`
 	DaytonaAPIKey string `env:"HIVY_DAYTONA_API_KEY"`

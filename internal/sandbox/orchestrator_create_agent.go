@@ -67,6 +67,7 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	resourceSpec, _ := model.TemplateSizeSpec(sandboxSize)
 	sandboxImage := model.NormalizeSandboxImage(agent.SandboxImage)
 	runtimeImage := AgentRuntimeImageRef(o.cfg, sandboxImage)
+	warmProfile := AgentWarmPoolProfile(o.cfg, sandboxImage, sandboxSize)
 	snapshotID := RuntimeTemplateRefForImageRef(o.cfg, runtimeImage, sandboxSize)
 	if templateRef != "" {
 		snapshotID = templateRef
@@ -97,21 +98,27 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		"sandbox_image": sandboxImage,
 	}
 
-	if _, usesWarmPool := o.provider.(WarmPoolCapable); usesWarmPool && templateRef == "" {
-		if err := o.claimWarmRuntime(ctx, &sb, model.SandboxWarmSlotModeAgent, runtimeImage); err != nil {
+	if o.shouldTryAgentWarmPool(templateRef, exposedPorts) {
+		claimed, err := o.tryClaimWarmRuntime(ctx, &sb, warmProfile)
+		if err != nil {
 			if delErr := o.db.Where("id = ?", sb.ID).Delete(&model.Sandbox{}).Error; delErr != nil {
 				logging.FromContext(ctx).ErrorContext(ctx, "delete orphaned agent sandbox row after warm claim failure",
 					"error", delErr, "sandbox_id", sb.ID)
 			}
 			return nil, err
 		}
-		if err := o.cloneAgentSelectedRepositories(ctx, &sb, agent); err != nil {
-			o.cleanupFailedSandbox(ctx, &sb, sb.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
-			return nil, fmt.Errorf("cloning agent repositories: %w", err)
+		if claimed {
+			if err := o.cloneAgentSelectedRepositories(ctx, &sb, agent); err != nil {
+				o.cleanupFailedSandbox(ctx, &sb, sb.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
+				return nil, fmt.Errorf("cloning agent repositories: %w", err)
+			}
+			logging.FromContext(ctx).InfoContext(ctx, "agent sandbox claimed from warm pool",
+				"sandbox_id", sb.ID, "external_id", sb.ExternalID, "agent_id", agent.ID,
+				"sandbox_image", sandboxImage, "sandbox_size", sandboxSize)
+			return &sb, nil
 		}
-		logging.FromContext(ctx).InfoContext(ctx, "agent sandbox claimed from warm pool",
-			"sandbox_id", sb.ID, "external_id", sb.ExternalID, "agent_id", agent.ID)
-		return &sb, nil
+		logging.FromContext(ctx).InfoContext(ctx, "agent sandbox warm pool empty; creating directly",
+			"sandbox_id", sb.ID, "agent_id", agent.ID, "sandbox_image", sandboxImage, "sandbox_size", sandboxSize)
 	}
 
 	info, err := o.provider.CreateSandbox(ctx, CreateSandboxOpts{
@@ -174,4 +181,31 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	logging.FromContext(ctx).InfoContext(ctx, "agent sandbox created",
 		"sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID)
 	return &sb, nil
+}
+
+func (o *Orchestrator) shouldTryAgentWarmPool(templateRef string, exposedPorts []int) bool {
+	if templateRef != "" {
+		return false
+	}
+	capable, ok := o.provider.(WarmPoolCapable)
+	if !ok || !capable.UsesWarmPool() {
+		return false
+	}
+	if o.provider.ID() == ProviderMicrosandbox && !warmPoolSupportsDefaultPreviewPorts(exposedPorts) {
+		return false
+	}
+	return true
+}
+
+func warmPoolSupportsDefaultPreviewPorts(exposedPorts []int) bool {
+	allowed := map[int]struct{}{AgentSandboxPort: {}}
+	for _, port := range model.DefaultSandboxExposedPorts() {
+		allowed[port] = struct{}{}
+	}
+	for _, port := range exposedPorts {
+		if _, ok := allowed[port]; !ok {
+			return false
+		}
+	}
+	return true
 }

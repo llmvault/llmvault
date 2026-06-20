@@ -48,8 +48,8 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 
 	enqueuer := enqueue.NewClient(redisOpt)
 	if deps.Orchestrator != nil {
-		deps.Orchestrator.SetWarmPoolReconciler(func(ctx context.Context, providerID, mode, runtimeImage string) error {
-			return tasks.EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, providerID, mode, runtimeImage)
+		deps.Orchestrator.SetWarmPoolReconciler(func(ctx context.Context, providerID string, profile sandbox.WarmPoolProfile) error {
+			return tasks.EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, providerID, profile)
 		})
 		tasks.EnqueueConfiguredWarmPoolReconciles(ctx, enqueuer, deps.Orchestrator)
 	}
