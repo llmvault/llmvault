@@ -13,6 +13,10 @@ import {
   type DirectSessionStreamReplayMode,
 } from "@/app/w/(chat)/_lib/direct-session-stream"
 import {
+  clearSessionSandboxAccess,
+  getSessionSandboxAccess,
+} from "@/app/w/(chat)/_lib/session-sandbox-access"
+import {
   sessionRuntimeStatusFromResponse,
   useSessionRuntimeStore,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
@@ -169,7 +173,7 @@ async function runSessionStream(
   replayOverride?: DirectSessionStreamReplayMode
 ) {
   try {
-    const access = await requestSandboxAccess(sessionId)
+    const access = await getSessionSandboxAccess(sessionId)
     if (controller.abort.signal.aborted || controller.stopped) return
     const directUrl = `${access.sandbox_base_url.replace(/\/+$/, "")}/sessions/${sessionId}/stream`
     const cursor =
@@ -238,6 +242,7 @@ async function runSessionStream(
   } catch (error) {
     if (controller.abort.signal.aborted || controller.stopped) return
     if (shouldReconnectStream(error)) {
+      clearSessionSandboxAccess(sessionId)
       reconnectSessionStream(sessionId, controller.queryClient)
       return
     }
@@ -245,32 +250,6 @@ async function runSessionStream(
     useSessionRuntimeStore.getState().appendStreamError(sessionId, message)
     stopController(sessionId)
     await refreshSessionQueries(controller.queryClient, sessionId)
-  }
-}
-
-async function requestSandboxAccess(sessionId: string): Promise<{
-  sandbox_base_url: string
-  token: string
-}> {
-  await api.POST("/v1/sessions/{id}/sandbox/wake", {
-    params: { path: { id: sessionId } },
-  })
-  const { data, error } = await api.POST("/v1/sessions/{id}/sandbox-access", {
-    params: { path: { id: sessionId } },
-  })
-  if (error || !data?.sandbox_base_url || !data.token) {
-    const message =
-      typeof error === "object" &&
-      error &&
-      "error" in error &&
-      typeof error.error === "string"
-        ? error.error
-        : "Sandbox access is not available."
-    throw new Error(message)
-  }
-  return {
-    sandbox_base_url: data.sandbox_base_url,
-    token: data.token,
   }
 }
 

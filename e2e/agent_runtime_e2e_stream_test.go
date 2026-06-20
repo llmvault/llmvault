@@ -149,6 +149,10 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 		if event.Name == "subagent_started" || event.Name == "subagent_completed" {
 			if agent, _ := event.Payload["agent_name"].(string); agent != "" {
 				agents[agent]++
+			} else if subagent := payloadMap(event.Payload["subagent"]); subagent != nil {
+				if agent, _ := subagent["agent_name"].(string); agent != "" {
+					agents[agent]++
+				}
 			}
 		}
 		if event.Name == "final" {
@@ -187,16 +191,17 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 			t.Fatalf("missing completed lsp result from server %s; servers=%v results=%v errors=%v events=%s", serverID, lspServers, toolResults, toolErrors, summarizeEvents(events))
 		}
 	}
-	if tools["subagent_task"] < 3 || tools["check_subagent_task_status"] < 3 {
+	if tools["subagent_task"] < len(agentRuntimeE2EHakareeSubagents) || tools["check_subagent_task_status"] < len(agentRuntimeE2EHakareeSubagents) {
 		t.Fatalf("subagent tool counts too low: tools=%v events=%s", tools, summarizeEvents(events))
 	}
-	for _, agent := range []string{"planner", "qa", "reviewer"} {
+	for _, agent := range agentRuntimeE2EHakareeSubagents {
 		if agents[agent] == 0 {
 			t.Fatalf("missing subagent lifecycle event for %s; agents=%v events=%s", agent, agents, summarizeEvents(events))
 		}
 	}
 	text := finalText.String()
-	for _, want := range []string{agentRuntimeE2EToken, "E2E_PASS", "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED", "PLANNER_SUBAGENT_CONFIRMED", "QA_SUBAGENT_CONFIRMED", "REVIEW_SUBAGENT_CONFIRMED"} {
+	requiredFinalText := append([]string{agentRuntimeE2EToken, "E2E_PASS", "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"}, agentRuntimeE2EAllSubagentMarkers()...)
+	for _, want := range requiredFinalText {
 		if !strings.Contains(text, want) {
 			t.Fatalf("final text missing %q; events=%s\nfinals:\n%s", want, summarizeEvents(events), text)
 		}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { memo, useState } from "react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import type { components } from "@/lib/api/schema"
@@ -44,7 +44,7 @@ const PANEL_VIEWS: {
 export type SessionSandboxAccessResponse =
   components["schemas"]["sessionSandboxAccessResponse"]
 
-export function RightPanel({
+export const RightPanel = memo(function RightPanel({
   sessionId,
   sandboxAccess,
   sandboxAccessPending,
@@ -205,4 +205,4 @@ export function RightPanel({
       </div>
     </div>
   )
-}
+})

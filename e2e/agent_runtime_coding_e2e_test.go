@@ -118,7 +118,8 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 	assertRuntimeSharedSubagentStream(t, trace, "bearer parent stream", events)
 	assertRuntimeSharedSubagentStream(t, trace, "direct browser stream", directSessionEvents)
 	assertRuntimeE2EEvents(t, trace, events)
-	assertRuntimeSessionFinal(t, trace, directSessionEvents, []string{"E2E_PASS", agentRuntimeE2EToken, "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"})
+	requiredFinalText := append([]string{"E2E_PASS", agentRuntimeE2EToken, "REAL_REPOS_CONFIRMED", "FFF_TOOLS_CONFIRMED", "APPLY_PATCH_CONFIRMED", "LSP_CONFIRMED", "ALL_LSP_SERVERS_CONFIRMED"}, agentRuntimeE2EAllSubagentMarkers()...)
+	assertRuntimeSessionFinal(t, trace, directSessionEvents, requiredFinalText)
 	assertAgentRuntimePostRunAPIs(t, trace, ctx, runtimeBaseURL, runtimeSecret, messageResponse.SessionID, messageResponse.TraceID, workspaceRoot)
 	assertFixtureProjectCompleted(t, trace, workspaceRoot)
 	if got := fixture.calls.Load(); got < 1 {
@@ -134,11 +135,14 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 }
 
 func agentRuntimeCodingRequest() map[string]any {
+	codebaseMarker := agentRuntimeE2ESubagentMarkers["codebase-explorer"]
+	librarianMarker := agentRuntimeE2ESubagentMarkers["librarian"]
+	oracleMarker := agentRuntimeE2ESubagentMarkers["oracle"]
 	return map[string]any{
 		"session_id": "agent-runtime-coding-e2e",
 		"user":       "agent-runtime-e2e",
 		"text": strings.Join([]string{
-			"You are running the flagship Hivy agent runtime E2E. Complete every numbered step and use the exact named tools.",
+			"You are running the flagship Hivy agent runtime E2E as Hakaree. This is a test session: every agent and subagent must minimize token use, avoid real exploratory work beyond these steps, and use the exact named tools.",
 			"1. Call search_sessions with query agent-runtime-e2e.",
 			"2. Call fixture_requirements to retrieve the exact token and requirement phrases.",
 			"3. Use bash to clone two real public codebases into repos/: run mkdir -p repos && git clone --depth=1 https://github.com/tidwall/gjson repos/gjson && git clone --depth=1 https://github.com/pallets/itsdangerous repos/itsdangerous.",
@@ -152,11 +156,12 @@ func agentRuntimeCodingRequest() map[string]any {
 			"11. Read calc.py with read_file.",
 			"12. Use apply_patch to add TOOLING_E2E.md containing the retrieved token and the phrases REAL_REPOS_CONFIRMED, FFF_TOOLS_CONFIRMED, APPLY_PATCH_CONFIRMED, LSP_CONFIRMED, and ALL_LSP_SERVERS_CONFIRMED. The patch argument must follow this exact shape: *** Begin Patch\\n*** Add File: TOOLING_E2E.md\\n+token: <retrieved token>\\n+REAL_REPOS_CONFIRMED\\n+FFF_TOOLS_CONFIRMED\\n+APPLY_PATCH_CONFIRMED\\n+LSP_CONFIRMED\\n+ALL_LSP_SERVERS_CONFIRMED\\n*** End Patch",
 			"13. Use write_file to create e2e_notes.txt containing the retrieved token.",
-			"14. Use edit_file on calc.py with two replacements: replace PLACEHOLDER_TOKEN with the retrieved token, and replace PLACEHOLDER_HELPER with PLANNER_SUBAGENT_CONFIRMED.",
+			"14. Use edit_file on calc.py with two replacements: replace PLACEHOLDER_TOKEN with the retrieved token, and replace PLACEHOLDER_HELPER with " + codebaseMarker + ".",
 			"15. Use bash to run a background command: python3 -c 'print(\"background-ok\")' with run_in_background=true, then call check_bash_status with its process_id. If check_bash_status returns next_cursor, include that cursor if you check again.",
-			"16. Use subagent_task once for each configured agent: planner, qa, and reviewer. Use each returned job_id with check_subagent_task_status exactly once.",
-			"17. Use bash to run python3 -m unittest -v.",
-			"18. After the tests pass and all three subagent completion notifications arrive, final answer must include E2E_PASS, the exact token, REAL_REPOS_CONFIRMED, FFF_TOOLS_CONFIRMED, APPLY_PATCH_CONFIRMED, LSP_CONFIRMED, ALL_LSP_SERVERS_CONFIRMED, and PLANNER_SUBAGENT_CONFIRMED, QA_SUBAGENT_CONFIRMED, REVIEW_SUBAGENT_CONFIRMED.",
+			"16. Dispatch the three configured Hakaree subagents in parallel. In one assistant tool-call batch, call subagent_task three times before any check_subagent_task_status call. Use agent codebase-explorer with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file calc.py, glob pattern **/*.py path ., and grep pattern runtime_token path . include **/*.py, then final exactly " + codebaseMarker + ". Use agent librarian with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file test_calc.py, file_search query calc.py path ., and glob pattern lsp-fixtures/**/*.json path ., then final exactly " + librarianMarker + ". Use agent oracle with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file calc.py, multi_grep patterns [\"runtime_token\", \"helper_phrase\"] path . include **/*.py, and lsp diagnostics filePath calc.py, then final exactly " + oracleMarker + ".",
+			"17. After all three subagent_task calls return job_id values, call check_subagent_task_status exactly once for each returned job_id.",
+			"18. Use bash to run python3 -m unittest -v.",
+			"19. After the tests pass and all three subagent completion notifications arrive, final answer must include E2E_PASS, the exact token, REAL_REPOS_CONFIRMED, FFF_TOOLS_CONFIRMED, APPLY_PATCH_CONFIRMED, LSP_CONFIRMED, ALL_LSP_SERVERS_CONFIRMED, and " + codebaseMarker + ", " + librarianMarker + ", " + oracleMarker + ".",
 		}, "\n"),
 		"raw": map[string]any{"source": "session", "test": "agent-runtime-coding-e2e"},
 	}

@@ -42,13 +42,9 @@ func newAgentRuntimeFixtureMCP(t *testing.T, trace *agentRuntimeE2ETrace) *agent
 		fixture.calls.Add(1)
 		fixture.trace.Logf("fixture-mcp", "requirements tool called detail=%q", args.Detail)
 		out := fixtureRequirementOutput{
-			Token: agentRuntimeE2EToken,
-			SubagentPhrases: []string{
-				"PLANNER_SUBAGENT_CONFIRMED",
-				"QA_SUBAGENT_CONFIRMED",
-				"REVIEW_SUBAGENT_CONFIRMED",
-			},
-			TestCommand: "python3 -m unittest -v",
+			Token:           agentRuntimeE2EToken,
+			SubagentPhrases: agentRuntimeE2EAllSubagentMarkers(),
+			TestCommand:     "python3 -m unittest -v",
 		}
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -84,11 +80,11 @@ class RuntimeE2ETest(unittest.TestCase):
         self.assertEqual(calc.runtime_token(), %q)
 
     def test_subagent_phrase_was_written(self):
-        self.assertEqual(calc.helper_phrase(), "PLANNER_SUBAGENT_CONFIRMED")
+        self.assertEqual(calc.helper_phrase(), %q)
 
 if __name__ == "__main__":
     unittest.main()
-`, agentRuntimeE2EToken)
+`, agentRuntimeE2EToken, agentRuntimeE2ESubagentMarkers["codebase-explorer"])
 	if err := os.WriteFile(filepath.Join(workspaceRoot, "calc.py"), []byte(calc), 0o600); err != nil {
 		t.Fatalf("write calc.py: %v", err)
 	}
@@ -215,7 +211,7 @@ func assertFixtureProjectCompleted(t *testing.T, trace *agentRuntimeE2ETrace, wo
 	}
 	trace.Body("assert-files", filepath.Join(workspaceRoot, "calc.py"), calc)
 	content := string(calc)
-	for _, want := range []string{agentRuntimeE2EToken, "PLANNER_SUBAGENT_CONFIRMED"} {
+	for _, want := range []string{agentRuntimeE2EToken, agentRuntimeE2ESubagentMarkers["codebase-explorer"]} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("calc.py missing %q:\n%s", want, content)
 		}

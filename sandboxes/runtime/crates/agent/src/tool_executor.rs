@@ -74,7 +74,7 @@ impl ToolExecutor {
     }
 }
 
-fn missing_required_argument_message(
+pub(crate) fn missing_required_argument_message(
     definition: &ToolDefinition,
     arguments: &serde_json::Value,
 ) -> Option<String> {
@@ -115,6 +115,6 @@ fn missing_required_argument_message(
     }
 }
 
-fn is_safe_tool_argument_error(error: &str) -> bool {
+pub(crate) fn is_safe_tool_argument_error(error: &str) -> bool {
     error.starts_with("invalid ") && error.contains(" arguments")
 }

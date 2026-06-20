@@ -13,6 +13,14 @@ describe("session workspace store", () => {
     })
   })
 
+  it("returns a stable fallback workspace for untouched sessions", () => {
+    const state = useSessionWorkspaceStore.getState()
+
+    expect(selectSessionWorkspace(state, "missing-session")).toBe(
+      selectSessionWorkspace(state, "missing-session")
+    )
+  })
+
   it("keeps composer drafts per session", () => {
     const store = useSessionWorkspaceStore.getState()
 
@@ -37,16 +45,34 @@ describe("session workspace store", () => {
     const state = useSessionWorkspaceStore.getState()
     expect(selectSessionWorkspace(state, "session-a").rightPanel).toMatchObject(
       {
+        open: true,
         openViews: ["review"],
         activeView: "review",
       }
     )
     expect(selectSessionWorkspace(state, "session-b").rightPanel).toMatchObject(
       {
+        open: true,
         openViews: ["browser"],
         activeView: "browser",
       }
     )
+  })
+
+  it("keeps the right panel open when the last view is closed", () => {
+    const store = useSessionWorkspaceStore.getState()
+
+    store.openPanelView("session-a", "review")
+    store.closePanelView("session-a", "review")
+
+    expect(
+      selectSessionWorkspace(useSessionWorkspaceStore.getState(), "session-a")
+        .rightPanel
+    ).toMatchObject({
+      open: true,
+      openViews: [],
+      activeView: null,
+    })
   })
 
   it("persists pending line comments in the session workspace", () => {
