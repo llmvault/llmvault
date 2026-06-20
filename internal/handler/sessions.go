@@ -176,30 +176,41 @@ type sessionMutationResponse struct {
 	Queued  bool                  `json:"queued,omitempty"`
 }
 
+type sessionInputResponseRequest struct {
+	RequestID string `json:"request_id"`
+	Text      string `json:"text,omitempty"`
+	OptionID  string `json:"option_id,omitempty"`
+}
+
 type sessionDetailResponse struct {
 	Session      sessionResponse              `json:"session"`
 	Participants []sessionParticipantResponse `json:"participants"`
 }
 
 type sessionResponse struct {
-	ID                string  `json:"id"`
-	ChannelID         string  `json:"channel_id"`
-	AgentID           string  `json:"agent_id"`
-	SandboxID         *string `json:"sandbox_id,omitempty"`
-	CreatedBy         *string `json:"created_by,omitempty"`
-	Model             string  `json:"model"`
-	AccessMode        string  `json:"access_mode"`
-	ReasoningEffort   string  `json:"reasoning_effort"`
-	Source            string  `json:"source"`
-	SourceResourceKey string  `json:"source_resource_key"`
-	Name              string  `json:"name"`
-	Status            string  `json:"status"`
-	ParticipantCount  int64   `json:"participant_count"`
-	EventCount        int64   `json:"event_count"`
-	LastActivityAt    string  `json:"last_activity_at"`
-	CreatedAt         string  `json:"created_at"`
-	UpdatedAt         string  `json:"updated_at"`
-	EndedAt           *string `json:"ended_at,omitempty"`
+	ID                 string  `json:"id"`
+	ChannelID          string  `json:"channel_id"`
+	AgentID            string  `json:"agent_id"`
+	SandboxID          *string `json:"sandbox_id,omitempty"`
+	CreatedBy          *string `json:"created_by,omitempty"`
+	Model              string  `json:"model"`
+	AccessMode         string  `json:"access_mode"`
+	ReasoningEffort    string  `json:"reasoning_effort"`
+	Source             string  `json:"source"`
+	SourceResourceKey  string  `json:"source_resource_key"`
+	Name               string  `json:"name"`
+	Status             string  `json:"status"`
+	AgentTurnStatus    string  `json:"agent_turn_status"`
+	AgentTurnID        string  `json:"agent_turn_id,omitempty"`
+	AgentStreamID      string  `json:"agent_stream_id,omitempty"`
+	AgentTurnStartedAt *string `json:"agent_turn_started_at,omitempty"`
+	LastTurnOutcome    string  `json:"last_turn_outcome,omitempty"`
+	ParticipantCount   int64   `json:"participant_count"`
+	EventCount         int64   `json:"event_count"`
+	LastActivityAt     string  `json:"last_activity_at"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
+	EndedAt            *string `json:"ended_at,omitempty"`
 }
 
 type sessionParticipantResponse struct {
@@ -260,23 +271,28 @@ func sessionToResponse(session model.Session, participantCount, eventCount int64
 		last = *lastActivity
 	}
 	return sessionResponse{
-		ID:                session.ID.String(),
-		ChannelID:         session.ChannelID.String(),
-		AgentID:           session.AgentID.String(),
-		SandboxID:         formatUUIDPtr(session.SandboxID),
-		CreatedBy:         formatUUIDPtr(session.CreatedBy),
-		Model:             session.Model,
-		AccessMode:        session.AccessMode,
-		ReasoningEffort:   session.ReasoningEffort,
-		Source:            session.Source,
-		SourceResourceKey: session.SourceResourceKey,
-		Name:              session.Name,
-		Status:            session.Status,
-		ParticipantCount:  participantCount,
-		EventCount:        eventCount,
-		LastActivityAt:    formatRuntimeTime(last),
-		CreatedAt:         formatRuntimeTime(session.CreatedAt),
-		UpdatedAt:         formatRuntimeTime(session.UpdatedAt),
-		EndedAt:           formatRuntimeTimePtr(session.EndedAt),
+		ID:                 session.ID.String(),
+		ChannelID:          session.ChannelID.String(),
+		AgentID:            session.AgentID.String(),
+		SandboxID:          formatUUIDPtr(session.SandboxID),
+		CreatedBy:          formatUUIDPtr(session.CreatedBy),
+		Model:              session.Model,
+		AccessMode:         session.AccessMode,
+		ReasoningEffort:    session.ReasoningEffort,
+		Source:             session.Source,
+		SourceResourceKey:  session.SourceResourceKey,
+		Name:               session.Name,
+		Status:             session.Status,
+		AgentTurnStatus:    session.AgentTurnStatus,
+		AgentTurnID:        session.AgentTurnID,
+		AgentStreamID:      session.AgentStreamID,
+		AgentTurnStartedAt: formatRuntimeTimePtr(session.AgentTurnStartedAt),
+		LastTurnOutcome:    session.AgentTurnLastOutcome,
+		ParticipantCount:   participantCount,
+		EventCount:         eventCount,
+		LastActivityAt:     formatRuntimeTime(last),
+		CreatedAt:          formatRuntimeTime(session.CreatedAt),
+		UpdatedAt:          formatRuntimeTime(session.UpdatedAt),
+		EndedAt:            formatRuntimeTimePtr(session.EndedAt),
 	}
 }

@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
 } from "react"
 import type { GitStatusEntry } from "@pierre/trees"
 import { Button } from "@heroui/react"
@@ -39,6 +38,11 @@ import {
   FilesRepoSelector,
   type FilesRepoSelectorProps,
 } from "./files-repo-selector"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceStore,
+  type WorkspaceRepoTreeCache,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 
 export { FilesRepoSelector }
 export type { FilesRepoSelectorProps }
@@ -67,14 +71,7 @@ const FILE_PREVIEW_STYLE: CSSProperties & Record<`--${string}`, string> = {
   width: "100%",
 }
 
-interface RepoTreeCache {
-  directoryPaths: string[]
-  failedDirectories: Record<string, string>
-  gitStatus: GitStatusEntry[]
-  loadedDirectories: string[]
-  loadingDirectories: string[]
-  paths: string[]
-}
+type RepoTreeCache = WorkspaceRepoTreeCache
 
 export function FilesView({
   sessionId,
@@ -85,14 +82,22 @@ export function FilesView({
   onHeaderChange,
 }: FilesViewProps) {
   const queryClient = useQueryClient()
-  const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<{
-    path: string
-    repoId: string
-  } | null>(null)
-  const [repoTreeCaches, setRepoTreeCaches] = useState<
-    Record<string, RepoTreeCache>
-  >({})
+  const workspaceSessionId = sessionId ?? "new-chat"
+  const workspace = useSessionWorkspaceStore((state) =>
+    selectSessionWorkspace(state, workspaceSessionId).files
+  )
+  const selectedRepoId = workspace.selectedRepoId
+  const selectedFile = workspace.selectedFile
+  const repoTreeCaches = workspace.repoTreeCaches
+  const setSelectedRepoId = useSessionWorkspaceStore(
+    (state) => state.setFilesSelectedRepo
+  )
+  const setSelectedFile = useSessionWorkspaceStore(
+    (state) => state.setFilesSelectedFile
+  )
+  const setRepoTreeCaches = useSessionWorkspaceStore(
+    (state) => state.setFilesRepoTreeCaches
+  )
   const accessMatchesSession = sandboxAccess?.session_id === sessionId
   const accessReady = Boolean(
     sessionId &&
@@ -196,7 +201,7 @@ export function FilesView({
         return
       }
       const repoId = selectedRepo.id
-      setRepoTreeCaches((current) => {
+      setRepoTreeCaches(workspaceSessionId, (current) => {
         const cache = current[repoId] ?? emptyRepoTreeCache()
         return {
           ...current,
@@ -231,7 +236,7 @@ export function FilesView({
           staleTime: 5 * 60 * 1000,
         })
         .then((snapshot) => {
-          setRepoTreeCaches((current) => {
+          setRepoTreeCaches(workspaceSessionId, (current) => {
             const cache = current[repoId] ?? emptyRepoTreeCache()
             return {
               ...current,
@@ -240,7 +245,7 @@ export function FilesView({
           })
         })
         .catch((error: unknown) => {
-          setRepoTreeCaches((current) => {
+          setRepoTreeCaches(workspaceSessionId, (current) => {
             const cache = current[repoId] ?? emptyRepoTreeCache()
             return {
               ...current,
@@ -269,6 +274,8 @@ export function FilesView({
       sandboxAccess,
       selectedRepo,
       sessionId,
+      setRepoTreeCaches,
+      workspaceSessionId,
     ]
   )
   useEffect(() => {
@@ -279,10 +286,16 @@ export function FilesView({
     onHeaderChange({
       repos,
       selectedRepo,
-      onSelect: setSelectedRepoId,
+      onSelect: (repoId) => setSelectedRepoId(workspaceSessionId, repoId),
     })
     return () => onHeaderChange(null)
-  }, [onHeaderChange, repos, selectedRepo])
+  }, [
+    onHeaderChange,
+    repos,
+    selectedRepo,
+    setSelectedRepoId,
+    workspaceSessionId,
+  ])
 
   if (!sessionId) {
     return (
@@ -426,10 +439,10 @@ export function FilesView({
                 onDirectoryExpand={loadDirectory}
                 onSelectPath={(path) => {
                   if (!path || !selectedRepo || directoryPathSet.has(path)) {
-                    setSelectedFile(null)
+                    setSelectedFile(workspaceSessionId, null)
                     return
                   }
-                  setSelectedFile({
+                  setSelectedFile(workspaceSessionId, {
                     path,
                     repoId: selectedRepo.id,
                   })

@@ -1,21 +1,30 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceStore,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 
-export function BrowserView() {
-  const [url, setUrl] = useState("usehivy.com")
-  const [src, setSrc] = useState("/")
-  const [reloadKey, setReloadKey] = useState(0)
+export function BrowserView({ sessionId = "new-chat" }: { sessionId?: string }) {
+  const browser = useSessionWorkspaceStore(
+    (state) => selectSessionWorkspace(state, sessionId).browser
+  )
+  const setBrowserURL = useSessionWorkspaceStore(
+    (state) => state.setBrowserURL
+  )
+  const navigateBrowser = useSessionWorkspaceStore(
+    (state) => state.navigateBrowser
+  )
+  const reloadBrowser = useSessionWorkspaceStore((state) => state.reloadBrowser)
 
   const navigate = () => {
-    const input = url.trim()
+    const input = browser.url.trim()
     if (!input) return
     // Same-origin paths load directly; anything else goes through the
     // local marketing site since external sites may block embedding.
-    setSrc(input.startsWith("/") ? input : "/")
-    setReloadKey((key) => key + 1)
+    navigateBrowser(sessionId, input.startsWith("/") ? input : "/")
   }
 
   return (
@@ -32,7 +41,7 @@ export function BrowserView() {
           size="sm"
           isIconOnly
           aria-label="Reload"
-          onPress={() => setReloadKey((key) => key + 1)}
+          onPress={() => reloadBrowser(sessionId)}
         >
           <Icon icon="lucide:rotate-cw" className="h-4 w-4 text-muted" />
         </Button>
@@ -40,10 +49,10 @@ export function BrowserView() {
         <div className="mx-1 flex h-8 min-w-0 flex-1 items-center rounded-lg bg-default px-3">
           <input
             type="text"
-            value={url}
+            value={browser.url}
             spellCheck={false}
             aria-label="Address bar"
-            onChange={(event) => setUrl(event.target.value)}
+            onChange={(event) => setBrowserURL(sessionId, event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") navigate()
             }}
@@ -64,8 +73,8 @@ export function BrowserView() {
 
       <div className="min-h-0 flex-1 bg-white">
         <iframe
-          key={reloadKey}
-          src={src}
+          key={browser.reloadKey}
+          src={browser.src}
           title="Browser preview"
           className="h-full w-full border-0"
         />

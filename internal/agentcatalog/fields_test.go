@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -68,6 +70,66 @@ func TestValidateManifestsRejectsInvalidRuntimeTool(t *testing.T) {
 	}})
 	if err == nil || !strings.Contains(err.Error(), "unknown runtime tool") {
 		t.Fatalf("validateManifests error = %v, want unknown runtime tool", err)
+	}
+}
+
+func TestGlobalHakareeManifestIncludesPortedSubAgents(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	manifests, err := loadManifests(filepath.Join(filepath.Dir(file), "..", "..", "global", "agents"))
+	if err != nil {
+		t.Fatalf("load global agents: %v", err)
+	}
+	if err := validateManifests(manifests); err != nil {
+		t.Fatalf("validate global agents: %v", err)
+	}
+
+	var hakaree *Manifest
+	for index := range manifests {
+		if manifests[index].Slug == "hakaree" {
+			hakaree = &manifests[index]
+			break
+		}
+	}
+	if hakaree == nil {
+		t.Fatal("missing hakaree global agent manifest")
+	}
+
+	for _, key := range []string{"codebase-explorer", "librarian", "oracle"} {
+		subAgent, ok := hakaree.SubAgents[key]
+		if !ok {
+			t.Fatalf("hakaree missing %q subagent; got keys=%v", key, sortedSubAgentKeys(hakaree.SubAgents))
+		}
+		if strings.TrimSpace(subAgent.Description) == "" {
+			t.Fatalf("%s subagent has empty description", key)
+		}
+		if strings.TrimSpace(subAgent.instructions) == "" {
+			t.Fatalf("%s subagent has empty loaded instructions", key)
+		}
+		assertManifestToolEnabled(t, subAgent.Tools, "read_file")
+		assertManifestToolDisabled(t, subAgent.Tools, "write_file")
+		assertManifestToolDisabled(t, subAgent.Tools, "apply_patch")
+		assertManifestToolDisabled(t, subAgent.Tools, "subagent_task")
+	}
+	assertManifestToolEnabled(t, hakaree.SubAgents["codebase-explorer"].Tools, "multi_grep")
+	assertManifestToolEnabled(t, hakaree.SubAgents["codebase-explorer"].Tools, "lsp")
+	assertManifestToolEnabled(t, hakaree.SubAgents["librarian"].Tools, "bash")
+	assertManifestToolEnabled(t, hakaree.SubAgents["librarian"].Tools, "check_bash_status")
+	assertManifestToolEnabled(t, hakaree.SubAgents["oracle"].Tools, "multi_grep")
+	assertManifestToolEnabled(t, hakaree.SubAgents["oracle"].Tools, "lsp")
+	assertManifestToolDisabled(t, hakaree.SubAgents["oracle"].Tools, "bash")
+
+	var stored map[string]model.AgentCatalogSubAgent
+	if err := json.Unmarshal(catalogSubAgentsJSON(*hakaree), &stored); err != nil {
+		t.Fatalf("decode stored subagents: %v", err)
+	}
+	for _, key := range []string{"codebase-explorer", "librarian", "oracle"} {
+		if strings.TrimSpace(stored[key].Instructions) == "" {
+			t.Fatalf("%s stored subagent has empty instructions", key)
+		}
+		assertManifestToolEnabled(t, stored[key].Tools, "read_file")
 	}
 }
 
@@ -241,4 +303,27 @@ func TestCatalogUpdatesNormalizesAvailableModels(t *testing.T) {
 	if !reflect.DeepEqual([]string(got), want) {
 		t.Fatalf("available_models = %#v, want %#v", got, want)
 	}
+}
+
+func assertManifestToolEnabled(t *testing.T, tools map[string]any, key string) {
+	t.Helper()
+	if !toolSelectionEnabled(tools[key]) {
+		t.Fatalf("tool %q is not enabled in %#v", key, tools)
+	}
+}
+
+func assertManifestToolDisabled(t *testing.T, tools map[string]any, key string) {
+	t.Helper()
+	if toolSelectionEnabled(tools[key]) {
+		t.Fatalf("tool %q should not be enabled in %#v", key, tools)
+	}
+}
+
+func sortedSubAgentKeys(subAgents map[string]SubAgentManifest) []string {
+	keys := make([]string, 0, len(subAgents))
+	for key := range subAgents {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

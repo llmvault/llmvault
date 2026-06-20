@@ -4,7 +4,6 @@ import {
   createContext,
   useContext,
   useMemo,
-  useSyncExternalStore,
   type ReactNode,
 } from "react"
 import type { AnnotationSide } from "@pierre/diffs/react"
@@ -13,6 +12,10 @@ import {
   formatCodeLineCommentLocation as formatPersistedCodeLineCommentLocation,
   type CodeLineCommentPayload,
 } from "@/app/w/(chat)/_lib/code-line-comments"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceStore,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 
 export type CodeLineCommentSourceKind = "review" | "file" | "tool"
 
@@ -55,18 +58,8 @@ interface AddCodeLineCommentInput {
   body: string
 }
 
-interface CodeLineCommentsStore {
-  subscribe: (listener: () => void) => () => void
-  getSnapshot: () => CodeLineComment[]
-  getSourceSnapshot: (sourceKey: string) => CodeLineComment[]
-  addComment: (input: AddCodeLineCommentInput) => string | null
-  removeComment: (id: string) => void
-  removeComments: (ids: string[]) => void
-  clearComments: () => void
-}
-
 const EMPTY_COMMENTS: CodeLineComment[] = []
-const LineCommentsContext = createContext<CodeLineCommentsStore | null>(null)
+const LineCommentsContext = createContext<string | null>(null)
 
 export function LineCommentsProvider({
   scopeKey,
@@ -75,42 +68,69 @@ export function LineCommentsProvider({
   scopeKey: string
   children: ReactNode
 }) {
-  const store = useMemo(() => createCodeLineCommentsStore(scopeKey), [scopeKey])
   return (
-    <LineCommentsContext.Provider value={store}>
+    <LineCommentsContext.Provider value={scopeKey}>
       {children}
     </LineCommentsContext.Provider>
   )
 }
 
 export function useCodeLineComments() {
-  const store = useLineCommentsStore()
-  return useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    store.getSnapshot
+  const scopeKey = useLineCommentsScope()
+  return useSessionWorkspaceStore(
+    (state) => selectSessionWorkspace(state, scopeKey).lineComments
   )
 }
 
 export function useCodeLineCommentsForSource(sourceKey: string) {
-  const store = useLineCommentsStore()
-  return useSyncExternalStore(
-    store.subscribe,
-    () => store.getSourceSnapshot(sourceKey),
-    () => store.getSourceSnapshot(sourceKey)
+  const scopeKey = useLineCommentsScope()
+  const comments = useSessionWorkspaceStore(
+    (state) => selectSessionWorkspace(state, scopeKey).lineComments
+  )
+  return useMemo(
+    () =>
+      comments.length
+        ? comments.filter((comment) => comment.sourceKey === sourceKey)
+        : EMPTY_COMMENTS,
+    [comments, sourceKey]
   )
 }
 
 export function useCodeLineCommentActions() {
-  const store = useLineCommentsStore()
+  const scopeKey = useLineCommentsScope()
   return useMemo(
     () => ({
-      addComment: store.addComment,
-      clearComments: store.clearComments,
-      removeComment: store.removeComment,
-      removeComments: store.removeComments,
+      addComment(input: AddCodeLineCommentInput) {
+        const body = input.body.trim()
+        if (!body) return null
+        const id = createCommentId()
+        useSessionWorkspaceStore.getState().addLineComment(scopeKey, {
+          id,
+          sourceKey: input.source.key,
+          sourceKind: input.source.kind,
+          path: input.source.path,
+          displayPath: input.source.displayPath,
+          repoId: input.source.repoId,
+          repoName: input.source.repoName,
+          repoPath: input.source.repoPath,
+          lineNumber: input.lineNumber,
+          side: input.side,
+          body,
+          createdAt: Date.now(),
+        })
+        return id
+      },
+      clearComments() {
+        useSessionWorkspaceStore.getState().clearLineComments(scopeKey)
+      },
+      removeComment(id: string) {
+        useSessionWorkspaceStore.getState().removeLineComment(scopeKey, id)
+      },
+      removeComments(ids: string[]) {
+        useSessionWorkspaceStore.getState().removeLineComments(scopeKey, ids)
+      },
     }),
-    [store]
+    [scopeKey]
   )
 }
 
@@ -185,93 +205,12 @@ export function formatCodeLineCommentLine(
   return formatPersistedCodeLineCommentLine(comment)
 }
 
-function createCodeLineCommentsStore(scopeKey: string): CodeLineCommentsStore {
-  void scopeKey
-  let comments = EMPTY_COMMENTS
-  let commentsBySource = new Map<string, CodeLineComment[]>()
-  const listeners = new Set<() => void>()
-
-  const emit = () => {
-    for (const listener of listeners) {
-      listener()
-    }
-  }
-
-  const setComments = (nextComments: CodeLineComment[]) => {
-    comments = nextComments.length ? nextComments : EMPTY_COMMENTS
-    commentsBySource = comments.reduce((map, comment) => {
-      const sourceComments = map.get(comment.sourceKey)
-      if (sourceComments) {
-        sourceComments.push(comment)
-      } else {
-        map.set(comment.sourceKey, [comment])
-      }
-      return map
-    }, new Map<string, CodeLineComment[]>())
-    emit()
-  }
-
-  return {
-    subscribe(listener) {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    getSnapshot() {
-      return comments
-    },
-    getSourceSnapshot(sourceKey) {
-      return commentsBySource.get(sourceKey) ?? EMPTY_COMMENTS
-    },
-    addComment(input) {
-      const body = input.body.trim()
-      if (!body) return null
-      const id = createCommentId()
-      setComments([
-        ...comments,
-        {
-          id,
-          sourceKey: input.source.key,
-          sourceKind: input.source.kind,
-          path: input.source.path,
-          displayPath: input.source.displayPath,
-          repoId: input.source.repoId,
-          repoName: input.source.repoName,
-          repoPath: input.source.repoPath,
-          lineNumber: input.lineNumber,
-          side: input.side,
-          body,
-          createdAt: Date.now(),
-        },
-      ])
-      return id
-    },
-    removeComment(id) {
-      const nextComments = comments.filter((comment) => comment.id !== id)
-      if (nextComments.length === comments.length) return
-      setComments(nextComments)
-    },
-    removeComments(ids) {
-      if (!ids.length) return
-      const removeSet = new Set(ids)
-      const nextComments = comments.filter(
-        (comment) => !removeSet.has(comment.id)
-      )
-      if (nextComments.length === comments.length) return
-      setComments(nextComments)
-    },
-    clearComments() {
-      if (!comments.length) return
-      setComments(EMPTY_COMMENTS)
-    },
-  }
-}
-
-function useLineCommentsStore() {
-  const store = useContext(LineCommentsContext)
-  if (!store) {
+function useLineCommentsScope() {
+  const scopeKey = useContext(LineCommentsContext)
+  if (!scopeKey) {
     throw new Error("line comments must be used inside LineCommentsProvider")
   }
-  return store
+  return scopeKey
 }
 
 function displayFilePath(path: string, repoPath?: string) {

@@ -9,6 +9,10 @@ import {
   useOrgDriveFileUploads,
   type OrgDriveUploadItem,
 } from "@/hooks/use-org-drive-file-uploads"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceStore,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 import type { Agent } from "@/app/w/(chat)/_lib/agents"
 import {
   attachmentMetadataFromDescription,
@@ -17,7 +21,6 @@ import {
 } from "@/app/w/(chat)/_lib/image-attachments"
 import {
   AttachmentPreviewTray,
-  type AttachmentDescriptionState,
   type ComposerImageAttachment,
 } from "./composer-attachments"
 import {
@@ -56,6 +59,7 @@ const ACCESS_MODES = [
 const EFFORTS = ["Low", "Medium", "High"]
 
 export function Composer({
+  sessionId,
   agent,
   agentId,
   modelId,
@@ -65,6 +69,7 @@ export function Composer({
   isStreaming = false,
   onStop,
 }: {
+  sessionId: string
   agent: Agent
   agentId: string
   modelId: string
@@ -78,21 +83,34 @@ export function Composer({
   isStreaming?: boolean
   onStop?: () => void
 }) {
-  const [value, setValue] = useState("")
-  const [accessMode, setAccessMode] = useState(ACCESS_MODES[0])
-  const [effort, setEffort] = useState("High")
+  const workspace = useSessionWorkspaceStore((state) =>
+    selectSessionWorkspace(state, sessionId)
+  )
+  const value = workspace.composer.text
+  const accessMode =
+    ACCESS_MODES.find((mode) => mode.id === workspace.composer.accessMode) ??
+    ACCESS_MODES[0]
+  const effort = workspace.composer.effort
+  const setValue = useSessionWorkspaceStore((state) => state.setComposerText)
+  const setAccessModeValue = useSessionWorkspaceStore(
+    (state) => state.setComposerAccessMode
+  )
+  const setEffortValue = useSessionWorkspaceStore(
+    (state) => state.setComposerEffort
+  )
+  const setAttachmentDescriptions = useSessionWorkspaceStore(
+    (state) => state.setAttachmentDescriptions
+  )
   const [accessOpen, setAccessOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [recording, setRecording] = useState(false)
   const lineComments = useCodeLineComments()
   const lineCommentActions = useCodeLineCommentActions()
-  const [attachmentDescriptions, setAttachmentDescriptions] = useState<
-    Record<string, AttachmentDescriptionState>
-  >({})
+  const attachmentDescriptions = workspace.composer.attachmentDescriptions
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const describedUploadsRef = useRef<Set<string>>(new Set())
   const { uploads, addFiles, retryUpload, removeUpload, clearUploads } =
-    useOrgDriveFileUploads({ agentId })
+    useOrgDriveFileUploads({ agentId, sessionId })
 
   const selectedModel = displayModel(modelId)
   const attachments = useMemo(
@@ -156,7 +174,7 @@ export function Composer({
 
   const describeUpload = useCallback(async (upload: OrgDriveUploadItem) => {
     if (!upload.asset) return
-    setAttachmentDescriptions((current) => ({
+    setAttachmentDescriptions(sessionId, (current) => ({
       ...current,
       [upload.id]: { status: "describing" },
     }))
@@ -166,28 +184,29 @@ export function Composer({
         upload.asset,
         description
       )
-      setAttachmentDescriptions((current) => ({
+      setAttachmentDescriptions(sessionId, (current) => ({
         ...current,
         [upload.id]: { status: "ready", metadata },
       }))
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Image processing failed"
-      setAttachmentDescriptions((current) => ({
+      setAttachmentDescriptions(sessionId, (current) => ({
         ...current,
         [upload.id]: { status: "error", error: message },
       }))
     }
-  }, [])
+  }, [sessionId, setAttachmentDescriptions])
 
   useEffect(() => {
     for (const upload of uploads) {
       if (upload.status !== "uploaded" || !upload.asset) continue
+      if (attachmentDescriptions[upload.id]?.status) continue
       if (describedUploadsRef.current.has(upload.id)) continue
       describedUploadsRef.current.add(upload.id)
       if (!upload.asset.content_type.startsWith("image/")) {
         window.queueMicrotask(() => {
-          setAttachmentDescriptions((current) => ({
+          setAttachmentDescriptions(sessionId, (current) => ({
             ...current,
             [upload.id]: {
               status: "error",
@@ -201,11 +220,11 @@ export function Composer({
         void describeUpload(upload)
       })
     }
-  }, [describeUpload, uploads])
+  }, [attachmentDescriptions, describeUpload, sessionId, setAttachmentDescriptions, uploads])
 
   const retryAttachment = (attachment: ComposerImageAttachment) => {
     const id = attachment.upload.id
-    setAttachmentDescriptions((current) => {
+    setAttachmentDescriptions(sessionId, (current) => {
       const next = { ...current }
       delete next[id]
       return next
@@ -222,7 +241,7 @@ export function Composer({
   const removeAttachment = (id: string) => {
     removeUpload(id)
     describedUploadsRef.current.delete(id)
-    setAttachmentDescriptions((current) => {
+    setAttachmentDescriptions(sessionId, (current) => {
       const next = { ...current }
       delete next[id]
       return next
@@ -232,7 +251,7 @@ export function Composer({
   const resetAttachments = () => {
     clearUploads()
     describedUploadsRef.current.clear()
-    setAttachmentDescriptions({})
+    setAttachmentDescriptions(sessionId, () => ({}))
   }
 
   const onDropAccepted = useCallback(
@@ -263,7 +282,7 @@ export function Composer({
       (comment) => comment.id
     )
     const sendingCodeLineComments = codeLineCommentPayloads(sendingLineComments)
-    setValue("")
+    setValue(sessionId, "")
     try {
       const sent = await onSend(
         promptText,
@@ -271,7 +290,9 @@ export function Composer({
         sendingCodeLineComments
       )
       if (sent === false) {
-        setValue((current) => (current === "" ? promptText : current))
+        if (!useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer.text) {
+          setValue(sessionId, promptText)
+        }
         return
       }
       resetAttachments()
@@ -281,7 +302,9 @@ export function Composer({
         node.style.height = "auto"
       }
     } catch {
-      setValue((current) => (current === "" ? promptText : current))
+      if (!useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer.text) {
+        setValue(sessionId, promptText)
+      }
     }
   }
 
@@ -323,7 +346,7 @@ export function Composer({
           value={value}
           placeholder={placeholder}
           onChange={(event) => {
-            setValue(event.target.value)
+            setValue(sessionId, event.target.value)
             event.target.style.height = "auto"
             event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`
           }}
@@ -365,7 +388,7 @@ export function Composer({
                     key={mode.id}
                     type="button"
                     onClick={() => {
-                      setAccessMode(mode)
+                      setAccessModeValue(sessionId, mode.id)
                       setAccessOpen(false)
                     }}
                     className="hover:bg-default flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors"
@@ -439,7 +462,7 @@ export function Composer({
                     key={entry}
                     type="button"
                     onClick={() => {
-                      setEffort(entry)
+                      setEffortValue(sessionId, entry)
                       setModelOpen(false)
                     }}
                     className="hover:bg-default flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"

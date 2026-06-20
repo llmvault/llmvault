@@ -10,6 +10,7 @@ import {
   useState,
 } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   Group,
   Panel,
@@ -20,6 +21,7 @@ import {
 import { animate, type AnimationPlaybackControls } from "motion/react"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
+import { useAuth } from "@/lib/auth/auth-context"
 import { ChatHeader } from "@/app/w/(chat)/_components/chat-header"
 import type { ChatHeaderAgent } from "@/app/w/(chat)/_components/chat-header-types"
 import {
@@ -43,6 +45,13 @@ import {
   sessionRouteFromPathname,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
+import { hydrateSessionRuntimeFromResponse } from "@/app/w/(chat)/_stores/session-stream-manager"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceHydration,
+  useSessionWorkspaceStore,
+  type WorkspacePanelViewID,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 
 const SIDEBAR_WIDTH = 300
 const RIGHT_SIZE = 42 // percent
@@ -106,16 +115,15 @@ export function useWorkspace() {
 export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const queryClient = useQueryClient()
+  const { user, activeOrg } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(false)
-  const [openViews, setOpenViews] = useState<PanelViewID[]>([])
-  const [activeView, setActiveView] = useState<PanelViewID | null>(null)
   const [draftSession, setDraftSession] = useState<ChatSession | null>(null)
   const [routePreviewSession, setRoutePreviewSession] = useState<{
     sessionId: string
     session: ChatSession
   } | null>(null)
-  const [rightMaximized, setRightMaximized] = useState(false)
   const [sandboxRuntimeState, setSandboxRuntimeState] =
     useState<SandboxRuntimeState | null>(null)
   const sandboxRuntimeRequestRef = useRef(0)
@@ -126,6 +134,30 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   )
   const routeSessionID = routeParams?.sessionId
   const routeIsOptimistic = routeSessionID?.startsWith("tmp_") ?? false
+  const workspaceSessionKey = routeSessionID ?? "new-chat"
+  useSessionWorkspaceHydration({
+    orgId: activeOrg?.id,
+    userId: user?.id,
+  })
+  const sessionWorkspace = useSessionWorkspaceStore((state) =>
+    selectSessionWorkspace(state, workspaceSessionKey)
+  )
+  const openPanelView = useSessionWorkspaceStore((state) => state.openPanelView)
+  const closePanelView = useSessionWorkspaceStore(
+    (state) => state.closePanelView
+  )
+  const setActivePanelView = useSessionWorkspaceStore(
+    (state) => state.setActivePanelView
+  )
+  const setRightPanelMaximized = useSessionWorkspaceStore(
+    (state) => state.setRightPanelMaximized
+  )
+  const setRightPanelSize = useSessionWorkspaceStore(
+    (state) => state.setRightPanelSize
+  )
+  const openViews = sessionWorkspace.rightPanel.openViews as PanelViewID[]
+  const activeView = sessionWorkspace.rightPanel.activeView as PanelViewID | null
+  const rightMaximized = sessionWorkspace.rightPanel.maximized
   const sandboxWakeMutation = $api.useMutation(
     "post",
     "/v1/sessions/{id}/sandbox/wake"
@@ -253,13 +285,23 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   )
 
   const toggleRight = useCallback(() => {
-    setRightMaximized(false)
-    setRightSize(rightOpen ? 0 : RIGHT_SIZE)
-  }, [rightOpen, setRightSize])
+    setRightPanelMaximized(workspaceSessionKey, false)
+    setRightSize(
+      rightOpen
+        ? 0
+        : sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE
+    )
+  }, [
+    rightOpen,
+    sessionWorkspace.rightPanel.sizePercent,
+    setRightPanelMaximized,
+    setRightSize,
+    workspaceSessionKey,
+  ])
 
   const toggleMaximize = useCallback(() => {
     const next = !rightMaximized
-    setRightMaximized(next)
+    setRightPanelMaximized(workspaceSessionKey, next)
     if (next) {
       // Maximizing the right panel takes the sidebar's room; remember
       // whether it was open so restoring brings it back.
@@ -270,26 +312,40 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     } else if (sidebarWasOpenRef.current && !sidebarOpen) {
       animatePanel(sidebarPanelRef.current, sidebarAnim, SIDEBAR_WIDTH, "px")
     }
-    setRightSize(next ? RIGHT_MAX_SIZE : RIGHT_SIZE)
-  }, [animatePanel, rightMaximized, setRightSize, sidebarOpen, sidebarPanelRef])
+    setRightSize(
+      next
+        ? RIGHT_MAX_SIZE
+        : sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE
+    )
+  }, [
+    animatePanel,
+    rightMaximized,
+    sessionWorkspace.rightPanel.sizePercent,
+    setRightPanelMaximized,
+    setRightSize,
+    sidebarOpen,
+    sidebarPanelRef,
+    workspaceSessionKey,
+  ])
 
   const openView = useCallback(
     (id: PanelViewID) => {
-      setOpenViews((views) => (views.includes(id) ? views : [...views, id]))
-      setActiveView(id)
-      if (!rightOpen) setRightSize(RIGHT_SIZE)
+      openPanelView(workspaceSessionKey, id as WorkspacePanelViewID)
+      if (!rightOpen) {
+        setRightSize(sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE)
+      }
     },
-    [rightOpen, setRightSize]
+    [
+      openPanelView,
+      rightOpen,
+      sessionWorkspace.rightPanel.sizePercent,
+      setRightSize,
+      workspaceSessionKey,
+    ]
   )
 
   const closeView = (id: PanelViewID) => {
-    setOpenViews((views) => {
-      const next = views.filter((view) => view !== id)
-      setActiveView((current) =>
-        current === id ? (next[next.length - 1] ?? null) : current
-      )
-      return next
-    })
+    closePanelView(workspaceSessionKey, id as WorkspacePanelViewID)
   }
 
   const startNewChat = useCallback(() => {
@@ -429,6 +485,26 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     routeSessionID,
   ])
 
+  useEffect(() => {
+    hydrateSessionRuntimeFromResponse(routeSessionQuery.data?.session, queryClient)
+  }, [queryClient, routeSessionQuery.data?.session])
+
+  useEffect(() => {
+    const hasOpenViews = sessionWorkspace.rightPanel.openViews.length > 0
+    const nextSize = hasOpenViews
+      ? rightMaximized
+        ? RIGHT_MAX_SIZE
+        : sessionWorkspace.rightPanel.sizePercent || RIGHT_SIZE
+      : 0
+    setRightSize(nextSize)
+  }, [
+    rightMaximized,
+    routeSessionID,
+    sessionWorkspace.rightPanel.openViews.length,
+    sessionWorkspace.rightPanel.sizePercent,
+    setRightSize,
+  ])
+
   const workspace = useMemo(
     () => ({
       session,
@@ -516,7 +592,13 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               defaultSize={0}
               minSize={0}
               className="min-w-0 overflow-hidden"
-              onResize={(size) => setRightOpen(size.inPixels > 8)}
+              onResize={(size) => {
+                const open = size.inPixels > 8
+                setRightOpen(open)
+                if (open && !rightMaximized) {
+                  setRightPanelSize(workspaceSessionKey, size.asPercentage)
+                }
+              }}
             >
               <div className="h-full min-w-90">
                 <RightPanel
@@ -528,7 +610,12 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                   openViews={openViews}
                   activeView={activeView}
                   maximized={rightMaximized}
-                  onSelectView={setActiveView}
+                  onSelectView={(id) =>
+                    setActivePanelView(
+                      workspaceSessionKey,
+                      id as WorkspacePanelViewID
+                    )
+                  }
                   onOpenView={openView}
                   onCloseView={closeView}
                   onToggleMaximize={toggleMaximize}

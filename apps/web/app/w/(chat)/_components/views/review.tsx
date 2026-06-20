@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useQuery } from "@tanstack/react-query"
@@ -21,8 +21,11 @@ import { ReviewEmptyState, ReviewLoadingState } from "./review-state"
 import type {
   ReviewDiffOptions,
   ReviewDiffsResult,
-  ReviewDiffStyle,
 } from "./review-types"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceStore,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 
 interface ReviewViewProps {
   sessionId?: string
@@ -39,7 +42,13 @@ export function ReviewView({
   sandboxAccessError,
   onRefreshSandboxAccess,
 }: ReviewViewProps) {
-  const [diffStyle, setDiffStyle] = useState<ReviewDiffStyle>("unified")
+  const workspaceSessionId = sessionId ?? "new-chat"
+  const diffStyle = useSessionWorkspaceStore(
+    (state) => selectSessionWorkspace(state, workspaceSessionId).review.diffStyle
+  )
+  const setReviewDiffStyle = useSessionWorkspaceStore(
+    (state) => state.setReviewDiffStyle
+  )
   const accessMatchesSession = sandboxAccess?.session_id === sessionId
   const accessReady = Boolean(
     sessionId &&
@@ -139,7 +148,10 @@ export function ReviewView({
             {formatPatchCount(patchCount)}
           </span>
         </div>
-        <DiffStyleToggle value={diffStyle} onChange={setDiffStyle} />
+        <DiffStyleToggle
+          value={diffStyle}
+          onChange={(next) => setReviewDiffStyle(workspaceSessionId, next)}
+        />
         <Button
           aria-label="Refresh diffs"
           size="sm"

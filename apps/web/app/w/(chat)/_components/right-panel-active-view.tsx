@@ -41,7 +41,7 @@ export function ActiveView({
     case "terminal":
       return <TerminalView />
     case "browser":
-      return <BrowserView />
+      return <BrowserView sessionId={sessionId} />
     case "files":
       return (
         <FilesView

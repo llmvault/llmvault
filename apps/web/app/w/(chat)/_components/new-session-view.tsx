@@ -92,6 +92,7 @@ export function SessionView({
         )
       : undefined
   const activeChannel = selectedChannel ?? defaultChannel
+  const draftKey = `new:${channelSlug ?? "root"}`
 
   const createFirstSession = async (text: string, effort: string) => {
     if (!activeChannel?.id) {
@@ -171,6 +172,7 @@ export function SessionView({
           }}
           onModelChange={setSelectedModelID}
           onSend={createFirstSession}
+          draftKey={draftKey}
           placeholder={
             selectedAgent?.name
               ? `Ask ${agentDisplayName(selectedAgent)} to do something...`

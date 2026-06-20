@@ -37,13 +37,18 @@ type sessionMutationOut struct {
 }
 
 type sessionOut struct {
-	ID               string  `json:"id"`
-	ChannelID        string  `json:"channel_id"`
-	AgentID          string  `json:"agent_id"`
-	SandboxID        *string `json:"sandbox_id,omitempty"`
-	Status           string  `json:"status"`
-	ParticipantCount int64   `json:"participant_count"`
-	EventCount       int64   `json:"event_count"`
+	ID                 string  `json:"id"`
+	ChannelID          string  `json:"channel_id"`
+	AgentID            string  `json:"agent_id"`
+	SandboxID          *string `json:"sandbox_id,omitempty"`
+	Status             string  `json:"status"`
+	AgentTurnStatus    string  `json:"agent_turn_status"`
+	AgentTurnID        string  `json:"agent_turn_id,omitempty"`
+	AgentStreamID      string  `json:"agent_stream_id,omitempty"`
+	AgentTurnStartedAt *string `json:"agent_turn_started_at,omitempty"`
+	LastTurnOutcome    string  `json:"last_turn_outcome,omitempty"`
+	ParticipantCount   int64   `json:"participant_count"`
+	EventCount         int64   `json:"event_count"`
 }
 
 type sessionEventOut struct {
@@ -75,6 +80,7 @@ func newSessionHarnessWith(t *testing.T, configure func(*handler.SessionHandler)
 		r.Get("/sessions/{id}", h.Get)
 		r.Patch("/sessions/{id}", h.Update)
 		r.Post("/sessions/{id}/messages", h.SendMessage)
+		r.Post("/sessions/{id}/input-responses", h.RespondToInput)
 		r.Post("/sessions/{id}/transcriptions", h.TranscribeAudio)
 		r.Post("/sessions/{id}/interrupt", h.Interrupt)
 		r.Get("/sessions/{id}/events", h.ListEvents)

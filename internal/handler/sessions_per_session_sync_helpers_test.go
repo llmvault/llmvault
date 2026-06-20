@@ -58,6 +58,7 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 		r.Get("/sessions/{id}", h.Get)
 		r.Patch("/sessions/{id}", h.Update)
 		r.Post("/sessions/{id}/messages", h.SendMessage)
+		r.Post("/sessions/{id}/input-responses", h.RespondToInput)
 		r.Post("/sessions/{id}/interrupt", h.Interrupt)
 		r.Get("/sessions/{id}/events", h.ListEvents)
 		r.Post("/sessions/{id}/sandbox/wake", h.WakeSandbox)

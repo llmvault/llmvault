@@ -2,6 +2,7 @@ package agentruntime
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -52,6 +53,44 @@ func TestBuildPromptSections_UsesCatalogInstructions(t *testing.T) {
 	fragments := buildPromptSections(context.Background(), nil, agent, "")
 	if fragments.Instructions.Content != instructions {
 		t.Fatalf("instructions = %#v", fragments.Instructions)
+	}
+}
+
+func TestBuildPromptSections_IncludesCatalogSubAgentRouting(t *testing.T) {
+	rawSubAgents, err := json.Marshal(map[string]model.AgentCatalogSubAgent{
+		"codebase-explorer": {
+			Name:        "Codebase Explorer",
+			Description: "Finds where code lives and maps implementation flow.",
+		},
+		"oracle": {
+			Name:        "Oracle",
+			Description: "Reviews hard architecture and debugging tradeoffs.",
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal subagents: %v", err)
+	}
+	agent := &model.Agent{
+		ID: uuid.New(),
+		AgentCatalog: &model.AgentCatalog{
+			SubAgents: model.RawJSON(rawSubAgents),
+		},
+	}
+
+	fragments := buildPromptSections(context.Background(), nil, agent, "")
+
+	if fragments.SubAgents.Tag != "subagents" {
+		t.Fatalf("subagent section tag = %q", fragments.SubAgents.Tag)
+	}
+	for _, want := range []string{
+		"Use `subagent_task` to delegate independent work",
+		"touches more than two modules",
+		"`codebase-explorer` (Codebase Explorer). When to use: Finds where code lives and maps implementation flow.",
+		"`oracle` (Oracle). When to use: Reviews hard architecture and debugging tradeoffs.",
+	} {
+		if !strings.Contains(fragments.SubAgents.Content, want) {
+			t.Fatalf("subagent section missing %q:\n%s", want, fragments.SubAgents.Content)
+		}
 	}
 }
 
@@ -149,6 +188,27 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 		if !strings.Contains(mcpPreamble, want) {
 			t.Fatalf("mcp tool preamble missing %q: %#v", want, mcpTools.Config)
 		}
+	}
+}
+
+func TestBuildAgentSystemPrompt_CompilesSubAgentRoutingSegment(t *testing.T) {
+	fragments := PromptSections{
+		SubAgents: PromptSection{
+			Title:   "Available subagents",
+			Tag:     "subagents",
+			Content: "Configured subagents:\n- `codebase-explorer`: use when mapping code.",
+		},
+	}
+
+	prompt := buildAgentSystemPrompt(context.Background(), fragments)
+	cacheable := requireCacheableSegments(t, prompt)
+
+	if len(cacheable) != 2 {
+		t.Fatalf("cacheable segment count = %d", len(cacheable))
+	}
+	subAgentsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
+	if !strings.Contains(subAgentsContent, "<subagents>\nConfigured subagents:") {
+		t.Fatalf("subagent segment is not XML wrapped: %q", subAgentsContent)
 	}
 }
 

@@ -55,7 +55,8 @@ function AttachmentPreviewTile({
   const fileName =
     attachment.metadata?.filename ||
     attachment.upload.asset?.filename ||
-    attachment.upload.file.name ||
+    attachment.upload.file?.name ||
+    attachment.upload.fileName ||
     "Image"
   const label =
     attachment.status === "uploading"

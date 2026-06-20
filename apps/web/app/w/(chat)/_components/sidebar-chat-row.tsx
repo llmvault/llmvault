@@ -3,6 +3,10 @@
 import { useState } from "react"
 import { Tooltip } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import {
+  useSessionRuntimeStatus,
+  type SessionRuntimeStatus,
+} from "@/app/w/(chat)/_stores/session-runtime-store"
 
 export type SidebarSessionAgent = {
   name: string
@@ -11,6 +15,7 @@ export type SidebarSessionAgent = {
 }
 
 export function ChatRow({
+  sessionId,
   title,
   agent,
   meta,
@@ -18,6 +23,7 @@ export function ChatRow({
   onIntent,
   onSelect,
 }: {
+  sessionId?: string
   title: string
   agent: SidebarSessionAgent
   meta?: string
@@ -43,8 +49,66 @@ export function ChatRow({
       {meta ? (
         <span className="shrink-0 text-xs text-muted">{meta}</span>
       ) : null}
+      <SessionRuntimeIndicator sessionId={sessionId} />
     </button>
   )
+}
+
+function SessionRuntimeIndicator({ sessionId }: { sessionId?: string }) {
+  const status = useSessionRuntimeStatus(sessionId)
+  const indicator = runtimeIndicator(status)
+  if (!indicator) return null
+
+  return (
+    <Tooltip delay={250} closeDelay={0}>
+      <Tooltip.Trigger className="flex h-4 w-4 shrink-0 items-center justify-center">
+        <Icon
+          icon={indicator.icon}
+          className={`h-3.5 w-3.5 ${indicator.className}`}
+        />
+      </Tooltip.Trigger>
+      <Tooltip.Content placement="right" offset={8} className="text-xs">
+        {indicator.label}
+      </Tooltip.Content>
+    </Tooltip>
+  )
+}
+
+function runtimeIndicator(status: SessionRuntimeStatus) {
+  switch (status) {
+    case "queued":
+      return {
+        icon: "lucide:loader-2",
+        label: "Agent turn queued",
+        className: "animate-spin text-muted",
+      }
+    case "streaming":
+      return {
+        icon: "lucide:loader-2",
+        label: "Agent turn in progress",
+        className: "animate-spin text-primary",
+      }
+    case "waiting_for_user":
+      return {
+        icon: "lucide:message-circle-question",
+        label: "Waiting for your response",
+        className: "text-warning",
+      }
+    case "stopped":
+      return {
+        icon: "lucide:square",
+        label: "Last turn stopped",
+        className: "text-muted",
+      }
+    case "failed":
+      return {
+        icon: "lucide:triangle-alert",
+        label: "Last turn failed",
+        className: "text-danger",
+      }
+    default:
+      return null
+  }
 }
 
 function SessionAgentAvatar({ agent }: { agent: SidebarSessionAgent }) {

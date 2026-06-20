@@ -58,7 +58,7 @@
   "sub_agents": {
     "codebase-explorer": {
       "name": "Codebase Explorer",
-      "description": "Traces code paths, dependencies, and tests.",
+      "description": "Contextual codebase search specialist. Finds where code lives, which files contain a behavior, how implementation flows across modules, and what tests or call sites define the blast radius. Use for unfamiliar module structure, broad pattern discovery, and questions like \"Where is X implemented?\" or \"Find the code that does Z.\"",
       "model": "deepseek-v4-flash",
       "tools": {
         "read_file": true,
@@ -74,6 +74,46 @@
       },
       "prompt": {
         "instructions": "./sub_agents/codebase-explorer/instructions.md"
+      }
+    },
+    "librarian": {
+      "name": "Librarian",
+      "description": "External open-source codebase and documentation researcher. Investigates unfamiliar libraries, dependency behavior, upstream APIs, release history, and real-world implementation examples. Use when the answer depends on source outside the local working tree or needs primary-source citations.",
+      "model": "deepseek-v4-flash",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "search_sessions": true,
+        "update_plan": true,
+        "skills_list": true,
+        "skill_view": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/librarian/instructions.md"
+      }
+    },
+    "oracle": {
+      "name": "Oracle",
+      "description": "Read-only strategic technical advisor for hard architecture, debugging, security, performance, concurrency, and multi-system tradeoffs. Use after significant implementation, after repeated failed fixes, or when a design choice needs senior-level scrutiny.",
+      "model": "deepseek-v4-pro",
+      "tools": {
+        "read_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "lsp": true,
+        "search_sessions": true,
+        "skills_list": true,
+        "skill_view": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/oracle/instructions.md"
       }
     }
   },

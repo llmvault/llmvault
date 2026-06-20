@@ -136,6 +136,7 @@ func setupV1Routes(
 					r.Get("/sessions/{id}", sessionHandler.Get)
 					r.Patch("/sessions/{id}", sessionHandler.Update)
 					r.Post("/sessions/{id}/messages", sessionHandler.SendMessage)
+					r.Post("/sessions/{id}/input-responses", sessionHandler.RespondToInput)
 					r.Post("/sessions/{id}/transcriptions", sessionHandler.TranscribeAudio)
 					r.Post("/sessions/{id}/interrupt", sessionHandler.Interrupt)
 					r.Get("/sessions/{id}/events", sessionHandler.ListEvents)
