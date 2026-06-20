@@ -11,7 +11,7 @@ use tracing::warn;
 
 use crate::session_stream::SessionStreamBroker;
 
-use super::git::{changed_paths, git_output, git_status, snapshot_repo, RepoSnapshot};
+use super::git::{changed_paths, default_branch_sha, git_output, git_status, snapshot_repo, RepoSnapshot};
 use super::types::{
     ContentResponse, DiffResponse, RepoInfo, RepoListResponse, TreeEntry, TreeResponse,
 };
@@ -299,10 +299,7 @@ impl RepoService {
             }
         }
         let mut state = self.state.write().await;
-        for (id, mut repo) in found {
-            if let Some(existing) = state.repos.get(&id) {
-                repo.base_sha = existing.base_sha.clone();
-            }
+        for (id, repo) in found {
             state.repos.insert(id, repo);
         }
         Ok(())
@@ -314,6 +311,7 @@ impl RepoService {
             .unwrap_or_default()
             .trim()
             .to_string();
+        let base_sha = default_branch_sha(path).await.unwrap_or_else(|| head.clone());
         let relative = path
             .strip_prefix(&self.root)
             .context("repo outside workspace")?
@@ -327,8 +325,8 @@ impl RepoService {
                 .map(|name| name.to_string_lossy().to_string())
                 .unwrap_or_else(|| relative.clone()),
             relative_path: relative,
-            head_sha: head.clone(),
-            base_sha: head,
+            head_sha: head,
+            base_sha,
         })
     }
 
@@ -501,6 +499,49 @@ mod tests {
         init_repo(&second, "lib.rs", "pub fn answer() -> i32 { 42 }\n").await;
         let listed = service.list_repos().await.unwrap();
         assert_eq!(listed.repos.len(), 2);
+
+        let _ = tokio::fs::remove_dir_all(workspace).await;
+    }
+
+    #[tokio::test]
+    async fn diff_shows_changes_on_feature_branch_relative_to_main() {
+        let workspace = unique_workspace();
+        let repos = workspace.join("repos");
+        tokio::fs::create_dir_all(&repos).await.unwrap();
+        let repo_path = repos.join("feature-repo");
+
+        // Init repo with an initial commit on main.
+        init_repo(&repo_path, "README.md", "hello\n").await;
+        // Add a bare "remote" and set origin/HEAD so default_branch_sha can resolve.
+        let bare = repos.join("feature-repo-remote.git");
+        git(&repo_path, &["init", "--bare", bare.to_str().unwrap()]).await;
+        git(&repo_path, &["remote", "add", "origin", bare.to_str().unwrap()]).await;
+        git(&repo_path, &["branch", "-M", "main"]).await;
+        git(&repo_path, &["push", "origin", "main"]).await;
+        git(&repo_path, &["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]).await;
+
+        let broker = Arc::new(SessionStreamBroker::new());
+        let service = RepoService::new(workspace.clone(), broker.clone());
+
+        // Create a feature branch and make a commit.
+        git(&repo_path, &["checkout", "-b", "feature/test"]).await;
+        tokio::fs::write(repo_path.join("README.md"), "hello\nchanged\n")
+            .await
+            .unwrap();
+        git(&repo_path, &["add", "."]).await;
+        git(&repo_path, &["commit", "-m", "change on feature branch"]).await;
+
+        // Diff should show the change relative to main, even though we're
+        // on a feature branch with everything committed.
+        let diff = service
+            .diff(&repo_id("repos/feature-repo"), Some("README.md"), Some(3))
+            .await
+            .unwrap();
+        assert!(
+            diff.diff.contains("+changed"),
+            "diff should show feature branch changes relative to main, got: {}",
+            diff.diff
+        );
 
         let _ = tokio::fs::remove_dir_all(workspace).await;
     }

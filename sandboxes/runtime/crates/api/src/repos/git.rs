@@ -56,6 +56,46 @@ pub(super) async fn git_status(repo_path: &Path) -> Result<BTreeMap<String, Stri
     Ok(statuses)
 }
 
+/// Returns the SHA of the local default branch (e.g. `main`, `master`).
+/// Tries `git symbolic-ref refs/remotes/origin/HEAD` first (set during
+/// clone, no network needed), then falls back to checking for a local
+/// `main` or `master` ref. Returns `None` if no default branch can be
+/// determined (e.g. a fresh local repo with no remote).
+pub(super) async fn default_branch_sha(repo_path: &Path) -> Option<String> {
+    // Try the remote HEAD symbolic ref first — this is set automatically
+    // when cloning and doesn't require network access.
+    let remote_head = git_output(
+        repo_path,
+        &[
+            "symbolic-ref".into(),
+            "--short".into(),
+            "refs/remotes/origin/HEAD".into(),
+        ],
+    )
+    .await
+    .ok()?
+    .trim()
+    .to_string();
+
+    // remote_head looks like "origin/main" — strip the "origin/" prefix.
+    let branch = remote_head
+        .strip_prefix("origin/")
+        .unwrap_or(&remote_head);
+
+    // Resolve the local ref for that branch.
+    let sha = git_output(repo_path, &["rev-parse".into(), branch.to_string()])
+        .await
+        .ok()?
+        .trim()
+        .to_string();
+
+    if sha.is_empty() {
+        None
+    } else {
+        Some(sha)
+    }
+}
+
 pub(super) async fn git_output(repo_path: &Path, args: &[String]) -> Result<String> {
     let output = Command::new("git")
         .args(args)
