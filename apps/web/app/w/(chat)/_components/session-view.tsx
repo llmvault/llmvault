@@ -331,7 +331,7 @@ function latestTurnID(events: SessionEventResponse[]) {
       return turnID.trim()
     }
   }
-  return ""
+  return undefined
 }
 
 function safeAgentById(id: string) {

@@ -89,6 +89,7 @@ export function sessionEventsToConversationBlocks(
   const finalTurns = new Set<string>()
   const finalTextByTurn = new Map<string, string>()
   const thinkingTurns = new Set<string>()
+  const lastTokenEventByTurn = new Map<string, SessionEventResponse>()
   const toolTurns = new Set<string>()
   const turnInfoByID = new Map<string, TurnInfo>()
 
@@ -101,6 +102,9 @@ export function sessionEventsToConversationBlocks(
       finalTextByTurn.set(turn, eventText(event))
     }
     if (event.event_type === "thinking") thinkingTurns.add(turn)
+    if (event.event_type === "token" && eventText(event)) {
+      lastTokenEventByTurn.set(turn, event)
+    }
     if (
       event.event_type === "tool_call" ||
       event.event_type === "tool_result"
@@ -215,6 +219,7 @@ export function sessionEventsToConversationBlocks(
         turn &&
         hasTool &&
         finalTurns.has(turn) &&
+        lastTokenEventByTurn.get(turn) === event &&
         finalTextByTurn.get(turn)?.trim() === eventText(event).trim()
       ) {
         continue

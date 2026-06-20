@@ -920,6 +920,52 @@ Primary category: Product UI
     ])
   })
 
+  it("keeps earlier progress tokens that match final text", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event("turn_started", { turn_id: "turn-repeated-token" }),
+      event("thinking", {
+        text: "Checking",
+        turn_id: "turn-repeated-token",
+      }),
+      event("tool_result", {
+        id: "tool-repeated-token",
+        tool: "bash",
+        result: { command: "true", output: "" },
+        turn_id: "turn-repeated-token",
+      }),
+      event("token", {
+        text: "Done.",
+        turn_id: "turn-repeated-token",
+      }),
+      event("token", {
+        text: "More context.",
+        turn_id: "turn-repeated-token",
+      }),
+      event("token", {
+        text: "Done.",
+        turn_id: "turn-repeated-token",
+      }),
+      event("final", {
+        text: "Done.",
+        turn_id: "turn-repeated-token",
+      }),
+    ])
+
+    expect(blocks).toMatchObject([
+      {
+        type: "worklog",
+        blocks: [
+          { type: "thinking", text: "Checking" },
+          { type: "tool" },
+          { type: "assistant", text: "Done." },
+          { type: "assistant", text: "More context." },
+        ],
+      },
+      { type: "assistant", text: "Done." },
+      { type: "actions" },
+    ])
+  })
+
   it("renders standalone thought, not a worklog, for completed turns without tool calls", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("turn_started", { turn_id: "turn-no-tools" }),
