@@ -11,6 +11,13 @@ fi
 
 dockerd_pid=""
 runtime_pid=""
+HIVY_SANDBOX_DATA_ROOT="${HIVY_SANDBOX_DATA_ROOT:-/workspace/.hivy}"
+HIVY_DOCKER_DATA_ROOT="${HIVY_DOCKER_DATA_ROOT:-$HIVY_SANDBOX_DATA_ROOT/docker}"
+TMPDIR="${TMPDIR:-$HIVY_SANDBOX_DATA_ROOT/tmp}"
+TEMP="${TEMP:-$TMPDIR}"
+TMP="${TMP:-$TMPDIR}"
+DOCKER_TMPDIR="${DOCKER_TMPDIR:-$TMPDIR/docker}"
+export HIVY_SANDBOX_DATA_ROOT HIVY_DOCKER_DATA_ROOT TMPDIR TEMP TMP DOCKER_TMPDIR
 
 terminate_children() {
   if [ -n "${runtime_pid:-}" ] && kill -0 "$runtime_pid" 2>/dev/null; then
@@ -35,10 +42,24 @@ terminate_children() {
 trap 'terminate_children; exit 143' INT TERM
 
 if [ "${HIVY_RUNTIME_START_DOCKERD:-1}" = "1" ] && command -v docker >/dev/null 2>&1 && command -v dockerd >/dev/null 2>&1; then
-  mkdir -p /var/lib/docker /var/run
+  mkdir -p "$HIVY_DOCKER_DATA_ROOT" "$DOCKER_TMPDIR" "$HIVY_SANDBOX_DATA_ROOT/logs" /var/run
+  chmod 1777 "$TMPDIR" "$DOCKER_TMPDIR" 2>/dev/null || true
+  if command -v mount >/dev/null 2>&1 && [ -d /tmp ]; then
+    if ! mount | grep -F "$TMPDIR on /tmp " >/dev/null 2>&1; then
+      mount --bind "$TMPDIR" /tmp 2>/dev/null || true
+    fi
+  fi
+  if [ -d /var/lib/docker ] && [ ! -L /var/lib/docker ]; then
+    if ! command -v mountpoint >/dev/null 2>&1 || ! mountpoint -q /var/lib/docker; then
+      rmdir /var/lib/docker 2>/dev/null || true
+    fi
+  fi
+  if [ ! -e /var/lib/docker ]; then
+    ln -s "$HIVY_DOCKER_DATA_ROOT" /var/lib/docker
+  fi
   if ! docker info >/dev/null 2>&1; then
     rm -f /var/run/docker.pid
-    dockerd --host=unix:///var/run/docker.sock --data-root=/var/lib/docker >/tmp/dockerd.log 2>&1 &
+    dockerd --host=unix:///var/run/docker.sock --data-root="$HIVY_DOCKER_DATA_ROOT" >"$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" 2>&1 &
     dockerd_pid="$!"
     for _ in $(seq 1 60); do
       if docker info >/dev/null 2>&1; then
@@ -47,7 +68,7 @@ if [ "${HIVY_RUNTIME_START_DOCKERD:-1}" = "1" ] && command -v docker >/dev/null 
       sleep 1
     done
     if ! docker info >/dev/null 2>&1; then
-      cat /tmp/dockerd.log >&2 || true
+      cat "$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" >&2 || true
       exit 1
     fi
   fi

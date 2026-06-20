@@ -28,7 +28,7 @@ const (
 type actualSandboxState struct {
 	NativeStatus         string
 	ProcessPIDs          []int
-	DockerDiskFDs        int
+	VolumeDiskFDs        int
 	OpenPorts            []int
 	RuntimeHealthChecked bool
 	RuntimeHealthy       bool
@@ -45,11 +45,11 @@ func (s actualSandboxState) healthyRunning() bool {
 }
 
 func (s actualSandboxState) hasHostResidue() bool {
-	return len(s.ProcessPIDs) > 0 || s.DockerDiskFDs > 0 || len(s.OpenPorts) > 0 || s.RuntimeHealthy
+	return len(s.ProcessPIDs) > 0 || s.VolumeDiskFDs > 0 || len(s.OpenPorts) > 0 || s.RuntimeHealthy
 }
 
 func (s actualSandboxState) fullyStopped() bool {
-	return len(s.ProcessPIDs) == 0 && s.DockerDiskFDs == 0 && len(s.OpenPorts) == 0 && !s.RuntimeHealthy
+	return len(s.ProcessPIDs) == 0 && s.VolumeDiskFDs == 0 && len(s.OpenPorts) == 0 && !s.RuntimeHealthy
 }
 
 func (m *MicrosandboxBackend) actualState(ctx context.Context, sandboxID string) actualSandboxState {
@@ -58,7 +58,7 @@ func (m *MicrosandboxBackend) actualState(ctx context.Context, sandboxID string)
 		state.NativeStatus = string(handle.Status())
 	}
 	state.ProcessPIDs = findMicrosandboxPIDs(sandboxID)
-	state.DockerDiskFDs = countDockerDiskFDs(sandboxID)
+	state.VolumeDiskFDs = countSandboxVolumeFDs(sandboxID)
 
 	ports := m.sandboxPorts(sandboxID)
 	for guestPort, hostPort := range ports {
@@ -78,7 +78,7 @@ func (m *MicrosandboxBackend) waitForHealthyRunning(ctx context.Context, sandbox
 		actual := m.actualState(ctx, sandboxID)
 		return actual.healthyRunning(), fmt.Sprintf(
 			"native=%s pids=%v disk_fds=%d open_ports=%v runtime_healthy=%v",
-			actual.NativeStatus, actual.ProcessPIDs, actual.DockerDiskFDs, actual.OpenPorts, actual.RuntimeHealthy,
+			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts, actual.RuntimeHealthy,
 		)
 	})
 }
@@ -88,7 +88,7 @@ func (m *MicrosandboxBackend) waitForFullyStopped(ctx context.Context, sandboxID
 		actual := m.actualState(ctx, sandboxID)
 		return actual.fullyStopped(), fmt.Sprintf(
 			"native=%s pids=%v disk_fds=%d open_ports=%v runtime_healthy=%v",
-			actual.NativeStatus, actual.ProcessPIDs, actual.DockerDiskFDs, actual.OpenPorts, actual.RuntimeHealthy,
+			actual.NativeStatus, actual.ProcessPIDs, actual.VolumeDiskFDs, actual.OpenPorts, actual.RuntimeHealthy,
 		)
 	})
 }
@@ -190,49 +190,6 @@ func isMicrosandboxCommandFor(raw []byte, sandboxID string) bool {
 		}
 	}
 	return hasMSB && hasSandbox && hasName
-}
-
-func countDockerDiskFDs(sandboxID string) int {
-	if runtime.GOOS != "linux" {
-		return 0
-	}
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
-		return 0
-	}
-	diskPath := microsandboxVolumePath(dockerDataVolumeName(sandboxID))
-	count := 0
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		if _, err := strconv.Atoi(entry.Name()); err != nil {
-			continue
-		}
-		fdDir := filepath.Join("/proc", entry.Name(), "fd")
-		fds, err := os.ReadDir(fdDir)
-		if err != nil {
-			continue
-		}
-		for _, fd := range fds {
-			target, err := os.Readlink(filepath.Join(fdDir, fd.Name()))
-			if err != nil {
-				continue
-			}
-			if strings.Contains(target, diskPath) {
-				count++
-			}
-		}
-	}
-	return count
-}
-
-func microsandboxVolumePath(volumeName string) string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		home = "/root"
-	}
-	return filepath.Join(home, ".microsandbox", "volumes", volumeName)
 }
 
 func tcpPortOpen(port int, timeout time.Duration) bool {
