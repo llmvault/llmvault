@@ -92,6 +92,8 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesSkillProxyEnv(t *testing.T) {
 		AgentEnvSentrySampleRate:       "1",
 		AgentEnvSentryTracesSampleRate: "0.25",
 		AgentEnvSentryEnableLogs:       "true",
+		AgentEnvWorkspaceRoot:          "/workspace",
+		AgentEnvDBPath:                 AgentRuntimeDBPath,
 	}
 	for key, value := range want {
 		if env[key] != value {

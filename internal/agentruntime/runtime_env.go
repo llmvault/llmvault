@@ -14,7 +14,7 @@ import (
 
 const (
 	runtimeWorkspaceRoot = "/workspace"
-	runtimeDBPath        = "/app/data/hivy-sandboxes-runtime.db"
+	runtimeDBPath        = AgentRuntimeDBPath
 	runtimePort          = 7080
 )
 

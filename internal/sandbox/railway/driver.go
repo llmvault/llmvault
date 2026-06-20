@@ -80,7 +80,7 @@ func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreate
 		"HIVY_RUNTIME_SECRET":    opts.RuntimeSecret,
 		"HIVY_RUNTIME_BIND_ADDR": fmt.Sprintf("0.0.0.0:%d", port),
 		"HIVY_WORKSPACE_ROOT":    "/workspace",
-		"HIVY_DB_PATH":           "/app/data/hivy-sandboxes-runtime.db",
+		"HIVY_DB_PATH":           agentruntime.AgentRuntimeDBPath,
 		"PORT":                   fmt.Sprintf("%d", port),
 	}
 	for key, value := range opts.EnvVars {

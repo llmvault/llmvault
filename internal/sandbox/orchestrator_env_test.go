@@ -26,6 +26,9 @@ func TestAgentSandboxEnvVarsUseAPIWebhookBaseURL(t *testing.T) {
 	if got := env[agentruntime.AgentEnvAgentBaseURL]; got != "http://host.docker.internal:8080/v1" {
 		t.Fatalf("agent base url = %q", got)
 	}
+	if got := env[agentruntime.AgentEnvDBPath]; got != agentruntime.AgentRuntimeDBPath {
+		t.Fatalf("runtime db path = %q, want %q", got, agentruntime.AgentRuntimeDBPath)
+	}
 	for _, key := range []string{
 		agentruntime.AgentEnvGitCredentialsURL,
 		agentruntime.AgentEnvDriveUploadURL,

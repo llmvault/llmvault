@@ -91,7 +91,7 @@ func templateValidationEnv(req CreateTemplateRequest, sandboxID string) map[stri
 		agentruntime.AgentEnvDriveUploadBearer: "template-validation",
 		agentruntime.AgentEnvRuntimeBindAddr:   fmt.Sprintf("0.0.0.0:%d", templateValidationPort),
 		agentruntime.AgentEnvWorkspaceRoot:     "/workspace",
-		agentruntime.AgentEnvDBPath:            "/app/data/hivy-sandboxes-runtime.db",
+		agentruntime.AgentEnvDBPath:            agentruntime.AgentRuntimeDBPath,
 		agentruntime.AgentEnvTunnelPassword:    "template-validation",
 		agentruntime.AgentEnvSandboxID:         sandboxID,
 		agentruntime.AgentEnvOrgID:             req.OrgID,

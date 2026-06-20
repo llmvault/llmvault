@@ -19,6 +19,9 @@ TMP="${TMP:-$TMPDIR}"
 DOCKER_TMPDIR="${DOCKER_TMPDIR:-$TMPDIR/docker}"
 export HIVY_SANDBOX_DATA_ROOT HIVY_DOCKER_DATA_ROOT TMPDIR TEMP TMP DOCKER_TMPDIR
 
+mkdir -p "$HIVY_SANDBOX_DATA_ROOT" "$HIVY_SANDBOX_DATA_ROOT/runtime" "$TMPDIR" "$DOCKER_TMPDIR" "$HIVY_SANDBOX_DATA_ROOT/logs" /var/run
+chmod 1777 "$TMPDIR" "$DOCKER_TMPDIR" 2>/dev/null || true
+
 terminate_children() {
   if [ -n "${runtime_pid:-}" ] && kill -0 "$runtime_pid" 2>/dev/null; then
     kill -TERM "$runtime_pid" 2>/dev/null || true
@@ -42,8 +45,6 @@ terminate_children() {
 trap 'terminate_children; exit 143' INT TERM
 
 if [ "${HIVY_RUNTIME_START_DOCKERD:-1}" = "1" ] && command -v docker >/dev/null 2>&1 && command -v dockerd >/dev/null 2>&1; then
-  mkdir -p "$HIVY_DOCKER_DATA_ROOT" "$DOCKER_TMPDIR" "$HIVY_SANDBOX_DATA_ROOT/logs" /var/run
-  chmod 1777 "$TMPDIR" "$DOCKER_TMPDIR" 2>/dev/null || true
   if command -v mount >/dev/null 2>&1 && [ -d /tmp ]; then
     if ! mount | grep -F "$TMPDIR on /tmp " >/dev/null 2>&1; then
       mount --bind "$TMPDIR" /tmp 2>/dev/null || true

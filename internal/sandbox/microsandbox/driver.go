@@ -171,7 +171,7 @@ func (d *Driver) warmSlotEnv(opts sandbox.WarmSlotCreateOpts, port int) map[stri
 		agentruntime.AgentEnvRuntimeSecret:   opts.RuntimeSecret,
 		agentruntime.AgentEnvRuntimeBindAddr: fmt.Sprintf("0.0.0.0:%d", port),
 		agentruntime.AgentEnvWorkspaceRoot:   "/workspace",
-		agentruntime.AgentEnvDBPath:          "/app/data/hivy-sandboxes-runtime.db",
+		agentruntime.AgentEnvDBPath:          agentruntime.AgentRuntimeDBPath,
 		"PORT":                               fmt.Sprintf("%d", port),
 	}
 	for key, value := range opts.EnvVars {

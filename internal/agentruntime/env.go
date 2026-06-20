@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	AgentRuntimeDBPath                 = "/workspace/.hivy/runtime/hivy-sandboxes-runtime.db"
 	AgentEnvRuntimeSecret              = "HIVY_RUNTIME_SECRET" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvProxyAPIKey                = "HIVY_PROXY_API_KEY"  // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvAgentModel                 = "HIVY_AGENT_MODEL"
