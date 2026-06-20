@@ -1,4 +1,3 @@
-import type { components } from "@/lib/api/schema"
 import {
   currentCollaborator,
   type ConversationBlock,
@@ -11,10 +10,24 @@ import {
   toolEventID,
 } from "@/app/w/(chat)/_lib/session-tools"
 import { codeLineCommentReferenceFromPayload } from "@/app/w/(chat)/_lib/code-line-comments"
+import {
+  compareSessionEvents,
+  durationBetween,
+  eventText,
+  eventTime,
+  eventTurnID,
+  formatDuration,
+  parseTimestamp,
+  payloadRecord,
+  stringRecordValue,
+  stringValue,
+  stripAttachmentTags,
+  type Payload,
+  type SessionEventResponse,
+} from "@/app/w/(chat)/_lib/session-history-event-utils"
 
-export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
+export type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history-event-utils"
 
-type Payload = Record<string, unknown>
 type SessionHistoryPage = {
   data?: SessionEventResponse[]
 }
@@ -329,44 +342,6 @@ function worklogBlockKey(turnID: string | undefined, items: TimelineItem[]) {
   return `worklog:${items.map((item) => item.block.key).join("|")}`
 }
 
-function compareSessionEvents(
-  left: SessionEventResponse,
-  right: SessionEventResponse
-) {
-  const byTime = eventTime(left) - eventTime(right)
-  if (byTime !== 0) return byTime
-  return (left.sequence_number ?? 0) - (right.sequence_number ?? 0)
-}
-
-function eventTime(event: SessionEventResponse): number {
-  const time = event.event_at ? Date.parse(event.event_at) : 0
-  return Number.isNaN(time) ? 0 : time
-}
-
-function payloadRecord(event: SessionEventResponse): Payload {
-  const payload = event.payload
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return {}
-  }
-  return payload as Payload
-}
-
-function stringValue(payload: Payload, key: string): string {
-  const value = payload[key]
-  return typeof value === "string" ? value : ""
-}
-
-function eventText(event: SessionEventResponse): string {
-  const payload = payloadRecord(event)
-  return (
-    stringValue(payload, "text") ||
-    stringValue(payload, "message") ||
-    stringValue(payload, "content") ||
-    stringValue(payload, "markdown") ||
-    stringValue(payload, "result_summary")
-  )
-}
-
 function eventAttachments(event: SessionEventResponse): MediaAttachment[] {
   const value = payloadRecord(event).attachments
   if (!Array.isArray(value)) return []
@@ -406,22 +381,6 @@ function eventCodeLineComments(event: SessionEventResponse) {
     )
     return comment ? [comment] : []
   })
-}
-
-function stringRecordValue(
-  record: Record<string, unknown>,
-  key: string
-): string {
-  const value = record[key]
-  return typeof value === "string" ? value : ""
-}
-
-function stripAttachmentTags(text: string): string {
-  return text.replace(/<attachment\b[\s\S]*?<\/attachment>/gi, "").trim()
-}
-
-function eventTurnID(event: SessionEventResponse): string {
-  return stringValue(payloadRecord(event), "turn_id")
 }
 
 function clientStatus(
@@ -484,12 +443,6 @@ function seedActiveTurnInfo(
 function timestampValue(payload: Payload, key: string): number | undefined {
   const value = stringValue(payload, key)
   return parseTimestamp(value)
-}
-
-function parseTimestamp(value: string): number | undefined {
-  if (!value) return undefined
-  const time = Date.parse(value)
-  return Number.isNaN(time) ? undefined : time
 }
 
 function workDuration(
@@ -603,34 +556,4 @@ function thoughtDuration(event: SessionEventResponse): string | undefined {
   const durationMs = durationBetween(startedAt, endedAt)
   if (durationMs === undefined) return undefined
   return formatDuration(durationMs)
-}
-
-function durationBetween(startedAt: string, endedAt: string) {
-  if (!startedAt || !endedAt) return undefined
-  const started = Date.parse(startedAt)
-  const ended = Date.parse(endedAt)
-  if (Number.isNaN(started) || Number.isNaN(ended) || ended < started) {
-    return undefined
-  }
-  return ended - started
-}
-
-function formatDuration(durationMs: number): string {
-  if (durationMs < 1000) {
-    return `${Math.max(0.1, Math.round(durationMs / 100) / 10)} seconds`
-  }
-  if (durationMs < 60_000) {
-    const seconds = Math.round(durationMs / 1000)
-    return seconds === 1 ? "1 second" : `${seconds} seconds`
-  }
-  if (durationMs < 3_600_000) {
-    const totalSeconds = Math.round(durationMs / 1000)
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`
-  }
-  const totalMinutes = Math.round(durationMs / 60_000)
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
 }
