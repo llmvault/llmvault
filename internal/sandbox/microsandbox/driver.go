@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/usehivy/hivy/internal/agentruntime"
 	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
@@ -112,6 +113,74 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	}
 	return &sandbox.SandboxInfo{ExternalID: out.ID, Status: sandbox.StatusRunning}, nil
 }
+
+func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreateOpts) (*sandbox.WarmSlotInfo, error) {
+	imageRef := strings.TrimSpace(opts.RuntimeImage)
+	if imageRef == "" {
+		imageRef = d.runtimeImage
+	}
+	if imageRef == "" {
+		return nil, fmt.Errorf("microsandbox: warm slot image ref is required")
+	}
+	port := opts.RuntimePort
+	if port == 0 {
+		port = d.runtimePort
+	}
+	metadata := map[string]string{
+		"harness":       "agent-sandbox-warm-pool",
+		"provider":      sandbox.ProviderMicrosandbox,
+		"mode":          opts.Mode,
+		"sandbox_image": opts.ImageKind,
+		"sandbox_size":  opts.SandboxSize,
+	}
+	for key, value := range opts.Labels {
+		metadata[key] = value
+	}
+	body := map[string]any{
+		"org_id":        "warm-pool",
+		"name":          opts.Name,
+		"image_ref":     imageRef,
+		"template_id":   "",
+		"size":          msbapi.DefaultSize,
+		"cpu":           opts.CPU,
+		"memory_mb":     opts.Memory * 1024,
+		"disk_gb":       opts.Disk,
+		"env":           d.warmSlotEnv(opts, port),
+		"metadata":      metadata,
+		"preview_ports": d.previewPorts(nil),
+		"init":          agentRuntimeInit,
+	}
+	var out createSandboxResponse
+	if err := d.post(ctx, "/v1/sandboxes", body, &out); err != nil {
+		return nil, err
+	}
+	endpoint, err := d.GetEndpoint(ctx, out.ID, port)
+	if err != nil {
+		_ = d.DeleteSandbox(context.WithoutCancel(ctx), out.ID)
+		return nil, fmt.Errorf("get warm slot runtime endpoint: %w", err)
+	}
+	return &sandbox.WarmSlotInfo{
+		ExternalID:  out.ID,
+		EndpointURL: endpoint,
+		RuntimePort: port,
+	}, nil
+}
+
+func (d *Driver) warmSlotEnv(opts sandbox.WarmSlotCreateOpts, port int) map[string]string {
+	env := map[string]string{
+		agentruntime.AgentEnvRuntimeSecret:   opts.RuntimeSecret,
+		agentruntime.AgentEnvRuntimeBindAddr: fmt.Sprintf("0.0.0.0:%d", port),
+		agentruntime.AgentEnvWorkspaceRoot:   "/workspace",
+		agentruntime.AgentEnvDBPath:          "/app/data/hivy-sandboxes-runtime.db",
+		"PORT":                               fmt.Sprintf("%d", port),
+	}
+	for key, value := range opts.EnvVars {
+		env[key] = value
+	}
+	return env
+}
+
+func (d *Driver) UsesWarmPool() bool { return true }
 
 func (d *Driver) previewPorts(exposedPorts []int) []int {
 	if len(exposedPorts) == 0 {

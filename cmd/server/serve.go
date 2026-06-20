@@ -44,8 +44,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	sandboxEncKey := deps.SandboxEncKey
 	orchestrator := deps.Orchestrator
 	if orchestrator != nil {
-		orchestrator.SetWarmPoolReconciler(func(ctx context.Context, providerID, mode, runtimeImage string) error {
-			return tasks.EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, providerID, mode, runtimeImage)
+		orchestrator.SetWarmPoolReconciler(func(ctx context.Context, providerID string, profile sandbox.WarmPoolProfile) error {
+			return tasks.EnqueueSandboxWarmPoolReconcile(ctx, enqueuer, providerID, profile)
 		})
 		tasks.EnqueueConfiguredWarmPoolReconciles(ctx, enqueuer, orchestrator)
 	}
