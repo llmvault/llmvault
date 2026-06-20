@@ -10,7 +10,7 @@
 # These own their own recover()+wg.Done() pattern; converting to goroutine.Go
 # would add a double-recovery wrapper without benefit.
 
-internal/middleware/generation.go:52            # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
+internal/middleware/generation.go:53            # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
 internal/middleware/audit.go:45                 # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
 internal/middleware/tool_usage.go:37            # drain loop owns wg.Done + inline recover; Shutdown() blocks on wg.Wait
 
