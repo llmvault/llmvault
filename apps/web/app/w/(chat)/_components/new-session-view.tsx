@@ -1,26 +1,17 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { ChatComposer } from "@/app/w/(chat)/_components/chat-composer"
 import type { ChatSession } from "@/app/w/(chat)/_components/shell"
 import { AGENTS } from "@/app/w/(chat)/_lib/agents"
+import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
 import {
-  CHAT_QUERY_STALE_TIME_MS,
-  insertSessionIntoChannelCache,
-  seedSessionDetail,
-  seedSessionEvents,
-} from "@/app/w/(chat)/_lib/chat-cache"
-import {
-  agentAvatarURL,
   agentDisplayName,
-  agentIcon,
   agentModel,
   channelRouteSlug,
-  sessionDisplayName,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 
 interface SessionViewProps {
@@ -37,7 +28,6 @@ export function SessionView({
   channelSlug,
   onSessionCreated,
 }: SessionViewProps) {
-  const queryClient = useQueryClient()
   const channelsQuery = $api.useQuery(
     "get",
     "/v1/channels",
@@ -118,28 +108,10 @@ export function SessionView({
         return false
       }
 
-      seedSessionDetail(queryClient, created)
-      insertSessionIntoChannelCache(queryClient, created)
-      if (response.event) {
-        seedSessionEvents(queryClient, created.id, [response.event])
-      }
       onSessionCreated(
         channelRouteSlug(activeChannel),
         created.id,
-        {
-          title: sessionDisplayName(created),
-          agentId: selectedAgent?.id ?? fallbackAgent.id,
-          agentName: selectedAgent
-            ? agentDisplayName(selectedAgent)
-            : undefined,
-          agentIcon: agentIcon(selectedAgent),
-          agentAvatarURL: agentAvatarURL(selectedAgent),
-          modelId,
-          agentTurnStatus: created.agent_turn_status,
-          agentTurnID: created.agent_turn_id,
-          agentTurnStartedAt: created.agent_turn_started_at,
-          lastTurnOutcome: created.last_turn_outcome,
-        },
+        undefined,
         { replace: true }
       )
       return true
