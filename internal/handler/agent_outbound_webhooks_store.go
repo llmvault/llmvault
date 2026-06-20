@@ -90,7 +90,7 @@ func (h *AgentOutboundWebhookHandler) storeAndMaybeEnqueue(ctx context.Context, 
 		h.markSessionEnded(ctx, session.ID, event.At)
 	}
 	if event.EventType == runtimeevents.EventTurnCompleted || event.EventType == runtimeevents.EventTurnFailed {
-		h.completeSessionTurn(ctx, session, payload)
+		h.completeSessionTurn(ctx, session, event.EventType, payload)
 	}
 	return nil
 }

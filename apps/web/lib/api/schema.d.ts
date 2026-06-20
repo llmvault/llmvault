@@ -9128,6 +9128,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{id}/input-responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Respond to a pending agent input request
+         * @description Persists an answer to a runtime request_user_input turn and queues it for runtime delivery.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Input response payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["sessionInputResponseRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{id}/interrupt": {
         parameters: {
             query?: never;
@@ -11110,6 +11202,7 @@ export interface components {
             bytes?: number;
             content_type?: string;
             created_at?: string;
+            description?: number[];
             filename?: string;
             id?: string;
             key?: string;
@@ -12069,6 +12162,11 @@ export interface components {
             session_id?: string;
             source?: string;
         };
+        sessionInputResponseRequest: {
+            option_id?: string;
+            request_id?: string;
+            text?: string;
+        };
         sessionInterruptResponse: {
             interrupted?: boolean;
             session_id?: string;
@@ -12093,6 +12191,10 @@ export interface components {
         sessionResponse: {
             access_mode?: string;
             agent_id?: string;
+            agent_stream_id?: string;
+            agent_turn_id?: string;
+            agent_turn_started_at?: string;
+            agent_turn_status?: string;
             channel_id?: string;
             created_at?: string;
             created_by?: string;
@@ -12100,6 +12202,7 @@ export interface components {
             event_count?: number;
             id?: string;
             last_activity_at?: string;
+            last_turn_outcome?: string;
             model?: string;
             name?: string;
             participant_count?: number;

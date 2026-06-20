@@ -7476,6 +7476,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/sessions/{id}/input-responses": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persists an answer to a runtime request_user_input turn and queues it for runtime delivery.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Respond to a pending agent input request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Input response payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sessionInputResponseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/sessionMutationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sessions/{id}/interrupt": {
             "post": {
                 "security": [
@@ -9999,6 +10075,12 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "filename": {
                     "type": "string"
                 },
@@ -11462,6 +11544,12 @@ const docTemplate = `{
                 "rate_limit": {
                     "type": "integer"
                 },
+                "sandbox_exposed_ports": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "website": {
                     "type": "string"
                 }
@@ -12693,6 +12781,12 @@ const docTemplate = `{
                 "error_message": {
                     "type": "string"
                 },
+                "exposed_ports": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "external_id": {
                     "type": "string"
                 },
@@ -12701,6 +12795,12 @@ const docTemplate = `{
                 },
                 "last_active_at": {
                     "type": "string"
+                },
+                "preview_urls": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "status": {
                     "type": "string"
@@ -12869,6 +12969,20 @@ const docTemplate = `{
                 }
             }
         },
+        "sessionInputResponseRequest": {
+            "type": "object",
+            "properties": {
+                "option_id": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "sessionInterruptResponse": {
             "type": "object",
             "properties": {
@@ -12937,6 +13051,18 @@ const docTemplate = `{
                 "agent_id": {
                     "type": "string"
                 },
+                "agent_stream_id": {
+                    "type": "string"
+                },
+                "agent_turn_id": {
+                    "type": "string"
+                },
+                "agent_turn_started_at": {
+                    "type": "string"
+                },
+                "agent_turn_status": {
+                    "type": "string"
+                },
                 "channel_id": {
                     "type": "string"
                 },
@@ -12956,6 +13082,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_activity_at": {
+                    "type": "string"
+                },
+                "last_turn_outcome": {
                     "type": "string"
                 },
                 "model": {
@@ -13742,6 +13871,12 @@ const docTemplate = `{
                 },
                 "prompt_company": {
                     "type": "string"
+                },
+                "sandbox_exposed_ports": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "sync": {
                     "type": "boolean"

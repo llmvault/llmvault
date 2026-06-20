@@ -9233,6 +9233,104 @@
         }
       }
     },
+    "/v1/sessions/{id}/input-responses": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Persists an answer to a runtime request_user_input turn and queues it for runtime delivery.",
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Respond to a pending agent input request",
+        "parameters": [
+          {
+            "description": "Session ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/sessionInputResponseRequest"
+              }
+            }
+          },
+          "description": "Input response payload",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sessionMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions/{id}/interrupt": {
       "post": {
         "security": [
@@ -12154,6 +12252,12 @@
           "created_at": {
             "type": "string"
           },
+          "description": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
           "filename": {
             "type": "string"
           },
@@ -15042,6 +15146,20 @@
           }
         }
       },
+      "sessionInputResponseRequest": {
+        "type": "object",
+        "properties": {
+          "option_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
       "sessionInterruptResponse": {
         "type": "object",
         "properties": {
@@ -15110,6 +15228,18 @@
           "agent_id": {
             "type": "string"
           },
+          "agent_stream_id": {
+            "type": "string"
+          },
+          "agent_turn_id": {
+            "type": "string"
+          },
+          "agent_turn_started_at": {
+            "type": "string"
+          },
+          "agent_turn_status": {
+            "type": "string"
+          },
           "channel_id": {
             "type": "string"
           },
@@ -15129,6 +15259,9 @@
             "type": "string"
           },
           "last_activity_at": {
+            "type": "string"
+          },
+          "last_turn_outcome": {
             "type": "string"
           },
           "model": {

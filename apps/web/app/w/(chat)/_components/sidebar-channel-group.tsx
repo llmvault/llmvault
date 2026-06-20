@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { Icon } from "@iconify/react"
 import {
@@ -34,6 +35,7 @@ import {
   IndentedStatusRow,
   SessionSkeletonList,
 } from "./sidebar-channel-status"
+import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
 
 const COLLAPSE_TRANSITION = {
   duration: 0.25,
@@ -52,6 +54,7 @@ export function ChannelGroup({
   slugAmbiguous: boolean
 }) {
   const { openChannel, openChat } = useWorkspace()
+  const queryClient = useQueryClient()
   const pathname = usePathname()
   const slug = channelRouteSlug(channel)
   const channelPath = `/w/channels/${slug}`
@@ -91,6 +94,10 @@ export function ChannelGroup({
   const sessions = dedupeSessions(
     sessionsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? []
   )
+
+  useEffect(() => {
+    hydrateSessionListRuntime(sessions, queryClient)
+  }, [queryClient, sessions])
 
   return (
     <div className="flex flex-col">
@@ -149,6 +156,7 @@ export function ChannelGroup({
                   return (
                     <ChatRow
                       key={id}
+                      sessionId={id}
                       title={sessionDisplayName(session)}
                       agent={sessionAgent}
                       meta={sessionActivityLabel(session)}

@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { useQueries } from "@tanstack/react-query"
+import { useQueries, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { api } from "@/lib/api/client"
@@ -19,6 +19,7 @@ import {
 import { AccountMenu } from "./sidebar-account-menu"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow, SectionLabel } from "./sidebar-nav"
+import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
 
 const SIDEBAR_CHANNEL_PAGE_LIMIT = 100
 const CHANNELS_INFINITE_KEY = "channels-infinite-v1"
@@ -26,6 +27,7 @@ const CHANNELS_INFINITE_KEY = "channels-infinite-v1"
 export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   const { startNewChat } = useWorkspace()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const channelsQuery = $api.useInfiniteQuery(
     "get",
     "/v1/channels",
@@ -106,6 +108,17 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
     () => channelRouteSlugCounts(channels),
     [channels]
   )
+  const latestSessions = useMemo(
+    () =>
+      [...latestSessionsByChannelID.values()].filter(
+        (session): session is SidebarSessionResponse => Boolean(session)
+      ),
+    [latestSessionsByChannelID]
+  )
+
+  useEffect(() => {
+    hydrateSessionListRuntime(latestSessions, queryClient)
+  }, [latestSessions, queryClient])
 
   return (
     <div className="bg-surface flex h-full flex-col">

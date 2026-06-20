@@ -224,7 +224,8 @@ func (h *SessionMessageDeliverHandler) markDelivered(ctx context.Context, queue 
 			return fmt.Errorf("mark session message delivered: %w", err)
 		}
 		sessionUpdates := map[string]any{
-			"agent_turn_status": model.SessionAgentTurnActive,
+			"agent_turn_status":       model.SessionAgentTurnActive,
+			"agent_turn_last_outcome": "",
 		}
 		if delivery != nil {
 			sessionUpdates["agent_turn_id"] = strings.TrimSpace(delivery.TurnID)
@@ -262,9 +263,10 @@ func (h *SessionMessageDeliverHandler) releaseSessionTurn(ctx context.Context, s
 	return h.db.WithContext(ctx).Model(&model.Session{}).
 		Where("id = ?", sessionID).
 		Updates(map[string]any{
-			"agent_turn_status":     model.SessionAgentTurnIdle,
-			"agent_turn_id":         "",
-			"agent_stream_id":       "",
-			"agent_turn_started_at": nil,
+			"agent_turn_status":       model.SessionAgentTurnIdle,
+			"agent_turn_id":           "",
+			"agent_stream_id":         "",
+			"agent_turn_started_at":   nil,
+			"agent_turn_last_outcome": model.SessionAgentTurnOutcomeFailed,
 		}).Error
 }

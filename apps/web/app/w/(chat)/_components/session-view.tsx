@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import { toast } from "@heroui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import ScrollToBottom from "react-scroll-to-bottom"
@@ -28,18 +28,6 @@ import {
   replaceOptimisticEvent,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
-  directSessionStreamCursor,
-  isRuntimeRepoChangeFrame,
-  subscribeToDirectSessionStream,
-  type DirectSessionStreamCursor,
-  type DirectSessionStreamFrame,
-  type DirectSessionStreamReplayMode,
-} from "@/app/w/(chat)/_lib/direct-session-stream"
-import {
-  appendLiveSessionStreamFrame,
-  isTerminalStreamFrame,
-} from "@/app/w/(chat)/_lib/live-session-stream"
-import {
   sessionHistoryPagesToEvents,
   sessionEventsToConversationBlocks,
   type SessionEventResponse,
@@ -51,9 +39,17 @@ import {
   type CodeLineCommentReference,
 } from "@/app/w/(chat)/_lib/code-line-comments"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
-import { reviewDiffsQueryKey } from "@/app/w/(chat)/_lib/review-diffs-query"
-
-const STREAM_WATCHDOG_MS = 10 * 60 * 1000
+import {
+  beginOptimisticSessionTurn,
+  ensureSessionStream,
+  interruptSessionTurn,
+} from "@/app/w/(chat)/_stores/session-stream-manager"
+import {
+  useSessionLiveEvents,
+  useSessionRuntimeStatus,
+  useSessionRuntimeStore,
+  type SessionRuntimeStatus,
+} from "@/app/w/(chat)/_stores/session-runtime-store"
 
 export function SessionThreadView({
   session,
@@ -62,26 +58,16 @@ export function SessionThreadView({
   session: ChatSession
   sessionId?: string
 }) {
-  const { setModel, sandboxAccess, sandboxAccessError, sandboxAccessPending } =
-    useWorkspace()
+  const { setModel } = useWorkspace()
   const queryClient = useQueryClient()
   const agent = safeAgentById(session.agentId)
-  const [liveEvents, setLiveEvents] = useState<SessionEventResponse[]>([])
-  const [streaming, setStreaming] = useState(false)
-  const [streamReconnectVersion, setStreamReconnectVersion] = useState(0)
-  const streamingRef = useRef(false)
-  const streamWatchdogRef = useRef<number | null>(null)
-  const streamReconnectTimerRef = useRef<number | null>(null)
-  const streamReconnectAttemptsRef = useRef(0)
-  const streamCursorRef = useRef<DirectSessionStreamCursor | null>(null)
+  const liveEvents = useSessionLiveEvents(sessionId)
+  const runtimeStatus = useSessionRuntimeStatus(sessionId)
+  const turnActive = isTurnActive(runtimeStatus)
   const optimisticSession = sessionId?.startsWith("tmp_") ?? false
   const sendSessionMessage = $api.useMutation(
     "post",
     "/v1/sessions/{id}/messages"
-  )
-  const interruptSession = $api.useMutation(
-    "post",
-    "/v1/sessions/{id}/interrupt"
   )
   const sessionHistoryQuery = $api.useInfiniteQuery(
     "get",
@@ -103,7 +89,6 @@ export function SessionThreadView({
       staleTime: CHAT_QUERY_STALE_TIME_MS,
     }
   )
-  const refetchHistoryRef = useRef(sessionHistoryQuery.refetch)
   const historyPages = sessionHistoryQuery.data?.pages
   const historyEvents = useMemo(
     () => sessionHistoryPagesToEvents(historyPages ?? []),
@@ -139,262 +124,20 @@ export function SessionThreadView({
     sessionHistoryQuery.isSuccess ||
     sessionHistoryQuery.isError
 
-  const clearStreamWatchdog = useCallback(() => {
-    if (!streamWatchdogRef.current) return
-    window.clearTimeout(streamWatchdogRef.current)
-    streamWatchdogRef.current = null
-  }, [])
-
-  const clearStreamReconnectTimer = useCallback(() => {
-    if (!streamReconnectTimerRef.current) return
-    window.clearTimeout(streamReconnectTimerRef.current)
-    streamReconnectTimerRef.current = null
-  }, [])
-
-  const appendStreamError = useCallback(
-    (message: string) => {
-      if (!sessionId) return
-      setLiveEvents((current) => [
-        ...current.filter((event) => event.event_type !== "error"),
-        streamErrorEvent(sessionId, message),
-      ])
-    },
-    [sessionId]
-  )
-
-  const finishLiveStream = useCallback(
-    (options: { preserveError?: boolean; refetch?: boolean } = {}) => {
-      streamingRef.current = false
-      clearStreamWatchdog()
-      clearStreamReconnectTimer()
-      streamReconnectAttemptsRef.current = 0
-      setStreaming(false)
-      if (options.refetch === false) {
-        setLiveEvents((current) =>
-          options.preserveError
-            ? current.filter((event) => event.event_type === "error")
-            : []
-        )
-        return
-      }
-      void refetchHistoryRef.current().then((result) => {
-        if (result.error) return
-        setLiveEvents((current) =>
-          options.preserveError
-            ? current.filter((event) => event.event_type === "error")
-            : []
-        )
-      })
-    },
-    [clearStreamReconnectTimer, clearStreamWatchdog]
-  )
-
-  const failLiveStream = useCallback(
-    (message: string) => {
-      window.queueMicrotask(() => {
-        if (!streamingRef.current) return
-        appendStreamError(message)
-        finishLiveStream({ preserveError: true })
-      })
-    },
-    [appendStreamError, finishLiveStream]
-  )
-
-  const scheduleStreamWatchdog = useCallback(() => {
-    if (!sessionId) return
-    clearStreamWatchdog()
-    streamWatchdogRef.current = window.setTimeout(() => {
-      if (!streamingRef.current) return
-      appendStreamError(
-        "The live session stream stopped responding. History has been refreshed."
-      )
-      finishLiveStream({ preserveError: true })
-    }, STREAM_WATCHDOG_MS)
-  }, [appendStreamError, clearStreamWatchdog, finishLiveStream, sessionId])
-
-  const startLiveStream = useCallback(() => {
-    streamingRef.current = true
-    setStreaming(true)
-    scheduleStreamWatchdog()
-  }, [scheduleStreamWatchdog])
-
-  const scheduleStreamReconnect = useCallback(() => {
-    clearStreamReconnectTimer()
-    const attempt = streamReconnectAttemptsRef.current + 1
-    streamReconnectAttemptsRef.current = attempt
-    const delay = Math.min(2000, attempt * 400)
-    streamReconnectTimerRef.current = window.setTimeout(() => {
-      setStreamReconnectVersion((current) => current + 1)
-    }, delay)
-  }, [clearStreamReconnectTimer])
-
-  const handleStreamResyncRequired = useCallback(() => {
-    clearStreamReconnectTimer()
-    streamReconnectAttemptsRef.current = 0
-    streamCursorRef.current = null
-    setLiveEvents([])
-    void refetchHistoryRef.current().finally(() => {
-      setStreamReconnectVersion((current) => current + 1)
+  useEffect(() => {
+    if (!sessionId || optimisticSession || !historyReadyForStream) return
+    if (!turnActive) return
+    ensureSessionStream(sessionId, {
+      queryClient,
+      replay: sessionHistoryQuery.isSuccess ? { mode: "none" } : { mode: "all" },
     })
-  }, [clearStreamReconnectTimer])
-
-  const invalidateReviewDiffs = useCallback(() => {
-    if (!sessionId) return
-    void queryClient.invalidateQueries({
-      queryKey: reviewDiffsQueryKey(sessionId, sandboxAccess),
-    })
-  }, [queryClient, sandboxAccess, sessionId])
-
-  useEffect(() => {
-    refetchHistoryRef.current = sessionHistoryQuery.refetch
-  }, [sessionHistoryQuery.refetch])
-
-  useEffect(() => {
-    streamingRef.current = streaming
-  }, [streaming])
-
-  useEffect(() => {
-    return () => {
-      clearStreamWatchdog()
-      clearStreamReconnectTimer()
-    }
-  }, [clearStreamReconnectTimer, clearStreamWatchdog])
-
-  useEffect(() => {
-    if (!sessionId || !historyReadyForStream) return
-    if (!sandboxAccess) return
-    if (sandboxAccess.session_id && sandboxAccess.session_id !== sessionId) {
-      return
-    }
-    const sandboxBaseUrl = sandboxAccess.sandbox_base_url
-    const sandboxToken = sandboxAccess.token
-    if (!sandboxBaseUrl || !sandboxToken) {
-      failLiveStream("The live session stream is not available.")
-      return
-    }
-    const directUrl = `${sandboxBaseUrl.replace(/\/+$/, "")}/sessions/${sessionId}/stream`
-
-    const cursor = streamCursorRef.current
-    const replay: DirectSessionStreamReplayMode = cursor
-      ? { mode: "after_seq", afterSeq: cursor.sequence }
-      : sessionHistoryQuery.isSuccess
-        ? { mode: "none" }
-        : { mode: "all" }
-
-    const controller = new AbortController()
-    void subscribeToDirectSessionStream({
-      sessionId,
-      directUrl,
-      token: sandboxToken,
-      replay,
-      signal: controller.signal,
-      onOpen: ({ streamId: openedStreamId, nextSequence }) => {
-        streamReconnectAttemptsRef.current = 0
-        if (
-          replay.mode !== "none" ||
-          !openedStreamId ||
-          nextSequence === null ||
-          nextSequence <= 0
-        ) {
-          return
-        }
-        streamCursorRef.current = {
-          streamId: openedStreamId,
-          sequence: nextSequence - 1,
-        }
-      },
-      onEvent: (frame) => {
-        if (frame.event === "resync_required") {
-          controller.abort()
-          handleStreamResyncRequired()
-          return
-        }
-
-        const nextCursor = directSessionStreamCursor(frame)
-        if (nextCursor) {
-          const currentCursor = streamCursorRef.current
-          if (
-            !currentCursor ||
-            currentCursor.streamId !== nextCursor.streamId ||
-            nextCursor.sequence > currentCursor.sequence
-          ) {
-            streamCursorRef.current = nextCursor
-          }
-        }
-
-        if (isTerminalStreamFrame(frame)) {
-          const message = terminalFrameErrorMessage(frame)
-          if (message) appendStreamError(message)
-          finishLiveStream({ preserveError: Boolean(message) })
-          return
-        }
-
-        if (isRuntimeRepoChangeFrame(frame)) {
-          invalidateReviewDiffs()
-        }
-
-        setLiveEvents((current) =>
-          appendLiveSessionStreamFrame(
-            shouldReplaceOptimisticWork(frame.event)
-              ? current.filter((event) => !isPendingClientEvent(event))
-              : current,
-            frame
-          )
-        )
-        if (isActiveStreamFrame(frame.event)) startLiveStream()
-      },
-    }).catch((error: unknown) => {
-      if (controller.signal.aborted) return
-      if (!streamingRef.current) return
-      if (shouldReconnectStream(error)) {
-        scheduleStreamReconnect()
-        return
-      }
-      appendStreamError(errorMessage(error, "The live session stream failed."))
-      finishLiveStream({ preserveError: true })
-    })
-
-    return () => {
-      controller.abort()
-    }
   }, [
-    appendStreamError,
-    failLiveStream,
-    finishLiveStream,
-    handleStreamResyncRequired,
     historyReadyForStream,
-    invalidateReviewDiffs,
-    scheduleStreamReconnect,
-    sessionId,
+    optimisticSession,
+    queryClient,
     sessionHistoryQuery.isSuccess,
-    startLiveStream,
-    streamReconnectVersion,
-    sandboxAccess,
-  ])
-
-  useEffect(() => {
-    if (sandboxAccessError && streamingRef.current) {
-      failLiveStream(
-        extractErrorMessage(
-          sandboxAccessError,
-          "Sandbox access is not available."
-        )
-      )
-    }
-  }, [failLiveStream, sandboxAccessError])
-
-  useEffect(() => {
-    if (!streaming || sandboxAccessPending) return
-    if (sandboxAccess?.sandbox_base_url && sandboxAccess.token) {
-      return
-    }
-    failLiveStream("The live session stream is not available.")
-  }, [
-    failLiveStream,
-    sandboxAccess?.sandbox_base_url,
-    sandboxAccess?.token,
-    sandboxAccessPending,
-    streaming,
+    sessionId,
+    turnActive,
   ])
 
   const send = async (
@@ -408,7 +151,7 @@ export function SessionThreadView({
     const retryEventID = options.retryEventID
     const attachments = options.attachments ?? []
     const codeLineComments = options.codeLineComments ?? []
-    if (streaming || interruptSession.isPending) return false
+    if (turnActive) return false
     if (optimisticSession) {
       toast.danger("This chat was not created. Start a new chat to try again.")
       return false
@@ -441,8 +184,8 @@ export function SessionThreadView({
     } else if (optimisticMessage) {
       appendSessionEvents(queryClient, sessionId, [optimisticMessage])
     }
-    setLiveEvents([optimisticThinking])
-    startLiveStream()
+    beginOptimisticSessionTurn(sessionId, [optimisticThinking])
+    ensureSessionStream(sessionId, { queryClient, replay: { mode: "all" } })
     try {
       const response = await sendSessionMessage.mutateAsync({
         params: { path: { id: sessionId } },
@@ -459,7 +202,7 @@ export function SessionThreadView({
           response.event
         )
       }
-      startLiveStream()
+      ensureSessionStream(sessionId, { queryClient })
       return true
     } catch (error) {
       const message = extractErrorMessage(error, "Could not send message")
@@ -469,23 +212,19 @@ export function SessionThreadView({
         optimisticEventID,
         message
       )
-      finishLiveStream({ refetch: false })
+      useSessionRuntimeStore.getState().finishStream(sessionId, {
+        outcome: "failed",
+      })
       toast.danger(message)
       return false
     }
   }
 
   const stop = () => {
-    finishLiveStream({ refetch: false })
     if (!sessionId || optimisticSession) return
-    void interruptSession
-      .mutateAsync({
-        params: { path: { id: sessionId } },
-      })
-      .then(() => refetchHistoryRef.current())
+    void interruptSessionTurn(sessionId, queryClient)
       .catch((error) => {
         toast.danger(extractErrorMessage(error, "Could not stop session"))
-        void refetchHistoryRef.current()
       })
   }
 
@@ -503,10 +242,7 @@ export function SessionThreadView({
   }
 
   const isBusy =
-    streaming ||
-    hasPendingClientEvent ||
-    sendSessionMessage.isPending ||
-    interruptSession.isPending
+    turnActive || hasPendingClientEvent || sendSessionMessage.isPending
   const visibleBlocks = [...baseBlocks, ...liveBlocks]
   const showHistorySkeleton =
     !optimisticSession && sessionHistoryQuery.isPending && !historyPages?.length
@@ -543,9 +279,10 @@ export function SessionThreadView({
 
       <div className="relative z-20 shrink-0">
         {latestPlan ? (
-          <SessionPlanCard plan={latestPlan} turnActive={streaming} />
+          <SessionPlanCard plan={latestPlan} turnActive={turnActive} />
         ) : null}
         <Composer
+          sessionId={sessionId ?? "new-chat"}
           agent={agent}
           agentId={session.agentId}
           modelId={session.modelId}
@@ -569,81 +306,12 @@ function isPendingClientEvent(event: SessionEventResponse) {
   return (payload as Record<string, unknown>).client_status === "pending"
 }
 
-function shouldReplaceOptimisticWork(event: string) {
+function isTurnActive(status: SessionRuntimeStatus) {
   return (
-    event === "thinking" ||
-    event === "token" ||
-    event === "tool_call" ||
-    event === "tool_result" ||
-    event === "final" ||
-    event === "error"
+    status === "queued" ||
+    status === "streaming" ||
+    status === "waiting_for_user"
   )
-}
-
-function isActiveStreamFrame(event: string) {
-  return (
-    event === "thinking" ||
-    event === "token" ||
-    event === "tool_call" ||
-    event === "tool_result" ||
-    event === "plan_updated" ||
-    event === "final"
-  )
-}
-
-function terminalFrameErrorMessage(frame: DirectSessionStreamFrame): string {
-  if (frame.event !== "error" && frame.event !== "turn_failed") return ""
-  const fallback =
-    frame.event === "turn_failed"
-      ? "The agent turn failed."
-      : "The live session stream failed."
-  if (
-    !frame.data ||
-    typeof frame.data !== "object" ||
-    Array.isArray(frame.data)
-  ) {
-    return fallback
-  }
-  const record = frame.data as Record<string, unknown>
-  if (record.interrupted === true) return ""
-  const value = record.error ?? record.message ?? record.text
-  if (
-    typeof value === "string" &&
-    value.trim().toLowerCase() === "interrupted by user"
-  ) {
-    return ""
-  }
-  return typeof value === "string" && value.trim() ? value : fallback
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message.trim()
-    ? error.message
-    : fallback
-}
-
-function shouldReconnectStream(error: unknown) {
-  const message = errorMessage(error, "")
-  return !/\bHTTP (400|401|403|404)\b/.test(message)
-}
-
-function streamErrorEvent(
-  sessionId: string,
-  message: string
-): SessionEventResponse {
-  const now = new Date().toISOString()
-  const id = `stream-error:${Date.now()}`
-  return {
-    id,
-    session_id: sessionId,
-    event_id: id,
-    event_type: "error",
-    sequence_number: Number.MAX_SAFE_INTEGER,
-    payload: {
-      message,
-    },
-    event_at: now,
-  } as SessionEventResponse
 }
 
 function safeAgentById(id: string) {

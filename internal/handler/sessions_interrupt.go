@@ -89,10 +89,11 @@ func (h *SessionHandler) releaseSessionTurnAfterInterrupt(ctx context.Context, s
 	res := h.db.WithContext(ctx).Model(&model.Session{}).
 		Where("id = ? AND agent_turn_status = ?", sessionID, model.SessionAgentTurnActive).
 		Updates(map[string]any{
-			"agent_turn_status":     model.SessionAgentTurnIdle,
-			"agent_turn_id":         "",
-			"agent_stream_id":       "",
-			"agent_turn_started_at": nil,
+			"agent_turn_status":       model.SessionAgentTurnIdle,
+			"agent_turn_id":           "",
+			"agent_stream_id":         "",
+			"agent_turn_started_at":   nil,
+			"agent_turn_last_outcome": model.SessionAgentTurnOutcomeStopped,
 		})
 	if res.Error != nil || res.RowsAffected == 0 {
 		return

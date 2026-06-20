@@ -14,6 +14,8 @@ import { $api } from "@/lib/api/hooks"
 import { api } from "@/lib/api/client"
 import type { components } from "@/lib/api/schema"
 import { clearPersistedChatQueries } from "@/app/w/(chat)/_lib/chat-cache"
+import { stopAllSessionStreams } from "@/app/w/(chat)/_stores/session-stream-manager"
+import { clearPersistedSessionWorkspaces } from "@/app/w/(chat)/_stores/session-workspace-store"
 
 type User = components["schemas"]["userResponse"]
 type Org = components["schemas"]["orgMemberDTO"]
@@ -113,8 +115,10 @@ export function AuthProvider({
 
   const logout = useCallback(async () => {
     await api.POST("/auth/logout", { body: {} })
+    stopAllSessionStreams()
     queryClient.clear()
     await clearPersistedChatQueries()
+    await clearPersistedSessionWorkspaces()
     router.replace(signInPath)
   }, [queryClient, router, signInPath])
 

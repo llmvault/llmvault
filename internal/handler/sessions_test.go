@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -42,6 +43,77 @@ func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
 	}
 
 	assertSessionNameTaskEnqueued(t, h, out.Session.ID)
+}
+
+func TestIntegration_SessionsGet_ExposesAgentTurnState(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+	created := h.createSession(t, fx, fx.owner, "Track this turn")
+	startedAt := time.Now().UTC()
+	if err := h.db.Model(&model.Session{}).
+		Where("id = ?", created.Session.ID).
+		Updates(map[string]any{
+			"agent_turn_status":     model.SessionAgentTurnActive,
+			"agent_turn_id":         "turn-123",
+			"agent_stream_id":       "stream-123",
+			"agent_turn_started_at": startedAt,
+		}).Error; err != nil {
+		t.Fatalf("mark active turn: %v", err)
+	}
+
+	rr := h.doJSON(t, http.MethodGet, "/v1/sessions/"+created.Session.ID, fx, fx.owner, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("get session status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var out struct {
+		Session sessionOut `json:"session"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode session: %v\n%s", err, rr.Body.String())
+	}
+	if out.Session.AgentTurnStatus != model.SessionAgentTurnActive ||
+		out.Session.AgentTurnID != "turn-123" ||
+		out.Session.AgentStreamID != "stream-123" ||
+		out.Session.AgentTurnStartedAt == nil {
+		t.Fatalf("missing turn metadata: %+v", out.Session)
+	}
+}
+
+func TestIntegration_SessionsRespondToInput_QueuesAnswerAndRecordsMarker(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+	created := h.createSession(t, fx, fx.owner, "Ask me later")
+
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/input-responses", fx, fx.owner, map[string]any{
+		"request_id": "question-1",
+		"text":       "Use option A",
+	})
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("input response status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	out := decodeSessionMutation(t, rr)
+	if !out.Queued || out.Event == nil || out.Event.Payload["text"] != "Use option A" {
+		t.Fatalf("bad input response event: %+v", out)
+	}
+
+	var events []model.SessionEvent
+	if err := h.db.Where("session_id = ?", created.Session.ID).
+		Order("sequence_number ASC").
+		Find(&events).Error; err != nil {
+		t.Fatalf("load events: %v", err)
+	}
+	if got := eventTypes(events); len(got) != 3 || got[1] != "question_answered" || got[2] != "user.message" {
+		t.Fatalf("event types=%v", got)
+	}
+	var queueCount int64
+	if err := h.db.Model(&model.SessionMessageQueue{}).
+		Where("session_id = ?", created.Session.ID).
+		Count(&queueCount).Error; err != nil {
+		t.Fatalf("count queue: %v", err)
+	}
+	if queueCount != 2 {
+		t.Fatalf("queue count=%d, want 2", queueCount)
+	}
 }
 
 func TestIntegration_SessionsCreate_AllowsCatalogModelWhenInstalledModelsAreStale(t *testing.T) {

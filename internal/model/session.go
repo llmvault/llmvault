@@ -7,8 +7,11 @@ import (
 )
 
 const (
-	SessionAgentTurnIdle   = "idle"
-	SessionAgentTurnActive = "active"
+	SessionAgentTurnIdle           = "idle"
+	SessionAgentTurnActive         = "active"
+	SessionAgentTurnOutcomeDone    = "completed"
+	SessionAgentTurnOutcomeStopped = "stopped"
+	SessionAgentTurnOutcomeFailed  = "failed"
 )
 
 type Session struct {
@@ -36,7 +39,8 @@ type Session struct {
 	AgentTurnID                string `gorm:"type:text;not null;default:''"`
 	AgentStreamID              string `gorm:"type:text;not null;default:''"`
 	AgentTurnStartedAt         *time.Time
-	IntegrationScopes          JSON `gorm:"type:jsonb;default:'{}'"`
+	AgentTurnLastOutcome       string `gorm:"type:text;not null;default:''"`
+	IntegrationScopes          JSON   `gorm:"type:jsonb;default:'{}'"`
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 	EndedAt                    *time.Time

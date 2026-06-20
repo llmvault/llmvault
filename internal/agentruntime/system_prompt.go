@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"sort"
 	"strings"
 
 	"gorm.io/gorm"
@@ -15,6 +16,7 @@ import (
 type PromptSections struct {
 	Base         string
 	Instructions PromptSection
+	SubAgents    PromptSection
 	Company      PromptSection
 }
 
@@ -44,6 +46,9 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 	if instructions := effectiveAgentInstructions(ctx, db, agent); instructions != "" {
 		fragments.Instructions = PromptSection{Title: "Instructions", Tag: "instructions", Content: instructions}
 	}
+	if subAgents := renderSubAgentRoutingSection(ctx, db, agent); subAgents != "" {
+		fragments.SubAgents = PromptSection{Title: "Available subagents", Tag: "subagents", Content: subAgents}
+	}
 	if hasOrg {
 		companyContent := strings.TrimSpace(org.PromptCompany)
 		if companyContent == "" {
@@ -66,6 +71,7 @@ func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) Syste
 	}
 	for _, fragment := range []PromptSection{
 		fragments.Instructions,
+		fragments.SubAgents,
 		fragments.Company,
 	} {
 		if strings.TrimSpace(fragment.Content) == "" {
@@ -85,6 +91,41 @@ func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) Syste
 		CacheableSegments: &cacheable,
 		DynamicSegments:   &dynamic,
 	}
+}
+
+func renderSubAgentRoutingSection(ctx context.Context, db *gorm.DB, agent *model.Agent) string {
+	specs, err := loadCatalogSubAgents(ctx, db, agent)
+	if err != nil || len(specs) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(specs))
+	for key := range specs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	lines := []string{
+		"Use `subagent_task` to delegate independent work to a configured subagent when it will speed up the task or improve coverage.",
+		"When a task is complex and touches more than two modules, packages, services, apps, data models, or runtime surfaces, consider launching one or more subagents for parallel investigation.",
+		"Launch multiple subagents only when their scopes are independent. Do not use subagents for direct reads of one known file, a narrow search over two or three files, or work unrelated to the subagent descriptions.",
+		"While subagents run, keep working on non-conflicting investigation, implementation prep, or verification. Before relying on a result, reconcile it with direct evidence from your own tools.",
+		"Each subagent starts with isolated context. Give it the repository or workspace context, exact question, known files or symbols, exclusions, whether the task is read-only or implementation, and the output shape you need.",
+		"",
+		"Configured subagents:",
+	}
+	for _, key := range keys {
+		spec := specs[key]
+		name := strings.TrimSpace(spec.Name)
+		if name == "" {
+			name = key
+		}
+		description := strings.TrimSpace(spec.Description)
+		if description == "" {
+			description = "Use according to this subagent's configured instructions."
+		}
+		lines = append(lines, fmt.Sprintf("- `%s` (%s). When to use: %s", key, name, ensureSentence(description)))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func taggedPromptSection(section PromptSection) string {

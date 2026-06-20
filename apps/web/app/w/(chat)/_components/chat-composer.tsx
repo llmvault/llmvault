@@ -10,6 +10,10 @@ import {
   type SidebarAgentResponse,
   type SidebarChannelResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceStore,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 import { Picker, PickerButton } from "./chat-picker"
 import { PickerText } from "./chat-picker-text"
 import { displayModel } from "./model-display"
@@ -32,6 +36,7 @@ export interface ChatComposerProps {
   onModelChange: (modelId: string) => void
   onSend: (text: string, effort: string) => boolean | Promise<boolean>
   placeholder: string
+  draftKey?: string
 }
 
 export function ChatComposer({
@@ -50,12 +55,21 @@ export function ChatComposer({
   onModelChange,
   onSend,
   placeholder,
+  draftKey = "new-chat",
 }: ChatComposerProps) {
-  const [value, setValue] = useState("")
+  const value = useSessionWorkspaceStore(
+    (state) => selectSessionWorkspace(state, draftKey).composer.text
+  )
+  const effort = useSessionWorkspaceStore(
+    (state) => selectSessionWorkspace(state, draftKey).composer.effort
+  )
+  const setValue = useSessionWorkspaceStore((state) => state.setComposerText)
+  const setEffortValue = useSessionWorkspaceStore(
+    (state) => state.setComposerEffort
+  )
   const [channelOpen, setChannelOpen] = useState(false)
   const [agentOpen, setAgentOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
-  const [effort, setEffort] = useState("High")
   const selectedModel = displayModel(modelId)
   const currentAgentModel = agentModel(agent)
   const modelOptions = currentAgentModel
@@ -69,15 +83,19 @@ export function ChatComposer({
     }
 
     const text = value.trim()
-    setValue("")
+    setValue(draftKey, "")
     try {
       const sent = await onSend(text, effort)
       if (sent) {
         return
       }
-      setValue((current) => (current === "" ? text : current))
+      if (!useSessionWorkspaceStore.getState().workspaces[draftKey]?.composer.text) {
+        setValue(draftKey, text)
+      }
     } catch {
-      setValue((current) => (current === "" ? text : current))
+      if (!useSessionWorkspaceStore.getState().workspaces[draftKey]?.composer.text) {
+        setValue(draftKey, text)
+      }
     }
   }
 
@@ -87,7 +105,7 @@ export function ChatComposer({
         rows={3}
         value={value}
         placeholder={placeholder}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => setValue(draftKey, event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault()
@@ -207,7 +225,7 @@ export function ChatComposer({
               key={entry}
               selected={entry === effort}
               onPress={() => {
-                setEffort(entry)
+                setEffortValue(draftKey, entry)
                 setModelOpen(false)
               }}
             >
