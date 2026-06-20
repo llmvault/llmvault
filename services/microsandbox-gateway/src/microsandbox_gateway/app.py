@@ -31,6 +31,29 @@ from .store import (
 
 LOGGER = logging.getLogger("microsandbox_gateway")
 
+_LOG_RECORD_BASE_FIELDS = set(logging.makeLogRecord({}).__dict__)
+
+
+class JsonLogFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, Any] = {
+            "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created)),
+            "level": record.levelname.lower(),
+            "message": record.getMessage(),
+            "logger": record.name,
+        }
+        for key, value in record.__dict__.items():
+            if key in _LOG_RECORD_BASE_FIELDS or key.startswith("_"):
+                continue
+            try:
+                json.dumps(value)
+                payload[key] = value
+            except TypeError:
+                payload[key] = str(value)
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
 
 @dataclass
 class Metrics:
@@ -374,7 +397,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO), format="%(message)s")
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonLogFormatter())
+    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO), handlers=[handler], force=True)
     cfg = Config.from_env()
     if not cfg.admin_token:
         raise SystemExit("HIVY_MICROSANDBOX_PREVIEW_CACHE_TOKEN is required")
