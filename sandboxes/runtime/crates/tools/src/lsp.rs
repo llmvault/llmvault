@@ -28,6 +28,11 @@ const TOOL_DESCRIPTION: &str =
      starts matching language servers lazily per project root and keeps them \
      warm across tool calls.";
 
+type LspResponse = Result<Value, String>;
+type LspPendingSender = oneshot::Sender<LspResponse>;
+type LspPendingRequests = Arc<Mutex<HashMap<u64, LspPendingSender>>>;
+type LspDiagnostics = Arc<Mutex<HashMap<String, Value>>>;
+
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum LspOperation {
@@ -100,8 +105,8 @@ struct LspClient {
     server_id: String,
     root: PathBuf,
     sender: mpsc::Sender<Value>,
-    pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>,
-    diagnostics: Arc<Mutex<HashMap<String, Value>>>,
+    pending: LspPendingRequests,
+    diagnostics: LspDiagnostics,
     documents: Arc<Mutex<HashMap<PathBuf, DocumentState>>>,
     capabilities: Value,
     next_id: AtomicU64,
@@ -126,8 +131,10 @@ struct Symbol {
 
 impl LspService {
     pub fn new(workspace_root: PathBuf) -> Self {
-        let mut config = LspConfig::default();
-        config.enabled = false;
+        let config = LspConfig {
+            enabled: false,
+            ..Default::default()
+        };
         Self {
             workspace_root,
             config: Arc::new(RwLock::new(config)),
@@ -1140,8 +1147,8 @@ impl JsonTool for LspTool {
 async fn read_loop(
     server_id: String,
     stdout: tokio::process::ChildStdout,
-    pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>,
-    diagnostics: Arc<Mutex<HashMap<String, Value>>>,
+    pending: LspPendingRequests,
+    diagnostics: LspDiagnostics,
     sender: mpsc::Sender<Value>,
 ) {
     let mut reader = BufReader::new(stdout);

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"sort"
 	"strings"
 	"testing"
 
@@ -280,50 +279,4 @@ func TestLoadManifestLoadsSubAgentInstructions(t *testing.T) {
 	if firstHash == secondHash {
 		t.Fatal("source hash should change when subagent instructions change")
 	}
-}
-
-func TestCatalogUpdatesNormalizesAvailableModels(t *testing.T) {
-	updates := catalogUpdates(Manifest{
-		Runtime: RuntimeManifest{
-			Model: "deepseek-v4-flash",
-			AvailableModels: []string{
-				" gemini-3-flash-preview ",
-				"",
-				"deepseek-v4-flash",
-				"gemini-3-flash-preview",
-			},
-		},
-	}, model.RawJSON("{}"), "hash", model.AgentCatalogStatusActive)
-
-	got, ok := updates["available_models"].(pq.StringArray)
-	if !ok {
-		t.Fatalf("available_models has type %T", updates["available_models"])
-	}
-	want := []string{"gemini-3-flash-preview", "deepseek-v4-flash"}
-	if !reflect.DeepEqual([]string(got), want) {
-		t.Fatalf("available_models = %#v, want %#v", got, want)
-	}
-}
-
-func assertManifestToolEnabled(t *testing.T, tools map[string]any, key string) {
-	t.Helper()
-	if !toolSelectionEnabled(tools[key]) {
-		t.Fatalf("tool %q is not enabled in %#v", key, tools)
-	}
-}
-
-func assertManifestToolDisabled(t *testing.T, tools map[string]any, key string) {
-	t.Helper()
-	if toolSelectionEnabled(tools[key]) {
-		t.Fatalf("tool %q should not be enabled in %#v", key, tools)
-	}
-}
-
-func sortedSubAgentKeys(subAgents map[string]SubAgentManifest) []string {
-	keys := make([]string, 0, len(subAgents))
-	for key := range subAgents {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }

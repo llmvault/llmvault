@@ -6,7 +6,6 @@ import {
   useEffect,
   useMemo,
 } from "react"
-import type { GitStatusEntry } from "@pierre/trees"
 import { Button } from "@heroui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Icon } from "@iconify/react"
@@ -23,14 +22,10 @@ import {
   TreeSkeleton,
 } from "@/app/w/(chat)/_components/views/files-ui"
 import {
-  RuntimeRepoAccessError,
-  RuntimeRepoHTTPError,
-  fetchRuntimeRepoFileContent,
   fetchRuntimeRepoTreeDirectory,
   fetchRuntimeRepos,
   type RuntimeRepoContent,
   type RuntimeRepoInfo,
-  type RuntimeRepoTreeSnapshot,
   type RuntimeSandboxAccess,
 } from "@/app/w/(chat)/_lib/runtime-repos"
 import { HIVY_DIFF_STYLE, hivyDiffOptions } from "@/lib/diffs-theme"
@@ -39,9 +34,19 @@ import {
   type FilesRepoSelectorProps,
 } from "./files-repo-selector"
 import {
+  emptyRepoTreeCache,
+  errorMessage,
+  fetchPreviewFileContent,
+  formatNumber,
+  isUnauthorizedRuntimeError,
+  mergeRepoTreeCache,
+  mergeTreeSnapshots,
+  omitKey,
+  uniqueSorted,
+} from "./files-tree-cache"
+import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
-  type WorkspaceRepoTreeCache,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
 
 export { FilesRepoSelector }
@@ -60,7 +65,6 @@ const FILE_TREE_DEFAULT_WIDTH = 260
 const FILE_TREE_MIN_WIDTH = 190
 const FILE_TREE_MAX_WIDTH = 420
 const FILE_PREVIEW_MIN_WIDTH = 120
-const FILE_PREVIEW_LARGE_FILE_LINE_LIMIT = 2000
 const FILE_PREVIEW_OPTIONS = hivyDiffOptions({
   disableFileHeader: true,
   overflow: "scroll",
@@ -70,8 +74,6 @@ const FILE_PREVIEW_STYLE: CSSProperties & Record<`--${string}`, string> = {
   minHeight: "100%",
   width: "100%",
 }
-
-type RepoTreeCache = WorkspaceRepoTreeCache
 
 export function FilesView({
   sessionId,
@@ -551,122 +553,4 @@ function FilePreview({
       </div>
     </div>
   )
-}
-
-function emptyRepoTreeCache(): RepoTreeCache {
-  return {
-    directoryPaths: [],
-    failedDirectories: {},
-    gitStatus: [],
-    loadedDirectories: [],
-    loadingDirectories: [],
-    paths: [],
-  }
-}
-
-async function fetchPreviewFileContent(
-  access: RuntimeSandboxAccess,
-  repoId: string,
-  path: string,
-  signal?: AbortSignal
-) {
-  try {
-    return await fetchRuntimeRepoFileContent(access, repoId, path, signal)
-  } catch (error) {
-    if (isLargeFileRuntimeError(error)) {
-      return fetchRuntimeRepoFileContent(access, repoId, path, signal, {
-        offset: 1,
-        limit: FILE_PREVIEW_LARGE_FILE_LINE_LIMIT,
-      })
-    }
-    throw error
-  }
-}
-
-function mergeRepoTreeCache(
-  cache: RepoTreeCache,
-  loadedDirectoryPath: string,
-  snapshot: RuntimeRepoTreeSnapshot
-): RepoTreeCache {
-  return {
-    directoryPaths: uniqueSorted([
-      ...cache.directoryPaths,
-      ...snapshot.directoryPaths,
-    ]),
-    failedDirectories: omitKey(cache.failedDirectories, loadedDirectoryPath),
-    gitStatus: mergeGitStatus(cache.gitStatus, snapshot.gitStatus),
-    loadedDirectories: uniqueSorted([
-      ...cache.loadedDirectories,
-      loadedDirectoryPath,
-    ]),
-    loadingDirectories: cache.loadingDirectories.filter(
-      (path) => path !== loadedDirectoryPath
-    ),
-    paths: uniqueSorted([...cache.paths, ...snapshot.paths]),
-  }
-}
-
-function mergeTreeSnapshots(
-  root: RuntimeRepoTreeSnapshot | undefined,
-  extra: Pick<RepoTreeCache, "directoryPaths" | "gitStatus" | "paths">
-): RuntimeRepoTreeSnapshot {
-  return {
-    directoryPaths: uniqueSorted([
-      ...(root?.directoryPaths ?? []),
-      ...extra.directoryPaths,
-    ]),
-    gitStatus: mergeGitStatus(root?.gitStatus ?? [], extra.gitStatus),
-    paths: uniqueSorted([...(root?.paths ?? []), ...extra.paths]),
-  }
-}
-
-function mergeGitStatus(left: GitStatusEntry[], right: GitStatusEntry[]) {
-  const merged = new Map<string, GitStatusEntry["status"]>()
-  for (const entry of left) merged.set(entry.path, entry.status)
-  for (const entry of right) merged.set(entry.path, entry.status)
-  return [...merged.entries()].map(([path, status]) => ({ path, status }))
-}
-
-function uniqueSorted(paths: string[]) {
-  return [...new Set(paths)].sort(compareFileTreePaths)
-}
-
-function compareFileTreePaths(left: string, right: string) {
-  const leftSegments = left.split("/")
-  const rightSegments = right.split("/")
-  const length = Math.min(leftSegments.length, rightSegments.length)
-  for (let index = 0; index < length; index += 1) {
-    const leftPart = leftSegments[index] ?? ""
-    const rightPart = rightSegments[index] ?? ""
-    if (leftPart === rightPart) continue
-    return leftPart.localeCompare(rightPart)
-  }
-  return leftSegments.length - rightSegments.length
-}
-
-function omitKey<TValue>(record: Record<string, TValue>, key: string) {
-  const { [key]: _removed, ...rest } = record
-  return rest
-}
-
-function isUnauthorizedRuntimeError(error: unknown) {
-  return error instanceof RuntimeRepoHTTPError && error.status === 401
-}
-
-function isLargeFileRuntimeError(error: unknown) {
-  return (
-    error instanceof RuntimeRepoHTTPError &&
-    error.status === 400 &&
-    error.message.includes("file too large")
-  )
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error instanceof RuntimeRepoAccessError) return error.message
-  if (error instanceof Error && error.message.trim()) return error.message
-  return fallback
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat().format(value)
 }
