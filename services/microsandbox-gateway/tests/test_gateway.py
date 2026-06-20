@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 import time
 from typing import Any
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from microsandbox_gateway.app import create_app, parse_preview_host
+from microsandbox_gateway.app import JsonLogFormatter, create_app, parse_preview_host
 from microsandbox_gateway.config import Config
 from microsandbox_gateway.store import route_key
 
@@ -121,6 +123,34 @@ async def client() -> tuple[TestClient, MemoryStore, FakeControl]:
 def test_parse_preview_host() -> None:
     assert parse_preview_host("3000-sbx_123.preview.test", "preview.test") == (3000, "sbx_123")
     assert parse_preview_host("preview.test", "preview.test") == (None, None)
+
+
+def test_json_log_formatter_includes_lookup_fields() -> None:
+    record = logging.LogRecord(
+        name="microsandbox_gateway",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="lookup ok",
+        args=(),
+        exc_info=None,
+    )
+    record.lookup_result = "memory_hit"
+    record.sandbox_id = "sbx_test"
+    record.guest_port = 7080
+    record.request_id = "req_123"
+    record.duration_ms = 3
+    record.lease_seconds = 120
+
+    payload = json.loads(JsonLogFormatter().format(record))
+
+    assert payload["message"] == "lookup ok"
+    assert payload["lookup_result"] == "memory_hit"
+    assert payload["sandbox_id"] == "sbx_test"
+    assert payload["guest_port"] == 7080
+    assert payload["request_id"] == "req_123"
+    assert payload["duration_ms"] == 3
+    assert payload["lease_seconds"] == 120
 
 
 async def test_lookup_ensure_ready_on_cache_miss(client: tuple[TestClient, MemoryStore, FakeControl]) -> None:
