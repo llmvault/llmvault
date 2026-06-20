@@ -61,18 +61,24 @@
   register: microsandbox_cli_version
   changed_when: false
 
-- name: Install private registry CA certificate
-  ansible.builtin.copy:
-    src: hivy-zot-registry.crt
-    dest: /usr/local/share/ca-certificates/hivy-zot-registry.crt
+- name: Resolve registry domain to private address
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "(^|\\s){{ zot_registry_domain | regex_escape }}(\\s|$)"
+    line: "{{ zot_registry_private_ip }} {{ zot_registry_domain }} registry"
     owner: root
     group: root
     mode: "0644"
-  register: hivy_zot_registry_ca
 
-- name: Refresh system CA certificates
+- name: Remove obsolete private registry CA certificate
+  ansible.builtin.file:
+    path: /usr/local/share/ca-certificates/hivy-zot-registry.crt
+    state: absent
+  register: hivy_zot_registry_ca_removed
+
+- name: Refresh system CA certificates after obsolete CA removal
   ansible.builtin.command: update-ca-certificates
-  when: hivy_zot_registry_ca.changed
+  when: hivy_zot_registry_ca_removed.changed
 
 - name: Install BuildKit binaries
   ansible.builtin.unarchive:
@@ -96,29 +102,16 @@
     group: root
     mode: "0644"
     content: |
-      [registry."{{ buildkit_registry }}"]
-        insecure = true
+      # The Hivy private registry uses a public ACME certificate on
+      # {{ buildkit_registry }} and /etc/hosts routes that name to the private
+      # registry address on runner hosts. BuildKit does not need a custom
+      # insecure registry transport.
   notify: Restart buildkit
 
-- name: Create containers/image registry config directory
+- name: Remove obsolete containers/image private registry config
   ansible.builtin.file:
-    path: /etc/containers/registries.conf.d
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Configure containers/image private registry
-  ansible.builtin.copy:
-    dest: /etc/containers/registries.conf.d/10-hivy-private-registry.conf
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      [[registry]]
-      prefix = "{{ buildkit_registry }}"
-      location = "{{ buildkit_registry }}"
-      insecure = true
+    path: /etc/containers/registries.conf.d/10-hivy-private-registry.conf
+    state: absent
 
 - name: Install BuildKit systemd unit
   ansible.builtin.copy:

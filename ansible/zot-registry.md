@@ -12,7 +12,9 @@ This documents the manual Zot registry setup performed on the Hetzner VPS at
 - Volume: `/dev/disk/by-id/scsi-0HC_Volume_106075040`
 - Volume mount: `/mnt/HC_Volume_106075040`
 - Zot storage: `/mnt/HC_Volume_106075040/zot`
-- Zot listen address: `10.80.0.3:5000` over HTTPS
+- Public registry name used by runners and MSB: `registry.usehivy.com:5000`
+- Private registry proxy listen address: `10.80.0.3:5000` over HTTPS
+- Zot upstream listen address: `127.0.0.1:5001` over HTTP
 
 The registry is intentionally bound to the private interface only. UFW allows
 SSH and allows registry port `5000/tcp` only from `10.80.0.0/16`.
@@ -39,26 +41,23 @@ install -o root -g root -m 0755 /tmp/zot-linux-amd64-minimal /usr/local/bin/zot
 rm -f /tmp/zot-linux-amd64-minimal
 ```
 
-## TLS
+## TLS Proxy
 
-Microsandbox pulls OCI images over HTTPS. The private registry uses a self-signed
-IP-SAN certificate for `10.80.0.3`; the public certificate is stored in
-`ansible/roles/runner-base/files/hivy-zot-registry.crt` and installed into each
-runner's system trust store by the `runner-base` role.
+Microsandbox pulls OCI images over HTTPS and does not trust a private/self-signed
+CA. The registry therefore uses Caddy with DNS-01 ACME to serve a public trusted
+certificate for `registry.usehivy.com:5000`, while runners map that hostname to
+the private registry IP with `/etc/hosts`.
 
-Certificate/key setup on the registry host:
+Deploy the TLS proxy with:
 
 ```sh
-install -d -m 0750 -o root -g zot /etc/zot/tls
-openssl req -x509 -newkey rsa:4096 -sha256 -days 825 -nodes \
-  -keyout /etc/zot/tls/registry.key \
-  -out /etc/zot/tls/registry.crt \
-  -subj "/CN=10.80.0.3" \
-  -addext "subjectAltName=IP:10.80.0.3,DNS:registry"
-chown root:zot /etc/zot/tls/registry.key /etc/zot/tls/registry.crt
-chmod 0640 /etc/zot/tls/registry.key
-chmod 0644 /etc/zot/tls/registry.crt
+ansible-playbook -i inventory/hosts.yml playbooks/phase2c-registry-proxy.yml
+ansible-playbook -i inventory/hosts.yml playbooks/phase1-prepare.yml
 ```
+
+The registry proxy role installs Caddy with the Vercel DNS module, configures Zot
+as a localhost-only HTTP upstream, and binds Caddy to `10.80.0.3:5000`.
+The runner-base role maps `registry.usehivy.com` to `10.80.0.3` on runner hosts.
 
 ## Config
 
@@ -76,12 +75,8 @@ chmod 0644 /etc/zot/tls/registry.crt
     "commit": true
   },
   "http": {
-    "address": "10.80.0.3",
-    "port": "5000",
-    "tls": {
-      "cert": "/etc/zot/tls/registry.crt",
-      "key": "/etc/zot/tls/registry.key"
-    }
+    "address": "127.0.0.1",
+    "port": "5001"
   },
   "log": {
     "level": "info"
@@ -147,7 +142,8 @@ OpenSSH   ALLOW IN  Anywhere (v6)
 Expected listener:
 
 ```text
-10.80.0.3:5000
+10.80.0.3:5000   # Caddy TLS proxy
+127.0.0.1:5001   # Zot HTTP upstream
 ```
 
 There should be no public listener on `157.180.117.84:5000`.
@@ -167,7 +163,8 @@ df -hT / /mnt/HC_Volume_106075040
 Private registry health check from a runner:
 
 ```sh
-curl -fsS --max-time 5 https://10.80.0.3:5000/v2/
+getent hosts registry.usehivy.com
+curl -fsS --max-time 5 https://registry.usehivy.com:5000/v2/
 ```
 
 Public check from outside the private network should fail or time out:
@@ -189,8 +186,8 @@ curl -fsSL https://github.com/oras-project/oras/releases/download/v1.3.2/oras_1.
 tar -xzf oras.tar.gz -C bin oras
 
 printf "hivy zot smoke %s\n" "$(date -u +%Y%m%dT%H%M%SZ)" > payload.txt
-./bin/oras push 10.80.0.3:5000/hivy/zot-smoke:private-net payload.txt:text/plain
-./bin/oras pull -o out 10.80.0.3:5000/hivy/zot-smoke:private-net
+./bin/oras push registry.usehivy.com:5000/hivy/zot-smoke:private-net payload.txt:text/plain
+./bin/oras pull -o out registry.usehivy.com:5000/hivy/zot-smoke:private-net
 cmp payload.txt out/payload.txt
 
 rm -rf "$work"
@@ -199,7 +196,7 @@ rm -rf "$work"
 Runner `10.80.1.2` was also able to pull the same artifact:
 
 ```sh
-./bin/oras pull -o out 10.80.0.3:5000/hivy/zot-smoke:private-net
+./bin/oras pull -o out registry.usehivy.com:5000/hivy/zot-smoke:private-net
 ```
 
 The smoke artifact created these files on the Hetzner Volume:
