@@ -25,6 +25,11 @@ type SandboxWarmSlot struct {
 	ExternalID             string    `gorm:"not null;uniqueIndex:idx_sandbox_warm_slots_provider_external,priority:2"`
 	EndpointURL            string    `gorm:"not null"`
 	RuntimeImage           string    `gorm:"not null"`
+	ImageKind              string    `gorm:"not null;default:'default'"`
+	SandboxSize            string    `gorm:"not null;default:'small'"`
+	CPU                    int       `gorm:"not null;default:0"`
+	Memory                 int       `gorm:"not null;default:0"`
+	Disk                   int       `gorm:"not null;default:0"`
 	RuntimePort            int       `gorm:"not null;default:7080"`
 	Region                 string    `gorm:"not null;default:''"`
 	ClaimedSandboxID       *uuid.UUID

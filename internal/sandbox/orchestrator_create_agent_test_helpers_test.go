@@ -105,3 +105,19 @@ func (p *agentCreateProvider) ExecuteCommandWithTimeout(context.Context, string,
 func (p *agentCreateProvider) GetResourceUsage(context.Context, string) (*ResourceUsage, error) {
 	return &ResourceUsage{}, nil
 }
+
+type warmCapableAgentCreateProvider struct {
+	agentCreateProvider
+	warmCreated []WarmSlotCreateOpts
+}
+
+func (p *warmCapableAgentCreateProvider) UsesWarmPool() bool { return true }
+
+func (p *warmCapableAgentCreateProvider) CreateWarmSlot(_ context.Context, opts WarmSlotCreateOpts) (*WarmSlotInfo, error) {
+	p.warmCreated = append(p.warmCreated, opts)
+	return &WarmSlotInfo{
+		ExternalID:  fmt.Sprintf("warm-external-%d", len(p.warmCreated)),
+		EndpointURL: p.endpoint,
+		RuntimePort: opts.RuntimePort,
+	}, nil
+}
