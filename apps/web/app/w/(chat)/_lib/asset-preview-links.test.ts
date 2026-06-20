@@ -30,4 +30,21 @@ describe("asset preview links", () => {
       }),
     ])
   })
+
+  it("skips streamed preview URLs with incomplete percent escapes", () => {
+    const firstEscape = previewUrl.indexOf("%2F")
+    const partialUrls = [
+      previewUrl.slice(0, firstEscape + 1),
+      previewUrl.slice(0, firstEscape + 2),
+    ]
+
+    for (const partialUrl of partialUrls) {
+      expect(() =>
+        assetPreviewAttachments(`Screenshot: ${partialUrl}`, "streaming")
+      ).not.toThrow()
+      expect(
+        assetPreviewAttachments(`Screenshot: ${partialUrl}`, "streaming")
+      ).toEqual([])
+    }
+  })
 })
