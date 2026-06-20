@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+
 import type { SessionData } from "@/lib/auth/session"
 
 /**
@@ -36,13 +38,13 @@ export type RefreshFetcher = (refreshToken: string) => Promise<RefreshOutcome>
  * SHA-256 hex digest of a string, used as the single-flight map key so the raw
  * refresh token never becomes a map key (and so two different tokens can never
  * collide onto the same in-flight promise).
+ *
+ * This is intentionally synchronous. If hashing yields before the in-flight
+ * entry is set, a fast refresh can complete and clear the entry before other
+ * same-token callers finish hashing.
  */
-export async function hashToken(token: string): Promise<string> {
-  const data = new TextEncoder().encode(token)
-  const digest = await crypto.subtle.digest("SHA-256", data)
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex")
 }
 
 /**
@@ -64,7 +66,7 @@ export class RefreshCoordinator {
     refreshToken: string,
     fetcher: RefreshFetcher
   ): Promise<RefreshOutcome> {
-    const key = await hashToken(refreshToken)
+    const key = hashToken(refreshToken)
 
     const existing = this.inFlight.get(key)
     if (existing) return existing
