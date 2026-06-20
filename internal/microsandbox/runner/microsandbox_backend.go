@@ -29,18 +29,18 @@ type sandboxState struct {
 }
 
 const (
-	hivyManagedLabel               = "hivy_managed"
-	sandboxIDLabel                 = "sandbox_id"
-	volumePurposeLabel             = "purpose"
-	workspaceVolumePurpose         = "workspace"
-	dockerDataVolumePurpose        = "docker_data"
-	dockerDataMountPath            = "/var/lib/docker"
-	workspaceMountPath             = "/workspace"
-	defaultSandboxDiskGB            = 40
-	minWorkspaceVolumeMiB    uint32 = 1024
-	maxDockerDataVolumeMiB   uint32 = 20 * 1024
-	minRootOverlayMiB        uint32 = 4 * 1024
-	maxRootOverlayMiB        uint32 = 10 * 1024
+	hivyManagedLabel              = "hivy_managed"
+	sandboxIDLabel                = "sandbox_id"
+	volumePurposeLabel            = "purpose"
+	workspaceVolumePurpose        = "workspace"
+	workspaceMountPath            = "/workspace"
+	defaultSandboxDiskGB          = 40
+	minWorkspaceVolumeMiB  uint32 = 1024
+	minRootOverlayMiB      uint32 = 4 * 1024
+	maxRootOverlayMiB      uint32 = 16 * 1024
+	sandboxDataRootPath           = "/workspace/.hivy"
+	sandboxTmpPath                = sandboxDataRootPath + "/tmp"
+	dockerDataRootPath            = sandboxDataRootPath + "/docker"
 )
 
 func NewMicrosandboxBackend(ctx context.Context, cfg config.Config) (*MicrosandboxBackend, error) {
@@ -158,8 +158,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	}
 
 	workspaceVolName := workspaceVolumeName(req.ID)
-	dockerVolName := dockerDataVolumeName(req.ID)
-	rootOverlayMiB, workspaceVolumeMiB, dockerDataVolumeMiB := sandboxVolumeSizesMiB(req.DiskGB)
+	rootOverlayMiB, workspaceVolumeMiB := sandboxVolumeSizesMiB(req.DiskGB)
 	if err := ensureVolume(ctx, workspaceVolName,
 		microsandbox.WithVolumeKind(microsandbox.VolumeKindDisk),
 		microsandbox.WithVolumeSize(workspaceVolumeMiB),
@@ -167,38 +166,28 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	); err != nil {
 		return nil, err
 	}
-	if err := ensureVolume(ctx, dockerVolName,
-		microsandbox.WithVolumeKind(microsandbox.VolumeKindDisk),
-		microsandbox.WithVolumeSize(dockerDataVolumeMiB),
-		microsandbox.WithVolumeLabels(volumeLabels(req.ID, dockerDataVolumePurpose)),
-	); err != nil {
-		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
-		return nil, err
-	}
 	cpu, err := positiveUint8("cpu", req.CPU)
 	if err != nil {
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
-		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), dockerVolName)
 		return nil, err
 	}
 	memoryMB, err := positiveUint32("memory_mb", req.MemoryMB)
 	if err != nil {
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
-		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), dockerVolName)
 		return nil, err
 	}
+	env := sandboxEnvWithStorageDefaults(req.Env)
 
 	opts := []microsandbox.SandboxOption{
 		microsandbox.WithCPUs(cpu),
 		microsandbox.WithMemory(memoryMB),
 		microsandbox.WithOCIUpperSize(rootOverlayMiB),
-		microsandbox.WithEnv(req.Env),
+		microsandbox.WithEnv(env),
 		microsandbox.WithLabels(hivyLabels(req.ID, req.Labels)),
 		microsandbox.WithPortBindings(msbBindings...),
 		microsandbox.WithDetached(),
 		microsandbox.WithMounts(map[string]microsandbox.MountConfig{
-			workspaceMountPath:  microsandbox.Mount.Named(workspaceVolName, microsandbox.MountOptions{}),
-			dockerDataMountPath: microsandbox.Mount.Named(dockerVolName, microsandbox.MountOptions{}),
+			workspaceMountPath: microsandbox.Mount.Named(workspaceVolName, microsandbox.MountOptions{}),
 		}),
 		microsandbox.WithImage(req.ImageRef),
 	}
@@ -211,7 +200,6 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	sb, err := microsandbox.CreateSandbox(ctx, req.ID, opts...)
 	if err != nil {
 		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), workspaceVolName)
-		_ = microsandbox.RemoveVolume(context.WithoutCancel(ctx), dockerVolName)
 		return nil, err
 	}
 	if err := sb.Detach(ctx); err != nil {

@@ -255,7 +255,18 @@ pub fn default_subagent_builtin_tool_specs() -> Vec<ToolSpec> {
                 "shutdown".into(),
                 "reboot".into(),
             ],
-            env_passthrough: vec!["HOME".into(), "PATH".into(), "LANG".into(), "LC_ALL".into()],
+            env_passthrough: vec![
+                "HOME".into(),
+                "PATH".into(),
+                "LANG".into(),
+                "LC_ALL".into(),
+                "HIVY_SANDBOX_DATA_ROOT".into(),
+                "HIVY_DOCKER_DATA_ROOT".into(),
+                "TMPDIR".into(),
+                "TEMP".into(),
+                "TMP".into(),
+                "DOCKER_TMPDIR".into(),
+            ],
             sandbox: "process_isolated".into(),
         }),
         ToolSpec::ReadFile(ReadFileConfig {
@@ -282,4 +293,35 @@ pub fn default_subagent_builtin_tool_specs() -> Vec<ToolSpec> {
         ToolSpec::SkillView,
         ToolSpec::SkillManage,
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{default_subagent_builtin_tool_specs, ToolSpec};
+
+    #[test]
+    fn default_bash_env_passthrough_keeps_storage_defaults() {
+        let specs = default_subagent_builtin_tool_specs();
+        let bash = specs
+            .iter()
+            .find_map(|spec| match spec {
+                ToolSpec::Bash(config) => Some(config),
+                _ => None,
+            })
+            .expect("default bash tool");
+
+        for key in [
+            "HIVY_SANDBOX_DATA_ROOT",
+            "HIVY_DOCKER_DATA_ROOT",
+            "TMPDIR",
+            "TEMP",
+            "TMP",
+            "DOCKER_TMPDIR",
+        ] {
+            assert!(
+                bash.env_passthrough.iter().any(|value| value == key),
+                "missing {key} from bash env passthrough"
+            );
+        }
+    }
 }

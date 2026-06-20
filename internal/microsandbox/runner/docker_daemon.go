@@ -13,6 +13,13 @@ const dockerDaemonBootstrapTimeoutSeconds = 90
 
 const dockerDaemonBootstrapCommand = `
 set -eu
+HIVY_SANDBOX_DATA_ROOT="${HIVY_SANDBOX_DATA_ROOT:-/workspace/.hivy}"
+HIVY_DOCKER_DATA_ROOT="${HIVY_DOCKER_DATA_ROOT:-$HIVY_SANDBOX_DATA_ROOT/docker}"
+TMPDIR="${TMPDIR:-$HIVY_SANDBOX_DATA_ROOT/tmp}"
+TEMP="${TEMP:-$TMPDIR}"
+TMP="${TMP:-$TMPDIR}"
+DOCKER_TMPDIR="${DOCKER_TMPDIR:-$TMPDIR/docker}"
+export HIVY_SANDBOX_DATA_ROOT HIVY_DOCKER_DATA_ROOT TMPDIR TEMP TMP DOCKER_TMPDIR
 if ! command -v dockerd >/dev/null 2>&1; then
 	echo no-dockerd
 	exit 0
@@ -35,8 +42,22 @@ done
 rm -f /var/run/docker.sock /run/docker.pid /var/run/docker.pid
 rm -f /run/containerd/containerd.sock /var/run/containerd/containerd.sock
 rm -rf /run/docker /var/run/docker /run/containerd /var/run/containerd
-mkdir -p /var/lib/docker /var/run
-dockerd --host=unix:///var/run/docker.sock --data-root=/var/lib/docker >/tmp/dockerd.log 2>&1 &
+mkdir -p "$HIVY_DOCKER_DATA_ROOT" "$DOCKER_TMPDIR" "$HIVY_SANDBOX_DATA_ROOT/logs" /var/run
+chmod 1777 "$TMPDIR" "$DOCKER_TMPDIR" 2>/dev/null || true
+if command -v mount >/dev/null 2>&1 && [ -d /tmp ]; then
+	if ! mount | grep -F "$TMPDIR on /tmp " >/dev/null 2>&1; then
+		mount --bind "$TMPDIR" /tmp 2>/dev/null || true
+	fi
+fi
+if [ -d /var/lib/docker ] && [ ! -L /var/lib/docker ]; then
+	if ! command -v mountpoint >/dev/null 2>&1 || ! mountpoint -q /var/lib/docker; then
+		rmdir /var/lib/docker 2>/dev/null || true
+	fi
+fi
+if [ ! -e /var/lib/docker ]; then
+	ln -s "$HIVY_DOCKER_DATA_ROOT" /var/lib/docker
+fi
+dockerd --host=unix:///var/run/docker.sock --data-root="$HIVY_DOCKER_DATA_ROOT" >"$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" 2>&1 &
 for _ in $(seq 1 60); do
 	if docker info >/dev/null 2>&1; then
 		echo started
@@ -44,7 +65,7 @@ for _ in $(seq 1 60); do
 	fi
 	sleep 1
 done
-cat /tmp/dockerd.log >&2 || true
+cat "$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" >&2 || true
 exit 1
 `
 
