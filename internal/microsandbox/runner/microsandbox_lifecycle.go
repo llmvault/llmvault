@@ -125,3 +125,9 @@ func (m *MicrosandboxBackend) sandboxPorts(sandboxID string) map[int]int {
 	defer m.mu.Unlock()
 	return cloneIntMap(m.ports[sandboxID])
 }
+
+func (m *MicrosandboxBackend) hostPortForGuest(sandboxID string, guestPort int) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.ports[sandboxID][guestPort]
+}

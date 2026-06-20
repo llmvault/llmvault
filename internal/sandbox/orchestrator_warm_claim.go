@@ -63,6 +63,11 @@ func (o *Orchestrator) tryClaimWarmRuntime(ctx context.Context, sb *model.Sandbo
 	if err := o.warmPool.MarkClaimed(ctx, claimed.ID); err != nil {
 		return false, fmt.Errorf("mark warm slot claimed: %w", err)
 	}
+	idleTimeout := time.Duration(0)
+	if o.cfg != nil {
+		idleTimeout = o.cfg.SandboxIdleTimeout
+	}
+	configureAgentSandboxLifecycle(ctx, o.provider, sb, claimed.ExternalID, idleTimeout)
 	o.enqueueWarmPoolReconcile(ctx, profile)
 	return true, nil
 }

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools==75.8.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hivy-microsandbox-gateway"
+version = "0.1.0"
+description = "Hivy Microsandbox lifecycle gateway for Caddy preview/runtime traffic"
+requires-python = ">=3.10"
+dependencies = [
+  "aiohttp==3.11.12",
+  "redis==5.2.1",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.3.4",
+  "pytest-asyncio==0.25.3",
+]
+
+[project.scripts]
+microsandbox-gateway = "microsandbox_gateway.app:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]

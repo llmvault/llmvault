@@ -101,6 +101,20 @@ func TestSelectRunnerUsesMemoryAndDiskOvercommit(t *testing.T) {
 	}
 }
 
+func TestRunnerHasCapacityDefaultsToFourXDiskOvercommit(t *testing.T) {
+	runner := model.Runner{
+		ID: "runner-1", Status: model.RunnerStatusHealthy,
+		TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
+		ReservedDiskGB: 390,
+	}
+	if !runnerHasCapacity(runner, api.Size{CPU: 1, MemoryMB: 1024, DiskGB: 10}) {
+		t.Fatal("expected 4x default disk overcommit to allow 400GB reserved on a 100GB runner")
+	}
+	if runnerHasCapacity(runner, api.Size{CPU: 1, MemoryMB: 1024, DiskGB: 11}) {
+		t.Fatal("expected 4x default disk overcommit to reject more than 400GB reserved on a 100GB runner")
+	}
+}
+
 func TestReleaseRunnerUsesCurrentReservedCapacity(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:runner-release-current?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {

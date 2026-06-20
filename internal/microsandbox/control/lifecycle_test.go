@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,7 +34,7 @@ func TestConcurrentStartCallsRunnerOnce(t *testing.T) {
 	if err := db.Create(&model.Runner{
 		ID: "runner-1", Name: "runner-1", APIURL: runnerServer.URL, AuthTokenHash: []byte("hash"),
 		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
-		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1,
+		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1, ReservedDiskGB: 40,
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +75,14 @@ func TestConcurrentStartCallsRunnerOnce(t *testing.T) {
 	if sb.Status != model.SandboxStatusRunning {
 		t.Fatalf("status = %q, want running", sb.Status)
 	}
+	var runner model.Runner
+	if err := db.First(&runner, "id = ?", "runner-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.ReservedCPU != 1 || runner.ReservedMemoryMB != 2048 || runner.ReservedDiskGB != 40 {
+		t.Fatalf("runner reserved = cpu %d memory %d disk %d, want cpu 1 memory 2048 disk 40",
+			runner.ReservedCPU, runner.ReservedMemoryMB, runner.ReservedDiskGB)
+	}
 }
 
 func TestFailedStopDoesNotMarkSandboxStopped(t *testing.T) {
@@ -88,6 +97,7 @@ func TestFailedStopDoesNotMarkSandboxStopped(t *testing.T) {
 		ID: "runner-1", Name: "runner-1", APIURL: runnerServer.URL, AuthTokenHash: []byte("hash"),
 		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
 		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1,
+		ReservedCPU: 1, ReservedMemoryMB: 2048, ReservedDiskGB: 40,
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -114,5 +124,279 @@ func TestFailedStopDoesNotMarkSandboxStopped(t *testing.T) {
 	}
 	if sb.Status != model.SandboxStatusRunning {
 		t.Fatalf("status = %q, want still running", sb.Status)
+	}
+	var runner model.Runner
+	if err := db.First(&runner, "id = ?", "runner-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.ReservedCPU != 1 || runner.ReservedMemoryMB != 2048 || runner.ReservedDiskGB != 40 {
+		t.Fatalf("runner reservation changed after failed stop: %+v", runner)
+	}
+}
+
+func TestStopSandboxReleasesRuntimeReservationKeepsDisk(t *testing.T) {
+	const runnerToken = "runner-token"
+	runnerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes/sbx_stop_success/stop" {
+			t.Fatalf("runner path = %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+	}))
+	defer runnerServer.Close()
+
+	db := newTemplateControlTestDB(t)
+	if err := db.Create(&model.Runner{
+		ID: "runner-1", Name: "runner-1", APIURL: runnerServer.URL, AuthTokenHash: []byte("hash"),
+		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
+		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1,
+		ReservedCPU: 1, ReservedMemoryMB: 2048, ReservedDiskGB: 40,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Sandbox{
+		ID: "sbx_stop_success", OrgID: "org_1", RunnerID: "runner-1", Name: "test",
+		ImageRef: "image:test", Status: model.SandboxStatusRunning, CPU: 1, MemoryMB: 2048, DiskGB: 40,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Config{APIToken: "api-token", RunnerAPIToken: runnerToken, PreviewPasswordKey: "preview-password-key"}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
+	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sbx_stop_success/stop", nil)
+	req.Header.Set("Authorization", "Bearer api-token")
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+
+	var runner model.Runner
+	if err := db.First(&runner, "id = ?", "runner-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.ReservedCPU != 0 || runner.ReservedMemoryMB != 0 || runner.ReservedDiskGB != 40 {
+		t.Fatalf("runner reserved = cpu %d memory %d disk %d, want cpu 0 memory 0 disk 40",
+			runner.ReservedCPU, runner.ReservedMemoryMB, runner.ReservedDiskGB)
+	}
+}
+
+func TestEnsureReadyCallsRunnerAndReturnsRoute(t *testing.T) {
+	const runnerToken = "runner-token"
+	var gotReq runnerEnsureReadyRequest
+	runnerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes/sbx_ready/ensure-ready" {
+			t.Fatalf("runner path = %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer "+runnerToken {
+			t.Fatalf("runner auth = %q", r.Header.Get("Authorization"))
+		}
+		if err := json.NewDecoder(r.Body).Decode(&gotReq); err != nil {
+			t.Fatal(err)
+		}
+		_ = json.NewEncoder(w).Encode(runnerEnsureReadyResponse{Status: "running", HostPort: 47080, Readiness: gotReq.Readiness})
+	}))
+	defer runnerServer.Close()
+
+	db := newTemplateControlTestDB(t)
+	if err := db.Create(&model.Runner{
+		ID: "runner-1", Name: "runner-1", APIURL: runnerServer.URL, PreviewBaseURL: "http://10.80.1.2", AuthTokenHash: []byte("hash"),
+		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
+		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1, ReservedDiskGB: 40,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Sandbox{
+		ID: "sbx_ready", OrgID: "org_1", RunnerID: "runner-1", Name: "test",
+		ImageRef: "image:test", Status: model.SandboxStatusStopped, CPU: 1, MemoryMB: 2048, DiskGB: 40,
+		InfraProbeToken: "probe-token",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SandboxPort{ID: "port-1", SandboxID: "sbx_ready", GuestPort: 7080, HostPort: 47080, Protocol: "http"}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Config{APIToken: "api-token", RunnerAPIToken: runnerToken, PreviewPasswordKey: "preview-password-key"}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
+	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sbx_ready/ensure-ready", strings.NewReader(`{
+		"guest_port":7080,
+		"readiness":"runtime_ready",
+		"timeout_seconds":5
+	}`))
+	req.Header.Set("Authorization", "Bearer api-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+	if gotReq.ProbeToken != "probe-token" || gotReq.GuestPort != 7080 || gotReq.Readiness != readinessRuntimeReady {
+		t.Fatalf("runner ensure request = %+v", gotReq)
+	}
+	var body sandboxRouteResponse
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Route.Upstreams["7080"] != "http://10.80.1.2:47080" {
+		t.Fatalf("route = %+v", body.Route)
+	}
+	var sb model.Sandbox
+	if err := db.First(&sb, "id = ?", "sbx_ready").Error; err != nil {
+		t.Fatal(err)
+	}
+	if sb.Status != model.SandboxStatusRunning || sb.LastWakeAt == nil || sb.LastGatewayActivityAt == nil {
+		t.Fatalf("sandbox not marked ready: %+v", sb)
+	}
+	var runner model.Runner
+	if err := db.First(&runner, "id = ?", "runner-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.ReservedCPU != 1 || runner.ReservedMemoryMB != 2048 || runner.ReservedDiskGB != 40 {
+		t.Fatalf("runner reserved = cpu %d memory %d disk %d, want cpu 1 memory 2048 disk 40",
+			runner.ReservedCPU, runner.ReservedMemoryMB, runner.ReservedDiskGB)
+	}
+}
+
+func TestIdleLifecycleStopsPolicyEnabledSandbox(t *testing.T) {
+	const runnerToken = "runner-token"
+	var stopCalls int32
+	runnerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes/sbx_idle/stop" {
+			t.Fatalf("runner path = %s", r.URL.Path)
+		}
+		atomic.AddInt32(&stopCalls, 1)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+	}))
+	defer runnerServer.Close()
+
+	db := newTemplateControlTestDB(t)
+	old := time.Now().Add(-10 * time.Minute)
+	if err := db.Create(&model.Runner{
+		ID: "runner-1", Name: "runner-1", APIURL: runnerServer.URL, PreviewBaseURL: "http://10.80.1.2", AuthTokenHash: []byte("hash"),
+		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
+		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1,
+		ReservedCPU: 1, ReservedMemoryMB: 2048, ReservedDiskGB: 40,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Sandbox{
+		ID: "sbx_idle", OrgID: "org_1", RunnerID: "runner-1", Name: "test",
+		ImageRef: "image:test", Status: model.SandboxStatusRunning, CPU: 1, MemoryMB: 2048, DiskGB: 40,
+		AutoSleepAfterSeconds: 300, LastGatewayActivityAt: &old, CreatedAt: old,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SandboxPort{ID: "port-1", SandboxID: "sbx_idle", GuestPort: 3000, HostPort: 43000, Protocol: "http"}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Config{APIToken: "api-token", RunnerAPIToken: runnerToken, PreviewPasswordKey: "preview-password-key"}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
+	s.stopIdleSandboxes(context.Background())
+	if got := atomic.LoadInt32(&stopCalls); got != 1 {
+		t.Fatalf("stop calls = %d, want 1", got)
+	}
+	var sb model.Sandbox
+	if err := db.First(&sb, "id = ?", "sbx_idle").Error; err != nil {
+		t.Fatal(err)
+	}
+	if sb.Status != model.SandboxStatusStopped || sb.StoppedAt == nil {
+		t.Fatalf("sandbox = %+v, want stopped", sb)
+	}
+	var runner model.Runner
+	if err := db.First(&runner, "id = ?", "runner-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.ReservedCPU != 0 || runner.ReservedMemoryMB != 0 || runner.ReservedDiskGB != 40 {
+		t.Fatalf("runner reserved = cpu %d memory %d disk %d, want cpu 0 memory 0 disk 40",
+			runner.ReservedCPU, runner.ReservedMemoryMB, runner.ReservedDiskGB)
+	}
+}
+
+func TestDeleteStoppedSandboxOnlyReleasesDiskReservation(t *testing.T) {
+	const runnerToken = "runner-token"
+	runnerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes/sbx_delete/delete" {
+			t.Fatalf("runner path = %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+	}))
+	defer runnerServer.Close()
+
+	db := newTemplateControlTestDB(t)
+	if err := db.Create(&model.Runner{
+		ID: "runner-1", Name: "runner-1", APIURL: runnerServer.URL, PreviewBaseURL: "http://10.80.1.2", AuthTokenHash: []byte("hash"),
+		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
+		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1,
+		ReservedCPU: 2, ReservedMemoryMB: 4096, ReservedDiskGB: 80,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Sandbox{
+		ID: "sbx_delete", OrgID: "org_1", RunnerID: "runner-1", Name: "test",
+		ImageRef: "image:test", Status: model.SandboxStatusStopped, CPU: 4, MemoryMB: 8192, DiskGB: 40,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Config{APIToken: "api-token", RunnerAPIToken: runnerToken, PreviewPasswordKey: "preview-password-key"}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
+	req := httptest.NewRequest(http.MethodDelete, "/v1/sandboxes/sbx_delete", nil)
+	req.Header.Set("Authorization", "Bearer api-token")
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+
+	var runner model.Runner
+	if err := db.First(&runner, "id = ?", "runner-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if runner.ReservedCPU != 2 || runner.ReservedMemoryMB != 4096 || runner.ReservedDiskGB != 40 {
+		t.Fatalf("runner reserved = cpu %d memory %d disk %d, want cpu 2 memory 4096 disk 40",
+			runner.ReservedCPU, runner.ReservedMemoryMB, runner.ReservedDiskGB)
+	}
+}
+
+func TestIdleLifecycleSkipsBusyRuntime(t *testing.T) {
+	const runnerToken = "runner-token"
+	var stopCalls int32
+	runnerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&stopCalls, 1)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+	}))
+	defer runnerServer.Close()
+
+	db := newTemplateControlTestDB(t)
+	old := time.Now().Add(-10 * time.Minute)
+	now := time.Now()
+	if err := db.Create(&model.Runner{
+		ID: "runner-1", Name: "runner-1", APIURL: runnerServer.URL, PreviewBaseURL: "http://10.80.1.2", AuthTokenHash: []byte("hash"),
+		Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 100,
+		CPUOvercommit: 1.5, MemoryOvercommit: 1, DiskOvercommit: 1,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Sandbox{
+		ID: "sbx_busy", OrgID: "org_1", RunnerID: "runner-1", Name: "test",
+		ImageRef: "image:test", Status: model.SandboxStatusRunning, CPU: 1, MemoryMB: 2048, DiskGB: 40,
+		AutoSleepAfterSeconds: 300, LastGatewayActivityAt: &old, LastRuntimeActivityAt: &now, RuntimeBusy: true, CreatedAt: old,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Config{APIToken: "api-token", RunnerAPIToken: runnerToken, PreviewPasswordKey: "preview-password-key"}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
+	s.stopIdleSandboxes(context.Background())
+	if got := atomic.LoadInt32(&stopCalls); got != 0 {
+		t.Fatalf("stop calls = %d, want 0 while runtime is busy", got)
+	}
+	var sb model.Sandbox
+	if err := db.First(&sb, "id = ?", "sbx_busy").Error; err != nil {
+		t.Fatal(err)
+	}
+	if sb.Status != model.SandboxStatusRunning {
+		t.Fatalf("sandbox status = %q, want running", sb.Status)
 	}
 }

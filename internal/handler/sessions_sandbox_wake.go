@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -14,24 +13,20 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-const sessionSandboxWakeTimeout = 90 * time.Second
-
-var (
-	errSessionSandboxUnavailable = errors.New("session sandbox is not available yet")
-	errSessionSandboxWakeOffline = errors.New("sandbox wake is not configured")
-)
+var errSessionSandboxUnavailable = errors.New("session sandbox is not available yet")
 
 type sessionSandboxWakeResponse struct {
-	SessionID  string `json:"session_id"`
-	SandboxID  string `json:"sandbox_id"`
-	Status     string `json:"status"`
-	RuntimeURL string `json:"runtime_url"`
-	Woke       bool   `json:"woke"`
+	SessionID      string `json:"session_id"`
+	SandboxID      string `json:"sandbox_id"`
+	Status         string `json:"status"`
+	RuntimeURL     string `json:"runtime_url"`
+	Woke           bool   `json:"woke"`
+	ManagedByInfra bool   `json:"managed_by_infra"`
 }
 
 // WakeSandbox handles POST /v1/sessions/{id}/sandbox/wake.
-// @Summary Wake a session sandbox
-// @Description Ensures the sandbox backing a session is running and its runtime health endpoint is reachable.
+// @Summary Mark a session sandbox wake request
+// @Description Compatibility endpoint. Sandbox wake is managed by Microsandbox infrastructure, so this returns the current sandbox and managed_by_infra without starting it from the API.
 // @Tags sessions
 // @Produce json
 // @Param id path string true "Session ID"
@@ -47,35 +42,19 @@ func (h *SessionHandler) WakeSandbox(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sb, err := h.ensureSessionSandboxReady(r.Context(), &session)
+	sb, err := h.loadSessionSandbox(r.Context(), &session)
 	if err != nil {
 		h.writeSessionSandboxWakeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, sessionSandboxWakeResponse{
-		SessionID:  session.ID.String(),
-		SandboxID:  sb.ID.String(),
-		Status:     sb.Status,
-		RuntimeURL: sb.RuntimeURL,
-		Woke:       true,
+		SessionID:      session.ID.String(),
+		SandboxID:      sb.ID.String(),
+		Status:         sb.Status,
+		RuntimeURL:     sb.RuntimeURL,
+		Woke:           false,
+		ManagedByInfra: true,
 	})
-}
-
-func (h *SessionHandler) ensureSessionSandboxReady(ctx context.Context, session *model.Session) (*model.Sandbox, error) {
-	if h.orchestrator == nil {
-		return nil, errSessionSandboxWakeOffline
-	}
-	sb, err := h.loadSessionSandbox(ctx, session)
-	if err != nil {
-		return nil, err
-	}
-	wakeCtx, cancel := context.WithTimeout(ctx, sessionSandboxWakeTimeout)
-	defer cancel()
-	active, err := h.orchestrator.EnsureSandboxRuntimeReady(wakeCtx, sb)
-	if err != nil {
-		return nil, fmt.Errorf("wake sandbox: %w", err)
-	}
-	return active, nil
 }
 
 func (h *SessionHandler) loadSessionSandbox(ctx context.Context, session *model.Session) (*model.Sandbox, error) {
@@ -149,8 +128,6 @@ func (h *SessionHandler) writeSessionSandboxWakeError(w http.ResponseWriter, err
 	switch {
 	case errors.Is(err, errSessionSandboxUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "session sandbox is not available yet"})
-	case errors.Is(err, errSessionSandboxWakeOffline):
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "sandbox wake is not configured"})
 	default:
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: err.Error()})
 	}

@@ -101,6 +101,14 @@ func (o *Orchestrator) GetRuntimeClient(ctx context.Context, sb *model.Sandbox) 
 	if err != nil {
 		return nil, fmt.Errorf("decrypting runtime secret: %w", err)
 	}
+	if o.provider.ID() == ProviderMicrosandbox {
+		if sb.RuntimeURL == "" {
+			if err := o.RefreshAgentSandboxURL(ctx, sb); err != nil {
+				return nil, fmt.Errorf("refreshing runtime URL: %w", err)
+			}
+		}
+		return agentruntime.NewClient(sb.RuntimeURL, apiKey), nil
+	}
 	if _, err := o.EnsureSandboxActive(ctx, sb); err != nil {
 		return nil, fmt.Errorf("ensuring sandbox active: %w", err)
 	}

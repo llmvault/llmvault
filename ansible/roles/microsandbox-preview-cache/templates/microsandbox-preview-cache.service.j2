@@ -1,12 +1,12 @@
 [Unit]
-Description=Hivy Microsandbox Preview Route Cache
+Description=Hivy Microsandbox Lifecycle Gateway
 After=network-online.target redis-server.service
 Wants=network-online.target redis-server.service
 
 [Service]
 Type=simple
 EnvironmentFile={{ microsandbox_preview_cache_env_path }}
-ExecStart=/usr/bin/python3 {{ microsandbox_preview_cache_script_path }}
+ExecStart={{ microsandbox_gateway_venv_path }}/bin/microsandbox-gateway
 Restart=always
 RestartSec=3
 User=root

@@ -38,7 +38,8 @@
   ansible.builtin.apt:
     name:
       - python3
-      - python3-redis
+      - python3-pip
+      - python3-venv
       - redis-server
     state: present
     update_cache: true
@@ -51,7 +52,7 @@
 
 - name: Create Hivy install directory
   ansible.builtin.file:
-    path: "{{ microsandbox_preview_cache_install_dir }}"
+    path: "{{ microsandbox_gateway_install_dir }}"
     state: directory
     owner: root
     group: root
@@ -65,13 +66,21 @@
     group: root
     mode: "0755"
 
-- name: Install preview cache Python service
-  ansible.builtin.template:
-    src: microsandbox-preview-cache.py.j2
-    dest: "{{ microsandbox_preview_cache_script_path }}"
+- name: Copy microsandbox gateway Python project
+  ansible.builtin.copy:
+    src: "{{ microsandbox_gateway_project_src }}/"
+    dest: "{{ microsandbox_gateway_install_dir }}/"
     owner: root
     group: root
-    mode: "0755"
+    mode: preserve
+  notify: Restart microsandbox preview cache
+
+- name: Install microsandbox gateway package
+  ansible.builtin.pip:
+    name: "{{ microsandbox_gateway_install_dir }}"
+    virtualenv: "{{ microsandbox_gateway_venv_path }}"
+    virtualenv_command: /usr/bin/python3 -m venv
+    editable: true
   notify: Restart microsandbox preview cache
 
 - name: Render preview cache env file

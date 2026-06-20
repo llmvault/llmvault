@@ -73,6 +73,7 @@ type sessionSyncRuntime struct {
 	server          *httptest.Server
 	messageStatus   int
 	configCalls     int
+	readyzCalls     int
 	messageCalls    int
 	lastSessionID   string
 	lastMessageText string
@@ -93,6 +94,7 @@ func (rt *sessionSyncRuntime) handle(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && r.URL.Path == "/healthz":
 		w.WriteHeader(http.StatusOK)
 	case r.Method == http.MethodGet && r.URL.Path == "/readyz":
+		rt.readyzCalls++
 		w.WriteHeader(http.StatusOK)
 	case r.Method == http.MethodPut && r.URL.Path == "/config":
 		rt.configCalls++
@@ -144,6 +146,7 @@ type sessionSyncSandboxProvider struct {
 	created   []sandboxpkg.CreateSandboxOpts
 	started   []string
 	deleted   []string
+	autoStops []int
 }
 
 func (p *sessionSyncSandboxProvider) ID() string { return sandboxpkg.ProviderMicrosandbox }
@@ -202,7 +205,10 @@ func (p *sessionSyncSandboxProvider) GetTemplateLogs(context.Context, string) (s
 
 func (p *sessionSyncSandboxProvider) DeleteTemplate(context.Context, string) error { return nil }
 
-func (p *sessionSyncSandboxProvider) SetAutoStop(context.Context, string, int) error { return nil }
+func (p *sessionSyncSandboxProvider) SetAutoStop(_ context.Context, _ string, intervalMinutes int) error {
+	p.autoStops = append(p.autoStops, intervalMinutes)
+	return nil
+}
 
 func (p *sessionSyncSandboxProvider) SetAutoArchive(context.Context, string, int) error {
 	return nil

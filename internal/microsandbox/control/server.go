@@ -41,6 +41,9 @@ func NewServer(ctx context.Context, db *gorm.DB, cfg config.Config) *Server {
 			s.watchPreviewRoutes(ctx)
 		})
 	}
+	goroutine.Go(ctx, func(ctx context.Context) {
+		s.watchIdleSandboxes(ctx)
+	})
 	return s
 }
 
@@ -56,6 +59,7 @@ func (s *Server) Routes() http.Handler {
 
 	r.Post("/v1/runners/register", s.registerRunner)
 	r.Post("/v1/runners/{runnerID}/heartbeat", s.runnerHeartbeat)
+	r.Post("/v1/sandboxes/{sandboxID}/activity", s.sandboxActivity)
 
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireAPI)
@@ -65,6 +69,9 @@ func (s *Server) Routes() http.Handler {
 		r.Get("/v1/sandboxes", s.listSandboxes)
 		r.Post("/v1/sandboxes", s.createSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}", s.getSandbox)
+		r.Get("/v1/sandboxes/{sandboxID}/route", s.getSandboxRoute)
+		r.Post("/v1/sandboxes/{sandboxID}/ensure-ready", s.ensureSandboxReady)
+		r.Patch("/v1/sandboxes/{sandboxID}/policy", s.updateSandboxPolicy)
 		r.Post("/v1/sandboxes/{sandboxID}/runtime-endpoints", s.createRuntimeEndpoint)
 		r.Post("/v1/sandboxes/{sandboxID}/start", s.startSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/stop", s.stopSandbox)

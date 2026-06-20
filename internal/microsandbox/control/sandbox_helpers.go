@@ -16,6 +16,12 @@ import (
 	"github.com/usehivy/hivy/internal/microsandbox/security"
 )
 
+const (
+	defaultCPUOvercommit    = 1.5
+	defaultMemoryOvercommit = 1
+	defaultDiskOvercommit   = 4
+)
+
 func (s *Server) loadSandboxRunner(w http.ResponseWriter, r *http.Request) (model.Sandbox, model.Runner, bool) {
 	var sb model.Sandbox
 	if err := s.db.First(&sb, "id = ?", chi.URLParam(r, "sandboxID")).Error; err != nil {
@@ -57,8 +63,8 @@ func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {
 		if !runnerHasCapacity(*r, size) {
 			continue
 		}
-		cpuLimit := overcommitLimit(r.TotalCPU, r.CPUOvercommit, 1.5)
-		memoryLimit := overcommitLimit(r.TotalMemoryMB, r.MemoryOvercommit, 1)
+		cpuLimit := overcommitLimit(r.TotalCPU, r.CPUOvercommit, defaultCPUOvercommit)
+		memoryLimit := overcommitLimit(r.TotalMemoryMB, r.MemoryOvercommit, defaultMemoryOvercommit)
 		free := (cpuLimit - r.ReservedCPU - size.CPU) + ((memoryLimit - r.ReservedMemoryMB - size.MemoryMB) / 1024)
 		if best == nil || free < bestFree {
 			best = r
@@ -72,9 +78,9 @@ func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {
 }
 
 func runnerHasCapacity(runner model.Runner, size api.Size) bool {
-	cpuLimit := overcommitLimit(runner.TotalCPU, runner.CPUOvercommit, 1.5)
-	memoryLimit := overcommitLimit(runner.TotalMemoryMB, runner.MemoryOvercommit, 1)
-	diskLimit := overcommitLimit(runner.TotalDiskGB, runner.DiskOvercommit, 1)
+	cpuLimit := overcommitLimit(runner.TotalCPU, runner.CPUOvercommit, defaultCPUOvercommit)
+	memoryLimit := overcommitLimit(runner.TotalMemoryMB, runner.MemoryOvercommit, defaultMemoryOvercommit)
+	diskLimit := overcommitLimit(runner.TotalDiskGB, runner.DiskOvercommit, defaultDiskOvercommit)
 	return runner.ReservedCPU+size.CPU <= cpuLimit &&
 		runner.ReservedMemoryMB+size.MemoryMB <= memoryLimit &&
 		runner.ReservedDiskGB+size.DiskGB <= diskLimit
@@ -101,6 +107,65 @@ func releaseRunner(tx *gorm.DB, runner *model.Runner, size api.Size) error {
 		"reserved_memory_mb": gorm.Expr("CASE WHEN reserved_memory_mb > ? THEN reserved_memory_mb - ? ELSE 0 END", size.MemoryMB, size.MemoryMB),
 		"reserved_disk_gb":   gorm.Expr("CASE WHEN reserved_disk_gb > ? THEN reserved_disk_gb - ? ELSE 0 END", size.DiskGB, size.DiskGB),
 	}).Error
+}
+
+func runtimeReservationSize(sb model.Sandbox) api.Size {
+	return api.Size{CPU: sb.CPU, MemoryMB: sb.MemoryMB}
+}
+
+func runtimeReservationHeld(status string) bool {
+	switch status {
+	case model.SandboxStatusCreating, model.SandboxStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+func diskReservationHeld(status string) bool {
+	switch status {
+	case model.SandboxStatusCreating, model.SandboxStatusRunning, model.SandboxStatusStopped:
+		return true
+	default:
+		return false
+	}
+}
+
+func reserveRunnerReservationForSandbox(ctx context.Context, db *gorm.DB, sb model.Sandbox, size api.Size) error {
+	if size.CPU == 0 && size.MemoryMB == 0 && size.DiskGB == 0 {
+		return nil
+	}
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return reserveRunnerReservationForSandboxTx(tx, sb, size)
+	})
+}
+
+func releaseRunnerReservationForSandbox(ctx context.Context, db *gorm.DB, sb model.Sandbox, size api.Size) error {
+	if size.CPU == 0 && size.MemoryMB == 0 && size.DiskGB == 0 {
+		return nil
+	}
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return releaseRunnerReservationForSandboxTx(tx, sb, size)
+	})
+}
+
+func reserveRunnerReservationForSandboxTx(tx *gorm.DB, sb model.Sandbox, size api.Size) error {
+	var runner model.Runner
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
+		return err
+	}
+	if !runnerHasCapacity(runner, size) {
+		return fmt.Errorf("runner %s has insufficient capacity", runner.ID)
+	}
+	return reserveRunner(tx, &runner, size)
+}
+
+func releaseRunnerReservationForSandboxTx(tx *gorm.DB, sb model.Sandbox, size api.Size) error {
+	var runner model.Runner
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
+		return err
+	}
+	return releaseRunner(tx, &runner, size)
 }
 
 func (s *Server) previewURLs(sandboxID string, ports []model.SandboxPort) map[string]string {

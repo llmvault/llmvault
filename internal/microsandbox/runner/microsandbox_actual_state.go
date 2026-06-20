@@ -216,6 +216,22 @@ func runtimeHealthOK(ctx context.Context, port int, timeout time.Duration) bool 
 	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
+func runtimeInfraReadyOK(ctx context.Context, port int, timeout time.Duration, probeToken string) bool {
+	checkCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, "http://127.0.0.1:"+strconv.Itoa(port)+"/infra/readyz", nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Authorization", "Bearer "+probeToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 400
+}
+
 func isAttachedDiskError(err error) bool {
 	if err == nil {
 		return false

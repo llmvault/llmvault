@@ -244,7 +244,15 @@ func (d *Driver) GetEndpoint(ctx context.Context, externalID string, port int) (
 	return out.URL, nil
 }
 
-func (d *Driver) SetAutoStop(context.Context, string, int) error { return nil }
+func (d *Driver) SetAutoStop(ctx context.Context, externalID string, intervalMinutes int) error {
+	seconds := 0
+	if intervalMinutes > 0 {
+		seconds = intervalMinutes * 60
+	}
+	return d.patch(ctx, "/v1/sandboxes/"+externalID+"/policy", map[string]any{
+		"auto_sleep_after_seconds": seconds,
+	}, nil)
+}
 
 func (d *Driver) SetAutoArchive(context.Context, string, int) error { return nil }
 

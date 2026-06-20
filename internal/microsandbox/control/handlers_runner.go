@@ -55,15 +55,15 @@ func (s *Server) registerRunner(w http.ResponseWriter, r *http.Request) {
 	}
 	cpuOvercommit := req.Capacity.CPUOvercommit
 	if cpuOvercommit <= 0 {
-		cpuOvercommit = 1.5
+		cpuOvercommit = defaultCPUOvercommit
 	}
 	memoryOvercommit := req.Capacity.MemoryOvercommit
 	if memoryOvercommit <= 0 {
-		memoryOvercommit = 1
+		memoryOvercommit = defaultMemoryOvercommit
 	}
 	diskOvercommit := req.Capacity.DiskOvercommit
 	if diskOvercommit <= 0 {
-		diskOvercommit = 1
+		diskOvercommit = defaultDiskOvercommit
 	}
 	runner := model.Runner{
 		ID: id, Name: req.Name, APIURL: req.APIURL, PreviewBaseURL: req.PreviewBaseURL, AuthTokenHash: security.HashToken(token),
@@ -120,9 +120,9 @@ func (s *Server) runnerHeartbeat(w http.ResponseWriter, r *http.Request) {
 		updates["total_cpu"] = req.Capacity.CPU
 		updates["total_memory_mb"] = req.Capacity.MemoryMB
 		updates["total_disk_gb"] = req.Capacity.DiskGB
-		updates["cpu_overcommit"] = defaultOvercommit(req.Capacity.CPUOvercommit, 1.5)
-		updates["memory_overcommit"] = defaultOvercommit(req.Capacity.MemoryOvercommit, 1)
-		updates["disk_overcommit"] = defaultOvercommit(req.Capacity.DiskOvercommit, 1)
+		updates["cpu_overcommit"] = defaultOvercommit(req.Capacity.CPUOvercommit, defaultCPUOvercommit)
+		updates["memory_overcommit"] = defaultOvercommit(req.Capacity.MemoryOvercommit, defaultMemoryOvercommit)
+		updates["disk_overcommit"] = defaultOvercommit(req.Capacity.DiskOvercommit, defaultDiskOvercommit)
 	}
 	s.db.Model(&runner).Updates(updates)
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})

@@ -94,6 +94,7 @@ HIVY_MICROSANDBOX_RUNNER_TOTAL_CPU=32
 HIVY_MICROSANDBOX_RUNNER_TOTAL_MEMORY_MB=131072
 HIVY_MICROSANDBOX_RUNNER_TOTAL_DISK_GB=2000
 HIVY_MICROSANDBOX_RUNNER_CPU_OVERCOMMIT=1.5
+HIVY_MICROSANDBOX_RUNNER_DISK_OVERCOMMIT=4
 HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_START=30000
 HIVY_MICROSANDBOX_RUNNER_PREVIEW_PORT_RANGE_END=60999
 ```
@@ -151,8 +152,8 @@ Preview traffic does not go through the Railway control plane and does not go th
 ```text
 browser
   -> preview Caddy VPS
-  -> local preview-cache service
-  -> Redis route cache
+  -> local Microsandbox gateway
+  -> Redis route cache or Microsandbox control lookup/ensure-ready
   -> runner private IP + published sandbox host port
   -> sandbox guest port
 ```
@@ -163,7 +164,7 @@ The wildcard host shape is:
 {port}-{sandbox_id}.preview.usehivy.com
 ```
 
-The control plane remains the source of truth. It pushes route payloads to the Caddy VPS preview-cache service after sandbox create/start/stop/delete and periodically bulk-syncs routes from the database. Route payloads store full upstream URLs:
+Microsandbox control remains the source of truth. The Caddy gateway keeps Redis as a local cache, but falls back to control for empty or stale routes and calls control `ensure-ready` for runtime port `7080` before forwarding. Route payloads store full upstream URLs:
 
 ```json
 {
@@ -176,7 +177,7 @@ The control plane remains the source of truth. It pushes route payloads to the C
 }
 ```
 
-The preview-cache lookup endpoint returns `X-Microsandbox-Upstream: 10.80.1.2:30001` to Caddy. Caddy preserves the original request path and query and proxies directly to that private upstream.
+The gateway lookup endpoint returns `X-Microsandbox-Upstream: 10.80.1.2:30001` to Caddy. Caddy preserves the original request path and query and proxies directly to that private upstream. Caddy strips `Authorization` from the lookup subrequest so runtime bearer tokens are not exposed to the gateway, then preserves the original authorization header on the final sandbox request.
 
 Browser preview password/JWT enforcement is not implemented in the direct Caddy route path yet. Keep preview domains operationally private or treat them as bearer-by-URL until that auth layer is added.
 
@@ -192,4 +193,4 @@ export HIVY_MICROSANDBOX_E2E_PREVIEW_RESOLVE_IP=46.62.169.26 # optional when DNS
 scripts/microsandbox/e2e-vite-preview.py --size medium
 ```
 
-The script creates a sandbox, installs a Vite React app, waits for preview `200`, sleeps the sandbox and waits for preview `503`, wakes it and waits for preview `200`, then deletes it and waits for preview `404`.
+The script creates a sandbox, installs a Vite React app, waits for preview `200`, stops the sandbox, verifies the next preview request auto-wakes back to `200`, then deletes it and waits for preview `404`.

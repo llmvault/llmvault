@@ -79,15 +79,12 @@ func (h *SessionHandler) SandboxAccess(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SessionHandler) sessionSandboxForAccess(ctx context.Context, session *model.Session) (*model.Sandbox, error) {
-	if h.orchestrator != nil {
-		return h.ensureSessionSandboxReady(ctx, session)
-	}
 	sb, err := h.loadSessionSandbox(ctx, session)
 	if err != nil {
 		return nil, err
 	}
-	if sb.Status != "running" {
-		return nil, errSessionSandboxWakeOffline
+	if strings.TrimSpace(sb.RuntimeURL) == "" {
+		return nil, errSessionSandboxUnavailable
 	}
 	return sb, nil
 }
