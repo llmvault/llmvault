@@ -18,17 +18,17 @@ import {
   type PanelImperativeHandle,
 } from "react-resizable-panels"
 import { animate, type AnimationPlaybackControls } from "motion/react"
-import { Button, Popover, Spinner } from "@heroui/react"
-import { Icon } from "@iconify/react"
-import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
+import { ChatHeader } from "@/app/w/(chat)/_components/chat-header"
+import type { ChatHeaderAgent } from "@/app/w/(chat)/_components/chat-header-types"
 import {
   RightPanel,
   type PanelViewID,
 } from "@/app/w/(chat)/_components/right-panel"
 import { Sidebar } from "@/app/w/(chat)/_components/sidebar"
 import { LineCommentsProvider } from "@/app/w/(chat)/_components/line-comments"
+import { SandboxRuntimeGate } from "@/app/w/(chat)/_components/sandbox-runtime-gate"
 import {
   agentById,
   DEFAULT_AGENT_ID,
@@ -518,7 +518,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               className="min-w-0 overflow-hidden"
               onResize={(size) => setRightOpen(size.inPixels > 8)}
             >
-              <div className="h-full min-w-[360px]">
+              <div className="h-full min-w-90">
                 <RightPanel
                   sessionId={routeSessionID}
                   sandboxAccess={sandboxAccess}
@@ -540,49 +540,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         </div>
       </LineCommentsProvider>
     </WorkspaceContext.Provider>
-  )
-}
-
-function SandboxRuntimeGate({
-  sessionId,
-  ready,
-  pending,
-  error,
-  onRetry,
-}: {
-  sessionId?: string
-  ready: boolean
-  pending: boolean
-  error: unknown
-  onRetry: () => void
-}) {
-  if (!sessionId || ready || (!pending && !error)) return null
-
-  return (
-    <div className="bg-surface absolute inset-0 z-30 flex items-center justify-center px-4">
-      <div
-        className="flex max-w-sm flex-col items-center gap-3 text-center"
-        role="status"
-        aria-live="polite"
-      >
-        {pending ? <Spinner size="lg" aria-label="Waking sandbox" /> : null}
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium text-foreground">
-            {pending ? "Waking sandbox" : "Sandbox unavailable"}
-          </p>
-          <p className="text-sm text-muted">
-            {pending
-              ? "Preparing the agent runtime for this session."
-              : extractErrorMessage(error, "Could not wake the sandbox.")}
-          </p>
-        </div>
-        {!pending && error ? (
-          <Button variant="secondary" size="sm" onPress={onRetry}>
-            Retry
-          </Button>
-        ) : null}
-      </div>
-    </div>
   )
 }
 
@@ -620,10 +577,6 @@ function safeAgentById(id: string): Agent {
   return safeStaticAgentById(id) ?? agentById(DEFAULT_AGENT_ID)
 }
 
-type ChatHeaderAgent = Pick<Agent, "name" | "icon"> & {
-  avatarURL?: string
-}
-
 function chatHeaderAgent(session: ChatSession): ChatHeaderAgent {
   const fallback = safeAgentById(session.agentId)
   return {
@@ -631,168 +584,4 @@ function chatHeaderAgent(session: ChatSession): ChatHeaderAgent {
     icon: session.agentIcon ?? fallback.icon,
     avatarURL: session.agentAvatarURL,
   }
-}
-
-const EDITORS = [
-  {
-    id: "vscode",
-    label: "Open in VS Code",
-    icon: "vscode-icons:file-type-vscode",
-  },
-  {
-    id: "cursor",
-    label: "Open in Cursor",
-    icon: "lucide:square-mouse-pointer",
-  },
-  { id: "zed", label: "Open in Zed", icon: "lucide:zap" },
-  { id: "copy", label: "Copy worktree path", icon: "lucide:copy" },
-]
-
-const CHAT_ACTIONS = [
-  { id: "rename", label: "Rename chat", icon: "lucide:pencil" },
-  { id: "share", label: "Share", icon: "lucide:share" },
-  { id: "move", label: "Move to project", icon: "lucide:folder-input" },
-  { id: "archive", label: "Archive", icon: "lucide:archive" },
-  { id: "delete", label: "Delete", icon: "lucide:trash-2", danger: true },
-]
-
-function ChatHeader({
-  title,
-  agent,
-  sidebarOpen,
-  onExpandSidebar,
-  rightOpen,
-  onToggleRight,
-}: {
-  title: string
-  agent: ChatHeaderAgent | null
-  sidebarOpen: boolean
-  onExpandSidebar: () => void
-  rightOpen: boolean
-  onToggleRight: () => void
-}) {
-  const [actionsOpen, setActionsOpen] = useState(false)
-  const [editorOpen, setEditorOpen] = useState(false)
-
-  return (
-    <div className="flex h-12 shrink-0 items-center gap-1 px-3">
-      {!sidebarOpen ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          isIconOnly
-          aria-label="Expand sidebar"
-          onPress={onExpandSidebar}
-        >
-          <Icon icon="lucide:panel-left-open" className="h-4 w-4" />
-        </Button>
-      ) : null}
-
-      <span className="truncate px-1 text-sm font-medium">{title}</span>
-      {agent ? (
-        // The agent is fixed once a session exists, so this is a read-only
-        // chip rather than a switcher.
-        <span
-          title="The agent can't be changed after a session starts"
-          className="flex shrink-0 cursor-default items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs text-muted"
-        >
-          <ChatHeaderAgentLogo agent={agent} />
-          {agent.name}
-        </span>
-      ) : null}
-      <Popover isOpen={actionsOpen} onOpenChange={setActionsOpen}>
-        <Popover.Trigger
-          aria-label="Chat options"
-          className="hover:bg-default flex items-center rounded-lg p-1.5 text-muted transition-colors"
-        >
-          <Icon icon="lucide:ellipsis" className="h-4 w-4" />
-        </Popover.Trigger>
-        <Popover.Content className="w-52 rounded-2xl border border-border p-1.5">
-          <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-            {CHAT_ACTIONS.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() => setActionsOpen(false)}
-                className={`hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors ${
-                  action.danger ? "text-danger" : ""
-                }`}
-              >
-                <Icon icon={action.icon} className="h-4 w-4 shrink-0" />
-                {action.label}
-              </button>
-            ))}
-          </Popover.Dialog>
-        </Popover.Content>
-      </Popover>
-
-      <div className="flex-1" />
-
-      <PresenceStack />
-
-      <div className="flex items-center gap-0.5">
-        <Popover isOpen={editorOpen} onOpenChange={setEditorOpen}>
-          <Popover.Trigger
-            aria-label="Open in editor"
-            className="hover:bg-default flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors"
-          >
-            <Icon icon="vscode-icons:file-type-vscode" className="h-4 w-4" />
-            <Icon icon="lucide:chevron-down" className="h-3 w-3 text-muted" />
-          </Popover.Trigger>
-          <Popover.Content className="w-56 rounded-2xl border border-border p-1.5">
-            <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-              {EDITORS.map((editor) => (
-                <button
-                  key={editor.id}
-                  type="button"
-                  onClick={() => setEditorOpen(false)}
-                  className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
-                >
-                  <Icon icon={editor.icon} className="h-4 w-4 shrink-0" />
-                  {editor.label}
-                </button>
-              ))}
-            </Popover.Dialog>
-          </Popover.Content>
-        </Popover>
-        <Button variant="ghost" size="sm" isIconOnly aria-label="Tasks">
-          <Icon icon="lucide:list-todo" className="h-4 w-4 text-muted" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          isIconOnly
-          aria-label="Toggle side panel"
-          onPress={onToggleRight}
-        >
-          <Icon
-            icon={rightOpen ? "lucide:panel-right-close" : "lucide:panel-right"}
-            className="h-4 w-4 text-muted"
-          />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function PresenceStack() {
-  return null
-}
-
-function ChatHeaderAgentLogo({ agent }: { agent: ChatHeaderAgent }) {
-  const [failed, setFailed] = useState(false)
-  if (agent.avatarURL && !failed) {
-    return (
-      <span className="bg-default flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-[5px] ring-1 ring-border/70">
-        <img
-          src={agent.avatarURL}
-          alt=""
-          className="h-full w-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      </span>
-    )
-  }
-
-  return <Icon icon={agent.icon} className="h-3.5 w-3.5 shrink-0" />
 }

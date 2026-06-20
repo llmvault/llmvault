@@ -79,6 +79,7 @@ function AttachmentPreviewTile({
       )}
       title={`${fileName}: ${label}`}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- upload previews use local object URLs */}
       <img
         src={attachment.upload.previewUrl}
         alt={fileName}

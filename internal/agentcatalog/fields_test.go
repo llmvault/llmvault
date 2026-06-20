@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/lib/pq"
@@ -54,6 +55,97 @@ func TestValidateManifestsRejectsInvalidSandboxImage(t *testing.T) {
 	}})
 	if err == nil {
 		t.Fatal("validateManifests succeeded, want invalid sandbox_image error")
+	}
+}
+
+func TestValidateManifestsRejectsInvalidRuntimeTool(t *testing.T) {
+	err := validateManifests([]Manifest{{
+		Version: 1,
+		Slug:    "hivy",
+		Name:    "Hivy",
+		Runtime: RuntimeManifest{SandboxImage: model.SandboxImageDefault},
+		Tools:   map[string]any{"not_a_runtime_tool": true},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "unknown runtime tool") {
+		t.Fatalf("validateManifests error = %v, want unknown runtime tool", err)
+	}
+}
+
+func TestLoadManifestStoresRuntimeToolDefinitions(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "sub_agents", "codebase-explorer"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sub_agents", "codebase-explorer", "instructions.md"), []byte("Trace code paths."), 0o600); err != nil {
+		t.Fatalf("write instructions: %v", err)
+	}
+	manifestPath := filepath.Join(dir, "agent.json")
+	manifestJSON := `{
+  "version": 1,
+  "slug": "hakaree",
+  "name": "Hakaree",
+  "runtime": {"sandbox_image": "developer", "model": "deepseek-v4-pro"},
+  "tools": {
+    "read_file": true,
+    "grep": {"max_results": 25},
+    "lsp": false
+  },
+  "prompt": {},
+  "plugins": {},
+  "sub_agents": {
+    "codebase-explorer": {
+      "name": "Codebase Explorer",
+      "description": "Maps code paths.",
+      "model": "qwen3.7-plus",
+      "tools": {
+        "read_file": true,
+        "multi_grep": true
+      },
+      "prompt": {"instructions": "./sub_agents/codebase-explorer/instructions.md"}
+    }
+  }
+}`
+	if err := os.WriteFile(manifestPath, []byte(manifestJSON), 0o600); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	manifest, err := loadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	if err := validateManifests([]Manifest{manifest}); err != nil {
+		t.Fatalf("validate manifest: %v", err)
+	}
+	updates := catalogUpdates(manifest, model.RawJSON("{}"), "hash", model.AgentCatalogStatusActive)
+	tools, ok := updates["tools"].(model.JSON)
+	if !ok {
+		t.Fatalf("tools has type %T", updates["tools"])
+	}
+	if tools["read_file"] != true {
+		t.Fatalf("read_file tool = %#v", tools["read_file"])
+	}
+	if _, ok := tools["lsp"]; ok {
+		t.Fatalf("disabled lsp tool should be omitted: %#v", tools)
+	}
+	grep, ok := tools["grep"].(map[string]any)
+	if !ok {
+		t.Fatalf("grep config = %#v", tools["grep"])
+	}
+	if grep["max_results"] != float64(25) {
+		t.Fatalf("grep max_results = %#v", grep["max_results"])
+	}
+
+	raw, ok := updates["sub_agents"].(model.RawJSON)
+	if !ok {
+		t.Fatalf("sub_agents has type %T", updates["sub_agents"])
+	}
+	var subAgents map[string]model.AgentCatalogSubAgent
+	if err := json.Unmarshal(raw, &subAgents); err != nil {
+		t.Fatalf("decode sub_agents: %v", err)
+	}
+	subTools := subAgents["codebase-explorer"].Tools
+	if subTools["read_file"] != true || subTools["multi_grep"] != true {
+		t.Fatalf("subagent tools = %#v", subTools)
 	}
 }
 

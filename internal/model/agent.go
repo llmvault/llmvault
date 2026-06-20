@@ -176,3 +176,40 @@ func ValidatePermissionKeys(permissions map[string]string) string {
 func IsValidPermissionKey(key string) bool {
 	return validBuiltInToolIDs[key]
 }
+
+// RuntimeBuiltInToolIDs are the canonical built-in tool identifiers understood by
+// the Rust runtime AgentDefinition.tools schema.
+var RuntimeBuiltInToolIDs = []string{
+	"bash",
+	"read_file",
+	"write_file",
+	"file_search",
+	"glob",
+	"grep",
+	"multi_grep",
+	"apply_patch",
+	"lsp",
+	"cron",
+	"subagent_task",
+	"check_subagent_task_status",
+	"check_bash_status",
+	"wake",
+	"skills_list",
+	"skill_view",
+	"skill_manage",
+	"search_sessions",
+	"request_user_input",
+	"update_plan",
+}
+
+var validRuntimeBuiltInToolIDs = func() map[string]bool {
+	result := make(map[string]bool, len(RuntimeBuiltInToolIDs))
+	for _, id := range RuntimeBuiltInToolIDs {
+		result[id] = true
+	}
+	return result
+}()
+
+func IsValidRuntimeBuiltInToolID(key string) bool {
+	return validRuntimeBuiltInToolIDs[key]
+}

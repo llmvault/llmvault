@@ -1,20 +1,15 @@
 "use client"
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
-import { Spinner, toast } from "@heroui/react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "@heroui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import ScrollToBottom from "react-scroll-to-bottom"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { Composer } from "@/app/w/(chat)/_components/composer"
 import { Conversation } from "@/app/w/(chat)/_components/conversation"
+import { SessionHistorySkeleton } from "@/app/w/(chat)/_components/session-history-skeleton"
+import { SessionHistoryTopLoader } from "@/app/w/(chat)/_components/session-history-top-loader"
 import { SessionPlanCard } from "@/app/w/(chat)/_components/session-plan-card"
 import {
   useWorkspace,
@@ -58,7 +53,6 @@ import {
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
 import { reviewDiffsQueryKey } from "@/app/w/(chat)/_lib/review-diffs-query"
 
-const HISTORY_TOP_LOAD_THRESHOLD = 160
 const STREAM_WATCHDOG_MS = 10 * 60 * 1000
 
 export function SessionThreadView({
@@ -567,28 +561,6 @@ export function SessionThreadView({
   )
 }
 
-function SessionHistorySkeleton() {
-  return (
-    <div
-      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6"
-      role="status"
-      aria-label="Loading session"
-    >
-      <div className="flex max-w-[85%] flex-col items-end gap-1 self-end">
-        <div className="bg-default h-4 w-20 animate-pulse rounded" />
-        <div className="bg-default h-14 w-72 max-w-full animate-pulse rounded-2xl" />
-      </div>
-      <div className="flex flex-col gap-3">
-        <div className="bg-default h-4 w-28 animate-pulse rounded" />
-        <div className="bg-default h-4 w-full max-w-xl animate-pulse rounded" />
-        <div className="bg-default h-4 w-5/6 animate-pulse rounded" />
-        <div className="bg-default h-4 w-2/3 animate-pulse rounded" />
-      </div>
-      <div className="bg-default/70 h-24 w-full max-w-lg animate-pulse rounded-xl" />
-    </div>
-  )
-}
-
 function isPendingClientEvent(event: SessionEventResponse) {
   const payload = event.payload
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -672,98 +644,6 @@ function streamErrorEvent(
     },
     event_at: now,
   } as SessionEventResponse
-}
-
-function SessionHistoryTopLoader({
-  hasMore,
-  isFetching,
-  loadedEventCount,
-  onLoadMore,
-}: {
-  hasMore: boolean
-  isFetching: boolean
-  loadedEventCount: number
-  onLoadMore: () => Promise<unknown>
-}) {
-  const markerRef = useRef<HTMLDivElement | null>(null)
-  const loadingRef = useRef(false)
-  const restoreRef = useRef<{
-    scrollPanel: HTMLElement
-    scrollHeight: number
-    scrollTop: number
-    loadedEventCount: number
-  } | null>(null)
-
-  const loadMore = useCallback(() => {
-    if (!hasMore || isFetching || loadingRef.current) return
-
-    const scrollPanel = markerRef.current?.parentElement
-    if (!scrollPanel) return
-
-    restoreRef.current = {
-      scrollPanel,
-      scrollHeight: scrollPanel.scrollHeight,
-      scrollTop: scrollPanel.scrollTop,
-      loadedEventCount,
-    }
-
-    loadingRef.current = true
-    void onLoadMore().catch(() => {
-      restoreRef.current = null
-      loadingRef.current = false
-    })
-  }, [hasMore, isFetching, loadedEventCount, onLoadMore])
-
-  useEffect(() => {
-    const marker = markerRef.current
-    const scrollPanel = marker?.parentElement
-    if (!marker || !scrollPanel || !hasMore) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) loadMore()
-      },
-      {
-        root: scrollPanel,
-        rootMargin: `${HISTORY_TOP_LOAD_THRESHOLD}px 0px 0px 0px`,
-        threshold: 0,
-      }
-    )
-
-    observer.observe(marker)
-    return () => observer.disconnect()
-  }, [hasMore, loadMore])
-
-  useLayoutEffect(() => {
-    const restore = restoreRef.current
-    if (!restore || isFetching) return
-
-    if (loadedEventCount <= restore.loadedEventCount) {
-      restoreRef.current = null
-      loadingRef.current = false
-      return
-    }
-
-    const delta = restore.scrollPanel.scrollHeight - restore.scrollHeight
-    restore.scrollPanel.scrollTop = restore.scrollTop + delta
-    restoreRef.current = null
-    loadingRef.current = false
-  }, [isFetching, loadedEventCount])
-
-  return (
-    <>
-      <div ref={markerRef} className="h-px" aria-hidden="true" />
-      {isFetching ? (
-        <div
-          className="bg-surface/95 pointer-events-none absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center rounded-full border border-border p-2 shadow-sm"
-          role="status"
-          aria-label="Loading older messages"
-        >
-          <Spinner size="sm" />
-        </div>
-      ) : null}
-    </>
-  )
 }
 
 function safeAgentById(id: string) {

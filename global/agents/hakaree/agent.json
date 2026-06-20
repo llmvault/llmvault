@@ -16,24 +16,62 @@
     "model": "deepseek-v4-pro",
     "available_models": [
       "deepseek-v4-pro",
+      "crof-deepseek-v4-pro",
+      "crof-deepseek-v4-flash",
       "qwen3.7-plus",
       "glm-5.1",
       "glm-5.2",
+      "crof-glm-5.2",
       "kimi-k2.6",
       "kimi-k2.7-code",
+      "crof-kimi-k2.7-code",
       "minimax-m3",
-      "mimo-v2.5-pro"
+      "mimo-v2.5-pro",
+      "crof-mimo-v2.5-pro"
     ],
     "multimodal_model": "gemini-3-flash-preview"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"
   },
+  "tools": {
+    "bash": true,
+    "read_file": true,
+    "write_file": true,
+    "file_search": true,
+    "glob": true,
+    "grep": true,
+    "multi_grep": true,
+    "apply_patch": true,
+    "lsp": true,
+    "check_bash_status": true,
+    "search_sessions": true,
+    "update_plan": true,
+    "skills_list": true,
+    "skill_view": true,
+    "skill_manage": true,
+    "subagent_task": true,
+    "check_subagent_task_status": true,
+    "wake": true,
+    "request_user_input": true
+  },
   "sub_agents": {
     "codebase-explorer": {
       "name": "Codebase Explorer",
       "description": "Traces code paths, dependencies, and tests.",
       "model": "deepseek-v4-flash",
+      "tools": {
+        "read_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "lsp": true,
+        "search_sessions": true,
+        "update_plan": true,
+        "skills_list": true,
+        "skill_view": true
+      },
       "prompt": {
         "instructions": "./sub_agents/codebase-explorer/instructions.md"
       }

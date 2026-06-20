@@ -261,6 +261,10 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
+	tools, err := buildRuntimeTools(ctx, deps.DB, agent)
+	if err != nil {
+		return nil, err
+	}
 	subAgents, err := buildSubAgents(ctx, deps, agent, modelID)
 	if err != nil {
 		return nil, err
@@ -275,6 +279,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel)),
 		Limits:           defaultLimits(),
 		Context:          contextMap,
+		Tools:            tools,
 		McpServers:       mcpServers,
 		Skills:           skills,
 		OutboundChannels: []any{},

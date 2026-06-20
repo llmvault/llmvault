@@ -66,10 +66,10 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 		t.Fatalf("expected base, instructions, and company prompt segments: %#v", cacheable)
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
-	if !strings.Contains(requirePromptString(t, base.Content), "Be proactive, take initiative, understand the business and your team") {
+	if !strings.Contains(requirePromptString(t, base.Content), "Default to action.") {
 		t.Fatalf("base system prompt missing from first cacheable segment: %#v", cacheable[0])
 	}
-	if !strings.Contains(requirePromptString(t, base.Content), "You are Aria, a real teammate") {
+	if !strings.Contains(requirePromptString(t, base.Content), "You are Aria, an AI agent running in Hivy's sandbox environment.") {
 		t.Fatalf("base identity missing agent sentence: %q", requirePromptString(t, base.Content))
 	}
 	instructionsSegment := requireStaticPromptSegment(t, cacheable[1])

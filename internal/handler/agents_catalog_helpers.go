@@ -183,7 +183,7 @@ func (h *AgentHandler) createCatalogAgent(ctx context.Context, tx *gorm.DB, orgI
 		SandboxSize:     model.DefaultAgentSandboxSize,
 		Model:           modelID,
 		AvailableModels: normalizeAgentAvailableModels(modelID, &availableModels),
-		Tools:           model.JSON{},
+		Tools:           cloneModelJSON(catalog.Tools),
 		McpServers:      model.RawJSON("[]"),
 		Skills:          model.JSON{},
 		Permissions:     permissions,

@@ -4,15 +4,12 @@ import { useState } from "react"
 import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import type { components } from "@/lib/api/schema"
-import { BrowserView } from "@/app/w/(chat)/_components/views/browser"
 import {
   FilesRepoSelector,
-  FilesView,
   type FilesRepoSelectorProps,
 } from "@/app/w/(chat)/_components/views/files"
-import { ReviewView } from "@/app/w/(chat)/_components/views/review"
-import { SideChatView } from "@/app/w/(chat)/_components/views/side-chat"
-import { TerminalView } from "@/app/w/(chat)/_components/views/terminal"
+import { ActiveView } from "./right-panel-active-view"
+import { LauncherRow } from "./right-panel-launcher"
 
 export type PanelViewID =
   | "review"
@@ -44,7 +41,7 @@ const PANEL_VIEWS: {
   },
 ]
 
-type SessionSandboxAccessResponse =
+export type SessionSandboxAccessResponse =
   components["schemas"]["sessionSandboxAccessResponse"]
 
 export function RightPanel({
@@ -208,80 +205,4 @@ export function RightPanel({
       </div>
     </div>
   )
-}
-
-function LauncherRow({
-  icon,
-  label,
-  shortcut,
-  compact,
-  onPress,
-}: {
-  icon: string
-  label: string
-  shortcut: string
-  compact?: boolean
-  onPress: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPress}
-      className={`hover:bg-default flex w-full items-center gap-2.5 rounded-xl text-left text-sm transition-colors ${
-        compact ? "px-2.5 py-1.5" : "bg-background px-3 py-2.5"
-      }`}
-    >
-      <Icon icon={icon} className="h-4 w-4 shrink-0 text-muted" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 font-sans text-xs text-muted">{shortcut}</span>
-    </button>
-  )
-}
-
-function ActiveView({
-  id,
-  sessionId,
-  sandboxAccess,
-  sandboxAccessPending,
-  sandboxAccessError,
-  onRefreshSandboxAccess,
-  onFilesHeaderChange,
-}: {
-  id: PanelViewID
-  sessionId?: string
-  sandboxAccess?: SessionSandboxAccessResponse
-  sandboxAccessPending: boolean
-  sandboxAccessError: unknown
-  onRefreshSandboxAccess: () => void
-  onFilesHeaderChange: (props: FilesRepoSelectorProps | null) => void
-}) {
-  switch (id) {
-    case "review":
-      return (
-        <ReviewView
-          sessionId={sessionId}
-          sandboxAccess={sandboxAccess}
-          sandboxAccessPending={sandboxAccessPending}
-          sandboxAccessError={sandboxAccessError}
-          onRefreshSandboxAccess={onRefreshSandboxAccess}
-        />
-      )
-    case "terminal":
-      return <TerminalView />
-    case "browser":
-      return <BrowserView />
-    case "files":
-      return (
-        <FilesView
-          sessionId={sessionId}
-          sandboxAccess={sandboxAccess}
-          sandboxAccessPending={sandboxAccessPending}
-          sandboxAccessError={sandboxAccessError}
-          onRefreshSandboxAccess={onRefreshSandboxAccess}
-          onHeaderChange={onFilesHeaderChange}
-        />
-      )
-    case "side-chat":
-      return <SideChatView />
-  }
 }

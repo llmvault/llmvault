@@ -121,6 +121,9 @@ func validateManifests(manifests []Manifest) error {
 		if !model.ValidSandboxImage(manifest.Runtime.SandboxImage) {
 			return fmt.Errorf("agent %q has invalid runtime sandbox_image %q", manifest.Slug, manifest.Runtime.SandboxImage)
 		}
+		if err := validateToolSelection(manifest.Slug, "tools", manifest.Tools); err != nil {
+			return err
+		}
 		if err := validateSubAgents(manifest); err != nil {
 			return err
 		}
@@ -143,11 +146,42 @@ func validateSubAgents(manifest Manifest) error {
 		if strings.TrimSpace(subAgent.Name) == "" {
 			return fmt.Errorf("agent %q subagent %q is missing name", manifest.Slug, key)
 		}
+		if err := validateToolSelection(manifest.Slug, "subagent "+key+" tools", subAgent.Tools); err != nil {
+			return err
+		}
 		modelID := strings.TrimSpace(subAgent.Model)
 		if modelID != "" {
 			if err := registry.Global().ValidateCanonicalModel(modelID); err != nil {
 				return fmt.Errorf("agent %q subagent %q model: %w", manifest.Slug, key, err)
 			}
+		}
+	}
+	return nil
+}
+
+func validateToolSelection(agent, path string, tools map[string]any) error {
+	keys := make([]string, 0, len(tools))
+	for key := range tools {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	seen := map[string]bool{}
+	for _, key := range keys {
+		cleanKey := strings.TrimSpace(key)
+		if cleanKey == "" {
+			return fmt.Errorf("agent %q %s includes an empty tool key", agent, path)
+		}
+		if seen[cleanKey] {
+			return fmt.Errorf("agent %q %s includes duplicate tool key %q after trimming", agent, path, cleanKey)
+		}
+		seen[cleanKey] = true
+		if !model.IsValidRuntimeBuiltInToolID(cleanKey) {
+			return fmt.Errorf("agent %q %s includes unknown runtime tool %q", agent, path, cleanKey)
+		}
+		switch tools[key].(type) {
+		case nil, bool, map[string]any:
+		default:
+			return fmt.Errorf("agent %q %s tool %q must be a boolean or config object", agent, path, cleanKey)
 		}
 	}
 	return nil

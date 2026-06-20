@@ -89,7 +89,12 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		Description:  &description,
 		Instructions: &instructions,
 		Model:        modelID,
+		Tools:        spec.Tools,
 		McpServers:   model.RawJSON("[]"),
+	}
+	tools, err := buildRuntimeToolsFromSelection(spec.Tools)
+	if err != nil {
+		return nil, fmt.Errorf("compile subagent %q tools: %w", key, err)
 	}
 	return &AgentDefinition{
 		Agent: AgentMeta{
@@ -101,6 +106,7 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel)),
 		Limits:           defaultLimits(),
 		Context:          map[string]any{"memory": buildMemoryContext(ctx, deps, parent)},
+		Tools:            tools,
 		McpServers:       []any{},
 		Skills:           []SkillSpec{},
 		OutboundChannels: []any{},
