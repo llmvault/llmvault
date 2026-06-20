@@ -15,9 +15,11 @@ export function assetPreviewAttachments(
     const url = cleanUrl(rawUrl)
     if (seen.has(url) || !isAssetPreviewUrl(url)) continue
     seen.add(url)
+    const filename = assetPreviewFilename(url)
+    if (!filename) continue
     attachments.push({
       id: `asset-preview:${hashString(keyPrefix)}:${attachments.length}:${hashString(url)}`,
-      filename: assetPreviewFilename(url),
+      filename,
       kind: "image",
       url,
     })
@@ -37,11 +39,50 @@ export function isAssetPreviewUrl(rawUrl: string) {
   }
 }
 
-function assetPreviewFilename(rawUrl: string) {
+function assetPreviewFilename(rawUrl: string): string | null {
   const url = new URL(rawUrl)
-  const path = url.searchParams.get("path") || url.pathname
+  const rawPath = rawSearchParam(url.search, "path")
+  const path =
+    rawPath === null
+      ? safeDecodeURIComponent(url.pathname)
+      : hasMalformedPercentEscape(rawPath)
+        ? null
+        : url.searchParams.get("path")
+  if (path === null) return null
   const filename = path.split("/").filter(Boolean).at(-1)
-  return filename ? decodeURIComponent(filename) : "asset-preview.png"
+  return filename || "asset-preview.png"
+}
+
+function rawSearchParam(search: string, key: string): string | null {
+  const query = search.startsWith("?") ? search.slice(1) : search
+  for (const part of query.split("&")) {
+    const separator = part.indexOf("=")
+    const rawKey = separator >= 0 ? part.slice(0, separator) : part
+    if (rawKey === key) {
+      return separator >= 0 ? part.slice(separator + 1) : ""
+    }
+  }
+  return null
+}
+
+function hasMalformedPercentEscape(value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    if (
+      value[index] === "%" &&
+      !/^[0-9a-fA-F]{2}$/.test(value.slice(index + 1, index + 3))
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function safeDecodeURIComponent(value: string) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return null
+  }
 }
 
 function cleanUrl(url: string) {
