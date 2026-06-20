@@ -94,6 +94,38 @@ func normalizeJSONPtr(value *model.JSON) model.JSON {
 	return *value
 }
 
+func cloneModelJSON(value model.JSON) model.JSON {
+	if len(value) == 0 {
+		return model.JSON{}
+	}
+	out := make(model.JSON, len(value))
+	for key, item := range value {
+		out[key] = cloneModelJSONValue(item)
+	}
+	return out
+}
+
+func cloneModelJSONValue(value any) any {
+	switch typed := value.(type) {
+	case model.JSON:
+		return cloneModelJSON(typed)
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = cloneModelJSONValue(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for index, item := range typed {
+			out[index] = cloneModelJSONValue(item)
+		}
+		return out
+	default:
+		return typed
+	}
+}
+
 func normalizeMCPServersForRequest(w http.ResponseWriter, raw *json.RawMessage) (model.RawJSON, bool) {
 	if raw == nil || len(*raw) == 0 || string(*raw) == "null" {
 		return model.RawJSON("[]"), true

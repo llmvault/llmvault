@@ -23,6 +23,7 @@ type AgentCatalog struct {
 	SandboxStrategy    string         `gorm:"not null;default:'per_session'"`
 	SandboxImage       string         `gorm:"type:text;not null;default:'default'"`
 	Instructions       string         `gorm:"type:text;not null;default:''"`
+	Tools              JSON           `gorm:"type:jsonb;not null;default:'{}'"`
 	SubAgents          RawJSON        `gorm:"type:jsonb;not null;default:'{}'"`
 	RequiredPlugins    pq.StringArray `gorm:"type:text[];default:'{}'"`
 	RecommendedPlugins pq.StringArray `gorm:"type:text[];default:'{}'"`
@@ -44,5 +45,6 @@ type AgentCatalogSubAgent struct {
 	Name         string `json:"name"`
 	Description  string `json:"description"`
 	Model        string `json:"model,omitempty"`
+	Tools        JSON   `json:"tools,omitempty"`
 	Instructions string `json:"instructions"`
 }

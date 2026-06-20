@@ -1,26 +1,28 @@
 "use client"
 
-import { useMemo, useState, type CSSProperties } from "react"
-import { Button, Spinner } from "@heroui/react"
+import { useMemo, useState } from "react"
+import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useQuery } from "@tanstack/react-query"
-import {
-  CommentablePatchDiff,
-  type CommentablePatchDiffProps,
-} from "@/app/w/(chat)/_components/diff-line-comments"
 import {
   RuntimeRepoAccessError,
   RuntimeRepoHTTPError,
   fetchRuntimeRepoDiff,
   fetchRuntimeRepos,
-  type RuntimeRepoInfo,
   type RuntimeSandboxAccess,
 } from "@/app/w/(chat)/_lib/runtime-repos"
 import { reviewDiffsQueryKey } from "@/app/w/(chat)/_lib/review-diffs-query"
-import { HIVY_DIFF_STYLE, hivyDiffOptions } from "@/lib/diffs-theme"
-
-type ReviewDiffStyle = "unified" | "split"
-type ReviewDiffOptions = NonNullable<CommentablePatchDiffProps["options"]>
+import { REVIEW_DIFF_BASE_OPTIONS } from "./review-diff-config"
+import { DiffStyleToggle } from "./review-diff-style-toggle"
+import { ReviewErrorState } from "./review-error-state"
+import { formatPatchCount } from "./review-format"
+import { RepoDiffSection } from "./review-repo-diff-section"
+import { ReviewEmptyState, ReviewLoadingState } from "./review-state"
+import type {
+  ReviewDiffOptions,
+  ReviewDiffsResult,
+  ReviewDiffStyle,
+} from "./review-types"
 
 interface ReviewViewProps {
   sessionId?: string
@@ -29,35 +31,6 @@ interface ReviewViewProps {
   sandboxAccessError: unknown
   onRefreshSandboxAccess: () => void
 }
-
-interface ReviewRepoDiff {
-  repo: RuntimeRepoInfo
-  patches: string[]
-}
-
-interface ReviewDiffsResult {
-  repos: RuntimeRepoInfo[]
-  repoDiffs: ReviewRepoDiff[]
-}
-
-const REVIEW_DIFF_BASE_OPTIONS = hivyDiffOptions({
-  overflow: "scroll",
-}) satisfies ReviewDiffOptions
-
-const REVIEW_DIFF_STYLE: CSSProperties & Record<`--${string}`, string> = {
-  ...HIVY_DIFF_STYLE,
-  "--diffs-font-size": "12px",
-  "--diffs-line-height": "20px",
-}
-
-const DIFF_STYLE_OPTIONS: {
-  id: ReviewDiffStyle
-  label: string
-  icon: string
-}[] = [
-  { id: "unified", label: "Unified", icon: "lucide:rows-3" },
-  { id: "split", label: "Split", icon: "lucide:columns-2" },
-]
 
 export function ReviewView({
   sessionId,
@@ -207,158 +180,6 @@ export function ReviewView({
   )
 }
 
-function DiffStyleToggle({
-  value,
-  onChange,
-}: {
-  value: ReviewDiffStyle
-  onChange: (value: ReviewDiffStyle) => void
-}) {
-  return (
-    <div className="bg-surface-secondary flex shrink-0 items-center gap-0.5 rounded-lg p-0.5">
-      {DIFF_STYLE_OPTIONS.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          aria-pressed={option.id === value}
-          onClick={() => onChange(option.id)}
-          className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-xs transition-colors ${
-            option.id === value
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted hover:text-foreground"
-          }`}
-        >
-          <Icon icon={option.icon} className="h-3.5 w-3.5 shrink-0" />
-          <span>{option.label}</span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function RepoDiffSection({
-  repoDiff,
-  options,
-}: {
-  repoDiff: ReviewRepoDiff
-  options: ReviewDiffOptions
-}) {
-  return (
-    <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
-      <div className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3">
-        <Icon
-          icon="lucide:git-branch"
-          className="h-3.5 w-3.5 shrink-0 text-muted"
-        />
-        <span className="min-w-0 truncate text-sm font-medium">
-          {repoDiff.repo.name}
-        </span>
-        <span className="min-w-0 truncate font-mono text-xs text-muted">
-          {repoDiff.repo.relative_path}
-        </span>
-        <span className="ml-auto shrink-0 text-xs text-muted">
-          {formatPatchCount(repoDiff.patches.length)}
-        </span>
-      </div>
-      <div className="flex min-w-0 flex-col">
-        {repoDiff.patches.map((patch, index) => (
-          <CommentablePatchDiff
-            key={`${repoDiff.repo.id}:${index}:${patch.slice(0, 48)}`}
-            patch={patch}
-            options={options}
-            source={{
-              kind: "review",
-              repoId: repoDiff.repo.id,
-              repoName: repoDiff.repo.name,
-              repoPath: repoDiff.repo.relative_path,
-            }}
-            className={index > 0 ? "border-t border-border" : undefined}
-            style={REVIEW_DIFF_STYLE}
-            disableWorkerPool
-          />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function ReviewLoadingState({ label }: { label: string }) {
-  return (
-    <div className="flex h-full flex-col gap-4 px-4 py-5">
-      <div className="flex items-center gap-2 text-sm text-muted">
-        <Spinner size="sm" aria-label={label} />
-        {label}
-      </div>
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div
-            key={index}
-            className="overflow-hidden rounded-lg border border-border bg-background"
-          >
-            <div className="h-9 border-b border-border px-3 py-2">
-              <div className="bg-default h-3.5 w-36 animate-pulse rounded" />
-            </div>
-            <div className="flex flex-col gap-2 p-3">
-              {Array.from({ length: 4 }).map((__, lineIndex) => (
-                <div
-                  key={lineIndex}
-                  className="bg-default h-3 animate-pulse rounded"
-                  style={{ width: `${60 + ((lineIndex + index) % 4) * 9}%` }}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function ReviewEmptyState({
-  icon,
-  title,
-  message,
-}: {
-  icon: string
-  title: string
-  message: string
-}) {
-  return (
-    <div className="flex h-full items-center justify-center px-6 text-center">
-      <div className="flex max-w-sm flex-col items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background">
-          <Icon icon={icon} className="h-5 w-5 text-muted" />
-        </div>
-        <div className="text-sm font-medium">{title}</div>
-        <p className="text-sm leading-6 text-muted">{message}</p>
-      </div>
-    </div>
-  )
-}
-
-function ReviewErrorState({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="flex h-full items-center justify-center px-6 text-center">
-      <div className="flex max-w-sm flex-col items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background">
-          <Icon icon="lucide:circle-alert" className="h-5 w-5 text-muted" />
-        </div>
-        <div className="text-sm font-medium">Review is not available</div>
-        <p className="text-sm leading-6 text-muted">{message}</p>
-        <Button size="sm" variant="secondary" onPress={onRetry}>
-          Retry
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 async function fetchReviewDiffs(
   access: RuntimeSandboxAccess,
   signal?: AbortSignal
@@ -393,10 +214,4 @@ function errorMessage(error: unknown, fallback: string) {
   if (error instanceof RuntimeRepoAccessError) return error.message
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
-}
-
-function formatPatchCount(count: number) {
-  return `${new Intl.NumberFormat().format(count)} ${
-    count === 1 ? "file" : "files"
-  }`
 }

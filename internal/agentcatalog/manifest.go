@@ -14,6 +14,7 @@ type Manifest struct {
 	Enabled      *bool                       `json:"enabled,omitempty"`
 	Default      *bool                       `json:"default,omitempty"`
 	Runtime      RuntimeManifest             `json:"runtime"`
+	Tools        map[string]any              `json:"tools,omitempty"`
 	Prompt       PromptManifest              `json:"prompt"`
 	Plugins      PluginManifest              `json:"plugins"`
 	SubAgents    map[string]SubAgentManifest `json:"sub_agents,omitempty"`
@@ -44,6 +45,7 @@ type SubAgentManifest struct {
 	Name         string         `json:"name"`
 	Description  string         `json:"description"`
 	Model        string         `json:"model"`
+	Tools        map[string]any `json:"tools,omitempty"`
 	Prompt       PromptManifest `json:"prompt"`
 	instructions string         `json:"-"`
 }

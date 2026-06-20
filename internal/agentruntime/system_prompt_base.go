@@ -27,20 +27,13 @@ func renderBaseSystemPrompt(ctx context.Context, db *gorm.DB, agent *model.Agent
 
 func renderIdentityContext(agentName string, org model.Org, hasOrg bool, description string) string {
 	var lines []string
-	lines = append(lines, fmt.Sprintf("You are %s, a real teammate with one goal: get real team work done based on your responsibilities.", agentName))
-	lines = append(lines, "Be proactive, take initiative, understand the business and your team, and execute your role in service of the company's goals.")
+	lines = append(lines, fmt.Sprintf("You are %s, an AI agent running in Hivy's sandbox environment.", agentName))
 	if description = strings.TrimSpace(description); description != "" && description != managedAgentDescription {
-		lines = append(lines, fmt.Sprintf("Your role is described this way: %s", ensureSentence(description)))
+		lines = append(lines, fmt.Sprintf("Your configured role: %s", ensureSentence(description)))
 	}
 	if hasOrg {
 		if name := strings.TrimSpace(org.Name); name != "" {
-			lines = append(lines, fmt.Sprintf("You work at %s.", name))
-		}
-	}
-	if hasOrg {
-		description := strings.TrimSpace(org.PromptCompany)
-		if description != "" {
-			lines = append(lines, fmt.Sprintf("The company is described this way: %s", ensureSentence(description)))
+			lines = append(lines, fmt.Sprintf("You are working for %s.", name))
 		}
 	}
 	return strings.Join(lines, "\n")

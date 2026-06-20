@@ -1,27 +1,20 @@
 "use client"
 
-import { useState, type ComponentType, type ReactNode } from "react"
-import { Button, Popover, Spinner } from "@heroui/react"
+import { useState } from "react"
+import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { modelById } from "@/app/w/(chat)/_lib/agents"
 import {
-  agentAvatarURL,
   agentDisplayName,
-  agentIcon,
   agentModel,
   channelDisplayName,
   type SidebarAgentResponse,
   type SidebarChannelResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
+import { Picker, PickerButton } from "./chat-picker"
+import { PickerText } from "./chat-picker-text"
+import { displayModel } from "./model-display"
 
 const EFFORTS = ["Low", "Medium", "High"]
-
-type DisplayModel = {
-  id: string
-  label: string
-  provider: string
-  Icon?: ComponentType<{ className?: string }>
-}
 
 export interface ChatComposerProps {
   channel?: SidebarChannelResponse
@@ -242,156 +235,5 @@ export function ChatComposer({
         </Button>
       </div>
     </div>
-  )
-}
-
-function Picker({
-  open,
-  setOpen,
-  label,
-  icon,
-  agent,
-  model,
-  value,
-  suffix,
-  width,
-  children,
-}: {
-  open: boolean
-  setOpen: (open: boolean) => void
-  label: string
-  icon?: string
-  agent?: SidebarAgentResponse
-  model?: DisplayModel
-  value: string
-  suffix?: string
-  width: string
-  children: ReactNode
-}) {
-  return (
-    <Popover isOpen={open} onOpenChange={setOpen}>
-      <Popover.Trigger
-        aria-label={label}
-        className="hover:bg-default flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors"
-      >
-        {agent ? (
-          <AgentLogo agent={agent} className="h-4 w-4 rounded-[5px]" />
-        ) : model ? (
-          <ModelIcon model={model} />
-        ) : (
-          <Icon icon={icon ?? "lucide:circle"} className="h-4 w-4 text-muted" />
-        )}
-        <span className="min-w-0 truncate font-medium">{value}</span>
-        {suffix ? <span className="shrink-0 text-muted">{suffix}</span> : null}
-        <Icon
-          icon="lucide:chevron-down"
-          className="h-3.5 w-3.5 shrink-0 text-muted"
-        />
-      </Popover.Trigger>
-      <Popover.Content
-        className={`${width} rounded-2xl border border-border p-1.5`}
-      >
-        <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-          {children}
-        </Popover.Dialog>
-      </Popover.Content>
-    </Popover>
-  )
-}
-
-function PickerButton({
-  icon,
-  agent,
-  model,
-  selected,
-  onPress,
-  description,
-  children,
-}: {
-  icon?: string
-  agent?: SidebarAgentResponse
-  model?: DisplayModel
-  selected?: boolean
-  onPress: () => void
-  description?: string
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPress}
-      className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
-    >
-      {agent ? (
-        <AgentLogo agent={agent} className="h-5 w-5 rounded-md" />
-      ) : model ? (
-        <ModelIcon model={model} />
-      ) : icon ? (
-        <Icon icon={icon} className="h-4 w-4 text-muted" />
-      ) : null}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate">{children}</span>
-        {description ? (
-          <span className="text-xs text-muted">{description}</span>
-        ) : null}
-      </span>
-      {selected ? <Icon icon="lucide:check" className="h-4 w-4" /> : null}
-    </button>
-  )
-}
-
-function PickerText({ children }: { children: ReactNode }) {
-  return <span className="px-2.5 py-1.5 text-sm text-muted">{children}</span>
-}
-
-function displayModel(id: string): DisplayModel {
-  try {
-    return modelById(id)
-  } catch {
-    return {
-      id,
-      label: id,
-      provider: "Agent model",
-    }
-  }
-}
-
-function ModelIcon({ model }: { model: DisplayModel }) {
-  const IconComponent = model.Icon
-  if (IconComponent) {
-    return <IconComponent className="h-4 w-4 shrink-0" />
-  }
-  return <Icon icon="lucide:brain" className="h-4 w-4 shrink-0 text-muted" />
-}
-
-function AgentLogo({
-  agent,
-  className,
-}: {
-  agent: SidebarAgentResponse
-  className: string
-}) {
-  const [failed, setFailed] = useState(false)
-  const avatarURL = agentAvatarURL(agent)
-  const fallbackIcon = agentIcon(agent)
-  const frameClassName = `${className} bg-default flex shrink-0 items-center justify-center overflow-hidden text-muted ring-1 ring-border/70`
-
-  if (avatarURL && !failed) {
-    return (
-      <span className={frameClassName}>
-        <img
-          src={avatarURL}
-          alt=""
-          className="h-full w-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      </span>
-    )
-  }
-
-  return (
-    <span className={frameClassName}>
-      <Icon icon={fallbackIcon} className="h-3.5 w-3.5" />
-    </span>
   )
 }

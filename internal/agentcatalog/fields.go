@@ -2,6 +2,7 @@ package agentcatalog
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 
 	"github.com/lib/pq"
@@ -33,6 +34,7 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		"sandbox_strategy":    strategy,
 		"sandbox_image":       sandboxImage,
 		"instructions":        strings.TrimSpace(manifest.instructions),
+		"tools":               normalizeToolSelection(manifest.Tools),
 		"sub_agents":          catalogSubAgentsJSON(manifest),
 		"required_plugins":    pq.StringArray(normalizeStrings(manifest.Plugins.Required)),
 		"recommended_plugins": pq.StringArray(normalizeStrings(manifest.Plugins.Recommended)),
@@ -56,6 +58,7 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.SandboxStrategy = updates["sandbox_strategy"].(string)
 	row.SandboxImage = updates["sandbox_image"].(string)
 	row.Instructions = updates["instructions"].(string)
+	row.Tools = updates["tools"].(model.JSON)
 	row.SubAgents = updates["sub_agents"].(model.RawJSON)
 	row.RequiredPlugins = updates["required_plugins"].(pq.StringArray)
 	row.RecommendedPlugins = updates["recommended_plugins"].(pq.StringArray)
@@ -106,6 +109,7 @@ func catalogSubAgentsJSON(manifest Manifest) model.RawJSON {
 			Name:         strings.TrimSpace(subAgent.Name),
 			Description:  strings.TrimSpace(subAgent.Description),
 			Model:        strings.TrimSpace(subAgent.Model),
+			Tools:        normalizeToolSelection(subAgent.Tools),
 			Instructions: strings.TrimSpace(subAgent.instructions),
 		}
 	}
@@ -118,4 +122,67 @@ func catalogSubAgentsJSON(manifest Manifest) model.RawJSON {
 
 func boolValue(value *bool) bool {
 	return value != nil && *value
+}
+
+func normalizeToolSelection(values map[string]any) model.JSON {
+	if len(values) == 0 {
+		return model.JSON{}
+	}
+	out := model.JSON{}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		cleanKey := strings.TrimSpace(key)
+		if cleanKey == "" || !toolSelectionEnabled(values[key]) {
+			continue
+		}
+		if config, ok := values[key].(map[string]any); ok {
+			out[cleanKey] = cloneToolConfig(config)
+			continue
+		}
+		out[cleanKey] = true
+	}
+	return out
+}
+
+func toolSelectionEnabled(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return false
+	case bool:
+		return typed
+	case map[string]any:
+		if enabled, ok := typed["enabled"].(bool); ok && !enabled {
+			return false
+		}
+		return true
+	default:
+		return true
+	}
+}
+
+func cloneToolConfig(config map[string]any) map[string]any {
+	out := make(map[string]any, len(config))
+	for key, value := range config {
+		out[key] = cloneToolConfigValue(value)
+	}
+	return out
+}
+
+func cloneToolConfigValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneToolConfig(typed)
+	case []any:
+		out := make([]any, len(typed))
+		for index, item := range typed {
+			out[index] = cloneToolConfigValue(item)
+		}
+		return out
+	default:
+		return typed
+	}
 }

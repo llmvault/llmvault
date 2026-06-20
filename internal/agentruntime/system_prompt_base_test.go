@@ -18,11 +18,9 @@ func TestRenderBaseSystemPrompt_PopulatesIdentityTag(t *testing.T) {
 
 	for _, want := range []string{
 		"<identity>",
-		"You are Ari, a real teammate with one goal: get real team work done based on your responsibilities.",
-		"Be proactive, take initiative, understand the business and your team, and execute your role in service of the company's goals.",
-		"Your role is described this way: Coordinates engineering work.",
-		"You work at ExampleCo.",
-		"The company is described this way: Builds field-service software.",
+		"You are Ari, an AI agent running in Hivy's sandbox environment.",
+		"Your configured role: Coordinates engineering work.",
+		"You are working for ExampleCo.",
 		"</identity>",
 	} {
 		if !strings.Contains(prompt, want) {
@@ -34,11 +32,11 @@ func TestRenderBaseSystemPrompt_PopulatesIdentityTag(t *testing.T) {
 func TestRenderBaseSystemPrompt_LeavesEmptyIdentityWhenOrgMissing(t *testing.T) {
 	prompt := renderBaseSystemPrompt(context.Background(), nil, nil, model.Org{}, false, "")
 
-	if strings.Contains(prompt, "You work at") || strings.Contains(prompt, "The company is described this way:") {
+	if strings.Contains(prompt, "You are working for") || strings.Contains(prompt, "Your configured role:") {
 		t.Fatalf("rendered base prompt should not invent company identity:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, "You are Hivy, a real teammate with one goal: get real team work done based on your responsibilities.") ||
-		!strings.Contains(prompt, "Be proactive, take initiative, understand the business and your team, and execute your role in service of the company's goals.") {
+	if !strings.Contains(prompt, "You are Hivy, an AI agent running in Hivy's sandbox environment.") ||
+		!strings.Contains(prompt, "<core_contract>") {
 		t.Fatalf("rendered base prompt should preserve role identity tag:\n%s", prompt)
 	}
 }
@@ -261,7 +259,7 @@ func TestResourcePhrases(t *testing.T) {
 	}
 }
 
-func TestDefaultCompanyPromptUsesSentences(t *testing.T) {
+func TestDefaultCompanyPromptUsesCompactFields(t *testing.T) {
 	got := defaultCompanyPrompt(model.Org{
 		Name:        "ExampleCo",
 		Website:     "https://example.com",
@@ -269,17 +267,12 @@ func TestDefaultCompanyPromptUsesSentences(t *testing.T) {
 	})
 
 	for _, want := range []string{
-		"You are a core member of the company ExampleCo.",
-		"Our main website is at https://example.com.",
-		"This is what we do: Builds field-service software.",
+		"Organization: ExampleCo.",
+		"Website: https://example.com.",
+		"Description: Builds field-service software.",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("default company prompt missing %q: %q", want, got)
-		}
-	}
-	for _, oldStyle := range []string{"Company name:", "Website:", "Company description:"} {
-		if strings.Contains(got, oldStyle) {
-			t.Fatalf("default company prompt still uses key/value style %q: %q", oldStyle, got)
 		}
 	}
 }

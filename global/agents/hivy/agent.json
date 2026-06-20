@@ -16,12 +16,29 @@
     "model": "deepseek-v4-flash",
     "available_models": [
       "deepseek-v4-flash",
+      "crof-deepseek-v4-flash",
       "step-3.7-flash"
     ],
     "multimodal_model": "gemini-3-flash-preview"
   },
   "prompt": {
     "instructions": "./prompts/instructions.md"
+  },
+  "tools": {
+    "bash": true,
+    "read_file": true,
+    "file_search": true,
+    "glob": true,
+    "grep": true,
+    "multi_grep": true,
+    "check_bash_status": true,
+    "search_sessions": true,
+    "update_plan": true,
+    "skills_list": true,
+    "skill_view": true,
+    "skill_manage": true,
+    "wake": true,
+    "request_user_input": true
   },
   "plugins": {
     "required": [],
