@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -19,7 +17,6 @@ import (
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/storage"
-	"github.com/usehivy/hivy/internal/tasks"
 	"github.com/usehivy/hivy/internal/transcription"
 )
 
@@ -100,20 +97,6 @@ func (h *SessionHandler) WithTranscription(kms *crypto.KeyWrapper, reader storag
 	}
 	h.transcriptionRegistry = reg
 	return h
-}
-
-func (h *SessionHandler) dispatchOrQueueSessionDelivery(ctx context.Context, sessionID uuid.UUID) (bool, error) {
-	if h.orchestrator != nil && h.compileDeps.EncKey != nil {
-		dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer).WithoutProvisioning()
-		if _, err := dispatcher.DispatchNext(ctx, sessionID); err == nil {
-			return false, nil
-		} else if errors.Is(err, tasks.ErrSessionTurnActive) {
-			return true, nil
-		} else if !errors.Is(err, tasks.ErrSessionRuntimeNotReady) && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return true, h.enqueueSessionDelivery(ctx, sessionID)
-		}
-	}
-	return true, h.enqueueSessionDelivery(ctx, sessionID)
 }
 
 type createSessionRequest struct {

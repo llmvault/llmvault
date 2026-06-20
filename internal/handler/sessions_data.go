@@ -116,17 +116,27 @@ func (h *SessionHandler) createUserMessageEvent(tx *gorm.DB, session *model.Sess
 	if err := tx.Create(&event).Error; err != nil {
 		return model.SessionEvent{}, err
 	}
+	return event, nil
+}
+
+func (h *SessionHandler) enqueueSessionMessageEvent(tx *gorm.DB, session *model.Session, event model.SessionEvent) error {
+	if session == nil || session.ID == uuid.Nil {
+		return fmt.Errorf("session message queue: session is required")
+	}
+	if event.ID == uuid.Nil {
+		return fmt.Errorf("session message queue: event is required")
+	}
 	queue := model.SessionMessageQueue{
 		OrgID:          session.OrgID,
 		SessionID:      session.ID,
 		SessionEventID: event.ID,
-		SequenceNumber: seq,
+		SequenceNumber: event.SequenceNumber,
 		Status:         "pending",
 	}
 	if err := tx.Create(&queue).Error; err != nil {
-		return model.SessionEvent{}, err
+		return fmt.Errorf("create session message queue row: %w", err)
 	}
-	return event, nil
+	return nil
 }
 
 func (h *SessionHandler) nextSessionSequence(tx *gorm.DB, sessionID uuid.UUID) (int64, error) {

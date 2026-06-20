@@ -87,16 +87,7 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 		return nil, nil, fmt.Errorf("get runtime client: %w", err)
 	}
 	if err := client.Readyz(ctx); err != nil {
-		if !h.allowProvisioning {
-			return nil, nil, ErrSessionRuntimeNotReady
-		}
-		if err := agentruntime.PushAgentRuntimeConfig(ctx, h.compileDeps, agent, sb); err != nil {
-			return nil, nil, fmt.Errorf("sync agent runtime: %w", err)
-		}
-		client, err = h.orchestrator.GetRuntimeClient(ctx, sb)
-		if err != nil {
-			return nil, nil, fmt.Errorf("get synced runtime client: %w", err)
-		}
+		return nil, nil, fmt.Errorf("%w: runtime readyz: %v", ErrSessionRuntimeNotReady, err)
 	}
 	return sb, client, nil
 }

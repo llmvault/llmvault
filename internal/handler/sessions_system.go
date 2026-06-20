@@ -82,26 +82,24 @@ func (h *SessionHandler) createSystemSession(ctx context.Context, req systemSess
 		AgentTurnStatus:   model.SessionAgentTurnIdle,
 		IntegrationScopes: model.JSON{},
 	}
-	var event model.SessionEvent
-	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&session).Error; err != nil {
-			return err
-		}
-		var err error
-		raw := req.Raw
-		event, err = h.createUserMessageEvent(tx, &session, nil, text, normalizeJSONPtr(&raw))
-		return err
-	})
+	raw := req.Raw
+	intent, err := h.createInitialSessionMessageIntent(ctx, &session, nil, text, normalizeJSONPtr(&raw))
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("create system session: %w", err)
 	}
-	if _, err := h.dispatchOrQueueSessionDelivery(ctx, session.ID); err != nil {
-		return nil, nil, true, fmt.Errorf("queue system session delivery: %w", err)
+	queued, err := h.dispatchSessionMessageIntent(ctx, intent)
+	if err != nil {
+		return nil, nil, queued, fmt.Errorf("send system session delivery: %w", err)
 	}
 	if autoName {
 		if err := h.enqueueSessionName(ctx, session.ID); err != nil {
 			logging.FromContext(ctx).WarnContext(ctx, "enqueue system session name task failed", "session_id", session.ID, "error", err)
 		}
 	}
-	return &session, &event, true, nil
+	if !queued {
+		if err := h.db.WithContext(ctx).First(&session, "id = ?", session.ID).Error; err != nil {
+			logging.FromContext(ctx).WarnContext(ctx, "reload system session after initial delivery failed", "session_id", session.ID, "error", err)
+		}
+	}
+	return &session, &intent.Event, queued, nil
 }
