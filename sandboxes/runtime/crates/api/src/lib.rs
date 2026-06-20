@@ -45,7 +45,6 @@ mod openapi {
             crate::handlers::get_session_detail,
             crate::handlers::healthz,
             crate::handlers::readyz,
-            crate::handlers::infra_readyz,
             crate::handlers::post_session_message,
             crate::handlers::post_session_interrupt,
             crate::handlers::post_question_answer,
@@ -199,7 +198,6 @@ pub fn build_router(state: ApiState) -> Router {
         )
         .route("/healthz", get(handlers::healthz))
         .route("/readyz", get(handlers::readyz))
-        .route("/infra/readyz", get(handlers::infra_readyz))
         .route(
             "/observability/traces/:trace_id/events",
             get(observability_handlers::get_trace_events),
@@ -266,7 +264,6 @@ mod openapi_tests {
             "/config".to_string(),
             "/control/commands".to_string(),
             "/healthz".to_string(),
-            "/infra/readyz".to_string(),
             "/observability/traces/{trace_id}/events".to_string(),
             "/observability/traces/{trace_id}/summary".to_string(),
             "/readyz".to_string(),

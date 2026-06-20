@@ -129,6 +129,9 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 		if route.Status != model.SandboxStatusRunning {
 			t.Fatalf("route status = %q, want running", route.Status)
 		}
+		if route.AutoSleepAfterSeconds != defaultAutoSleepAfter || route.SleepAfterAt == nil || route.LeaseExpiresAt.IsZero() || route.NextActivityAfter.IsZero() {
+			t.Fatalf("route lease metadata missing: %+v", route)
+		}
 		want := map[string]string{
 			"3000": "http://10.80.1.2:43000",
 			"5173": "http://10.80.1.2:45173",
@@ -163,6 +166,9 @@ func TestPreviewCacheRouteBuildsDirectUpstreams(t *testing.T) {
 	}
 	if route.Upstreams["3000"] != "http://10.80.1.2:43122" || route.Upstreams["5173"] != "http://10.80.1.2:45173" {
 		t.Fatalf("upstreams = %#v", route.Upstreams)
+	}
+	if route.LeaseExpiresAt.IsZero() || route.NextActivityAfter.IsZero() {
+		t.Fatalf("lease metadata missing: %+v", route)
 	}
 }
 

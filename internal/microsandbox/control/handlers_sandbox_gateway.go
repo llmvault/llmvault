@@ -19,9 +19,7 @@ import (
 )
 
 const (
-	readinessPortOpen     = "port_open"
-	readinessRuntimeReady = "runtime_ready"
-	defaultEnsureTimeout  = 90 * time.Second
+	defaultEnsureTimeout = 90 * time.Second
 )
 
 type sandboxRouteResponse struct {
@@ -36,21 +34,28 @@ type ensureReadyRequest struct {
 }
 
 type runnerEnsureReadyRequest struct {
-	GuestPort      int    `json:"guest_port"`
-	Readiness      string `json:"readiness"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
-	ProbeToken     string `json:"probe_token,omitempty"`
+	GuestPort      int `json:"guest_port"`
+	TimeoutSeconds int `json:"timeout_seconds"`
 }
 
 type runnerEnsureReadyResponse struct {
-	Status    string `json:"status"`
-	HostPort  int    `json:"host_port"`
-	Readiness string `json:"readiness"`
+	Status   string `json:"status"`
+	HostPort int    `json:"host_port"`
 }
 
 type sandboxActivityRequest struct {
 	Source      string `json:"source"`
 	RuntimeBusy *bool  `json:"runtime_busy,omitempty"`
+}
+
+type sandboxActivityBulkRequest struct {
+	Source      string   `json:"source"`
+	SandboxIDs  []string `json:"sandbox_ids"`
+	RuntimeBusy *bool    `json:"runtime_busy,omitempty"`
+}
+
+type sandboxActivityBulkResponse struct {
+	Routes []previewCacheRoute `json:"routes"`
 }
 
 type sandboxPolicyRequest struct {
@@ -80,12 +85,9 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "valid guest_port is required"})
 		return
 	}
-	if req.Readiness == "" {
-		req.Readiness = readinessPortOpen
-	}
-	if req.Readiness != readinessPortOpen && req.Readiness != readinessRuntimeReady {
-		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "readiness must be port_open or runtime_ready"})
-		return
+	if strings.TrimSpace(req.Readiness) != "" {
+		logging.FromContext(r.Context()).WarnContext(r.Context(), "deprecated ensure-ready readiness ignored",
+			"sandbox_id", chi.URLParam(r, "sandboxID"), "readiness", req.Readiness)
 	}
 
 	timeout := defaultEnsureTimeout
@@ -98,6 +100,12 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 	sandboxID := chi.URLParam(r, "sandboxID")
 	unlock := s.lifecycleLocks.Lock(sandboxID)
 	defer unlock()
+	distributedUnlock, err := s.acquireDistributedSandboxLock(ctx, sandboxID)
+	if err != nil {
+		httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{Error: err.Error()})
+		return
+	}
+	defer distributedUnlock()
 
 	sb, runner, ok := s.loadSandboxRunner(w, r.WithContext(ctx))
 	if !ok {
@@ -112,11 +120,9 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 		reservedRuntime = true
 	}
 	var out runnerEnsureReadyResponse
-	err := s.client.Post(ctx, runner.APIURL, "/v1/sandboxes/"+sb.ID+"/ensure-ready", runnerEnsureReadyRequest{
+	err = s.client.Post(ctx, runner.APIURL, "/v1/sandboxes/"+sb.ID+"/ensure-ready", runnerEnsureReadyRequest{
 		GuestPort:      req.GuestPort,
-		Readiness:      req.Readiness,
 		TimeoutSeconds: int(timeout.Seconds()),
-		ProbeToken:     sb.InfraProbeToken,
 	}, &out)
 	now := time.Now().UTC()
 	if err != nil {
@@ -130,12 +136,15 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sleepAfterAt := nextSleepAfter(sb, now)
 	if err := s.db.WithContext(ctx).Model(&sb).Updates(map[string]any{
 		"status":                   model.SandboxStatusRunning,
 		"stopped_at":               nil,
 		"last_gateway_activity_at": now,
 		"last_wake_at":             now,
 		"last_wake_error":          "",
+		"sleep_after_at":           sleepAfterAt,
+		"route_generation":         gorm.Expr("route_generation + 1"),
 	}).Error; err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to update sandbox status"})
 		return
@@ -145,6 +154,8 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 	sb.LastGatewayActivityAt = &now
 	sb.LastWakeAt = &now
 	sb.LastWakeError = ""
+	sb.SleepAfterAt = sleepAfterAt
+	sb.RouteGeneration++
 
 	route, err := s.routeForSandbox(ctx, sb, runner)
 	if err != nil {
@@ -153,9 +164,8 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 	}
 	s.syncPreviewRoute(ctx, sb, runner, routePorts(ctx, s.db, sb.ID))
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"status":    out.Status,
-		"readiness": out.Readiness,
-		"route":     route,
+		"status": out.Status,
+		"route":  route,
 	})
 }
 
@@ -175,25 +185,73 @@ func (s *Server) sandboxActivity(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid request body"})
 		return
 	}
-	now := time.Now().UTC()
-	updates := map[string]any{}
-	switch strings.ToLower(strings.TrimSpace(req.Source)) {
-	case "runtime":
-		updates["last_runtime_activity_at"] = now
-		if req.RuntimeBusy != nil {
-			updates["runtime_busy"] = *req.RuntimeBusy
-		}
-	default:
-		updates["last_gateway_activity_at"] = now
-	}
-	if len(updates) == 0 {
-		updates["last_gateway_activity_at"] = now
-	}
-	if err := s.db.WithContext(r.Context()).Model(&sb).Updates(updates).Error; err != nil {
+	if _, err := s.recordSandboxActivity(r.Context(), &sb, req.Source, req.RuntimeBusy); err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to record activity"})
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"status": "ok", "sandbox_id": sb.ID})
+}
+
+func (s *Server) sandboxActivityBulk(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.APIToken == "" || httpx.Bearer(r) != s.cfg.APIToken {
+		httpx.JSON(w, http.StatusUnauthorized, api.ErrorResponse{Error: "unauthorized"})
+		return
+	}
+	var req sandboxActivityBulkRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "invalid request body"})
+		return
+	}
+	seen := map[string]bool{}
+	routes := make([]previewCacheRoute, 0, len(req.SandboxIDs))
+	for _, sandboxID := range req.SandboxIDs {
+		sandboxID = strings.TrimSpace(sandboxID)
+		if sandboxID == "" || seen[sandboxID] {
+			continue
+		}
+		seen[sandboxID] = true
+		var sb model.Sandbox
+		if err := s.db.WithContext(r.Context()).First(&sb, "id = ?", sandboxID).Error; err != nil {
+			continue
+		}
+		route, err := s.recordSandboxActivity(r.Context(), &sb, req.Source, req.RuntimeBusy)
+		if err != nil {
+			logging.FromContext(r.Context()).WarnContext(r.Context(), "bulk activity update failed", "sandbox_id", sandboxID, "error", err)
+			continue
+		}
+		routes = append(routes, route)
+	}
+	httpx.JSON(w, http.StatusOK, sandboxActivityBulkResponse{Routes: routes})
+}
+
+func (s *Server) recordSandboxActivity(ctx context.Context, sb *model.Sandbox, source string, runtimeBusy *bool) (previewCacheRoute, error) {
+	now := time.Now().UTC()
+	updates := map[string]any{
+		"sleep_after_at": nextSleepAfter(*sb, now),
+	}
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "runtime":
+		updates["last_runtime_activity_at"] = now
+		if runtimeBusy != nil {
+			updates["runtime_busy"] = *runtimeBusy
+		}
+		sb.LastRuntimeActivityAt = &now
+		if runtimeBusy != nil {
+			sb.RuntimeBusy = *runtimeBusy
+		}
+	default:
+		updates["last_gateway_activity_at"] = now
+		sb.LastGatewayActivityAt = &now
+	}
+	if err := s.db.WithContext(ctx).Model(sb).Updates(updates).Error; err != nil {
+		return previewCacheRoute{}, err
+	}
+	sb.SleepAfterAt = nextSleepAfter(*sb, now)
+	var runner model.Runner
+	if err := s.db.WithContext(ctx).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
+		return previewCacheRoute{}, err
+	}
+	return s.routeForSandbox(ctx, *sb, runner)
 }
 
 func (s *Server) updateSandboxPolicy(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +268,13 @@ func (s *Server) updateSandboxPolicy(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.db.WithContext(r.Context()).Model(&sb).Update("auto_sleep_after_seconds", *req.AutoSleepAfterSeconds).Error; err != nil {
+	sb.AutoSleepAfterSeconds = *req.AutoSleepAfterSeconds
+	sleepAfterAt := nextSleepAfter(sb, time.Now().UTC())
+	if err := s.db.WithContext(r.Context()).Model(&sb).Updates(map[string]any{
+		"auto_sleep_after_seconds": *req.AutoSleepAfterSeconds,
+		"sleep_after_at":           sleepAfterAt,
+		"route_generation":         gorm.Expr("route_generation + 1"),
+	}).Error; err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to update policy"})
 		return
 	}
@@ -229,7 +293,7 @@ func (s *Server) authorizedSandboxActivity(r *http.Request, sb model.Sandbox) bo
 	if s.cfg.APIToken != "" && security.ConstantTimeStringEqual(token, s.cfg.APIToken) {
 		return true
 	}
-	return sb.InfraProbeToken != "" && security.ConstantTimeStringEqual(token, sb.InfraProbeToken)
+	return sb.ActivityToken != "" && security.ConstantTimeStringEqual(token, sb.ActivityToken)
 }
 
 func (s *Server) routeForSandbox(ctx context.Context, sb model.Sandbox, runner model.Runner) (previewCacheRoute, error) {

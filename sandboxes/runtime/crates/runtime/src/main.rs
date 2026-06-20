@@ -73,10 +73,6 @@ async fn main() -> Result<()> {
         "HIVY_RUNTIME_SECRET",
         "shared runtime bearer token",
     )?;
-    let infra_probe_token = runtime_env
-        .get("HIVY_INFRA_PROBE_TOKEN")
-        .cloned()
-        .unwrap_or_default();
     let bind_addr_text = runtime_env
         .get("HIVY_RUNTIME_BIND_ADDR")
         .cloned()
@@ -178,7 +174,6 @@ async fn main() -> Result<()> {
         session_repo.clone(),
         event_repo.clone(),
         runtime_secret,
-        infra_probe_token,
         workspace_root.clone(),
         Arc::new(LocalBashOperations),
         skill_writer,

@@ -59,6 +59,7 @@ func (s *Server) Routes() http.Handler {
 
 	r.Post("/v1/runners/register", s.registerRunner)
 	r.Post("/v1/runners/{runnerID}/heartbeat", s.runnerHeartbeat)
+	r.Post("/v1/sandboxes/activity/bulk", s.sandboxActivityBulk)
 	r.Post("/v1/sandboxes/{sandboxID}/activity", s.sandboxActivity)
 
 	r.Group(func(r chi.Router) {

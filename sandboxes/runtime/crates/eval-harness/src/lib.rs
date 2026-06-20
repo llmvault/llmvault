@@ -243,7 +243,6 @@ impl FakeRuntimeServer {
             Arc::new(NoopSessionRepo),
             Arc::new(NoopEventRepo),
             bearer_token.clone(),
-            String::new(),
             std::env::temp_dir(),
             Arc::new(LocalBashOperations),
             Arc::new(SkillWriter::new(

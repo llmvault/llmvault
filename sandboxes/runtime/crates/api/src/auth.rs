@@ -25,17 +25,6 @@ pub async fn bearer_auth(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("");
 
-    if path == "/infra/readyz" {
-        let token = state.infra_probe_token.read().await;
-        let expected = format!("Bearer {}", token.as_str());
-        if !token.is_empty()
-            && constant_time_eq(authorization_header.as_bytes(), expected.as_bytes())
-        {
-            return Ok(next.run(request).await);
-        }
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
     let runtime_secret_authorized = {
         let token = state.bearer_token.read().await;
         let expected = format!("Bearer {}", token.as_str());

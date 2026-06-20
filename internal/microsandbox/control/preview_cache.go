@@ -25,10 +25,22 @@ type PreviewCacheClient struct {
 }
 
 type previewCacheRoute struct {
-	SandboxID string            `json:"sandbox_id"`
-	Status    string            `json:"status"`
-	Upstreams map[string]string `json:"upstreams"`
+	SandboxID             string            `json:"sandbox_id"`
+	Status                string            `json:"status"`
+	Upstreams             map[string]string `json:"upstreams"`
+	RouteGeneration       int64             `json:"route_generation"`
+	AutoSleepAfterSeconds int               `json:"auto_sleep_after_seconds"`
+	SleepAfterAt          *time.Time        `json:"sleep_after_at,omitempty"`
+	LeaseExpiresAt        time.Time         `json:"lease_expires_at"`
+	NextActivityAfter     time.Time         `json:"next_activity_after"`
 }
+
+const (
+	routeLeaseSafetyMargin = 15 * time.Second
+	routeActivityInterval  = 30 * time.Second
+	routeNoSleepLease      = 10 * time.Minute
+	defaultAutoSleepAfter  = 300
+)
 
 func NewPreviewCacheClient(ctx context.Context, cfg config.Config) *PreviewCacheClient {
 	if cfg.PreviewCacheURL == "" && cfg.PreviewCacheToken == "" {
@@ -113,7 +125,45 @@ func previewCacheRouteFor(sb model.Sandbox, runner model.Runner, ports []model.S
 	if len(upstreams) == 0 {
 		return previewCacheRoute{}, fmt.Errorf("sandbox %s has no direct preview upstreams", sb.ID)
 	}
-	return previewCacheRoute{SandboxID: sb.ID, Status: sb.Status, Upstreams: upstreams}, nil
+	leaseExpiresAt, nextActivityAfter := routeLeaseTimes(sb, time.Now().UTC())
+	return previewCacheRoute{
+		SandboxID:             sb.ID,
+		Status:                sb.Status,
+		Upstreams:             upstreams,
+		RouteGeneration:       sb.RouteGeneration,
+		AutoSleepAfterSeconds: sb.AutoSleepAfterSeconds,
+		SleepAfterAt:          sb.SleepAfterAt,
+		LeaseExpiresAt:        leaseExpiresAt,
+		NextActivityAfter:     nextActivityAfter,
+	}, nil
+}
+
+func routeLeaseTimes(sb model.Sandbox, now time.Time) (time.Time, time.Time) {
+	if sb.Status != model.SandboxStatusRunning {
+		expired := now.Add(-time.Second)
+		return expired, expired
+	}
+	if sb.AutoSleepAfterSeconds <= 0 || sb.SleepAfterAt == nil {
+		expires := now.Add(routeNoSleepLease)
+		return expires, now.Add(routeActivityInterval)
+	}
+	expires := sb.SleepAfterAt.Add(-routeLeaseSafetyMargin)
+	if expires.Before(now) {
+		expires = now
+	}
+	nextActivity := now.Add(routeActivityInterval)
+	if nextActivity.After(expires) {
+		nextActivity = now
+	}
+	return expires, nextActivity
+}
+
+func nextSleepAfter(sb model.Sandbox, now time.Time) *time.Time {
+	if sb.AutoSleepAfterSeconds <= 0 {
+		return nil
+	}
+	out := now.Add(time.Duration(sb.AutoSleepAfterSeconds) * time.Second)
+	return &out
 }
 
 func previewUpstream(baseURL string, hostPort int) (string, error) {
@@ -199,18 +249,32 @@ func (s *Server) bulkSyncPreviewRoutes(ctx context.Context) {
 		logger.ErrorContext(ctx, "preview route bulk sync sandbox query failed", "error", err)
 		return
 	}
+	var runners []model.Runner
+	if err := s.db.WithContext(ctx).Find(&runners).Error; err != nil {
+		logger.ErrorContext(ctx, "preview route bulk sync runner query failed", "error", err)
+		return
+	}
+	runnerByID := make(map[string]model.Runner, len(runners))
+	for _, runner := range runners {
+		runnerByID[runner.ID] = runner
+	}
+	var allPorts []model.SandboxPort
+	if err := s.db.WithContext(ctx).Order("sandbox_id asc, guest_port asc").Find(&allPorts).Error; err != nil {
+		logger.ErrorContext(ctx, "preview route bulk sync ports query failed", "error", err)
+		return
+	}
+	portsBySandbox := map[string][]model.SandboxPort{}
+	for _, port := range allPorts {
+		portsBySandbox[port.SandboxID] = append(portsBySandbox[port.SandboxID], port)
+	}
 	routes := make([]previewCacheRoute, 0, len(sandboxes))
 	for _, sb := range sandboxes {
-		var runner model.Runner
-		if err := s.db.WithContext(ctx).First(&runner, "id = ?", sb.RunnerID).Error; err != nil {
+		runner, ok := runnerByID[sb.RunnerID]
+		if !ok {
 			logger.WarnContext(ctx, "preview route bulk sync skipped sandbox without runner", "sandbox_id", sb.ID, "runner_id", sb.RunnerID)
 			continue
 		}
-		var ports []model.SandboxPort
-		if err := s.db.WithContext(ctx).Order("guest_port asc").Find(&ports, "sandbox_id = ?", sb.ID).Error; err != nil {
-			logger.WarnContext(ctx, "preview route bulk sync skipped sandbox without ports", "sandbox_id", sb.ID, "error", err)
-			continue
-		}
+		ports := portsBySandbox[sb.ID]
 		if len(ports) == 0 {
 			continue
 		}

@@ -7,6 +7,11 @@
 		dns vercel {env.VERCEL_AUTH_API_TOKEN}
 	}
 
+	log {
+		output stdout
+		format json
+	}
+
 	handle /health {
 		respond "{{ caddy_preview_proxy_health_body | trim }}" 200
 	}

@@ -31,8 +31,7 @@ class Config:
     control_token: str
     wake_timeout_seconds: int
     activity_debounce_seconds: int
-    route_stale_seconds: int
-    runtime_port: int
+    route_cache_size: int
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -61,11 +60,7 @@ class Config:
             ),
             activity_debounce_seconds=_duration_seconds(
                 os.environ.get("HIVY_MICROSANDBOX_ACTIVITY_DEBOUNCE"),
-                5,
-            ),
-            route_stale_seconds=_duration_seconds(
-                os.environ.get("HIVY_MICROSANDBOX_ROUTE_STALE_AFTER"),
                 30,
             ),
-            runtime_port=int(os.environ.get("HIVY_MICROSANDBOX_RUNTIME_PORT", "7080")),
+            route_cache_size=int(os.environ.get("HIVY_MICROSANDBOX_ROUTE_CACHE_SIZE", "10000")),
         )

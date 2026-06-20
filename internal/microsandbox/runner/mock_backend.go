@@ -65,7 +65,19 @@ func (m *MockBackend) EnsureReady(_ context.Context, sandboxID string, req Ensur
 			}
 		}
 	}
-	return &EnsureReadyResponse{Status: "running", HostPort: hostPort, Readiness: req.Readiness}, nil
+	return &EnsureReadyResponse{Status: "running", HostPort: hostPort}, nil
+}
+func (m *MockBackend) Connections(_ context.Context, sandboxID string) (*ConnectionsResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	resp := &ConnectionsResponse{SandboxID: sandboxID, ByGuestPort: map[int]int{}, ByHostPort: map[int]int{}}
+	if sandbox := m.sandboxes[sandboxID]; sandbox != nil {
+		for _, port := range sandbox.Ports {
+			resp.ByGuestPort[port.GuestPort] = 0
+			resp.ByHostPort[port.HostPort] = 0
+		}
+	}
+	return resp, nil
 }
 func (m *MockBackend) DeleteSandbox(_ context.Context, sandboxID string) error {
 	m.mu.Lock()

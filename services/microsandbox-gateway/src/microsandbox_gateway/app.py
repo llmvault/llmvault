@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -16,12 +17,13 @@ from .control import ControlClient
 from .store import (
     RedisStore,
     Store,
+    acquire_activity_report,
     delete_route,
     load_route,
-    mark_activity,
     normalize_route,
+    route_activity_due,
+    route_lease_valid,
     route_running,
-    route_stale,
     store_route,
     upstream_for,
     wake_lock_key,
@@ -50,6 +52,41 @@ class AppState:
     store: Store
     control: ControlClient
     metrics: Metrics = field(default_factory=Metrics)
+    route_cache: LocalRouteCache = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.route_cache = LocalRouteCache(self.cfg.route_cache_size)
+
+
+@dataclass
+class ResolveResult:
+    route: dict[str, Any]
+    source: str
+
+
+class LocalRouteCache:
+    def __init__(self, max_size: int) -> None:
+        self.max_size = max(1, max_size)
+        self._routes: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+    def get(self, sandbox_id: str) -> dict[str, Any] | None:
+        route = self._routes.get(sandbox_id)
+        if route is None:
+            return None
+        self._routes.move_to_end(sandbox_id)
+        return dict(route)
+
+    def set(self, route: dict[str, Any]) -> None:
+        sandbox_id = str(route.get("sandbox_id") or "")
+        if not sandbox_id:
+            return
+        self._routes[sandbox_id] = dict(route)
+        self._routes.move_to_end(sandbox_id)
+        while len(self._routes) > self.max_size:
+            self._routes.popitem(last=False)
+
+    def delete(self, sandbox_id: str) -> None:
+        self._routes.pop(sandbox_id, None)
 
 
 STATE_KEY = web.AppKey("state", AppState)
@@ -111,6 +148,7 @@ async def metrics(request: web.Request) -> web.Response:
 async def lookup(request: web.Request) -> web.Response:
     state: AppState = request.app[STATE_KEY]
     cfg = state.cfg
+    started = time.monotonic()
     request_id = request.headers.get("X-Request-Id") or request.headers.get("X-Forwarded-Request-Id") or ""
     host = request.headers.get("X-Forwarded-Host") or request.headers.get("Host") or ""
     port, sandbox_id = parse_preview_host(host, cfg.base_domain)
@@ -119,7 +157,8 @@ async def lookup(request: web.Request) -> web.Response:
         return json_response(404, {"error": "invalid preview host"})
 
     try:
-        route = await resolve_route(state, sandbox_id, port, request_id)
+        result = await resolve_route(state, sandbox_id, port, request_id)
+        route = result.route
     except TimeoutError as exc:
         state.metrics.inc("lookup_wake_timeout")
         LOGGER.warning("sandbox wake timed out", extra={"sandbox_id": sandbox_id, "port": port, "error": str(exc)})
@@ -133,38 +172,46 @@ async def lookup(request: web.Request) -> web.Response:
     if not upstream:
         state.metrics.inc("lookup_missing_port")
         return json_response(404, {"error": "port not previewable"})
-    await report_activity(state, sandbox_id)
+    report_activity_if_due(state, route)
     state.metrics.inc("lookup_ok")
+    LOGGER.info(
+        "lookup ok",
+        extra={
+            "lookup_result": result.source,
+            "sandbox_id": sandbox_id,
+            "guest_port": port,
+            "request_id": request_id,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+            "lease_seconds": remaining_lease_seconds(route),
+        },
+    )
     return web.Response(status=204, headers={"X-Microsandbox-Upstream": upstream})
 
 
-async def resolve_route(state: AppState, sandbox_id: str, port: int, request_id: str) -> dict[str, Any]:
-    cfg = state.cfg
+async def resolve_route(state: AppState, sandbox_id: str, port: int, request_id: str) -> ResolveResult:
+    route = state.route_cache.get(sandbox_id)
+    if route_usable_for_port(route, port):
+        state.metrics.inc("lookup_memory_hit")
+        return ResolveResult(route=route, source="memory_hit")
+
     route = await load_route(state.store, sandbox_id)
-    runtime_port = port == cfg.runtime_port
-    if runtime_port:
-        return await ensure_ready(state, sandbox_id, port, "runtime_ready", request_id)
+    if route_usable_for_port(route, port):
+        state.route_cache.set(route)
+        state.metrics.inc("lookup_redis_hit")
+        return ResolveResult(route=route, source="redis_hit")
 
-    if route is None or route_stale(route, cfg.route_stale_seconds) or not upstream_for(route, port):
-        try:
-            route = await state.control.route(sandbox_id)
-            await store_route(state.store, route)
-            state.metrics.inc("control_route_lookup")
-        except Exception:
-            if route is None:
-                raise
+    route = await ensure_ready(state, sandbox_id, port, request_id)
+    return ResolveResult(route=route, source="ensure_ready")
 
-    if not route_running(route):
-        route = await ensure_ready(state, sandbox_id, port, "port_open", request_id)
 
-    return route
+def route_usable_for_port(route: dict[str, Any] | None, port: int) -> bool:
+    return route_running(route) and bool(upstream_for(route, port)) and route_lease_valid(route)
 
 
 async def ensure_ready(
     state: AppState,
     sandbox_id: str,
     port: int,
-    readiness: str,
     request_id: str,
 ) -> dict[str, Any]:
     cfg = state.cfg
@@ -180,11 +227,11 @@ async def ensure_ready(
             route = await state.control.ensure_ready(
                 sandbox_id,
                 port,
-                readiness,
                 cfg.wake_timeout_seconds,
                 request_id,
             )
             await store_route(state.store, route)
+            state.route_cache.set(route)
             state.metrics.inc("ensure_ready_owner")
             return route
         finally:
@@ -194,7 +241,8 @@ async def ensure_ready(
     deadline = time.time() + cfg.wake_timeout_seconds
     while time.time() < deadline:
         route = await load_route(state.store, sandbox_id)
-        if route_running(route) and upstream_for(route, port):
+        if route_usable_for_port(route, port):
+            state.route_cache.set(route)
             return route
         acquired = await state.store.set_value(
             lock_key,
@@ -207,11 +255,11 @@ async def ensure_ready(
                 route = await state.control.ensure_ready(
                     sandbox_id,
                     port,
-                    readiness,
                     cfg.wake_timeout_seconds,
                     request_id,
                 )
                 await store_route(state.store, route)
+                state.route_cache.set(route)
                 state.metrics.inc("ensure_ready_takeover")
                 return route
             finally:
@@ -220,14 +268,32 @@ async def ensure_ready(
     raise TimeoutError(f"waited {cfg.wake_timeout_seconds}s for {sandbox_id}")
 
 
-async def report_activity(state: AppState, sandbox_id: str) -> None:
-    should_report = await mark_activity(state.store, sandbox_id, state.cfg.activity_debounce_seconds)
-    if not should_report:
+def remaining_lease_seconds(route: dict[str, Any]) -> int:
+    value = route.get("lease_expires_at")
+    from .store import parse_route_time
+
+    expires_at = parse_route_time(value)
+    if expires_at is None:
+        return 0
+    return max(0, int(expires_at - time.time()))
+
+
+def report_activity_if_due(state: AppState, route: dict[str, Any]) -> None:
+    if not route_activity_due(route):
+        return
+    sandbox_id = str(route.get("sandbox_id") or "")
+    if not sandbox_id:
         return
 
     async def send() -> None:
         try:
-            await state.control.activity(sandbox_id, "gateway")
+            acquired = await acquire_activity_report(state.store, sandbox_id, state.cfg.activity_debounce_seconds)
+            if not acquired:
+                return
+            routes = await state.control.activity_bulk([sandbox_id], "gateway")
+            for refreshed in routes:
+                await store_route(state.store, refreshed)
+                state.route_cache.set(refreshed)
             state.metrics.inc("activity_reported")
         except Exception as exc:
             state.metrics.inc("activity_error")
@@ -253,18 +319,25 @@ async def put_route(request: web.Request) -> web.Response:
     sandbox_id = request.match_info.get("sandbox_id")
     if request.path == "/v1/routes/bulk":
         routes = [normalize_route(item) for item in body.get("routes", [])]
+        state = request.app[STATE_KEY]
         for route in routes:
-            await store_route(request.app[STATE_KEY].store, route)
+            await store_route(state.store, route)
+            state.route_cache.set(route)
         return json_response(200, {"stored": len(routes)})
     route = normalize_route(body, sandbox_id)
-    await store_route(request.app[STATE_KEY].store, route)
+    state = request.app[STATE_KEY]
+    await store_route(state.store, route)
+    state.route_cache.set(route)
     return json_response(200, route)
 
 
 async def delete_route_handler(request: web.Request) -> web.Response:
     if not require_admin(request):
         return json_response(401, {"error": "unauthorized"})
-    deleted = await delete_route(request.app[STATE_KEY].store, request.match_info["sandbox_id"])
+    sandbox_id = request.match_info["sandbox_id"]
+    state = request.app[STATE_KEY]
+    deleted = await delete_route(state.store, sandbox_id)
+    state.route_cache.delete(sandbox_id)
     return json_response(200, {"deleted": deleted})
 
 

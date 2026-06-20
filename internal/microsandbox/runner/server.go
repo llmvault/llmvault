@@ -57,6 +57,7 @@ func (s *Server) Routes() http.Handler {
 		r.Post("/v1/sandboxes/{sandboxID}/start", s.startSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/stop", s.stopSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/ensure-ready", s.ensureSandboxReady)
+		r.Get("/v1/sandboxes/{sandboxID}/connections", s.sandboxConnections)
 		r.Post("/v1/sandboxes/{sandboxID}/delete", s.deleteSandbox)
 		r.Post("/v1/sandboxes/{sandboxID}/exec", s.execSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}/logs", s.logsSandbox)

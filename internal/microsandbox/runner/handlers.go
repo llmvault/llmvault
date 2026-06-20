@@ -56,6 +56,15 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) sandboxConnections(w http.ResponseWriter, r *http.Request) {
+	resp, err := s.backend.Connections(r.Context(), chi.URLParam(r, "sandboxID"))
+	if err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) deleteSandbox(w http.ResponseWriter, r *http.Request) {
 	if err := s.backend.DeleteSandbox(r.Context(), chi.URLParam(r, "sandboxID")); err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

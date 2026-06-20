@@ -19,19 +19,20 @@ import (
 )
 
 type createSandboxRequest struct {
-	OrgID           string             `json:"org_id"`
-	Name            string             `json:"name"`
-	ImageRef        string             `json:"image_ref"`
-	TemplateID      string             `json:"template_id"`
-	Size            string             `json:"size"`
-	CPU             int                `json:"cpu"`
-	MemoryMB        int                `json:"memory_mb"`
-	DiskGB          int                `json:"disk_gb"`
-	PreviewPorts    []int              `json:"preview_ports"`
-	PreviewPassword string             `json:"preview_password"`
-	Init            *sandboxInitConfig `json:"init"`
-	Env             map[string]string  `json:"env"`
-	Metadata        map[string]any     `json:"metadata"`
+	OrgID                 string             `json:"org_id"`
+	Name                  string             `json:"name"`
+	ImageRef              string             `json:"image_ref"`
+	TemplateID            string             `json:"template_id"`
+	Size                  string             `json:"size"`
+	CPU                   int                `json:"cpu"`
+	MemoryMB              int                `json:"memory_mb"`
+	DiskGB                int                `json:"disk_gb"`
+	PreviewPorts          []int              `json:"preview_ports"`
+	PreviewPassword       string             `json:"preview_password"`
+	AutoSleepAfterSeconds int                `json:"auto_sleep_after_seconds"`
+	Init                  *sandboxInitConfig `json:"init"`
+	Env                   map[string]string  `json:"env"`
+	Metadata              map[string]any     `json:"metadata"`
 }
 
 type sandboxResponse struct {
@@ -86,18 +87,21 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to prepare preview password"})
 		return
 	}
-	probeToken, err := security.RandomToken(32)
-	if err != nil {
-		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to allocate probe token"})
-		return
-	}
 	if req.Env == nil {
 		req.Env = map[string]string{}
 	}
-	req.Env["HIVY_INFRA_PROBE_TOKEN"] = probeToken
+	activityToken, err := security.RandomToken(32)
+	if err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to allocate activity token"})
+		return
+	}
 	req.Env["HIVY_MICROSANDBOX_ID"] = id
+	req.Env["HIVY_MICROSANDBOX_ACTIVITY_TOKEN"] = activityToken
 	if strings.TrimSpace(s.cfg.ControlURL) != "" {
 		req.Env["HIVY_MICROSANDBOX_CONTROL_URL"] = strings.TrimRight(s.cfg.ControlURL, "/")
+	}
+	if req.AutoSleepAfterSeconds <= 0 {
+		req.AutoSleepAfterSeconds = defaultAutoSleepAfter
 	}
 
 	var sb model.Sandbox
@@ -114,7 +118,8 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		sb = model.Sandbox{
 			ID: id, OrgID: req.OrgID, RunnerID: runner.ID, Name: req.Name, ImageRef: req.ImageRef,
 			Status: model.SandboxStatusCreating, CPU: size.CPU, MemoryMB: size.MemoryMB,
-			DiskGB: size.DiskGB, MetadataJSON: string(metadata), InfraProbeToken: probeToken,
+			DiskGB: size.DiskGB, MetadataJSON: string(metadata),
+			AutoSleepAfterSeconds: req.AutoSleepAfterSeconds, RouteGeneration: 1, ActivityToken: activityToken,
 		}
 		return tx.Create(&sb).Error
 	})
@@ -145,15 +150,23 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 			ID: uuid.NewString(), SandboxID: sb.ID, GuestPort: p.GuestPort, HostPort: p.HostPort, Protocol: "http",
 		})
 	}
+	now := time.Now().UTC()
+	sleepAfterAt := nextSleepAfter(sb, now)
 	_ = s.db.Transaction(func(tx *gorm.DB) error {
 		if len(ports) > 0 {
 			if err := tx.Create(&ports).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Model(&sb).Update("status", model.SandboxStatusRunning).Error
+		return tx.Model(&sb).Updates(map[string]any{
+			"status":         model.SandboxStatusRunning,
+			"sleep_after_at": sleepAfterAt,
+			"last_wake_at":   now,
+		}).Error
 	})
 	sb.Status = model.SandboxStatusRunning
+	sb.SleepAfterAt = sleepAfterAt
+	sb.LastWakeAt = &now
 	s.syncPreviewRoute(r.Context(), sb, runner, ports)
 	resp := sandboxResponse{Sandbox: sb, Ports: ports, PreviewURLs: s.previewURLs(sb.ID, ports)}
 	resp.PreviewPassword = password
@@ -214,6 +227,12 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 	sandboxID := chi.URLParam(r, "sandboxID")
 	unlock := s.lifecycleLocks.Lock(sandboxID)
 	defer unlock()
+	distributedUnlock, err := s.acquireDistributedSandboxLock(r.Context(), sandboxID)
+	if err != nil {
+		httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{Error: err.Error()})
+		return
+	}
+	defer distributedUnlock()
 
 	sb, runner, ok := s.loadSandboxRunner(w, r)
 	if !ok {
@@ -236,13 +255,20 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 		httpx.JSON(w, http.StatusBadGateway, api.ErrorResponse{Error: err.Error()})
 		return
 	}
-	updates := map[string]any{"status": nextStatus}
+	now := time.Now().UTC()
+	updates := map[string]any{
+		"status":           nextStatus,
+		"route_generation": gorm.Expr("route_generation + 1"),
+	}
 	if nextStatus == model.SandboxStatusStopped {
-		updates["stopped_at"] = time.Now()
+		updates["stopped_at"] = now
+		updates["sleep_after_at"] = nil
 	} else if nextStatus == model.SandboxStatusRunning {
 		updates["stopped_at"] = nil
+		updates["sleep_after_at"] = nextSleepAfter(sb, now)
+		updates["last_wake_at"] = now
 	}
-	err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
 		if nextStatus == model.SandboxStatusStopped && runtimeReservationHeld(sb.Status) {
 			if err := releaseRunnerReservationForSandboxTx(tx, sb, runtimeReservationSize(sb)); err != nil {
 				return err
@@ -255,6 +281,15 @@ func (s *Server) lifecycle(w http.ResponseWriter, r *http.Request, action, nextS
 		return
 	}
 	sb.Status = nextStatus
+	sb.RouteGeneration++
+	if nextStatus == model.SandboxStatusRunning {
+		sb.StoppedAt = nil
+		sb.LastWakeAt = &now
+		sb.SleepAfterAt = nextSleepAfter(sb, now)
+	} else if nextStatus == model.SandboxStatusStopped {
+		sb.StoppedAt = &now
+		sb.SleepAfterAt = nil
+	}
 	var ports []model.SandboxPort
 	if err := s.db.Order("guest_port asc").Find(&ports, "sandbox_id = ?", sb.ID).Error; err == nil {
 		s.syncPreviewRoute(r.Context(), sb, runner, ports)
@@ -266,6 +301,12 @@ func (s *Server) deleteSandbox(w http.ResponseWriter, r *http.Request) {
 	sandboxID := chi.URLParam(r, "sandboxID")
 	unlock := s.lifecycleLocks.Lock(sandboxID)
 	defer unlock()
+	distributedUnlock, err := s.acquireDistributedSandboxLock(r.Context(), sandboxID)
+	if err != nil {
+		httpx.JSON(w, http.StatusServiceUnavailable, api.ErrorResponse{Error: err.Error()})
+		return
+	}
+	defer distributedUnlock()
 
 	sb, runner, ok := s.loadSandboxRunner(w, r)
 	if !ok {
