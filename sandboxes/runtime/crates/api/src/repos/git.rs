@@ -56,13 +56,13 @@ pub(super) async fn git_status(repo_path: &Path) -> Result<BTreeMap<String, Stri
     Ok(statuses)
 }
 
-/// Returns the SHA of the local default branch (e.g. `main`, `master`).
+/// Returns the SHA of the remote default branch (e.g. `origin/main`).
 /// Tries `git symbolic-ref refs/remotes/origin/HEAD` first (set during
-/// clone, no network needed), then falls back to checking for a local
-/// `main` or `master` ref. Returns `None` if no default branch can be
-/// determined (e.g. a fresh local repo with no remote).
+/// clone, no network needed). Returns `None` if no default branch can be
+/// determined (e.g. a fresh local repo with no remote, or a remote without
+/// an `origin/HEAD` symbolic ref).
 pub(super) async fn default_branch_sha(repo_path: &Path) -> Option<String> {
-    // Try the remote HEAD symbolic ref first — this is set automatically
+    // Try the remote HEAD symbolic ref first; this is set automatically
     // when cloning and doesn't require network access.
     let remote_head = git_output(
         repo_path,
@@ -77,13 +77,12 @@ pub(super) async fn default_branch_sha(repo_path: &Path) -> Option<String> {
     .trim()
     .to_string();
 
-    // remote_head looks like "origin/main" — strip the "origin/" prefix.
-    let branch = remote_head
-        .strip_prefix("origin/")
-        .unwrap_or(&remote_head);
+    if remote_head.is_empty() {
+        return None;
+    }
 
-    // Resolve the local ref for that branch.
-    let sha = git_output(repo_path, &["rev-parse".into(), branch.to_string()])
+    // Resolve the remote-tracking ref, even when no local main branch exists.
+    let sha = git_output(repo_path, &["rev-parse".into(), remote_head])
         .await
         .ok()?
         .trim()

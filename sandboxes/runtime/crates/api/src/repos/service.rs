@@ -11,7 +11,9 @@ use tracing::warn;
 
 use crate::session_stream::SessionStreamBroker;
 
-use super::git::{changed_paths, default_branch_sha, git_output, git_status, snapshot_repo, RepoSnapshot};
+use super::git::{
+    changed_paths, default_branch_sha, git_output, git_status, snapshot_repo, RepoSnapshot,
+};
 use super::types::{
     ContentResponse, DiffResponse, RepoInfo, RepoListResponse, TreeEntry, TreeResponse,
 };
@@ -311,7 +313,9 @@ impl RepoService {
             .unwrap_or_default()
             .trim()
             .to_string();
-        let base_sha = default_branch_sha(path).await.unwrap_or_else(|| head.clone());
+        let base_sha = default_branch_sha(path)
+            .await
+            .unwrap_or_else(|| head.clone());
         let relative = path
             .strip_prefix(&self.root)
             .context("repo outside workspace")?
@@ -515,16 +519,29 @@ mod tests {
         // Add a bare "remote" and set origin/HEAD so default_branch_sha can resolve.
         let bare = repos.join("feature-repo-remote.git");
         git(&repo_path, &["init", "--bare", bare.to_str().unwrap()]).await;
-        git(&repo_path, &["remote", "add", "origin", bare.to_str().unwrap()]).await;
+        git(
+            &repo_path,
+            &["remote", "add", "origin", bare.to_str().unwrap()],
+        )
+        .await;
         git(&repo_path, &["branch", "-M", "main"]).await;
         git(&repo_path, &["push", "origin", "main"]).await;
-        git(&repo_path, &["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]).await;
+        git(
+            &repo_path,
+            &[
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
+                "refs/remotes/origin/main",
+            ],
+        )
+        .await;
 
         let broker = Arc::new(SessionStreamBroker::new());
         let service = RepoService::new(workspace.clone(), broker.clone());
 
         // Create a feature branch and make a commit.
         git(&repo_path, &["checkout", "-b", "feature/test"]).await;
+        git(&repo_path, &["branch", "-D", "main"]).await;
         tokio::fs::write(repo_path.join("README.md"), "hello\nchanged\n")
             .await
             .unwrap();
