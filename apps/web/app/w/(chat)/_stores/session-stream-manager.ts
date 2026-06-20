@@ -331,7 +331,12 @@ async function refreshSessionQueries(queryClient: QueryClient, sessionId: string
 }
 
 function isTerminalFrame(event: string) {
-  return event === "done" || event === "turn_failed" || event === "error"
+  return (
+    event === "done" ||
+    event === "turn_completed" ||
+    event === "turn_failed" ||
+    event === "error"
+  )
 }
 
 function terminalFrameErrorMessage(data: unknown) {

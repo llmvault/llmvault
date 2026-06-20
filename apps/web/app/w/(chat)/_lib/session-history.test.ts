@@ -39,6 +39,28 @@ describe("sessionEventsToConversationBlocks", () => {
     expect(events).toEqual([first, duplicate, oldest])
   })
 
+  it("dedupes live and persisted copies of the same runtime event", () => {
+    const persisted = {
+      ...event("thinking", {
+        text: "shared",
+        turn_id: "turn-page",
+      }),
+      id: "db-event-id",
+      event_id: "runtime-event-id",
+    }
+    const live = {
+      ...persisted,
+      id: "runtime-event-id",
+    }
+
+    const events = sessionHistoryPagesToEvents([
+      { data: [persisted] },
+      { data: [live] },
+    ])
+
+    expect(events).toEqual([persisted])
+  })
+
   it("keeps visible block keys stable when older history is prepended", () => {
     const current = event("final", {
       text: "Visible answer",
@@ -803,6 +825,98 @@ Primary category: Product UI
         text: "Still working",
         streaming: true,
       },
+    ])
+  })
+
+  it("keeps active turn progress inside one worklog until a final signal", () => {
+    const blocks = sessionEventsToConversationBlocks(
+      [
+        event("turn_started", { turn_id: "turn-active" }),
+        event("thinking", {
+          text: "Looking around",
+          turn_id: "turn-active",
+        }),
+        event("token", {
+          text: "Let me inspect the workspace first.",
+          turn_id: "turn-active",
+        }),
+        event("tool_result", {
+          id: "tool-active",
+          tool: "bash",
+          result: { command: "ls", output: "repos" },
+          turn_id: "turn-active",
+        }),
+        event("thinking", {
+          text: "Checking the result",
+          turn_id: "turn-active",
+        }),
+      ],
+      { activeTurnID: "turn-active" }
+    )
+
+    expect(blocks).toMatchObject([
+      {
+        type: "worklog",
+        active: true,
+        defaultExpanded: true,
+        blocks: [
+          { type: "thinking", text: "Looking around" },
+          {
+            type: "assistant",
+            text: "Let me inspect the workspace first.",
+            streaming: true,
+          },
+          { type: "tool" },
+          { type: "thinking", text: "Checking the result" },
+        ],
+      },
+    ])
+    expect(blocks.some((block) => block.type === "actions")).toBe(false)
+  })
+
+  it("shows actions only after the active turn emits a final answer", () => {
+    const blocks = sessionEventsToConversationBlocks(
+      [
+        event("turn_started", { turn_id: "turn-active-final" }),
+        event("thinking", {
+          text: "Looking around",
+          turn_id: "turn-active-final",
+        }),
+        event("token", {
+          text: "Let me inspect the workspace first.",
+          turn_id: "turn-active-final",
+        }),
+        event("tool_result", {
+          id: "tool-active-final",
+          tool: "bash",
+          result: { command: "ls", output: "repos" },
+          turn_id: "turn-active-final",
+        }),
+        event("final", {
+          text: "The workspace is ready.",
+          turn_id: "turn-active-final",
+        }),
+      ],
+      { activeTurnID: "turn-active-final" }
+    )
+
+    expect(blocks).toMatchObject([
+      {
+        type: "worklog",
+        active: false,
+        defaultExpanded: false,
+        blocks: [
+          { type: "thinking", text: "Looking around" },
+          {
+            type: "assistant",
+            text: "Let me inspect the workspace first.",
+            streaming: false,
+          },
+          { type: "tool" },
+        ],
+      },
+      { type: "assistant", text: "The workspace is ready." },
+      { type: "actions" },
     ])
   })
 

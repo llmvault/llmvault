@@ -68,6 +68,12 @@ describe("live session stream", () => {
     )
   })
 
+  it("treats turn_completed frames as terminal", () => {
+    expect(
+      isTerminalStreamFrame(frame("turn_completed", { turn_id: "turn-1" }))
+    ).toBe(true)
+  })
+
   it("passes plan updates through as live session events", () => {
     const events = appendLiveSessionStreamFrame(
       [],

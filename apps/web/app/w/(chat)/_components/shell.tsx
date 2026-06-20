@@ -72,6 +72,10 @@ export interface ChatSession {
   agentAvatarURL?: string
   modelId: string
   initialMessage?: string
+  agentTurnStatus?: string
+  agentTurnID?: string
+  agentTurnStartedAt?: string
+  lastTurnOutcome?: string
 }
 
 interface WorkspaceContextValue {
@@ -735,6 +739,10 @@ function chatSessionFromResponse(
       session.model?.trim() ||
       agentModel(apiAgent) ||
       fallbackAgent.defaultModelId,
+    agentTurnStatus: session.agent_turn_status,
+    agentTurnID: session.agent_turn_id,
+    agentTurnStartedAt: session.agent_turn_started_at,
+    lastTurnOutcome: session.last_turn_outcome,
   }
 }
 

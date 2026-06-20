@@ -231,6 +231,10 @@ function chatSessionFromResponse(
     agentIcon: apiAgent ? agentIcon(apiAgent) : fallback.icon,
     agentAvatarURL: agentAvatarURL(apiAgent),
     modelId,
+    agentTurnStatus: session.agent_turn_status,
+    agentTurnID: session.agent_turn_id,
+    agentTurnStartedAt: session.agent_turn_started_at,
+    lastTurnOutcome: session.last_turn_outcome,
   }
 }
 

@@ -98,21 +98,28 @@ export function SessionThreadView({
     () => historyEvents.some(isPendingClientEvent),
     [historyEvents]
   )
-  const historyBlocks = useMemo(
+  const combinedEvents = useMemo(
     () =>
-      historyPages?.length
-        ? sessionEventsToConversationBlocks(historyEvents)
-        : null,
-    [historyEvents, historyPages?.length]
+      sessionHistoryPagesToEvents([
+        { data: historyEvents },
+        { data: liveEvents },
+      ]),
+    [historyEvents, liveEvents]
   )
-  const baseBlocks = historyBlocks ?? []
-  const liveBlocks = useMemo(
-    () => sessionEventsToConversationBlocks(liveEvents, { mode: "live" }),
-    [liveEvents]
+  const activeTurnID = turnActive
+    ? session.agentTurnID?.trim() || latestTurnID(liveEvents)
+    : undefined
+  const visibleBlocks = useMemo(
+    () =>
+      sessionEventsToConversationBlocks(combinedEvents, {
+        activeTurnID,
+        activeTurnStartedAt: session.agentTurnStartedAt,
+      }),
+    [activeTurnID, combinedEvents, session.agentTurnStartedAt]
   )
   const latestPlan = useMemo(
-    () => latestSessionPlan([...historyEvents, ...liveEvents]),
-    [historyEvents, liveEvents]
+    () => latestSessionPlan(combinedEvents),
+    [combinedEvents]
   )
   const fetchNextHistoryPage = sessionHistoryQuery.fetchNextPage
   const loadNextHistoryPage = useCallback(
@@ -243,7 +250,6 @@ export function SessionThreadView({
 
   const isBusy =
     turnActive || hasPendingClientEvent || sendSessionMessage.isPending
-  const visibleBlocks = [...baseBlocks, ...liveBlocks]
   const showHistorySkeleton =
     !optimisticSession && sessionHistoryQuery.isPending && !historyPages?.length
   const followButtonClassName = `!absolute ${
@@ -312,6 +318,20 @@ function isTurnActive(status: SessionRuntimeStatus) {
     status === "streaming" ||
     status === "waiting_for_user"
   )
+}
+
+function latestTurnID(events: SessionEventResponse[]) {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const payload = events[index].payload
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      continue
+    }
+    const turnID = (payload as Record<string, unknown>).turn_id
+    if (typeof turnID === "string" && turnID.trim()) {
+      return turnID.trim()
+    }
+  }
+  return ""
 }
 
 function safeAgentById(id: string) {

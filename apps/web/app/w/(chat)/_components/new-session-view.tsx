@@ -135,6 +135,10 @@ export function SessionView({
           agentIcon: agentIcon(selectedAgent),
           agentAvatarURL: agentAvatarURL(selectedAgent),
           modelId,
+          agentTurnStatus: created.agent_turn_status,
+          agentTurnID: created.agent_turn_id,
+          agentTurnStartedAt: created.agent_turn_started_at,
+          lastTurnOutcome: created.last_turn_outcome,
         },
         { replace: true }
       )
