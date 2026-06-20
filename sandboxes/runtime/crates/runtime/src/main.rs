@@ -110,22 +110,25 @@ async fn main() -> Result<()> {
     let question_request_repo: Arc<dyn storage::QuestionRequestRepo> =
         Arc::new(SqliteQuestionRequestRepo::new(&sqlite_store));
 
-    let initial_definition = match config_repo.load().await? {
+    let (initial_definition, config_loaded_from_database) = match config_repo.load().await? {
         Some(persisted) => {
             info!("loaded agent definition from database");
-            persisted
+            (persisted, true)
         }
         None => {
             info!("no persisted definition; waiting for first control-plane config push");
-            bootstrap_agent_definition()
+            (bootstrap_agent_definition(), false)
         }
     };
 
     let config = ConfigStore::with_runtime_env(initial_definition.clone(), runtime_env);
     let initial_runtime_env = config.runtime_env();
-    let mcp_registry = Arc::new(McpRegistry::from_specs(&[], &initial_runtime_env).await);
-    let registry = build_registry_with_env(&[], &initial_runtime_env)
-        .map_err(|e| anyhow::anyhow!("build outbound registry: {e}"))?;
+    let mcp_registry = Arc::new(
+        McpRegistry::from_specs(&initial_definition.mcp_servers, &initial_runtime_env).await,
+    );
+    let registry =
+        build_registry_with_env(&initial_definition.outbound_channels, &initial_runtime_env)
+            .map_err(|e| anyhow::anyhow!("build outbound registry: {e}"))?;
     let registry = Arc::new(RwLock::new(registry));
     let stream_batcher = Arc::new(RwLock::new(None));
     let database_event_queue = DatabaseEventQueue::new(sqlite_store.writer());
@@ -142,13 +145,26 @@ async fn main() -> Result<()> {
     });
 
     let skill_writer = Arc::new(SkillWriter::new(workspace_root.clone()));
+    if config_loaded_from_database {
+        skill_writer.sync(&initial_definition.skills);
+        for sub_agent in initial_definition.sub_agents.values() {
+            skill_writer.sync(&sub_agent.skills);
+        }
+    }
 
-    info!(
-        agent = %initial_definition.agent.name,
-        persisted_mcp_servers = initial_definition.mcp_servers.len(),
-        persisted_outbound_channels = initial_definition.outbound_channels.len(),
-        "waiting for first control-plane config push before starting agent runtime services"
-    );
+    if config_loaded_from_database {
+        info!(
+            agent = %initial_definition.agent.name,
+            persisted_mcp_servers = initial_definition.mcp_servers.len(),
+            persisted_outbound_channels = initial_definition.outbound_channels.len(),
+            "persisted control-plane config loaded; starting agent runtime services"
+        );
+    } else {
+        info!(
+            agent = %initial_definition.agent.name,
+            "waiting for first control-plane config push before starting agent runtime services"
+        );
+    }
 
     let session_stream_broker = Arc::new(api::SessionStreamBroker::new());
     let repo_service = Arc::new(api::RepoService::new(
@@ -191,6 +207,9 @@ async fn main() -> Result<()> {
     );
     let (api_handle, api_cancel) = api::serve(bind_addr, api_state.clone()).await;
     api_state.mark_session_api_ready();
+    if config_loaded_from_database {
+        api_state.mark_config_loaded();
+    }
 
     api_state.wait_for_config_loaded().await;
     let active_definition = config.snapshot();
