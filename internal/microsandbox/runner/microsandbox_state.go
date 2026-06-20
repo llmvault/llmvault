@@ -135,19 +135,30 @@ func dockerDataVolumeName(sandboxID string) string {
 	return "hivy-docker-" + sandboxID
 }
 
-func sandboxVolumeSizesMiB(diskGB int) (uint32, uint32) {
+func sandboxVolumeSizesMiB(diskGB int) (rootOverlayMiB, workspaceVolumeMiB, dockerDataVolumeMiB uint32) {
 	total := sandboxDiskMiB(diskGB)
-	dockerData := total / 4
+	rootOverlay := total / 10
+	if rootOverlay < minRootOverlayMiB {
+		rootOverlay = minRootOverlayMiB
+	}
+	if rootOverlay > maxRootOverlayMiB {
+		rootOverlay = maxRootOverlayMiB
+	}
+	if rootOverlay >= total {
+		return 0, total, 0
+	}
+	remaining := total - rootOverlay
+	dockerData := remaining / 4
 	if dockerData > maxDockerDataVolumeMiB {
 		dockerData = maxDockerDataVolumeMiB
 	}
-	if total > minWorkspaceVolumeMiB && total-dockerData < minWorkspaceVolumeMiB {
-		dockerData = total - minWorkspaceVolumeMiB
+	if remaining > minWorkspaceVolumeMiB && remaining-dockerData < minWorkspaceVolumeMiB {
+		dockerData = remaining - minWorkspaceVolumeMiB
 	}
 	if dockerData == 0 {
-		return total, 0
+		return rootOverlay, remaining, 0
 	}
-	return total - dockerData, dockerData
+	return rootOverlay, remaining - dockerData, dockerData
 }
 
 func sandboxDiskMiB(diskGB int) uint32 {

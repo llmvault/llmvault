@@ -36,9 +36,11 @@ const (
 	dockerDataVolumePurpose        = "docker_data"
 	dockerDataMountPath            = "/var/lib/docker"
 	workspaceMountPath             = "/workspace"
-	defaultSandboxDiskGB           = 40
-	minWorkspaceVolumeMiB   uint32 = 1024
-	maxDockerDataVolumeMiB  uint32 = 20 * 1024
+	defaultSandboxDiskGB            = 40
+	minWorkspaceVolumeMiB    uint32 = 1024
+	maxDockerDataVolumeMiB   uint32 = 20 * 1024
+	minRootOverlayMiB        uint32 = 4 * 1024
+	maxRootOverlayMiB        uint32 = 10 * 1024
 )
 
 func NewMicrosandboxBackend(ctx context.Context, cfg config.Config) (*MicrosandboxBackend, error) {
@@ -157,9 +159,10 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 
 	workspaceVolName := workspaceVolumeName(req.ID)
 	dockerVolName := dockerDataVolumeName(req.ID)
-	workspaceVolumeMiB, dockerDataVolumeMiB := sandboxVolumeSizesMiB(req.DiskGB)
+	rootOverlayMiB, workspaceVolumeMiB, dockerDataVolumeMiB := sandboxVolumeSizesMiB(req.DiskGB)
 	if err := ensureVolume(ctx, workspaceVolName,
-		microsandbox.WithVolumeQuota(workspaceVolumeMiB),
+		microsandbox.WithVolumeKind(microsandbox.VolumeKindDisk),
+		microsandbox.WithVolumeSize(workspaceVolumeMiB),
 		microsandbox.WithVolumeLabels(volumeLabels(req.ID, workspaceVolumePurpose)),
 	); err != nil {
 		return nil, err
@@ -188,6 +191,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	opts := []microsandbox.SandboxOption{
 		microsandbox.WithCPUs(cpu),
 		microsandbox.WithMemory(memoryMB),
+		microsandbox.WithOCIUpperSize(rootOverlayMiB),
 		microsandbox.WithEnv(req.Env),
 		microsandbox.WithLabels(hivyLabels(req.ID, req.Labels)),
 		microsandbox.WithPortBindings(msbBindings...),

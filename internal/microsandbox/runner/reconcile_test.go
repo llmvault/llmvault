@@ -99,15 +99,15 @@ func TestVolumeNamesUseSeparateDockerDataVolume(t *testing.T) {
 	}
 }
 
-func TestSandboxVolumeSizesReserveDockerDataInsideDiskBudget(t *testing.T) {
-	workspace, dockerData := sandboxVolumeSizesMiB(40)
-	if workspace != 30*1024 || dockerData != 10*1024 {
-		t.Fatalf("40GB split = workspace %d docker %d, want 30720/10240", workspace, dockerData)
+func TestSandboxVolumeSizesReserveRootOverlayAndDockerInsideDiskBudget(t *testing.T) {
+	rootOverlay, workspace, dockerData := sandboxVolumeSizesMiB(40)
+	if rootOverlay != 4*1024 || workspace != 27*1024 || dockerData != 9*1024 {
+		t.Fatalf("40GB split = root %d workspace %d docker %d, want 4096/27648/9216", rootOverlay, workspace, dockerData)
 	}
 
-	workspace, dockerData = sandboxVolumeSizesMiB(160)
-	if workspace != 140*1024 || dockerData != maxDockerDataVolumeMiB {
-		t.Fatalf("160GB split = workspace %d docker %d, want 143360/%d", workspace, dockerData, maxDockerDataVolumeMiB)
+	rootOverlay, workspace, dockerData = sandboxVolumeSizesMiB(160)
+	if rootOverlay != 10*1024 || workspace != 133120 || dockerData != maxDockerDataVolumeMiB {
+		t.Fatalf("160GB split = root %d workspace %d docker %d, want 10240/133120/%d", rootOverlay, workspace, dockerData, maxDockerDataVolumeMiB)
 	}
 }
 
