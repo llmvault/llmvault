@@ -198,7 +198,6 @@ var migratedTables = []string{
 	"agent_triggers",
 	"agents",
 	"generations",
-	"hindsight_banks",
 	"integrations",
 	"oauth_accounts",
 	"oauth_exchange_tokens",
@@ -239,4 +238,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 33
+const latestMigrationVersion = 34

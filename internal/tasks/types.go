@@ -17,7 +17,6 @@ const (
 	TypeAgentTriggerStoreDelivery = "agent_trigger:store_delivery"
 	TypeSessionMessageDeliver     = "session:message_deliver"
 	TypeSessionName               = "session:name"
-	TypeAgentMemoryRefresh        = "agent:memory_refresh"
 	TypeAgentProxyTokenRefresh    = "agent:proxy_token_refresh"
 	TypeAgentGitHubResourcesClone = "agent:github_resources_clone"
 	TypeAgentSandboxUpgrade       = "agent:sandbox_upgrade"

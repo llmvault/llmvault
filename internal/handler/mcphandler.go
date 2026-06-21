@@ -25,7 +25,6 @@ type MCPHandler struct {
 	catalog        *catalog.Catalog
 	nango          *nango.Client
 	counter        *counter.Counter
-	memoryTools    mcpserver.MemoryToolsFunc
 	webTools       mcpserver.WebToolsFunc
 	knowledgeTools mcpserver.KnowledgeToolsFunc
 	ServerCache    *mcpserver.ServerCache
@@ -41,11 +40,6 @@ func NewMCPHandler(db *gorm.DB, signingKey []byte, cat *catalog.Catalog, nangoCl
 		counter:     ctr,
 		ServerCache: mcpserver.NewServerCache(),
 	}
-}
-
-// SetMemoryTools sets the callback for registering memory tools on MCP servers.
-func (h *MCPHandler) SetMemoryTools(fn mcpserver.MemoryToolsFunc) {
-	h.memoryTools = fn
 }
 
 // SetWebTools sets the callback for registering web_fetch and web_search
@@ -89,7 +83,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 			return nil, time.Time{}, err
 		}
 
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.memoryTools, h.webTools, h.knowledgeTools)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools)
 		if err != nil {
 			return nil, time.Time{}, err
 		}

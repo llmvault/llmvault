@@ -46,10 +46,6 @@ type Agent struct {
 	IsManaged     bool   `gorm:"-"`
 	ProviderGroup string `gorm:"-"`
 
-	LastMemoryRefreshedAt *time.Time `gorm:"type:timestamptz"`
-	MemoryRefreshStatus   string     `gorm:"type:varchar(32);not null;default:''"` // queued, running, succeeded, failed
-	MemoryRefreshError    string     `gorm:"type:text;not null;default:''"`
-
 	LastProxyTokenRefreshedAt *time.Time `gorm:"type:timestamptz"`
 
 	CreatedAt time.Time
@@ -136,11 +132,6 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 
 	{ID: "lsp", Name: "LSP", Description: "Language Server Protocol operations for code navigation and diagnostics.", Category: "code_intelligence"},
 	{ID: "skill", Name: "Skill", Description: "Execute a skill within the conversation.", Category: "code_intelligence"},
-
-	{ID: "memory_recall", Name: "Recall memory", Description: "Search long-term memory for relevant context from past conversations.", Category: "memory", Locked: true},
-	{ID: "memory_retain", Name: "Retain memory", Description: "Store important information to long-term memory.", Category: "memory", Locked: true},
-	{ID: "memory_reflect", Name: "Reflect on memory", Description: "Get a synthesized answer by analyzing full memory.", Category: "memory", Locked: true},
-	{ID: "memory_forget", Name: "Forget memory", Description: "Delete one long-term memory document by exact document ID.", Category: "memory", Locked: true},
 }
 
 // validBuiltInToolIDs is a set for fast validation lookups.

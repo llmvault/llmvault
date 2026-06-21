@@ -17,7 +17,7 @@ cp .env.example .env
 make up
 ```
 
-The `.env.example` file includes local-only placeholder secrets that are valid enough for Compose interpolation, migrations, auth key parsing, Nango startup, sandbox encryption, and Hindsight startup. Replace provider API keys only when testing behavior that calls external providers.
+The `.env.example` file includes local-only placeholder secrets that are valid enough for Compose interpolation, migrations, auth key parsing, Nango startup, and sandbox encryption. Replace provider API keys only when testing behavior that calls external providers.
 
 Expected local services:
 
@@ -27,7 +27,6 @@ Expected local services:
 - Worker health: `http://localhost:8090/healthz`
 - Local proxy health: `http://localhost:18082/health`
 - Nango: `http://localhost:23003`
-- Hindsight: `http://localhost:8888`
 - MinIO API: `http://localhost:9000`
 - MinIO console: `http://localhost:9001`
 - Postgres: `localhost:15432`

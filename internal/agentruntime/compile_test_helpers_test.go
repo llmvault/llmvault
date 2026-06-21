@@ -1,14 +1,11 @@
 package agentruntime
 
 import (
-	"context"
-	"sync"
 	"testing"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
@@ -38,26 +35,4 @@ func connectCompileTestDB(t *testing.T) *gorm.DB {
 		sqlDB.Close()
 	})
 	return db
-}
-
-type fakeMemoryRecall struct {
-	mu           sync.Mutex
-	bankID       string
-	listRequests []hindsight.ListMemoriesOptions
-	listResponse *hindsight.ListMemoriesResponse
-	err          error
-}
-
-func (f *fakeMemoryRecall) ListMemoriesFiltered(_ context.Context, bankID string, opts hindsight.ListMemoriesOptions) (*hindsight.ListMemoriesResponse, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.bankID = bankID
-	f.listRequests = append(f.listRequests, opts)
-	if f.err != nil {
-		return nil, f.err
-	}
-	if f.listResponse == nil {
-		return &hindsight.ListMemoriesResponse{}, nil
-	}
-	return f.listResponse, nil
 }

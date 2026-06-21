@@ -13,7 +13,7 @@ import (
 
 func TestBuildFetchesSourcesInParallel(t *testing.T) {
 	service := NewService(Config{})
-	started := make(chan struct{}, 3)
+	started := make(chan struct{}, 2)
 	release := make(chan struct{})
 	fetch := func(text string) SourceFetcher {
 		return func(context.Context, Request) (string, error) {
@@ -23,7 +23,6 @@ func TestBuildFetchesSourcesInParallel(t *testing.T) {
 		}
 	}
 	service.sessions = fetch("## Recent sessions\n- session")
-	service.memories = fetch("## Recent memories\n- memory")
 	service.knowledge = fetch("## Relevant knowledge\n- knowledge")
 
 	done := make(chan []string, 1)
@@ -32,7 +31,7 @@ func TestBuildFetchesSourcesInParallel(t *testing.T) {
 		done <- out
 	}()
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		select {
 		case <-started:
 		case <-time.After(time.Second):
@@ -41,7 +40,7 @@ func TestBuildFetchesSourcesInParallel(t *testing.T) {
 	}
 	close(release)
 	out := <-done
-	if len(out) != 1 || !strings.Contains(out[0], "## Recent sessions") || !strings.Contains(out[0], "## Recent memories") || !strings.Contains(out[0], "## Relevant knowledge") {
+	if len(out) != 1 || !strings.Contains(out[0], "## Recent sessions") || !strings.Contains(out[0], "## Relevant knowledge") {
 		t.Fatalf("unexpected precontext: %#v", out)
 	}
 }
@@ -51,11 +50,8 @@ func TestBuildOmitsFailedSource(t *testing.T) {
 	service.sessions = func(context.Context, Request) (string, error) {
 		return "## Recent sessions\n- session", nil
 	}
-	service.memories = func(context.Context, Request) (string, error) {
-		return "", errors.New("hindsight down")
-	}
 	service.knowledge = func(context.Context, Request) (string, error) {
-		return "## Relevant knowledge\n- knowledge", nil
+		return "", errors.New("knowledge down")
 	}
 
 	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
@@ -65,10 +61,10 @@ func TestBuildOmitsFailedSource(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("expected one context string, got %#v", out)
 	}
-	if strings.Contains(out[0], "Recent memories") {
+	if strings.Contains(out[0], "Relevant knowledge") {
 		t.Fatalf("failed source was included: %s", out[0])
 	}
-	if !strings.Contains(out[0], "Recent sessions") || !strings.Contains(out[0], "Relevant knowledge") {
+	if !strings.Contains(out[0], "Recent sessions") {
 		t.Fatalf("successful sources missing: %s", out[0])
 	}
 }
@@ -78,11 +74,8 @@ func TestBuildOmitsPanickingSource(t *testing.T) {
 	service.sessions = func(context.Context, Request) (string, error) {
 		return "## Recent sessions\n- session", nil
 	}
-	service.memories = func(context.Context, Request) (string, error) {
-		panic("memory dependency misconfigured")
-	}
 	service.knowledge = func(context.Context, Request) (string, error) {
-		return "## Relevant knowledge\n- knowledge", nil
+		panic("knowledge dependency misconfigured")
 	}
 
 	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
@@ -92,10 +85,10 @@ func TestBuildOmitsPanickingSource(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("expected one context string, got %#v", out)
 	}
-	if strings.Contains(out[0], "Recent memories") {
+	if strings.Contains(out[0], "Relevant knowledge") {
 		t.Fatalf("panicking source was included: %s", out[0])
 	}
-	if !strings.Contains(out[0], "Recent sessions") || !strings.Contains(out[0], "Relevant knowledge") {
+	if !strings.Contains(out[0], "Recent sessions") {
 		t.Fatalf("successful sources missing: %s", out[0])
 	}
 }
@@ -105,7 +98,6 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	agentID := uuid.New()
 	cache := newFakeCache()
 	cache.values[SessionsCacheKey(orgID, agentID)] = "## Recent sessions\n- cached"
-	cache.values[MemoriesCacheKey(orgID, agentID)] = "## Recent memories\n- cached"
 	cache.values[KnowledgeCacheKey(orgID, agentID, "hello")] = "## Relevant knowledge\n- cached"
 
 	service := NewService(Config{Cache: cache})
@@ -115,7 +107,6 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 		return "", nil
 	}
 	service.sessions = source
-	service.memories = source
 	service.knowledge = source
 
 	out, err := service.Build(context.Background(), Request{OrgID: orgID, AgentID: agentID, Text: "hello"})
@@ -125,7 +116,7 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	if calls != 0 {
 		t.Fatalf("expected cache hit to avoid source calls, got %d", calls)
 	}
-	if len(out) != 1 || strings.Count(out[0], "cached") != 3 {
+	if len(out) != 1 || strings.Count(out[0], "cached") != 2 {
 		t.Fatalf("unexpected cached context: %#v", out)
 	}
 }

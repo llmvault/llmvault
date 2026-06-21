@@ -123,9 +123,6 @@ CREATE TABLE agents (
     setup_commands text[] DEFAULT '{}'::text[],
     encrypted_env_vars bytea,
     status text DEFAULT 'active'::text NOT NULL,
-    last_memory_refreshed_at timestamp with time zone,
-    memory_refresh_status character varying(32) DEFAULT ''::character varying NOT NULL,
-    memory_refresh_error text DEFAULT ''::text NOT NULL,
     last_proxy_token_refreshed_at timestamp with time zone,
     harness character varying(32) DEFAULT ''::character varying NOT NULL,
     created_at timestamp with time zone,
@@ -163,15 +160,6 @@ CREATE TABLE generations (
     billing_cost_source text DEFAULT ''::text NOT NULL
 );
 
-CREATE TABLE hindsight_banks (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    agent_id uuid,
-    bank_id text NOT NULL,
-    config_hash text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
-);
-
 ALTER TABLE ONLY agent_sandbox_upgrades
     ADD CONSTRAINT agent_sandbox_upgrades_pkey PRIMARY KEY (id);
 
@@ -193,9 +181,6 @@ ALTER TABLE ONLY agents
 
 ALTER TABLE ONLY generations
     ADD CONSTRAINT generations_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY hindsight_banks
-    ADD CONSTRAINT hindsight_banks_pkey PRIMARY KEY (id);
 
 CREATE INDEX idx_agent_org_id ON agents USING btree (org_id);
 
@@ -273,10 +258,6 @@ CREATE INDEX idx_gen_org_model ON generations USING btree (model);
 CREATE INDEX idx_gen_org_provider ON generations USING btree (provider_id);
 
 CREATE INDEX idx_gen_org_user ON generations USING btree (user_id);
-
-CREATE UNIQUE INDEX idx_hindsight_banks_bank_id ON hindsight_banks USING btree (bank_id);
-
-CREATE INDEX idx_hindsight_banks_agent_id ON hindsight_banks USING btree (agent_id);
 
 CREATE INDEX idx_trigger_delivery_org_agent_created ON agent_trigger_deliveries USING btree (org_id, agent_id, created_at);
 

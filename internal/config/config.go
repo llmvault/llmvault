@@ -114,8 +114,6 @@ type Config struct {
 	AgentSandboxAutoUpgrade      bool   `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
 	AgentSandboxAutoUpgradeLimit int    `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
 
-	HindsightAPIURL string `env:"HIVY_HINDSIGHT_API_URL"` // e.g. http://hindsight.railway.internal:8888 — empty = memory disabled
-
 	// Browser setup/admin panel. When disabled, admin routes are not mounted.
 	AdminEnabled bool   `env:"HIVY_ADMIN_ENABLED" envDefault:"false"`
 	AdminSecret  string `env:"HIVY_ADMIN_SECRET"`

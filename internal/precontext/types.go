@@ -10,19 +10,18 @@ import (
 const (
 	TotalBudgetBytes     = 3 * 1024
 	SessionsBudgetBytes  = 1200
-	MemoriesBudgetBytes  = 1000
 	KnowledgeBudgetBytes = 800
 	DefaultCacheTTL      = 24 * time.Hour
 )
 
 type Request struct {
-	OrgID                 uuid.UUID
-	AgentID               uuid.UUID
-	CurrentSessionID      uuid.UUID
-	Text                  string
-	UserID                string
-	UserDisplayName       string
-	Source                string
+	OrgID            uuid.UUID
+	AgentID          uuid.UUID
+	CurrentSessionID uuid.UUID
+	Text             string
+	UserID           string
+	UserDisplayName  string
+	Source           string
 }
 
 type Builder interface {

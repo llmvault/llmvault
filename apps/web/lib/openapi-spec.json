@@ -10043,15 +10043,6 @@
           "id": {
             "type": "string"
           },
-          "last_memory_refreshed_at": {
-            "type": "string"
-          },
-          "memory_refresh_error": {
-            "type": "string"
-          },
-          "memory_refresh_status": {
-            "type": "string"
-          },
           "model": {
             "type": "string"
           },
@@ -10112,15 +10103,6 @@
             "type": "string"
           },
           "id": {
-            "type": "string"
-          },
-          "last_memory_refreshed_at": {
-            "type": "string"
-          },
-          "memory_refresh_error": {
-            "type": "string"
-          },
-          "memory_refresh_status": {
             "type": "string"
           },
           "model": {

@@ -91,14 +91,6 @@ func (h *AgentHandler) SyncOrgHivyAgent(ctx context.Context, orgID uuid.UUID) er
 	if err != nil {
 		return fmt.Errorf("ensure Hivy agent: %w", err)
 	}
-	if h.memoryBanks != nil {
-		if err := h.memoryBanks.EnsureOrgBank(ctx, orgID); err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("sync org Hivy agent: ensure memory bank: %w", err), map[string]any{
-				"org_id":   orgID.String(),
-				"agent_id": agent.ID.String(),
-			})
-		}
-	}
 	if _, _, err := h.SyncAgent(ctx, agent); err != nil {
 		return err
 	}

@@ -91,9 +91,6 @@ ALTER TABLE ONLY agents
 ALTER TABLE ONLY agents
     ADD CONSTRAINT fk_agents_sandbox_template FOREIGN KEY (sandbox_template_id) REFERENCES sandbox_templates(id) ON DELETE SET NULL;
 
-ALTER TABLE ONLY hindsight_banks
-    ADD CONSTRAINT fk_hindsight_banks_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE;
-
 ALTER TABLE ONLY connections
     ADD CONSTRAINT fk_connections_integration FOREIGN KEY (integration_id) REFERENCES integrations(id) ON DELETE CASCADE;
 

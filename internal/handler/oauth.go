@@ -43,16 +43,11 @@ type OAuthHandler struct {
 	frontendURL  string
 	secure       bool // true when cookies should be Secure (HTTPS)
 	credits      *billing.CreditsService
-	memoryBanks  memoryBankProvisioner
 	agentSyncer  OrgAgentSyncer
 	enqueuer     enqueue.TaskEnqueuer
 	githubConfig *oauth2.Config
 	googleConfig *oauth2.Config
 	xConfig      *oauth2.Config
-}
-
-func (h *OAuthHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
-	h.memoryBanks = banks
 }
 
 func (h *OAuthHandler) SetAgentSyncer(syncer OrgAgentSyncer) {

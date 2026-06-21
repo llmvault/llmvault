@@ -3,15 +3,12 @@ package handler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/hindsight"
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
@@ -81,7 +78,6 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 	if hasMore {
 		agents = agents[:limit]
 	}
-	h.ensureReturnedAgentMemoryBanks(r.Context(), org.ID, agents)
 
 	agentIDs := make([]uuid.UUID, len(agents))
 	for i, a := range agents {
@@ -154,7 +150,6 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get agent"})
 		return
 	}
-	h.ensureReturnedAgentMemoryBanks(r.Context(), org.ID, []model.Agent{agent})
 
 	base := toAgentResponse(agent)
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
@@ -168,19 +163,6 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 		LatestRuntimeVersion: agentRuntimeVersionLabel(currentSnapshotID),
 		Sandbox:              sandbox,
 	})
-}
-
-func (h *AgentHandler) ensureReturnedAgentMemoryBanks(ctx context.Context, orgID uuid.UUID, agents []model.Agent) {
-	if h == nil || h.memoryBanks == nil || orgID == uuid.Nil || len(agents) == 0 {
-		return
-	}
-	if err := h.memoryBanks.EnsureOrgBank(ctx, orgID); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("ensure returned agent memory bank: %w", err), map[string]any{
-			"org_id":      orgID.String(),
-			"agent_count": len(agents),
-			"bank_id":     hindsight.OrgBankID(orgID),
-		})
-	}
 }
 
 func (h *AgentHandler) currentAgentSandboxSnapshotID() string {

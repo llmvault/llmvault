@@ -19,7 +19,6 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/handler"
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/precontext"
@@ -70,7 +69,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		EncKey:     deps.SandboxEncKey,
 		SigningKey: deps.SigningKey,
 		Cfg:        cfg,
-		Hindsight:  deps.HindsightClient,
 		Canvas:     canvasService,
 	}
 	var orgAgentSyncer tasks.OrgHivyAgentSyncer
@@ -78,9 +76,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	if deps.Orchestrator != nil && agentCompile.EncKey != nil {
 		agentHandler = handler.NewAgentHandler(deps.DB, deps.Orchestrator, agentCompile, deps.Registry)
 		agentHandler.SetEnqueuer(enqueuer)
-		if deps.HindsightClient != nil {
-			agentHandler.SetMemoryProvisioner(hindsight.NewBankProvisioner(deps.DB, deps.HindsightClient))
-		}
 		orgAgentSyncer = agentHandler
 	}
 
@@ -110,7 +105,6 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 		Credits:         deps.Credits,
 		Subscriptions:   deps.Subscriptions,
 		Enqueuer:        enqueuer,
-		Hindsight:       deps.HindsightClient,
 		PreContextCache: preContextCache,
 		OrgAgentSyncer:  orgAgentSyncer,
 		CanvasSyncer:    canvasService,

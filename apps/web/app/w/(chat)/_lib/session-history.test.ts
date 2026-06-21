@@ -658,51 +658,6 @@ Primary category: Product UI
     })
   })
 
-  it("uses specific memory verbs for retain and recall tools", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("tool_call", {
-          id: "tool-retain",
-          tool: "hivy_memory_retain",
-          args: { text: "customer prefers GitHub" },
-          turn_id: "turn-memory",
-        }),
-        event("tool_result", {
-          id: "tool-recall",
-          tool: "hivy_memory_recall",
-          args_summary: JSON.stringify({ query: "customer preferences" }),
-          result_summary: JSON.stringify({ memories: [] }),
-          turn_id: "turn-memory",
-        }),
-      ],
-      { mode: "live" }
-    )
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Retaining memory: customer prefers GitHub",
-          detail: {
-            category: "memory",
-            icon: "lucide:brain",
-            tool: "hivy_memory_retain",
-          },
-        },
-        {
-          type: "tool",
-          label: "Recalled memory: customer preferences",
-          detail: {
-            category: "memory",
-            icon: "lucide:brain",
-            tool: "hivy_memory_recall",
-          },
-        },
-      ],
-    })
-  })
-
   it("renders session search with session-specific labels and icon", () => {
     const blocks = sessionEventsToConversationBlocks(
       [

@@ -1288,8 +1288,8 @@ mod tests {
             (
                 r#"<tool_call>
 <function=update_plan>
-<parameter=explanation>Setting up the hivy repo requires: .env file, Go toolchain, and Docker Compose to bring up the full local stack (API, worker, web, Postgres, Redis, Nango, Qdrant, MinIO, Hindsight).</parameter>
-<parameter=plan>[{"status": "in_progress", "step": "Copy .env.example to .env"}, {"status": "pending", "step": "Check prerequisites: Docker, Go, Node"}, {"status": "pending", "step": "Generate real local secrets for .env"}, {"status": "pending", "step": "Pull Docker images and start the stack with make up"}, {"status": "pending", "step": "Verify all services are healthy (API, worker, web, DBs)"}, {"status": "pending", "step": "Store repo setup facts in memory"}]</parameter>
+<parameter=explanation>Setting up the hivy repo requires: .env file, Go toolchain, and Docker Compose to bring up the full local stack (API, worker, web, Postgres, Redis, Nango, Qdrant, MinIO).</parameter>
+<parameter=plan>[{"status": "in_progress", "step": "Copy .env.example to .env"}, {"status": "pending", "step": "Check prerequisites: Docker, Go, Node"}, {"status": "pending", "step": "Generate real local secrets for .env"}, {"status": "pending", "step": "Pull Docker images and start the stack with make up"}, {"status": "pending", "step": "Verify all services are healthy (API, worker, web, DBs)"}]</parameter>
 </function>
 </tool_call>"#,
                 "update_plan",

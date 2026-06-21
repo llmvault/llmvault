@@ -9657,8 +9657,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Wake a session sandbox
-         * @description Ensures the sandbox backing a session is running and its runtime health endpoint is reachable.
+         * Mark a session sandbox wake request
+         * @description Compatibility endpoint. Sandbox wake is managed by Microsandbox infrastructure, so this returns the current sandbox and managed_by_infra without starting it from the API.
          */
         post: {
             parameters: {
@@ -11059,11 +11059,8 @@ export interface components {
             id?: string;
             instructions?: string;
             is_default?: boolean;
-            last_memory_refreshed_at?: string;
             latest_runtime_version?: string;
             mcp_servers?: number[];
-            memory_refresh_error?: string;
-            memory_refresh_status?: string;
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
@@ -11114,10 +11111,7 @@ export interface components {
             id?: string;
             instructions?: string;
             is_default?: boolean;
-            last_memory_refreshed_at?: string;
             mcp_servers?: number[];
-            memory_refresh_error?: string;
-            memory_refresh_status?: string;
             model?: string;
             name?: string;
             permissions?: components["schemas"]["JSON"];
@@ -12233,6 +12227,7 @@ export interface components {
             token?: string;
         };
         sessionSandboxWakeResponse: {
+            managed_by_infra?: boolean;
             runtime_url?: string;
             sandbox_id?: string;
             session_id?: string;

@@ -7,22 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/rag/embedclient"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
 )
-
-type MemoryLister interface {
-	ListMemories(context.Context, string, int, int) (*hindsight.ListMemoriesResponse, error)
-}
-
-type MemoryBankEnsurer interface {
-	EnsureOrgBank(context.Context, uuid.UUID) error
-}
 
 type Embedder interface {
 	Embed(context.Context, []string) ([][]float32, error)
@@ -39,8 +29,6 @@ type Reranker interface {
 type Config struct {
 	DB         *gorm.DB
 	Cache      Cache
-	Memory     MemoryLister
-	MemoryBank MemoryBankEnsurer
 	Searcher   KnowledgeSearcher
 	Embedder   Embedder
 	Reranker   Reranker
@@ -51,7 +39,6 @@ type Config struct {
 type Service struct {
 	cfg       Config
 	sessions  SourceFetcher
-	memories  SourceFetcher
 	knowledge SourceFetcher
 }
 
@@ -61,7 +48,6 @@ func NewService(cfg Config) *Service {
 	}
 	s := &Service{cfg: cfg}
 	s.sessions = s.fetchSessionsSection
-	s.memories = s.fetchMemoriesSection
 	s.knowledge = s.fetchKnowledgeSection
 	return s
 }
@@ -74,7 +60,7 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 		index int
 		text  string
 	}
-	results := make(chan result, 3)
+	results := make(chan result, 2)
 	var wg sync.WaitGroup
 	run := func(index int, name string, fetch SourceFetcher) {
 		defer wg.Done()
@@ -90,14 +76,13 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 		}
 		results <- result{index: index, text: text}
 	}
-	wg.Add(3)
+	wg.Add(2)
 	go run(0, "sessions", s.cached(SessionsCacheKey(req.OrgID, req.AgentID), s.sessions))
-	go run(1, "memories", s.cached(MemoriesCacheKey(req.OrgID, req.AgentID), s.memories))
-	go run(2, "knowledge", s.cached(KnowledgeCacheKey(req.OrgID, req.AgentID, req.Text), s.knowledge))
+	go run(1, "knowledge", s.cached(KnowledgeCacheKey(req.OrgID, req.AgentID, req.Text), s.knowledge))
 	wg.Wait()
 	close(results)
 
-	ordered := make([]string, 3)
+	ordered := make([]string, 2)
 	for res := range results {
 		ordered[res.index] = res.text
 	}

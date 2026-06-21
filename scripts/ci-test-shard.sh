@@ -18,7 +18,6 @@ test_env=(
   "HIVY_QDRANT_HOST=localhost"
   "HIVY_QDRANT_PORT=6334"
   "HIVY_QDRANT_USE_TLS=false"
-  "HIVY_HINDSIGHT_API_URL=http://localhost:8888"
   "HIVY_PUBLIC_ASSETS_S3_ENDPOINT=http://localhost:9000"
   "HIVY_AWS_ENDPOINT_URL=http://localhost:9000"
 )
@@ -77,7 +76,7 @@ cmd_test_packages() {
 }
 
 internal_core_packages() {
-  internal_test_packages | grep -Ev 'internal/(handler|hindsight|integrations|nango|rag|storage|tasks)(/|$)'
+  internal_test_packages | grep -Ev 'internal/(handler|integrations|nango|rag|storage|tasks)(/|$)'
 }
 
 select_internal_core_packages() {
@@ -126,9 +125,6 @@ case "$suite" in
     ;;
   internal-tasks)
     run_test_names ./internal/tasks
-    ;;
-  internal-hindsight)
-    run_packages "$(internal_test_packages | grep -E 'internal/hindsight(/|$)' | shard_lines)"
     ;;
   internal-integrations)
     run_packages "$(printf '%s\n' github.com/usehivy/hivy/internal/integrations github.com/usehivy/hivy/internal/nango | shard_lines)"
