@@ -3918,6 +3918,10 @@ export interface paths {
                 query?: {
                     /** @description Include public discoverable channels */
                     discoverable?: boolean;
+                    /** @description Comma-separated optional expansions. Supports recent_sessions. */
+                    include?: string;
+                    /** @description Recent sessions per channel when include=recent_sessions (default 5, max 20) */
+                    recent_sessions_limit?: number;
                     /** @description Page size (default 50, max 100) */
                     limit?: number;
                     /** @description Pagination cursor */
@@ -4554,6 +4558,8 @@ export interface paths {
                     limit?: number;
                     /** @description Pagination cursor */
                     cursor?: string;
+                    /** @description Sort order: created_at or activity */
+                    sort?: string;
                 };
                 header?: never;
                 path: {
@@ -8738,6 +8744,8 @@ export interface paths {
                     limit?: number;
                     /** @description Pagination cursor */
                     cursor?: string;
+                    /** @description Sort order: created_at or activity */
+                    sort?: string;
                 };
                 header?: never;
                 path?: never;
@@ -11290,6 +11298,9 @@ export interface components {
             member_count?: number;
             name?: string;
             origin?: string;
+            recent_sessions?: components["schemas"]["sessionResponse"][];
+            recent_sessions_has_more?: boolean;
+            recent_sessions_next_cursor?: string;
             role?: string;
             updated_at?: string;
             visibility?: string;

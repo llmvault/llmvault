@@ -23,16 +23,9 @@ type paginatedResponse[T any] struct {
 }
 
 func parsePagination(r *http.Request) (int, *paginationCursor, error) {
-	limit := 50
-	if l := r.URL.Query().Get("limit"); l != "" {
-		n, err := strconv.Atoi(l)
-		if err != nil || n < 1 {
-			return 0, nil, fmt.Errorf("invalid limit")
-		}
-		if n > 100 {
-			n = 100
-		}
-		limit = n
+	limit, err := parsePaginationLimit(r)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	var cursor *paginationCursor
@@ -45,6 +38,21 @@ func parsePagination(r *http.Request) (int, *paginationCursor, error) {
 	}
 
 	return limit, cursor, nil
+}
+
+func parsePaginationLimit(r *http.Request) (int, error) {
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		n, err := strconv.Atoi(l)
+		if err != nil || n < 1 {
+			return 0, fmt.Errorf("invalid limit")
+		}
+		if n > 100 {
+			n = 100
+		}
+		limit = n
+	}
+	return limit, nil
 }
 
 func encodeCursor(createdAt time.Time, id uuid.UUID) string {

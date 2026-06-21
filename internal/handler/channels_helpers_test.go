@@ -46,17 +46,20 @@ type channelListOut struct {
 }
 
 type channelOut struct {
-	ID                   string `json:"id"`
-	Name                 string `json:"name"`
-	Visibility           string `json:"visibility"`
-	DefaultAgentID       string `json:"default_agent_id"`
-	Origin               string `json:"origin"`
-	ExternalProvider     string `json:"external_provider"`
-	ExternalWorkspaceKey string `json:"external_workspace_key"`
-	ExternalResourceType string `json:"external_resource_type"`
-	ExternalResourceKey  string `json:"external_resource_key"`
-	Role                 string `json:"role"`
-	MemberCount          int64  `json:"member_count"`
+	ID                       string       `json:"id"`
+	Name                     string       `json:"name"`
+	Visibility               string       `json:"visibility"`
+	DefaultAgentID           string       `json:"default_agent_id"`
+	Origin                   string       `json:"origin"`
+	ExternalProvider         string       `json:"external_provider"`
+	ExternalWorkspaceKey     string       `json:"external_workspace_key"`
+	ExternalResourceType     string       `json:"external_resource_type"`
+	ExternalResourceKey      string       `json:"external_resource_key"`
+	Role                     string       `json:"role"`
+	MemberCount              int64        `json:"member_count"`
+	RecentSessions           []sessionOut `json:"recent_sessions"`
+	RecentSessionsHasMore    bool         `json:"recent_sessions_has_more"`
+	RecentSessionsNextCursor *string      `json:"recent_sessions_next_cursor"`
 }
 
 func newChannelHarness(t *testing.T) *channelHarness {

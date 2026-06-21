@@ -119,6 +119,70 @@ func TestIntegration_ChannelsVisibilityAndJoin(t *testing.T) {
 	}
 }
 
+func TestIntegration_ChannelsListIncludesRecentSessionsForCurrentUser(t *testing.T) {
+	h := newChannelHarness(t)
+	fx := h.seed(t)
+	channelID := createChannelForTest(t, h, fx, fx.owner, "customer-work", "public")
+	channelUUID := uuid.MustParse(channelID)
+	base := time.Date(2026, 6, 21, 8, 0, 0, 0, time.UTC)
+
+	oldCreatedByOwner := seedChannelRecentSession(t, h, fx, channelUUID, fx.owner.ID, nil, base.Add(-6*time.Hour))
+	hidden := seedChannelRecentSession(t, h, fx, channelUUID, fx.member.ID, []uuid.UUID{fx.member.ID}, base.Add(2*time.Hour))
+	participantSessions := make([]model.Session, 0, 5)
+	for i := 0; i < 5; i++ {
+		session := seedChannelRecentSession(t, h, fx, channelUUID, fx.member.ID, []uuid.UUID{fx.owner.ID}, base.Add(time.Duration(i)*time.Hour))
+		participantSessions = append(participantSessions, session)
+	}
+
+	rr := h.doJSON(t, http.MethodGet, "/v1/channels?include=recent_sessions&recent_sessions_limit=5", fx, fx.owner, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("list status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var out channelListOut
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode list: %v\n%s", err, rr.Body.String())
+	}
+
+	var channel channelOut
+	for _, entry := range out.Data {
+		if entry.ID == channelID {
+			channel = entry
+			break
+		}
+	}
+	if channel.ID == "" {
+		t.Fatalf("channel %s not found in response: %+v", channelID, out.Data)
+	}
+	if len(channel.RecentSessions) != 5 {
+		t.Fatalf("recent sessions len=%d, want 5: %+v", len(channel.RecentSessions), channel.RecentSessions)
+	}
+	if !channel.RecentSessionsHasMore || channel.RecentSessionsNextCursor == nil || *channel.RecentSessionsNextCursor == "" {
+		t.Fatalf("expected recent sessions next cursor, got has_more=%v cursor=%v", channel.RecentSessionsHasMore, channel.RecentSessionsNextCursor)
+	}
+	gotIDs := make([]string, len(channel.RecentSessions))
+	for i, session := range channel.RecentSessions {
+		gotIDs[i] = session.ID
+		if session.ID == hidden.ID.String() {
+			t.Fatalf("hidden session was included: %+v", channel.RecentSessions)
+		}
+	}
+	wantIDs := []string{
+		participantSessions[4].ID.String(),
+		participantSessions[3].ID.String(),
+		participantSessions[2].ID.String(),
+		participantSessions[1].ID.String(),
+		participantSessions[0].ID.String(),
+	}
+	for i := range wantIDs {
+		if gotIDs[i] != wantIDs[i] {
+			t.Fatalf("recent session ids=%v, want=%v", gotIDs, wantIDs)
+		}
+	}
+	if oldCreatedByOwner.ID == uuid.Nil {
+		t.Fatal("created-by owner session was not seeded")
+	}
+}
+
 func TestIntegration_ChannelsManagementGuardrails(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
@@ -228,4 +292,54 @@ func seedDefaultChannel(t *testing.T, h *channelHarness, fx channelFixture) stri
 		t.Fatalf("create default channel member: %v", err)
 	}
 	return channel.ID.String()
+}
+
+func seedChannelRecentSession(t *testing.T, h *channelHarness, fx channelFixture, channelID uuid.UUID, createdBy uuid.UUID, participantIDs []uuid.UUID, activityAt time.Time) model.Session {
+	t.Helper()
+	session := model.Session{
+		OrgID:           fx.org.ID,
+		ChannelID:       channelID,
+		AgentID:         fx.agent.ID,
+		CreatedBy:       &createdBy,
+		Model:           "deepseek-v4-flash",
+		AccessMode:      "full",
+		ReasoningEffort: "high",
+		Source:          "web",
+		Name:            "session-" + uuid.NewString()[:8],
+		Status:          "active",
+		CreatedAt:       activityAt.Add(-time.Minute),
+		UpdatedAt:       activityAt.Add(-time.Minute),
+	}
+	if err := h.db.Create(&session).Error; err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	for _, userID := range participantIDs {
+		participant := model.SessionParticipant{
+			SessionID: session.ID,
+			UserID:    userID,
+			Role:      "collaborator",
+			CreatedAt: activityAt.Add(-time.Minute),
+		}
+		if err := h.db.Create(&participant).Error; err != nil {
+			t.Fatalf("create session participant: %v", err)
+		}
+	}
+	event := model.SessionEvent{
+		OrgID:            fx.org.ID,
+		SessionID:        session.ID,
+		AgentID:          fx.agent.ID,
+		RuntimeSessionID: session.ID.String(),
+		EventID:          "event-" + uuid.NewString(),
+		EventType:        "user.message",
+		ActorUserID:      &createdBy,
+		Source:           "web",
+		SequenceNumber:   1,
+		Payload:          model.JSON{"text": session.Name},
+		EventAt:          activityAt,
+		CreatedAt:        activityAt,
+	}
+	if err := h.db.Create(&event).Error; err != nil {
+		t.Fatalf("create session event: %v", err)
+	}
+	return session
 }

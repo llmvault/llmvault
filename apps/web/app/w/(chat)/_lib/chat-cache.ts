@@ -7,6 +7,7 @@ import type { CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comme
 export const CHAT_QUERY_STALE_TIME_MS = 5 * 60 * 1000
 export const SESSION_HISTORY_PAGE_LIMIT = 100
 export const SIDEBAR_SESSION_PAGE_LIMIT = 5
+export const SIDEBAR_SESSION_SORT = "activity"
 const CHAT_CACHE_STORE = createStore("hivy-chat-query-cache", "queries")
 export const CHANNEL_SESSIONS_INFINITE_KEY = "channel-sessions-infinite-v1"
 export const SESSION_EVENTS_INFINITE_KEY = "session-events-infinite-v1"
@@ -24,7 +25,11 @@ export type PaginatedSessionEvents =
 export const chatQueryKeys = {
   channels: (limit = 100) =>
     ["get", "/v1/channels", { params: { query: { limit } } }] as const,
-  channelSessions: (channelID: string, limit = SIDEBAR_SESSION_PAGE_LIMIT) =>
+  channelSessions: (
+    channelID: string,
+    limit = SIDEBAR_SESSION_PAGE_LIMIT,
+    sort = SIDEBAR_SESSION_SORT
+  ) =>
     [
       "get",
       "/v1/channels/{id}/sessions",
@@ -32,7 +37,7 @@ export const chatQueryKeys = {
         _hivyQueryKey: CHANNEL_SESSIONS_INFINITE_KEY,
         params: {
           path: { id: channelID },
-          query: { limit },
+          query: { limit, sort },
         },
       },
     ] as const,
