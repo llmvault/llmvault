@@ -13,13 +13,16 @@ import (
 
 func TestHTTPHealthCheckWaitsForDelayedSuccess(t *testing.T) {
 	var attempts int32
-	server := http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if atomic.AddInt32(&attempts, 1) < 3 {
-			http.Error(w, "not ready", http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})}
+	server := http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if atomic.AddInt32(&attempts, 1) < 3 {
+				http.Error(w, "not ready", http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		}),
+		ReadHeaderTimeout: time.Second,
+	}
 	listener := listenLocalhost(t)
 	defer func() { _ = server.Close() }()
 	go func() { _ = server.Serve(listener) }()
@@ -41,9 +44,12 @@ func TestHTTPHealthCheckWaitsForDelayedSuccess(t *testing.T) {
 }
 
 func TestHTTPHealthCheckTimeoutIncludesLastStatus(t *testing.T) {
-	server := http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "not ready", http.StatusServiceUnavailable)
-	})}
+	server := http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+		}),
+		ReadHeaderTimeout: time.Second,
+	}
 	listener := listenLocalhost(t)
 	defer func() { _ = server.Close() }()
 	go func() { _ = server.Serve(listener) }()
@@ -65,9 +71,12 @@ func TestHTTPHealthCheckTimeoutIncludesLastStatus(t *testing.T) {
 }
 
 func TestHTTPHealthCheckContextDeadlineIncludesLastStatus(t *testing.T) {
-	server := http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "not ready", http.StatusServiceUnavailable)
-	})}
+	server := http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+		}),
+		ReadHeaderTimeout: time.Second,
+	}
 	listener := listenLocalhost(t)
 	defer func() { _ = server.Close() }()
 	go func() { _ = server.Serve(listener) }()
