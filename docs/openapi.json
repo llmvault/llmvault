@@ -3803,6 +3803,22 @@
             }
           },
           {
+            "description": "Comma-separated optional expansions. Supports recent_sessions.",
+            "name": "include",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Recent sessions per channel when include=recent_sessions (default 5, max 20)",
+            "name": "recent_sessions_limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
             "description": "Page size (default 50, max 100)",
             "name": "limit",
             "in": "query",
@@ -4536,6 +4552,14 @@
           {
             "description": "Pagination cursor",
             "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort order: created_at or activity",
+            "name": "sort",
             "in": "query",
             "schema": {
               "type": "string"
@@ -8806,6 +8830,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Sort order: created_at or activity",
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -12510,6 +12542,18 @@
             "type": "string"
           },
           "origin": {
+            "type": "string"
+          },
+          "recent_sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/sessionResponse"
+            }
+          },
+          "recent_sessions_has_more": {
+            "type": "boolean"
+          },
+          "recent_sessions_next_cursor": {
             "type": "string"
           },
           "role": {

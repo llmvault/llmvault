@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -11,6 +14,14 @@ import (
 
 	"github.com/usehivy/hivy/internal/model"
 )
+
+const sessionSortActivity = "activity"
+
+type activityPaginationCursor struct {
+	LastActivity time.Time
+	CreatedAt    time.Time
+	ID           uuid.UUID
+}
 
 // List handles GET /v1/sessions.
 // @Summary List sessions
@@ -21,6 +32,7 @@ import (
 // @Param agent_id query string false "Agent ID"
 // @Param limit query int false "Page size"
 // @Param cursor query string false "Pagination cursor"
+// @Param sort query string false "Sort order: created_at or activity"
 // @Success 200 {object} paginatedResponse[sessionResponse]
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
@@ -39,6 +51,7 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Param id path string true "Channel ID"
 // @Param limit query int false "Page size"
 // @Param cursor query string false "Pagination cursor"
+// @Param sort query string false "Sort order: created_at or activity"
 // @Success 200 {object} paginatedResponse[sessionResponse]
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
@@ -87,7 +100,15 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 	if !ok {
 		return
 	}
-	limit, cursor, err := parsePagination(r)
+	sort := strings.TrimSpace(r.URL.Query().Get("sort"))
+	if sort == "" {
+		sort = "created_at"
+	}
+	if sort != "created_at" && sort != sessionSortActivity {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sort must be created_at or activity"})
+		return
+	}
+	limit, cursor, activityCursor, err := parseSessionListPagination(r, sort)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -120,10 +141,20 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 		}
 		query = query.Where("agent_id = ?", id)
 	}
-	if !isAPIKeyRequest(r.Context()) && !h.isOrgAdminForSession(r, org.ID, userID) {
+	if sort == sessionSortActivity && !isAPIKeyRequest(r.Context()) {
+		if userID == nil {
+			query = query.Where("1 = 0")
+		} else {
+			query = query.Where("created_by = ? OR id IN (?)", *userID, h.participantSessionSubquery(userID))
+		}
+	} else if !isAPIKeyRequest(r.Context()) && !h.isOrgAdminForSession(r, org.ID, userID) {
 		query = query.Where("id IN (?) OR channel_id IN (?)", h.participantSessionSubquery(userID), h.memberChannelSubquery(userID))
 	}
-	query = applyPagination(query, cursor, limit)
+	if sort == sessionSortActivity {
+		query = applySessionActivityPagination(query, activityCursor, limit)
+	} else {
+		query = applyPagination(query, cursor, limit)
+	}
 	var sessions []model.Session
 	if err := query.Find(&sessions).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list sessions"})
@@ -133,14 +164,87 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 	if hasMore {
 		sessions = sessions[:limit]
 	}
-	items := h.sessionListResponses(r, sessions)
+	stats := h.statsForSessions(r.Context(), sessionIDsV2(sessions))
+	items := sessionResponsesFromStats(sessions, stats)
 	resp := paginatedResponse[sessionResponse]{Data: items, HasMore: hasMore}
 	if hasMore {
 		last := sessions[len(sessions)-1]
 		next := encodeCursor(last.CreatedAt, last.ID)
+		if sort == sessionSortActivity {
+			next = encodeActivityCursor(sessionActivityTime(last, stats[last.ID]), last.CreatedAt, last.ID)
+		}
 		resp.NextCursor = &next
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func parseSessionListPagination(r *http.Request, sort string) (int, *paginationCursor, *activityPaginationCursor, error) {
+	limit, err := parsePaginationLimit(r)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	raw := r.URL.Query().Get("cursor")
+	if raw == "" || raw == "0" {
+		return limit, nil, nil, nil
+	}
+	if sort == sessionSortActivity {
+		cursor, err := decodeActivityCursor(raw)
+		if err != nil {
+			return 0, nil, nil, fmt.Errorf("invalid cursor")
+		}
+		return limit, nil, cursor, nil
+	}
+	cursor, err := decodeCursor(raw)
+	if err != nil {
+		return 0, nil, nil, fmt.Errorf("invalid cursor")
+	}
+	return limit, cursor, nil, nil
+}
+
+func encodeActivityCursor(lastActivity, createdAt time.Time, id uuid.UUID) string {
+	s := lastActivity.Format(time.RFC3339Nano) + "|" + createdAt.Format(time.RFC3339Nano) + "|" + id.String()
+	return base64.URLEncoding.EncodeToString([]byte(s))
+}
+
+func decodeActivityCursor(s string) (*activityPaginationCursor, error) {
+	b, err := base64.URLEncoding.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	first := splitOnce(string(b), '|')
+	if len(first) != 2 {
+		return nil, fmt.Errorf("malformed cursor")
+	}
+	second := splitOnce(first[1], '|')
+	if len(second) != 2 {
+		return nil, fmt.Errorf("malformed cursor")
+	}
+	lastActivity, err := time.Parse(time.RFC3339Nano, first[0])
+	if err != nil {
+		return nil, err
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, second[0])
+	if err != nil {
+		return nil, err
+	}
+	id, err := uuid.Parse(second[1])
+	if err != nil {
+		return nil, err
+	}
+	return &activityPaginationCursor{LastActivity: lastActivity, CreatedAt: createdAt, ID: id}, nil
+}
+
+func applySessionActivityPagination(q *gorm.DB, cursor *activityPaginationCursor, limit int) *gorm.DB {
+	q = q.Joins("LEFT JOIN LATERAL (SELECT max(event_at) AS last_event FROM session_events se WHERE se.session_id = sessions.id) AS session_activity ON TRUE")
+	if cursor != nil {
+		q = q.Where(
+			"(COALESCE(session_activity.last_event, sessions.updated_at), sessions.created_at, sessions.id) < (?, ?, ?)",
+			cursor.LastActivity,
+			cursor.CreatedAt,
+			cursor.ID,
+		)
+	}
+	return q.Order("COALESCE(session_activity.last_event, sessions.updated_at) DESC, sessions.created_at DESC, sessions.id DESC").Limit(limit + 1)
 }
 
 func (h *SessionHandler) canListChannelSessions(w http.ResponseWriter, r *http.Request, orgID, channelID uuid.UUID, userID *uuid.UUID) bool {
@@ -187,10 +291,21 @@ func (h *SessionHandler) memberChannelSubquery(userID *uuid.UUID) *gorm.DB {
 func (h *SessionHandler) sessionListResponses(r *http.Request, sessions []model.Session) []sessionResponse {
 	ids := sessionIDsV2(sessions)
 	stats := h.statsForSessions(r.Context(), ids)
+	return sessionResponsesFromStats(sessions, stats)
+}
+
+func sessionResponsesFromStats(sessions []model.Session, stats map[uuid.UUID]sessionStats) []sessionResponse {
 	out := make([]sessionResponse, len(sessions))
 	for i, session := range sessions {
 		stat := stats[session.ID]
 		out[i] = sessionToResponse(session, stat.ParticipantCount, stat.EventCount, stat.LastEvent)
 	}
 	return out
+}
+
+func sessionActivityTime(session model.Session, stats sessionStats) time.Time {
+	if stats.LastEvent != nil && !stats.LastEvent.IsZero() {
+		return *stats.LastEvent
+	}
+	return session.UpdatedAt
 }

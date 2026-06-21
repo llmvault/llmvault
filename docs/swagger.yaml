@@ -969,6 +969,14 @@ definitions:
         type: string
       origin:
         type: string
+      recent_sessions:
+        items:
+          $ref: '#/definitions/sessionResponse'
+        type: array
+      recent_sessions_has_more:
+        type: boolean
+      recent_sessions_next_cursor:
+        type: string
       role:
         type: string
       updated_at:
@@ -5490,6 +5498,15 @@ paths:
         in: query
         name: discoverable
         type: boolean
+      - description: Comma-separated optional expansions. Supports recent_sessions.
+        in: query
+        name: include
+        type: string
+      - description: Recent sessions per channel when include=recent_sessions (default
+          5, max 20)
+        in: query
+        name: recent_sessions_limit
+        type: integer
       - description: Page size (default 50, max 100)
         in: query
         name: limit
@@ -5852,6 +5869,10 @@ paths:
       - description: Pagination cursor
         in: query
         name: cursor
+        type: string
+      - description: 'Sort order: created_at or activity'
+        in: query
+        name: sort
         type: string
       produces:
       - application/json
@@ -8133,6 +8154,10 @@ paths:
       - description: Pagination cursor
         in: query
         name: cursor
+        type: string
+      - description: 'Sort order: created_at or activity'
+        in: query
+        name: sort
         type: string
       produces:
       - application/json

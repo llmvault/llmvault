@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -220,6 +222,51 @@ func TestIntegration_SessionsChannelVisibilityDoesNotGrantSend(t *testing.T) {
 	}
 }
 
+func TestIntegration_ChannelSessionsActivitySortIsScopedToCurrentUser(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+	base := time.Date(2026, 6, 21, 9, 0, 0, 0, time.UTC)
+	visibleOld := seedActivitySession(t, h, fx, fx.owner.ID, nil, base)
+	hidden := seedActivitySession(t, h, fx, fx.member.ID, []uuid.UUID{fx.member.ID}, base.Add(2*time.Hour))
+	visibleNew := seedActivitySession(t, h, fx, fx.member.ID, []uuid.UUID{fx.owner.ID}, base.Add(time.Hour))
+
+	first := h.doJSON(t, http.MethodGet, "/v1/channels/"+fx.channel.ID.String()+"/sessions?sort=activity&limit=1", fx, fx.owner, nil)
+	if first.Code != http.StatusOK {
+		t.Fatalf("first page status=%d body=%s", first.Code, first.Body.String())
+	}
+	var firstPage struct {
+		Data       []sessionOut `json:"data"`
+		HasMore    bool         `json:"has_more"`
+		NextCursor *string      `json:"next_cursor"`
+	}
+	if err := json.Unmarshal(first.Body.Bytes(), &firstPage); err != nil {
+		t.Fatalf("decode first page: %v\n%s", err, first.Body.String())
+	}
+	if len(firstPage.Data) != 1 || firstPage.Data[0].ID != visibleNew.ID.String() {
+		t.Fatalf("first page sessions=%+v, want %s", firstPage.Data, visibleNew.ID)
+	}
+	if !firstPage.HasMore || firstPage.NextCursor == nil {
+		t.Fatalf("first page missing continuation: %+v", firstPage)
+	}
+
+	second := h.doJSON(t, http.MethodGet, "/v1/channels/"+fx.channel.ID.String()+"/sessions?sort=activity&limit=1&cursor="+url.QueryEscape(*firstPage.NextCursor), fx, fx.owner, nil)
+	if second.Code != http.StatusOK {
+		t.Fatalf("second page status=%d body=%s", second.Code, second.Body.String())
+	}
+	var secondPage struct {
+		Data []sessionOut `json:"data"`
+	}
+	if err := json.Unmarshal(second.Body.Bytes(), &secondPage); err != nil {
+		t.Fatalf("decode second page: %v\n%s", err, second.Body.String())
+	}
+	if len(secondPage.Data) != 1 || secondPage.Data[0].ID != visibleOld.ID.String() {
+		t.Fatalf("second page sessions=%+v, want %s", secondPage.Data, visibleOld.ID)
+	}
+	if hidden.ID == uuid.Nil {
+		t.Fatal("hidden session was not seeded")
+	}
+}
+
 func TestIntegration_SessionsCreate_WithExplicitName_DoesNotEnqueueAutoNaming(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
@@ -291,4 +338,54 @@ func assertSessionNameTaskEnqueued(t *testing.T, h *sessionHarness, sessionID st
 	}
 
 	t.Fatalf("expected %s task for session %s", tasks.TypeSessionName, sessionID)
+}
+
+func seedActivitySession(t *testing.T, h *sessionHarness, fx sessionFixture, createdBy uuid.UUID, participantIDs []uuid.UUID, activityAt time.Time) model.Session {
+	t.Helper()
+	session := model.Session{
+		OrgID:           fx.org.ID,
+		ChannelID:       fx.channel.ID,
+		AgentID:         fx.agent.ID,
+		CreatedBy:       &createdBy,
+		Model:           "deepseek-v4-flash",
+		AccessMode:      "full",
+		ReasoningEffort: "high",
+		Source:          "web",
+		Name:            "activity-" + uuid.NewString()[:8],
+		Status:          "active",
+		CreatedAt:       activityAt.Add(-time.Minute),
+		UpdatedAt:       activityAt.Add(-time.Minute),
+	}
+	if err := h.db.Create(&session).Error; err != nil {
+		t.Fatalf("create activity session: %v", err)
+	}
+	for _, userID := range participantIDs {
+		participant := model.SessionParticipant{
+			SessionID: session.ID,
+			UserID:    userID,
+			Role:      "collaborator",
+			CreatedAt: activityAt.Add(-time.Minute),
+		}
+		if err := h.db.Create(&participant).Error; err != nil {
+			t.Fatalf("create activity participant: %v", err)
+		}
+	}
+	event := model.SessionEvent{
+		OrgID:            fx.org.ID,
+		SessionID:        session.ID,
+		AgentID:          fx.agent.ID,
+		RuntimeSessionID: session.ID.String(),
+		EventID:          "activity-" + uuid.NewString(),
+		EventType:        "user.message",
+		ActorUserID:      &createdBy,
+		Source:           "web",
+		SequenceNumber:   1,
+		Payload:          model.JSON{"text": session.Name},
+		EventAt:          activityAt,
+		CreatedAt:        activityAt,
+	}
+	if err := h.db.Create(&event).Error; err != nil {
+		t.Fatalf("create activity event: %v", err)
+	}
+	return session
 }

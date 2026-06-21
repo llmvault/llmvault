@@ -3091,6 +3091,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Comma-separated optional expansions. Supports recent_sessions.",
+                        "name": "include",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Recent sessions per channel when include=recent_sessions (default 5, max 20)",
+                        "name": "recent_sessions_limit",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Page size (default 50, max 100)",
                         "name": "limit",
@@ -3646,6 +3658,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Pagination cursor",
                         "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order: created_at or activity",
+                        "name": "sort",
                         "in": "query"
                     }
                 ],
@@ -7159,6 +7177,12 @@ const docTemplate = `{
                         "description": "Pagination cursor",
                         "name": "cursor",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order: created_at or activity",
+                        "name": "sort",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -10333,6 +10357,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "origin": {
+                    "type": "string"
+                },
+                "recent_sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sessionResponse"
+                    }
+                },
+                "recent_sessions_has_more": {
+                    "type": "boolean"
+                },
+                "recent_sessions_next_cursor": {
                     "type": "string"
                 },
                 "role": {

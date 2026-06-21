@@ -48,28 +48,31 @@ type channelDetailResponse struct {
 }
 
 type channelResponse struct {
-	ID                   string     `json:"id"`
-	Name                 string     `json:"name"`
-	Description          string     `json:"description"`
-	Kind                 string     `json:"kind"`
-	Visibility           string     `json:"visibility"`
-	DefaultAgentID       string     `json:"default_agent_id"`
-	IsDefault            bool       `json:"is_default"`
-	Origin               string     `json:"origin"`
-	ExternalProvider     string     `json:"external_provider"`
-	ExternalConnectionID *string    `json:"external_connection_id,omitempty"`
-	ExternalWorkspaceKey string     `json:"external_workspace_key"`
-	ExternalResourceType string     `json:"external_resource_type"`
-	ExternalResourceKey  string     `json:"external_resource_key"`
-	ExternalResourceName string     `json:"external_resource_name"`
-	ExternalResourceURL  string     `json:"external_resource_url"`
-	ExternalMetadata     model.JSON `json:"external_metadata"`
-	CreatedBy            *string    `json:"created_by,omitempty"`
-	Role                 string     `json:"role,omitempty"`
-	MemberCount          int64      `json:"member_count"`
-	ArchivedAt           *string    `json:"archived_at,omitempty"`
-	CreatedAt            string     `json:"created_at"`
-	UpdatedAt            string     `json:"updated_at"`
+	ID                       string             `json:"id"`
+	Name                     string             `json:"name"`
+	Description              string             `json:"description"`
+	Kind                     string             `json:"kind"`
+	Visibility               string             `json:"visibility"`
+	DefaultAgentID           string             `json:"default_agent_id"`
+	IsDefault                bool               `json:"is_default"`
+	Origin                   string             `json:"origin"`
+	ExternalProvider         string             `json:"external_provider"`
+	ExternalConnectionID     *string            `json:"external_connection_id,omitempty"`
+	ExternalWorkspaceKey     string             `json:"external_workspace_key"`
+	ExternalResourceType     string             `json:"external_resource_type"`
+	ExternalResourceKey      string             `json:"external_resource_key"`
+	ExternalResourceName     string             `json:"external_resource_name"`
+	ExternalResourceURL      string             `json:"external_resource_url"`
+	ExternalMetadata         model.JSON         `json:"external_metadata"`
+	CreatedBy                *string            `json:"created_by,omitempty"`
+	Role                     string             `json:"role,omitempty"`
+	MemberCount              int64              `json:"member_count"`
+	RecentSessions           *[]sessionResponse `json:"recent_sessions,omitempty"`
+	RecentSessionsHasMore    bool               `json:"recent_sessions_has_more,omitempty"`
+	RecentSessionsNextCursor *string            `json:"recent_sessions_next_cursor,omitempty"`
+	ArchivedAt               *string            `json:"archived_at,omitempty"`
+	CreatedAt                string             `json:"created_at"`
+	UpdatedAt                string             `json:"updated_at"`
 }
 
 type channelMemberResponse struct {

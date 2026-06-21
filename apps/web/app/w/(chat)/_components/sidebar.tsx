@@ -2,14 +2,16 @@
 
 import { memo, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { useQueries, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { api } from "@/lib/api/client"
 import { $api } from "@/lib/api/hooks"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
 import { ChannelGroup } from "@/app/w/(chat)/_components/sidebar-channel-group"
-import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
+import {
+  CHAT_QUERY_STALE_TIME_MS,
+  SIDEBAR_SESSION_PAGE_LIMIT,
+} from "@/app/w/(chat)/_lib/chat-cache"
 import {
   channelRouteSlug,
   channelRouteSlugCounts,
@@ -40,6 +42,8 @@ export const Sidebar = memo(function Sidebar({
       params: {
         query: {
           limit: SIDEBAR_CHANNEL_PAGE_LIMIT,
+          include: "recent_sessions",
+          recent_sessions_limit: SIDEBAR_SESSION_PAGE_LIMIT,
         },
       },
     },
@@ -63,38 +67,14 @@ export const Sidebar = memo(function Sidebar({
     () => channelsQuery.data?.pages.flatMap((page) => page.data ?? []) ?? [],
     [channelsQuery.data?.pages]
   )
-  const latestSessionQueries = useQueries({
-    queries: channels.map((channel) => {
-      const channelID = channel.id ?? ""
-      return {
-        queryKey: ["sidebar-channel-latest-session", channelID, 1] as const,
-        enabled: Boolean(channelID),
-        retry: false,
-        staleTime: CHAT_QUERY_STALE_TIME_MS,
-        queryFn: async () => {
-          const { data, error } = await api.GET("/v1/channels/{id}/sessions", {
-            params: {
-              path: { id: channelID },
-              query: { limit: 1 },
-            },
-          })
-          if (error) throw new Error("Could not load latest channel session")
-          return data?.data?.[0] ?? null
-        },
-      }
-    }),
-  })
   const latestSessionsByChannelID = useMemo(() => {
     const out = new Map<string, SidebarSessionResponse | null>()
-    channels.forEach((channel, index) => {
+    channels.forEach((channel) => {
       if (!channel.id) return
-      const result = latestSessionQueries[index]
-      if (result?.data !== undefined) {
-        out.set(channel.id, result.data ?? null)
-      }
+      out.set(channel.id, channel.recent_sessions?.[0] ?? null)
     })
     return out
-  }, [channels, latestSessionQueries])
+  }, [channels])
   const sortedChannels = useMemo(
     () => sortChannelsByRecentSession(channels, latestSessionsByChannelID),
     [channels, latestSessionsByChannelID]
@@ -114,10 +94,10 @@ export const Sidebar = memo(function Sidebar({
   )
   const latestSessions = useMemo(
     () =>
-      [...latestSessionsByChannelID.values()].filter(
+      channels.flatMap((channel) => channel.recent_sessions ?? []).filter(
         (session): session is SidebarSessionResponse => Boolean(session)
       ),
-    [latestSessionsByChannelID]
+    [channels]
   )
 
   useEffect(() => {

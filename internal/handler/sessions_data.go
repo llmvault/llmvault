@@ -21,6 +21,10 @@ type sessionStats struct {
 }
 
 func (h *SessionHandler) statsForSessions(ctx context.Context, ids []uuid.UUID) map[uuid.UUID]sessionStats {
+	return statsForSessionsDB(ctx, h.db, ids)
+}
+
+func statsForSessionsDB(ctx context.Context, db *gorm.DB, ids []uuid.UUID) map[uuid.UUID]sessionStats {
 	out := make(map[uuid.UUID]sessionStats, len(ids))
 	if len(ids) == 0 {
 		return out
@@ -33,7 +37,7 @@ func (h *SessionHandler) statsForSessions(ctx context.Context, ids []uuid.UUID) 
 		Count     int64
 	}
 	var participantRows []participantRow
-	_ = h.db.WithContext(ctx).Model(&model.SessionParticipant{}).
+	_ = db.WithContext(ctx).Model(&model.SessionParticipant{}).
 		Select("session_id, count(*) AS count").
 		Where("session_id IN ?", ids).
 		Group("session_id").
@@ -49,7 +53,7 @@ func (h *SessionHandler) statsForSessions(ctx context.Context, ids []uuid.UUID) 
 		LastEvent *time.Time
 	}
 	var eventRows []eventRow
-	_ = h.db.WithContext(ctx).Model(&model.SessionEvent{}).
+	_ = db.WithContext(ctx).Model(&model.SessionEvent{}).
 		Select("session_id, count(*) AS count, max(event_at) AS last_event").
 		Where("session_id IN ?", ids).
 		Group("session_id").

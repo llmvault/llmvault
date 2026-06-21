@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { Icon } from "@iconify/react"
 import {
@@ -13,7 +13,9 @@ import { DEFAULT_AGENT_ID, agentById } from "@/app/w/(chat)/_lib/agents"
 import {
   CHAT_QUERY_STALE_TIME_MS,
   CHANNEL_SESSIONS_INFINITE_KEY,
+  SIDEBAR_SESSION_SORT,
   SIDEBAR_SESSION_PAGE_LIMIT,
+  type PaginatedSessions,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import { $api } from "@/lib/api/hooks"
 import {
@@ -65,6 +67,26 @@ export function ChannelGroup({
   const open = channelActive || (manualOpen ?? autoExpanded)
   const chatActive = (id: string) => pathname === `${channelPath}/${id}`
   const channelID = channel.id ?? ""
+  const initialSessions = channel.recent_sessions
+  const initialSessionsData = useMemo<
+    InfiniteData<PaginatedSessions> | undefined
+  >(() => {
+    if (!initialSessions) return undefined
+    return {
+      pageParams: ["0"],
+      pages: [
+        {
+          data: initialSessions,
+          has_more: Boolean(channel.recent_sessions_has_more),
+          next_cursor: channel.recent_sessions_next_cursor,
+        },
+      ],
+    }
+  }, [
+    initialSessions,
+    channel.recent_sessions_has_more,
+    channel.recent_sessions_next_cursor,
+  ])
 
   const sessionsQuery = $api.useInfiniteQuery(
     "get",
@@ -77,15 +99,17 @@ export function ChannelGroup({
         },
         query: {
           limit: SIDEBAR_SESSION_PAGE_LIMIT,
+          sort: SIDEBAR_SESSION_SORT,
         },
       },
     },
     {
-      enabled: open && Boolean(channelID),
+      enabled: open && Boolean(channelID) && !initialSessionsData,
       initialPageParam: "0",
       pageParamName: "cursor",
       getNextPageParam: (lastPage) =>
         lastPage.has_more ? lastPage.next_cursor : undefined,
+      initialData: initialSessionsData,
       retry: false,
       staleTime: CHAT_QUERY_STALE_TIME_MS,
     }
