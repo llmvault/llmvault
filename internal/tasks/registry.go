@@ -10,7 +10,6 @@ import (
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/enqueue"
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/scheduler"
@@ -33,7 +32,6 @@ type WorkerDeps struct {
 	Credits           *billing.CreditsService // required for billing-token-spend deduction
 	Subscriptions     *subscription.Service   // required for renewal worker
 	Enqueuer          enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
-	Hindsight         *hindsight.Client       // nil if Hindsight not configured
 	PreContextCache   precontext.Cache        // nil disables agent pre-context cache invalidation
 	AgentCompile      agentruntime.CompileDeps
 	OrgAgentSyncer    OrgHivyAgentSyncer
@@ -107,9 +105,6 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		}
 	}
 
-	if deps.Hindsight != nil {
-		mux.HandleFunc(TypeAgentMemoryRefresh, NewAgentMemoryRefreshHandler(deps.DB, deps.AgentCompile, deps.Orchestrator).Handle)
-	}
 	mux.HandleFunc(TypeCanvasOrgSync, NewCanvasOrgSyncHandler(deps.CanvasSyncer).Handle)
 	if deps.Orchestrator != nil && deps.S3Client != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil {
 		mux.HandleFunc(TypeAgentSandboxUpgrade,

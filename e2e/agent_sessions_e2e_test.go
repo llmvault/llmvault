@@ -142,9 +142,6 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	assertAgentSessionsDockerContainerImage(t, ctx, "default Hivy", defaultAgent.Sandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
 	t.Logf("sandbox id=%s status=%s external_id=%s", defaultAgent.Sandbox.ID, defaultAgent.Sandbox.Status, defaultAgent.Sandbox.ExternalID)
 
-	requireAgentSessionsHindsightHealthy(t, ctx)
-	runAgentSessionsHindsightMemoryE2E(t, ctx, apiBase, ownerToken, orgID, general.ID, runID)
-
 	interruptCommand := "python3 -c 'import pathlib,time; time.sleep(8); pathlib.Path(\"" + interruptSentinelPath + "\").write_text(\"done\")'"
 	interruptSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
 		"This is the agent sessions interrupt E2E.",

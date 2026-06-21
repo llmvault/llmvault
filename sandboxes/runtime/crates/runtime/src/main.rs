@@ -445,7 +445,7 @@ fn bootstrap_system_prompt() -> SystemPromptConfig {
     SystemPromptConfig {
         cacheable_segments: vec![SystemPromptSegment::StaticText(StaticPromptSegment {
             title: String::new(),
-            content: "You are Aria, a friendly AI agent. Reply concisely. Use search_sessions for recent local conversation context, search_knowledge_base for indexed company knowledge, and memory_recall for durable remembered facts when past context would materially improve the answer. Never invent features. If you do not know something, say so.".into(),
+            content: "You are Aria, a friendly AI agent. Reply concisely. Use search_sessions for recent local conversation context and search_knowledge_base for indexed company knowledge when past context would materially improve the answer. Never invent features. If you do not know something, say so.".into(),
         })],
         dynamic_segments: vec![
             SystemPromptSegment::DynamicContext(DynamicContextPromptSegment {

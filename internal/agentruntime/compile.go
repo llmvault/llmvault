@@ -12,7 +12,6 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/crypto"
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/nango"
 	"github.com/usehivy/hivy/internal/token"
@@ -34,12 +33,7 @@ type CompileDeps struct {
 	SigningKey []byte
 	Cfg        *config.Config
 	Nango      *nango.Client
-	Hindsight  HindsightMemoryClient
 	Canvas     CanvasRuntimeEnvProvider
-}
-
-type HindsightMemoryClient interface {
-	ListMemoriesFiltered(ctx context.Context, bankID string, opts hindsight.ListMemoriesOptions) (*hindsight.ListMemoriesResponse, error)
 }
 
 type CanvasRuntimeEnvProvider interface {
@@ -260,7 +254,7 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	description := managedAgentDescription
 	fragments := buildPromptSections(ctx, deps.DB, agent, description)
 	contextMap := map[string]any{
-		"memory": buildMemoryContext(ctx, deps, agent),
+		"memory": emptyMemoryContext(),
 	}
 	modelID := strings.TrimSpace(agent.Model)
 	if modelID == "" {

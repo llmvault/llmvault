@@ -41,16 +41,6 @@ const writeFileTools = new Set(["write_file", "builtin_write_file"])
 const editFileTools = new Set(["edit_file", "builtin_edit_file"])
 const skillListTools = new Set(["skill_list", "skills_list", "list_skills"])
 const skillTools = new Set(["skill_manage", "skill_create", "skill_update"])
-const memoryTools = new Set([
-  "hivy_memory_recall",
-  "hivy_memory_retain",
-  "hivy_memory_reflect",
-  "hivy_memory_forget",
-  "memory_recall",
-  "memory_retain",
-  "memory_reflect",
-  "memory_forget",
-])
 const sessionSearchTools = new Set(["search_sessions", "hivy_search_sessions"])
 const searchTools = new Set([
   "hivy_search_knowledge_base",
@@ -204,8 +194,6 @@ function toolLabelFromDetail(detail?: ToolCallDetail): string {
       return running ? "Listing skills" : "Listed skills"
     case "skill":
       return running ? "Managing skills" : "Managed skills"
-    case "memory":
-      return `${memoryActionLabel(detail, running)}${target ? `: ${target}` : ""}`
     case "session_search":
       return `${running ? "Searching sessions" : "Searched sessions"}${
         target ? `: ${target}` : ""
@@ -596,7 +584,6 @@ function toolCategory(
   if (editFileTools.has(tool)) return "file_edit"
   if (skillListTools.has(tool)) return "skill_list"
   if (skillTools.has(tool)) return "skill"
-  if (memoryTools.has(tool)) return "memory"
   if (sessionSearchTools.has(tool)) return "session_search"
   if (searchTools.has(tool)) return "search"
   return "tool"
@@ -620,8 +607,6 @@ function toolKind(category: ToolCategory, tool: string): string {
       return "Skills"
     case "skill":
       return "Skills"
-    case "memory":
-      return "Memory"
     case "session_search":
       return "Session search"
     case "search":
@@ -647,8 +632,6 @@ function toolIcon(category: ToolCategory): string {
     case "skill_list":
     case "skill":
       return "lucide:sparkles"
-    case "memory":
-      return "lucide:brain"
     case "session_search":
       return "lucide:messages-square"
     case "search":
@@ -656,19 +639,6 @@ function toolIcon(category: ToolCategory): string {
     default:
       return "lucide:square-chevron-right"
   }
-}
-
-function memoryActionLabel(detail: ToolCallDetail, running: boolean): string {
-  const tool = detail.tool ?? ""
-  if (tool.includes("retain"))
-    return running ? "Retaining memory" : "Retained memory"
-  if (tool.includes("recall"))
-    return running ? "Recalling memory" : "Recalled memory"
-  if (tool.includes("reflect"))
-    return running ? "Reflecting on memory" : "Reflected on memory"
-  if (tool.includes("forget"))
-    return running ? "Forgetting memory" : "Forgot memory"
-  return running ? "Using memory" : "Used memory"
 }
 
 function readFileLabel(detail: ToolCallDetail): string {

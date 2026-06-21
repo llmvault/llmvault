@@ -158,7 +158,7 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 		"Sessions include timestamps",
 		"call search_sessions only for older or deeper conversation history",
 		"When this context supplies missing details",
-		"call memory_recall or search_knowledge_base",
+		"call search_knowledge_base",
 		"Do not retrieve for greetings, acknowledgements",
 	} {
 		if !strings.Contains(dynamicPreamble, want) {

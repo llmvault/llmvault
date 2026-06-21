@@ -19,7 +19,6 @@ import (
 	"github.com/usehivy/hivy/internal/counter"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/db"
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/mcp/catalog"
 	"github.com/usehivy/hivy/internal/middleware"
@@ -49,7 +48,6 @@ type Deps struct {
 	SigningKey      []byte
 	SandboxEncKey   *crypto.SymmetricKey
 	Orchestrator    *sandbox.Orchestrator
-	HindsightClient *hindsight.Client
 	SpiderClient    *spider.Client              // nil if spider not configured
 	ToolUsageWriter *middleware.ToolUsageWriter // nil if spider not configured
 	BillingRegistry *billing.Registry           // always non-nil; may have zero providers
@@ -194,11 +192,6 @@ func New(ctx context.Context) (*Deps, error) {
 		return nil, err
 	}
 
-	var hClient *hindsight.Client
-	if cfg.HindsightAPIURL != "" {
-		hClient = hindsight.NewClient(cfg.HindsightAPIURL)
-	}
-
 	billingRegistry := billing.NewRegistry()
 	credits := billing.NewCreditsService(database)
 	if cfg.PaystackSecretKey != "" {
@@ -233,7 +226,6 @@ func New(ctx context.Context) (*Deps, error) {
 		SigningKey:      signingKey,
 		SandboxEncKey:   sandboxEncKey,
 		Orchestrator:    orchestrator,
-		HindsightClient: hClient,
 		SpiderClient:    spiderClient,
 		ToolUsageWriter: toolUsageWriter,
 		BillingRegistry: billingRegistry,

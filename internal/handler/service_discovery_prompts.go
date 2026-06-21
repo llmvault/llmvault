@@ -39,25 +39,23 @@ Connection context:
 - Connection ID: %s
 
 Use only the Hivy-provided skill and proxy environment variables for this provider. Do not use raw credentials or external accounts directly.
-Persist durable discoveries with memory_retain. Use concise, factual memories. Prefer many focused memories over one huge dump when facts are independently useful.
-Use memory_retain with the required structured tags object. Use provider scope for provider-wide facts: {"scope":"provider","provider":"%s","memory_type":"technical_context"}. Use resource scope when a fact is about a specific provider resource and include resource_type/resource_id.
-Before retaining new facts, recall recent memories for this provider and update, replace, or avoid duplicating stale facts.
-Never retain secrets, access tokens, private credentials, raw API payloads, or full unbounded lists.
-If the provider is disconnected or unavailable, retain nothing and finish with a short explanation.
-`, displayName, provider, displayName, conn.ID.String(), provider)
+Finish with concise, factual operational notes. Prefer many focused bullets over one huge dump when facts are independently useful.
+Never include secrets, access tokens, private credentials, raw API payloads, or full unbounded lists.
+If the provider is disconnected or unavailable, finish with a short explanation.
+`, displayName, provider, displayName, conn.ID.String())
 }
 
 func glitchTipServiceDiscoveryPrompt(conn model.Connection) string {
 	return discoveryPromptHeader("glitchtip", conn) + `
 GlitchTip discovery checklist:
 1. Load the GlitchTip skill instructions and use the Hivy GlitchTip proxy.
-2. Discover accessible organizations and production-relevant projects. For each important project, retain organization slug, project ID, project slug, display name, platform, and dashboard URL pattern when available.
-3. Discover environments and recent releases enough to understand production/staging naming conventions and release identifiers. Retain conventions and important active release/project mappings, not full release history.
-4. Inspect recent unresolved issues only to infer durable operational patterns: high-volume projects, common error categories, environment/release tags, and likely ownership hints. Do not retain full issue lists, raw stacktraces, event payloads, request data, user data, or secrets.
-5. Discover monitors, log resources, and log naming conventions where available. Retain only concise operational notes such as monitor IDs/names or log resource meanings that future debugging work can reuse.
-6. Retain concise memories that help future incident/debug work, such as "GlitchTip org hivy project apiusehivycom has project ID 1 and tracks API errors" or "production environment tag is production".
+2. Discover accessible organizations and production-relevant projects. For each important project, report organization slug, project ID, project slug, display name, platform, and dashboard URL pattern when available.
+3. Discover environments and recent releases enough to understand production/staging naming conventions and release identifiers. Report conventions and important active release/project mappings, not full release history.
+4. Inspect recent unresolved issues only to infer durable operational patterns: high-volume projects, common error categories, environment/release tags, and likely ownership hints. Do not include full issue lists, raw stacktraces, event payloads, request data, user data, or secrets.
+5. Discover monitors, log resources, and log naming conventions where available. Report only concise operational notes such as monitor IDs/names or log resource meanings that future debugging work can reuse.
+6. Report concise facts that help future incident/debug work, such as "GlitchTip org hivy project apiusehivycom has project ID 1 and tracks API errors" or "production environment tag is production".
 7. Avoid mutations. Do not resolve, delete, assign, mute, comment on, or update issues; do not change projects, alerts, monitors, releases, teams, members, API tokens, or billing.
-8. Keep retained memories compact. Start with small limits for issue/event/log calls and summarize; do not retain raw API payloads.
+8. Keep reported notes compact. Start with small limits for issue/event/log calls and summarize; do not include raw API payloads.
 `
 }
 
@@ -68,9 +66,9 @@ Railway discovery checklist:
 2. Discover production-relevant Railway projects and environments. Focus on production/staging/default environments, not every historical environment.
 3. For each relevant project/environment, identify service IDs, service names, domains, deployment source repository/image when visible, current deployed image/tag when visible, volumes, databases, and important environment names.
 4. Infer each service purpose from its name, domains, repository, image, and adjacent database/volume relationships. Mark inference clearly as inferred.
-5. Retain operational notes that would help future work, such as "API service is project X service Y in environment Z" or "production Postgres database is service ID ...".
+5. Report operational notes that would help future work, such as "API service is project X service Y in environment Z" or "production Postgres database is service ID ...".
 6. Avoid destructive actions. Do not mutate services, deployments, variables, databases, volumes, domains, or environments.
-7. Keep retained memories compact. Do not retain low-value deployment history or full GraphQL/REST payloads.
+7. Keep reported notes compact. Do not include low-value deployment history or full GraphQL/REST payloads.
 `
 }
 
@@ -80,9 +78,9 @@ Vercel discovery checklist:
 1. Load the Vercel skill instructions and use the Hivy Vercel proxy.
 2. Discover the team/account context, production-relevant projects, project IDs, names, framework/build settings where visible, domains, and GitHub repository links.
 3. For each important project, identify latest production deployment status, production domain, connected Git repository, branch, and environment target names where visible.
-4. Retain concise memories that help future deploy/debug work, such as project IDs, domain-to-project mappings, repo-to-project mappings, and production deployment conventions.
+4. Report concise facts that help future deploy/debug work, such as project IDs, domain-to-project mappings, repo-to-project mappings, and production deployment conventions.
 5. Avoid destructive actions. Do not delete projects, deployments, domains, aliases, environment variables, teams, or integrations.
-6. Do not retain full deployment logs unless a short operational note is clearly useful.
+6. Do not include full deployment logs unless a short operational note is clearly useful.
 `
 }
 
@@ -92,9 +90,9 @@ Notion discovery checklist:
 1. Load the Notion skill instructions and use the Hivy Notion proxy.
 2. Discover important top-level pages, high-signal team/project docs, and important databases. Prioritize docs/databases likely to answer business, product, operations, support, roadmap, or project questions.
 3. For databases, identify database IDs, titles, core properties, relation/rollup shape where visible, and inferred purpose. Include enough schema detail for future agents to query them without rediscovery.
-4. Retain concise memories for important page IDs, database IDs, schema summaries, and when to use each resource.
+4. Report concise facts for important page IDs, database IDs, schema summaries, and when to use each resource.
 5. Avoid mutating pages/databases. Do not archive, delete, move, or rewrite content.
-6. Do not retain large page bodies; retain resource identity, purpose, and navigation/query hints.
+6. Do not include large page bodies; report resource identity, purpose, and navigation/query hints.
 `
 }
 
@@ -104,9 +102,9 @@ Linear discovery checklist:
 1. Load the Linear skill instructions and use the Hivy Linear proxy.
 2. Discover teams, team IDs, project IDs/names, workflow states, labels, cycles if relevant, and important owner/assignee/user mappings visible from active work.
 3. Identify conventions that help future triage, such as which teams own product areas, which workflow states mean done/blocked/backlog, and labels used for priority or customer impact.
-4. Retain concise memories for team IDs, project IDs, workflow state names/IDs, label conventions, and owner mappings that future agents can use directly.
+4. Report concise facts for team IDs, project IDs, workflow state names/IDs, label conventions, and owner mappings that future agents can use directly.
 5. Avoid mutations. Do not create, update, archive, delete, assign, or reprioritize issues during discovery.
-6. Avoid retaining full issue lists; keep only durable structure and important conventions.
+6. Avoid full issue lists; keep only durable structure and important conventions.
 `
 }
 
@@ -114,11 +112,11 @@ func slackServiceDiscoveryPrompt(conn model.Connection) string {
 	return discoveryPromptHeader("slack", conn) + `
 Slack discovery checklist:
 1. Load the Slack skill instructions and use the Hivy Slack proxy.
-2. Discover only high-signal workspace context. Do not scan or retain every channel/user.
-3. Identify up to 20 hottest channels by visible activity, member count, or operational importance. For each, retain channel ID, channel name, and a short inferred purpose if clear.
+2. Discover only high-signal workspace context. Do not scan or report every channel/user.
+3. Identify up to 20 hottest channels by visible activity, member count, or operational importance. For each, report channel ID, channel name, and a short inferred purpose if clear.
 4. From those high-signal channels only, identify relevant user ID/name mappings that future agents are likely to mention or need for routing. Prefer executives, admins, managers, operators, or frequent collaborators over exhaustive user lists.
-5. Retain concise memories that help future Slack work, such as "engineering channel ID is C..." or "Kim's Slack user ID is U...".
-6. Avoid reading private content unnecessarily. Do not retain sensitive conversation contents, full transcripts, or private messages.
+5. Report concise facts that help future Slack work, such as "engineering channel ID is C..." or "Kim's Slack user ID is U...".
+6. Avoid reading private content unnecessarily. Do not include sensitive conversation contents, full transcripts, or private messages.
 7. Avoid mutations. Do not send messages, change channel membership, archive channels, or edit workspace settings during discovery.
 `
 }

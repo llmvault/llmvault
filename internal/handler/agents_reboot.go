@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -78,19 +77,6 @@ func (h *AgentHandler) RebootSandbox(w http.ResponseWriter, r *http.Request) {
 	} else if ok {
 		writeAgentUpgradeConflict(w, upgrade)
 		return
-	}
-
-	if h.memoryBanks != nil {
-		if err := h.memoryBanks.EnsureOrgBank(ctx, org.ID); err != nil {
-			log.ErrorContext(ctx, "ensure memory bank during agent sandbox reboot", "error", err, "agent_id", agentID, "org_id", org.ID)
-			logging.CaptureWithFields(ctx, fmt.Errorf("ensure memory bank during agent sandbox reboot: %w", err), map[string]any{
-				"org_id":   org.ID.String(),
-				"agent_id": agentID.String(),
-				"bank_id":  hindsight.OrgBankID(org.ID),
-			})
-			writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to ensure agent memory bank"})
-			return
-		}
 	}
 
 	sb, err := h.ensureAgentSandbox(ctx, &agent)

@@ -56,7 +56,7 @@ Org
 Sandbox cardinality, by agent `sandbox_strategy`:
 
 - **`always_on` (Hivy):** one long-lived sandbox, auto-stop exempt (it is the 24/7 Slack/schedule/trigger responder — cold-starting on every ping is unacceptable latency). The control plane owns canonical `session_id`s and posts turns to the runtime `/sessions/{session_id}/messages` API, so always-on agents can safely multiplex Slack, schedule, trigger, web, and custom-channel work without a separate runtime conversation identifier.
-- **`per_session` (default for workspace/coding agents):** concurrent sessions sharing one sandbox would share a working tree, git state, ports, and processes — a correctness bug, not just a load problem (the static design's per-session "Copy worktree path" assumes isolation). Each session gets its own sandbox **forked from the agent's workspace snapshot**: repos cloned and `setup_commands` run once at agent setup, snapshotted via the existing `sandbox_templates` build pipeline; sessions boot from the snapshot (warm-claimed where the provider supports it). This is the Devin/Codex/Claude-Code-cloud model. 10-min idle auto-stop keeps cost proportional to *active* use, not session count; a new reaper deletes per-session sandboxes N days after session end so the fleet doesn't grow unbounded. Agent memory survives sandbox churn because hindsight banks are per-agent and control-plane-side, not in the sandbox.
+- **`per_session` (default for workspace/coding agents):** concurrent sessions sharing one sandbox would share a working tree, git state, ports, and processes — a correctness bug, not just a load problem (the static design's per-session "Copy worktree path" assumes isolation). Each session gets its own sandbox **forked from the agent's workspace snapshot**: repos cloned and `setup_commands` run once at agent setup, snapshotted via the existing `sandbox_templates` build pipeline; sessions boot from the snapshot (warm-claimed where the provider supports it). This is the Devin/Codex/Claude-Code-cloud model. 10-min idle auto-stop keeps cost proportional to *active* use, not session count; a new reaper deletes per-session sandboxes N days after session end so the fleet doesn't grow unbounded.
 - Specialist sandboxes, specialist runtime mode, warm-pool specialist mode, and the snapshot-repo-based selector filtering in `internal/employeesandbox/selector.go` are all deleted. The old specialist Dockerfile is not deleted outright: `sandboxes/runtime/Dockerfile.specialist` is renamed to `sandboxes/runtime/Dockerfile.developers` and becomes a user-selectable developer workspace template image for agents.
 
 ### 2.2 New baseline migrations (goose, rewritten from 000001)
@@ -69,7 +69,7 @@ Sandbox cardinality, by agent `sandbox_strategy`:
 | 000004 | credentials | `credentials`, `tokens`, `api_keys`, `audit_log` |
 | 000005 | integrations | `integrations`, `connections`, `database_connections` |
 | 000006 | sandboxes | `sandboxes` (+ nullable `session_id` for per-session sandboxes), `sandbox_templates`, `sandbox_warm_slots` (employee/specialist *mode* column → single `agent` mode), `custom_domains` |
-| 000007 | agents | `agents`, `agent_skills`, `agent_schedules`, `agent_schedule_runs`, `agent_triggers`, `agent_trigger_deliveries`, `agent_sandbox_upgrades`, `hindsight_banks`, `failed_events` |
+| 000007 | agents | `agents`, `agent_skills`, `agent_schedules`, `agent_schedule_runs`, `agent_triggers`, `agent_trigger_deliveries`, `agent_sandbox_upgrades`, `failed_events` |
 | 000008 | channels | `channels`, `channel_members` |
 | 000009 | sessions | `sessions`, `session_participants`, `session_events`, `session_message_queue` |
 | 000010 | skills | `skills` |
@@ -567,7 +567,7 @@ Grep gate: `git grep -il specialist` → empty (allowing this file).
 
 ### 8.7 Deliberately NOT nuked
 
-To prevent overshoot during demolition: auth/identity (incl. org invites), billing (plans/subscriptions/credits/Paystack), credentials/tokens/api-keys, integrations/connections/Nango, RAG (all 11 tables), skills, sandbox providers (Daytona/Docker/Railway) + warm pool (minus specialist mode) + templates pipeline (W9 builds on it), hindsight memory, drive/S3 storage, the Next.js token proxy, the SSE reconnect/dedup client logic (moves server-side, W5), and the console pages teams/connections/usage/credits/drive.
+To prevent overshoot during demolition: auth/identity (incl. org invites), billing (plans/subscriptions/credits/Paystack), credentials/tokens/api-keys, integrations/connections/Nango, RAG (all 11 tables), skills, sandbox providers (Daytona/Docker/Railway) + warm pool (minus specialist mode) + templates pipeline (W9 builds on it), drive/S3 storage, the Next.js token proxy, the SSE reconnect/dedup client logic (moves server-side, W5), and the console pages teams/connections/usage/credits/drive.
 
 ## 9. Open questions (non-blocking, decide during build)
 

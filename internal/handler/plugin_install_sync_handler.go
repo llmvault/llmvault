@@ -144,15 +144,6 @@ func (h *PluginInstallSyncHandler) dispatchPluginServiceDiscovery(
 	if agent == nil || agent.ID == uuid.Nil {
 		return fmt.Errorf("discovery agent is required")
 	}
-	if h.agentHandler.memoryBanks != nil {
-		if err := h.agentHandler.memoryBanks.EnsureOrgBank(ctx, payload.OrgID); err != nil {
-			logging.CaptureWithFields(ctx, fmt.Errorf("plugin service discovery: ensure memory bank: %w", err), map[string]any{
-				"org_id":    payload.OrgID.String(),
-				"agent_id":  agent.ID.String(),
-				"plugin_id": plugin.ID.String(),
-			})
-		}
-	}
 	channel, err := h.ensureSystemChannel(ctx, payload.OrgID, agent.ID)
 	if err != nil {
 		return err

@@ -7921,14 +7921,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Ensures the sandbox backing a session is running and its runtime health endpoint is reachable.",
+                "description": "Compatibility endpoint. Sandbox wake is managed by Microsandbox infrastructure, so this returns the current sandbox and managed_by_infra without starting it from the API.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "sessions"
                 ],
-                "summary": "Wake a session sandbox",
+                "summary": "Mark a session sandbox wake request",
                 "parameters": [
                     {
                         "type": "string",
@@ -9635,9 +9635,6 @@ const docTemplate = `{
                 "is_default": {
                     "type": "boolean"
                 },
-                "last_memory_refreshed_at": {
-                    "type": "string"
-                },
                 "latest_runtime_version": {
                     "type": "string"
                 },
@@ -9646,12 +9643,6 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
-                },
-                "memory_refresh_error": {
-                    "type": "string"
-                },
-                "memory_refresh_status": {
-                    "type": "string"
                 },
                 "model": {
                     "type": "string"
@@ -9821,20 +9812,11 @@ const docTemplate = `{
                 "is_default": {
                     "type": "boolean"
                 },
-                "last_memory_refreshed_at": {
-                    "type": "string"
-                },
                 "mcp_servers": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
-                },
-                "memory_refresh_error": {
-                    "type": "string"
-                },
-                "memory_refresh_status": {
-                    "type": "string"
                 },
                 "model": {
                     "type": "string"
@@ -13181,6 +13163,9 @@ const docTemplate = `{
         "sessionSandboxWakeResponse": {
             "type": "object",
             "properties": {
+                "managed_by_infra": {
+                    "type": "boolean"
+                },
                 "runtime_url": {
                     "type": "string"
                 },

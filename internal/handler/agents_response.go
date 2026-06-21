@@ -63,34 +63,31 @@ type agentCatalogSummary struct {
 }
 
 type agentResponse struct {
-	ID                    string                 `json:"id"`
-	Name                  string                 `json:"name"`
-	Description           *string                `json:"description,omitempty"`
-	Instructions          string                 `json:"instructions"`
-	AvatarURL             *string                `json:"avatar_url,omitempty"`
-	Icon                  string                 `json:"icon"`
-	IsDefault             bool                   `json:"is_default"`
-	SandboxStrategy       string                 `json:"sandbox_strategy"`
-	SandboxImage          string                 `json:"sandbox_image"`
-	SandboxSize           string                 `json:"sandbox_size"`
-	SandboxTemplateID     *string                `json:"sandbox_template_id,omitempty"`
-	Model                 string                 `json:"model"`
-	AvailableModels       []string               `json:"available_models"`
-	Tools                 model.JSON             `json:"tools"`
-	McpServers            json.RawMessage        `json:"mcp_servers"`
-	Skills                model.JSON             `json:"skills"`
-	Permissions           model.JSON             `json:"permissions"`
-	SandboxTools          []string               `json:"sandbox_tools"`
-	Status                string                 `json:"status"`
-	LastMemoryRefreshedAt *string                `json:"last_memory_refreshed_at,omitempty"`
-	MemoryRefreshStatus   string                 `json:"memory_refresh_status,omitempty"`
-	MemoryRefreshError    string                 `json:"memory_refresh_error,omitempty"`
-	Catalog               *agentCatalogSummary   `json:"catalog,omitempty"`
-	Resources             model.JSON             `json:"resources"`
-	Triggers              []agentTriggerResponse `json:"triggers"`
-	AttachedSkills        []agentSkillSummary    `json:"attached_skills"`
-	CreatedAt             string                 `json:"created_at"`
-	UpdatedAt             string                 `json:"updated_at"`
+	ID                string                 `json:"id"`
+	Name              string                 `json:"name"`
+	Description       *string                `json:"description,omitempty"`
+	Instructions      string                 `json:"instructions"`
+	AvatarURL         *string                `json:"avatar_url,omitempty"`
+	Icon              string                 `json:"icon"`
+	IsDefault         bool                   `json:"is_default"`
+	SandboxStrategy   string                 `json:"sandbox_strategy"`
+	SandboxImage      string                 `json:"sandbox_image"`
+	SandboxSize       string                 `json:"sandbox_size"`
+	SandboxTemplateID *string                `json:"sandbox_template_id,omitempty"`
+	Model             string                 `json:"model"`
+	AvailableModels   []string               `json:"available_models"`
+	Tools             model.JSON             `json:"tools"`
+	McpServers        json.RawMessage        `json:"mcp_servers"`
+	Skills            model.JSON             `json:"skills"`
+	Permissions       model.JSON             `json:"permissions"`
+	SandboxTools      []string               `json:"sandbox_tools"`
+	Status            string                 `json:"status"`
+	Catalog           *agentCatalogSummary   `json:"catalog,omitempty"`
+	Resources         model.JSON             `json:"resources"`
+	Triggers          []agentTriggerResponse `json:"triggers"`
+	AttachedSkills    []agentSkillSummary    `json:"attached_skills"`
+	CreatedAt         string                 `json:"created_at"`
+	UpdatedAt         string                 `json:"updated_at"`
 }
 
 func toAgentResponse(a model.Agent) agentResponse {
@@ -116,33 +113,27 @@ func toAgentResponse(a model.Agent) agentResponse {
 		mcpServers = json.RawMessage("[]")
 	}
 	resp := agentResponse{
-		ID:                  a.ID.String(),
-		Name:                fallbackAgentName(a),
-		Description:         &description,
-		Instructions:        instructions,
-		AvatarURL:           &avatarURL,
-		Icon:                a.Icon,
-		IsDefault:           a.IsDefault,
-		SandboxStrategy:     strategy,
-		SandboxImage:        model.NormalizeSandboxImage(a.SandboxImage),
-		SandboxSize:         sandboxSize,
-		Model:               a.Model,
-		AvailableModels:     append([]string(nil), a.AvailableModels...),
-		Tools:               nonNilJSON(a.Tools),
-		McpServers:          mcpServers,
-		Skills:              nonNilJSON(a.Skills),
-		Permissions:         nonNilJSON(a.Permissions),
-		SandboxTools:        append([]string(nil), a.SandboxTools...),
-		Status:              a.Status,
-		Resources:           nonNilJSON(a.Resources),
-		MemoryRefreshStatus: a.MemoryRefreshStatus,
-		MemoryRefreshError:  a.MemoryRefreshError,
-		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:           a.UpdatedAt.Format(time.RFC3339),
-	}
-	if a.LastMemoryRefreshedAt != nil {
-		s := a.LastMemoryRefreshedAt.Format(time.RFC3339)
-		resp.LastMemoryRefreshedAt = &s
+		ID:              a.ID.String(),
+		Name:            fallbackAgentName(a),
+		Description:     &description,
+		Instructions:    instructions,
+		AvatarURL:       &avatarURL,
+		Icon:            a.Icon,
+		IsDefault:       a.IsDefault,
+		SandboxStrategy: strategy,
+		SandboxImage:    model.NormalizeSandboxImage(a.SandboxImage),
+		SandboxSize:     sandboxSize,
+		Model:           a.Model,
+		AvailableModels: append([]string(nil), a.AvailableModels...),
+		Tools:           nonNilJSON(a.Tools),
+		McpServers:      mcpServers,
+		Skills:          nonNilJSON(a.Skills),
+		Permissions:     nonNilJSON(a.Permissions),
+		SandboxTools:    append([]string(nil), a.SandboxTools...),
+		Status:          a.Status,
+		Resources:       nonNilJSON(a.Resources),
+		CreatedAt:       a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       a.UpdatedAt.Format(time.RFC3339),
 	}
 	if a.SandboxTemplateID != nil {
 		s := a.SandboxTemplateID.String()

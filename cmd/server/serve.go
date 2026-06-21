@@ -19,7 +19,6 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/handler"
-	"github.com/usehivy/hivy/internal/hindsight"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
@@ -71,13 +70,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	}
 
 	mcpHandler := handler.NewMCPHandler(database, signingKey, actionsCatalog, nangoClient, ctr)
-	var hindsightClient *hindsight.Client
-	var hindsightBanks *hindsight.BankProvisioner
-	if cfg.HindsightAPIURL != "" {
-		hindsightClient = hindsight.NewClient(cfg.HindsightAPIURL)
-		hindsightBanks = hindsight.NewBankProvisioner(database, hindsightClient)
-		mcpHandler.SetMemoryTools(hindsight.NewMemoryToolsFunc(hindsightClient, hindsightMemoryRefresh(enqueuer)))
-	}
 	if deps.SpiderClient != nil {
 		mcpHandler.SetWebTools(spider.NewWebToolsFunc(deps.SpiderClient))
 	}
@@ -89,7 +81,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		SigningKey: signingKey,
 		Cfg:        cfg,
 		Nango:      nangoClient,
-		Hindsight:  hindsightClient,
 		Canvas:     canvasService,
 	}
 	if orchestrator != nil {
@@ -105,7 +96,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
 	orgHandler.SetEnvironmentEncryptionKey(sandboxEncKey)
-	orgHandler.SetMemoryProvisioner(hindsightBanks)
 	plansHandler := handler.NewPlansHandler(database)
 	var emailSender email.Sender = &email.LogSender{}
 	if enqueuer != nil && cfg.ResendAPIKey != "" {
@@ -116,7 +106,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	authHandler := handler.NewAuthHandler(database, rsaKey, signingKey,
 		cfg.AuthIssuer, cfg.AuthAudience, cfg.AuthAccessTokenTTL, cfg.AuthRefreshTokenTTL,
 		emailSender, cfg.FrontendURL, cfg.AutoConfirmEmail, deps.Credits)
-	authHandler.SetMemoryProvisioner(hindsightBanks)
 	authHandler.SetEnqueuer(enqueuer)
 	authHandler.StartCleanup(ctx)
 	oauthHandler := handler.NewOAuthHandler(database, rsaKey, signingKey,
@@ -126,7 +115,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		cfg.OAuthGoogleClientID, cfg.OAuthGoogleClientSecret,
 		cfg.OAuthXClientID, cfg.OAuthXClientSecret,
 		deps.Credits)
-	oauthHandler.SetMemoryProvisioner(hindsightBanks)
 	oauthHandler.SetEnqueuer(enqueuer)
 	apiKeyHandler := handler.NewAPIKeyHandler(database, apiKeyCache, cacheManager)
 	usageHandler := handler.NewUsageHandler(database)
@@ -156,7 +144,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	var agentHandler *handler.AgentHandler
 	if orchestrator != nil {
 		agentHandler = handler.NewAgentHandler(database, orchestrator, runtimeCompileDeps, reg)
-		agentHandler.SetMemoryProvisioner(hindsightBanks)
 		agentHandler.SetEnqueuer(enqueuer)
 		orgHandler.SetAgentSyncer(agentHandler)
 		authHandler.SetAgentSyncer(agentHandler)

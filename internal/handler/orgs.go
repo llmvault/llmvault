@@ -23,7 +23,6 @@ type OrgHandler struct {
 	enq         enqueue.TaskEnqueuer
 	agentSyncer OrgAgentSyncer
 	envEncKey   *crypto.SymmetricKey
-	memoryBanks memoryBankProvisioner
 }
 
 func NewOrgHandler(db *gorm.DB, enq enqueue.TaskEnqueuer) *OrgHandler {
@@ -40,10 +39,6 @@ func (h *OrgHandler) SetAgentSyncer(syncer OrgAgentSyncer) {
 
 func (h *OrgHandler) SetEnvironmentEncryptionKey(key *crypto.SymmetricKey) {
 	h.envEncKey = key
-}
-
-func (h *OrgHandler) SetMemoryProvisioner(banks memoryBankProvisioner) {
-	h.memoryBanks = banks
 }
 
 // planFor looks up the full plan by slug. Returns nil if the slug has no

@@ -15,7 +15,6 @@ func TestBuildServerWithNoScopes(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 	if err != nil {
 		t.Fatalf("build server: %v", err)

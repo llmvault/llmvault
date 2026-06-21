@@ -74,20 +74,12 @@ func SessionsCacheKey(orgID, agentID uuid.UUID) string {
 	return fmt.Sprintf("agent_precontext:sessions:%s:%s", orgID, agentID)
 }
 
-func MemoriesCacheKey(orgID, agentID uuid.UUID) string {
-	return fmt.Sprintf("agent_precontext:memories:%s:%s", orgID, agentID)
-}
-
 func KnowledgeCacheKey(orgID, agentID uuid.UUID, query string) string {
 	return fmt.Sprintf("agent_precontext:knowledge:%s:%s:%s", orgID, agentID, queryHash(query))
 }
 
 func InvalidateSessions(ctx context.Context, cache Cache, orgID, agentID uuid.UUID) {
 	_ = cacheDel(ctx, cache, SessionsCacheKey(orgID, agentID))
-}
-
-func InvalidateMemories(ctx context.Context, cache Cache, orgID, agentID uuid.UUID) {
-	_ = cacheDel(ctx, cache, MemoriesCacheKey(orgID, agentID))
 }
 
 func InvalidateKnowledge(ctx context.Context, cache Cache, orgID uuid.UUID) {
