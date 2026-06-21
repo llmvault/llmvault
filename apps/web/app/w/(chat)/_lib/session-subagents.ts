@@ -20,8 +20,7 @@ export function subagentFrameMetadata(
   const subagent = payloadRecord(data.subagent)
   const childSessionId =
     stringValue(subagent, "child_session_id") ||
-    stringValue(data, "child_session_id") ||
-    subagentSessionID(data)
+    stringValue(data, "child_session_id")
   const scoped = data.scope === "subagent"
   const hasSubagentPayload = Object.keys(subagent).length > 0
 
@@ -80,11 +79,6 @@ export function subagentFrameKey(frame: DirectSessionStreamFrame) {
   if (eventID) return eventID
   const sequence = data.sequence
   return `${frame.event}:${typeof sequence === "number" ? sequence : "unknown"}`
-}
-
-function subagentSessionID(data: Record<string, unknown>) {
-  const sessionID = stringValue(data, "session_id")
-  return sessionID.startsWith("subagent-") ? sessionID : ""
 }
 
 function payloadRecord(value: unknown): Record<string, unknown> {
