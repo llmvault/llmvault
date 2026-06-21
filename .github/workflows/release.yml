@@ -104,6 +104,7 @@ jobs:
           - arch: amd64
             runner: blacksmith-8vcpu-ubuntu-2404
             target: x86_64-unknown-linux-gnu
+            goarch: amd64
             platform: linux/amd64
             make_target: sandbox-runtime-linux-build-amd64
     steps:
@@ -120,8 +121,16 @@ jobs:
           key: sandbox-runtime-release-${{ matrix.target }}
           workspaces: sandboxes/runtime -> target
 
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: build runtime binary
         run: make ${{ matrix.make_target }}
+
+      - name: build penpot cli
+        run: GOOS=linux GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=${{ needs.prepare.outputs.tag }} -X main.commit=${{ needs.prepare.outputs.commit }}" -o sandboxes/runtime/penpot ./cmd/penpot
 
       - name: prepare runtime Docker build context
         run: cp "sandboxes/runtime/dist/hivy-sandboxes-runtime-${{ matrix.target }}" sandboxes/runtime/hivy-sandboxes-runtime

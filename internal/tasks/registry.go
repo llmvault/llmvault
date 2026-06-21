@@ -37,6 +37,7 @@ type WorkerDeps struct {
 	PreContextCache   precontext.Cache        // nil disables agent pre-context cache invalidation
 	AgentCompile      agentruntime.CompileDeps
 	OrgAgentSyncer    OrgHivyAgentSyncer
+	CanvasSyncer      CanvasOrgSyncer
 	S3Client          *storage.S3Client
 
 	Rag          *ragtasks.Deps
@@ -109,6 +110,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	if deps.Hindsight != nil {
 		mux.HandleFunc(TypeAgentMemoryRefresh, NewAgentMemoryRefreshHandler(deps.DB, deps.AgentCompile, deps.Orchestrator).Handle)
 	}
+	mux.HandleFunc(TypeCanvasOrgSync, NewCanvasOrgSyncHandler(deps.CanvasSyncer).Handle)
 	if deps.Orchestrator != nil && deps.S3Client != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil {
 		mux.HandleFunc(TypeAgentSandboxUpgrade,
 			NewAgentSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.S3Client, deps.AgentCompile, deps.Enqueuer).Handle)

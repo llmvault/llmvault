@@ -25,6 +25,7 @@ const (
 	TypeAgentSandboxRetire        = "agent:sandbox_retire"
 	TypeAgentScheduleDeliver      = "agent_schedule:deliver"
 	TypeOrgHivyAgentProvision     = "org:hivy_agent_provision"
+	TypeCanvasOrgSync             = "canvas:org_sync"
 	TypePluginInstallSync         = "plugin:install_sync"
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"

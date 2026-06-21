@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/usehivy/hivy/internal/email"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
@@ -16,6 +17,7 @@ type OrgInviteHandler struct {
 	emailSender email.Sender
 	frontendURL string
 	inviteTTL   time.Duration
+	enqueuer    enqueue.TaskEnqueuer
 }
 
 func NewOrgInviteHandler(db *gorm.DB, sender email.Sender, frontendURL string) *OrgInviteHandler {
@@ -25,6 +27,10 @@ func NewOrgInviteHandler(db *gorm.DB, sender email.Sender, frontendURL string) *
 		frontendURL: strings.TrimRight(frontendURL, "/"),
 		inviteTTL:   7 * 24 * time.Hour,
 	}
+}
+
+func (h *OrgInviteHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {
+	h.enqueuer = enq
 }
 
 type createOrgInviteRequest struct {

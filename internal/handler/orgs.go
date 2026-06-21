@@ -172,6 +172,7 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	enqueueOrgHivyAgentProvision(r.Context(), h.enq, org.ID, "org_create")
+	enqueueCanvasOrgSync(r.Context(), h.enq, org.ID, "org_create")
 
 	writeJSON(w, http.StatusCreated, h.buildOrgResponse(org))
 }

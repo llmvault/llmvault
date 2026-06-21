@@ -84,6 +84,7 @@ if [[ -n "$PLATFORM" ]]; then
   run_args+=(--platform "$PLATFORM")
 fi
 
+echo "runtime smoke: starting image=$IMAGE platform=${PLATFORM:-default}"
 "$DOCKER_BIN" run -d \
   "${run_args[@]+"${run_args[@]}"}" \
   --privileged \
@@ -108,6 +109,7 @@ for _ in $(seq 1 50); do
 done
 
 test -s /tmp/runtime-config.json
+echo "runtime smoke: control API ready"
 
 python3 - <<'PY'
 import json
@@ -138,6 +140,7 @@ curl -fsS \
   -H "Authorization: Bearer $SECRET" \
   -H "Content-Type: application/json" \
   -d @/tmp/runtime-config-updated.json >/tmp/runtime-put-response.json
+echo "runtime smoke: config pushed"
 
 "$DOCKER_BIN" exec "$NAME" test -f /workspace/.skills/runtime-smoke/SKILL.md
 "$DOCKER_BIN" exec "$NAME" test -f /workspace/.skills/runtime-smoke/references/check.md
@@ -152,8 +155,12 @@ curl -fsS \
 "$DOCKER_BIN" exec "$NAME" node --version >/tmp/runtime-node-version.txt
 "$DOCKER_BIN" exec "$NAME" npm --version >/tmp/runtime-npm-version.txt
 "$DOCKER_BIN" exec "$NAME" sh -lc 'test "${HOME:-}" = "/workspace"'
+"$DOCKER_BIN" exec "$NAME" sh -lc 'command -v penpot' >/tmp/runtime-penpot-path.txt
+"$DOCKER_BIN" exec "$NAME" penpot --version >/tmp/runtime-penpot-version.txt
+"$DOCKER_BIN" exec "$NAME" sh -lc 'PENPOT_CANVAS_URL=https://canvas.usehivy.com PENPOT_CANVAS_TEAM_ID=team PENPOT_CANVAS_PROFILE_ID=profile PENPOT_CANVAS_SESSION_JWT=jwt PENPOT_CANVAS_MCP_URL=https://canvas.usehivy.com/mcp HIVY_CONTROL_PLANE_URL=https://api.usehivy.com HIVY_AGENT_ID=agent HIVY_RUNTIME_SECRET=secret penpot doctor >/tmp/runtime-penpot-doctor.txt'
 "$DOCKER_BIN" exec "$NAME" browser doctor --offline --quick >/tmp/runtime-browser-doctor.txt
 "$DOCKER_BIN" exec "$NAME" sh -lc 'browser open "data:text/html,<title>runtime-browser-smoke</title><h1>Runtime Browser Smoke</h1>" >/tmp/runtime-browser-open.txt && test "$(browser get title)" = "runtime-browser-smoke" && browser close --all'
+echo "runtime smoke: penpot and browser checks passed"
 "$DOCKER_BIN" exec "$NAME" sh -lc '! command -v docker >/dev/null 2>&1'
 "$DOCKER_BIN" exec "$NAME" sh -lc '! command -v dockerd >/dev/null 2>&1'
 "$DOCKER_BIN" exec "$NAME" sh -lc '! command -v docker-compose >/dev/null 2>&1'
@@ -215,4 +222,5 @@ body = requests[1]["body"]
 assert body["operation"]["argv"] == ["blocked-test"], body
 PY
 
+echo "runtime smoke: auth wrapper checks passed"
 echo "runtime image smoke passed"

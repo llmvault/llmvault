@@ -113,6 +113,8 @@ func (h *OrgInviteHandler) Accept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	enqueueCanvasOrgSync(r.Context(), h.enqueuer, invite.OrgID, "invite_accept")
+
 	if h.emailSender != nil {
 		if err := h.emailSender.SendTemplate(r.Context(), email.TemplateMessage{
 			To:   invite.InvitedBy.Email,

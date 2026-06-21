@@ -33,6 +33,8 @@ var agentRuntimeInit = map[string]any{
 	"args": []string{"/usr/local/bin/hivy-sandboxes-runtime"},
 }
 
+const runtimeStartDockerdEnv = "HIVY_RUNTIME_START_DOCKERD"
+
 func NewDriver(cfg Config) (*Driver, error) {
 	runtimePort := cfg.RuntimePort
 	if runtimePort == 0 {
@@ -93,6 +95,7 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	if imageRef == "" && templateID == "" {
 		return nil, fmt.Errorf("microsandbox: image ref is required")
 	}
+	autoStartDocker := d.autoStartDocker(opts.Labels, imageRef)
 	body := map[string]any{
 		"org_id":        opts.Labels["org_id"],
 		"name":          opts.Name,
@@ -102,10 +105,11 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		"cpu":           opts.CPU,
 		"memory_mb":     opts.Memory * 1024,
 		"disk_gb":       opts.Disk,
-		"env":           opts.EnvVars,
+		"env":           runtimeEnv(opts.EnvVars, autoStartDocker),
 		"metadata":      opts.Labels,
 		"preview_ports": d.previewPorts(opts.ExposedPorts),
 		"health_checks": d.runtimeHealthChecks(d.runtimePort),
+		"auto_start_docker": autoStartDocker,
 		"init":          agentRuntimeInit,
 	}
 	var out createSandboxResponse
@@ -137,6 +141,7 @@ func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreate
 	for key, value := range opts.Labels {
 		metadata[key] = value
 	}
+	autoStartDocker := d.autoStartDocker(metadata, imageRef)
 	body := map[string]any{
 		"org_id":        "warm-pool",
 		"name":          opts.Name,
@@ -146,10 +151,11 @@ func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreate
 		"cpu":           opts.CPU,
 		"memory_mb":     opts.Memory * 1024,
 		"disk_gb":       opts.Disk,
-		"env":           d.warmSlotEnv(opts, port),
+		"env":           d.warmSlotEnv(opts, port, autoStartDocker),
 		"metadata":      metadata,
 		"preview_ports": uniqueValidPorts(append(d.previewPorts(nil), port)),
 		"health_checks": d.runtimeHealthChecks(port),
+		"auto_start_docker": autoStartDocker,
 		"init":          agentRuntimeInit,
 	}
 	var out createSandboxResponse
@@ -168,7 +174,7 @@ func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreate
 	}, nil
 }
 
-func (d *Driver) warmSlotEnv(opts sandbox.WarmSlotCreateOpts, port int) map[string]string {
+func (d *Driver) warmSlotEnv(opts sandbox.WarmSlotCreateOpts, port int, autoStartDocker bool) map[string]string {
 	env := map[string]string{
 		agentruntime.AgentEnvRuntimeSecret:   opts.RuntimeSecret,
 		agentruntime.AgentEnvRuntimeBindAddr: fmt.Sprintf("0.0.0.0:%d", port),
@@ -178,6 +184,9 @@ func (d *Driver) warmSlotEnv(opts sandbox.WarmSlotCreateOpts, port int) map[stri
 	}
 	for key, value := range opts.EnvVars {
 		env[key] = value
+	}
+	if !autoStartDocker {
+		env[runtimeStartDockerdEnv] = "0"
 	}
 	return env
 }
@@ -204,6 +213,37 @@ func (d *Driver) runtimeHealthChecks(port int) []map[string]any {
 		"timeout_seconds": 30,
 		"interval_ms":     250,
 	}}
+}
+
+func (d *Driver) autoStartDocker(labels map[string]string, imageRef string) bool {
+	if strings.EqualFold(strings.TrimSpace(labels["sandbox_image"]), "developer") {
+		return false
+	}
+	return !strings.Contains(strings.ToLower(imageRepositoryFromRef(imageRef)), "hivy-sandboxes-runtime-developers")
+}
+
+func runtimeEnv(env map[string]string, autoStartDocker bool) map[string]string {
+	out := make(map[string]string, len(env)+1)
+	for key, value := range env {
+		out[key] = value
+	}
+	if !autoStartDocker {
+		out[runtimeStartDockerdEnv] = "0"
+	}
+	return out
+}
+
+func imageRepositoryFromRef(imageRef string) string {
+	ref := strings.SplitN(strings.TrimSpace(imageRef), "@", 2)[0]
+	if ref == "" {
+		return ""
+	}
+	lastSlash := strings.LastIndex(ref, "/")
+	lastColon := strings.LastIndex(ref, ":")
+	if lastColon > lastSlash {
+		return ref[:lastColon]
+	}
+	return ref
 }
 
 func uniqueValidPorts(ports []int) []int {

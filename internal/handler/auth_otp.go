@@ -156,6 +156,7 @@ func (h *AuthHandler) OTPVerify(w http.ResponseWriter, r *http.Request) {
 
 		logging.FromContext(r.Context()).InfoContext(r.Context(), "user created via OTP", "user_id", user.ID, "email", user.Email)
 		enqueueOrgHivyAgentProvision(r.Context(), h.enqueuer, org.ID, "auth_otp")
+		enqueueCanvasOrgSync(r.Context(), h.enqueuer, org.ID, "auth_otp")
 		h.issueTokensAndRespond(r.Context(), w, http.StatusCreated, user, org.ID.String(), "owner")
 		return
 	}

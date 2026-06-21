@@ -222,11 +222,7 @@ func quantizedColorKey(c color.NRGBA) string {
 }
 
 func quantizeColor(v uint8) uint8 {
-	q := int(v)/32*32 + 16
-	if q > 255 {
-		q = 255
-	}
-	return uint8(q)
+	return v/32*32 + 16
 }
 
 func ratio(part, total int64) float64 {
