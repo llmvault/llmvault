@@ -117,7 +117,7 @@ func assertRuntimeSystemPromptPayloadShape(t *testing.T, body []byte) {
 		t.Fatalf("first cacheable segment type = %#v", firstCacheable["type"])
 	}
 	dynamic, _ := systemPrompt["dynamic_segments"].([]any)
-	if len(dynamic) != 4 {
+	if len(dynamic) != 3 {
 		t.Fatalf("dynamic_segments count = %d", len(dynamic))
 	}
 	firstDynamic, _ := dynamic[0].(map[string]any)
