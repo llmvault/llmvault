@@ -28,17 +28,17 @@ type ReconcileReport struct {
 }
 
 type CreateSandboxRequest struct {
-	ID           string             `json:"id"`
-	Name         string             `json:"name"`
-	ImageRef     string             `json:"image_ref"`
-	CPU          int                `json:"cpu"`
-	MemoryMB     int                `json:"memory_mb"`
-	DiskGB       int                `json:"disk_gb"`
-	Env          map[string]string  `json:"env"`
-	Labels       map[string]string  `json:"labels"`
-	PreviewPorts []int              `json:"preview_ports"`
-	Init         *SandboxInitConfig `json:"init"`
-	AutoStartDocker *bool           `json:"auto_start_docker,omitempty"`
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	ImageRef        string             `json:"image_ref"`
+	CPU             int                `json:"cpu"`
+	MemoryMB        int                `json:"memory_mb"`
+	DiskGB          int                `json:"disk_gb"`
+	Env             map[string]string  `json:"env"`
+	Labels          map[string]string  `json:"labels"`
+	PreviewPorts    []int              `json:"preview_ports"`
+	Init            *SandboxInitConfig `json:"init"`
+	AutoStartDocker *bool              `json:"auto_start_docker,omitempty"`
 }
 
 type SandboxInitConfig struct {
