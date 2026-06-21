@@ -10,7 +10,15 @@ import {
 import {
   appendLiveSessionStreamFrame,
   isTerminalStreamFrame,
+  streamFrameToSessionEvent,
 } from "@/app/w/(chat)/_lib/live-session-stream"
+import {
+  subagentFrameKey,
+  subagentFrameMetadata,
+  subagentStatusForFrame,
+  type SubagentFrameMetadata,
+  type SubagentRunStatus,
+} from "@/app/w/(chat)/_lib/session-subagents"
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
 import type { components } from "@/lib/api/schema"
 
@@ -41,9 +49,23 @@ export interface SessionRuntimeSummary {
   updatedAt: number
 }
 
+export interface SessionSubagentRun {
+  jobId: string
+  agentName?: string
+  parentSessionId?: string
+  childSessionId?: string
+  status: SubagentRunStatus
+  frames: DirectSessionStreamFrame[]
+  events: SessionEventResponse[]
+  startedAt?: string
+  completedAt?: string
+  updatedAt: number
+}
+
 interface SessionRuntimeStoreState {
   statusBySessionId: Record<string, SessionRuntimeSummary>
   liveEventsBySessionId: Record<string, SessionEventResponse[]>
+  subagentRunsBySessionId: Record<string, Record<string, SessionSubagentRun>>
   cursorBySessionId: Record<string, DirectSessionStreamCursor | undefined>
   reconnectAttemptsBySessionId: Record<string, number>
   hydrateSession: (session: SessionResponse | undefined) => void
@@ -78,6 +100,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
   subscribeWithSelector((setState, getState) => ({
     statusBySessionId: {},
     liveEventsBySessionId: {},
+    subagentRunsBySessionId: {},
     cursorBySessionId: {},
     reconnectAttemptsBySessionId: {},
     hydrateSession(session) {
@@ -147,9 +170,14 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
     },
     applyStreamFrame(sessionId, frame) {
       const nextCursor = directSessionStreamCursor(frame)
+      const subagentMetadata = subagentFrameMetadata(frame)
+      if (subagentMetadata) {
+        dispatchSubagentFrameDebugEvent(sessionId, subagentMetadata, frame)
+      }
       setState((state) => {
         const cursorPatch =
-          nextCursor && shouldAdvanceCursor(state.cursorBySessionId[sessionId], nextCursor)
+          nextCursor &&
+          shouldAdvanceCursor(state.cursorBySessionId[sessionId], nextCursor)
             ? {
                 cursorBySessionId: {
                   ...state.cursorBySessionId,
@@ -157,6 +185,18 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
                 },
               }
             : {}
+        if (subagentMetadata) {
+          return {
+            ...cursorPatch,
+            subagentRunsBySessionId: appendSubagentRunFrame(
+              state.subagentRunsBySessionId,
+              sessionId,
+              frame,
+              subagentMetadata
+            ),
+          }
+        }
+
         const summary = summaryForFrame(
           state.statusBySessionId[sessionId],
           frame
@@ -185,8 +225,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
     },
     finishStream(sessionId, options = {}) {
       setState((state) => {
-        const current =
-          state.liveEventsBySessionId[sessionId] ?? EMPTY_EVENTS
+        const current = state.liveEventsBySessionId[sessionId] ?? EMPTY_EVENTS
         const events = options.preserveError
           ? current.filter((event) => event.event_type === "error")
           : EMPTY_EVENTS
@@ -223,6 +262,8 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
           state.statusBySessionId
         const { [sessionId]: _events, ...liveEventsBySessionId } =
           state.liveEventsBySessionId
+        const { [sessionId]: _subagents, ...subagentRunsBySessionId } =
+          state.subagentRunsBySessionId
         const { [sessionId]: _cursor, ...cursorBySessionId } =
           state.cursorBySessionId
         const { [sessionId]: _attempts, ...reconnectAttemptsBySessionId } =
@@ -230,6 +271,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
         return {
           statusBySessionId,
           liveEventsBySessionId,
+          subagentRunsBySessionId,
           cursorBySessionId,
           reconnectAttemptsBySessionId,
         }
@@ -256,9 +298,7 @@ export function useSessionRuntimeSummary(sessionId?: string) {
 
 export function useSessionRuntimeStatus(sessionId?: string) {
   return useSessionRuntimeStore((state) =>
-    sessionId
-      ? (state.statusBySessionId[sessionId]?.status ?? "idle")
-      : "idle"
+    sessionId ? (state.statusBySessionId[sessionId]?.status ?? "idle") : "idle"
   )
 }
 
@@ -267,6 +307,14 @@ export function useSessionLiveEvents(sessionId?: string) {
     sessionId
       ? (state.liveEventsBySessionId[sessionId] ?? EMPTY_EVENTS)
       : EMPTY_EVENTS
+  )
+}
+
+export function useSessionSubagentRuns(sessionId?: string) {
+  return useSessionRuntimeStore((state) =>
+    sessionId
+      ? Object.values(state.subagentRunsBySessionId[sessionId] ?? {})
+      : []
   )
 }
 
@@ -358,9 +406,7 @@ function summaryForFrame(
 function pendingInputFromFrame(
   frame: DirectSessionStreamFrame
 ): PendingInputRequest | undefined {
-  if (frame.event !== "question_requested" && frame.event !== "session_waiting") {
-    return undefined
-  }
+  if (frame.event !== "question_requested") return undefined
   const data = payloadRecord(frame.data)
   const requestId =
     stringValue(data, "request_id") ||
@@ -422,6 +468,96 @@ function isActiveStreamFrame(event: string) {
 function isPendingClientEvent(event: SessionEventResponse) {
   const payload = payloadRecord(event.payload)
   return payload.client_status === "pending"
+}
+
+function appendSubagentRunFrame(
+  runsBySessionId: Record<string, Record<string, SessionSubagentRun>>,
+  sessionId: string,
+  frame: DirectSessionStreamFrame,
+  metadata: SubagentFrameMetadata
+) {
+  const runs = runsBySessionId[sessionId] ?? {}
+  const current = runs[metadata.jobId]
+  const status = subagentStatusForFrame(frame) ?? current?.status ?? "running"
+  const event = streamFrameToSessionEvent(frame)
+  const frameKey = subagentFrameKey(frame)
+  const frames = current?.frames.some(
+    (item) => subagentFrameKey(item) === frameKey
+  )
+    ? (current.frames ?? [])
+    : [...(current?.frames ?? []), frame]
+  const events =
+    event && !current?.events.some((item) => eventKey(item) === eventKey(event))
+      ? [...(current?.events ?? []), event]
+      : (current?.events ?? [])
+  const occurredAt = timestampFromFrame(frame)
+  const completedAt =
+    status === "completed" || status === "failed"
+      ? (current?.completedAt ?? occurredAt)
+      : current?.completedAt
+
+  return {
+    ...runsBySessionId,
+    [sessionId]: {
+      ...runs,
+      [metadata.jobId]: {
+        jobId: metadata.jobId,
+        agentName: metadata.agentName ?? current?.agentName,
+        parentSessionId: metadata.parentSessionId ?? current?.parentSessionId,
+        childSessionId: metadata.childSessionId ?? current?.childSessionId,
+        status,
+        frames,
+        events,
+        startedAt:
+          current?.startedAt ??
+          (frame.event === "subagent_started" || frame.event === "turn_started"
+            ? occurredAt
+            : undefined),
+        completedAt,
+        updatedAt: Date.now(),
+      },
+    },
+  }
+}
+
+function dispatchSubagentFrameDebugEvent(
+  sessionId: string,
+  metadata: SubagentFrameMetadata,
+  frame: DirectSessionStreamFrame
+) {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(
+    new CustomEvent("hivy:subagent-frame", {
+      detail: {
+        sessionId,
+        jobId: metadata.jobId,
+        agentName: metadata.agentName,
+        childSessionId: metadata.childSessionId,
+        event: frame.event,
+        frame,
+      },
+    })
+  )
+}
+
+function timestampFromFrame(
+  frame: DirectSessionStreamFrame
+): string | undefined {
+  const data = payloadRecord(frame.data)
+  return (
+    stringValue(data, "occurred_at") ||
+    stringValue(data, "ended_at") ||
+    stringValue(data, "started_at") ||
+    undefined
+  )
+}
+
+function eventKey(event: SessionEventResponse) {
+  return (
+    event.event_id ||
+    event.id ||
+    `${event.event_type}:${event.sequence_number ?? ""}:${event.event_at ?? ""}`
+  )
 }
 
 function terminalFrameErrorMessage(frame: DirectSessionStreamFrame): string {
