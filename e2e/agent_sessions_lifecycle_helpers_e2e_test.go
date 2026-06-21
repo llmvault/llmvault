@@ -53,7 +53,6 @@ func agentSessionsCreateCronViaMCP(t *testing.T, ctx context.Context, orgIDRaw, 
 			"repeat_count":       int64(1),
 			"_hivy_session_id":   sessionID,
 			"cron_expression":    nil,
-			"schedule_is_wake":   false,
 			"schedule_is_system": false,
 		},
 	})

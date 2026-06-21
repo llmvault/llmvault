@@ -702,7 +702,6 @@ impl SessionMessageState {
                     "schedule_scheduled_at",
                     "schedule_started_at",
                     "schedule_is_one_shot",
-                    "schedule_is_wake",
                 ] {
                     if let Some(value) = raw_obj.get(key) {
                         out.insert(key.to_string(), value.clone());

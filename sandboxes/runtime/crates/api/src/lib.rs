@@ -95,8 +95,6 @@ mod openapi {
             domain::Session,
             domain::EventKind,
             domain::SessionEvent,
-            domain::CronJobState,
-            domain::CronJob,
             domain::SubagentTaskState,
             domain::SubagentTask,
             domain::PlanItemStatus,

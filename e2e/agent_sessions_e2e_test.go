@@ -40,8 +40,6 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	interruptSentinelMissing := "AGENT_SESSIONS_E2E_INTERRUPT_SENTINEL_MISSING_" + runID
 	interruptSentinelExists := "AGENT_SESSIONS_E2E_INTERRUPT_SENTINEL_EXISTS_" + runID
 	interruptSentinelPath := "/tmp/hivy_interrupt_" + runID
-	wakeScheduledMarker := "AGENT_SESSIONS_E2E_WAKE_SCHEDULED_" + runID
-	wakeMarker := "AGENT_SESSIONS_E2E_WAKE_STREAM_" + runID
 
 	t.Logf("registering owner=%s", ownerEmail)
 	ownerAuth := agentSessionsRegister(t, ctx, apiBase, ownerEmail, password, "Agent Sessions Owner "+runID)
@@ -147,39 +145,11 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	requireAgentSessionsHindsightHealthy(t, ctx)
 	runAgentSessionsHindsightMemoryE2E(t, ctx, apiBase, ownerToken, orgID, general.ID, runID)
 
-	wakeSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
-		"This is the agent sessions wake stream E2E.",
-		"Before replying, call wake exactly once with seconds=10 and task_prompt=\"When you wake up, reply exactly " + wakeMarker + " and no other text.\"",
-		"After the wake tool succeeds, visible final reply exactly " + wakeScheduledMarker + " and no other text.",
-	}, "\n"))
-	t.Logf("created wake stream session id=%s queued=%t", wakeSession.Session.ID, wakeSession.Queued)
-	if wakeSession.Session.ID == "" || wakeSession.Event == nil {
-		t.Fatalf("wake stream session was not created correctly: %+v", wakeSession)
-	}
-	wakeSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, wakeSession.Session.ID)
-	wakeDirectURL := agentSessionsDirectStreamURL(wakeSandboxAccess, wakeSession.Session.ID)
-	t.Logf("wake direct sandbox stream url=%s", wakeDirectURL)
-	wakeStream := agentSessionsStartDirectStream(t, ctx, wakeDirectURL, wakeSandboxAccess.Token)
-	wakeToolEvent := wakeStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
-		return event.Name == "tool_call" && strings.Contains(event.RawData, "wake")
-	})
-	t.Logf("wake turn scheduled continuation event=%s", wakeToolEvent.RawData)
-	wakeScheduledEvent := wakeStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
-		return event.Name == "final" && strings.Contains(event.RawData, wakeScheduledMarker)
-	})
-	t.Logf("wake scheduled marker observed on direct stream event=%s", wakeScheduledEvent.RawData)
-	wakeMarkerEvent := wakeStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
-		return event.Name == "final" && strings.Contains(event.RawData, wakeMarker)
-	})
-	t.Logf("wake continuation marker observed on same direct stream event=%s", wakeMarkerEvent.RawData)
-	wakeResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, wakeSession.Session.ID, wakeMarker)
-	t.Logf("wake continuation response observed event_id=%s type=%s", wakeResponse.ID, wakeResponse.EventType)
-
 	interruptCommand := "python3 -c 'import pathlib,time; time.sleep(8); pathlib.Path(\"" + interruptSentinelPath + "\").write_text(\"done\")'"
 	interruptSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
 		"This is the agent sessions interrupt E2E.",
 		"Before replying, call bash exactly once with this foreground command: " + interruptCommand + ".",
-		"Do not run it in the background. Do not call wake. If the bash result completes, final reply exactly " + interruptMarker + " and no other text.",
+		"Do not run it in the background. If the bash result completes, final reply exactly " + interruptMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created interrupt session id=%s queued=%t", interruptSession.Session.ID, interruptSession.Queued)
 	if interruptSession.Session.ID == "" || interruptSession.Event == nil {

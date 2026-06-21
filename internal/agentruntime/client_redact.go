@@ -32,10 +32,6 @@ func redactConfigUpdateRequest(body ConfigUpdateRequest) map[string]any {
 		out["definition"] = nil
 	}
 
-	if len(body.Schedules) > 0 {
-		out["schedules"] = body.Schedules
-	}
-
 	return out
 }
 

@@ -22,16 +22,12 @@ pub enum ToolSpec {
     ApplyPatch(ApplyPatchConfig),
     #[serde(rename = "builtin.lsp")]
     Lsp(LspConfig),
-    #[serde(rename = "builtin.cron")]
-    Cron,
     #[serde(rename = "builtin.subagent_task")]
     SubagentTask(#[serde(default)] SubagentTaskConfig),
     #[serde(rename = "builtin.check_subagent_task_status")]
     CheckSubagentTaskStatus,
     #[serde(rename = "builtin.check_bash_status")]
     CheckBashStatus,
-    #[serde(rename = "builtin.wake")]
-    Wake,
     #[serde(rename = "builtin.skills_list")]
     SkillsList,
     #[serde(rename = "builtin.skill_view")]
@@ -234,7 +230,6 @@ pub fn default_parent_builtin_tool_specs() -> Vec<ToolSpec> {
     specs.extend([
         ToolSpec::SubagentTask(Default::default()),
         ToolSpec::CheckSubagentTaskStatus,
-        ToolSpec::Wake,
         ToolSpec::RequestUserInput,
     ]);
     specs

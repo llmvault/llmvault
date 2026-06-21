@@ -39,31 +39,6 @@ type ConfigUpdateRequest struct {
 	RuntimeSecret string            `json:"runtime_secret,omitempty"`
 	RuntimeEnv    map[string]string `json:"runtime_env,omitempty"`
 	Definition    *AgentDefinition  `json:"definition"`
-	Schedules     []RuntimeSchedule `json:"schedules,omitempty"`
-}
-
-type RuntimeSchedule struct {
-	ID                    string     `json:"id"`
-	Description           string     `json:"description"`
-	Channel               string     `json:"channel"`
-	TaskPrompt            string     `json:"task_prompt"`
-	CronExpression        *string    `json:"cron_expression"`
-	IntervalSeconds       *uint64    `json:"interval_seconds"`
-	RepeatCount           *uint32    `json:"repeat_count"`
-	RepeatCompleted       uint32     `json:"repeat_completed"`
-	State                 string     `json:"state"`
-	Source                string     `json:"source"`
-	NextRunAt             time.Time  `json:"next_run_at"`
-	LastRunAt             *time.Time `json:"last_run_at"`
-	LastStatus            *string    `json:"last_status"`
-	LastError             *string    `json:"last_error"`
-	DelegatedSessionID    *string    `json:"delegated_session_id"`
-	SessionContinuationID *string    `json:"session_continuation_id"`
-	AgentName             *string    `json:"agent_name,omitempty"`
-	LastResult            *string    `json:"last_result,omitempty"`
-	DelegateStreamID      *string    `json:"delegate_stream_id,omitempty"`
-	CreatedAt             time.Time  `json:"created_at"`
-	CreatedBySession      string     `json:"created_by_session"`
 }
 
 type HTTPMessageRequest struct {

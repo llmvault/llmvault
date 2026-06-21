@@ -30,7 +30,7 @@ use crate::primitives::{
     AgentMessage, FinishReason, MessagePart, ModelRequest, ModelStreamEvent, ToolCall,
 };
 use crate::rig_tool_registry::{
-    build_agent_tools, emit_tool_error, emit_tool_invoked, DynamicTool, ToolContext, WakeScheduler,
+    build_agent_tools, emit_tool_error, emit_tool_invoked, DynamicTool, ToolContext,
 };
 use crate::tool_executor::ToolExecutor;
 use crate::{AgentEvent, AgentRunner, Result, TurnInput};
@@ -49,7 +49,6 @@ pub struct RigAgentRunner {
     config: ConfigStore,
     tool_context: ToolBuildContext,
     outbound_emitter: Option<Arc<OutboundEmitter>>,
-    wake_scheduler: Option<Arc<dyn WakeScheduler>>,
     subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     question_requester: Option<Arc<dyn QuestionRequester>>,
     plan_updater: Option<Arc<dyn PlanUpdater>>,
@@ -64,7 +63,6 @@ impl RigAgentRunner {
             config,
             tool_context: ToolBuildContext::new(workspace_root),
             outbound_emitter: None,
-            wake_scheduler: None,
             subagent_task_repo: None,
             question_requester: None,
             plan_updater: None,
@@ -76,11 +74,6 @@ impl RigAgentRunner {
 
     pub fn with_outbound_emitter(mut self, emitter: Arc<OutboundEmitter>) -> Self {
         self.outbound_emitter = Some(emitter);
-        self
-    }
-
-    pub fn with_wake_scheduler(mut self, wake_scheduler: Arc<dyn WakeScheduler>) -> Self {
-        self.wake_scheduler = Some(wake_scheduler);
         self
     }
 
@@ -172,7 +165,6 @@ impl AgentRunner for RigAgentRunner {
             session_id,
             &tool_context,
             &ToolContext {
-                wake_scheduler: self.wake_scheduler.clone(),
                 subagent_task_repo: subagent_task_repo.clone(),
                 question_requester: self.question_requester.clone(),
                 plan_updater: self.plan_updater.clone(),
@@ -1152,11 +1144,9 @@ mod tests {
             ToolSpec::MultiGrep(_) => "multi_grep",
             ToolSpec::ApplyPatch(_) => "apply_patch",
             ToolSpec::Lsp(_) => "lsp",
-            ToolSpec::Cron => "cron",
             ToolSpec::SubagentTask(_) => "subagent_task",
             ToolSpec::CheckSubagentTaskStatus => "check_subagent_task_status",
             ToolSpec::CheckBashStatus => "check_bash_status",
-            ToolSpec::Wake => "wake",
             ToolSpec::SkillsList => "skills_list",
             ToolSpec::SkillView => "skill_view",
             ToolSpec::SkillManage => "skill_manage",
@@ -1184,7 +1174,6 @@ mod tests {
             "subagent_task",
             "check_subagent_task_status",
             "check_bash_status",
-            "wake",
             "skills_list",
             "skill_view",
             "skill_manage",
@@ -1217,8 +1206,6 @@ mod tests {
             assert!(has_tool(&specs, kind), "missing {kind}");
         }
         for kind in [
-            "cron",
-            "wake",
             "subagent_task",
             "check_subagent_task_status",
             "request_user_input",

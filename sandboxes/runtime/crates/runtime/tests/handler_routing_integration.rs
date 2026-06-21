@@ -37,14 +37,6 @@ fn cron_worker_job_message_is_identified_as_cron() {
 }
 
 #[test]
-fn wake_cron_uses_original_session_id() {
-    let sid = "session-1";
-    let event = make_event(sid, "cron");
-    let is_wake = event.user == "cron" && !sid.contains("-cron-");
-    assert!(is_wake, "wake cron must be identified by clean session ID");
-}
-
-#[test]
 fn subagent_background_task_uses_subagent_session_prefix() {
     let sid = "subagent-subagent-task-1";
     let event = make_event(sid, "subagent");
@@ -57,7 +49,6 @@ fn session_response_policy_matrix() {
     let cases = vec![
         ("session-1", "user-1", "reply"),
         ("session-1-cron-cron-1", "cron", "reply"),
-        ("session-1", "cron", "reply"),
         ("subagent-subagent-task-1", "subagent", "reply"),
     ];
 

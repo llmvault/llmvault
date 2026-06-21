@@ -21,30 +21,6 @@ const (
 	BearerScopes bearerContextKey = "bearer.Scopes"
 )
 
-// Defines values for CronJobState.
-const (
-	CronJobStateActive    CronJobState = "active"
-	CronJobStateCompleted CronJobState = "completed"
-	CronJobStatePaused    CronJobState = "paused"
-	CronJobStateRunning   CronJobState = "running"
-)
-
-// Valid indicates whether the value is a known member of the CronJobState enum.
-func (e CronJobState) Valid() bool {
-	switch e {
-	case CronJobStateActive:
-		return true
-	case CronJobStateCompleted:
-		return true
-	case CronJobStatePaused:
-		return true
-	case CronJobStateRunning:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for EventKind.
 const (
 	EventKindAssistantMessage EventKind = "assistant_message"
@@ -230,19 +206,19 @@ func (e ReasoningEffort) Valid() bool {
 
 // Defines values for SessionStatus.
 const (
-	SessionStatusActive    SessionStatus = "active"
-	SessionStatusCompleted SessionStatus = "completed"
-	SessionStatusErrored   SessionStatus = "errored"
+	Active    SessionStatus = "active"
+	Completed SessionStatus = "completed"
+	Errored   SessionStatus = "errored"
 )
 
 // Valid indicates whether the value is a known member of the SessionStatus enum.
 func (e SessionStatus) Valid() bool {
 	switch e {
-	case SessionStatusActive:
+	case Active:
 		return true
-	case SessionStatusCompleted:
+	case Completed:
 		return true
-	case SessionStatusErrored:
+	case Errored:
 		return true
 	default:
 		return false
@@ -491,26 +467,11 @@ func (e ToolSpec8Type) Valid() bool {
 
 // Defines values for ToolSpec9Type.
 const (
-	BuiltinCron ToolSpec9Type = "builtin.cron"
+	BuiltinSubagentTask ToolSpec9Type = "builtin.subagent_task"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec9Type enum.
 func (e ToolSpec9Type) Valid() bool {
-	switch e {
-	case BuiltinCron:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec10Type.
-const (
-	BuiltinSubagentTask ToolSpec10Type = "builtin.subagent_task"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec10Type enum.
-func (e ToolSpec10Type) Valid() bool {
 	switch e {
 	case BuiltinSubagentTask:
 		return true
@@ -519,13 +480,13 @@ func (e ToolSpec10Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec11Type.
+// Defines values for ToolSpec10Type.
 const (
-	BuiltinCheckSubagentTaskStatus ToolSpec11Type = "builtin.check_subagent_task_status"
+	BuiltinCheckSubagentTaskStatus ToolSpec10Type = "builtin.check_subagent_task_status"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec11Type enum.
-func (e ToolSpec11Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec10Type enum.
+func (e ToolSpec10Type) Valid() bool {
 	switch e {
 	case BuiltinCheckSubagentTaskStatus:
 		return true
@@ -534,13 +495,13 @@ func (e ToolSpec11Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec12Type.
+// Defines values for ToolSpec11Type.
 const (
-	BuiltinCheckBashStatus ToolSpec12Type = "builtin.check_bash_status"
+	BuiltinCheckBashStatus ToolSpec11Type = "builtin.check_bash_status"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec12Type enum.
-func (e ToolSpec12Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec11Type enum.
+func (e ToolSpec11Type) Valid() bool {
 	switch e {
 	case BuiltinCheckBashStatus:
 		return true
@@ -549,28 +510,13 @@ func (e ToolSpec12Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec13Type.
+// Defines values for ToolSpec12Type.
 const (
-	BuiltinWake ToolSpec13Type = "builtin.wake"
+	BuiltinSkillsList ToolSpec12Type = "builtin.skills_list"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec13Type enum.
-func (e ToolSpec13Type) Valid() bool {
-	switch e {
-	case BuiltinWake:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec14Type.
-const (
-	BuiltinSkillsList ToolSpec14Type = "builtin.skills_list"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec14Type enum.
-func (e ToolSpec14Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec12Type enum.
+func (e ToolSpec12Type) Valid() bool {
 	switch e {
 	case BuiltinSkillsList:
 		return true
@@ -579,13 +525,13 @@ func (e ToolSpec14Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec15Type.
+// Defines values for ToolSpec13Type.
 const (
-	BuiltinSkillView ToolSpec15Type = "builtin.skill_view"
+	BuiltinSkillView ToolSpec13Type = "builtin.skill_view"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec15Type enum.
-func (e ToolSpec15Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec13Type enum.
+func (e ToolSpec13Type) Valid() bool {
 	switch e {
 	case BuiltinSkillView:
 		return true
@@ -594,13 +540,13 @@ func (e ToolSpec15Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec16Type.
+// Defines values for ToolSpec14Type.
 const (
-	BuiltinSkillManage ToolSpec16Type = "builtin.skill_manage"
+	BuiltinSkillManage ToolSpec14Type = "builtin.skill_manage"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
-func (e ToolSpec16Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec14Type enum.
+func (e ToolSpec14Type) Valid() bool {
 	switch e {
 	case BuiltinSkillManage:
 		return true
@@ -609,13 +555,13 @@ func (e ToolSpec16Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec17Type.
+// Defines values for ToolSpec15Type.
 const (
-	BuiltinSearchSessions ToolSpec17Type = "builtin.search_sessions"
+	BuiltinSearchSessions ToolSpec15Type = "builtin.search_sessions"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec17Type enum.
-func (e ToolSpec17Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec15Type enum.
+func (e ToolSpec15Type) Valid() bool {
 	switch e {
 	case BuiltinSearchSessions:
 		return true
@@ -624,13 +570,13 @@ func (e ToolSpec17Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec18Type.
+// Defines values for ToolSpec16Type.
 const (
-	BuiltinRequestUserInput ToolSpec18Type = "builtin.request_user_input"
+	BuiltinRequestUserInput ToolSpec16Type = "builtin.request_user_input"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec18Type enum.
-func (e ToolSpec18Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
+func (e ToolSpec16Type) Valid() bool {
 	switch e {
 	case BuiltinRequestUserInput:
 		return true
@@ -639,13 +585,13 @@ func (e ToolSpec18Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec19Type.
+// Defines values for ToolSpec17Type.
 const (
-	BuiltinUpdatePlan ToolSpec19Type = "builtin.update_plan"
+	BuiltinUpdatePlan ToolSpec17Type = "builtin.update_plan"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec19Type enum.
-func (e ToolSpec19Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec17Type enum.
+func (e ToolSpec17Type) Valid() bool {
 	switch e {
 	case BuiltinUpdatePlan:
 		return true
@@ -729,7 +675,6 @@ type ConfigUpdateRequest struct {
 	Definition    AgentDefinition    `json:"definition"`
 	RuntimeEnv    *map[string]string `json:"runtime_env,omitempty"`
 	RuntimeSecret *string            `json:"runtime_secret,omitempty"`
-	Schedules     *[]CronJob         `json:"schedules,omitempty"`
 }
 
 // ContentResponse defines model for ContentResponse.
@@ -775,30 +720,6 @@ type ControlCommandsResponse struct {
 	Ok      bool                   `json:"ok"`
 	Results []ControlCommandResult `json:"results"`
 }
-
-// CronJob defines model for CronJob.
-type CronJob struct {
-	Channel               string       `json:"channel"`
-	CreatedAt             time.Time    `json:"created_at"`
-	CreatedBySession      string       `json:"created_by_session"`
-	CronExpression        *string      `json:"cron_expression,omitempty"`
-	Description           string       `json:"description"`
-	Id                    string       `json:"id"`
-	IntervalSeconds       *int64       `json:"interval_seconds,omitempty"`
-	LastError             *string      `json:"last_error,omitempty"`
-	LastRunAt             *time.Time   `json:"last_run_at,omitempty"`
-	LastStatus            *string      `json:"last_status,omitempty"`
-	NextRunAt             time.Time    `json:"next_run_at"`
-	RepeatCompleted       int32        `json:"repeat_completed"`
-	RepeatCount           *int32       `json:"repeat_count,omitempty"`
-	SessionContinuationId *string      `json:"session_continuation_id,omitempty"`
-	State                 CronJobState `json:"state"`
-	StreamId              *string      `json:"stream_id,omitempty"`
-	TaskPrompt            string       `json:"task_prompt"`
-}
-
-// CronJobState defines model for CronJobState.
-type CronJobState string
 
 // DiffResponse defines model for DiffResponse.
 type DiffResponse struct {
@@ -1367,7 +1288,8 @@ type ToolSpec8Type string
 
 // ToolSpec9 defines model for .
 type ToolSpec9 struct {
-	Type ToolSpec9Type `json:"type"`
+	Config SubagentTaskConfig `json:"config"`
+	Type   ToolSpec9Type      `json:"type"`
 }
 
 // ToolSpec9Type defines model for ToolSpec.9.Type.
@@ -1375,8 +1297,7 @@ type ToolSpec9Type string
 
 // ToolSpec10 defines model for .
 type ToolSpec10 struct {
-	Config SubagentTaskConfig `json:"config"`
-	Type   ToolSpec10Type     `json:"type"`
+	Type ToolSpec10Type `json:"type"`
 }
 
 // ToolSpec10Type defines model for ToolSpec.10.Type.
@@ -1437,22 +1358,6 @@ type ToolSpec17 struct {
 
 // ToolSpec17Type defines model for ToolSpec.17.Type.
 type ToolSpec17Type string
-
-// ToolSpec18 defines model for .
-type ToolSpec18 struct {
-	Type ToolSpec18Type `json:"type"`
-}
-
-// ToolSpec18Type defines model for ToolSpec.18.Type.
-type ToolSpec18Type string
-
-// ToolSpec19 defines model for .
-type ToolSpec19 struct {
-	Type ToolSpec19Type `json:"type"`
-}
-
-// ToolSpec19Type defines model for ToolSpec.19.Type.
-type ToolSpec19Type string
 
 // ToolUsage defines model for ToolUsage.
 type ToolUsage struct {
@@ -2444,58 +2349,6 @@ func (t *ToolSpec) FromToolSpec17(v ToolSpec17) error {
 
 // MergeToolSpec17 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec17
 func (t *ToolSpec) MergeToolSpec17(v ToolSpec17) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsToolSpec18 returns the union data inside the ToolSpec as a ToolSpec18
-func (t ToolSpec) AsToolSpec18() (ToolSpec18, error) {
-	var body ToolSpec18
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec18 overwrites any union data inside the ToolSpec as the provided ToolSpec18
-func (t *ToolSpec) FromToolSpec18(v ToolSpec18) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec18 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec18
-func (t *ToolSpec) MergeToolSpec18(v ToolSpec18) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsToolSpec19 returns the union data inside the ToolSpec as a ToolSpec19
-func (t ToolSpec) AsToolSpec19() (ToolSpec19, error) {
-	var body ToolSpec19
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec19 overwrites any union data inside the ToolSpec as the provided ToolSpec19
-func (t *ToolSpec) FromToolSpec19(v ToolSpec19) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec19 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec19
-func (t *ToolSpec) MergeToolSpec19(v ToolSpec19) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

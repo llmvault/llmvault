@@ -4,11 +4,9 @@ mod handler;
 mod sentry_support;
 mod session_coordinator;
 mod subagent_worker;
-mod wake_timer;
 
 use session_coordinator::SessionCoordinator;
 use subagent_worker::SubagentWorker;
-use wake_timer::RuntimeWakeScheduler;
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -245,15 +243,8 @@ async fn main() -> Result<()> {
         "database event queue enabled"
     );
     let _database_event_queue_handle = database_event_queue.clone().spawn();
-    let wake_scheduler = Arc::new(RuntimeWakeScheduler::new(
-        inbound_sink.clone(),
-        Some(emitter.clone()),
-        std::time::Duration::from_secs(10),
-    ));
-
     let rig_runner = RigAgentRunner::new(config.clone(), workspace_root.clone())
         .with_outbound_emitter(emitter.clone())
-        .with_wake_scheduler(wake_scheduler)
         .with_subagent_task_repo(subagent_task_repo.clone())
         .with_plan_updater(plan_manager.clone())
         .with_question_requester(question_manager.clone())

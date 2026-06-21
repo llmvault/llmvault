@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 
 use crate::{
     mcp_specs::McpSpec, model_config::ModelConfig, model_config::SafetyConfig,
@@ -20,7 +20,11 @@ pub struct AgentDefinition {
     pub limits: Limits,
     #[serde(default)]
     pub context: ContextConfig,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_tool_specs"
+    )]
     pub tools: Option<Vec<ToolSpec>>,
     #[serde(default)]
     pub mcp_servers: Vec<McpSpec>,
@@ -33,6 +37,31 @@ pub struct AgentDefinition {
     pub sub_agents: HashMap<String, AgentDefinition>,
     #[serde(default)]
     pub safety: SafetyConfig,
+}
+
+fn deserialize_tool_specs<'de, D>(deserializer: D) -> Result<Option<Vec<ToolSpec>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = Option::<Vec<serde_json::Value>>::deserialize(deserializer)?;
+    let Some(raw_specs) = raw else {
+        return Ok(None);
+    };
+    let mut specs = Vec::with_capacity(raw_specs.len());
+    for raw_spec in raw_specs {
+        if is_deprecated_runtime_tool_spec(&raw_spec) {
+            continue;
+        }
+        specs.push(serde_json::from_value(raw_spec).map_err(D::Error::custom)?);
+    }
+    Ok(Some(specs))
+}
+
+fn is_deprecated_runtime_tool_spec(value: &serde_json::Value) -> bool {
+    matches!(
+        value.get("type").and_then(serde_json::Value::as_str),
+        Some("builtin.cron" | "builtin.wake")
+    )
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -329,4 +358,36 @@ fn default_memory_item_template() -> String {
 }
 fn default_list_item_template() -> String {
     "- {name}: {description}".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agent_definition_drops_deprecated_runtime_schedule_tools_on_deserialize() {
+        let definition: AgentDefinition = serde_json::from_value(serde_json::json!({
+            "agent": {"name": "compat", "description": "compat"},
+            "model": {
+                "provider": "openai_compatible",
+                "base_url": "http://localhost",
+                "model_id": "test",
+                "api_key_env": "TEST_KEY"
+            },
+            "tools": [
+                {"type": "builtin.cron"},
+                {"type": "builtin.wake"},
+                {"type": "builtin.check_bash_status"}
+            ]
+        }))
+        .expect("deserialize legacy definition");
+
+        let tools = definition.tools.expect("tools");
+        assert_eq!(tools.len(), 1);
+        assert!(matches!(tools[0], ToolSpec::CheckBashStatus));
+
+        let serialized = serde_json::to_string(&tools).expect("serialize tools");
+        assert!(!serialized.contains("builtin.cron"));
+        assert!(!serialized.contains("builtin.wake"));
+    }
 }

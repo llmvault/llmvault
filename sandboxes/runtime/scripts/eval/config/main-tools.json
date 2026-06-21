@@ -149,8 +149,5 @@
   },
   {
     "type": "builtin.search_sessions"
-  },
-  {
-    "type": "builtin.wake"
   }
 ]
