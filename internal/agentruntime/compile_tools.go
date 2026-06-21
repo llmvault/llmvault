@@ -32,11 +32,9 @@ var runtimeToolOrder = []string{
 	"multi_grep",
 	"apply_patch",
 	"lsp",
-	"cron",
 	"subagent_task",
 	"check_subagent_task_status",
 	"check_bash_status",
-	"wake",
 	"skills_list",
 	"skill_view",
 	"skill_manage",
@@ -156,6 +154,9 @@ func runtimeToolSelectionEnabled(value any) bool {
 func expandRuntimeToolID(raw string) ([]string, bool) {
 	key := strings.TrimSpace(raw)
 	key = strings.TrimPrefix(key, "builtin.")
+	if key == "cron" || key == "wake" {
+		return nil, true
+	}
 	if model.IsValidRuntimeBuiltInToolID(key) {
 		return []string{key}, true
 	}

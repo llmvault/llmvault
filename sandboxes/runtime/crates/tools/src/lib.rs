@@ -180,11 +180,9 @@ pub fn build_builtin_tools(
                     .into_tool(),
                 );
             }
-            ToolSpec::Cron
-            | ToolSpec::SubagentTask(_)
+            ToolSpec::SubagentTask(_)
             | ToolSpec::CheckSubagentTaskStatus
             | ToolSpec::CheckBashStatus
-            | ToolSpec::Wake
             | ToolSpec::SearchSessions
             | ToolSpec::RequestUserInput
             | ToolSpec::UpdatePlan

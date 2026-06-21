@@ -52,7 +52,6 @@
     "skill_manage": true,
     "subagent_task": true,
     "check_subagent_task_status": true,
-    "wake": true,
     "request_user_input": true
   },
   "sub_agents": {

@@ -990,12 +990,6 @@
               "string",
               "null"
             ]
-          },
-          "schedules": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CronJob"
-            }
           }
         }
       },
@@ -1159,115 +1153,6 @@
             }
           }
         }
-      },
-      "CronJob": {
-        "type": "object",
-        "required": [
-          "id",
-          "description",
-          "channel",
-          "task_prompt",
-          "repeat_completed",
-          "state",
-          "next_run_at",
-          "created_at",
-          "created_by_session"
-        ],
-        "properties": {
-          "channel": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "created_by_session": {
-            "type": "string"
-          },
-          "cron_expression": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "description": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "interval_seconds": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "minimum": 0
-          },
-          "last_error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "last_run_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "last_status": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "next_run_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "repeat_completed": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "repeat_count": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int32",
-            "minimum": 0
-          },
-          "session_continuation_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "state": {
-            "$ref": "#/components/schemas/CronJobState"
-          },
-          "stream_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "task_prompt": {
-            "type": "string"
-          }
-        }
-      },
-      "CronJobState": {
-        "type": "string",
-        "enum": [
-          "active",
-          "running",
-          "paused",
-          "completed"
-        ]
       },
       "DiffResponse": {
         "type": "object",
@@ -3193,20 +3078,6 @@
           {
             "type": "object",
             "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.cron"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
               "config",
               "type"
             ],
@@ -3246,20 +3117,6 @@
                 "type": "string",
                 "enum": [
                   "builtin.check_bash_status"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.wake"
                 ]
               }
             }

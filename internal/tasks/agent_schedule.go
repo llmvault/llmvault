@@ -245,7 +245,6 @@ func scheduledMessagePayload(run model.AgentScheduleRun, startedAt time.Time) mo
 		"schedule_scheduled_at": scheduledAt.UTC().Format(time.RFC3339),
 		"schedule_started_at":   startedAt.UTC().Format(time.RFC3339),
 		"schedule_is_one_shot":  false,
-		"schedule_is_wake":      false,
 	}
 }
 

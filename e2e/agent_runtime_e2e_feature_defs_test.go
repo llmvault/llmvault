@@ -79,9 +79,3 @@ func agentRuntimeSkillsTools() []any {
 		map[string]any{"type": "builtin.skill_manage"},
 	)
 }
-
-func agentRuntimeSchedulingTools() []any {
-	return append(agentRuntimeFileTools(),
-		map[string]any{"type": "builtin.wake"},
-	)
-}

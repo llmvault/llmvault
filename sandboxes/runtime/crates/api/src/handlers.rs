@@ -8,7 +8,6 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
-use domain::cron::CronJob;
 use domain::{AgentDefinition, QuestionAnswerPayload, SessionId, SessionStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -53,9 +52,6 @@ const MAX_RUNTIME_ENV_KEYS: usize = 128;
 const MAX_RUNTIME_ENV_KEY_LENGTH: usize = 128;
 const MAX_RUNTIME_ENV_VALUE_LENGTH: usize = 8192;
 const MAX_RUNTIME_ENV_PAYLOAD_BYTES: usize = 64 * 1024;
-const MAX_CONFIG_SCHEDULES: usize = 128;
-const MAX_CONFIG_SCHEDULE_ID_LENGTH: usize = 255;
-const MAX_CONFIG_SCHEDULE_TEXT_LENGTH: usize = 64 * 1024;
 const MAX_CONTROL_COMMANDS: usize = 20;
 const MAX_CONTROL_COMMAND_LENGTH: usize = 8 * 1024;
 const MAX_CONTROL_COMMAND_PAYLOAD_BYTES: usize = 128 * 1024;
@@ -131,8 +127,6 @@ pub struct ConfigUpdateRequest {
     #[serde(default)]
     pub runtime_env: HashMap<String, String>,
     pub definition: AgentDefinition,
-    #[serde(default)]
-    pub schedules: Vec<CronJob>,
 }
 
 #[derive(Deserialize)]
@@ -194,13 +188,6 @@ impl ConfigUpdateRequest {
             return Err("runtime env payload too large".to_string());
         }
 
-        if self.schedules.len() > MAX_CONFIG_SCHEDULES {
-            return Err(format!("too many schedules; max {}", MAX_CONFIG_SCHEDULES));
-        }
-        for schedule in &self.schedules {
-            validate_config_schedule(schedule)?;
-        }
-
         Ok(())
     }
 
@@ -212,40 +199,6 @@ impl ConfigUpdateRequest {
                 .map(|(key, value)| key.len() + value.len())
                 .sum::<usize>()
     }
-}
-
-fn validate_config_schedule(schedule: &CronJob) -> Result<(), String> {
-    let id = schedule.id.trim();
-    if id.is_empty() {
-        return Err("schedule id must not be empty".to_string());
-    }
-    if id.len() > MAX_CONFIG_SCHEDULE_ID_LENGTH {
-        return Err(format!(
-            "schedule id too long for {id}; max {} chars",
-            MAX_CONFIG_SCHEDULE_ID_LENGTH
-        ));
-    }
-    if schedule.task_prompt.trim().is_empty() {
-        return Err(format!("schedule {id} task_prompt must not be empty"));
-    }
-    if schedule.task_prompt.len() > MAX_CONFIG_SCHEDULE_TEXT_LENGTH {
-        return Err(format!(
-            "schedule {id} task_prompt too long; max {} chars",
-            MAX_CONFIG_SCHEDULE_TEXT_LENGTH
-        ));
-    }
-    if schedule.description.len() > MAX_CONFIG_SCHEDULE_TEXT_LENGTH {
-        return Err(format!(
-            "schedule {id} description too long; max {} chars",
-            MAX_CONFIG_SCHEDULE_TEXT_LENGTH
-        ));
-    }
-    if schedule.cron_expression.is_none() && schedule.interval_seconds.is_none() {
-        return Err(format!(
-            "schedule {id} must include cron_expression or interval_seconds"
-        ));
-    }
-    Ok(())
 }
 
 fn is_valid_env_key(key: &str) -> bool {
@@ -933,7 +886,6 @@ fn parse_status(raw: &str) -> Result<SessionStatus, String> {
 mod tests {
     use super::*;
 
-    use domain::cron::CronJobState;
     use std::collections::HashMap;
 
     #[test]
@@ -1040,7 +992,6 @@ mod tests {
                 ("GOOD_KEY".to_string(), "value".to_string()),
                 ("ANOTHER_KEY_1".to_string(), "another".to_string()),
             ]),
-            schedules: Vec::new(),
         };
 
         assert!(
@@ -1055,7 +1006,6 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("1BAD_KEY".to_string(), "value".to_string())]),
-            schedules: Vec::new(),
         };
         assert_eq!(
             update.validate().unwrap_err(),
@@ -1069,7 +1019,6 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("OPENAI_API_KEY".to_string(), "value".to_string())]),
-            schedules: Vec::new(),
         };
         assert!(update.validate().is_ok());
     }
@@ -1085,7 +1034,6 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: entries,
-            schedules: Vec::new(),
         };
         assert_eq!(
             update.validate().unwrap_err(),
@@ -1102,7 +1050,6 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("VALUE_TOO_LONG".to_string(), "x".repeat(8193))]),
-            schedules: Vec::new(),
         };
 
         assert_eq!(
@@ -1124,7 +1071,6 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: entries,
-            schedules: Vec::new(),
         };
 
         assert_eq!(
@@ -1139,41 +1085,10 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::new(),
-            schedules: Vec::new(),
         };
         assert!(
             update.validate().is_ok(),
             "empty payload should be accepted as clear overlay"
         );
-    }
-
-    #[test]
-    fn runtime_config_accepts_valid_schedule_payload() {
-        let update = ConfigUpdateRequest {
-            definition: test_definition(),
-            runtime_secret: None,
-            runtime_env: HashMap::new(),
-            schedules: vec![CronJob {
-                id: "system:service-discovery:railway:conn".to_string(),
-                description: "Railway service discovery".to_string(),
-                channel: "system".to_string(),
-                task_prompt: "Discover Railway services and retain useful memories.".to_string(),
-                cron_expression: None,
-                interval_seconds: Some(86_400),
-                repeat_count: None,
-                repeat_completed: 0,
-                state: CronJobState::Active,
-                next_run_at: Utc::now(),
-                last_run_at: None,
-                last_status: None,
-                last_error: None,
-                session_continuation_id: None,
-                stream_id: None,
-                created_at: Utc::now(),
-                created_by_session: "system:service-discovery".to_string(),
-            }],
-        };
-
-        assert!(update.validate().is_ok());
     }
 }

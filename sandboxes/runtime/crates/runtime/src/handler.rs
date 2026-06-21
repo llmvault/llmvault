@@ -955,7 +955,7 @@ mod queue_tests {
     }
 
     #[test]
-    fn scheduled_wake_queued_during_active_turn_runs_as_standalone_inbound() {
+    fn scheduled_cron_queued_during_active_turn_runs_as_standalone_inbound() {
         let current = inbound(
             "session-1",
             "E1",
@@ -968,29 +968,28 @@ mod queue_tests {
             }),
         );
         let now = Utc::now();
-        let wake = inbound(
+        let cron = inbound(
             "session-1",
-            "wake-1",
+            "cron-1",
             "Check the background process",
             serde_json::json!({
-                "source": "wake",
-                "job_kind": "wake",
-                "job_id": "wake-1",
-                "schedule_run_key": "wake-1:2026-06-15T17:44:35Z",
+                "source": "cron",
+                "job_kind": "cron",
+                "job_id": "cron-1",
+                "schedule_run_key": "cron-1:2026-06-15T17:44:35Z",
                 "schedule_scheduled_at": now,
                 "schedule_started_at": now,
-                "schedule_is_one_shot": false,
-                "schedule_is_wake": true
+                "schedule_is_one_shot": false
             }),
         );
         let mut backlog = QueuedInboundBacklog::default();
 
-        let next = next_queued_inbound(&current, vec![wake], &mut backlog)
-            .expect("scheduled wake should be selected");
+        let next = next_queued_inbound(&current, vec![cron], &mut backlog)
+            .expect("scheduled cron should be selected");
 
-        assert_eq!(next.raw["source"], "wake");
-        assert_eq!(next.raw["job_id"], "wake-1");
-        assert_eq!(next.raw["schedule_run_key"], "wake-1:2026-06-15T17:44:35Z");
+        assert_eq!(next.raw["source"], "cron");
+        assert_eq!(next.raw["job_id"], "cron-1");
+        assert_eq!(next.raw["schedule_run_key"], "cron-1:2026-06-15T17:44:35Z");
         assert!(next.raw.get("events").is_none());
         assert!(turn_id(&next).is_none());
         assert!(trace_id(&next).is_none());
@@ -1005,19 +1004,18 @@ mod queue_tests {
             serde_json::json!({"source": "session"}),
         );
         let now = Utc::now();
-        let wake = inbound(
+        let cron = inbound(
             "session-1",
-            "wake-1",
+            "cron-1",
             "Check status",
             serde_json::json!({
-                "source": "wake",
-                "job_kind": "wake",
-                "job_id": "wake-1",
-                "schedule_run_key": "wake-1:2026-06-15T17:44:35Z",
+                "source": "cron",
+                "job_kind": "cron",
+                "job_id": "cron-1",
+                "schedule_run_key": "cron-1:2026-06-15T17:44:35Z",
                 "schedule_scheduled_at": now,
                 "schedule_started_at": now,
-                "schedule_is_one_shot": false,
-                "schedule_is_wake": true
+                "schedule_is_one_shot": false
             }),
         );
         let regular_1 = inbound(
@@ -1034,14 +1032,14 @@ mod queue_tests {
         );
         let mut backlog = QueuedInboundBacklog::default();
 
-        let first = next_queued_inbound(&current, vec![wake, regular_1], &mut backlog)
+        let first = next_queued_inbound(&current, vec![cron, regular_1], &mut backlog)
             .expect("regular batch should be selected first");
         assert_eq!(first.raw["source"], "queued_batch");
 
         let second = next_queued_inbound(&first, vec![regular_2], &mut backlog)
             .expect("scheduled backlog should be selected after one regular batch");
-        assert_eq!(second.raw["source"], "wake");
-        assert_eq!(second.raw["job_id"], "wake-1");
+        assert_eq!(second.raw["source"], "cron");
+        assert_eq!(second.raw["job_id"], "cron-1");
 
         let third = next_queued_inbound(&second, Vec::new(), &mut backlog)
             .expect("deferred regular should still be preserved");
@@ -1053,23 +1051,22 @@ mod queue_tests {
     fn malformed_scheduled_metadata_is_still_classified_as_scheduled() {
         let inbound = inbound(
             "session-1",
-            "wake-1",
+            "cron-1",
             "Check status",
             serde_json::json!({
-                "source": "wake",
-                "job_kind": "wake",
-                "job_id": "wake-1",
-                "schedule_run_key": "wake-1:bad-timestamp",
+                "source": "cron",
+                "job_kind": "cron",
+                "job_id": "cron-1",
+                "schedule_run_key": "cron-1:bad-timestamp",
                 "schedule_scheduled_at": "not-a-timestamp",
-                "schedule_started_at": Utc::now(),
-                "schedule_is_wake": true
+                "schedule_started_at": Utc::now()
             }),
         );
 
         assert!(is_scheduled_run_inbound(&inbound));
         match ScheduledRunStatus::from_inbound(&inbound) {
             ScheduledRunStatus::Malformed(malformed) => {
-                assert_eq!(malformed.job_id.as_deref(), Some("wake-1"));
+                assert_eq!(malformed.job_id.as_deref(), Some("cron-1"));
                 assert_eq!(malformed.reason, "invalid schedule_scheduled_at");
             }
             ScheduledRunStatus::None | ScheduledRunStatus::Valid(_) => {
@@ -1111,32 +1108,32 @@ mod queue_tests {
     }
 
     #[test]
-    fn wake_inbound_is_not_treated_as_subagent_task_completion() {
+    fn scheduled_inbound_without_subagent_kind_is_not_treated_as_subagent_task_completion() {
         let inbound = inbound(
             "C123-T1",
-            "wake-1",
+            "cron-1",
             "Check subagent task status",
             serde_json::json!({
-                "source": "wake",
-                "job_kind": "wake",
-                "job_id": "wake-1",
+                "source": "cron",
+                "job_kind": "cron",
+                "job_id": "cron-1",
                 "parent_session_id": "C123-T1"
             }),
         );
 
-        assert_eq!(inbound_event_source(&inbound), "wake");
+        assert_eq!(inbound_event_source(&inbound), "cron");
         assert!(!is_subagent_task_inbound(&inbound));
     }
 
     #[test]
     fn subagent_task_inbound_requires_explicit_subagent_task_kind() {
-        let plain_wake = inbound(
+        let plain_cron = inbound(
             "C123-T1",
-            "wake-1",
+            "cron-1",
             "Check subagent task status",
             serde_json::json!({
                 "source": "cron",
-                "job_id": "wake-1",
+                "job_id": "cron-1",
                 "parent_session_id": "C123-T1"
             }),
         );
@@ -1152,7 +1149,7 @@ mod queue_tests {
             }),
         );
 
-        assert!(!is_subagent_task_inbound(&plain_wake));
+        assert!(!is_subagent_task_inbound(&plain_cron));
         assert!(is_subagent_task_inbound(&subagent_task));
     }
 }
@@ -1480,10 +1477,10 @@ async fn process_single_turn(
             .await;
         }
     } else if let Some(run) = ScheduledRunContext::from_inbound(inbound) {
-        // A scheduled (cron/wake) run only reaches a terminal status now that
+        // A scheduled cron run only reaches a terminal status now that
         // the turn has actually executed — not when the scheduler enqueued it.
         // Emit SCHEDULE_RUN_COMPLETED/FAILED, record the run, delete
-        // one-shot/wake jobs, and advance repeat counts here.
+        // one-shot jobs, and advance repeat counts here.
         complete_scheduled_run(emitter.clone(), &run, &session_id, outcome.error.as_deref()).await;
     }
 
@@ -1696,7 +1693,6 @@ fn inbound_event_source(inbound: &InboundEvent) -> &'static str {
         "session" => "session",
         "trigger" => "trigger",
         "cron" => "cron",
-        "wake" => "wake",
         "web" => "web",
         "subagent_task" => "subagent_task",
         "subagent_task_result" => "subagent_task_result",
@@ -2791,7 +2787,7 @@ mod scheduled_run_tests {
         ))
     }
 
-    fn scheduled_inbound(job_id: &str, is_one_shot: bool, is_wake: bool) -> InboundEvent {
+    fn scheduled_inbound(job_id: &str, is_one_shot: bool) -> InboundEvent {
         let now = Utc::now();
         InboundEvent {
             envelope_id: "cron-1".to_string(),
@@ -2810,7 +2806,6 @@ mod scheduled_run_tests {
                 "schedule_scheduled_at": now,
                 "schedule_started_at": now,
                 "schedule_is_one_shot": is_one_shot,
-                "schedule_is_wake": is_wake,
             }),
             is_direct_message: false,
             is_directly_addressed: true,
@@ -2822,7 +2817,7 @@ mod scheduled_run_tests {
     #[test]
     fn scheduled_run_context_parses_only_scheduler_dispatched_inbounds() {
         // A normal user message carries no schedule keys.
-        let ordinary = scheduled_inbound("job-1", false, false);
+        let ordinary = scheduled_inbound("job-1", false);
         assert!(ScheduledRunContext::from_inbound(&ordinary).is_some());
 
         let mut not_scheduled = ordinary.clone();
@@ -2833,7 +2828,7 @@ mod scheduled_run_tests {
     #[tokio::test]
     async fn completing_a_run_emits_completed() {
         let outbox = Arc::new(RecordingOutbox::default());
-        let inbound = scheduled_inbound("schedule-1", false, false);
+        let inbound = scheduled_inbound("schedule-1", false);
         let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
 
         complete_scheduled_run(
@@ -2856,7 +2851,7 @@ mod scheduled_run_tests {
     #[tokio::test]
     async fn completing_a_failed_run_emits_run_failed() {
         let outbox = Arc::new(RecordingOutbox::default());
-        let inbound = scheduled_inbound("recurring-1", false, false);
+        let inbound = scheduled_inbound("recurring-1", false);
         let run = ScheduledRunContext::from_inbound(&inbound).expect("scheduled context");
 
         complete_scheduled_run(
@@ -2876,7 +2871,7 @@ mod scheduled_run_tests {
     #[tokio::test]
     async fn malformed_scheduled_metadata_is_reported_without_storage_mutation() {
         let inbound = {
-            let mut inbound = scheduled_inbound("wake-malformed", false, true);
+            let mut inbound = scheduled_inbound("cron-malformed", false);
             inbound.raw["schedule_scheduled_at"] = json!("not-a-date");
             inbound
         };

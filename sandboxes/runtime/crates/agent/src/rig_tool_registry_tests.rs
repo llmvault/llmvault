@@ -63,41 +63,6 @@ struct FakePlanUpdater {
     updates: Mutex<Vec<UpdatePlanPayload>>,
 }
 
-#[derive(Debug)]
-struct FakeWakeCall {
-    session_id: String,
-    stream_id: Option<String>,
-    seconds: u64,
-    task_prompt: String,
-}
-
-#[derive(Default)]
-struct FakeWakeScheduler {
-    calls: Mutex<Vec<FakeWakeCall>>,
-}
-
-#[async_trait]
-impl WakeScheduler for FakeWakeScheduler {
-    async fn schedule_wake(
-        &self,
-        session_id: SessionId,
-        stream_id: Option<String>,
-        seconds: u64,
-        task_prompt: String,
-    ) -> Result<(String, DateTime<Utc>)> {
-        self.calls.lock().expect("wake lock").push(FakeWakeCall {
-            session_id: session_id.as_str().to_string(),
-            stream_id,
-            seconds,
-            task_prompt,
-        });
-        Ok((
-            "wake-test".to_string(),
-            Utc::now() + chrono::Duration::seconds(seconds as i64),
-        ))
-    }
-}
-
 #[async_trait]
 impl OutboxRepo for FakeOutbox {
     async fn enqueue(
@@ -319,7 +284,6 @@ fn test_emitter(outbox: Arc<FakeOutbox>) -> Arc<OutboundEmitter> {
 fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dyn JsonTool> {
     let emitter = test_emitter(outbox);
     let ctx = ToolContext {
-        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -406,50 +370,9 @@ fn subagent_task_ids_are_unique_with_same_timestamp() {
 }
 
 #[tokio::test]
-async fn wake_tool_persists_parent_session_stream_id() {
-    let scheduler = Arc::new(FakeWakeScheduler::default());
-    let ctx = ToolContext {
-        wake_scheduler: Some(scheduler.clone()),
-        subagent_task_repo: None,
-        event_repo: None,
-        process_registry: None,
-        question_requester: None,
-        plan_updater: None,
-        mcp_registry: None,
-        workspace_root: temp_workspace(),
-        outbound_emitter: None,
-        agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
-            test_agent_definition(),
-        ))),
-        session_stream_id: Some("parent-stream-1".to_string()),
-    };
-    let tool = build_agent_tools(&[ToolSpec::Wake], &SessionId::from("parent-session"), &ctx)
-        .into_iter()
-        .find(|tool| tool.definition().name == "wake")
-        .expect("wake tool");
-
-    let result = tool
-        .call(json!({
-            "seconds": 10,
-            "task_prompt": "Resume and reply"
-        }))
-        .await
-        .expect("wake call");
-    let job_id = result["job_id"].as_str().expect("job id");
-    assert_eq!(job_id, "wake-test");
-    let calls = scheduler.calls.lock().expect("wake lock");
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].session_id, "parent-session");
-    assert_eq!(calls[0].stream_id.as_deref(), Some("parent-stream-1"));
-    assert_eq!(calls[0].seconds, 10);
-    assert_eq!(calls[0].task_prompt, "Resume and reply");
-}
-
-#[tokio::test]
 async fn request_user_input_tool_is_registered_and_returns_answer() {
     let requester = Arc::new(FakeQuestionRequester::default());
     let ctx = ToolContext {
-        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -526,7 +449,6 @@ async fn request_user_input_tool_rejects_invalid_schema() {
 async fn update_plan_tool_is_registered_and_returns_ack() {
     let updater = Arc::new(FakePlanUpdater::default());
     let ctx = ToolContext {
-        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -633,7 +555,6 @@ async fn update_plan_tool_rejects_empty_steps() {
 async fn update_plan_tool_is_not_registered_for_cron_sessions() {
     let updater = Arc::new(FakePlanUpdater::default());
     let ctx = ToolContext {
-        wake_scheduler: None,
         subagent_task_repo: None,
         event_repo: None,
         process_registry: None,
@@ -650,7 +571,7 @@ async fn update_plan_tool_is_not_registered_for_cron_sessions() {
 
     let tools = build_agent_tools(
         &[ToolSpec::UpdatePlan],
-        &SessionId::from("wake-cron-session"),
+        &SessionId::from("scheduled-cron-session"),
         &ctx,
     );
 

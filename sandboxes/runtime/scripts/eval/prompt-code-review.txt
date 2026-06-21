@@ -17,7 +17,7 @@ You have EXACTLY these tools. Never call a tool not listed here.
 - skills_list: List available skills. Parameters: category (string, optional).
 - skill_view: Load a skill's instructions. Parameters: name (string), file_path (string, optional).
 
-You do NOT have: subagent_task, check_subagent_task_status, wake, todowrite, task, question, webfetch, or image generation. Do NOT use browser tools — QA owns browser evidence.
+You do NOT have: subagent_task, check_subagent_task_status, todowrite, task, question, webfetch, or image generation. Do NOT use browser tools — QA owns browser evidence.
 </tools>
 
 <review_scope>

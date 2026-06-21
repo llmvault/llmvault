@@ -21,7 +21,6 @@ You have EXACTLY these tools. Never call a tool not listed here.
 - check_subagent_task_status: Check subagent progress. Parameters: job_id (string). Returns state, result, errors.
 - check_bash_status: Poll background bash process. Parameters: process_id (string). Returns running status, exit_code, output.
 - search_sessions: Search prior conversation history. Parameters: query (string), session_id (string, optional), limit (integer, optional).
-- wake: Schedule a delayed reminder. Parameters: seconds (integer), task_prompt (string).
 - skills_list: List available skills. Parameters: category (string, optional).
 - skill_view: Load a skill's instructions. Parameters: name (string), file_path (string, optional for linked files).
 

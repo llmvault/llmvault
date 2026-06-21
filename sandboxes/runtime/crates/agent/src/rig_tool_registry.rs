@@ -54,7 +54,6 @@ impl JsonTool for DynamicTool {
 }
 
 pub struct ToolContext {
-    pub wake_scheduler: Option<Arc<dyn WakeScheduler>>,
     pub subagent_task_repo: Option<Arc<dyn SubagentTaskRepo>>,
     pub event_repo: Option<Arc<dyn EventRepo>>,
     pub process_registry: Option<Arc<ProcessRegistry>>,
@@ -67,17 +66,6 @@ pub struct ToolContext {
     pub session_stream_id: Option<String>,
 }
 
-#[async_trait]
-pub trait WakeScheduler: Send + Sync {
-    async fn schedule_wake(
-        &self,
-        session_id: SessionId,
-        stream_id: Option<String>,
-        seconds: u64,
-        task_prompt: String,
-    ) -> Result<(String, DateTime<Utc>)>;
-}
-
 pub fn build_agent_tools(
     specs: &[ToolSpec],
     session_id: &SessionId,
@@ -88,18 +76,6 @@ pub fn build_agent_tools(
 
     for spec in specs {
         match spec {
-            ToolSpec::Cron => {}
-            ToolSpec::Wake => {
-                if let Some(wake_scheduler) = &ctx.wake_scheduler {
-                    if !session_is_cron {
-                        tools.push(wake_tool(
-                            wake_scheduler.clone(),
-                            session_id.clone(),
-                            ctx.session_stream_id.clone(),
-                        ));
-                    }
-                }
-            }
             ToolSpec::CheckBashStatus => {
                 if let Some(registry) = &ctx.process_registry {
                     tools.push(check_bash_status_tool(registry.clone()));
@@ -381,45 +357,6 @@ fn truncate_search_text(value: &str, max_chars: usize) -> String {
     out
 }
 
-fn wake_tool(
-    scheduler: Arc<dyn WakeScheduler>,
-    session_id: SessionId,
-    session_stream_id: Option<String>,
-) -> Arc<dyn JsonTool> {
-    Arc::new(DynamicTool::new(
-        ToolDefinition {
-            name: "wake".into(),
-            description: "Schedule a wake-up reminder in this conversation.".into(),
-            parameters: json!({"type":"object","properties":{"seconds":{"type":"integer"},"task_prompt":{"type":"string"}},"required":["seconds","task_prompt"]}),
-        },
-        move |args| {
-            let scheduler = scheduler.clone();
-            let session_id = session_id.clone();
-            let session_stream_id = session_stream_id.clone();
-            Box::pin(async move {
-                let seconds = args
-                    .get("seconds")
-                    .and_then(Value::as_u64)
-                    .ok_or_else(|| anyhow!("seconds required"))?;
-                let task_prompt = args
-                    .get("task_prompt")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| anyhow!("task_prompt required"))?
-                    .to_string();
-                let (id, next_run_at) = scheduler
-                    .schedule_wake(
-                        session_id.clone(),
-                        session_stream_id.clone(),
-                        seconds,
-                        task_prompt,
-                    )
-                    .await?;
-                Ok(json!({"job_id": id, "next_run_at": next_run_at.to_rfc3339()}))
-            })
-        },
-    ))
-}
-
 fn skills_list_tool(workspace_root: PathBuf) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
@@ -622,9 +559,9 @@ fn check_bash_status_tool(registry: Arc<ProcessRegistry>) -> Arc<dyn JsonTool> {
                 });
                 if status.running {
                     result["_hint"] = serde_json::json!(format!(
-                        "This process is still running. Use the wake tool \
-                         (seconds=10, task_prompt='Check status of process {id}') \
-                         to check again later instead of polling immediately."
+                        "This process is still running. Check again later with \
+                         check_bash_status and pass cursor={} so only new output is returned.",
+                        status.next_cursor
                     ));
                 }
                 Ok(result)
@@ -798,9 +735,8 @@ fn check_subagent_task_status_tool(repo: Arc<dyn SubagentTaskRepo>) -> Arc<dyn J
                     SubagentTaskState::Queued | SubagentTaskState::Running
                 ) {
                     result["_hint"] = serde_json::json!(format!(
-                        "This task is still running. Use the wake tool \
-                         (seconds=10, task_prompt='Check status of job {}') \
-                         to check again later instead of polling immediately.",
+                        "This task is still running. Check again later with \
+                         check_subagent_task_status for job {}; avoid tight polling.",
                         task.id
                     ));
                 }
