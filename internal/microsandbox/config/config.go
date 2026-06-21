@@ -130,11 +130,3 @@ func duration(key string, fallback time.Duration) time.Duration {
 	}
 	return parsed
 }
-
-func boolean(key string, fallback bool) bool {
-	value := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
-	if value == "" {
-		return fallback
-	}
-	return value == "1" || value == "true" || value == "yes"
-}

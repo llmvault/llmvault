@@ -22,8 +22,9 @@ func (s *Server) acquireDistributedSandboxLock(ctx context.Context, sandboxID st
 		_ = conn.Close()
 		return nil, fmt.Errorf("acquire sandbox lifecycle lock: %w", err)
 	}
+	unlockCtx := context.WithoutCancel(ctx)
 	return func() {
-		_, _ = conn.ExecContext(context.Background(), `SELECT pg_advisory_unlock(hashtext($1))`, key)
+		_, _ = conn.ExecContext(unlockCtx, `SELECT pg_advisory_unlock(hashtext($1))`, key)
 		_ = conn.Close()
 	}, nil
 }

@@ -46,6 +46,7 @@ func setupV1Routes(
 	imageDescribeHandler *handler.ImageDescribeHandler,
 	systemTaskHandler *handler.SystemTaskHandler,
 	agentHandler *handler.AgentHandler,
+	canvasHandler *handler.CanvasHandler,
 	orchestrator *sandbox.Orchestrator,
 	auditWriter *middleware.AuditWriter,
 ) {
@@ -88,6 +89,9 @@ func setupV1Routes(
 			r.Get("/reporting", reportingHandler.Get)
 			r.Get("/generations", generationHandler.List)
 			r.Get("/generations/{id}", generationHandler.Get)
+			if canvasHandler != nil {
+				r.Post("/canvas/session-url", canvasHandler.SessionURL)
+			}
 			if databaseIntegrationHandler != nil {
 				r.Get("/database-integrations", databaseIntegrationHandler.List)
 			}

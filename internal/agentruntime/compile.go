@@ -35,10 +35,15 @@ type CompileDeps struct {
 	Cfg        *config.Config
 	Nango      *nango.Client
 	Hindsight  HindsightMemoryClient
+	Canvas     CanvasRuntimeEnvProvider
 }
 
 type HindsightMemoryClient interface {
 	ListMemoriesFiltered(ctx context.Context, bankID string, opts hindsight.ListMemoriesOptions) (*hindsight.ListMemoriesResponse, error)
+}
+
+type CanvasRuntimeEnvProvider interface {
+	AgentRuntimeEnv(ctx context.Context, agent *model.Agent) (map[string]string, error)
 }
 
 type StartupSecrets struct {

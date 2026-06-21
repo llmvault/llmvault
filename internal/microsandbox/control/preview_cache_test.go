@@ -23,6 +23,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 
 	var runnerPreviewPorts []int
 	var runnerInit *sandboxInitConfig
+	var runnerAutoStartDocker *bool
 	runner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/sandboxes" {
 			t.Fatalf("runner path = %s, want /v1/sandboxes", r.URL.Path)
@@ -36,6 +37,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 		}
 		runnerPreviewPorts = req.PreviewPorts
 		runnerInit = req.Init
+		runnerAutoStartDocker = req.AutoStartDocker
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id": req.ID,
 			"ports": []map[string]int{
@@ -102,6 +104,7 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 			"name":"cache-test",
 			"image_ref":"ghcr.io/usehivy/runtime:test",
 			"size":"small",
+			"auto_start_docker":false,
 			"health_checks":[{"guest_port":7080,"type":"http","method":"GET","path":"/healthz","expected_status":200}],
 			"init":{"cmd":"/usr/local/bin/hivy-runtime-entrypoint","args":["/usr/local/bin/hivy-sandboxes-runtime"]}
 		}`))
@@ -123,6 +126,9 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 	}
 	if got, want := runnerInit.Args, []string{"/usr/local/bin/hivy-sandboxes-runtime"}; !equalStrings(got, want) {
 		t.Fatalf("runner init args = %v, want %v", got, want)
+	}
+	if runnerAutoStartDocker == nil || *runnerAutoStartDocker {
+		t.Fatalf("runner auto_start_docker = %v, want false", runnerAutoStartDocker)
 	}
 	var runtimePort model.SandboxPort
 	if err := db.First(&runtimePort, "guest_port = ?", 7080).Error; err != nil {

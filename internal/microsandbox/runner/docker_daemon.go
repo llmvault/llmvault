@@ -85,3 +85,13 @@ func (m *MicrosandboxBackend) ensureDockerDaemon(ctx context.Context, sandboxID 
 	)
 	return nil
 }
+
+func (m *MicrosandboxBackend) shouldAutoStartDocker(sandboxID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state, ok := m.sandboxes[sandboxID]
+	if !ok {
+		return true
+	}
+	return autoStartDockerEnabled(state.Labels)
+}

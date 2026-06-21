@@ -166,5 +166,6 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create agent"})
 		return
 	}
+	enqueueCanvasOrgSync(ctx, h.enqueuer, org.ID, "agent_create")
 	writeJSON(w, http.StatusCreated, agentMutationResponse{Agent: h.agentListItem(ctx, org.ID, agent)})
 }

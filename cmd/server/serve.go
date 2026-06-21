@@ -13,6 +13,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/bootstrap"
+	"github.com/usehivy/hivy/internal/canvas"
 	"github.com/usehivy/hivy/internal/credentials"
 	"github.com/usehivy/hivy/internal/email"
 	"github.com/usehivy/hivy/internal/enqueue"
@@ -59,6 +60,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	})
 
 	auditWriter := middleware.NewAuditWriter(ctx, database, 10000)
+	canvasService := canvas.NewService(database, canvas.NewClient(cfg))
+	canvasHandler := handler.NewCanvasHandler(database, sandboxEncKey, canvasService)
 
 	generationWriter := middleware.NewGenerationWriter(ctx, database, reg, 10000)
 	if enqueuer != nil {
@@ -87,6 +90,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		Cfg:        cfg,
 		Nango:      nangoClient,
 		Hindsight:  hindsightClient,
+		Canvas:     canvasService,
 	}
 	if orchestrator != nil {
 		orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
@@ -108,6 +112,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		emailSender = email.NewAsynqSender(enqueuer)
 	}
 	orgInviteHandler := handler.NewOrgInviteHandler(database, emailSender, cfg.FrontendURL)
+	orgInviteHandler.SetEnqueuer(enqueuer)
 	authHandler := handler.NewAuthHandler(database, rsaKey, signingKey,
 		cfg.AuthIssuer, cfg.AuthAudience, cfg.AuthAccessTokenTTL, cfg.AuthRefreshTokenTTL,
 		emailSender, cfg.FrontendURL, cfg.AutoConfirmEmail, deps.Credits)
@@ -152,9 +157,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if orchestrator != nil {
 		agentHandler = handler.NewAgentHandler(database, orchestrator, runtimeCompileDeps, reg)
 		agentHandler.SetMemoryProvisioner(hindsightBanks)
-		if deps.S3Client != nil {
-			agentHandler.SetEnqueuer(enqueuer)
-		}
+		agentHandler.SetEnqueuer(enqueuer)
 		orgHandler.SetAgentSyncer(agentHandler)
 		authHandler.SetAgentSyncer(agentHandler)
 		oauthHandler.SetAgentSyncer(agentHandler)
@@ -212,12 +215,12 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, agentOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, orchestrator, orchestratorMissing)
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, agentOutboundWebhookHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, canvasHandler, orchestrator, orchestratorMissing)
 
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
 	systemTaskHandler := buildSystemTaskHandler(database, deps, redisClient)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, orchestrator, auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, canvasHandler, orchestrator, auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, integrationHandler, connectionHandler, credHandler)
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)

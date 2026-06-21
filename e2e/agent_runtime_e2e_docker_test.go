@@ -220,6 +220,7 @@ func repairWorkspacePermissions(trace *agentRuntimeE2ETrace, image, workspaceRoo
 		return
 	}
 	trace.Logf("docker", "repairing workspace permissions root=%s", workspaceRoot)
+	// #nosec G204 -- image and workspaceRoot are test harness values used to repair a Docker-mounted workspace.
 	cmd := exec.Command(
 		"docker", "run", "--rm",
 		"-v", workspaceRoot+":/workspace",

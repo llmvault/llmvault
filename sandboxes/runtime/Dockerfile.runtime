@@ -130,12 +130,14 @@ ENV HOME=/workspace
 WORKDIR /app
 
 COPY hivy-sandboxes-runtime /usr/local/bin/hivy-sandboxes-runtime
+COPY penpot /usr/local/bin/penpot
 COPY docker/runtime/entrypoint /usr/local/bin/hivy-runtime-entrypoint
 COPY docker/runtime/git-credential-hivy /usr/local/bin/git-credential-hivy
 COPY docker/runtime/gh-wrapper /usr/local/bin/gh-wrapper
 COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
 
 RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
+  && chmod +x /usr/local/bin/penpot \
   && mkdir -p /workspace/.hivy/runtime /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
   && chmod +x /usr/local/bin/git-credential-hivy \

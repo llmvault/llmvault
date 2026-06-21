@@ -183,6 +183,8 @@ var migratedTables = []string{
 	"channel_members",
 	"channels",
 	"connections",
+	"canvas_files",
+	"canvas_projects",
 	"credentials",
 	"credit_ledger_entries",
 	"database_connections",
@@ -237,4 +239,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 32
+const latestMigrationVersion = 33

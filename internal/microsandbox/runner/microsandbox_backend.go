@@ -178,13 +178,15 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		return nil, err
 	}
 	env := sandboxEnvWithStorageDefaults(req.Env)
+	labels := hivyLabels(req.ID, req.Labels)
+	applyDockerPolicy(labels, env, req.AutoStartDocker)
 
 	opts := []microsandbox.SandboxOption{
 		microsandbox.WithCPUs(cpu),
 		microsandbox.WithMemory(memoryMB),
 		microsandbox.WithOCIUpperSize(rootOverlayMiB),
 		microsandbox.WithEnv(env),
-		microsandbox.WithLabels(hivyLabels(req.ID, req.Labels)),
+		microsandbox.WithLabels(labels),
 		microsandbox.WithPortBindings(msbBindings...),
 		microsandbox.WithDetached(),
 		microsandbox.WithMounts(map[string]microsandbox.MountConfig{
@@ -206,9 +208,11 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	if err := sb.Detach(ctx); err != nil {
 		return nil, err
 	}
-	if err := m.ensureDockerDaemon(ctx, req.ID); err != nil {
-		_ = m.deleteSandboxLocked(context.WithoutCancel(ctx), req.ID)
-		return nil, err
+	if autoStartDockerEnabled(labels) {
+		if err := m.ensureDockerDaemon(ctx, req.ID); err != nil {
+			_ = m.deleteSandboxLocked(context.WithoutCancel(ctx), req.ID)
+			return nil, err
+		}
 	}
 	m.mu.Lock()
 	m.ports[req.ID] = map[int]int{}
@@ -219,7 +223,7 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		ID:     req.ID,
 		Name:   req.Name,
 		Status: "running",
-		Labels: hivyLabels(req.ID, req.Labels),
+		Labels: cloneStringMap(labels),
 		Ports:  cloneIntMap(m.ports[req.ID]),
 	}
 	m.mu.Unlock()

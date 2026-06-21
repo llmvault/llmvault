@@ -38,6 +38,7 @@ type CreateSandboxRequest struct {
 	Labels       map[string]string  `json:"labels"`
 	PreviewPorts []int              `json:"preview_ports"`
 	Init         *SandboxInitConfig `json:"init"`
+	AutoStartDocker *bool           `json:"auto_start_docker,omitempty"`
 }
 
 type SandboxInitConfig struct {

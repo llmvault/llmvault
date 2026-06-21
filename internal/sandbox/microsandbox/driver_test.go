@@ -147,6 +147,48 @@ func TestDriverCreateSandboxUsesTemplateIDForMicrosandboxTemplate(t *testing.T) 
 	}
 }
 
+func TestDriverCreateDeveloperSandboxDisablesDockerAutostart(t *testing.T) {
+	var createReq map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sandboxes" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
+			t.Fatalf("decode create request: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ID": "sbx_developer", "Status": "running"})
+	}))
+	defer server.Close()
+
+	driver, err := NewDriver(Config{
+		ControlURL:   server.URL,
+		APIToken:     "test-token",
+		RuntimeImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
+	})
+	if err != nil {
+		t.Fatalf("NewDriver: %v", err)
+	}
+	if _, err := driver.CreateSandbox(context.Background(), sandbox.CreateSandboxOpts{
+		Name:        "agent-developer",
+		TemplateRef: "ghcr.io/usehivy/hivy-sandboxes-runtime-developers:v3.8.0-amd64",
+		Labels:      map[string]string{"org_id": "org_123", "sandbox_image": "developer"},
+		EnvVars:     map[string]string{"HIVY_RUNTIME_SECRET": "secret"},
+	}); err != nil {
+		t.Fatalf("CreateSandbox: %v", err)
+	}
+	if createReq["auto_start_docker"] != false {
+		t.Fatalf("auto_start_docker = %v, want false", createReq["auto_start_docker"])
+	}
+	env, ok := createReq["env"].(map[string]any)
+	if !ok {
+		t.Fatalf("env = %T, want object", createReq["env"])
+	}
+	if env[runtimeStartDockerdEnv] != "0" {
+		t.Fatalf("%s = %v, want 0", runtimeStartDockerdEnv, env[runtimeStartDockerdEnv])
+	}
+}
+
 func TestDriverCreateSandboxUsesConfiguredPreviewPortsWithRuntimePort(t *testing.T) {
 	var createReq map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
