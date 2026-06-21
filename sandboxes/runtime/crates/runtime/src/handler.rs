@@ -86,7 +86,14 @@ pub trait TurnEventSink: Send + Sync + 'static {
     ) {
     }
 
-    async fn publish_waiting(&self, _stream_id: &str, _session_id: &SessionId, _reason: &str) {}
+    async fn publish_waiting(
+        &self,
+        _stream_id: &str,
+        _session_id: &SessionId,
+        _reason: &str,
+        _metadata: Option<&StreamEventMetadata>,
+    ) {
+    }
 
     async fn publish_agent_event(
         &self,
@@ -214,14 +221,23 @@ impl TurnEventSink for api::SessionStreamBroker {
         .await;
     }
 
-    async fn publish_waiting(&self, stream_id: &str, session_id: &SessionId, reason: &str) {
+    async fn publish_waiting(
+        &self,
+        stream_id: &str,
+        session_id: &SessionId,
+        reason: &str,
+        metadata: Option<&StreamEventMetadata>,
+    ) {
         self.publish(
             stream_id,
             "session_waiting",
-            serde_json::json!({
-                "session_id": session_id.as_str(),
-                "reason": reason,
-            }),
+            stream_payload(
+                serde_json::json!({
+                    "session_id": session_id.as_str(),
+                    "reason": reason,
+                }),
+                metadata,
+            ),
         )
         .await;
     }
@@ -476,8 +492,14 @@ pub async fn handle_inbound(
         // so subscribers can show that the message is queued behind the active
         // turn without opening a second stream.
         if let Some(stream_id) = session_stream_id(&inbound) {
+            let metadata = stream_event_metadata(&inbound);
             turn_event_sink
-                .publish_waiting(&stream_id, &inbound.session_id, "merged_into_active_turn")
+                .publish_waiting(
+                    &stream_id,
+                    &inbound.session_id,
+                    "merged_into_active_turn",
+                    metadata.as_ref(),
+                )
                 .await;
         }
         return Ok(());
@@ -565,11 +587,13 @@ pub async fn handle_inbound(
                 }
                 if !published_waiting {
                     if let Some(stream_id) = session_stream_id.as_deref() {
+                        let metadata = stream_event_metadata(&current_inbound);
                         turn_event_sink
                             .publish_waiting(
                                 stream_id,
                                 &current_inbound.session_id,
                                 "subagent_tasks",
+                                metadata.as_ref(),
                             )
                             .await;
                     }
@@ -583,11 +607,13 @@ pub async fn handle_inbound(
             if runner.active_background_processes(&current_inbound.session_id) > 0 {
                 if !published_waiting {
                     if let Some(stream_id) = session_stream_id.as_deref() {
+                        let metadata = stream_event_metadata(&current_inbound);
                         turn_event_sink
                             .publish_waiting(
                                 stream_id,
                                 &current_inbound.session_id,
                                 "background_processes",
+                                metadata.as_ref(),
                             )
                             .await;
                     }

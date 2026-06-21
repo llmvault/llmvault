@@ -20,6 +20,7 @@ import {
   sessionRuntimeStatusFromResponse,
   useSessionRuntimeStore,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
+import { isSubagentFrame } from "@/app/w/(chat)/_lib/session-subagents"
 
 const STREAM_WATCHDOG_MS = 10 * 60 * 1000
 
@@ -180,7 +181,9 @@ async function runSessionStream(
       useSessionRuntimeStore.getState().cursorBySessionId[sessionId]
     const replay: DirectSessionStreamReplayMode =
       replayOverride ??
-      (cursor ? { mode: "after_seq", afterSeq: cursor.sequence } : { mode: "all" })
+      (cursor
+        ? { mode: "after_seq", afterSeq: cursor.sequence }
+        : { mode: "all" })
 
     await subscribeToDirectSessionStream({
       sessionId,
@@ -213,9 +216,10 @@ async function runSessionStream(
         if (frame.event === "resync_required") {
           controller.abort.abort()
           void refreshSessionQueries(controller.queryClient, sessionId).finally(
-            () => reconnectSessionStream(sessionId, controller.queryClient, {
-              mode: "all",
-            })
+            () =>
+              reconnectSessionStream(sessionId, controller.queryClient, {
+                mode: "all",
+              })
           )
           return
         }
@@ -224,8 +228,9 @@ async function runSessionStream(
             queryKey: ["sandbox-runtime-review-diffs", sessionId],
           })
         }
+        const subagentFrame = isSubagentFrame(frame)
         useSessionRuntimeStore.getState().applyStreamFrame(sessionId, frame)
-        if (isTerminalFrame(frame.event)) {
+        if (!subagentFrame && isTerminalFrame(frame.event)) {
           stopController(sessionId)
           void refreshSessionQueries(controller.queryClient, sessionId).then(
             () => {
@@ -317,9 +322,14 @@ function stopController(
   }
 }
 
-async function refreshSessionQueries(queryClient: QueryClient, sessionId: string) {
+async function refreshSessionQueries(
+  queryClient: QueryClient,
+  sessionId: string
+) {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: chatQueryKeys.session(sessionId) }),
+    queryClient.invalidateQueries({
+      queryKey: chatQueryKeys.session(sessionId),
+    }),
     queryClient.invalidateQueries({
       queryKey: chatQueryKeys.sessionEvents(sessionId),
     }),
