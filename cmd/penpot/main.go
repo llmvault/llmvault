@@ -24,8 +24,8 @@ var (
 )
 
 const (
-	browserSession  = "penpot-canvas"
-	defaultStateDir = "/workspace/.hivy/penpot"
+	browserSession  = "canvas"
+	defaultStateDir = "/workspace/.hivy/canvas"
 
 	envCanvasURL        = "PENPOT_CANVAS_URL"
 	envCanvasTeamID     = "PENPOT_CANVAS_TEAM_ID"
@@ -38,24 +38,22 @@ const (
 )
 
 type cliState struct {
-	CanvasProjectID string `json:"canvas_project_id,omitempty"`
-	PenpotProjectID string `json:"penpot_project_id,omitempty"`
-	CanvasFileID    string `json:"canvas_file_id,omitempty"`
-	PenpotFileID    string `json:"penpot_file_id,omitempty"`
-	PageID          string `json:"page_id,omitempty"`
-	WorkspaceURL    string `json:"workspace_url,omitempty"`
-	UpdatedAt       string `json:"updated_at"`
+	ProjectID    string `json:"project_id,omitempty"`
+	FileID       string `json:"file_id,omitempty"`
+	PageID       string `json:"page_id,omitempty"`
+	WorkspaceURL string `json:"workspace_url,omitempty"`
+	UpdatedAt    string `json:"updated_at"`
 }
 
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintln(os.Stderr, "penpot:", r)
+			fmt.Fprintln(os.Stderr, cliName()+":", r)
 			os.Exit(1)
 		}
 	}()
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "penpot:", err)
+		fmt.Fprintln(os.Stderr, cliName()+":", err)
 		os.Exit(1)
 	}
 }
@@ -70,7 +68,7 @@ func run(args []string) error {
 		usage()
 		return nil
 	case "--version", "-v", "version":
-		return writeStdout(fmt.Sprintf("penpot %s (%s)\n", version, commit))
+		return writeStdout(fmt.Sprintf("%s %s (%s)\n", cliName(), version, commit))
 	case "doctor":
 		return doctor()
 	case "init":
@@ -87,17 +85,28 @@ func run(args []string) error {
 }
 
 func usage() {
-	_ = writeStdout(`penpot controls a Hivy-managed Penpot Canvas session.
+	name := cliName()
+	_ = writeStdout(fmt.Sprintf(`%s controls a Hivy-managed Canvas session.
 
 Usage:
-  penpot doctor
-  penpot init
-  penpot project create --name "Project"
-  penpot file create --name "File" --project-id <canvas-project-id>
-  penpot file switch <penpot-file-id> [--page-id <page-id>]
-  penpot file current
-  penpot mcp <tool> --json '{"key":"value"}'
-`)
+  %[1]s doctor
+  %[1]s init
+  %[1]s project list
+  %[1]s project create --name "Project"
+  %[1]s file list
+  %[1]s file create --name "File" --project-id <canvas-project-id>
+  %[1]s file switch <canvas-file-id> [--page-id <page-id>]
+  %[1]s file current
+  %[1]s mcp <tool> --json '{"key":"value"}'
+`, name))
+}
+
+func cliName() string {
+	name := strings.TrimSpace(filepath.Base(os.Args[0]))
+	if name == "" {
+		return "canvas"
+	}
+	return name
 }
 
 func doctor() error {
@@ -112,18 +121,22 @@ func doctor() error {
 		envRuntimeSecret,
 	}
 	var missing []string
+	missingConfig := false
 	for _, key := range required {
 		if strings.TrimSpace(os.Getenv(key)) == "" {
-			missing = append(missing, key)
+			missingConfig = true
 		}
+	}
+	if missingConfig {
+		missing = append(missing, "canvas runtime configuration")
 	}
 	if _, err := exec.LookPath("browser"); err != nil {
 		missing = append(missing, "browser")
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("missing required runtime dependencies: %s", strings.Join(missing, ", "))
+		return fmt.Errorf("canvas runtime not ready: missing %s", strings.Join(missing, ", "))
 	}
-	return writeStdout("penpot canvas runtime ok\n")
+	return writeStdout(fmt.Sprintf("%s runtime ok\n", cliName()))
 }
 
 func initCanvas() error {
@@ -138,6 +151,19 @@ func projectCommand(args []string) error {
 		return errors.New("project subcommand is required")
 	}
 	switch args[0] {
+	case "list":
+		fs := flag.NewFlagSet("project list", flag.ContinueOnError)
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() != 0 {
+			return errors.New("project list does not accept arguments")
+		}
+		var result map[string]any
+		if err := getControlPlane("/internal/agents/"+mustEnv(envAgentID)+"/canvas/projects", &result); err != nil {
+			return err
+		}
+		return printJSON(result)
 	case "create":
 		fs := flag.NewFlagSet("project create", flag.ContinueOnError)
 		name := fs.String("name", "", "project name")
@@ -152,8 +178,7 @@ func projectCommand(args []string) error {
 			return err
 		}
 		state, _ := loadState()
-		state.CanvasProjectID = stringMapField(result, "project_id")
-		state.PenpotProjectID = stringMapField(result, "penpot_project_id")
+		state.ProjectID = stringMapField(result, "project_id")
 		_ = saveState(state)
 		return printJSON(result)
 	default:
@@ -166,10 +191,23 @@ func fileCommand(args []string) error {
 		return errors.New("file subcommand is required")
 	}
 	switch args[0] {
+	case "list":
+		fs := flag.NewFlagSet("file list", flag.ContinueOnError)
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() != 0 {
+			return errors.New("file list does not accept arguments")
+		}
+		var result map[string]any
+		if err := getControlPlane("/internal/agents/"+mustEnv(envAgentID)+"/canvas/files", &result); err != nil {
+			return err
+		}
+		return printJSON(result)
 	case "create":
 		fs := flag.NewFlagSet("file create", flag.ContinueOnError)
 		name := fs.String("name", "", "file name")
-		projectID := fs.String("project-id", "", "canvas project id or Penpot project id")
+		projectID := fs.String("project-id", "", "canvas project id")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -185,17 +223,15 @@ func fileCommand(args []string) error {
 			return err
 		}
 		state, _ := loadState()
-		state.CanvasProjectID = stringMapField(result, "project_id")
-		state.PenpotProjectID = stringMapField(result, "penpot_project_id")
-		state.CanvasFileID = stringMapField(result, "file_id")
-		state.PenpotFileID = stringMapField(result, "penpot_file_id")
+		state.ProjectID = stringMapField(result, "project_id")
+		state.FileID = stringMapField(result, "file_id")
 		state.PageID = stringMapField(result, "page_id")
 		state.WorkspaceURL = stringMapField(result, "workspace_url")
 		_ = saveState(state)
 		return printJSON(result)
 	case "switch":
 		fs := flag.NewFlagSet("file switch", flag.ContinueOnError)
-		pageID := fs.String("page-id", "", "Penpot page id")
+		pageID := fs.String("page-id", "", "page id")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -204,9 +240,6 @@ func fileCommand(args []string) error {
 		}
 		fileID := fs.Arg(0)
 		state, _ := loadState()
-		if fileID == state.CanvasFileID && state.PenpotFileID != "" {
-			fileID = state.PenpotFileID
-		}
 		if strings.TrimSpace(*pageID) == "" {
 			*pageID = state.PageID
 		}
@@ -214,7 +247,7 @@ func fileCommand(args []string) error {
 		if err := browserOpen(targetURL); err != nil {
 			return err
 		}
-		state.PenpotFileID = fileID
+		state.FileID = fileID
 		state.PageID = strings.TrimSpace(*pageID)
 		state.WorkspaceURL = targetURL
 		return saveState(state)
@@ -276,7 +309,7 @@ func initializeMCP(endpoint string) (string, error) {
 			"protocolVersion": "2025-06-18",
 			"capabilities":    map[string]any{},
 			"clientInfo": map[string]any{
-				"name":    "hivy-penpot-cli",
+				"name":    "hivy-canvas-cli",
 				"version": version,
 			},
 		},
@@ -301,19 +334,30 @@ func initializeMCP(endpoint string) (string, error) {
 
 func postControlPlane(path string, payload any, out any) error {
 	base := strings.TrimRight(mustEnv(envControlPlaneURL), "/")
-	return postJSON(base+path, mustEnv(envRuntimeSecret), payload, out)
+	return requestJSON(http.MethodPost, base+path, mustEnv(envRuntimeSecret), payload, out)
 }
 
-func postJSON(targetURL, bearer string, payload any, out any) error {
-	body, err := json.Marshal(payload)
+func getControlPlane(path string, out any) error {
+	base := strings.TrimRight(mustEnv(envControlPlaneURL), "/")
+	return requestJSON(http.MethodGet, base+path, mustEnv(envRuntimeSecret), nil, out)
+}
+
+func requestJSON(method, targetURL, bearer string, payload any, out any) error {
+	var body io.Reader
+	if payload != nil {
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		body = bytes.NewReader(raw)
+	}
+	req, err := http.NewRequestWithContext(context.Background(), method, targetURL, body)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, targetURL, bytes.NewReader(body))
-	if err != nil {
-		return err
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	if bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+bearer)
@@ -325,7 +369,7 @@ func postJSON(targetURL, bearer string, payload any, out any) error {
 	defer resp.Body.Close()
 	data, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("POST %s failed with %d: %s", targetURL, resp.StatusCode, strings.TrimSpace(string(data)))
+		return fmt.Errorf("%s %s failed with %d: %s", method, targetURL, resp.StatusCode, strings.TrimSpace(string(data)))
 	}
 	if readErr != nil {
 		return readErr

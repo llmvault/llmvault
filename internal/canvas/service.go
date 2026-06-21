@@ -26,32 +26,49 @@ type Service struct {
 type RuntimeEnv map[string]string
 
 type SessionURLResult struct {
-	URL          string     `json:"url"`
-	ExpiresIn    int64      `json:"expires_in"`
-	CanvasFileID uuid.UUID  `json:"canvas_file_id"`
-	PenpotFileID uuid.UUID  `json:"penpot_file_id"`
-	PageID       *uuid.UUID `json:"page_id,omitempty"`
-	TeamID       uuid.UUID  `json:"team_id"`
+	URL       string     `json:"url"`
+	ExpiresIn int64      `json:"expires_in"`
+	FileID    uuid.UUID  `json:"file_id"`
+	PageID    *uuid.UUID `json:"page_id,omitempty"`
+	TeamID    uuid.UUID  `json:"team_id"`
 }
 
 type ProjectCreateResult struct {
-	ProjectID       uuid.UUID `json:"project_id"`
-	PenpotProjectID uuid.UUID `json:"penpot_project_id"`
-	TeamID          uuid.UUID `json:"team_id"`
-	Name            string    `json:"name"`
-	WorkspaceURL    string    `json:"workspace_url,omitempty"`
+	ProjectID    uuid.UUID `json:"project_id"`
+	TeamID       uuid.UUID `json:"team_id"`
+	Name         string    `json:"name"`
+	WorkspaceURL string    `json:"workspace_url,omitempty"`
+}
+
+type ProjectListResult struct {
+	Projects []ProjectListItem `json:"projects"`
+}
+
+type ProjectListItem struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Name      string    `json:"name"`
 }
 
 type FileCreateResult struct {
-	FileID          uuid.UUID  `json:"file_id"`
-	ProjectID       uuid.UUID  `json:"project_id"`
-	PenpotFileID    uuid.UUID  `json:"penpot_file_id"`
-	PenpotProjectID uuid.UUID  `json:"penpot_project_id"`
-	PageID          *uuid.UUID `json:"page_id,omitempty"`
-	TeamID          uuid.UUID  `json:"team_id"`
-	Name            string     `json:"name"`
-	WorkspaceURL    string     `json:"workspace_url"`
-	SessionURL      string     `json:"session_url"`
+	FileID       uuid.UUID  `json:"file_id"`
+	ProjectID    uuid.UUID  `json:"project_id"`
+	PageID       *uuid.UUID `json:"page_id,omitempty"`
+	TeamID       uuid.UUID  `json:"team_id"`
+	Name         string     `json:"name"`
+	WorkspaceURL string     `json:"workspace_url"`
+}
+
+type FileListResult struct {
+	Files []FileListItem `json:"files"`
+}
+
+type FileListItem struct {
+	FileID       uuid.UUID  `json:"file_id"`
+	ProjectID    uuid.UUID  `json:"project_id"`
+	PageID       *uuid.UUID `json:"page_id,omitempty"`
+	Name         string     `json:"name"`
+	ProjectName  string     `json:"project_name,omitempty"`
+	WorkspaceURL string     `json:"workspace_url"`
 }
 
 func NewService(db *gorm.DB, client *Client) *Service {
@@ -143,12 +160,14 @@ func (s *Service) AgentRuntimeEnv(ctx context.Context, agent *model.Agent) (map[
 	return env, nil
 }
 
-func (s *Service) SessionURLForUser(ctx context.Context, orgID, userID, canvasFileID uuid.UUID, pageID *uuid.UUID) (*SessionURLResult, error) {
+func (s *Service) SessionURLForUser(ctx context.Context, orgID, userID, fileID uuid.UUID, pageID *uuid.UUID) (*SessionURLResult, error) {
 	if !s.Enabled() {
 		return nil, ErrNotConfigured
 	}
 	var file model.CanvasFile
-	if err := s.db.WithContext(ctx).Where("id = ? AND org_id = ?", canvasFileID, orgID).First(&file).Error; err != nil {
+	if err := s.db.WithContext(ctx).
+		Where("org_id = ? AND (id = ? OR penpot_file_id = ?)", orgID, fileID, fileID).
+		First(&file).Error; err != nil {
 		return nil, err
 	}
 	var user model.User
@@ -175,12 +194,11 @@ func (s *Service) SessionURLForUser(ctx context.Context, orgID, userID, canvasFi
 		return nil, err
 	}
 	return &SessionURLResult{
-		URL:          s.client.SessionURL(token),
-		ExpiresIn:    int64(SessionTTL.Seconds()),
-		CanvasFileID: file.ID,
-		PenpotFileID: file.PenpotFileID,
-		PageID:       targetPageID,
-		TeamID:       TeamIDForOrg(orgID),
+		URL:       s.client.SessionURL(token),
+		ExpiresIn: int64(SessionTTL.Seconds()),
+		FileID:    file.PenpotFileID,
+		PageID:    targetPageID,
+		TeamID:    TeamIDForOrg(orgID),
 	}, nil
 }
 
@@ -225,11 +243,35 @@ func (s *Service) CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, 
 		return nil, fmt.Errorf("load canvas project: %w", err)
 	}
 	return &ProjectCreateResult{
-		ProjectID:       persisted.ID,
-		PenpotProjectID: persisted.PenpotProjectID,
-		TeamID:          TeamIDForOrg(org.ID),
-		Name:            persisted.Name,
+		ProjectID: persisted.PenpotProjectID,
+		TeamID:    TeamIDForOrg(org.ID),
+		Name:      persisted.Name,
 	}, nil
+}
+
+func (s *Service) ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*ProjectListResult, error) {
+	if !s.Enabled() {
+		return nil, ErrNotConfigured
+	}
+	_, org, err := s.loadAgentOrg(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	var projects []model.CanvasProject
+	if err := s.db.WithContext(ctx).
+		Where("org_id = ?", org.ID).
+		Order("updated_at DESC").
+		Find(&projects).Error; err != nil {
+		return nil, fmt.Errorf("list canvas projects: %w", err)
+	}
+	result := &ProjectListResult{Projects: []ProjectListItem{}}
+	for _, project := range projects {
+		result.Projects = append(result.Projects, ProjectListItem{
+			ProjectID: project.PenpotProjectID,
+			Name:      project.Name,
+		})
+	}
+	return result, nil
 }
 
 func (s *Service) CreateFileForAgent(ctx context.Context, agentID, projectID uuid.UUID, name string) (*FileCreateResult, error) {
@@ -281,33 +323,52 @@ func (s *Service) CreateFileForAgent(ctx context.Context, agentID, projectID uui
 	if err := s.db.WithContext(ctx).Where("penpot_file_id = ?", penpotFileID).First(&persisted).Error; err != nil {
 		return nil, fmt.Errorf("load canvas file: %w", err)
 	}
-	token, err := s.client.MintSessionJWT(profile.ProfileID, TeamIDForOrg(org.ID), &persisted.PenpotFileID, persisted.PenpotPageID)
-	if err != nil {
-		return nil, err
-	}
 	return &FileCreateResult{
-		FileID:          persisted.ID,
-		ProjectID:       project.ID,
-		PenpotFileID:    persisted.PenpotFileID,
-		PenpotProjectID: project.PenpotProjectID,
-		PageID:          persisted.PenpotPageID,
-		TeamID:          TeamIDForOrg(org.ID),
-		Name:            persisted.Name,
-		WorkspaceURL:    s.client.WorkspaceURL(TeamIDForOrg(org.ID), persisted.PenpotFileID, persisted.PenpotPageID),
-		SessionURL:      s.client.SessionURL(token),
+		FileID:       persisted.PenpotFileID,
+		ProjectID:    project.PenpotProjectID,
+		PageID:       persisted.PenpotPageID,
+		TeamID:       TeamIDForOrg(org.ID),
+		Name:         persisted.Name,
+		WorkspaceURL: s.client.WorkspaceURL(TeamIDForOrg(org.ID), persisted.PenpotFileID, persisted.PenpotPageID),
 	}, nil
 }
 
+func (s *Service) ListFilesForAgent(ctx context.Context, agentID uuid.UUID) (*FileListResult, error) {
+	if !s.Enabled() {
+		return nil, ErrNotConfigured
+	}
+	_, org, err := s.loadAgentOrg(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	var files []model.CanvasFile
+	if err := s.db.WithContext(ctx).
+		Preload("CanvasProject").
+		Where("org_id = ?", org.ID).
+		Order("updated_at DESC").
+		Find(&files).Error; err != nil {
+		return nil, fmt.Errorf("list canvas files: %w", err)
+	}
+	result := &FileListResult{Files: []FileListItem{}}
+	for _, file := range files {
+		item := FileListItem{
+			FileID:       file.PenpotFileID,
+			ProjectID:    file.PenpotProjectID,
+			PageID:       file.PenpotPageID,
+			Name:         file.Name,
+			WorkspaceURL: s.client.WorkspaceURL(TeamIDForOrg(org.ID), file.PenpotFileID, file.PenpotPageID),
+		}
+		if file.CanvasProject != nil {
+			item.ProjectName = file.CanvasProject.Name
+		}
+		result.Files = append(result.Files, item)
+	}
+	return result, nil
+}
+
 func (s *Service) ensureAgentProfile(ctx context.Context, agentID uuid.UUID) (model.Agent, model.Org, *ProfileResult, error) {
-	var agent model.Agent
-	if err := s.db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error; err != nil {
-		return model.Agent{}, model.Org{}, nil, err
-	}
-	if agent.OrgID == nil {
-		return model.Agent{}, model.Org{}, nil, gorm.ErrRecordNotFound
-	}
-	var org model.Org
-	if err := s.db.WithContext(ctx).Where("id = ?", *agent.OrgID).First(&org).Error; err != nil {
+	agent, org, err := s.loadAgentOrg(ctx, agentID)
+	if err != nil {
 		return model.Agent{}, model.Org{}, nil, err
 	}
 	if _, err := s.upsertTeam(ctx, org); err != nil {
@@ -318,6 +379,21 @@ func (s *Service) ensureAgentProfile(ctx context.Context, agentID uuid.UUID) (mo
 		return model.Agent{}, model.Org{}, nil, err
 	}
 	return agent, org, profile, nil
+}
+
+func (s *Service) loadAgentOrg(ctx context.Context, agentID uuid.UUID) (model.Agent, model.Org, error) {
+	var agent model.Agent
+	if err := s.db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error; err != nil {
+		return model.Agent{}, model.Org{}, err
+	}
+	if agent.OrgID == nil {
+		return model.Agent{}, model.Org{}, gorm.ErrRecordNotFound
+	}
+	var org model.Org
+	if err := s.db.WithContext(ctx).Where("id = ?", *agent.OrgID).First(&org).Error; err != nil {
+		return model.Agent{}, model.Org{}, err
+	}
+	return agent, org, nil
 }
 
 func (s *Service) upsertTeam(ctx context.Context, org model.Org) (*TeamResult, error) {

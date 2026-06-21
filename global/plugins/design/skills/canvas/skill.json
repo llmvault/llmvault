@@ -1,0 +1,14 @@
+{
+  "name": "canvas",
+  "description": "Use this skill when the user asks an agent to create, open, inspect, edit, design, mock up, wireframe, export, or collaborate on Canvas files. Pick it for Canvas or Canvas tasks, design file creation, UI layouts, shape/text/image changes, design review, live workspace edits, and PNG/SVG exports from the sandbox. Do not use it for unrelated browser automation or non-design file work.",
+  "human_description": "Give your agents a design canvas.",
+  "category": "Design",
+  "root": "./SKILL.md",
+  "tags": [
+    "canvas",
+    "design",
+    "mcp",
+    "wireframes"
+  ],
+  "files": []
+}

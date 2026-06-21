@@ -126,7 +126,9 @@ func setupPublicRoutes(
 		r.Post("/internal/agents/{agentID}/sqlite-backup/confirm", sqliteBackupHandler.Confirm)
 	}
 	if canvasHandler != nil {
+		r.Get("/internal/agents/{agentID}/canvas/projects", canvasHandler.ListAgentProjects)
 		r.Post("/internal/agents/{agentID}/canvas/projects", canvasHandler.CreateAgentProject)
+		r.Get("/internal/agents/{agentID}/canvas/files", canvasHandler.ListAgentFiles)
 		r.Post("/internal/agents/{agentID}/canvas/files", canvasHandler.CreateAgentFile)
 	}
 

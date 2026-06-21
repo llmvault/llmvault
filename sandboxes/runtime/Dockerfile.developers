@@ -270,6 +270,7 @@ COPY scripts/hivy-guardian.sh /usr/local/bin/hivy-guardian
 
 RUN chmod +x /usr/local/bin/hivy-sandboxes-runtime \
   && chmod +x /usr/local/bin/penpot \
+  && ln -sf /usr/local/bin/penpot /usr/local/bin/canvas \
   && mkdir -p /app/data /workspace/.hivy/tmp/docker /workspace/.hivy/docker /var/lib/docker /var/run \
   && chmod +x /usr/local/bin/hivy-runtime-entrypoint \
   && chmod +x /usr/local/bin/hivy-start-docker \
