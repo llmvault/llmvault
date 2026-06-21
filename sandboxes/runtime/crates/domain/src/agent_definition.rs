@@ -113,7 +113,6 @@ impl SystemPromptConfig {
 pub enum SystemPromptSegment {
     StaticText(StaticPromptSegment),
     DynamicContext(DynamicContextPromptSegment),
-    MemoryContext(MemoryPromptSegment),
     SkillCatalog(ListPromptSegment),
     McpTools(ListPromptSegment),
 }
@@ -134,25 +133,6 @@ impl SystemPromptSegment {
                 )?;
                 validate_prompt_text(
                     "dynamic_context.item_template",
-                    &segment.item_template,
-                    max_text_chars,
-                )?;
-            }
-            SystemPromptSegment::MemoryContext(segment) => {
-                validate_prompt_text("memory_context.title", &segment.title, max_text_chars)?;
-                validate_prompt_text("memory_context.preamble", &segment.preamble, max_text_chars)?;
-                validate_prompt_text(
-                    "memory_context.open_wrapper",
-                    &segment.open_wrapper,
-                    max_text_chars,
-                )?;
-                validate_prompt_text(
-                    "memory_context.close_wrapper",
-                    &segment.close_wrapper,
-                    max_text_chars,
-                )?;
-                validate_prompt_text(
-                    "memory_context.item_template",
                     &segment.item_template,
                     max_text_chars,
                 )?;
@@ -193,33 +173,6 @@ impl Default for DynamicContextPromptSegment {
             title: String::new(),
             preamble: String::new(),
             item_template: default_context_item_template(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct MemoryPromptSegment {
-    #[serde(default)]
-    pub title: String,
-    #[serde(default)]
-    pub preamble: String,
-    #[serde(default)]
-    pub open_wrapper: String,
-    #[serde(default)]
-    pub close_wrapper: String,
-    #[serde(default = "default_memory_item_template")]
-    pub item_template: String,
-}
-
-impl Default for MemoryPromptSegment {
-    fn default() -> Self {
-        Self {
-            title: String::new(),
-            preamble: String::new(),
-            open_wrapper: String::new(),
-            close_wrapper: String::new(),
-            item_template: default_memory_item_template(),
         }
     }
 }
@@ -279,38 +232,6 @@ pub struct ContextConfig {
     pub max_history_events: Option<u32>,
     #[serde(default)]
     pub compaction: Option<CompactionConfig>,
-    #[serde(default)]
-    pub memory: MemoryContextConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct MemoryContextConfig {
-    #[serde(default)]
-    pub entries: Vec<MemoryContextEntry>,
-    #[serde(default = "default_memory_token_budget")]
-    pub token_budget: u32,
-}
-
-impl Default for MemoryContextConfig {
-    fn default() -> Self {
-        Self {
-            entries: Vec::new(),
-            token_budget: default_memory_token_budget(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct MemoryContextEntry {
-    pub content: String,
-    #[serde(default)]
-    pub memory_type: String,
-    #[serde(default)]
-    pub source: String,
-    #[serde(default)]
-    pub confidence: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -347,14 +268,8 @@ fn default_overlap() -> u32 {
 fn default_chars_per_token() -> u32 {
     4
 }
-fn default_memory_token_budget() -> u32 {
-    1000
-}
 fn default_context_item_template() -> String {
     "{content}".to_string()
-}
-fn default_memory_item_template() -> String {
-    "- {line}".to_string()
 }
 fn default_list_item_template() -> String {
     "- {name}: {description}".to_string()

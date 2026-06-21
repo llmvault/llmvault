@@ -1069,9 +1069,6 @@
             ],
             "format": "int32",
             "minimum": 0
-          },
-          "memory": {
-            "$ref": "#/components/schemas/MemoryContextConfig"
           }
         }
       },
@@ -1630,66 +1627,6 @@
             }
           }
         ]
-      },
-      "MemoryContextConfig": {
-        "type": "object",
-        "properties": {
-          "entries": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryContextEntry"
-            }
-          },
-          "token_budget": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          }
-        }
-      },
-      "MemoryContextEntry": {
-        "type": "object",
-        "required": [
-          "content"
-        ],
-        "properties": {
-          "confidence": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "format": "float"
-          },
-          "content": {
-            "type": "string"
-          },
-          "memory_type": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string"
-          }
-        }
-      },
-      "MemoryPromptSegment": {
-        "type": "object",
-        "properties": {
-          "close_wrapper": {
-            "type": "string"
-          },
-          "item_template": {
-            "type": "string"
-          },
-          "open_wrapper": {
-            "type": "string"
-          },
-          "preamble": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          }
-        }
       },
       "ModelConfig": {
         "oneOf": [
@@ -2828,24 +2765,6 @@
                 "type": "string",
                 "enum": [
                   "dynamic_context"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "config",
-              "type"
-            ],
-            "properties": {
-              "config": {
-                "$ref": "#/components/schemas/MemoryPromptSegment"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "memory_context"
                 ]
               }
             }

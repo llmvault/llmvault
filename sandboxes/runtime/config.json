@@ -54,11 +54,7 @@
       "tool_call_timeout_seconds": 120
     },
     "context": {
-      "max_history_events": null,
-      "memory": {
-        "entries": [],
-        "token_budget": 0
-      }
+      "max_history_events": null
     },
     "mcp_servers": [],
     "skills": [],
@@ -100,11 +96,7 @@
           "tool_call_timeout_seconds": 120
         },
         "context": {
-          "max_history_events": null,
-          "memory": {
-            "entries": [],
-            "token_budget": 0
-          }
+          "max_history_events": null
         },
         "mcp_servers": [],
         "skills": [],

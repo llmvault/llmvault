@@ -22,7 +22,7 @@ impl SkillWriter {
     ///
     /// This intentionally does not prune missing skills. Runtime skills may be
     /// created by `skill_manage`; a later config push must not wipe learned
-    /// procedural memory just because it sends an empty or partial skills array.
+    /// skill files just because it sends an empty or partial skills array.
     pub fn sync(&self, specs: &[SkillSpec]) {
         let skills_dir = self.root.join(".skills");
         self.write_skills(specs, &skills_dir);

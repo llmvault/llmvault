@@ -53,7 +53,7 @@ func agentRuntimeFeatureDefinition(t *testing.T, proxyURL, controlPlaneURL, sand
 			"output_token_budget":       12000,
 			"tool_call_timeout_seconds": 120,
 		},
-		"context": map[string]any{"max_history_events": 30, "memory": map[string]any{"entries": []any{}, "token_budget": 2000}},
+		"context": map[string]any{"max_history_events": 30},
 		"tools":   tools, "mcp_servers": mcpServers, "skills": skills,
 		"outbound_channels": []any{map[string]any{"name": "control-plane", "type": "webhook", "url": controlPlaneURL + "/internal/webhooks/agent/" + sandboxID, "secret_env": "HIVY_RUNTIME_SECRET"}},
 		"sub_agents":        map[string]any{},

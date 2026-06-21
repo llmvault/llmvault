@@ -28,7 +28,7 @@ fn config_skill_import_creates_frontmatter_and_instructions() {
 // SCENARIO: A later /config push contains no skills because the operator only changed model config.
 // Learned filesystem skills must survive; empty skills arrays are not destructive.
 #[test]
-fn empty_config_skills_does_not_prune_filesystem_memory() {
+fn empty_config_skills_does_not_prune_learned_skill_files() {
     let root = setup_temp_dir("skill-empty-non-destructive");
     let writer = SkillWriter::new(root.clone());
 
@@ -39,7 +39,7 @@ fn empty_config_skills_does_not_prune_filesystem_memory() {
 
     assert!(
         root.join(".skills/learned-debugger/SKILL.md").exists(),
-        "empty config skills array must not delete learned procedural memory"
+        "empty config skills array must not delete learned skill files"
     );
 }
 

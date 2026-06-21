@@ -112,7 +112,7 @@ func agentRuntimeQuestionDefinition(t *testing.T, trace *agentRuntimeE2ETrace, p
 		"model":            model,
 		"multimodal_model": nil,
 		"limits":           map[string]any{"max_turns_per_session": 20, "input_token_budget": 30000, "output_token_budget": 3000, "tool_call_timeout_seconds": 900},
-		"context":          map[string]any{"max_history_events": 20, "memory": map[string]any{"entries": []any{}, "token_budget": 1000}},
+		"context":          map[string]any{"max_history_events": 20},
 		"tools":            []any{map[string]any{"type": "builtin.request_user_input"}},
 		"mcp_servers":      []any{},
 		"skills":           []any{},
