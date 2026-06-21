@@ -147,7 +147,7 @@ func TestDriverCreateSandboxUsesTemplateIDForMicrosandboxTemplate(t *testing.T) 
 	}
 }
 
-func TestDriverCreateDeveloperSandboxDisablesDockerAutostart(t *testing.T) {
+func TestDriverCreateDeveloperSandboxDoesNotSendDockerAutostartControls(t *testing.T) {
 	var createReq map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/sandboxes" {
@@ -177,15 +177,15 @@ func TestDriverCreateDeveloperSandboxDisablesDockerAutostart(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CreateSandbox: %v", err)
 	}
-	if createReq["auto_start_docker"] != false {
-		t.Fatalf("auto_start_docker = %v, want false", createReq["auto_start_docker"])
+	if _, ok := createReq["auto_start_docker"]; ok {
+		t.Fatalf("auto_start_docker must not be sent: %#v", createReq)
 	}
 	env, ok := createReq["env"].(map[string]any)
 	if !ok {
 		t.Fatalf("env = %T, want object", createReq["env"])
 	}
-	if env[runtimeStartDockerdEnv] != "0" {
-		t.Fatalf("%s = %v, want 0", runtimeStartDockerdEnv, env[runtimeStartDockerdEnv])
+	if _, ok := env["HIVY_RUNTIME_START_DOCKERD"]; ok {
+		t.Fatalf("HIVY_RUNTIME_START_DOCKERD must not be sent: %#v", env)
 	}
 }
 

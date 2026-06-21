@@ -13,7 +13,6 @@ import (
 const (
 	mibPerGiB                = 1024
 	maxDiskGBForUint32Volume = ((1 << 32) - 1) / mibPerGiB
-	autoStartDockerLabel     = "auto_start_docker"
 )
 
 type persistedSandboxConfig struct {
@@ -115,18 +114,6 @@ func hivyLabels(sandboxID string, labels map[string]string) map[string]string {
 		out[sandboxIDLabel] = sandboxID
 	}
 	return out
-}
-
-func applyDockerPolicy(labels, env map[string]string, autoStartDocker *bool) {
-	if autoStartDocker == nil || *autoStartDocker {
-		return
-	}
-	labels[autoStartDockerLabel] = "false"
-	env["HIVY_RUNTIME_START_DOCKERD"] = "0"
-}
-
-func autoStartDockerEnabled(labels map[string]string) bool {
-	return !strings.EqualFold(strings.TrimSpace(labels[autoStartDockerLabel]), "false")
 }
 
 func volumeLabels(sandboxID, purpose string) map[string]string {

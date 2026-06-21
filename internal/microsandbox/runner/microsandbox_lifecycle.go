@@ -56,10 +56,7 @@ func (m *MicrosandboxBackend) startSandboxNative(ctx context.Context, sandboxID 
 	if err := sb.Detach(ctx); err != nil {
 		return err
 	}
-	if !m.shouldAutoStartDocker(sandboxID) {
-		return nil
-	}
-	return m.ensureDockerDaemon(ctx, sandboxID)
+	return nil
 }
 
 func (m *MicrosandboxBackend) stopSandboxLocked(ctx context.Context, sandboxID string) error {

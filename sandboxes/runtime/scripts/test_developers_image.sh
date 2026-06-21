@@ -53,6 +53,15 @@ composer --version
 node -v
 pnpm -v
 yarn -v
+docker --version
+dockerd --version
+docker compose version
+command -v hivy-start-docker
+
+if docker info >/dev/null 2>&1; then
+  echo "docker must not be running before an explicit start" >&2
+  exit 1
+fi
 
 if command -v rails >/dev/null; then
   echo "rails should not be globally installed in the image" >&2
