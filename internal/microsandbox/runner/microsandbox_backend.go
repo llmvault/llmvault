@@ -179,7 +179,6 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	}
 	env := sandboxEnvWithStorageDefaults(req.Env)
 	labels := hivyLabels(req.ID, req.Labels)
-	applyDockerPolicy(labels, env, req.AutoStartDocker)
 
 	opts := []microsandbox.SandboxOption{
 		microsandbox.WithCPUs(cpu),
@@ -207,12 +206,6 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 	}
 	if err := sb.Detach(ctx); err != nil {
 		return nil, err
-	}
-	if autoStartDockerEnabled(labels) {
-		if err := m.ensureDockerDaemon(ctx, req.ID); err != nil {
-			_ = m.deleteSandboxLocked(context.WithoutCancel(ctx), req.ID)
-			return nil, err
-		}
 	}
 	m.mu.Lock()
 	m.ports[req.ID] = map[int]int{}

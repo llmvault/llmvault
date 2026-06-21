@@ -130,54 +130,8 @@ func TestSandboxEnvWithStorageDefaults(t *testing.T) {
 	if env["TEMP"] != sandboxTmpPath || env["TMP"] != sandboxTmpPath || env["DOCKER_TMPDIR"] != sandboxTmpPath+"/docker" {
 		t.Fatalf("temp defaults = %#v", env)
 	}
-}
-
-func TestApplyDockerPolicyDisablesRuntimeAndPersistsLabel(t *testing.T) {
-	autoStartDocker := false
-	labels := hivyLabels("abc123xy", map[string]string{"org_id": "org_1"})
-	env := sandboxEnvWithStorageDefaults(nil)
-
-	applyDockerPolicy(labels, env, &autoStartDocker)
-
-	if labels[autoStartDockerLabel] != "false" {
-		t.Fatalf("auto start docker label = %q, want false", labels[autoStartDockerLabel])
-	}
-	if env["HIVY_RUNTIME_START_DOCKERD"] != "0" {
-		t.Fatalf("HIVY_RUNTIME_START_DOCKERD = %q, want 0", env["HIVY_RUNTIME_START_DOCKERD"])
-	}
-	if autoStartDockerEnabled(labels) {
-		t.Fatal("expected docker autostart to be disabled")
-	}
-}
-
-func TestApplyDockerPolicyDefaultsToAutostart(t *testing.T) {
-	labels := hivyLabels("abc123xy", nil)
-	env := sandboxEnvWithStorageDefaults(nil)
-
-	applyDockerPolicy(labels, env, nil)
-
-	if !autoStartDockerEnabled(labels) {
-		t.Fatal("expected docker autostart to default on")
-	}
 	if _, ok := env["HIVY_RUNTIME_START_DOCKERD"]; ok {
-		t.Fatalf("HIVY_RUNTIME_START_DOCKERD should not be set by default: %#v", env)
-	}
-}
-
-func TestShouldAutoStartDockerUsesRecoveredSandboxLabel(t *testing.T) {
-	backend := &MicrosandboxBackend{
-		sandboxes: map[string]sandboxState{
-			"sbx_lazy": {
-				Labels: map[string]string{autoStartDockerLabel: "false"},
-			},
-		},
-	}
-
-	if backend.shouldAutoStartDocker("sbx_lazy") {
-		t.Fatal("expected recovered sandbox label to disable docker autostart")
-	}
-	if !backend.shouldAutoStartDocker("missing") {
-		t.Fatal("missing sandbox state should default to docker autostart for compatibility")
+		t.Fatalf("HIVY_RUNTIME_START_DOCKERD should never be set by runner defaults: %#v", env)
 	}
 }
 

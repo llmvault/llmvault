@@ -132,7 +132,7 @@ func liveE2ETemplateCommands(imageName, marker string) []string {
 		"set -eu; node --version >/opt/hivy-e2e/node-version.txt; npm --version >/opt/hivy-e2e/npm-version.txt; git --version >/opt/hivy-e2e/git-version.txt; command -v browser >/opt/hivy-e2e/browser-path.txt; command -v agent-browser >/opt/hivy-e2e/agent-browser-path.txt; browser doctor --offline --quick >/opt/hivy-e2e/browser-doctor.txt",
 	}
 	if imageName == "developers" {
-		commands = append(commands, "set -eu; docker info >/opt/hivy-e2e/docker-info.txt; docker compose version >/opt/hivy-e2e/docker-compose-version.txt")
+		commands = append(commands, "set -eu; hivy-start-docker >/opt/hivy-e2e/start-docker.txt; docker info >/opt/hivy-e2e/docker-info.txt; docker compose version >/opt/hivy-e2e/docker-compose-version.txt")
 	}
 	return commands
 }
@@ -140,7 +140,7 @@ func liveE2ETemplateCommands(imageName, marker string) []string {
 func liveE2EVerifyCommand(imageName, marker string) string {
 	cmd := fmt.Sprintf("set -eu; test \"$(cat /opt/hivy-e2e/marker.txt)\" = %q; node --version >/tmp/node-version.txt; npm --version >/tmp/npm-version.txt; git --version >/tmp/git-version.txt; command -v browser >/tmp/browser-path.txt; command -v agent-browser >/tmp/agent-browser-path.txt; browser doctor --offline --quick >/tmp/browser-doctor.txt", marker)
 	if imageName == "developers" {
-		cmd += "; docker info >/tmp/docker-info.txt; docker compose version >/tmp/docker-compose-version.txt"
+		cmd += "; hivy-start-docker >/tmp/start-docker.txt; docker info >/tmp/docker-info.txt; docker compose version >/tmp/docker-compose-version.txt"
 	}
 	return cmd
 }

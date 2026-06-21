@@ -1,0 +1,69 @@
+#!/bin/sh
+set -eu
+
+HIVY_SANDBOX_DATA_ROOT="${HIVY_SANDBOX_DATA_ROOT:-/workspace/.hivy}"
+HIVY_DOCKER_DATA_ROOT="${HIVY_DOCKER_DATA_ROOT:-$HIVY_SANDBOX_DATA_ROOT/docker}"
+TMPDIR="${TMPDIR:-$HIVY_SANDBOX_DATA_ROOT/tmp}"
+DOCKER_TMPDIR="${DOCKER_TMPDIR:-$TMPDIR/docker}"
+DOCKER_HOST="${DOCKER_HOST:-unix:///var/run/docker.sock}"
+export HIVY_SANDBOX_DATA_ROOT HIVY_DOCKER_DATA_ROOT TMPDIR DOCKER_TMPDIR DOCKER_HOST
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "docker CLI is not installed" >&2
+  exit 127
+fi
+if ! command -v dockerd >/dev/null 2>&1; then
+  echo "dockerd is not installed" >&2
+  exit 127
+fi
+
+mkdir -p "$HIVY_SANDBOX_DATA_ROOT/logs" "$HIVY_DOCKER_DATA_ROOT" "$TMPDIR" "$DOCKER_TMPDIR" /var/run
+chmod 1777 "$TMPDIR" "$DOCKER_TMPDIR" 2>/dev/null || true
+
+if [ -d /var/lib/docker ] && [ ! -L /var/lib/docker ]; then
+  if ! command -v mountpoint >/dev/null 2>&1 || ! mountpoint -q /var/lib/docker; then
+    rmdir /var/lib/docker 2>/dev/null || true
+  fi
+fi
+if [ ! -e /var/lib/docker ]; then
+  ln -s "$HIVY_DOCKER_DATA_ROOT" /var/lib/docker
+fi
+
+if docker info >/dev/null 2>&1; then
+  echo "docker already running"
+  exit 0
+fi
+
+for pid in $(pidof dockerd containerd containerd-shim-runc-v2 2>/dev/null || true); do
+  kill "$pid" 2>/dev/null || true
+done
+sleep 1
+for pid in $(pidof dockerd containerd containerd-shim-runc-v2 2>/dev/null || true); do
+  kill -9 "$pid" 2>/dev/null || true
+done
+
+rm -f /var/run/docker.sock /run/docker.pid /var/run/docker.pid
+rm -rf /run/docker /var/run/docker /run/containerd /var/run/containerd
+mkdir -p /var/run
+
+if command -v nohup >/dev/null 2>&1; then
+  nohup dockerd --host=unix:///var/run/docker.sock --data-root="$HIVY_DOCKER_DATA_ROOT" >"$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" 2>&1 &
+else
+  dockerd --host=unix:///var/run/docker.sock --data-root="$HIVY_DOCKER_DATA_ROOT" >"$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" 2>&1 &
+fi
+dockerd_pid="$!"
+
+for _ in $(seq 1 90); do
+  if docker info >/dev/null 2>&1; then
+    echo "docker started"
+    exit 0
+  fi
+  if ! kill -0 "$dockerd_pid" 2>/dev/null; then
+    cat "$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" >&2 || true
+    exit 1
+  fi
+  sleep 1
+done
+
+cat "$HIVY_SANDBOX_DATA_ROOT/logs/dockerd.log" >&2 || true
+exit 1
