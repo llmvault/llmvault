@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
@@ -40,6 +41,10 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	}
 
 	created, err := d.cli.ContainerCreate(ctx, cfg, hostCfg, &network.NetworkingConfig{}, nil, containerName(opts.Name))
+	if err != nil && len(hostCfg.StorageOpt) > 0 && isUnsupportedStorageOptError(err) {
+		hostCfg.StorageOpt = nil
+		created, err = d.cli.ContainerCreate(ctx, cfg, hostCfg, &network.NetworkingConfig{}, nil, containerName(opts.Name))
+	}
 	if err != nil {
 		return nil, fmt.Errorf("creating docker container: %w", err)
 	}
@@ -48,6 +53,17 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		return nil, fmt.Errorf("starting docker container: %w", err)
 	}
 	return &sandbox.SandboxInfo{ExternalID: created.ID, Status: sandbox.StatusRunning}, nil
+}
+
+func isUnsupportedStorageOptError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "--storage-opt is supported only") ||
+		strings.Contains(msg, "storage options are not supported") ||
+		strings.Contains(msg, "storage opts are not supported") ||
+		strings.Contains(msg, "storageopt is not supported")
 }
 
 func (d *Driver) StartSandbox(ctx context.Context, externalID string) error {

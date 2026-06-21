@@ -66,9 +66,6 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		selectedReasoningEffort = strings.TrimSpace(req.ModelDefinition.ReasoningEffort)
-		if selectedReasoningEffort == "" {
-			selectedReasoningEffort = session.ReasoningEffort
-		}
 		var err error
 		selectedReasoningEffort, err = normalizeSessionReasoningEffort(selectedReasoningEffort)
 		if err != nil {
@@ -86,10 +83,11 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		payload["dynamic_context"] = req.DynamicContext
 	}
 	if selectedModel != "" {
-		payload["model_definition"] = map[string]any{
-			"model_id":         selectedModel,
-			"reasoning_effort": selectedReasoningEffort,
+		modelDefinition := map[string]any{"model_id": selectedModel}
+		if selectedReasoningEffort != "" {
+			modelDefinition["reasoning_effort"] = selectedReasoningEffort
 		}
+		payload["model_definition"] = modelDefinition
 	}
 	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, text, payload, sessionMessageDeliveryOptions{
 		Model:           selectedModel,

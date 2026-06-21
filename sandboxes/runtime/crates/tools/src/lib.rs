@@ -181,7 +181,6 @@ pub fn build_builtin_tools(
                 );
             }
             ToolSpec::SubagentTask(_)
-            | ToolSpec::CheckSubagentTaskStatus
             | ToolSpec::CheckBashStatus
             | ToolSpec::SearchSessions
             | ToolSpec::RequestUserInput

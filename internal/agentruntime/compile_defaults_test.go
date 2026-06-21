@@ -3,6 +3,7 @@ package agentruntime
 import (
 	"testing"
 
+	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -44,5 +45,16 @@ func TestJsonArray_Nil(t *testing.T) {
 	got := jsonArray(model.RawJSON(nil))
 	if len(got) != 0 {
 		t.Fatalf("jsonArray(nil): got len %d, want 0", len(got))
+	}
+}
+
+func TestProxyModelUsesHivyOpenRouterAppName(t *testing.T) {
+	got := ProxyModelConfig(&config.Config{}, "deepseek-v4-flash", "")
+
+	if got.ExtraHeaders["HTTP-Referer"] != "https://usehivy.com" {
+		t.Fatalf("HTTP-Referer = %q, want https://usehivy.com", got.ExtraHeaders["HTTP-Referer"])
+	}
+	if got.ExtraHeaders["X-Title"] != "Hivy" {
+		t.Fatalf("X-Title = %q, want Hivy", got.ExtraHeaders["X-Title"])
 	}
 }

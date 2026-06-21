@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
+.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-agent-production-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources vet check ci-wait-services ci-start-nango ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-test-runtime ci-quality infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi penpot-cli-linux-build penpot-cli-linux-build-amd64 penpot-cli-linux-build-arm64 sandbox-runtime-image sandbox-runtime-developers-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -32,6 +32,7 @@ HANDLER_TEST_SHARDS ?= 8
 HANDLER_TEST_TIMEOUT ?= 5m
 AGENT_RUNTIME_E2E_TIMEOUT ?= 5m
 AGENT_SESSIONS_E2E_TIMEOUT ?= 35m
+AGENT_PRODUCTION_E2E_TIMEOUT ?= 180m
 AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE ?= 1
 ifeq ($(AGENT_SESSIONS_E2E_BUILD_RUNTIME_IMAGE),1)
 TEST_AGENT_SESSIONS_E2E_DEPS := sandbox-runtime-image sandbox-runtime-developers-image
@@ -229,6 +230,11 @@ test-agent-runtime-e2e:
 # the worker to provision a Docker-backed agent sandbox and persist a response.
 test-agent-sessions-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
 	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run 'Test(AgentSessions(DefaultGeneralChannel|SleepWakeCronLifecycle)|MicrosandboxPreviewCacheWake)E2E' -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v
+
+# Run the production agent runtime gate. Defaults to a one-model smoke run.
+# Configure matrix/release with HIVY_AGENT_PRODUCTION_E2E_MODELS and HIVY_AGENT_PRODUCTION_E2E_RUNS.
+test-agent-production-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
+	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_PRODUCTION_E2E=1 $(GO_BIN) test ./e2e -run 'TestAgentProduction(OpenWeightGauntlet|FullStackSession)E2E' -count=1 -timeout=$(AGENT_PRODUCTION_E2E_TIMEOUT) -v
 
 # Run internal/handler tests split across stable parallel shards.
 test-handler-sharded:

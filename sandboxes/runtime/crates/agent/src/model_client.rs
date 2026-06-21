@@ -9,6 +9,7 @@ use reqwest::{Client, Response};
 use safety::json_repair::JsonRepair;
 use serde_json::Value;
 
+use crate::model_profile::ModelProfile;
 use crate::primitives::{
     CacheControlPolicy, FinishReason, ModelRequest, ModelStreamEvent, ProviderUsage, ToolCall,
 };
@@ -75,6 +76,8 @@ impl ChatModelClient {
                 model_id: None,
                 extra_headers: HashMap::new(),
                 cache_policy: CacheControlPolicy::Disabled,
+                profile: ModelProfile::detect(None, None, None, None, "", None),
+                provider_options: HashMap::new(),
             }],
             retry_policy: ModelRetryPolicy::default(),
             timeouts: ModelTimeouts::default(),
@@ -95,6 +98,8 @@ impl ChatModelClient {
         };
         let model_id = primary.model_id.clone().unwrap_or_default();
         let cache_policy = primary.cache_policy;
+        let profile = primary.profile.clone();
+        let provider_options = primary.provider_options.clone();
         Ok(ModelClientConfig {
             client: Self {
                 http: build_http_client(),
@@ -105,6 +110,8 @@ impl ChatModelClient {
             },
             model_id,
             cache_policy,
+            profile,
+            provider_options,
             reasoning_effort: primary_reasoning_effort(model),
             temperature: primary_temperature(model),
             max_output_tokens: primary_max_output_tokens(model),
@@ -187,6 +194,8 @@ impl ChatModelClient {
         if let Some(model_id) = &endpoint.model_id {
             endpoint_request.model = model_id.clone();
         }
+        endpoint_request.profile = endpoint.profile.clone();
+        endpoint_request.provider_options = endpoint.provider_options.clone();
         let body = build_openai_compatible_request(&endpoint_request);
         tracing::debug!(
             bytes = body.to_string().len(),
@@ -228,6 +237,8 @@ pub struct ModelClientConfig {
     pub client: ChatModelClient,
     pub model_id: String,
     pub cache_policy: CacheControlPolicy,
+    pub profile: ModelProfile,
+    pub provider_options: HashMap<String, Value>,
     pub reasoning_effort: Option<String>,
     pub temperature: Option<f32>,
     pub max_output_tokens: Option<u32>,
@@ -240,6 +251,8 @@ struct ModelEndpoint {
     model_id: Option<String>,
     extra_headers: HashMap<String, String>,
     cache_policy: CacheControlPolicy,
+    profile: ModelProfile,
+    provider_options: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -488,6 +501,12 @@ fn collect_model_endpoints(
         ModelConfig::OpenaiCompatible {
             base_url,
             model_id,
+            canonical_model_id,
+            provider_id,
+            upstream_model_id,
+            model_profile,
+            provider_options,
+            capabilities,
             api_key_env,
             extra_headers,
             fallback,
@@ -503,6 +522,15 @@ fn collect_model_endpoints(
                 model_id: Some(model_id.clone()),
                 extra_headers: extra_headers.clone(),
                 cache_policy: cache_policy_for_values(base_url, api_key_env),
+                profile: ModelProfile::detect(
+                    model_profile.as_deref(),
+                    provider_id.as_deref(),
+                    canonical_model_id.as_deref(),
+                    upstream_model_id.as_deref(),
+                    model_id,
+                    capabilities.as_ref(),
+                ),
+                provider_options: provider_options.clone(),
             });
             if let Some(fallback) = fallback {
                 collect_model_endpoints(fallback, endpoints, runtime_env)?;
@@ -829,6 +857,7 @@ mod tests {
     use tokio::net::TcpListener;
     use tokio::sync::Mutex;
 
+    use crate::model_profile::ModelProfile;
     use crate::primitives::{AgentMessage, CacheControlPolicy, ModelRequest, ModelStreamEvent};
 
     use super::{
@@ -1103,6 +1132,12 @@ mod tests {
         let model = ModelConfig::OpenaiCompatible {
             base_url: server.base_url(),
             model_id: "primary-model".to_string(),
+            canonical_model_id: Some("primary-model".to_string()),
+            provider_id: Some("openrouter".to_string()),
+            upstream_model_id: Some("primary-model".to_string()),
+            model_profile: None,
+            provider_options: HashMap::new(),
+            capabilities: None,
             api_key_env: primary_key.to_string(),
             temperature: None,
             max_output_tokens: None,
@@ -1111,6 +1146,12 @@ mod tests {
             fallback: Some(Box::new(ModelConfig::OpenaiCompatible {
                 base_url: server.base_url(),
                 model_id: "fallback-model".to_string(),
+                canonical_model_id: Some("fallback-model".to_string()),
+                provider_id: Some("openrouter".to_string()),
+                upstream_model_id: Some("fallback-model".to_string()),
+                model_profile: None,
+                provider_options: HashMap::new(),
+                capabilities: None,
                 api_key_env: fallback_key.to_string(),
                 temperature: None,
                 max_output_tokens: None,
@@ -1156,6 +1197,12 @@ mod tests {
         let model = ModelConfig::OpenaiCompatible {
             base_url: "https://example.com".to_string(),
             model_id: "test-model".to_string(),
+            canonical_model_id: Some("test-model".to_string()),
+            provider_id: Some("openrouter".to_string()),
+            upstream_model_id: Some("test-model".to_string()),
+            model_profile: None,
+            provider_options: HashMap::new(),
+            capabilities: None,
             api_key_env: key_name.clone(),
             temperature: None,
             max_output_tokens: None,
@@ -1181,6 +1228,12 @@ mod tests {
         let model = ModelConfig::OpenaiCompatible {
             base_url: "https://example.com".to_string(),
             model_id: "test-model".to_string(),
+            canonical_model_id: Some("test-model".to_string()),
+            provider_id: Some("openrouter".to_string()),
+            upstream_model_id: Some("test-model".to_string()),
+            model_profile: None,
+            provider_options: HashMap::new(),
+            capabilities: None,
             api_key_env: key_name.clone(),
             temperature: None,
             max_output_tokens: None,
@@ -1203,6 +1256,8 @@ mod tests {
             max_output_tokens: None,
             reasoning_effort: None,
             cache_policy: CacheControlPolicy::Disabled,
+            profile: ModelProfile::detect(None, Some("openrouter"), None, None, model, None),
+            provider_options: HashMap::new(),
         }
     }
 

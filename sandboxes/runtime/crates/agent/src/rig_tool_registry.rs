@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -24,6 +25,8 @@ use crate::{PlanUpdater, QuestionRequester};
 pub type ToolFuture = Pin<Box<dyn Future<Output = Result<Value>> + Send>>;
 
 static SUBAGENT_TASK_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+const SUBAGENT_TASK_WAIT_INTERVAL: Duration = Duration::from_millis(250);
+const SUBAGENT_TASK_FOREGROUND_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 pub struct DynamicTool {
     definition: ToolDefinition,
@@ -110,11 +113,6 @@ pub fn build_agent_tools(
                             ctx.session_stream_id.clone(),
                         ));
                     }
-                }
-            }
-            ToolSpec::CheckSubagentTaskStatus => {
-                if let Some(repo) = &ctx.subagent_task_repo {
-                    tools.push(check_subagent_task_status_tool(repo.clone()));
                 }
             }
             ToolSpec::RequestUserInput => {
@@ -582,16 +580,9 @@ fn build_agent_list_description(
     let mut parts = Vec::new();
     for name in &agents {
         let desc = registry.agent_description(name);
-        if name == "self" {
-            parts.push(format!("{} (Main agent, default)", desc));
-        } else {
-            parts.push(format!("{} - {}", name, desc));
-        }
+        parts.push(format!("{} - {}", name, desc));
     }
-    format!(
-        "Sub-agent name. Default 'self'. Available: {}",
-        parts.join(", ")
-    )
+    format!("Sub-agent name. Available: {}", parts.join(", "))
 }
 
 fn subagent_task_tool(
@@ -613,7 +604,7 @@ fn subagent_task_tool(
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "subagent_task".into(),
-            description: "Run a task with a configured subagent in an isolated background session."
+            description: "Run a task with a configured subagent in an isolated foreground session."
                 .into(),
             parameters: json!({
                 "type": "object",
@@ -684,14 +675,17 @@ fn subagent_task_tool(
                     updated_at: now,
                 };
                 repo.create(&task).await?;
+                let completed =
+                    wait_for_subagent_task_completion(repo.clone(), &id, &agent_name).await?;
+                let result = completed.result.clone().unwrap_or_default();
                 Ok(json!({
                     "job_id": id,
-                    "state": "queued",
+                    "state": subagent_task_state_string(completed.state),
                     "session_id": child_session_id.as_str(),
-                    "message": format!(
-                        "The subagent is now working. You will be automatically notified once the subagent is done working. If you need to check on its progress, call check_subagent_task_status with job id {}.",
-                        id
-                    ),
+                    "agent": agent_name,
+                    "result": result,
+                    "output": result,
+                    "message": format!("Subagent '{}' completed.", agent_name),
                     "system_reminder": "Subagent tasks run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
                 }))
             })
@@ -704,46 +698,48 @@ fn next_subagent_task_id(now: DateTime<Utc>) -> String {
     format!("subagent-task-{}-{}", now.timestamp_millis(), sequence)
 }
 
-fn check_subagent_task_status_tool(repo: Arc<dyn SubagentTaskRepo>) -> Arc<dyn JsonTool> {
-    Arc::new(DynamicTool::new(
-        ToolDefinition {
-            name: "check_subagent_task_status".into(),
-            description: "Check the status of a background subagent task.".into(),
-            parameters: json!({"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}),
-        },
-        move |args| {
-            let repo = repo.clone();
-            Box::pin(async move {
-                let id = args
-                    .get("job_id")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| anyhow!("job_id required"))?;
-                let task = repo
-                    .get(id)
-                    .await?
-                    .ok_or_else(|| anyhow!("job not found"))?;
-                let mut result = json!({
-                    "job_id": task.id,
-                    "state": subagent_task_state_string(task.state),
-                    "error": task.error,
-                    "result": task.result,
-                    "session_id": task.child_session_id.as_str(),
-                    "system_reminder": "Subagent tasks run in isolated sessions and may not share this session's local filesystem. Use Drive or another explicit shared location for artifacts that must be inspected or shared."
-                });
-                if matches!(
-                    task.state,
-                    SubagentTaskState::Queued | SubagentTaskState::Running
-                ) {
-                    result["_hint"] = serde_json::json!(format!(
-                        "This task is still running. Check again later with \
-                         check_subagent_task_status for job {}; avoid tight polling.",
-                        task.id
-                    ));
-                }
-                Ok(result)
-            })
-        },
-    ))
+async fn wait_for_subagent_task_completion(
+    repo: Arc<dyn SubagentTaskRepo>,
+    id: &str,
+    agent_name: &str,
+) -> Result<SubagentTask> {
+    let start = Instant::now();
+    loop {
+        let task = repo
+            .get(id)
+            .await?
+            .ok_or_else(|| anyhow!("subagent task '{}' not found", id))?;
+        match task.state {
+            SubagentTaskState::Completed => return Ok(task),
+            SubagentTaskState::Failed => {
+                let error = task
+                    .error
+                    .clone()
+                    .unwrap_or_else(|| "subagent failed without an error message".to_string());
+                return Err(anyhow!("subagent '{}' failed: {}", agent_name, error));
+            }
+            SubagentTaskState::Queued | SubagentTaskState::Running => {}
+        }
+
+        if start.elapsed() >= SUBAGENT_TASK_FOREGROUND_TIMEOUT {
+            let message = format!(
+                "subagent '{}' timed out after {} seconds",
+                agent_name,
+                SUBAGENT_TASK_FOREGROUND_TIMEOUT.as_secs()
+            );
+            let _ = repo
+                .complete(
+                    id,
+                    SubagentTaskState::Failed,
+                    Utc::now(),
+                    "",
+                    Some(&message),
+                )
+                .await;
+            return Err(anyhow!(message));
+        }
+        tokio::time::sleep(SUBAGENT_TASK_WAIT_INTERVAL).await;
+    }
 }
 
 fn subagent_task_state_string(state: SubagentTaskState) -> &'static str {

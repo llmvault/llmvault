@@ -6,32 +6,45 @@ import (
 
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
-func proxyModel(cfg *config.Config, modelID string) ModelConfig {
-	temp := 0.3
-	maxOutput := uint32(8192)
-	reasoning := "low"
+const (
+	modelRequestHTTPReferer = providerheaders.OpenRouterHTTPReferer
+	modelRequestAppTitle    = providerheaders.OpenRouterAppTitle
+)
+
+func proxyModel(cfg *config.Config, modelID string, route modelRouteMetadata) ModelConfig {
 	return ModelConfig{
-		Provider:        "openai_compatible",
-		BaseURL:         cfg.ProxyOpenAIBaseURL(),
-		ModelID:         modelID,
-		APIKeyEnv:       ProxyAPIKeyEnv,
-		Temperature:     &temp,
-		MaxOutputTokens: &maxOutput,
-		ReasoningEffort: &reasoning,
-		ExtraHeaders:    map[string]string{},
+		Provider:         "openai_compatible",
+		BaseURL:          cfg.ProxyOpenAIBaseURL(),
+		ModelID:          modelID,
+		CanonicalModelID: route.CanonicalModelID,
+		ProviderID:       route.ProviderID,
+		UpstreamModelID:  route.UpstreamModelID,
+		ModelProfile:     route.ModelProfile,
+		ProviderOptions:  route.ProviderOptions,
+		Capabilities:     route.Capabilities,
+		APIKeyEnv:        ProxyAPIKeyEnv,
+		ExtraHeaders:     defaultModelRequestHeaders(),
 	}
 }
 
 func ptrModel(m ModelConfig) *ModelConfig { return &m }
+
+func defaultModelRequestHeaders() map[string]string {
+	return map[string]string{
+		"HTTP-Referer": modelRequestHTTPReferer,
+		"X-Title":      modelRequestAppTitle,
+	}
+}
 
 func ProxyModelConfig(cfg *config.Config, modelID, reasoningEffort string) ModelConfig {
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
-	model := proxyModel(cfg, modelID)
+	model := proxyModel(cfg, modelID, resolveModelRouteMetadata(modelID, ""))
 	if effort := strings.TrimSpace(reasoningEffort); effort != "" {
 		model.ReasoningEffort = &effort
 	}

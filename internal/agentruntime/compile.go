@@ -59,7 +59,7 @@ type AgentDefinition struct {
 	MultimodalModel  *ModelConfig                `json:"multimodal_model,omitempty"`
 	Limits           map[string]any              `json:"limits,omitempty"`
 	Context          map[string]any              `json:"context,omitempty"`
-	Tools            []map[string]any            `json:"tools,omitempty"`
+	Tools            []map[string]any            `json:"tools"`
 	McpServers       []any                       `json:"mcp_servers"`
 	Skills           []SkillSpec                 `json:"skills"`
 	OutboundChannels []any                       `json:"outbound_channels"`
@@ -72,15 +72,21 @@ type AgentMeta struct {
 }
 
 type ModelConfig struct {
-	Provider        string            `json:"provider"`
-	BaseURL         string            `json:"base_url"`
-	ModelID         string            `json:"model_id"`
-	APIKeyEnv       string            `json:"api_key_env"`
-	Temperature     *float64          `json:"temperature,omitempty"`
-	MaxOutputTokens *uint32           `json:"max_output_tokens,omitempty"`
-	ReasoningEffort *string           `json:"reasoning_effort,omitempty"`
-	ExtraHeaders    map[string]string `json:"extra_headers"`
-	Fallback        *ModelConfig      `json:"fallback,omitempty"`
+	Provider         string            `json:"provider"`
+	BaseURL          string            `json:"base_url"`
+	ModelID          string            `json:"model_id"`
+	CanonicalModelID string            `json:"canonical_model_id,omitempty"`
+	ProviderID       string            `json:"provider_id,omitempty"`
+	UpstreamModelID  string            `json:"upstream_model_id,omitempty"`
+	ModelProfile     string            `json:"model_profile,omitempty"`
+	ProviderOptions  map[string]any    `json:"provider_options,omitempty"`
+	Capabilities     map[string]any    `json:"capabilities,omitempty"`
+	APIKeyEnv        string            `json:"api_key_env"`
+	Temperature      *float64          `json:"temperature,omitempty"`
+	MaxOutputTokens  *uint32           `json:"max_output_tokens,omitempty"`
+	ReasoningEffort  *string           `json:"reasoning_effort,omitempty"`
+	ExtraHeaders     map[string]string `json:"extra_headers"`
+	Fallback         *ModelConfig      `json:"fallback,omitempty"`
 }
 
 type SkillSpec struct {
@@ -240,11 +246,13 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		mcpServers = upsertHivyMCPServer(mcpServers, ourMCP)
 	}
 	description := managedAgentDescription
-	fragments := buildPromptSections(ctx, deps.DB, agent, description)
 	modelID := strings.TrimSpace(agent.Model)
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
+	fragments := buildPromptSections(ctx, deps.DB, agent, description, modelID)
+	modelRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, modelID)
+	multimodalRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, DefaultAgentMultimodalModel)
 	tools, err := buildRuntimeTools(ctx, deps.DB, agent)
 	if err != nil {
 		return nil, err
@@ -259,8 +267,8 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 			Description: description,
 		},
 		SystemPrompt:     buildAgentSystemPrompt(ctx, fragments),
-		Model:            proxyModel(deps.Cfg, modelID),
-		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel)),
+		Model:            proxyModel(deps.Cfg, modelID, modelRoute),
+		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel, multimodalRoute)),
 		Limits:           defaultLimits(),
 		Tools:            tools,
 		McpServers:       mcpServers,

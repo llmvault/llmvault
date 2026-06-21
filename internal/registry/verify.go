@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 // VerifyResult contains the outcome of a provider key verification.
@@ -119,6 +121,9 @@ func verifyWithInference(ctx context.Context, providerID, baseURL, authScheme st
 	req.Header.Set("Content-Type", "application/json")
 	for k, v := range extraHeaders {
 		req.Header.Set(k, v)
+	}
+	if providerheaders.IsOpenRouter(providerID, baseURL) {
+		providerheaders.ApplyOpenRouter(req)
 	}
 	attachAuth(req, authScheme, apiKey)
 

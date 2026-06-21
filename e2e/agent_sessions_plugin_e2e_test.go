@@ -147,17 +147,17 @@ func waitForPluginServiceDiscoverySession(t *testing.T, ctx context.Context, org
 		if fx.InstallID != uuid.Nil {
 			resourceKey := "plugin-install:" + fx.InstallID.String() + ":service-discovery:" + fx.ConnectionID.String()
 			var row struct {
-				SessionID   uuid.UUID
-				ChannelID   uuid.UUID
-				ChannelName string
-				ChannelKind string
-				QueueStatus string
+				SessionID      uuid.UUID
+				ChannelID      uuid.UUID
+				ChannelName    string
+				ChannelKind    string
+				DeliveryStatus string
 			}
 			err := db.Table("sessions").
-				Select("sessions.id AS session_id, channels.id AS channel_id, channels.name AS channel_name, channels.kind AS channel_kind, session_message_queue.status AS queue_status").
+				Select("sessions.id AS session_id, channels.id AS channel_id, channels.name AS channel_name, channels.kind AS channel_kind, COALESCE(NULLIF(session_message_queue.status, ''), NULLIF(sessions.agent_turn_status, ''), 'direct') AS delivery_status").
 				Joins("JOIN channels ON channels.id = sessions.channel_id").
 				Joins("JOIN session_events ON session_events.session_id = sessions.id AND session_events.sequence_number = 1").
-				Joins("JOIN session_message_queue ON session_message_queue.session_event_id = session_events.id").
+				Joins("LEFT JOIN session_message_queue ON session_message_queue.session_event_id = session_events.id").
 				Where("sessions.org_id = ? AND sessions.source = ? AND sessions.source_id = ? AND sessions.source_resource_key = ?",
 					orgID, "plugin.service_discovery", fx.InstallID, resourceKey).
 				Order("sessions.created_at ASC").
@@ -166,8 +166,8 @@ func waitForPluginServiceDiscoverySession(t *testing.T, ctx context.Context, org
 				if row.ChannelName != "system" || row.ChannelKind != "system" {
 					t.Fatalf("discovery channel name/kind = %s/%s, want system/system", row.ChannelName, row.ChannelKind)
 				}
-				if strings.TrimSpace(row.QueueStatus) == "" {
-					t.Fatalf("discovery queue status is empty for session %s", row.SessionID)
+				if strings.TrimSpace(row.DeliveryStatus) == "" {
+					t.Fatalf("discovery delivery status is empty for session %s", row.SessionID)
 				}
 				return fx
 			}

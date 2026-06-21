@@ -1,6 +1,9 @@
 package docker
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 // Zero-valued CreateSandboxOpts sizes still produce concrete CPU/memory/pids
 // limits rather than an unbounded container.
@@ -67,4 +70,41 @@ func TestStorageOpt(t *testing.T) {
 			t.Errorf("storageOpt(200)[\"size\"] = %q, want %q", got["size"], "200G")
 		}
 	})
+}
+
+func TestIsUnsupportedStorageOptError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "docker desktop overlay quota error",
+			err:  errors.New("Error response from daemon: --storage-opt is supported only for overlay over xfs with 'pquota' mount option"),
+			want: true,
+		},
+		{
+			name: "generic storage options unsupported",
+			err:  errors.New("storage options are not supported by this daemon"),
+			want: true,
+		},
+		{
+			name: "unrelated create error",
+			err:  errors.New("Error response from daemon: No such image"),
+			want: false,
+		},
+		{
+			name: "nil",
+			err:  nil,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isUnsupportedStorageOptError(tt.err); got != tt.want {
+				t.Fatalf("isUnsupportedStorageOptError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
 }

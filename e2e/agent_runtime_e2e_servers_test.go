@@ -25,6 +25,8 @@ type agentRuntimeModelProxy struct {
 	token  string
 	key    string
 	calls  atomic.Int64
+	mu     sync.Mutex
+	bodies []map[string]any
 }
 
 func newAgentRuntimeModelProxy(t *testing.T, trace *agentRuntimeE2ETrace, systemModelKey, proxyToken string) *agentRuntimeModelProxy {
@@ -50,6 +52,7 @@ func (p *agentRuntimeModelProxy) serveHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	p.calls.Add(1)
 	body, _ := io.ReadAll(r.Body)
+	p.recordBody(body)
 	p.trace.Body("model-proxy", "upstream OpenRouter request", body)
 	upstream, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
@@ -59,7 +62,7 @@ func (p *agentRuntimeModelProxy) serveHTTP(w http.ResponseWriter, r *http.Reques
 	upstream.Header.Set("Authorization", "Bearer "+p.key)
 	upstream.Header.Set("Content-Type", r.Header.Get("Content-Type"))
 	upstream.Header.Set("HTTP-Referer", "https://usehivy.com")
-	upstream.Header.Set("X-Title", "Hivy agent runtime E2E")
+	upstream.Header.Set("X-Title", "Hivy")
 	resp, err := http.DefaultClient.Do(upstream)
 	if err != nil {
 		p.trace.Logf("model-proxy", "upstream OpenRouter error: %v", err)
@@ -85,6 +88,59 @@ func (p *agentRuntimeModelProxy) assertUsed(t *testing.T) {
 		t.Fatalf("model proxy was not called")
 	}
 	p.trace.Logf("assert", "model proxy calls=%d", calls)
+}
+
+func (p *agentRuntimeModelProxy) assertOpenWeightPayloads(t *testing.T) {
+	t.Helper()
+	bodies := p.capturedBodies()
+	if len(bodies) == 0 {
+		t.Fatal("no model proxy payloads captured")
+	}
+	for i, body := range bodies {
+		if _, ok := body["reasoning_effort"]; ok {
+			t.Fatalf("payload %d forwarded generic reasoning_effort: %#v", i, body["reasoning_effort"])
+		}
+		if _, ok := body["parallel_tool_calls"]; ok {
+			t.Fatalf("payload %d forwarded parallel_tool_calls for open-weight profile: %#v", i, body["parallel_tool_calls"])
+		}
+		assertNoUnsupportedToolSchemaKeywords(t, body, i)
+	}
+}
+
+func assertNoUnsupportedToolSchemaKeywords(t *testing.T, value any, payloadIndex int) {
+	t.Helper()
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			switch key {
+			case "$defs", "definitions", "$schema", "$id":
+				t.Fatalf("payload %d contains unsupported schema keyword %q", payloadIndex, key)
+			}
+			assertNoUnsupportedToolSchemaKeywords(t, child, payloadIndex)
+		}
+	case []any:
+		for _, child := range typed {
+			assertNoUnsupportedToolSchemaKeywords(t, child, payloadIndex)
+		}
+	}
+}
+
+func (p *agentRuntimeModelProxy) recordBody(body []byte) {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		payload = map[string]any{"_decode_error": err.Error()}
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.bodies = append(p.bodies, payload)
+}
+
+func (p *agentRuntimeModelProxy) capturedBodies() []map[string]any {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]map[string]any, len(p.bodies))
+	copy(out, p.bodies)
+	return out
 }
 
 type agentRuntimeMockControlPlane struct {

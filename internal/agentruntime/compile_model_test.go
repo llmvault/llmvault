@@ -65,8 +65,17 @@ func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal definition: %v", err)
 	}
-	if strings.Contains(string(body), `"tools"`) {
-		t.Fatalf("runtime config should not define built-in tools: %s", string(body))
+	if !strings.Contains(string(body), `"tools":[]`) {
+		t.Fatalf("runtime config should preserve explicit empty tools: %s", string(body))
+	}
+	if def.Model.CanonicalModelID != DefaultAgentModel ||
+		def.Model.ProviderID == "" ||
+		def.Model.UpstreamModelID == "" ||
+		def.Model.ModelProfile != "deepseek" {
+		t.Fatalf("model route metadata = %#v", def.Model)
+	}
+	if def.Model.ReasoningEffort != nil || def.Model.Temperature != nil || def.Model.MaxOutputTokens != nil {
+		t.Fatalf("model options should be sparse by default: %#v", def.Model)
 	}
 	for _, forbidden := range AgentForbiddenRawProviderEnvKeys() {
 		if strings.Contains(string(body), forbidden) {
@@ -285,15 +294,15 @@ func TestCompile_IncludesCatalogSubAgents(t *testing.T) {
 	if len(cacheable) < 2 {
 		t.Fatalf("subagent cacheable segments = %d", len(cacheable))
 	}
-	instructionsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
+	instructionsContent := requirePromptString(t, requireStaticPromptSegmentByTitle(t, cacheable, "Instructions").Content)
 	if !strings.Contains(instructionsContent, "<instructions>\nTrace code paths with evidence.\n</instructions>") {
 		t.Fatalf("subagent instructions missing: %q", instructionsContent)
 	}
-	if len(def.Tools) != 0 {
-		t.Fatalf("parent tools should be omitted for runtime defaults: %#v", def.Tools)
+	if def.Tools == nil || len(def.Tools) != 0 {
+		t.Fatalf("parent tools should be explicit empty tools: %#v", def.Tools)
 	}
-	if len(subAgent.Tools) != 0 {
-		t.Fatalf("subagent tools should be omitted for runtime defaults: %#v", subAgent.Tools)
+	if subAgent.Tools == nil || len(subAgent.Tools) != 0 {
+		t.Fatalf("subagent tools should be explicit empty tools: %#v", subAgent.Tools)
 	}
 }
 

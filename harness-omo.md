@@ -322,7 +322,7 @@ Suggested tool priorities:
 
 1. Keep: `read_file`, `edit_file`, `bash`, `update_plan`, `request_user_input`.
 2. Keep for coding roles: `grep`, `glob`, LSP diagnostics/navigation.
-3. Keep for autonomy: `subagent_task`, `check_subagent_task_status`, `wake`.
+3. Keep for autonomy: `subagent_task`, `wake`.
 4. Optional: skills, MCP, session search.
 5. Trim first: visual, monitor, team admin, long-tail MCPs.
 

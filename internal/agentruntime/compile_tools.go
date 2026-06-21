@@ -33,7 +33,6 @@ var runtimeToolOrder = []string{
 	"apply_patch",
 	"lsp",
 	"subagent_task",
-	"check_subagent_task_status",
 	"check_bash_status",
 	"skills_list",
 	"skill_view",
@@ -77,14 +76,14 @@ func agentRuntimeToolSelection(ctx context.Context, db *gorm.DB, agent *model.Ag
 
 func buildRuntimeToolsFromSelection(selection model.JSON) ([]map[string]any, error) {
 	if len(selection) == 0 {
-		return nil, nil
+		return []map[string]any{}, nil
 	}
 	normalized, err := normalizeRuntimeToolSelection(selection)
 	if err != nil {
 		return nil, err
 	}
 	if len(normalized) == 0 {
-		return nil, nil
+		return []map[string]any{}, nil
 	}
 	out := make([]map[string]any, 0, len(normalized))
 	for _, id := range runtimeToolOrder {

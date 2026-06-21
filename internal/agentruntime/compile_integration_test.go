@@ -62,8 +62,8 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	assertRuntimeSystemPromptPayloadShape(t, body)
 	cacheable := requireCacheableSegments(t, def.SystemPrompt)
 	dynamic := requireDynamicSegments(t, def.SystemPrompt)
-	if len(cacheable) < 3 {
-		t.Fatalf("expected base, instructions, and company prompt segments: %#v", cacheable)
+	if len(cacheable) < 4 {
+		t.Fatalf("expected base, model adapter, instructions, and company prompt segments: %#v", cacheable)
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
 	if !strings.Contains(requirePromptString(t, base.Content), "Default to action.") {
@@ -72,17 +72,15 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	if !strings.Contains(requirePromptString(t, base.Content), "You are Aria, an AI agent running in Hivy's sandbox environment.") {
 		t.Fatalf("base identity missing agent sentence: %q", requirePromptString(t, base.Content))
 	}
-	instructionsSegment := requireStaticPromptSegment(t, cacheable[1])
-	if requirePromptString(t, instructionsSegment.Title) != "Instructions" {
-		t.Fatalf("instructions title = %q", requirePromptString(t, instructionsSegment.Title))
+	adapterSegment := requireStaticPromptSegmentByTitle(t, cacheable, "Model adapter")
+	if !strings.Contains(requirePromptString(t, adapterSegment.Content), "<model_adapter>") {
+		t.Fatalf("model adapter content is not XML wrapped: %q", requirePromptString(t, adapterSegment.Content))
 	}
+	instructionsSegment := requireStaticPromptSegmentByTitle(t, cacheable, "Instructions")
 	if !strings.Contains(requirePromptString(t, instructionsSegment.Content), "<instructions>\n"+instructions+"\n</instructions>") {
 		t.Fatalf("instructions content = %q", requirePromptString(t, instructionsSegment.Content))
 	}
-	company := requireStaticPromptSegment(t, cacheable[2])
-	if requirePromptString(t, company.Title) != "About the company" {
-		t.Fatalf("company title = %q", requirePromptString(t, company.Title))
-	}
+	company := requireStaticPromptSegmentByTitle(t, cacheable, "About the company")
 	if !strings.Contains(requirePromptString(t, company.Content), "<company>") {
 		t.Fatalf("company content is not XML wrapped: %q", requirePromptString(t, company.Content))
 	}

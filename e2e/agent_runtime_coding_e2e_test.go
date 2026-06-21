@@ -128,6 +128,7 @@ func TestAgentRuntimeCodingTaskE2E(t *testing.T) {
 		trace.Logf("assert", "fixture tool calls=%d", got)
 	}
 	proxy.assertUsed(t)
+	proxy.assertOpenWeightPayloads(t)
 	controlPlane.waitForActivity(t)
 	controlPlane.assertAgentActivity(t)
 	controlPlane.waitForBatchActivity(t)
@@ -158,10 +159,10 @@ func agentRuntimeCodingRequest() map[string]any {
 			"13. Use write_file to create e2e_notes.txt containing the retrieved token.",
 			"14. Use edit_file on calc.py with two replacements: replace PLACEHOLDER_TOKEN with the retrieved token, and replace PLACEHOLDER_HELPER with " + codebaseMarker + ".",
 			"15. Use bash to run a background command: python3 -c 'print(\"background-ok\")' with run_in_background=true, then call check_bash_status with its process_id. If check_bash_status returns next_cursor, include that cursor if you check again.",
-			"16. Dispatch the three configured Hakaree subagents in parallel. In one assistant tool-call batch, call subagent_task three times before any check_subagent_task_status call. Use agent codebase-explorer with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file calc.py, glob pattern **/*.py path ., and grep pattern runtime_token path . include **/*.py, then final exactly " + codebaseMarker + ". Use agent librarian with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file test_calc.py, file_search query calc.py path ., and glob pattern lsp-fixtures/**/*.json path ., then final exactly " + librarianMarker + ". Use agent oracle with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file calc.py, multi_grep patterns [\"runtime_token\", \"helper_phrase\"] path . include **/*.py, and lsp diagnostics filePath calc.py, then final exactly " + oracleMarker + ".",
-			"17. After all three subagent_task calls return job_id values, call check_subagent_task_status exactly once for each returned job_id.",
+			"16. Dispatch the three configured Hakaree subagents in parallel. In one assistant tool-call batch, call subagent_task three times and use the returned completed tool results directly. Use agent codebase-explorer with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file calc.py, glob pattern **/*.py path ., and grep pattern runtime_token path . include **/*.py, then final exactly " + codebaseMarker + ". Use agent librarian with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file test_calc.py, file_search query calc.py path ., and glob pattern lsp-fixtures/**/*.json path ., then final exactly " + librarianMarker + ". Use agent oracle with goal: FLAGSHIP_E2E_TEST_SESSION: do exactly 2-3 cheap local tool calls, specifically read_file calc.py, multi_grep patterns [\"runtime_token\", \"helper_phrase\"] path . include **/*.py, and lsp diagnostics filePath calc.py, then final exactly " + oracleMarker + ".",
+			"17. Do not call any subagent status tool. Each subagent_task result must contain its marker before you continue.",
 			"18. Use bash to run python3 -m unittest -v.",
-			"19. After the tests pass and all three subagent completion notifications arrive, final answer must include E2E_PASS, the exact token, REAL_REPOS_CONFIRMED, FFF_TOOLS_CONFIRMED, APPLY_PATCH_CONFIRMED, LSP_CONFIRMED, ALL_LSP_SERVERS_CONFIRMED, and " + codebaseMarker + ", " + librarianMarker + ", " + oracleMarker + ".",
+			"19. After the tests pass and all three subagent_task results are available, final answer must include E2E_PASS, the exact token, REAL_REPOS_CONFIRMED, FFF_TOOLS_CONFIRMED, APPLY_PATCH_CONFIRMED, LSP_CONFIRMED, ALL_LSP_SERVERS_CONFIRMED, and " + codebaseMarker + ", " + librarianMarker + ", " + oracleMarker + ".",
 		}, "\n"),
 		"raw": map[string]any{"source": "session", "test": "agent-runtime-coding-e2e"},
 	}

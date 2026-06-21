@@ -1,6 +1,7 @@
 package agentruntime
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 // session message. It must stay side-effect free: hot message delivery should
 // not push runtime config or mint session-scoped runtime env.
 func SessionModelDefinition(
+	ctx context.Context,
 	deps CompileDeps,
 	agent *model.Agent,
 	modelID string,
@@ -26,7 +28,10 @@ func SessionModelDefinition(
 	if modelID == "" {
 		modelID = DefaultAgentModel
 	}
-	sessionModel := ProxyModelConfig(deps.Cfg, modelID, reasoningEffort)
+	sessionModel := proxyModel(deps.Cfg, modelID, resolveAgentModelRouteMetadata(ctx, deps, agent, modelID))
+	if effort := strings.TrimSpace(reasoningEffort); effort != "" {
+		sessionModel.ReasoningEffort = &effort
+	}
 	sessionModel.APIKeyEnv = ProxyAPIKeyEnv
 	return &sessionModel, nil
 }

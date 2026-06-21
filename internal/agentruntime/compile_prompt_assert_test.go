@@ -1,6 +1,7 @@
 package agentruntime
 
 import (
+	"strings"
 	"testing"
 
 	runtimeapi "github.com/usehivy/hivy/internal/sandboxruntime"
@@ -32,6 +33,22 @@ func requireStaticPromptSegment(t *testing.T, segment SystemPromptSegment) Stati
 		t.Fatalf("static segment type = %q", staticSegment.Type)
 	}
 	return staticSegment.Config
+}
+
+func requireStaticPromptSegmentByTitle(t *testing.T, segments []SystemPromptSegment, title string) StaticPromptSegment {
+	t.Helper()
+	for _, segment := range segments {
+		staticSegment := requireStaticPromptSegment(t, segment)
+		gotTitle := ""
+		if staticSegment.Title != nil {
+			gotTitle = strings.TrimSpace(*staticSegment.Title)
+		}
+		if gotTitle == title {
+			return staticSegment
+		}
+	}
+	t.Fatalf("static prompt segment with title %q not found", title)
+	return StaticPromptSegment{}
 }
 
 func requireDynamicContextSegmentType(t *testing.T, segment SystemPromptSegment) string {

@@ -22,7 +22,7 @@ func TestBuildPromptSections_UsesTypedFields(t *testing.T) {
 		Instructions: ptrString("Own engineering outcomes with evidence."),
 	}
 
-	fragments := buildPromptSections(context.Background(), nil, agent, description)
+	fragments := buildPromptSections(context.Background(), nil, agent, description, "")
 
 	if !strings.Contains(fragments.Base, "You are Aria, an AI agent running in Hivy's sandbox environment.") {
 		t.Fatalf("base identity should include agent name: %#v", fragments.Base)
@@ -49,7 +49,7 @@ func TestBuildPromptSections_UsesCatalogInstructions(t *testing.T) {
 			Instructions: instructions,
 		},
 	}
-	fragments := buildPromptSections(context.Background(), nil, agent, "")
+	fragments := buildPromptSections(context.Background(), nil, agent, "", "")
 	if fragments.Instructions.Content != instructions {
 		t.Fatalf("instructions = %#v", fragments.Instructions)
 	}
@@ -76,7 +76,7 @@ func TestBuildPromptSections_IncludesCatalogSubAgentRouting(t *testing.T) {
 		},
 	}
 
-	fragments := buildPromptSections(context.Background(), nil, agent, "")
+	fragments := buildPromptSections(context.Background(), nil, agent, "", "")
 
 	if fragments.SubAgents.Tag != "subagents" {
 		t.Fatalf("subagent section tag = %q", fragments.SubAgents.Tag)
@@ -95,6 +95,11 @@ func TestBuildPromptSections_IncludesCatalogSubAgentRouting(t *testing.T) {
 
 func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	fragments := PromptSections{
+		ModelAdapter: PromptSection{
+			Title:   "Model adapter",
+			Tag:     "model_adapter",
+			Content: renderModelAdapterSection("glm-5.2"),
+		},
 		Instructions: PromptSection{
 			Title:   "Instructions",
 			Tag:     "instructions",
@@ -111,7 +116,7 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	cacheable := requireCacheableSegments(t, prompt)
 	dynamic := requireDynamicSegments(t, prompt)
 
-	if len(cacheable) != 3 {
+	if len(cacheable) != 4 {
 		t.Fatalf("cacheable segment count = %d", len(cacheable))
 	}
 	base := requireStaticPromptSegment(t, cacheable[0])
@@ -143,11 +148,16 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 	if got := requireDynamicContextSegmentType(t, dynamic[0]); got != "dynamic_context" {
 		t.Fatalf("first dynamic segment = %q", got)
 	}
-	instructionsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
+	adapterContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[1]).Content)
+	if !strings.Contains(adapterContent, "<model_adapter>\nThis section is runtime-owned model guidance.") ||
+		!strings.Contains(adapterContent, "GLM/ZAI-family adapter") {
+		t.Fatalf("model adapter segment is not XML wrapped: %q", adapterContent)
+	}
+	instructionsContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[2]).Content)
 	if !strings.Contains(instructionsContent, "<instructions>\nHandle production changes carefully.\n</instructions>") {
 		t.Fatalf("instructions segment is not XML wrapped: %q", instructionsContent)
 	}
-	companyContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[2]).Content)
+	companyContent := requirePromptString(t, requireStaticPromptSegment(t, cacheable[3]).Content)
 	if !strings.Contains(companyContent, "<company>\nCompany name: ExampleCo\n</company>") {
 		t.Fatalf("company segment is not XML wrapped: %q", companyContent)
 	}

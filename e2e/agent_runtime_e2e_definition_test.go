@@ -27,18 +27,44 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 	if modelID == "" {
 		modelID = "deepseek/deepseek-v4-flash"
 	}
+	canonicalModelID := "deepseek-v4-flash"
+	modelProfile := "deepseek"
+	if strings.Contains(modelID, "glm") || strings.Contains(modelID, "z-ai") {
+		modelProfile = "glm"
+	} else if strings.Contains(modelID, "kimi") || strings.Contains(modelID, "moonshot") {
+		modelProfile = "kimi"
+	} else if strings.Contains(modelID, "minimax") {
+		modelProfile = "minimax"
+	} else if strings.Contains(modelID, "mimo") {
+		modelProfile = "mimo"
+	} else if strings.Contains(modelID, "qwen") {
+		modelProfile = "qwen"
+	}
+	if idx := strings.LastIndex(modelID, "/"); idx >= 0 && idx+1 < len(modelID) {
+		canonicalModelID = modelID[idx+1:]
+	} else {
+		canonicalModelID = modelID
+	}
 	trace.Logf("definition", "model_id=%s fixture_url=%s proxy_url=%s control_plane_url=%s", modelID, fixtureURL, proxyURL, controlPlaneURL)
 	model := map[string]any{
-		"provider":          "openai_compatible",
-		"base_url":          strings.TrimRight(proxyURL, "/") + "/v1",
-		"model_id":          modelID,
+		"provider":           "openai_compatible",
+		"base_url":           strings.TrimRight(proxyURL, "/") + "/v1",
+		"model_id":           modelID,
+		"canonical_model_id": canonicalModelID,
+		"provider_id":        "openrouter",
+		"upstream_model_id":  modelID,
+		"model_profile":      modelProfile,
+		"capabilities": map[string]any{
+			"reasoning":         true,
+			"tool_call":         true,
+			"structured_output": true,
+		},
 		"api_key_env":       "HIVY_PROXY_API_KEY",
 		"temperature":       0,
 		"max_output_tokens": 4096,
-		"reasoning_effort":  "low",
 		"extra_headers": map[string]string{
 			"HTTP-Referer": "https://usehivy.com",
-			"X-Title":      "Hivy agent runtime E2E",
+			"X-Title":      "Hivy",
 		},
 	}
 	definition := map[string]any{
@@ -57,9 +83,9 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 							"This is a test session. Every agent and subagent must minimize token use, avoid broad real work, avoid external research unless explicitly requested by a numbered step, and stop as soon as the requested markers are produced.",
 							"Tool coverage is part of this task. Use every tool named by the user.",
 							"Do not invent the token or requirement phrases. Retrieve them from fixture_requirements.",
-							"Use exact, minimal file edits. If a tool returns an id, use that id in the matching status tool.",
-							"Subagent orchestration coverage is part of this task. Start codebase-explorer, librarian, and oracle in the same tool-call batch before checking any subagent status.",
-							"After starting each configured Hakaree subagent, call check_subagent_task_status once for that job id.",
+							"Use exact, minimal file edits. If a tool returns an id for a required follow-up, use that exact id.",
+							"Subagent orchestration coverage is part of this task. Start codebase-explorer, librarian, and oracle in the same tool-call batch, then use each subagent_task tool result directly.",
+							"Do not poll subagent status. The subagent_task tool returns the completed subagent result.",
 						}, "\n"),
 					},
 				},
@@ -140,7 +166,6 @@ func agentRuntimeE2ETools() []any {
 		map[string]any{"type": "builtin.apply_patch", "config": map[string]any{"allowed_roots": []string{}, "max_file_size_bytes": 1048576, "deny_globs": []string{}, "atomic": true}},
 		map[string]any{"type": "builtin.lsp", "config": map[string]any{"enabled": true, "allowed_roots": []string{}, "timeout_seconds": 20}},
 		map[string]any{"type": "builtin.subagent_task", "config": map[string]any{"agents": agentRuntimeE2EHakareeSubagents}},
-		map[string]any{"type": "builtin.check_subagent_task_status"},
 		map[string]any{"type": "builtin.check_bash_status"},
 		map[string]any{"type": "builtin.search_sessions"},
 	}
