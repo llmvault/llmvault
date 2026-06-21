@@ -98,12 +98,13 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken), previewCache: NewPreviewCacheClient(context.Background(), cfg)}
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes", strings.NewReader(`{
-		"org_id":"org_1",
-		"name":"cache-test",
-		"image_ref":"ghcr.io/usehivy/runtime:test",
-		"size":"small",
-		"init":{"cmd":"/usr/local/bin/hivy-runtime-entrypoint","args":["/usr/local/bin/hivy-sandboxes-runtime"]}
-	}`))
+			"org_id":"org_1",
+			"name":"cache-test",
+			"image_ref":"ghcr.io/usehivy/runtime:test",
+			"size":"small",
+			"health_checks":[{"guest_port":7080,"type":"http","method":"GET","path":"/healthz","expected_status":200}],
+			"init":{"cmd":"/usr/local/bin/hivy-runtime-entrypoint","args":["/usr/local/bin/hivy-sandboxes-runtime"]}
+		}`))
 	req.Header.Set("Authorization", "Bearer api-token")
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -122,6 +123,16 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 	}
 	if got, want := runnerInit.Args, []string{"/usr/local/bin/hivy-sandboxes-runtime"}; !equalStrings(got, want) {
 		t.Fatalf("runner init args = %v, want %v", got, want)
+	}
+	var runtimePort model.SandboxPort
+	if err := db.First(&runtimePort, "guest_port = ?", 7080).Error; err != nil {
+		t.Fatal(err)
+	}
+	if runtimePort.HealthCheckType != "http" || runtimePort.HealthCheckMethod != "GET" ||
+		runtimePort.HealthCheckPath != "/healthz" || runtimePort.HealthCheckExpectedStatus != 200 ||
+		runtimePort.HealthCheckTimeoutSeconds != defaultHealthCheckTimeoutSeconds ||
+		runtimePort.HealthCheckIntervalMS != defaultHealthCheckIntervalMS {
+		t.Fatalf("runtime port health check = %+v", runtimePort)
 	}
 
 	select {
@@ -149,6 +160,36 @@ func TestCreateSandboxPushesPreviewCacheRoute(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for preview cache route")
+	}
+}
+
+func TestCreateSandboxRejectsHealthCheckForUnpreviewedPort(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:create-sandbox-health-invalid?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}, &model.OrgPreviewSecret{}, &model.Sandbox{}, &model.SandboxPort{}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{APIToken: "api-token", RunnerAPIToken: "runner-token", PreviewPasswordKey: "preview-password-key"}
+	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes", strings.NewReader(`{
+		"org_id":"org_1",
+		"name":"invalid-health",
+		"image_ref":"ghcr.io/usehivy/runtime:test",
+		"preview_ports":[7080],
+		"health_checks":[{"guest_port":9999,"type":"http","method":"GET","path":"/healthz","expected_status":200}]
+	}`))
+	req.Header.Set("Authorization", "Bearer api-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "not previewable") {
+		t.Fatalf("body = %s", rec.Body.String())
 	}
 }
 

@@ -253,10 +253,17 @@ func (m *MicrosandboxBackend) EnsureReady(ctx context.Context, sandboxID string,
 	if req.TimeoutSeconds > 0 {
 		timeout = time.Duration(req.TimeoutSeconds) * time.Second
 	}
-	if err := waitForCondition(ctx, timeout, func() (bool, string) {
+	readyCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	if err := waitForCondition(readyCtx, timeout, func() (bool, string) {
 		return tcpPortOpen(hostPort, actualProbeTimeout), fmt.Sprintf("host_port=%d port_open=false", hostPort)
 	}); err != nil {
 		return nil, err
+	}
+	if req.HealthCheck != nil {
+		if err := waitForHTTPHealthCheck(readyCtx, sandboxID, req.GuestPort, hostPort, *req.HealthCheck); err != nil {
+			return nil, err
+		}
 	}
 	m.setSandboxStatus(sandboxID, "running")
 	return &EnsureReadyResponse{Status: "running", HostPort: hostPort}, nil
