@@ -248,7 +248,7 @@ func mcpCommand(args []string) error {
 	}
 	request := map[string]any{
 		"jsonrpc": "2.0",
-		"id":      time.Now().UnixNano(),
+		"id":      fmt.Sprintf("%d", time.Now().UnixNano()),
 		"method":  "tools/call",
 		"params": map[string]any{
 			"name":      tool,
@@ -400,7 +400,6 @@ func normalizeMCPURL(raw string) string {
 	if err != nil {
 		return raw
 	}
-	parsed.Path = strings.TrimSuffix(parsed.Path, "/stream")
 	if parsed.Path == "" {
 		parsed.Path = "/mcp"
 	}

@@ -22,7 +22,7 @@ func TestWorkspaceURLBuildsPenpotWorkspaceURL(t *testing.T) {
 
 func TestNormalizeMCPURLUsesStreamableHTTPEndpoint(t *testing.T) {
 	got := normalizeMCPURL("https://canvas.usehivy.com/mcp/stream?userToken=abc")
-	want := "https://canvas.usehivy.com/mcp?userToken=abc"
+	want := "https://canvas.usehivy.com/mcp/stream?userToken=abc"
 	if got != want {
 		t.Fatalf("normalizeMCPURL = %q, want %q", got, want)
 	}
