@@ -138,9 +138,9 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	err = s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes", runnerCreateSandboxRequest{
 		ID: sb.ID, Name: sb.Name, ImageRef: sb.ImageRef,
 		CPU: sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB, Env: req.Env,
-		PreviewPorts: req.PreviewPorts,
-		Init:         req.Init,
-		Labels:       map[string]string{"org_id": sb.OrgID, "sandbox_id": sb.ID},
+		PreviewPorts:    req.PreviewPorts,
+		Init:            req.Init,
+		Labels:          map[string]string{"org_id": sb.OrgID, "sandbox_id": sb.ID},
 		AutoStartDocker: req.AutoStartDocker,
 	}, &createResp)
 	if err != nil {

@@ -97,20 +97,20 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 	}
 	autoStartDocker := d.autoStartDocker(opts.Labels, imageRef)
 	body := map[string]any{
-		"org_id":        opts.Labels["org_id"],
-		"name":          opts.Name,
-		"image_ref":     imageRef,
-		"template_id":   templateID,
-		"size":          msbapi.DefaultSize,
-		"cpu":           opts.CPU,
-		"memory_mb":     opts.Memory * 1024,
-		"disk_gb":       opts.Disk,
-		"env":           runtimeEnv(opts.EnvVars, autoStartDocker),
-		"metadata":      opts.Labels,
-		"preview_ports": d.previewPorts(opts.ExposedPorts),
-		"health_checks": d.runtimeHealthChecks(d.runtimePort),
+		"org_id":            opts.Labels["org_id"],
+		"name":              opts.Name,
+		"image_ref":         imageRef,
+		"template_id":       templateID,
+		"size":              msbapi.DefaultSize,
+		"cpu":               opts.CPU,
+		"memory_mb":         opts.Memory * 1024,
+		"disk_gb":           opts.Disk,
+		"env":               runtimeEnv(opts.EnvVars, autoStartDocker),
+		"metadata":          opts.Labels,
+		"preview_ports":     d.previewPorts(opts.ExposedPorts),
+		"health_checks":     d.runtimeHealthChecks(d.runtimePort),
 		"auto_start_docker": autoStartDocker,
-		"init":          agentRuntimeInit,
+		"init":              agentRuntimeInit,
 	}
 	var out createSandboxResponse
 	if err := d.post(ctx, "/v1/sandboxes", body, &out); err != nil {
@@ -143,20 +143,20 @@ func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreate
 	}
 	autoStartDocker := d.autoStartDocker(metadata, imageRef)
 	body := map[string]any{
-		"org_id":        "warm-pool",
-		"name":          opts.Name,
-		"image_ref":     imageRef,
-		"template_id":   "",
-		"size":          msbapi.DefaultSize,
-		"cpu":           opts.CPU,
-		"memory_mb":     opts.Memory * 1024,
-		"disk_gb":       opts.Disk,
-		"env":           d.warmSlotEnv(opts, port, autoStartDocker),
-		"metadata":      metadata,
-		"preview_ports": uniqueValidPorts(append(d.previewPorts(nil), port)),
-		"health_checks": d.runtimeHealthChecks(port),
+		"org_id":            "warm-pool",
+		"name":              opts.Name,
+		"image_ref":         imageRef,
+		"template_id":       "",
+		"size":              msbapi.DefaultSize,
+		"cpu":               opts.CPU,
+		"memory_mb":         opts.Memory * 1024,
+		"disk_gb":           opts.Disk,
+		"env":               d.warmSlotEnv(opts, port, autoStartDocker),
+		"metadata":          metadata,
+		"preview_ports":     uniqueValidPorts(append(d.previewPorts(nil), port)),
+		"health_checks":     d.runtimeHealthChecks(port),
 		"auto_start_docker": autoStartDocker,
-		"init":          agentRuntimeInit,
+		"init":              agentRuntimeInit,
 	}
 	var out createSandboxResponse
 	if err := d.post(ctx, "/v1/sandboxes", body, &out); err != nil {
