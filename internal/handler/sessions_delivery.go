@@ -154,7 +154,7 @@ func (h *SessionHandler) dispatchSessionMessageIntent(ctx context.Context, inten
 		}
 		return true, nil
 	}
-	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer).WithoutProvisioning()
+	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer)
 	delivery, err := dispatcher.DeliverEvent(ctx, intent.Session, intent.Event)
 	if err != nil {
 		_ = h.releaseDirectSessionTurn(context.WithoutCancel(ctx), intent.Session.ID)

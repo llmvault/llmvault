@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::str::FromStr;
+
+use crate::model_profile::ModelProfile;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -87,6 +90,8 @@ pub struct ModelRequest {
     pub max_output_tokens: Option<u32>,
     pub reasoning_effort: Option<String>,
     pub cache_policy: CacheControlPolicy,
+    pub profile: ModelProfile,
+    pub provider_options: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

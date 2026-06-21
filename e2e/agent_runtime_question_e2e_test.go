@@ -90,7 +90,7 @@ func agentRuntimeQuestionDefinition(t *testing.T, trace *agentRuntimeE2ETrace, p
 		"reasoning_effort":  "low",
 		"extra_headers": map[string]string{
 			"HTTP-Referer": "https://usehivy.com",
-			"X-Title":      "Hivy question runtime E2E",
+			"X-Title":      "Hivy",
 		},
 	}
 	return map[string]any{

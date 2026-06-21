@@ -20,6 +20,8 @@ func newFakeUpstream(t *testing.T, handler http.HandlerFunc) (baseURL string, ca
 			return
 		}
 		captured.auth = r.Header.Get("Authorization")
+		captured.referer = r.Header.Get("HTTP-Referer")
+		captured.title = r.Header.Get("X-Title")
 		captured.body, _ = io.ReadAll(r.Body)
 		handler(w, r)
 	}))
@@ -28,8 +30,10 @@ func newFakeUpstream(t *testing.T, handler http.HandlerFunc) (baseURL string, ca
 }
 
 type capturedRequest struct {
-	auth string
-	body []byte
+	auth    string
+	referer string
+	title   string
+	body    []byte
 }
 
 func TestForward_NonStreaming_ReturnsTextAndUsage(t *testing.T) {
@@ -81,6 +85,33 @@ func TestForward_NonStreaming_UpstreamErrorReturnsTyped(t *testing.T) {
 	}
 	if upErr.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status = %d", upErr.StatusCode)
+	}
+}
+
+func TestForward_OpenRouterUsesHivyAppHeaders(t *testing.T) {
+	base, cap := newFakeUpstream(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"model":"fake-model","choices":[{"message":{"content":"ok"}}]}`))
+	})
+
+	_, err := NewForwarder(nil).ForwardJSON(context.Background(), ForwardCall{
+		ProviderID: "openrouter",
+		BaseURL:    base,
+		APIKey:     "sk-fake",
+		AuthScheme: "bearer",
+		Request: &LLMRequest{
+			Model:    "fake-model",
+			Messages: []LLMMessage{{Role: "user", Content: "hi"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("forward: %v", err)
+	}
+	if cap.referer != "https://usehivy.com" {
+		t.Fatalf("HTTP-Referer = %q, want https://usehivy.com", cap.referer)
+	}
+	if cap.title != "Hivy" {
+		t.Fatalf("X-Title = %q, want Hivy", cap.title)
 	}
 }
 

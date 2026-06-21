@@ -953,6 +953,12 @@ mod tests {
             model: domain::ModelConfig::OpenaiCompatible {
                 base_url: "http://localhost".to_string(),
                 model_id: "test".to_string(),
+                canonical_model_id: Some("test".to_string()),
+                provider_id: Some("openrouter".to_string()),
+                upstream_model_id: Some("test".to_string()),
+                model_profile: None,
+                provider_options: HashMap::new(),
+                capabilities: None,
                 api_key_env: "HIVY_PROXY_API_KEY".to_string(),
                 temperature: None,
                 max_output_tokens: None,

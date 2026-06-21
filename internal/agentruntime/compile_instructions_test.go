@@ -23,7 +23,7 @@ func TestBuildAgentSystemPrompt_IncludesInstructionsAsCacheableSegment(t *testin
 		Instructions: &instructions,
 	}
 
-	fragments := buildPromptSections(context.Background(), nil, agent, description)
+	fragments := buildPromptSections(context.Background(), nil, agent, description, "")
 	prompt := buildAgentSystemPrompt(context.Background(), fragments)
 	cacheable := requireCacheableSegments(t, prompt)
 	dynamic := requireDynamicSegments(t, prompt)

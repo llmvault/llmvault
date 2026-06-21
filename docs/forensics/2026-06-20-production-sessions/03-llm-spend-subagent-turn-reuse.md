@@ -86,7 +86,6 @@ The session performed substantial local work:
 | `edit_file` | 7 |
 | `update_plan` | 6 |
 | `grep` | 4 |
-| `check_subagent_task_status` | 3 |
 | `subagent_task` | 1 |
 | `skill_view` | 1 |
 
@@ -224,4 +223,3 @@ So synthetic follow-up work can run as a new model turn but remain stamped with 
 ## Suggested Owner Brief
 
 Own runtime cost control and turn identity. Start with `sandboxes/runtime/crates/runtime/src/handler.rs`, `internal/handler/agent_outbound_generation.go`, `internal/middleware/require_credits.go`, and `internal/tasks/billing_batch_process.go`. The fix should make spend bounded and make terminal events semantically true.
-

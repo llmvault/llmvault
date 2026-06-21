@@ -54,7 +54,7 @@ sync agent runtime: agent runtime put config: put config: 422 Unprocessable Enti
 Failed to deserialize the JSON body into the target type:
 definition.tools[2].type: unknown variant builtin.file_search,
 expected one of builtin.bash, builtin.read_file, builtin.write_file, builtin.cron,
-builtin.subagent_task, builtin.check_subagent_task_status, builtin.check_bash_status,
+builtin.subagent_task, builtin.check_bash_status,
 builtin.wake, builtin.skills_list, builtin.skill_view, builtin.skill_manage,
 builtin.search_sessions, builtin.request_user_input, builtin.update_plan
 ```
@@ -177,4 +177,3 @@ The logs show retry counts `0` through `5` on the same Asynq task and then `fina
 ## Suggested Owner Brief
 
 Own the runtime/API compatibility boundary for always-on sandboxes. Start with `internal/tasks/session_message_deliver_runtime.go`, `internal/agentruntime/compile_tools.go`, and `sandboxes/runtime/crates/domain/src/tool_specs.rs`. The target fix is not just to handle `file_search`; it is to make runtime config schema changes safe for all reused sandboxes.
-

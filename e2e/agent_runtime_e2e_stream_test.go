@@ -173,7 +173,7 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 			t.Fatalf("stream did not contain %s; names=%v events=%s", want, eventNames, summarizeEvents(events))
 		}
 	}
-	requiredTools := []string{"search_sessions", "fixture_requirements", "file_search", "glob", "grep", "multi_grep", "lsp", "apply_patch", "read_file", "write_file", "edit_file", "bash", "check_bash_status", "subagent_task", "check_subagent_task_status"}
+	requiredTools := []string{"search_sessions", "fixture_requirements", "file_search", "glob", "grep", "multi_grep", "lsp", "apply_patch", "read_file", "write_file", "edit_file", "bash", "check_bash_status", "subagent_task"}
 	for _, tool := range requiredTools {
 		if tools[tool] == 0 {
 			t.Fatalf("missing required tool call %s; tools=%v events=%s", tool, tools, summarizeEvents(events))
@@ -191,7 +191,7 @@ func assertRuntimeE2EEvents(t *testing.T, trace *agentRuntimeE2ETrace, events []
 			t.Fatalf("missing completed lsp result from server %s; servers=%v results=%v errors=%v events=%s", serverID, lspServers, toolResults, toolErrors, summarizeEvents(events))
 		}
 	}
-	if tools["subagent_task"] < len(agentRuntimeE2EHakareeSubagents) || tools["check_subagent_task_status"] < len(agentRuntimeE2EHakareeSubagents) {
+	if tools["subagent_task"] < len(agentRuntimeE2EHakareeSubagents) {
 		t.Fatalf("subagent tool counts too low: tools=%v events=%s", tools, summarizeEvents(events))
 	}
 	for _, agent := range agentRuntimeE2EHakareeSubagents {

@@ -11,6 +11,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/observe"
+	"github.com/usehivy/hivy/internal/providerheaders"
 	"github.com/usehivy/hivy/internal/registry"
 )
 
@@ -103,6 +104,9 @@ func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
 
 		req.Header.Del("Authorization")
 		AttachAuth(req, cred.AuthScheme, cred.APIKey)
+		if providerheaders.IsOpenRouter(cred.ProviderID, cred.BaseURL) {
+			providerheaders.ApplyOpenRouter(req)
+		}
 
 		for i := range cred.APIKey {
 			cred.APIKey[i] = 0

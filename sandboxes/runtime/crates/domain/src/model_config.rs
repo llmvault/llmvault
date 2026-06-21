@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,11 +109,36 @@ pub enum ReasoningEffort {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct ModelCapabilities {
+    #[serde(default)]
+    pub reasoning: Option<bool>,
+    #[serde(default)]
+    pub tool_call: Option<bool>,
+    #[serde(default)]
+    pub parallel_tool_calls: Option<bool>,
+    #[serde(default)]
+    pub structured_output: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "provider", rename_all = "snake_case")]
 pub enum ModelConfig {
     OpenaiCompatible {
         base_url: String,
         model_id: String,
+        #[serde(default)]
+        canonical_model_id: Option<String>,
+        #[serde(default)]
+        provider_id: Option<String>,
+        #[serde(default)]
+        upstream_model_id: Option<String>,
+        #[serde(default)]
+        model_profile: Option<String>,
+        #[serde(default)]
+        provider_options: HashMap<String, Value>,
+        #[serde(default)]
+        capabilities: Option<ModelCapabilities>,
         api_key_env: String,
         #[serde(default)]
         temperature: Option<f32>,

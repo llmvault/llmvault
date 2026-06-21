@@ -41,6 +41,37 @@ func TestIntegration_SessionsCreate_AlwaysOnSendsFirstMessageDirectWithoutQueueO
 	assertNoSessionMessageDeliverTask(t, h)
 }
 
+func TestIntegration_SessionsCreate_AlwaysOnMissingSandboxProvisionsAndSendsFirstMessage(t *testing.T) {
+	runtime := newSessionSyncRuntime(t, http.StatusOK)
+	h, provider := newSessionRuntimeHarness(t, runtime, nil)
+	fx := h.seed(t)
+
+	out := h.createSession(t, fx, fx.owner, "Provision the missing always-on runtime")
+	if out.Queued {
+		t.Fatalf("queued=%t, want false after synchronous runtime provisioning", out.Queued)
+	}
+	if out.Session.SandboxID == nil || *out.Session.SandboxID == "" {
+		t.Fatalf("session sandbox_id missing: %+v", out.Session)
+	}
+	if len(provider.created) != 1 {
+		t.Fatalf("provider creates=%d, want 1", len(provider.created))
+	}
+	if runtime.messageCalls != 1 || runtime.lastMessageText != "Provision the missing always-on runtime" {
+		t.Fatalf("runtime message calls=%d text=%q", runtime.messageCalls, runtime.lastMessageText)
+	}
+	if runtime.configCalls != 1 {
+		t.Fatalf("runtime config calls=%d, want 1 sandbox-create config push", runtime.configCalls)
+	}
+	if out.Session.AgentTurnStatus != model.SessionAgentTurnActive || out.Session.AgentTurnID == "" || out.Session.AgentStreamID == "" {
+		t.Fatalf("session turn metadata missing: %+v", out.Session)
+	}
+	if count := countActiveSessionAgentProxyTokens(t, h, fx.org.ID, fx.agent.ID, out.Session.SandboxID); count == 0 {
+		t.Fatalf("active sandbox agent proxy tokens=%d, want at least 1", count)
+	}
+	assertSessionQueueCount(t, h, out.Session.ID, 0)
+	assertNoSessionMessageDeliverTask(t, h)
+}
+
 func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
 	h, _ := newSessionRuntimeHarness(t, runtime, nil)

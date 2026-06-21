@@ -58,7 +58,6 @@ From `sandboxes/runtime/crates/domain/src/tool_specs.rs`, Hivy tool specs curren
 - `write_file`
 - `cron`
 - `subagent_task`
-- `check_subagent_task_status`
 - `check_bash_status`
 - `wake`
 - `skills_list`

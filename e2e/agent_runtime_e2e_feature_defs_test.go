@@ -22,7 +22,7 @@ func agentRuntimeE2EModel(t *testing.T, proxyURL string) map[string]any {
 		"reasoning_effort":  "low",
 		"extra_headers": map[string]string{
 			"HTTP-Referer": "https://usehivy.com",
-			"X-Title":      "Hivy agent runtime E2E",
+			"X-Title":      "Hivy",
 		},
 	}
 }

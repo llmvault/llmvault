@@ -5,6 +5,8 @@ use tools::{JsonTool, ToolDefinition};
 
 use crate::primitives::ToolCall;
 
+const SUBAGENT_TASK_TIMEOUT: Duration = Duration::from_secs(16 * 60);
+
 pub struct ToolExecutor {
     tools: Vec<Arc<dyn JsonTool>>,
     timeout: Duration,
@@ -63,12 +65,17 @@ impl ToolExecutor {
         {
             return Err(ToolExecutionError::MissingRequired(message));
         }
-        match tokio::time::timeout(self.timeout, tool.call(call.arguments.clone())).await {
+        let timeout = if call.name == "subagent_task" {
+            SUBAGENT_TASK_TIMEOUT.max(self.timeout)
+        } else {
+            self.timeout
+        };
+        match tokio::time::timeout(timeout, tool.call(call.arguments.clone())).await {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(error)) => Err(ToolExecutionError::Tool(error)),
             Err(_) => Err(ToolExecutionError::TimedOut {
                 tool: call.name.clone(),
-                seconds: self.timeout.as_secs(),
+                seconds: timeout.as_secs(),
             }),
         }
     }

@@ -26,7 +26,7 @@ func createSessionReasoningEffort(req createSessionRequest) string {
 func normalizeSessionReasoningEffort(value string) (string, error) {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value == "" {
-		return "high", nil
+		return "", nil
 	}
 	switch value {
 	case "low", "medium", "high":

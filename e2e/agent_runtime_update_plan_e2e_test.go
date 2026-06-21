@@ -59,7 +59,7 @@ func agentRuntimeUpdatePlanDefinition(t *testing.T, trace *agentRuntimeE2ETrace,
 		"reasoning_effort":  "low",
 		"extra_headers": map[string]string{
 			"HTTP-Referer": "https://usehivy.com",
-			"X-Title":      "Hivy update_plan runtime E2E",
+			"X-Title":      "Hivy",
 		},
 	}
 	return map[string]any{

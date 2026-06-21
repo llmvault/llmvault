@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub mod compaction;
 pub mod history;
 pub mod model_client;
+pub mod model_profile;
 pub mod primitives;
 pub mod request_builder;
 pub mod rig_tool_registry;

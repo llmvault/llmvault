@@ -1190,8 +1190,8 @@ async fn process_single_turn(
     inbound: &InboundEvent,
     turn_event_sink: Arc<dyn TurnEventSink>,
     subagent_task_repo: Arc<dyn SubagentTaskRepo>,
-    coordinator: Arc<SessionCoordinator>,
-    inbound_sink: mpsc::Sender<InboundEvent>,
+    _coordinator: Arc<SessionCoordinator>,
+    _inbound_sink: mpsc::Sender<InboundEvent>,
     mut cancellation: TurnCancellation,
 ) -> Result<TurnProcessResult> {
     if let ScheduledRunStatus::Malformed(malformed) = ScheduledRunStatus::from_inbound(inbound) {
@@ -1439,61 +1439,10 @@ async fn process_single_turn(
                 .await;
             }
 
-            // Send notification to parent BEFORE marking job as completed.
-            // This prevents a race where the parent's polling loop sees the
-            // subagent task as no longer active before the notification arrives.
-            let notification = InboundEvent {
-                envelope_id: format!("subagent-task-result-{}", Utc::now().timestamp_millis()),
-                session_id: SessionId::from(parent_session_id),
-                user: "system".to_string(),
-                user_display_name: Some("Sub-agent".to_string()),
-                text: format!(
-                    "Sub-agent '{}' completed task (job: {}):\n\n{}",
-                    agent_name, job_id, result_text
-                ),
-                attachments: Vec::new(),
-                dynamic_context: Vec::new(),
-                model_definition: None,
-                raw: serde_json::json!({
-                    "source": "subagent_task_result",
-                    "job_id": job_id,
-                    "agent_name": agent_name,
-                }),
-                is_direct_message: false,
-                is_directly_addressed: true,
-                link_previews: Vec::new(),
-                agent_definition: None,
-            };
-
-            // Queue via coordinator so the parent's polling loop picks it up
-            // in drain_queued() before it exits. If the parent's turn has
-            // already finished (no coordinator entry), submit_or_queue inserts
-            // a *fresh* reservation that no running task owns — leaving the
-            // parent session permanently reserved and the subagent task result
-            // undelivered. In that case, dispatch the notification through the
-            // real inbound path so a handler runs it and calls finish_turn.
-            match coordinator.submit_or_queue(notification.clone()) {
-                Submission::Queued => {}
-                Submission::RunNow => {
-                    // Release the reservation we just took; handle_inbound's own
-                    // submit_or_queue will re-reserve and own the lifecycle.
-                    let _ = coordinator.finish_turn(&notification.session_id);
-                    if let Err(e) = inbound_sink.send(notification).await {
-                        warn!(
-                            error = %e,
-                            job_id = %job_id,
-                            "failed to re-dispatch subagent task result to parent session"
-                        );
-                    }
-                }
-            }
-
-            // NOW mark the job as completed (after notification is queued).
-            // This MUST eventually move the job out of the `Active` state: the
-            // parent turn busy-polls session_has_active_subagent_tasks(), so a job
-            // stuck Active leaves the parent spinning forever. Retry the result
-            // write, and if it keeps failing force the job to a terminal state
-            // so the parent's poll loop can exit.
+            // Mark the job complete so the foreground subagent_task tool can
+            // return this result directly to the parent model. No synthetic
+            // parent inbound is needed; OpenCode-style task results are tool
+            // outputs, while lifecycle events remain available to clients.
             complete_subagent_task_result_or_force_fail(
                 subagent_task_repo.as_ref(),
                 job_id,

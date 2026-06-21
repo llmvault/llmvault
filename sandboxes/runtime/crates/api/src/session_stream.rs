@@ -981,6 +981,12 @@ mod tests {
         ModelConfig::OpenaiCompatible {
             base_url: "http://127.0.0.1:18082/v1".to_string(),
             model_id: model_id.to_string(),
+            canonical_model_id: Some(model_id.to_string()),
+            provider_id: Some("openrouter".to_string()),
+            upstream_model_id: Some(model_id.to_string()),
+            model_profile: None,
+            provider_options: HashMap::new(),
+            capabilities: None,
             api_key_env: "HIVY_PROXY_API_KEY".to_string(),
             temperature: None,
             max_output_tokens: None,

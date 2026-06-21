@@ -1628,6 +1628,35 @@
           }
         ]
       },
+      "ModelCapabilities": {
+        "type": "object",
+        "properties": {
+          "parallel_tool_calls": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "reasoning": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "structured_output": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "tool_call": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
       "ModelConfig": {
         "oneOf": [
           {
@@ -1644,6 +1673,22 @@
               },
               "base_url": {
                 "type": "string"
+              },
+              "canonical_model_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "capabilities": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ModelCapabilities"
+                  }
+                ]
               },
               "extra_headers": {
                 "type": "object",
@@ -1675,11 +1720,30 @@
               "model_id": {
                 "type": "string"
               },
+              "model_profile": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "provider": {
                 "type": "string",
                 "enum": [
                   "openai_compatible"
                 ]
+              },
+              "provider_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "provider_options": {
+                "type": "object",
+                "additionalProperties": {},
+                "propertyNames": {
+                  "type": "string"
+                }
               },
               "reasoning_effort": {
                 "oneOf": [
@@ -1697,6 +1761,12 @@
                   "null"
                 ],
                 "format": "float"
+              },
+              "upstream_model_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             }
           }
@@ -3008,20 +3078,6 @@
                 "type": "string",
                 "enum": [
                   "builtin.subagent_task"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "builtin.check_subagent_task_status"
                 ]
               }
             }

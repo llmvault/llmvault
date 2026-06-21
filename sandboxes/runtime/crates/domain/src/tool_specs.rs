@@ -24,8 +24,6 @@ pub enum ToolSpec {
     Lsp(LspConfig),
     #[serde(rename = "builtin.subagent_task")]
     SubagentTask(#[serde(default)] SubagentTaskConfig),
-    #[serde(rename = "builtin.check_subagent_task_status")]
-    CheckSubagentTaskStatus,
     #[serde(rename = "builtin.check_bash_status")]
     CheckBashStatus,
     #[serde(rename = "builtin.skills_list")]
@@ -229,7 +227,6 @@ pub fn default_parent_builtin_tool_specs() -> Vec<ToolSpec> {
     let mut specs = default_subagent_builtin_tool_specs();
     specs.extend([
         ToolSpec::SubagentTask(Default::default()),
-        ToolSpec::CheckSubagentTaskStatus,
         ToolSpec::RequestUserInput,
     ]);
     specs

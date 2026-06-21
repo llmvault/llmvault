@@ -467,26 +467,11 @@ func (e ToolSpec9Type) Valid() bool {
 
 // Defines values for ToolSpec10Type.
 const (
-	BuiltinCheckSubagentTaskStatus ToolSpec10Type = "builtin.check_subagent_task_status"
+	BuiltinCheckBashStatus ToolSpec10Type = "builtin.check_bash_status"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec10Type enum.
 func (e ToolSpec10Type) Valid() bool {
-	switch e {
-	case BuiltinCheckSubagentTaskStatus:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec11Type.
-const (
-	BuiltinCheckBashStatus ToolSpec11Type = "builtin.check_bash_status"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec11Type enum.
-func (e ToolSpec11Type) Valid() bool {
 	switch e {
 	case BuiltinCheckBashStatus:
 		return true
@@ -495,13 +480,13 @@ func (e ToolSpec11Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec12Type.
+// Defines values for ToolSpec11Type.
 const (
-	BuiltinSkillsList ToolSpec12Type = "builtin.skills_list"
+	BuiltinSkillsList ToolSpec11Type = "builtin.skills_list"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec12Type enum.
-func (e ToolSpec12Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec11Type enum.
+func (e ToolSpec11Type) Valid() bool {
 	switch e {
 	case BuiltinSkillsList:
 		return true
@@ -510,13 +495,13 @@ func (e ToolSpec12Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec13Type.
+// Defines values for ToolSpec12Type.
 const (
-	BuiltinSkillView ToolSpec13Type = "builtin.skill_view"
+	BuiltinSkillView ToolSpec12Type = "builtin.skill_view"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec13Type enum.
-func (e ToolSpec13Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec12Type enum.
+func (e ToolSpec12Type) Valid() bool {
 	switch e {
 	case BuiltinSkillView:
 		return true
@@ -525,13 +510,13 @@ func (e ToolSpec13Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec14Type.
+// Defines values for ToolSpec13Type.
 const (
-	BuiltinSkillManage ToolSpec14Type = "builtin.skill_manage"
+	BuiltinSkillManage ToolSpec13Type = "builtin.skill_manage"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec14Type enum.
-func (e ToolSpec14Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec13Type enum.
+func (e ToolSpec13Type) Valid() bool {
 	switch e {
 	case BuiltinSkillManage:
 		return true
@@ -540,13 +525,13 @@ func (e ToolSpec14Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec15Type.
+// Defines values for ToolSpec14Type.
 const (
-	BuiltinSearchSessions ToolSpec15Type = "builtin.search_sessions"
+	BuiltinSearchSessions ToolSpec14Type = "builtin.search_sessions"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec15Type enum.
-func (e ToolSpec15Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec14Type enum.
+func (e ToolSpec14Type) Valid() bool {
 	switch e {
 	case BuiltinSearchSessions:
 		return true
@@ -555,13 +540,13 @@ func (e ToolSpec15Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec16Type.
+// Defines values for ToolSpec15Type.
 const (
-	BuiltinRequestUserInput ToolSpec16Type = "builtin.request_user_input"
+	BuiltinRequestUserInput ToolSpec15Type = "builtin.request_user_input"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
-func (e ToolSpec16Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec15Type enum.
+func (e ToolSpec15Type) Valid() bool {
 	switch e {
 	case BuiltinRequestUserInput:
 		return true
@@ -570,13 +555,13 @@ func (e ToolSpec16Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec17Type.
+// Defines values for ToolSpec16Type.
 const (
-	BuiltinUpdatePlan ToolSpec17Type = "builtin.update_plan"
+	BuiltinUpdatePlan ToolSpec16Type = "builtin.update_plan"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec17Type enum.
-func (e ToolSpec17Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
+func (e ToolSpec16Type) Valid() bool {
 	switch e {
 	case BuiltinUpdatePlan:
 		return true
@@ -823,6 +808,14 @@ type McpSpec2 struct {
 // McpSpec2Transport defines model for McpSpec.2.Transport.
 type McpSpec2Transport string
 
+// ModelCapabilities defines model for ModelCapabilities.
+type ModelCapabilities struct {
+	ParallelToolCalls *bool `json:"parallel_tool_calls,omitempty"`
+	Reasoning         *bool `json:"reasoning,omitempty"`
+	StructuredOutput  *bool `json:"structured_output,omitempty"`
+	ToolCall          *bool `json:"tool_call,omitempty"`
+}
+
 // ModelConfig defines model for ModelConfig.
 type ModelConfig struct {
 	union json.RawMessage
@@ -830,15 +823,21 @@ type ModelConfig struct {
 
 // ModelConfig0 defines model for .
 type ModelConfig0 struct {
-	ApiKeyEnv       string               `json:"api_key_env"`
-	BaseUrl         string               `json:"base_url"`
-	ExtraHeaders    *map[string]string   `json:"extra_headers,omitempty"`
-	Fallback        *ModelConfig         `json:"fallback,omitempty"`
-	MaxOutputTokens *int32               `json:"max_output_tokens,omitempty"`
-	ModelId         string               `json:"model_id"`
-	Provider        ModelConfig0Provider `json:"provider"`
-	ReasoningEffort *ReasoningEffort     `json:"reasoning_effort,omitempty"`
-	Temperature     *float32             `json:"temperature,omitempty"`
+	ApiKeyEnv        string                  `json:"api_key_env"`
+	BaseUrl          string                  `json:"base_url"`
+	CanonicalModelId *string                 `json:"canonical_model_id,omitempty"`
+	Capabilities     *ModelCapabilities      `json:"capabilities,omitempty"`
+	ExtraHeaders     *map[string]string      `json:"extra_headers,omitempty"`
+	Fallback         *ModelConfig            `json:"fallback,omitempty"`
+	MaxOutputTokens  *int32                  `json:"max_output_tokens,omitempty"`
+	ModelId          string                  `json:"model_id"`
+	ModelProfile     *string                 `json:"model_profile,omitempty"`
+	Provider         ModelConfig0Provider    `json:"provider"`
+	ProviderId       *string                 `json:"provider_id,omitempty"`
+	ProviderOptions  *map[string]interface{} `json:"provider_options,omitempty"`
+	ReasoningEffort  *ReasoningEffort        `json:"reasoning_effort,omitempty"`
+	Temperature      *float32                `json:"temperature,omitempty"`
+	UpstreamModelId  *string                 `json:"upstream_model_id,omitempty"`
 }
 
 // ModelConfig0Provider defines model for ModelConfig.0.Provider.
@@ -1302,14 +1301,6 @@ type ToolSpec16 struct {
 
 // ToolSpec16Type defines model for ToolSpec.16.Type.
 type ToolSpec16Type string
-
-// ToolSpec17 defines model for .
-type ToolSpec17 struct {
-	Type ToolSpec17Type `json:"type"`
-}
-
-// ToolSpec17Type defines model for ToolSpec.17.Type.
-type ToolSpec17Type string
 
 // ToolUsage defines model for ToolUsage.
 type ToolUsage struct {
@@ -2249,32 +2240,6 @@ func (t *ToolSpec) FromToolSpec16(v ToolSpec16) error {
 
 // MergeToolSpec16 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec16
 func (t *ToolSpec) MergeToolSpec16(v ToolSpec16) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsToolSpec17 returns the union data inside the ToolSpec as a ToolSpec17
-func (t ToolSpec) AsToolSpec17() (ToolSpec17, error) {
-	var body ToolSpec17
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec17 overwrites any union data inside the ToolSpec as the provided ToolSpec17
-func (t *ToolSpec) FromToolSpec17(v ToolSpec17) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec17 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec17
-func (t *ToolSpec) MergeToolSpec17(v ToolSpec17) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

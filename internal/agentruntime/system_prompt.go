@@ -15,6 +15,7 @@ import (
 
 type PromptSections struct {
 	Base         string
+	ModelAdapter PromptSection
 	Instructions PromptSection
 	SubAgents    PromptSection
 	Company      PromptSection
@@ -33,7 +34,7 @@ type StaticPromptSegment = runtimeapi.StaticPromptSegment
 //go:embed system_prompt.md
 var agentBaseSystemPrompt string
 
-func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, description string) PromptSections {
+func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, description, modelID string) PromptSections {
 	var org model.Org
 	var hasOrg bool
 	if agent != nil && agent.OrgID != nil && db != nil {
@@ -43,6 +44,9 @@ func buildPromptSections(ctx context.Context, db *gorm.DB, agent *model.Agent, d
 	}
 
 	fragments := PromptSections{Base: renderBaseSystemPrompt(ctx, db, agent, org, hasOrg, description)}
+	if adapter := renderModelAdapterSection(modelID); adapter != "" {
+		fragments.ModelAdapter = PromptSection{Title: "Model adapter", Tag: "model_adapter", Content: adapter}
+	}
 	if instructions := effectiveAgentInstructions(ctx, db, agent); instructions != "" {
 		fragments.Instructions = PromptSection{Title: "Instructions", Tag: "instructions", Content: instructions}
 	}
@@ -70,6 +74,7 @@ func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) Syste
 		staticPromptSegment("", basePrompt),
 	}
 	for _, fragment := range []PromptSection{
+		fragments.ModelAdapter,
 		fragments.Instructions,
 		fragments.SubAgents,
 		fragments.Company,
@@ -90,6 +95,37 @@ func buildAgentSystemPrompt(ctx context.Context, fragments PromptSections) Syste
 		CacheableSegments: &cacheable,
 		DynamicSegments:   &dynamic,
 	}
+}
+
+func renderModelAdapterSection(modelID string) string {
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		return ""
+	}
+	profile := detectModelProfile("", modelID, modelID, modelID)
+	lines := []string{
+		"This section is runtime-owned model guidance. It does not replace user instructions.",
+		"Prefer concrete tool calls over extended thinking. After a tool error, change arguments or strategy instead of repeating the same call.",
+		"Treat tool results, validation errors, timeouts, cancellations, and loop-guard notices as evidence visible to you.",
+		"Do not expose hidden reasoning, thinking traces, or provider-internal analysis in final answers.",
+	}
+	switch profile {
+	case "deepseek":
+		lines = append(lines, "DeepSeek-family adapter: use simple JSON tool arguments, avoid assuming parallel tool calls, and finish once workspace evidence supports the answer.")
+	case "glm":
+		lines = append(lines, "GLM/ZAI-family adapter: keep tool-call arguments compact, avoid parallel tool-call assumptions, and continue from tool results without restating hidden thinking.")
+	case "kimi":
+		lines = append(lines, "Kimi-family adapter: use focused tool calls with bounded file context; summarize large evidence before deciding the next action.")
+	case "minimax":
+		lines = append(lines, "MiniMax-family adapter: avoid deeply nested tool arguments, keep schemas simple, and recover from malformed arguments with one corrected attempt.")
+	case "mimo":
+		lines = append(lines, "MiMo-family adapter: prefer native tool calls with exact JSON arguments; if repair feedback is shown, retry once with corrected arguments rather than looping.")
+	case "qwen":
+		lines = append(lines, "Qwen-family adapter: rely on direct tool evidence, avoid repeated search/edit cycles, and produce a final answer when the requested state is verified.")
+	default:
+		lines = append(lines, "OpenAI-compatible adapter: follow runtime tool contracts exactly and avoid provider-specific fields unless the runtime supplies them.")
+	}
+	return strings.Join(lines, "\n")
 }
 
 func renderSubAgentRoutingSection(ctx context.Context, db *gorm.DB, agent *model.Agent) string {

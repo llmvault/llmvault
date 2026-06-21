@@ -241,7 +241,7 @@ func (h *SessionMessageDeliverHandler) DeliverEvent(ctx context.Context, session
 		}
 		session.SandboxID = &sb.ID
 	}
-	modelDef, err := agentruntime.SessionModelDefinition(h.compileDeps, &agent, session.Model, session.ReasoningEffort)
+	modelDef, err := agentruntime.SessionModelDefinition(ctx, h.compileDeps, &agent, session.Model, session.ReasoningEffort)
 	if err != nil {
 		return nil, fmt.Errorf("build session model definition: %w", err)
 	}

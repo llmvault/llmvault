@@ -44,6 +44,15 @@ const CREDITS_EXHAUSTED_MESSAGE: &str =
 /// forever and queue every subsequent session message behind it.
 const MAX_CONSECUTIVE_MODEL_FAILURES: u32 = 3;
 
+#[derive(Clone)]
+enum ToolSettlement {
+    Immediate {
+        call: ToolCall,
+        result: serde_json::Value,
+    },
+    Execute(ToolCall),
+}
+
 pub struct RigAgentRunner {
     config: ConfigStore,
     tool_context: ToolBuildContext,
@@ -128,6 +137,8 @@ impl AgentRunner for RigAgentRunner {
             client,
             model_id,
             cache_policy,
+            profile,
+            provider_options,
             reasoning_effort,
             temperature,
             max_output_tokens,
@@ -209,8 +220,9 @@ impl AgentRunner for RigAgentRunner {
             let mut consecutive_model_failures = 0u32;
             let mut cumulative_completion_tokens: u64 = 0;
             let mut turn_safety = TurnSafety::new(&safety);
-            let mut error_tracker = ToolErrorTracker::new(3);
+            let mut error_tracker = ToolErrorTracker::new(profile.max_consecutive_tool_errors);
             let mut consecutive_repeat_rejections = 0u32;
+            let mut total_tool_calls = 0u32;
             // Latch so the output-budget warning is injected at most once per
             // turn. Without it the instruction was re-appended on every iteration
             // past 80%, bloating the prompt and wasting tokens it was meant to save.
@@ -247,6 +259,8 @@ impl AgentRunner for RigAgentRunner {
                     max_output_tokens,
                     reasoning_effort: reasoning_effort.clone(),
                     cache_policy,
+                    profile: profile.clone(),
+                    provider_options: provider_options.clone(),
                 };
 
                 yield AgentEvent::RunEvent {
@@ -649,7 +663,28 @@ impl AgentRunner for RigAgentRunner {
                 consecutive_model_failures = 0;
                 had_thinking = false;
                 let mut stop_after_tool_calls: Option<String> = None;
+                let mut stop_after_immediate_tool_result: Option<String> = None;
+                let mut settlements: Vec<ToolSettlement> = Vec::new();
                 for call in tool_calls {
+                    total_tool_calls = total_tool_calls.saturating_add(1);
+                    if total_tool_calls > profile.max_tool_calls_per_turn {
+                        stop_after_tool_calls = Some(format!(
+                            "I stopped because the model exceeded the {} tool-call limit for the {} model profile.",
+                            profile.max_tool_calls_per_turn,
+                            profile.id.as_str()
+                        ));
+                        yield AgentEvent::RunEvent {
+                            event: "tool_call_limit_exceeded".to_string(),
+                            payload: serde_json::json!({
+                                "session_id": session_id.as_str(),
+                                "turn_id": turn_id,
+                                "model": model_id,
+                                "model_profile": profile.id.as_str(),
+                                "limit": profile.max_tool_calls_per_turn,
+                            }),
+                        };
+                        break;
+                    }
                     yield AgentEvent::ToolCall { id: call.id.clone(), tool: call.name.clone(), args: call.arguments.clone() };
 
                     if safety.config().repeat_detection.enabled {
@@ -660,19 +695,14 @@ impl AgentRunner for RigAgentRunner {
                                 payload: serde_json::json!({
                                     "session_id": session_id.as_str(),
                                     "turn_id": turn_id,
-                                    "tool": call.name,
+                                    "tool": call.name.clone(),
                                     "reason": error_msg,
                                 }),
                             };
                             let result = json_safe_error(&error_msg);
-                            yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
-                            let message = AgentMessage::tool_result(call.id.clone(), result.to_string());
-                            if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
-                                yield AgentEvent::Error { message: error.to_string() };
-                                return;
-                            }
-                            messages.push(message);
-                            if consecutive_repeat_rejections >= 2 {
+                            settlements.push(ToolSettlement::Immediate { call: call.clone(), result });
+                            if consecutive_repeat_rejections >= profile.max_consecutive_tool_errors {
+                                stop_after_immediate_tool_result = Some(call.id.clone());
                                 stop_after_tool_calls = Some(format!(
                                     "I stopped because the model repeatedly issued the same invalid `{}` tool call. Please retry with a different model or request.",
                                     call.name
@@ -684,20 +714,74 @@ impl AgentRunner for RigAgentRunner {
                     }
                     consecutive_repeat_rejections = 0;
 
-                    match tool_executor.execute(&call).await {
-                        Ok(result) => {
-                            error_tracker.reset(&call.name);
-                            emit_tool_invoked(emitter.clone(), &session_id, &call.name, &call.arguments, &result).await;
+                    settlements.push(ToolSettlement::Execute(call));
+                }
+
+                let mut settlement_index = 0usize;
+                while settlement_index < settlements.len() {
+                    let executions = match &settlements[settlement_index] {
+                        ToolSettlement::Immediate { call, result } => {
                             yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
-                            let message = AgentMessage::tool_result(call.id, result.to_string());
+                            let message = AgentMessage::tool_result(call.id.clone(), result.to_string());
                             if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
                                 yield AgentEvent::Error { message: error.to_string() };
                                 return;
                             }
                             messages.push(message);
+                            if stop_after_immediate_tool_result.as_deref() == Some(call.id.as_str()) {
+                                break;
+                            }
+                            settlement_index += 1;
+                            continue;
                         }
+                        ToolSettlement::Execute(call) => {
+                            if call.name == "subagent_task" {
+                                let start = settlement_index;
+                                let mut end = start;
+                                while end < settlements.len() {
+                                    match &settlements[end] {
+                                        ToolSettlement::Execute(call) if call.name == "subagent_task" => {
+                                            end += 1;
+                                        }
+                                        _ => break,
+                                    }
+                                }
+                                let calls: Vec<ToolCall> = settlements[start..end]
+                                    .iter()
+                                    .filter_map(|settlement| match settlement {
+                                        ToolSettlement::Execute(call) => Some(call.clone()),
+                                        ToolSettlement::Immediate { .. } => None,
+                                    })
+                                    .collect();
+                                settlement_index = end;
+                                futures::future::join_all(calls.iter().map(|call| {
+                                    let tool_executor = &tool_executor;
+                                    async move { (call.clone(), tool_executor.execute(call).await) }
+                                }))
+                                .await
+                            } else {
+                                let call = call.clone();
+                                settlement_index += 1;
+                                vec![(call.clone(), tool_executor.execute(&call).await)]
+                            }
+                        }
+                    };
+
+                    for (call, execution) in executions {
+                        match execution {
+                            Ok(result) => {
+                                error_tracker.reset(&call.name);
+                                emit_tool_invoked(emitter.clone(), &session_id, &call.name, &call.arguments, &result).await;
+                                yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
+                                let message = AgentMessage::tool_result(call.id, result.to_string());
+                                if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
+                                    yield AgentEvent::Error { message: error.to_string() };
+                                    return;
+                                }
+                                messages.push(message);
+                            }
                             Err(error) => {
-                                error_tracker.record_failure(&call.name);
+                                let tool_failure_count = error_tracker.record_failure(&call.name);
                                 let raw_error = error.raw_message();
                                 capture_tool_error(&session_id, &call.name, &call.arguments, &raw_error);
                                 let error_msg = error_tracker.format_retry_hint(&call.name, &raw_error);
@@ -708,13 +792,34 @@ impl AgentRunner for RigAgentRunner {
                                     json_error(&error_msg)
                                 };
                                 yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
-                            let message = AgentMessage::tool_result(call.id, result.to_string());
-                            if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
-                                yield AgentEvent::Error { message: error.to_string() };
-                                return;
+                                let message = AgentMessage::tool_result(call.id, result.to_string());
+                                if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
+                                    yield AgentEvent::Error { message: error.to_string() };
+                                    return;
+                                }
+                                messages.push(message);
+                                if tool_failure_count >= profile.max_consecutive_tool_errors {
+                                    stop_after_tool_calls = Some(format!(
+                                        "I stopped because `{}` failed {} times in a row.",
+                                        call.name,
+                                        profile.max_consecutive_tool_errors
+                                    ));
+                                    yield AgentEvent::RunEvent {
+                                        event: "tool_error_limit_exceeded".to_string(),
+                                        payload: serde_json::json!({
+                                            "session_id": session_id.as_str(),
+                                            "turn_id": turn_id,
+                                            "tool": call.name,
+                                            "limit": profile.max_consecutive_tool_errors,
+                                        }),
+                                    };
+                                    break;
+                                }
                             }
-                            messages.push(message);
                         }
+                    }
+                    if stop_after_tool_calls.is_some() {
+                        break;
                     }
                 }
                 if let Some(message) = stop_after_tool_calls {
@@ -1046,6 +1151,12 @@ mod tests {
             model: ModelConfig::OpenaiCompatible {
                 base_url: "http://localhost".to_string(),
                 model_id: "test".to_string(),
+                canonical_model_id: Some("test".to_string()),
+                provider_id: Some("openrouter".to_string()),
+                upstream_model_id: Some("test".to_string()),
+                model_profile: None,
+                provider_options: HashMap::new(),
+                capabilities: None,
                 api_key_env: "TEST_API_KEY".to_string(),
                 temperature: None,
                 max_output_tokens: None,
@@ -1077,7 +1188,6 @@ mod tests {
             ToolSpec::ApplyPatch(_) => "apply_patch",
             ToolSpec::Lsp(_) => "lsp",
             ToolSpec::SubagentTask(_) => "subagent_task",
-            ToolSpec::CheckSubagentTaskStatus => "check_subagent_task_status",
             ToolSpec::CheckBashStatus => "check_bash_status",
             ToolSpec::SkillsList => "skills_list",
             ToolSpec::SkillView => "skill_view",
@@ -1104,7 +1214,6 @@ mod tests {
             "read_file",
             "write_file",
             "subagent_task",
-            "check_subagent_task_status",
             "check_bash_status",
             "skills_list",
             "skill_view",
@@ -1137,11 +1246,26 @@ mod tests {
         ] {
             assert!(has_tool(&specs, kind), "missing {kind}");
         }
-        for kind in [
-            "subagent_task",
-            "check_subagent_task_status",
-            "request_user_input",
-        ] {
+        for kind in ["subagent_task", "request_user_input"] {
+            assert!(!has_tool(&specs, kind), "unexpected {kind}");
+        }
+    }
+
+    #[test]
+    fn explicit_subagent_tools_are_filtered_from_child_agents() {
+        let mut definition = test_definition();
+        definition.tools = Some(vec![
+            ToolSpec::SkillsList,
+            ToolSpec::SubagentTask(Default::default()),
+            ToolSpec::RequestUserInput,
+            ToolSpec::UpdatePlan,
+        ]);
+
+        let specs = effective_tool_specs(&definition, true);
+
+        assert!(has_tool(&specs, "skills_list"));
+        assert!(has_tool(&specs, "update_plan"));
+        for kind in ["subagent_task", "request_user_input"] {
             assert!(!has_tool(&specs, kind), "unexpected {kind}");
         }
     }
@@ -1689,11 +1813,20 @@ fn build_all_tools(
 }
 
 fn effective_tool_specs(snapshot: &AgentDefinition, is_subagent_definition: bool) -> Vec<ToolSpec> {
-    match snapshot.tools.as_ref() {
+    let specs = match snapshot.tools.as_ref() {
         Some(tools) => tools.clone(),
         None if is_subagent_definition => default_subagent_builtin_tool_specs(),
         None => default_parent_builtin_tool_specs(),
+    };
+
+    if is_subagent_definition {
+        return specs
+            .into_iter()
+            .filter(|spec| !matches!(spec, ToolSpec::SubagentTask(_) | ToolSpec::RequestUserInput))
+            .collect();
     }
+
+    specs
 }
 
 fn capture_tool_error(

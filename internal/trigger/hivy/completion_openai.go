@@ -3,8 +3,10 @@ package hivy
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	openai "github.com/sashabaranov/go-openai"
+	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 // OpenAICompletionClient implements CompletionClient for OpenAI and all
@@ -23,7 +25,19 @@ func NewOpenAICompletionClient(baseURL, apiKey string) *OpenAICompletionClient {
 	if baseURL != "" {
 		cfg.BaseURL = baseURL
 	}
+	if providerheaders.IsOpenRouter("", cfg.BaseURL) {
+		cfg.HTTPClient = openRouterHeaderDoer{inner: cfg.HTTPClient}
+	}
 	return &OpenAICompletionClient{client: openai.NewClientWithConfig(cfg)}
+}
+
+type openRouterHeaderDoer struct {
+	inner openai.HTTPDoer
+}
+
+func (d openRouterHeaderDoer) Do(req *http.Request) (*http.Response, error) {
+	providerheaders.ApplyOpenRouter(req)
+	return d.inner.Do(req)
 }
 
 func (c *OpenAICompletionClient) ChatCompletion(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {

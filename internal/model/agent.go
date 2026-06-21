@@ -181,7 +181,6 @@ var RuntimeBuiltInToolIDs = []string{
 	"apply_patch",
 	"lsp",
 	"subagent_task",
-	"check_subagent_task_status",
 	"check_bash_status",
 	"skills_list",
 	"skill_view",

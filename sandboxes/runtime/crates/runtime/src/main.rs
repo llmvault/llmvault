@@ -432,6 +432,12 @@ fn placeholder_model() -> ModelConfig {
     ModelConfig::OpenaiCompatible {
         base_url: "http://127.0.0.1/unused".into(),
         model_id: "unclaimed-runtime-placeholder".into(),
+        canonical_model_id: Some("unclaimed-runtime-placeholder".into()),
+        provider_id: Some("openrouter".into()),
+        upstream_model_id: Some("unclaimed-runtime-placeholder".into()),
+        model_profile: None,
+        provider_options: Default::default(),
+        capabilities: None,
         api_key_env: "HIVY_PROXY_API_KEY".into(),
         temperature: Some(0.3),
         max_output_tokens: Some(1024),

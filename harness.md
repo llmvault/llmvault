@@ -748,7 +748,6 @@ Hivy's tool specs include subagent-related tools:
 Parent defaults include:
 
 - `subagent_task`
-- `check_subagent_task_status`
 - `wake`
 - `request_user_input`
 

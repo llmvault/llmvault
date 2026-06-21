@@ -24,6 +24,12 @@ fn test_agent_definition() -> domain::AgentDefinition {
         model: domain::ModelConfig::OpenaiCompatible {
             base_url: "http://localhost".to_string(),
             model_id: "test".to_string(),
+            canonical_model_id: Some("test".to_string()),
+            provider_id: Some("openrouter".to_string()),
+            upstream_model_id: Some("test".to_string()),
+            model_profile: None,
+            provider_options: Default::default(),
+            capabilities: None,
             api_key_env: "TEST_KEY".to_string(),
             temperature: None,
             max_output_tokens: None,
@@ -51,6 +57,32 @@ struct FakeOutbox {
 #[derive(Default)]
 struct FakeSubagentTaskRepo {
     tasks: Mutex<HashMap<String, SubagentTask>>,
+}
+
+impl FakeSubagentTaskRepo {
+    async fn complete_first_task(
+        &self,
+        state: SubagentTaskState,
+        result: &str,
+        error: Option<&str>,
+    ) -> String {
+        loop {
+            let id = self
+                .tasks
+                .lock()
+                .expect("subagent lock")
+                .keys()
+                .next()
+                .cloned();
+            if let Some(id) = id {
+                self.complete(&id, state, Utc::now(), result, error)
+                    .await
+                    .expect("complete fake subagent task");
+                return id;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
 }
 
 #[derive(Default)]
@@ -308,7 +340,7 @@ fn skill_manage_test_tool(workspace: PathBuf, outbox: Arc<FakeOutbox>) -> Arc<dy
 }
 
 #[tokio::test]
-async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
+async fn subagent_task_tool_returns_completed_foreground_result() {
     let repo = Arc::new(FakeSubagentTaskRepo::default());
     let mut parent = test_agent_definition();
     let helper = test_agent_definition();
@@ -323,13 +355,24 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
         },
         Some("parent-stream-1".to_string()),
     );
+    let repo_for_completion = repo.clone();
+    let completion = tokio::spawn(async move {
+        repo_for_completion
+            .complete_first_task(SubagentTaskState::Completed, "HELPER_OK", None)
+            .await
+    });
     let created = task_tool
         .call(json!({"agent": "helper", "goal": "Return HELPER_OK"}))
         .await
         .expect("create subagent task");
     let job_id = created["job_id"].as_str().expect("job id");
-    assert_eq!(created["state"], "queued");
+    let completed_job_id = completion.await.expect("completion task");
+    assert_eq!(completed_job_id, job_id);
+    assert_eq!(created["state"], "completed");
     assert_eq!(created["session_id"], format!("subagent-{job_id}").as_str());
+    assert_eq!(created["agent"], "helper");
+    assert_eq!(created["result"], "HELPER_OK");
+    assert_eq!(created["output"], "HELPER_OK");
     assert!(created.get("stream_url").is_none());
     assert!(created.get("stream_id").is_none());
 
@@ -343,16 +386,8 @@ async fn subagent_task_tool_creates_first_class_task_and_status_reads_repo() {
     assert_eq!(task.agent_name, "helper");
     assert_eq!(task.goal, "Return HELPER_OK");
     assert_eq!(task.stream_id.as_deref(), Some("parent-stream-1"));
-    assert_eq!(task.state, SubagentTaskState::Queued);
-
-    let status_tool = check_subagent_task_status_tool(repo);
-    let status = status_tool
-        .call(json!({"job_id": job_id}))
-        .await
-        .expect("check subagent task status");
-    assert_eq!(status["job_id"], job_id);
-    assert_eq!(status["state"], "queued");
-    assert_eq!(status["session_id"], format!("subagent-{job_id}").as_str());
+    assert_eq!(task.state, SubagentTaskState::Completed);
+    assert_eq!(task.result.as_deref(), Some("HELPER_OK"));
 }
 
 #[test]
