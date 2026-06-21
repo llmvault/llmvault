@@ -86,7 +86,7 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	if !strings.Contains(requirePromptString(t, company.Content), "<company>") {
 		t.Fatalf("company content is not XML wrapped: %q", requirePromptString(t, company.Content))
 	}
-	if len(dynamic) != 4 {
+	if len(dynamic) != 3 {
 		t.Fatalf("dynamic segment count = %d", len(dynamic))
 	}
 	if got := requireDynamicContextSegmentType(t, dynamic[0]); got != "dynamic_context" {

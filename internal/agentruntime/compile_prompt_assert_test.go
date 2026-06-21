@@ -52,36 +52,27 @@ func requireDynamicContextSegment(t *testing.T, segment SystemPromptSegment) run
 	return dynamicSegment
 }
 
-func requireMemorySegmentType(t *testing.T, segment SystemPromptSegment) string {
+func requireListSegment2Type(t *testing.T, segment SystemPromptSegment) string {
 	t.Helper()
-	memorySegment, err := segment.AsSystemPromptSegment2()
-	if err != nil {
-		t.Fatalf("decode memory segment: %v", err)
-	}
-	return string(memorySegment.Type)
-}
-
-func requireListSegment3Type(t *testing.T, segment SystemPromptSegment) string {
-	t.Helper()
-	listSegment, err := segment.AsSystemPromptSegment3()
+	listSegment, err := segment.AsSystemPromptSegment2()
 	if err != nil {
 		t.Fatalf("decode list segment: %v", err)
 	}
 	return string(listSegment.Type)
 }
 
-func requireListSegment4Type(t *testing.T, segment SystemPromptSegment) string {
+func requireListSegment3Type(t *testing.T, segment SystemPromptSegment) string {
 	t.Helper()
-	listSegment, err := segment.AsSystemPromptSegment4()
+	listSegment, err := segment.AsSystemPromptSegment3()
 	if err != nil {
 		t.Fatalf("decode mcp tools segment: %v", err)
 	}
 	return string(listSegment.Type)
 }
 
-func requireListSegment4(t *testing.T, segment SystemPromptSegment) runtimeapi.SystemPromptSegment4 {
+func requireListSegment3(t *testing.T, segment SystemPromptSegment) runtimeapi.SystemPromptSegment3 {
 	t.Helper()
-	listSegment, err := segment.AsSystemPromptSegment4()
+	listSegment, err := segment.AsSystemPromptSegment3()
 	if err != nil {
 		t.Fatalf("decode mcp tools segment: %v", err)
 	}

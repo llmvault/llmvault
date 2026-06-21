@@ -165,19 +165,16 @@ func TestBuildAgentSystemPrompt_CompilesAllRuntimePromptSegments(t *testing.T) {
 			t.Fatalf("dynamic context preamble missing %q: %#v", want, dynamicContext.Config)
 		}
 	}
-	if got := requireMemorySegmentType(t, dynamic[1]); got != "memory_context" {
+	if got := requireListSegment2Type(t, dynamic[1]); got != "skill_catalog" {
 		t.Fatalf("second dynamic segment = %q", got)
 	}
-	if got := requireListSegment3Type(t, dynamic[2]); got != "skill_catalog" {
-		t.Fatalf("third dynamic segment = %q", got)
-	}
-	if len(dynamic) != 4 {
+	if len(dynamic) != 3 {
 		t.Fatalf("dynamic segment count = %d", len(dynamic))
 	}
-	if got := requireListSegment4Type(t, dynamic[3]); got != "mcp_tools" {
-		t.Fatalf("fourth dynamic segment = %q", got)
+	if got := requireListSegment3Type(t, dynamic[2]); got != "mcp_tools" {
+		t.Fatalf("third dynamic segment = %q", got)
 	}
-	mcpTools := requireListSegment4(t, dynamic[3])
+	mcpTools := requireListSegment3(t, dynamic[2])
 	mcpPreamble := requirePromptString(t, mcpTools.Config.Preamble)
 	for _, want := range []string{
 		"Use these tools directly when they provide evidence or action.",

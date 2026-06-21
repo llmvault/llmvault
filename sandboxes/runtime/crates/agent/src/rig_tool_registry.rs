@@ -286,7 +286,7 @@ fn search_sessions_tool(repo: Arc<dyn EventRepo>) -> Arc<dyn JsonTool> {
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "search_sessions".into(),
-            description: "Search recent local conversation history from this sandbox. Use it to find prior user messages, agent replies, and compact tool summaries before relying on memory.".into(),
+            description: "Search recent local conversation history from this sandbox. Use it to find prior user messages, agent replies, and compact tool summaries before relying on older context.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -427,7 +427,7 @@ fn skill_manage_tool(
     Arc::new(DynamicTool::new(
         ToolDefinition {
             name: "skill_manage".into(),
-            description: "Manage filesystem-backed skills in /workspace/.skills. Actions: create, patch, edit, delete, write_file, remove_file. Use only when asked, or after confirming the user wants to save/update procedural memory.".into(),
+            description: "Manage filesystem-backed skills in /workspace/.skills. Actions: create, patch, edit, delete, write_file, remove_file. Use only when asked, or after confirming the user wants to save/update durable skill instructions.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {

@@ -287,26 +287,11 @@ func (e SystemPromptSegment1Type) Valid() bool {
 
 // Defines values for SystemPromptSegment2Type.
 const (
-	MemoryContext SystemPromptSegment2Type = "memory_context"
+	SkillCatalog SystemPromptSegment2Type = "skill_catalog"
 )
 
 // Valid indicates whether the value is a known member of the SystemPromptSegment2Type enum.
 func (e SystemPromptSegment2Type) Valid() bool {
-	switch e {
-	case MemoryContext:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SystemPromptSegment3Type.
-const (
-	SkillCatalog SystemPromptSegment3Type = "skill_catalog"
-)
-
-// Valid indicates whether the value is a known member of the SystemPromptSegment3Type enum.
-func (e SystemPromptSegment3Type) Valid() bool {
 	switch e {
 	case SkillCatalog:
 		return true
@@ -315,13 +300,13 @@ func (e SystemPromptSegment3Type) Valid() bool {
 	}
 }
 
-// Defines values for SystemPromptSegment4Type.
+// Defines values for SystemPromptSegment3Type.
 const (
-	McpTools SystemPromptSegment4Type = "mcp_tools"
+	McpTools SystemPromptSegment3Type = "mcp_tools"
 )
 
-// Valid indicates whether the value is a known member of the SystemPromptSegment4Type enum.
-func (e SystemPromptSegment4Type) Valid() bool {
+// Valid indicates whether the value is a known member of the SystemPromptSegment3Type enum.
+func (e SystemPromptSegment3Type) Valid() bool {
 	switch e {
 	case McpTools:
 		return true
@@ -693,9 +678,8 @@ type ContentResponse struct {
 
 // ContextConfig defines model for ContextConfig.
 type ContextConfig struct {
-	Compaction       *CompactionConfig    `json:"compaction,omitempty"`
-	MaxHistoryEvents *int32               `json:"max_history_events,omitempty"`
-	Memory           *MemoryContextConfig `json:"memory,omitempty"`
+	Compaction       *CompactionConfig `json:"compaction,omitempty"`
+	MaxHistoryEvents *int32            `json:"max_history_events,omitempty"`
 }
 
 // ControlCommandResult defines model for ControlCommandResult.
@@ -838,29 +822,6 @@ type McpSpec2 struct {
 
 // McpSpec2Transport defines model for McpSpec.2.Transport.
 type McpSpec2Transport string
-
-// MemoryContextConfig defines model for MemoryContextConfig.
-type MemoryContextConfig struct {
-	Entries     *[]MemoryContextEntry `json:"entries,omitempty"`
-	TokenBudget *int32                `json:"token_budget,omitempty"`
-}
-
-// MemoryContextEntry defines model for MemoryContextEntry.
-type MemoryContextEntry struct {
-	Confidence *float32 `json:"confidence,omitempty"`
-	Content    string   `json:"content"`
-	MemoryType *string  `json:"memory_type,omitempty"`
-	Source     *string  `json:"source,omitempty"`
-}
-
-// MemoryPromptSegment defines model for MemoryPromptSegment.
-type MemoryPromptSegment struct {
-	CloseWrapper *string `json:"close_wrapper,omitempty"`
-	ItemTemplate *string `json:"item_template,omitempty"`
-	OpenWrapper  *string `json:"open_wrapper,omitempty"`
-	Preamble     *string `json:"preamble,omitempty"`
-	Title        *string `json:"title,omitempty"`
-}
 
 // ModelConfig defines model for ModelConfig.
 type ModelConfig struct {
@@ -1169,7 +1130,7 @@ type SystemPromptSegment1Type string
 
 // SystemPromptSegment2 defines model for .
 type SystemPromptSegment2 struct {
-	Config MemoryPromptSegment      `json:"config"`
+	Config ListPromptSegment        `json:"config"`
 	Type   SystemPromptSegment2Type `json:"type"`
 }
 
@@ -1184,15 +1145,6 @@ type SystemPromptSegment3 struct {
 
 // SystemPromptSegment3Type defines model for SystemPromptSegment.3.Type.
 type SystemPromptSegment3Type string
-
-// SystemPromptSegment4 defines model for .
-type SystemPromptSegment4 struct {
-	Config ListPromptSegment        `json:"config"`
-	Type   SystemPromptSegment4Type `json:"type"`
-}
-
-// SystemPromptSegment4Type defines model for SystemPromptSegment.4.Type.
-type SystemPromptSegment4Type string
 
 // ToolFilter defines model for ToolFilter.
 type ToolFilter struct {
@@ -1845,32 +1797,6 @@ func (t *SystemPromptSegment) FromSystemPromptSegment3(v SystemPromptSegment3) e
 
 // MergeSystemPromptSegment3 performs a merge with any union data inside the SystemPromptSegment, using the provided SystemPromptSegment3
 func (t *SystemPromptSegment) MergeSystemPromptSegment3(v SystemPromptSegment3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSystemPromptSegment4 returns the union data inside the SystemPromptSegment as a SystemPromptSegment4
-func (t SystemPromptSegment) AsSystemPromptSegment4() (SystemPromptSegment4, error) {
-	var body SystemPromptSegment4
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSystemPromptSegment4 overwrites any union data inside the SystemPromptSegment as the provided SystemPromptSegment4
-func (t *SystemPromptSegment) FromSystemPromptSegment4(v SystemPromptSegment4) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSystemPromptSegment4 performs a merge with any union data inside the SystemPromptSegment, using the provided SystemPromptSegment4
-func (t *SystemPromptSegment) MergeSystemPromptSegment4(v SystemPromptSegment4) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

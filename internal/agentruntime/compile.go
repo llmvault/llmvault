@@ -97,18 +97,6 @@ type SkillSpec struct {
 	Pinned                       bool              `json:"pinned"`
 }
 
-type MemoryContext struct {
-	Entries     []MemoryContextEntry `json:"entries"`
-	TokenBudget int                  `json:"token_budget"`
-}
-
-type MemoryContextEntry struct {
-	Content    string   `json:"content"`
-	Source     string   `json:"source,omitempty"`
-	MemoryType string   `json:"memory_type,omitempty"`
-	Tags       []string `json:"tags,omitempty"`
-}
-
 func PrepareStartup(ctx context.Context, deps CompileDeps, agent *model.Agent) (*StartupSecrets, error) {
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("agent runtime startup: agent must have org_id")
@@ -253,9 +241,6 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	}
 	description := managedAgentDescription
 	fragments := buildPromptSections(ctx, deps.DB, agent, description)
-	contextMap := map[string]any{
-		"memory": emptyMemoryContext(),
-	}
 	modelID := strings.TrimSpace(agent.Model)
 	if modelID == "" {
 		modelID = DefaultAgentModel
@@ -277,7 +262,6 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		Model:            proxyModel(deps.Cfg, modelID),
 		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel)),
 		Limits:           defaultLimits(),
-		Context:          contextMap,
 		Tools:            tools,
 		McpServers:       mcpServers,
 		Skills:           skills,
@@ -290,7 +274,7 @@ func ControlPlaneOutboundChannels(cfg *config.Config, sandboxID uuid.UUID) []any
 	baseURL := cfg.RuntimeControlPlaneBaseURL()
 	return []any{
 		map[string]any{
-			"name":       "control-plane-memory",
+			"name":       "control-plane",
 			"type":       "webhook",
 			"url":        fmt.Sprintf("%s/internal/webhooks/agent/%s", baseURL, sandboxID),
 			"secret_env": AgentEnvRuntimeSecret,
