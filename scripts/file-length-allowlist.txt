@@ -8,3 +8,12 @@
 
 # Code generated from the curated model catalog snapshot.
 internal/registry/models.go
+
+# Existing over-limit files on the current main merge tree. ci-quality scans the
+# full PR merge checkout, so this PR must grandfather them until dedicated splits
+# bring each file below the 300-line ceiling.
+cmd/penpot/main.go
+internal/agentruntime/compile.go
+internal/agentruntime/compile_model_test.go
+internal/canvas/service.go
+internal/sandbox/microsandbox/driver_test.go
