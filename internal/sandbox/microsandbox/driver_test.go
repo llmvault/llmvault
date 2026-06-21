@@ -76,6 +76,7 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	if len(previewPorts) != len(msbapi.DefaultPreviewPorts()) {
 		t.Fatalf("preview_ports length = %d, want %d", len(previewPorts), len(msbapi.DefaultPreviewPorts()))
 	}
+	assertRuntimeHealthCheck(t, createReq, sandbox.AgentSandboxPort)
 	init, ok := createReq["init"].(map[string]any)
 	if !ok {
 		t.Fatalf("init = %T, want object", createReq["init"])
@@ -186,6 +187,7 @@ func TestDriverCreateSandboxUsesConfiguredPreviewPortsWithRuntimePort(t *testing
 			t.Fatalf("preview_ports = %v, want %v", got, want)
 		}
 	}
+	assertRuntimeHealthCheck(t, createReq, sandbox.AgentSandboxPort)
 }
 
 func TestDriverLifecycleStatusExecAndTemplate(t *testing.T) {
@@ -278,4 +280,25 @@ func jsonNumberArray(t *testing.T, value any) []int {
 		out = append(out, int(number))
 	}
 	return out
+}
+
+func assertRuntimeHealthCheck(t *testing.T, createReq map[string]any, port int) {
+	t.Helper()
+	checks, ok := createReq["health_checks"].([]any)
+	if !ok || len(checks) != 1 {
+		t.Fatalf("health_checks = %#v, want one check", createReq["health_checks"])
+	}
+	check, ok := checks[0].(map[string]any)
+	if !ok {
+		t.Fatalf("health check = %T, want object", checks[0])
+	}
+	if check["guest_port"] != float64(port) ||
+		check["type"] != "http" ||
+		check["method"] != "GET" ||
+		check["path"] != "/healthz" ||
+		check["expected_status"] != float64(http.StatusOK) ||
+		check["timeout_seconds"] != float64(30) ||
+		check["interval_ms"] != float64(250) {
+		t.Fatalf("health check = %#v", check)
+	}
 }

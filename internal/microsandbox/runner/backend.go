@@ -52,13 +52,23 @@ type CreateSandboxResponse struct {
 }
 
 type EnsureReadyRequest struct {
-	GuestPort      int `json:"guest_port"`
-	TimeoutSeconds int `json:"timeout_seconds"`
+	GuestPort      int                `json:"guest_port"`
+	TimeoutSeconds int                `json:"timeout_seconds"`
+	HealthCheck    *HealthCheckConfig `json:"health_check,omitempty"`
 }
 
 type EnsureReadyResponse struct {
 	Status   string `json:"status"`
 	HostPort int    `json:"host_port"`
+}
+
+type HealthCheckConfig struct {
+	Type           string `json:"type"`
+	Method         string `json:"method"`
+	Path           string `json:"path"`
+	ExpectedStatus int    `json:"expected_status"`
+	TimeoutSeconds int    `json:"timeout_seconds"`
+	IntervalMS     int    `json:"interval_ms"`
 }
 
 type ConnectionsResponse struct {

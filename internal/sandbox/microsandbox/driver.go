@@ -105,6 +105,7 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		"env":           opts.EnvVars,
 		"metadata":      opts.Labels,
 		"preview_ports": d.previewPorts(opts.ExposedPorts),
+		"health_checks": d.runtimeHealthChecks(d.runtimePort),
 		"init":          agentRuntimeInit,
 	}
 	var out createSandboxResponse
@@ -147,7 +148,8 @@ func (d *Driver) CreateWarmSlot(ctx context.Context, opts sandbox.WarmSlotCreate
 		"disk_gb":       opts.Disk,
 		"env":           d.warmSlotEnv(opts, port),
 		"metadata":      metadata,
-		"preview_ports": d.previewPorts(nil),
+		"preview_ports": uniqueValidPorts(append(d.previewPorts(nil), port)),
+		"health_checks": d.runtimeHealthChecks(port),
 		"init":          agentRuntimeInit,
 	}
 	var out createSandboxResponse
@@ -184,9 +186,24 @@ func (d *Driver) UsesWarmPool() bool { return true }
 
 func (d *Driver) previewPorts(exposedPorts []int) []int {
 	if len(exposedPorts) == 0 {
-		return append([]int(nil), d.defaultPreviewPorts...)
+		return uniqueValidPorts(append(append([]int(nil), d.defaultPreviewPorts...), d.runtimePort))
 	}
 	return uniqueValidPorts(append(append([]int(nil), exposedPorts...), d.runtimePort))
+}
+
+func (d *Driver) runtimeHealthChecks(port int) []map[string]any {
+	if port <= 0 {
+		return nil
+	}
+	return []map[string]any{{
+		"guest_port":      port,
+		"type":            "http",
+		"method":          "GET",
+		"path":            "/healthz",
+		"expected_status": 200,
+		"timeout_seconds": 30,
+		"interval_ms":     250,
+	}}
 }
 
 func uniqueValidPorts(ports []int) []int {

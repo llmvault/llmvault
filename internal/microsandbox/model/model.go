@@ -60,13 +60,19 @@ type Sandbox struct {
 }
 
 type SandboxPort struct {
-	ID        string `gorm:"primaryKey"`
-	SandboxID string `gorm:"not null;index:idx_sandbox_ports_sandbox_guest,unique"`
-	GuestPort int    `gorm:"not null;index:idx_sandbox_ports_sandbox_guest,unique"`
-	HostPort  int    `gorm:"not null"`
-	Protocol  string `gorm:"not null;default:'http'"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                        string `gorm:"primaryKey"`
+	SandboxID                 string `gorm:"not null;index:idx_sandbox_ports_sandbox_guest,unique"`
+	GuestPort                 int    `gorm:"not null;index:idx_sandbox_ports_sandbox_guest,unique"`
+	HostPort                  int    `gorm:"not null"`
+	Protocol                  string `gorm:"not null;default:'http'"`
+	HealthCheckType           string `gorm:"type:text;not null;default:''"`
+	HealthCheckMethod         string `gorm:"type:text;not null;default:''"`
+	HealthCheckPath           string `gorm:"type:text;not null;default:''"`
+	HealthCheckExpectedStatus int    `gorm:"not null;default:0"`
+	HealthCheckTimeoutSeconds int    `gorm:"not null;default:0"`
+	HealthCheckIntervalMS     int    `gorm:"not null;default:0"`
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }
 
 type Template struct {

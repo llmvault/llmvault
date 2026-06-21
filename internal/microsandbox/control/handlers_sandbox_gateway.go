@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -31,8 +32,9 @@ type ensureReadyRequest struct {
 }
 
 type runnerEnsureReadyRequest struct {
-	GuestPort      int `json:"guest_port"`
-	TimeoutSeconds int `json:"timeout_seconds"`
+	GuestPort      int                       `json:"guest_port"`
+	TimeoutSeconds int                       `json:"timeout_seconds"`
+	HealthCheck    *runnerHealthCheckRequest `json:"health_check,omitempty"`
 }
 
 type runnerEnsureReadyResponse struct {
@@ -89,6 +91,17 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	var port model.SandboxPort
+	if err := s.db.WithContext(ctx).
+		Where("sandbox_id = ? AND guest_port = ?", sb.ID, req.GuestPort).
+		First(&port).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "port not previewable"})
+			return
+		}
+		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to load sandbox port"})
+		return
+	}
 	reservedRuntime := false
 	if !runtimeReservationHeld(sb.Status) {
 		if err := reserveRunnerReservationForSandbox(ctx, s.db, sb, runtimeReservationSize(sb)); err != nil {
@@ -101,6 +114,7 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 	err = s.client.Post(ctx, runner.APIURL, "/v1/sandboxes/"+sb.ID+"/ensure-ready", runnerEnsureReadyRequest{
 		GuestPort:      req.GuestPort,
 		TimeoutSeconds: int(timeout.Seconds()),
+		HealthCheck:    runnerHealthCheckForPort(port),
 	}, &out)
 	now := time.Now().UTC()
 	if err != nil {

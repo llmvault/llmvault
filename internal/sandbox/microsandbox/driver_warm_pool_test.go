@@ -68,6 +68,7 @@ func TestDriverCreateWarmSlotCreatesRunningRuntimeEndpoint(t *testing.T) {
 	if createReq["image_ref"] != "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.4.0-amd64" {
 		t.Fatalf("image_ref = %v", createReq["image_ref"])
 	}
+	assertRuntimeHealthCheck(t, createReq, sandbox.AgentSandboxPort)
 	if createReq["cpu"] != float64(1) || createReq["memory_mb"] != float64(2048) || createReq["disk_gb"] != float64(10) {
 		t.Fatalf("resources = cpu:%v memory:%v disk:%v, want 1/2048/10", createReq["cpu"], createReq["memory_mb"], createReq["disk_gb"])
 	}

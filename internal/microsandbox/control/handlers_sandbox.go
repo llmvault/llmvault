@@ -18,20 +18,21 @@ import (
 )
 
 type createSandboxRequest struct {
-	OrgID                 string             `json:"org_id"`
-	Name                  string             `json:"name"`
-	ImageRef              string             `json:"image_ref"`
-	TemplateID            string             `json:"template_id"`
-	Size                  string             `json:"size"`
-	CPU                   int                `json:"cpu"`
-	MemoryMB              int                `json:"memory_mb"`
-	DiskGB                int                `json:"disk_gb"`
-	PreviewPorts          []int              `json:"preview_ports"`
-	PreviewPassword       string             `json:"preview_password"`
-	AutoSleepAfterSeconds int                `json:"auto_sleep_after_seconds"`
-	Init                  *sandboxInitConfig `json:"init"`
-	Env                   map[string]string  `json:"env"`
-	Metadata              map[string]any     `json:"metadata"`
+	OrgID                 string                      `json:"org_id"`
+	Name                  string                      `json:"name"`
+	ImageRef              string                      `json:"image_ref"`
+	TemplateID            string                      `json:"template_id"`
+	Size                  string                      `json:"size"`
+	CPU                   int                         `json:"cpu"`
+	MemoryMB              int                         `json:"memory_mb"`
+	DiskGB                int                         `json:"disk_gb"`
+	PreviewPorts          []int                       `json:"preview_ports"`
+	PreviewPassword       string                      `json:"preview_password"`
+	HealthChecks          []sandboxHealthCheckRequest `json:"health_checks"`
+	AutoSleepAfterSeconds int                         `json:"auto_sleep_after_seconds"`
+	Init                  *sandboxInitConfig          `json:"init"`
+	Env                   map[string]string           `json:"env"`
+	Metadata              map[string]any              `json:"metadata"`
 }
 
 type sandboxResponse struct {
@@ -62,6 +63,11 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.PreviewPorts) == 0 {
 		req.PreviewPorts = api.DefaultPreviewPorts()
+	}
+	healthChecks, err := validateSandboxHealthChecks(req.HealthChecks, req.PreviewPorts)
+	if err != nil {
+		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: err.Error()})
+		return
 	}
 	if req.TemplateID != "" {
 		template, err := s.loadTemplateByID(r.Context(), req.TemplateID)
@@ -145,9 +151,13 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	ports := make([]model.SandboxPort, 0, len(createResp.Ports))
 	for _, p := range createResp.Ports {
-		ports = append(ports, model.SandboxPort{
+		port := model.SandboxPort{
 			ID: uuid.NewString(), SandboxID: sb.ID, GuestPort: p.GuestPort, HostPort: p.HostPort, Protocol: "http",
-		})
+		}
+		if check, ok := healthChecks[p.GuestPort]; ok {
+			applyHealthCheckToPort(&port, check)
+		}
+		ports = append(ports, port)
 	}
 	now := time.Now().UTC()
 	sleepAfterAt := nextSleepAfter(sb, now)
