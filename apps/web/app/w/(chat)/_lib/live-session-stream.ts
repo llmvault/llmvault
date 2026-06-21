@@ -16,7 +16,7 @@ export function appendLiveSessionStreamFrame(
   frame: DirectSessionStreamFrame
 ): SessionEventResponse[] {
   if (!displayableEvents.has(frame.event)) return events
-  const next = frameToSessionEvent(frame)
+  const next = streamFrameToSessionEvent(frame)
   if (!next) return events
 
   if (next.event_type === "thinking" || next.event_type === "token") {
@@ -38,7 +38,7 @@ export function isTerminalStreamFrame(frame: DirectSessionStreamFrame) {
   )
 }
 
-function frameToSessionEvent(
+export function streamFrameToSessionEvent(
   frame: DirectSessionStreamFrame
 ): SessionEventResponse | null {
   if (
@@ -52,7 +52,7 @@ function frameToSessionEvent(
   const eventID = stringValue(payload, "event_id") || frame.id
   return {
     id: eventID || `${frame.event}-${Date.now()}`,
-    session_id: frame.sessionId,
+    session_id: stringValue(payload, "session_id") || frame.sessionId,
     event_id: eventID,
     event_type: frame.event,
     sequence_number: numberValue(payload, "sequence") ?? 0,
