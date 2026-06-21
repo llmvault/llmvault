@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "slug": "design",
+  "name": "Design",
+  "description": "Create, edit, inspect, and export Canvas design files from Hivy sandboxes.",
+  "category": "Design",
+  "icon": "lucide:palette",
+  "icon_color": "#14B8A6",
+  "developer": "Hivy",
+  "official": true,
+  "capabilities": ["Read", "Write", "Browser"],
+  "examples": [
+    "Create a new Canvas file for this app redesign",
+    "Open the current Canvas file and add a landing page mockup",
+    "Export the current Canvas board as a PNG"
+  ],
+  "links": {
+    "website": "https://www.usehivy.com/"
+  },
+  "long_description": "Use the Design plugin to work with Hivy-managed Canvas files. Agents use the built-in canvas CLI to open an authenticated browser session, switch between files and pages, call Canvas MCP tools, modify live design files, and export design artifacts while users watch collaboration in real time.",
+  "plugin_version": "1",
+  "enabled": true
+}

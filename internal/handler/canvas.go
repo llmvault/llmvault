@@ -23,7 +23,9 @@ import (
 type CanvasService interface {
 	SessionURLForUser(ctx context.Context, orgID, userID, canvasFileID uuid.UUID, pageID *uuid.UUID) (*canvaspkg.SessionURLResult, error)
 	CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, name string) (*canvaspkg.ProjectCreateResult, error)
+	ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*canvaspkg.ProjectListResult, error)
 	CreateFileForAgent(ctx context.Context, agentID, projectID uuid.UUID, name string) (*canvaspkg.FileCreateResult, error)
+	ListFilesForAgent(ctx context.Context, agentID uuid.UUID) (*canvaspkg.FileListResult, error)
 }
 
 type CanvasHandler struct {
@@ -119,6 +121,19 @@ func (h *CanvasHandler) CreateAgentProject(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusCreated, result)
 }
 
+func (h *CanvasHandler) ListAgentProjects(w http.ResponseWriter, r *http.Request) {
+	agentID, ok := h.authorizeRuntimeRequest(w, r)
+	if !ok {
+		return
+	}
+	result, err := h.svc.ListProjectsForAgent(r.Context(), agentID)
+	if err != nil {
+		h.writeRuntimeCanvasError(w, r, err, "list canvas projects", agentID)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (h *CanvasHandler) CreateAgentFile(w http.ResponseWriter, r *http.Request) {
 	agentID, ok := h.authorizeRuntimeRequest(w, r)
 	if !ok {
@@ -140,6 +155,19 @@ func (h *CanvasHandler) CreateAgentFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusCreated, result)
+}
+
+func (h *CanvasHandler) ListAgentFiles(w http.ResponseWriter, r *http.Request) {
+	agentID, ok := h.authorizeRuntimeRequest(w, r)
+	if !ok {
+		return
+	}
+	result, err := h.svc.ListFilesForAgent(r.Context(), agentID)
+	if err != nil {
+		h.writeRuntimeCanvasError(w, r, err, "list canvas files", agentID)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *CanvasHandler) authorizeRuntimeRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

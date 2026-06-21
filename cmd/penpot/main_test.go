@@ -2,13 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestWorkspaceURLBuildsPenpotWorkspaceURL(t *testing.T) {
+func TestWorkspaceURLBuildsCanvasWorkspaceURL(t *testing.T) {
 	t.Setenv(envCanvasURL, "https://canvas.usehivy.com/")
 	t.Setenv(envCanvasTeamID, "team-1")
 	got := workspaceURL("file-1", "page-1")
@@ -43,7 +45,7 @@ func TestDecodeMCPBodyReadsEventStreamData(t *testing.T) {
 func TestStateRoundTripUsesConfiguredStateDir(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("PENPOT_CLI_STATE_DIR", dir)
-	want := cliState{CanvasFileID: "canvas-file", PenpotFileID: "penpot-file"}
+	want := cliState{FileID: "canvas-file"}
 	if err := saveState(want); err != nil {
 		t.Fatalf("saveState: %v", err)
 	}
@@ -51,10 +53,72 @@ func TestStateRoundTripUsesConfiguredStateDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadState: %v", err)
 	}
-	if got.CanvasFileID != want.CanvasFileID || got.PenpotFileID != want.PenpotFileID || got.UpdatedAt == "" {
+	if got.FileID != want.FileID || got.UpdatedAt == "" {
 		t.Fatalf("state = %#v, want %#v with UpdatedAt", got, want)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "state.json")); err != nil {
 		t.Fatalf("state file missing: %v", err)
+	}
+}
+
+func TestDoctorDoesNotExposeRuntimeVariableNames(t *testing.T) {
+	dir := t.TempDir()
+	browserPath := filepath.Join(dir, "browser")
+	if err := os.WriteFile(browserPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write fake browser: %v", err)
+	}
+	t.Setenv("PATH", dir)
+	for _, key := range []string{
+		envCanvasURL,
+		envCanvasTeamID,
+		envCanvasProfileID,
+		envCanvasSessionJWT,
+		envCanvasMCPURL,
+		envControlPlaneURL,
+		envAgentID,
+		envRuntimeSecret,
+	} {
+		t.Setenv(key, "")
+	}
+	err := doctor()
+	if err == nil {
+		t.Fatalf("doctor unexpectedly succeeded")
+	}
+	message := err.Error()
+	if !strings.Contains(message, "canvas runtime configuration") {
+		t.Fatalf("doctor error = %q", message)
+	}
+	if strings.Contains(message, "PENPOT_") || strings.Contains(message, "HIVY_") {
+		t.Fatalf("doctor exposed runtime variable names: %q", message)
+	}
+}
+
+func TestGetControlPlaneUsesRuntimeAuth(t *testing.T) {
+	const runtimeSecret = "runtime-secret"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatalf("method = %s", r.Method)
+		}
+		if r.URL.Path != "/internal/agents/agent-1/canvas/projects" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer "+runtimeSecret {
+			t.Fatalf("authorization = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"projects":[{"project_id":"project-1","name":"Project"}]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv(envControlPlaneURL, server.URL)
+	t.Setenv(envRuntimeSecret, runtimeSecret)
+
+	var out map[string]any
+	if err := getControlPlane("/internal/agents/agent-1/canvas/projects", &out); err != nil {
+		t.Fatalf("getControlPlane: %v", err)
+	}
+	projects, ok := out["projects"].([]any)
+	if !ok || len(projects) != 1 {
+		t.Fatalf("projects = %#v", out["projects"])
 	}
 }

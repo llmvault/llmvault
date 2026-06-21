@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -122,6 +123,33 @@ func TestMintSessionJWTUsesOneYearTTLAndCanvasClaims(t *testing.T) {
 	ttl := time.Until(exp.Time)
 	if ttl < SessionTTL-time.Minute || ttl > SessionTTL+time.Minute {
 		t.Fatalf("ttl = %s, want about %s", ttl, SessionTTL)
+	}
+}
+
+func TestRuntimeResultsExposeCanvasIDsOnly(t *testing.T) {
+	projectID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	fileID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+	teamID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+
+	raw, err := json.Marshal(map[string]any{
+		"project": ProjectCreateResult{ProjectID: projectID, TeamID: teamID, Name: "Project"},
+		"file":    FileCreateResult{FileID: fileID, ProjectID: projectID, TeamID: teamID, Name: "File"},
+		"projects": ProjectListResult{Projects: []ProjectListItem{
+			{ProjectID: projectID, Name: "Project"},
+		}},
+		"files": FileListResult{Files: []FileListItem{
+			{FileID: fileID, ProjectID: projectID, Name: "File"},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal runtime results: %v", err)
+	}
+	encoded := string(raw)
+	if strings.Contains(encoded, "penpot_") || strings.Contains(encoded, "canvas_file_id") || strings.Contains(encoded, "canvas_project_id") || strings.Contains(encoded, "session_url") {
+		t.Fatalf("runtime results exposed internal id fields: %s", encoded)
+	}
+	if !strings.Contains(encoded, `"project_id"`) || !strings.Contains(encoded, `"file_id"`) {
+		t.Fatalf("runtime results missing public id fields: %s", encoded)
 	}
 }
 
