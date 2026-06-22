@@ -2,6 +2,8 @@ package runtimestream
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -17,33 +19,69 @@ const (
 	AppendAccepted  = "accepted"
 	AppendDuplicate = "duplicate"
 	AppendGap       = "gap"
+	AppendConflict  = "conflict"
 )
 
 var appendScript = redis.NewScript(`
-local last = redis.call("GET", KEYS[1])
-local current = 0
+	local last = redis.call("GET", KEYS[1])
+	local current = 0
 if last then
 	current = tonumber(last)
 end
 
-local seq = tonumber(ARGV[1])
-if seq <= current then
-	return {"duplicate", tostring(current), ""}
-end
+	local seq = tonumber(ARGV[1])
+	if seq <= current then
+		local existing = redis.call("HGET", KEYS[3], tostring(seq))
+		if not existing then
+			return {"conflict", tostring(current + 1), "", "runtime_seq identity is no longer retained"}
+		end
+		if existing == ARGV[5] then
+			return {"duplicate", tostring(current + 1), "", ""}
+		end
+		return {"conflict", tostring(current + 1), "", "runtime_seq conflicts with an existing event"}
+	end
 
-if seq ~= current + 1 then
-	return {"gap", tostring(current + 1), ""}
-end
+	if seq ~= current + 1 then
+		return {"gap", tostring(current + 1), "", ""}
+	end
 
-local stream_id = redis.call("XADD", KEYS[2], "*", "event", ARGV[2])
-redis.call("SET", KEYS[1], tostring(seq))
-redis.call("PUBLISH", ARGV[3], ARGV[4])
-return {"accepted", tostring(seq), stream_id}
-`)
+	local maxlen = tonumber(ARGV[6])
+	local stream_id
+	if maxlen and maxlen > 0 then
+		stream_id = redis.call("XADD", KEYS[2], "MAXLEN", "~", maxlen, "*", "event", ARGV[2], "identity", ARGV[5], "event_id", ARGV[8], "payload_hash", ARGV[9])
+	else
+		stream_id = redis.call("XADD", KEYS[2], "*", "event", ARGV[2], "identity", ARGV[5], "event_id", ARGV[8], "payload_hash", ARGV[9])
+	end
+	redis.call("HSET", KEYS[3], tostring(seq), ARGV[5])
+	redis.call("SET", KEYS[1], tostring(seq))
+	local ttl = tonumber(ARGV[7])
+	if ttl and ttl > 0 then
+		redis.call("PEXPIRE", KEYS[1], ttl)
+		redis.call("PEXPIRE", KEYS[3], ttl)
+	end
+	redis.call("PUBLISH", ARGV[3], ARGV[4])
+	return {"accepted", tostring(seq + 1), stream_id, ""}
+	`)
+
+var checkpointProjectedScript = redis.NewScript(`
+	local current = redis.call("GET", KEYS[1])
+	local seq = tonumber(ARGV[1])
+	if (not current) or seq > tonumber(current) then
+		redis.call("SET", KEYS[1], ARGV[1])
+		local ttl = tonumber(ARGV[2])
+		if ttl and ttl > 0 then
+			redis.call("PEXPIRE", KEYS[1], ttl)
+		end
+		return 1
+	end
+	return 0
+	`)
 
 type Store struct {
-	client     *redis.Client
-	shardCount int
+	client       *redis.Client
+	shardCount   int
+	streamMaxLen int64
+	sessionTTL   time.Duration
 }
 
 type AppendResult struct {
@@ -53,13 +91,20 @@ type AppendResult struct {
 	StreamKey   string
 	StreamID    string
 	Duplicate   bool
+	Conflict    bool
+	Error       string
 }
 
 func NewStore(client *redis.Client, shardCount int) *Store {
 	if shardCount <= 0 {
 		shardCount = DefaultShardCount
 	}
-	return &Store{client: client, shardCount: shardCount}
+	return &Store{
+		client:       client,
+		shardCount:   shardCount,
+		streamMaxLen: DefaultStreamMaxLen,
+		sessionTTL:   DefaultSessionCheckpointTTL,
+	}
 }
 
 func (s *Store) Redis() *redis.Client {
@@ -76,6 +121,20 @@ func (s *Store) ShardCount() int {
 	return s.shardCount
 }
 
+func (s *Store) SessionCheckpointTTL() time.Duration {
+	if s == nil || s.sessionTTL <= 0 {
+		return DefaultSessionCheckpointTTL
+	}
+	return s.sessionTTL
+}
+
+func (s *Store) StreamMaxLen() int64 {
+	if s == nil || s.streamMaxLen <= 0 {
+		return DefaultStreamMaxLen
+	}
+	return s.streamMaxLen
+}
+
 func (s *Store) Append(ctx context.Context, event Event) (AppendResult, error) {
 	if s == nil || s.client == nil {
 		return AppendResult{}, fmt.Errorf("runtime stream store is not configured")
@@ -85,6 +144,10 @@ func (s *Store) Append(ctx context.Context, event Event) (AppendResult, error) {
 		return AppendResult{}, err
 	}
 	eventRaw, err := event.Marshal()
+	if err != nil {
+		return AppendResult{}, err
+	}
+	identity, payloadHash, err := eventIdentity(event)
 	if err != nil {
 		return AppendResult{}, err
 	}
@@ -101,39 +164,62 @@ func (s *Store) Append(ctx context.Context, event Event) (AppendResult, error) {
 
 	shard := ShardForSession(event.SessionID, s.ShardCount())
 	streamKey := StreamKey(shard)
-	keys := []string{LastSeqKey(event.SessionID), streamKey}
+	keys := []string{LastSeqKey(event.SessionID), streamKey, EventIndexKey(event.SessionID)}
 	args := []any{
 		strconv.FormatInt(event.RuntimeSeq, 10),
 		string(eventRaw),
 		LiveChannel(event.SessionID),
 		string(liveRaw),
+		identity,
+		strconv.FormatInt(s.StreamMaxLen(), 10),
+		strconv.FormatInt(s.SessionCheckpointTTL().Milliseconds(), 10),
+		event.EventID,
+		payloadHash,
 	}
 	raw, err := appendScript.Run(ctx, s.client, keys, args...).Result()
 	if err != nil {
 		return AppendResult{}, fmt.Errorf("append runtime stream event: %w", err)
 	}
-	status, seq, streamID, err := parseAppendScriptResult(raw)
+	status, expectedSeq, streamID, message, err := parseAppendScriptResult(raw)
 	if err != nil {
 		return AppendResult{}, err
 	}
 	result := AppendResult{
-		Status:     status,
-		RuntimeSeq: event.RuntimeSeq,
-		StreamKey:  streamKey,
-		StreamID:   streamID,
-		Duplicate:  status == AppendDuplicate,
+		Status:      status,
+		RuntimeSeq:  event.RuntimeSeq,
+		ExpectedSeq: expectedSeq,
+		StreamKey:   streamKey,
+		StreamID:    streamID,
+		Duplicate:   status == AppendDuplicate,
+		Conflict:    status == AppendConflict,
+		Error:       message,
 	}
 	switch status {
-	case AppendAccepted:
-		result.ExpectedSeq = seq + 1
-	case AppendDuplicate:
-		result.ExpectedSeq = seq + 1
-	case AppendGap:
-		result.ExpectedSeq = seq
+	case AppendAccepted, AppendDuplicate, AppendGap, AppendConflict:
 	default:
 		return AppendResult{}, fmt.Errorf("unexpected append status %q", status)
 	}
 	return result, nil
+}
+
+func (s *Store) CheckpointProjected(ctx context.Context, sessionID string, runtimeSeq int64) error {
+	if s == nil || s.client == nil {
+		return fmt.Errorf("runtime stream store is not configured")
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" || runtimeSeq <= 0 {
+		return nil
+	}
+	if err := checkpointProjectedScript.Run(
+		ctx,
+		s.client,
+		[]string{ProjectedSeqKey(sessionID)},
+		strconv.FormatInt(runtimeSeq, 10),
+		strconv.FormatInt(s.SessionCheckpointTTL().Milliseconds(), 10),
+	).Err(); err != nil {
+		return fmt.Errorf("checkpoint projected runtime seq: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) PublishCommitted(ctx context.Context, event model.SessionEvent) error {
@@ -175,31 +261,55 @@ func (s *Store) EnsureConsumerGroup(ctx context.Context, shard int, group string
 	return fmt.Errorf("ensure runtime stream consumer group %s on shard %d: %w", group, shard, err)
 }
 
-func parseAppendScriptResult(raw any) (status string, seq int64, streamID string, err error) {
+func eventIdentity(event Event) (identity string, payloadHash string, err error) {
+	payloadRaw, err := json.Marshal(event.Payload)
+	if err != nil {
+		return "", "", fmt.Errorf("marshal runtime event payload for hash: %w", err)
+	}
+	sum := sha256.Sum256(payloadRaw)
+	payloadHash = hex.EncodeToString(sum[:])
+	identityRaw, err := json.Marshal(map[string]string{
+		"event_id":     event.EventID,
+		"event_type":   event.EventType,
+		"payload_hash": payloadHash,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("marshal runtime event identity: %w", err)
+	}
+	return string(identityRaw), payloadHash, nil
+}
+
+func parseAppendScriptResult(raw any) (status string, expectedSeq int64, streamID string, message string, err error) {
 	items, ok := raw.([]any)
 	if !ok {
-		return "", 0, "", fmt.Errorf("unexpected append script result type %T", raw)
+		return "", 0, "", "", fmt.Errorf("unexpected append script result type %T", raw)
 	}
-	if len(items) != 3 {
-		return "", 0, "", fmt.Errorf("unexpected append script result length %d", len(items))
+	if len(items) != 3 && len(items) != 4 {
+		return "", 0, "", "", fmt.Errorf("unexpected append script result length %d", len(items))
 	}
 	status, err = appendResultString(items[0])
 	if err != nil {
-		return "", 0, "", err
+		return "", 0, "", "", err
 	}
 	seqText, err := appendResultString(items[1])
 	if err != nil {
-		return "", 0, "", err
+		return "", 0, "", "", err
 	}
-	seq, err = strconv.ParseInt(seqText, 10, 64)
+	expectedSeq, err = strconv.ParseInt(seqText, 10, 64)
 	if err != nil {
-		return "", 0, "", fmt.Errorf("parse append sequence %q: %w", seqText, err)
+		return "", 0, "", "", fmt.Errorf("parse append sequence %q: %w", seqText, err)
 	}
 	streamID, err = appendResultString(items[2])
 	if err != nil {
-		return "", 0, "", err
+		return "", 0, "", "", err
 	}
-	return status, seq, streamID, nil
+	if len(items) == 4 {
+		message, err = appendResultString(items[3])
+		if err != nil {
+			return "", 0, "", "", err
+		}
+	}
+	return status, expectedSeq, streamID, message, nil
 }
 
 func appendResultString(raw any) (string, error) {

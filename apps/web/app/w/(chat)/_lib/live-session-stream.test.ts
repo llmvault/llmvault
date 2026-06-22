@@ -62,6 +62,42 @@ describe("live session stream", () => {
     } satisfies Partial<SessionEventResponse>)
   })
 
+  it("ignores replayed token chunks that are older than the merged live event", () => {
+    const initial = appendLiveSessionStreamFrame(
+      [],
+      frame("token", {
+        event_id: "event-token-1",
+        sequence: 1,
+        text: "Hello",
+        turn_id: "turn_1",
+      })
+    )
+    const merged = appendLiveSessionStreamFrame(
+      initial,
+      frame("token", {
+        event_id: "event-token-2",
+        sequence: 2,
+        text: " world",
+        turn_id: "turn_1",
+      })
+    )
+
+    const replayed = appendLiveSessionStreamFrame(
+      merged,
+      frame("token", {
+        event_id: "event-token-1",
+        sequence: 1,
+        text: "Hello",
+        turn_id: "turn_1",
+      })
+    )
+
+    expect(replayed).toBe(merged)
+    expect(replayed[0]?.payload).toMatchObject({
+      text: "Hello world",
+    })
+  })
+
   it("treats error frames as terminal", () => {
     expect(isTerminalStreamFrame(frame("error", { message: "failed" }))).toBe(
       true

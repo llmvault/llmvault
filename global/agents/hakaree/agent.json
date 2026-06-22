@@ -13,8 +13,9 @@
   "runtime": {
     "sandbox_strategy": "per_session",
     "sandbox_image": "developer",
-    "model": "deepseek-v4-pro",
+    "model": "deepseek-v4-flash",
     "available_models": [
+      "deepseek-v4-flash",
       "deepseek-v4-pro",
       "crof-deepseek-v4-pro",
       "crof-deepseek-v4-flash",

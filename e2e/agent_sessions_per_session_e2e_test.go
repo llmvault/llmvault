@@ -24,6 +24,9 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	if agent.SandboxStrategy != "per_session" {
 		t.Fatalf("installed Hakaree sandbox_strategy=%q want per_session", agent.SandboxStrategy)
 	}
+	if agent.Model != "deepseek-v4-flash" {
+		t.Fatalf("installed Hakaree model=%q want deepseek-v4-flash", agent.Model)
+	}
 	assertAgentSessionsAgentSandboxImage(t, "Hakaree", agent, model.SandboxImageDeveloper)
 	if agent.Sandbox != nil {
 		t.Fatalf("per-session catalog agent should not return an always-on sandbox at install time: %+v", agent.Sandbox)
@@ -76,12 +79,14 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 
 	accessA := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID)
 	accessB := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID)
+	requireAgentSessionsSandboxStreamAccess(t, accessA, sessionA.Session.ID)
+	requireAgentSessionsSandboxStreamAccess(t, accessB, sessionB.Session.ID)
 	if accessA.SandboxBaseURL == accessB.SandboxBaseURL {
 		t.Fatalf("per-session sandbox base URLs are identical: %s", accessA.SandboxBaseURL)
 	}
 
-	streamA := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID)
-	streamB := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID)
+	streamA := agentSessionsStartSandboxStreamWithAccess(t, ctx, sessionA.Session.ID, accessA)
+	streamB := agentSessionsStartSandboxStreamWithAccess(t, ctx, sessionB.Session.ID, accessB)
 
 	sandboxA := agentSessionsWaitForSessionSandbox(t, ctx, orgID, sessionA.Session.ID)
 	sandboxB := agentSessionsWaitForSessionSandbox(t, ctx, orgID, sessionB.Session.ID)
@@ -115,9 +120,8 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 
 	msgA := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID, agentSessionsPerSessionSecondPrompt(pathA, stateMarkerA, missingMarkerA, secondMarkerA))
 	msgB := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID, agentSessionsPerSessionSecondPrompt(pathB, stateMarkerB, missingMarkerB, secondMarkerB))
-	if msgA.Event != nil || msgB.Event != nil {
-		t.Fatalf("per-session follow-up messages returned optimistic events: a=%+v b=%+v", msgA, msgB)
-	}
+	assertAgentSessionsBackendOwnedMutationEvent(t, msgA.Event)
+	assertAgentSessionsBackendOwnedMutationEvent(t, msgB.Event)
 
 	stateA := streamA.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(agentSessionsToolResultOutput(event), stateMarkerA)

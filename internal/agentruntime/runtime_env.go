@@ -240,7 +240,7 @@ func RuntimeEventWebSocketURL(cfg *config.Config, sandboxID uuid.UUID) string {
 	} else if strings.HasPrefix(base, "https://") {
 		base = "wss://" + strings.TrimPrefix(base, "https://")
 	}
-	return fmt.Sprintf("%s/internal/runtime-events/sandboxes/%s/ws", base, sandboxID)
+	return fmt.Sprintf("%s/internal/runtime-events/sandboxes/%s/sessions/{session_id}/ws", base, sandboxID)
 }
 
 func AgentGitUsername(agent *model.Agent) string {

@@ -26,7 +26,7 @@ func TestControlPlaneOutboundChannels_EmitsRuntimeWebSocketSpec(t *testing.T) {
 	if channel["type"] != "websocket" {
 		t.Fatalf("type = %q", channel["type"])
 	}
-	if channel["url"] != "wss://api.hivy.test/internal/runtime-events/sandboxes/"+sandboxID.String()+"/ws" {
+	if channel["url"] != "wss://api.hivy.test/internal/runtime-events/sandboxes/"+sandboxID.String()+"/sessions/{session_id}/ws" {
 		t.Fatalf("url = %q", channel["url"])
 	}
 	if channel["secret_env"] != AgentEnvRuntimeSecret {
@@ -38,7 +38,7 @@ func TestControlPlaneOutboundChannels_UsesAPIWebhookBaseURL(t *testing.T) {
 	sandboxID := uuid.New()
 	channels := ControlPlaneOutboundChannels(&config.Config{APIWebhookBaseURL: "http://host.docker.internal:8080"}, sandboxID)
 	channel := channels[0].(map[string]any)
-	if channel["url"] != "ws://host.docker.internal:8080/internal/runtime-events/sandboxes/"+sandboxID.String()+"/ws" {
+	if channel["url"] != "ws://host.docker.internal:8080/internal/runtime-events/sandboxes/"+sandboxID.String()+"/sessions/{session_id}/ws" {
 		t.Fatalf("url = %q", channel["url"])
 	}
 }

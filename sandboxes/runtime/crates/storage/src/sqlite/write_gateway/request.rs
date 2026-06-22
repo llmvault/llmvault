@@ -10,7 +10,7 @@ use serde_json::Value;
 use sqlx::SqliteConnection;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::repos::Result;
+use crate::repos::{OutboxRow, Result};
 
 use super::event_ops;
 use super::outbox_ops;
@@ -113,6 +113,12 @@ pub(super) enum WriteRequest {
         payload_json: String,
         now: String,
         resp: Resp<i64>,
+    },
+    OutboxClaimDue {
+        limit: u32,
+        now: String,
+        lease_until: String,
+        resp: Resp<Vec<OutboxRow>>,
     },
     OutboxMarkDelivered {
         id: i64,
@@ -303,6 +309,15 @@ impl WriteRequest {
                     &now,
                 )
                 .await,
+            ),
+            WriteRequest::OutboxClaimDue {
+                limit,
+                now,
+                lease_until,
+                resp,
+            } => respond(
+                resp,
+                outbox_ops::outbox_claim_due(conn, limit, &now, &lease_until).await,
             ),
             WriteRequest::OutboxMarkDelivered { id, resp } => respond(
                 resp,

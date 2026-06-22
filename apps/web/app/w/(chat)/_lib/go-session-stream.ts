@@ -1,4 +1,5 @@
 import { fetchEventSource } from "@microsoft/fetch-event-source"
+import type { SessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 
 export interface GoSessionStreamFrame {
   sessionId: string
@@ -20,54 +21,76 @@ export interface GoSessionStreamCursor {
 }
 
 export const RUNTIME_REPO_CHANGE_EVENT = "repo.change_batch"
+const STREAM_ID_HEADER = "x-hivy-stream-id"
+const NEXT_SEQUENCE_HEADER = "x-hivy-stream-next-sequence"
 
 export type GoSessionStreamReplayMode =
   | { mode: "all" }
   | { mode: "none" }
   | { mode: "after_seq"; afterSeq: number }
 
+export class GoSessionStreamHTTPError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message)
+    this.name = "GoSessionStreamHTTPError"
+  }
+}
+
 export function subscribeToGoSessionStream({
   sessionId,
+  access,
   replay,
   signal,
   onOpen,
   onEvent,
 }: {
   sessionId: string
+  access: SessionSandboxAccess
   replay?: GoSessionStreamReplayMode
   signal: AbortSignal
   onOpen?: (meta: GoSessionStreamOpen) => void
   onEvent?: (frame: GoSessionStreamFrame) => void
 }) {
-  return fetchEventSource(goSessionStreamURL(sessionId, replay), {
+  return fetchEventSource(goSessionStreamURL(sessionId, access, replay), {
     method: "GET",
-    headers: { Accept: "text/event-stream" },
-    credentials: "include",
+    headers: goSessionStreamHeaders(access),
+    credentials: "omit",
     signal,
     openWhenHidden: true,
     async onopen(response) {
       const contentType = response.headers.get("content-type") ?? ""
-      onOpen?.({ sessionId, streamId: null, nextSequence: null })
-      if (response.ok && contentType.includes("text/event-stream")) return
+      if (response.ok && contentType.includes("text/event-stream")) {
+        onOpen?.({
+          sessionId,
+          streamId: response.headers.get(STREAM_ID_HEADER),
+          nextSequence: numberHeader(response.headers, NEXT_SEQUENCE_HEADER),
+        })
+        return
+      }
 
       let message = `Session stream failed with HTTP ${response.status}`
       try {
-        const envelope = (await response.json()) as { error?: string }
-        if (envelope.error) message = envelope.error
+        const raw = await response.text()
+        const detail = streamErrorDetail(raw)
+        if (detail) message = `${message}: ${detail}`
       } catch {
-        /* non-JSON stream error */
+        /* non-text stream error */
       }
-      throw new Error(message)
+      throw new GoSessionStreamHTTPError(response.status, message)
     },
     onmessage(event) {
-      const frame = goSessionStreamFrame({
+      const data = parseStreamEventData(event.data)
+      const frame = {
         sessionId,
         event: event.event || "message",
-        id: event.id,
+        id: event.id || eventIDFromData(data),
         retry: event.retry,
-        data: parseStreamEventData(event.data),
-      })
-      if (frame) onEvent?.(frame)
+        data,
+      }
+      onEvent?.(frame)
     },
     onerror(error) {
       throw error
@@ -77,18 +100,37 @@ export function subscribeToGoSessionStream({
 
 export function goSessionStreamURL(
   sessionId: string,
+  access: Pick<SessionSandboxAccess, "sandbox_base_url">,
   replay: GoSessionStreamReplayMode = { mode: "all" }
 ) {
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "http://localhost"
+  const baseURL = access.sandbox_base_url?.replace(/\/+$/, "")
+  if (!baseURL) throw new Error("Sandbox stream URL is not available.")
   const parsed = new URL(
-    `/api/proxy/v1/sessions/${sessionId}/stream`,
-    origin
+    `/sessions/${encodeURIComponent(sessionId)}/stream`,
+    baseURL
   )
+  if (replay.mode === "none") {
+    parsed.searchParams.set("replay", "none")
+  }
   if (replay.mode === "after_seq") {
     parsed.searchParams.set("after_seq", `${replay.afterSeq}`)
   }
   return parsed.toString()
+}
+
+export function goSessionStreamHeaders(
+  access: Pick<SessionSandboxAccess, "token">
+) {
+  const token = access.token?.trim()
+  if (!token) throw new Error("Sandbox stream token is not available.")
+  return {
+    Accept: "text/event-stream",
+    Authorization: `Bearer ${token}`,
+  }
+}
+
+export function goSessionStreamHTTPStatus(error: unknown) {
+  return error instanceof GoSessionStreamHTTPError ? error.status : undefined
 }
 
 export function goSessionStreamCursor(
@@ -123,85 +165,27 @@ function parseStreamEventData(data: string) {
   }
 }
 
-function goSessionStreamFrame(frame: GoSessionStreamFrame) {
-  if (
-    frame.event !== "session.preview" &&
-    frame.event !== "session.event" &&
-    frame.event !== "session.control"
-  ) {
-    return frame
-  }
-  if (!isRecord(frame.data)) return null
-
-  if (frame.event === "session.control") {
-    const type = stringValue(frame.data, "type")
-    return {
-      ...frame,
-      event: type === "resync" ? "resync_required" : "control",
-    }
-  }
-
-  if (frame.event === "session.preview") {
-    const eventType = stringValue(frame.data, "event_type")
-    if (!eventType) return null
-    const payload = recordValue(frame.data, "payload")
-    const runtimeSeq = numberValue(frame.data, "runtime_seq")
-    return {
-      ...frame,
-      event: eventType,
-      id: stringValue(frame.data, "event_id") || frame.id,
-      data: {
-        ...payload,
-        session_id: stringValue(frame.data, "session_id") || frame.sessionId,
-        event_id: stringValue(frame.data, "event_id") || frame.id,
-        turn_id: stringValue(frame.data, "turn_id"),
-        span_id: stringValue(frame.data, "span_id"),
-        durability: stringValue(frame.data, "durability") || "preview",
-        runtime_seq: runtimeSeq,
-        sequence: runtimeSeq,
-        occurred_at: stringValue(frame.data, "occurred_at"),
-      },
-    }
-  }
-
-  const eventType = stringValue(frame.data, "event_type")
-  if (!eventType) return null
-  const payload = recordValue(frame.data, "payload")
-  const sequence = numberValue(frame.data, "sequence_number")
-  return {
-    ...frame,
-    event: eventType,
-    id: stringValue(frame.data, "id") || stringValue(frame.data, "event_id"),
-    data: {
-      ...payload,
-      session_id: stringValue(frame.data, "session_id") || frame.sessionId,
-      event_id: stringValue(frame.data, "event_id") || frame.id,
-      turn_id: stringValue(frame.data, "turn_id"),
-      span_id: stringValue(frame.data, "span_id"),
-      durability: stringValue(frame.data, "durability") || "durable",
-      runtime_seq: numberValue(frame.data, "runtime_seq"),
-      sequence,
-      sequence_number: sequence,
-      occurred_at: stringValue(frame.data, "event_at"),
-    },
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
-function recordValue(record: Record<string, unknown>, key: string) {
-  const value = record[key]
-  return isRecord(value) ? value : {}
-}
-
-function stringValue(record: Record<string, unknown>, key: string) {
-  const value = record[key]
+function eventIDFromData(data: unknown) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return ""
+  const value = (data as Record<string, unknown>).event_id
   return typeof value === "string" ? value : ""
 }
 
-function numberValue(record: Record<string, unknown>, key: string) {
-  const value = record[key]
-  return typeof value === "number" ? value : undefined
+function numberHeader(headers: Headers, key: string) {
+  const value = headers.get(key)
+  if (!value) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function streamErrorDetail(raw: string) {
+  const trimmed = raw.trim()
+  if (!trimmed) return ""
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>
+    const value = parsed.error ?? parsed.message
+    return typeof value === "string" && value.trim() ? value.trim() : trimmed
+  } catch {
+    return trimmed
+  }
 }

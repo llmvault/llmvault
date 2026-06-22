@@ -68,11 +68,11 @@ func assertRuntimeCanonicalPayload(t *testing.T, event agentSessionsEvent, sessi
 	if got := eventString(event.Payload, "occurred_at"); got == "" {
 		t.Fatalf("event %s missing occurred_at payload=%v", event.EventType, event.Payload)
 	}
-	if event.RuntimeSeq != nil && *event.RuntimeSeq != event.SequenceNumber {
-		t.Fatalf("event %s runtime_seq mismatch row=%d runtime_seq=%d", event.EventType, event.SequenceNumber, *event.RuntimeSeq)
+	if event.RuntimeSeq == nil || *event.RuntimeSeq <= 0 {
+		t.Fatalf("event %s missing positive runtime_seq row=%d runtime_seq=%v", event.EventType, event.SequenceNumber, event.RuntimeSeq)
 	}
-	if got := eventNumber(event.Payload, "runtime_seq"); got > 0 && int64(got) != event.SequenceNumber {
-		t.Fatalf("event %s payload runtime_seq mismatch row=%d payload=%v", event.EventType, event.SequenceNumber, got)
+	if got := eventNumber(event.Payload, "runtime_seq"); got > 0 && int64(got) != *event.RuntimeSeq {
+		t.Fatalf("event %s payload runtime_seq mismatch row_runtime_seq=%d payload=%v", event.EventType, *event.RuntimeSeq, got)
 	}
 	if _, ok := event.Payload["sequence"]; !ok {
 		t.Fatalf("event %s missing payload sequence payload=%v", event.EventType, event.Payload)
@@ -142,6 +142,11 @@ func assertPersistedFinals(t *testing.T, events []agentSessionsEvent, markers ..
 			t.Fatalf("persisted final events missing marker %s; final_text=%s", marker, text.String())
 		}
 	}
+}
+
+func assertAgentSessionsHistoryMatchesLiveMarkers(t *testing.T, events []agentSessionsEvent, markers ...string) {
+	t.Helper()
+	assertPersistedFinals(t, events, markers...)
 }
 
 func assertPersistedModelUsage(t *testing.T, events []agentSessionsEvent) {

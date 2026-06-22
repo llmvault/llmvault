@@ -10,8 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/runtimeevents"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
@@ -109,7 +111,78 @@ func sessionMessageCommandPayload(text string, payload model.JSON) model.JSON {
 	return payload
 }
 
-func (h *SessionHandler) enqueueSessionMessageCommand(tx *gorm.DB, session *model.Session, actor *uuid.UUID, text string, payload model.JSON, opts sessionMessageDeliveryOptions) error {
+func (h *SessionHandler) createBackendUserMessageEvent(tx *gorm.DB, session *model.Session, actor *uuid.UUID, text string, payload model.JSON, opts sessionMessageDeliveryOptions) (model.SessionEvent, bool, error) {
+	if session == nil || session.ID == uuid.Nil {
+		return model.SessionEvent{}, false, fmt.Errorf("session event: session is required")
+	}
+	clientEventID := strings.TrimSpace(opts.ClientEventID)
+	if clientEventID == "" {
+		if raw, ok := payload["client_event_id"].(string); ok {
+			clientEventID = strings.TrimSpace(raw)
+		}
+	}
+	eventID := backendSessionEventID(clientEventID)
+	eventPayload := sessionMessageCommandPayload(text, payload)
+	eventPayload["client_event_id"] = clientEventID
+	if clientEventID == "" {
+		eventPayload["client_event_id"] = strings.TrimPrefix(eventID, "backend:")
+	}
+	now := time.Now().UTC()
+	event := model.SessionEvent{
+		OrgID:            session.OrgID,
+		SessionID:        session.ID,
+		AgentID:          session.AgentID,
+		SandboxID:        session.SandboxID,
+		RuntimeSessionID: session.ID.String(),
+		EventID:          eventID,
+		EventType:        runtimeevents.EventUserMessageReceived,
+		ActorUserID:      actor,
+		Source:           defaultString(session.Source, "web"),
+		SequenceNumber:   0,
+		Durability:       "durable",
+		Payload:          eventPayload,
+		EventAt:          now,
+	}
+	result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&event)
+	if result.Error != nil {
+		return model.SessionEvent{}, false, fmt.Errorf("create backend user message event: %w", result.Error)
+	}
+	if result.RowsAffected == 1 {
+		return event, true, nil
+	}
+	var existing model.SessionEvent
+	if err := tx.Where("session_id = ? AND event_id = ?", session.ID, eventID).First(&existing).Error; err != nil {
+		return model.SessionEvent{}, false, fmt.Errorf("load backend user message event: %w", err)
+	}
+	return existing, false, nil
+}
+
+func backendSessionEventID(clientEventID string) string {
+	clientEventID = strings.TrimSpace(clientEventID)
+	if clientEventID != "" {
+		return "client:" + clientEventID
+	}
+	return "backend:" + uuid.NewString()
+}
+
+func (h *SessionHandler) sessionMessageEventQueued(tx *gorm.DB, eventID uuid.UUID) (bool, error) {
+	var count int64
+	if err := tx.Model(&model.SessionMessageQueue{}).
+		Where("session_event_id = ? AND status <> ?", eventID, "delivered").
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("count session event queue rows: %w", err)
+	}
+	return count > 0, nil
+}
+
+func (h *SessionHandler) deleteCreatedSessionEvent(ctx context.Context, intent sessionMessageDeliveryIntent) error {
+	if !intent.EventCreated || intent.Event == nil || intent.Event.ID == uuid.Nil {
+		return nil
+	}
+	return h.db.WithContext(ctx).Delete(&model.SessionEvent{}, "id = ?", intent.Event.ID).Error
+}
+
+func (h *SessionHandler) enqueueSessionMessageCommand(tx *gorm.DB, session *model.Session, actor *uuid.UUID, text string, payload model.JSON, opts sessionMessageDeliveryOptions, sessionEventID *uuid.UUID) error {
 	if session == nil || session.ID == uuid.Nil {
 		return fmt.Errorf("session message queue: session is required")
 	}
@@ -120,6 +193,7 @@ func (h *SessionHandler) enqueueSessionMessageCommand(tx *gorm.DB, session *mode
 	queue := model.SessionMessageQueue{
 		OrgID:           session.OrgID,
 		SessionID:       session.ID,
+		SessionEventID:  sessionEventID,
 		ActorUserID:     actor,
 		MessageText:     text,
 		MessagePayload:  sessionMessageCommandPayload(text, payload),
@@ -165,6 +239,13 @@ func eventToResponse(event model.SessionEvent) sessionEventResponse {
 		Payload:        event.Payload,
 		EventAt:        formatRuntimeTime(event.EventAt),
 	}
+}
+
+func sessionMutationEventResponse(event *model.SessionEvent) *sessionEventResponse {
+	if event == nil || event.ID == uuid.Nil {
+		return nil
+	}
+	return ptrSessionEventResponse(eventToResponse(*event))
 }
 
 func (h *SessionHandler) enqueueSessionDelivery(ctx context.Context, sessionID uuid.UUID) error {

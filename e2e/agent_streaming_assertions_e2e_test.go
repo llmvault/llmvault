@@ -2,7 +2,9 @@ package e2e
 
 import (
 	"context"
+	"os"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -44,18 +46,26 @@ func assertRuntimeRedisAndPostgresConverged(t *testing.T, ctx context.Context, d
 	if len(rows) >= len(events) {
 		t.Fatalf("session %s postgres rows=%d redis raw events=%d; durable coalescing did not reduce writes", sessionID, len(rows), len(events))
 	}
-	seenSeq := map[int64]bool{}
+	seenSequenceNumber := map[int64]bool{}
+	seenRuntimeSeq := map[int64]bool{}
 	for _, row := range rows {
 		if row.RuntimeSeq == nil {
 			t.Fatalf("session %s row %s missing runtime_seq", sessionID, row.ID)
 		}
-		if row.SequenceNumber != *row.RuntimeSeq {
-			t.Fatalf("session %s row %s sequence_number=%d runtime_seq=%d", sessionID, row.ID, row.SequenceNumber, *row.RuntimeSeq)
+		if *row.RuntimeSeq <= 0 {
+			t.Fatalf("session %s row %s non-positive runtime_seq=%d", sessionID, row.ID, *row.RuntimeSeq)
 		}
-		if seenSeq[row.SequenceNumber] {
+		if row.SequenceNumber <= 0 {
+			t.Fatalf("session %s row %s non-positive sequence_number=%d", sessionID, row.ID, row.SequenceNumber)
+		}
+		if seenSequenceNumber[row.SequenceNumber] {
 			t.Fatalf("session %s duplicate sequence_number=%d", sessionID, row.SequenceNumber)
 		}
-		seenSeq[row.SequenceNumber] = true
+		seenSequenceNumber[row.SequenceNumber] = true
+		if seenRuntimeSeq[*row.RuntimeSeq] {
+			t.Fatalf("session %s duplicate runtime_seq=%d", sessionID, *row.RuntimeSeq)
+		}
+		seenRuntimeSeq[*row.RuntimeSeq] = true
 		event, ok := durableBySeq[*row.RuntimeSeq]
 		if !ok {
 			t.Fatalf("session %s postgres runtime_seq=%d not found in durable redis events", sessionID, *row.RuntimeSeq)
@@ -64,6 +74,7 @@ func assertRuntimeRedisAndPostgresConverged(t *testing.T, ctx context.Context, d
 			t.Fatalf("session %s row seq=%d got event_id/type=%s/%s want=%s/%s", sessionID, row.SequenceNumber, row.RuntimeEventID, row.EventType, event.EventID, event.EventType)
 		}
 	}
+	t.Logf("session %s runtime projection caught up: redis_preview=%d redis_durable=%d postgres_rows=%d", sessionID, previewCount, durableCount, len(rows))
 }
 
 func waitForRuntimeRedisEvents(t *testing.T, ctx context.Context, redisClient *redis.Client, sessionID string) []runtimestream.Event {
@@ -88,7 +99,7 @@ func waitForRuntimeRedisEvents(t *testing.T, ctx context.Context, redisClient *r
 
 func runtimeRedisEventsForSession(t *testing.T, ctx context.Context, redisClient *redis.Client, sessionID string) []runtimestream.Event {
 	t.Helper()
-	shard := runtimestream.ShardForSession(sessionID, runtimestream.DefaultShardCount)
+	shard := runtimestream.ShardForSession(sessionID, runtimeRedisShardCountForE2E(t))
 	messages, err := redisClient.XRange(ctx, runtimestream.StreamKey(shard), "-", "+").Result()
 	if err != nil {
 		t.Fatalf("read redis stream shard=%d: %v", shard, err)
@@ -105,6 +116,19 @@ func runtimeRedisEventsForSession(t *testing.T, ctx context.Context, redisClient
 	}
 	sort.Slice(events, func(i, j int) bool { return events[i].RuntimeSeq < events[j].RuntimeSeq })
 	return events
+}
+
+func runtimeRedisShardCountForE2E(t *testing.T) int {
+	t.Helper()
+	raw := os.Getenv("HIVY_RUNTIME_REDIS_STREAM_SHARD_COUNT")
+	if raw == "" {
+		return runtimestream.DefaultShardCount
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		t.Fatalf("invalid HIVY_RUNTIME_REDIS_STREAM_SHARD_COUNT=%q", raw)
+	}
+	return value
 }
 
 func hasRuntimeTerminal(events []runtimestream.Event) bool {

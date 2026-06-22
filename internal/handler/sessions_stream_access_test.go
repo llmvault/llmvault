@@ -10,7 +10,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestIntegration_SandboxAccessRequiresParticipantAndMintsJWT(t *testing.T) {
+func TestIntegration_SandboxAccessAllowsVisibleReadOnlySessionAndMintsJWT(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 	created := h.createSession(t, fx, fx.owner, "Inspect repo files")
@@ -40,11 +40,10 @@ func TestIntegration_SandboxAccessRequiresParticipantAndMintsJWT(t *testing.T) {
 		t.Fatalf("unshared member sandbox access status=%d body=%s", blocked.Code, blocked.Body.String())
 	}
 
-	invite := h.doJSON(t, http.MethodPut, "/v1/sessions/"+created.Session.ID+"/participants/"+fx.member.ID.String(), fx, fx.owner, nil)
-	if invite.Code != http.StatusOK {
-		t.Fatalf("invite status=%d body=%s", invite.Code, invite.Body.String())
+	if err := h.db.Create(&model.ChannelMember{ChannelID: fx.channel.ID, UserID: fx.viewer.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("add viewer to channel: %v", err)
 	}
-	sandboxAccess := h.doJSON(t, http.MethodPost, path, fx, fx.member, nil)
+	sandboxAccess := h.doJSON(t, http.MethodPost, path, fx, fx.viewer, nil)
 	if sandboxAccess.Code != http.StatusOK {
 		t.Fatalf("sandbox access status=%d body=%s", sandboxAccess.Code, sandboxAccess.Body.String())
 	}
@@ -62,7 +61,7 @@ func TestIntegration_SandboxAccessRequiresParticipantAndMintsJWT(t *testing.T) {
 	if access.SandboxBaseURL != "http://203.0.113.10:7080" || access.SandboxID != sb.ID.String() {
 		t.Fatalf("bad sandbox access target: %+v", access)
 	}
-	if len(access.Scopes) != 1 || access.Scopes[0] != "repo:read" {
+	if !hasScopes(access.Scopes, "sandbox:read", "stream:read", "repo:read") {
 		t.Fatalf("bad sandbox scopes: %+v", access.Scopes)
 	}
 	claims := jwt.MapClaims{}
@@ -75,7 +74,33 @@ func TestIntegration_SandboxAccessRequiresParticipantAndMintsJWT(t *testing.T) {
 	if err != nil || !parsed.Valid {
 		t.Fatalf("sandbox jwt invalid: parsed=%v err=%v", parsed != nil && parsed.Valid, err)
 	}
-	if claims["session_id"] != created.Session.ID || claims["sandbox_id"] != sb.ID.String() {
+	if claims["session_id"] != created.Session.ID || claims["sandbox_id"] != sb.ID.String() || claims["org_id"] != fx.org.ID.String() || claims["sub"] != fx.viewer.ID.String() {
 		t.Fatalf("bad sandbox jwt claims: %+v", claims)
 	}
+	rawScopes, ok := claims["scopes"].([]any)
+	if !ok {
+		t.Fatalf("jwt scopes=%#v, want array", claims["scopes"])
+	}
+	claimScopes := make([]string, 0, len(rawScopes))
+	for _, scope := range rawScopes {
+		if value, ok := scope.(string); ok {
+			claimScopes = append(claimScopes, value)
+		}
+	}
+	if !hasScopes(claimScopes, "sandbox:read", "stream:read", "repo:read") {
+		t.Fatalf("bad jwt scopes: %+v", claimScopes)
+	}
+}
+
+func hasScopes(got []string, want ...string) bool {
+	seen := map[string]bool{}
+	for _, scope := range got {
+		seen[scope] = true
+	}
+	for _, scope := range want {
+		if !seen[scope] {
+			return false
+		}
+	}
+	return true
 }

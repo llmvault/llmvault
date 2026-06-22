@@ -7,6 +7,7 @@ const (
 	EventToolResult        = "tool_result"
 	EventFinal             = "final"
 	EventTurnFailed        = "turn_failed"
+	EventTurnInterrupted   = "turn_interrupted"
 	EventQuestionRequested = "question_requested"
 	EventQuestionAnswered  = "question_answered"
 	EventPlanUpdated       = "plan_updated"
@@ -22,6 +23,7 @@ const (
 	EventConversationEnded       = "conversation_ended"
 	EventDone                    = "done"
 	EventMessageReceived         = "message_received"
+	EventUserMessageReceived     = "user.message.received"
 	EventReasoningDelta          = "reasoning_delta"
 	EventResponseChunk           = "response_chunk"
 	EventResponseCompleted       = "response_completed"
@@ -39,7 +41,16 @@ const (
 
 func IsTerminalEventType(eventType string) bool {
 	switch eventType {
-	case EventAgentError, EventConversationEnded, EventDone, EventTurnCompleted, EventTurnFailed:
+	case EventAgentError, EventConversationEnded, EventDone, EventTurnCompleted, EventTurnFailed, EventTurnInterrupted:
+		return true
+	default:
+		return false
+	}
+}
+
+func ReleasesSessionTurn(eventType string) bool {
+	switch eventType {
+	case EventTurnCompleted, EventTurnFailed, EventTurnInterrupted:
 		return true
 	default:
 		return false

@@ -111,6 +111,7 @@ type createSessionRequest struct {
 	AgentID         string                         `json:"agent_id,omitempty"`
 	Text            string                         `json:"text,omitempty"`
 	Message         string                         `json:"message,omitempty"`
+	ClientEventID   string                         `json:"client_event_id,omitempty"`
 	Name            string                         `json:"name,omitempty"`
 	Model           string                         `json:"model,omitempty"`
 	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
@@ -127,6 +128,7 @@ type sessionModelDefinitionRequest struct {
 type sendSessionMessageRequest struct {
 	Text            string                         `json:"text"`
 	Message         string                         `json:"message,omitempty"`
+	ClientEventID   string                         `json:"client_event_id,omitempty"`
 	User            string                         `json:"user,omitempty"`
 	UserDisplayName string                         `json:"user_display_name,omitempty"`
 	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
@@ -167,9 +169,10 @@ type sessionMutationResponse struct {
 }
 
 type sessionInputResponseRequest struct {
-	RequestID string `json:"request_id"`
-	Text      string `json:"text,omitempty"`
-	OptionID  string `json:"option_id,omitempty"`
+	RequestID     string `json:"request_id"`
+	Text          string `json:"text,omitempty"`
+	OptionID      string `json:"option_id,omitempty"`
+	ClientEventID string `json:"client_event_id,omitempty"`
 }
 
 type sessionDetailResponse struct {

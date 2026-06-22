@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
 func TestSessionEventFromRuntimeEventUsesRuntimeSequence(t *testing.T) {
@@ -51,5 +53,38 @@ func TestSessionEventFromRuntimeEventUsesRuntimeSequence(t *testing.T) {
 	}
 	if row.Payload["text"] != "done" {
 		t.Fatalf("payload = %#v", row.Payload)
+	}
+}
+
+func TestTerminalRuntimeEventsMatchQueueReleaseContract(t *testing.T) {
+	releasing := []string{
+		runtimeevents.EventTurnCompleted,
+		runtimeevents.EventTurnFailed,
+		runtimeevents.EventTurnInterrupted,
+	}
+	for _, eventType := range releasing {
+		if !isTerminalRuntimeEvent(eventType) {
+			t.Fatalf("%s should release queued session delivery", eventType)
+		}
+	}
+	notReleasing := []string{
+		runtimeevents.EventFinal,
+		runtimeevents.EventDone,
+		runtimeevents.EventError,
+		runtimeevents.EventAgentError,
+	}
+	for _, eventType := range notReleasing {
+		if isTerminalRuntimeEvent(eventType) {
+			t.Fatalf("%s should not release queued session delivery", eventType)
+		}
+	}
+}
+
+func TestShouldPersistDurableRuntimeEventSkipsBackendOwnedUserMessage(t *testing.T) {
+	if shouldPersistDurableRuntimeEvent(Event{EventType: runtimeevents.EventUserMessageReceived}) {
+		t.Fatal("runtime user message received should be skipped because backend owns user writes")
+	}
+	if !shouldPersistDurableRuntimeEvent(Event{EventType: runtimeevents.EventFinal}) {
+		t.Fatal("runtime final should be persisted")
 	}
 }

@@ -78,8 +78,11 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		session.SandboxID = &sb.ID
 	}
 	queued := false
+	var event *model.SessionEvent
 	if hasInitialMessage {
-		intent, err := h.createInitialSessionMessageIntent(r.Context(), &session, userID, text, raw)
+		intent, err := h.createInitialSessionMessageIntentWithOptions(r.Context(), &session, userID, text, raw, sessionMessageDeliveryOptions{
+			ClientEventID: strings.TrimSpace(req.ClientEventID),
+		})
 		if err != nil {
 			if perSessionSandbox != nil {
 				h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
@@ -91,6 +94,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 			return
 		}
+		event = intent.Event
 		queued, err = h.dispatchSessionMessageIntent(r.Context(), intent)
 		if err != nil {
 			if errors.Is(err, errSessionSandboxDraining) {
@@ -132,6 +136,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusCreated, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
+		Event:   sessionMutationEventResponse(event),
 		Queued:  queued,
 	})
 }

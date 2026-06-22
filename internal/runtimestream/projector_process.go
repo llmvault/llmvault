@@ -18,18 +18,27 @@ func (p *Projector) processMessages(ctx context.Context, stream string, messages
 	}
 	ackIDs := make([]string, 0, len(messages))
 	durable := make([]Event, 0, len(messages))
+	projected := map[string]int64{}
 	for _, msg := range messages {
 		event, err := EventFromStreamValues(msg.Values)
 		if err != nil {
 			return fmt.Errorf("decode stream message %s: %w", msg.ID, err)
 		}
 		ackIDs = append(ackIDs, msg.ID)
+		if event.RuntimeSeq > projected[event.SessionID] {
+			projected[event.SessionID] = event.RuntimeSeq
+		}
 		if event.Durability == DurabilityDurable {
 			durable = append(durable, event)
 		}
 	}
 	if len(durable) > 0 {
 		if err := p.persistDurableEvents(ctx, durable); err != nil {
+			return err
+		}
+	}
+	for sessionID, runtimeSeq := range projected {
+		if err := p.store.CheckpointProjected(ctx, sessionID, runtimeSeq); err != nil {
 			return err
 		}
 	}
@@ -43,12 +52,17 @@ func (p *Projector) processMessages(ctx context.Context, stream string, messages
 
 func (p *Projector) persistDurableEvents(ctx context.Context, events []Event) error {
 	rows := make([]model.SessionEvent, 0, len(events))
+	persisted := make([]Event, 0, len(events))
 	for _, event := range events {
+		if !shouldPersistDurableRuntimeEvent(event) {
+			continue
+		}
 		row, err := sessionEventFromRuntimeEvent(event)
 		if err != nil {
 			return err
 		}
 		rows = append(rows, row)
+		persisted = append(persisted, event)
 	}
 	if len(rows) == 0 {
 		return nil
@@ -56,7 +70,7 @@ func (p *Projector) persistDurableEvents(ctx context.Context, events []Event) er
 	if err := p.db.WithContext(ctx).Clauses(runtimeSeqOnConflict()).Create(&rows).Error; err != nil {
 		return fmt.Errorf("insert durable runtime events: %w", err)
 	}
-	for _, event := range events {
+	for _, event := range persisted {
 		if err := p.publishCommittedEvent(ctx, event); err != nil {
 			return err
 		}
@@ -65,6 +79,10 @@ func (p *Projector) persistDurableEvents(ctx context.Context, events []Event) er
 		}
 	}
 	return nil
+}
+
+func shouldPersistDurableRuntimeEvent(event Event) bool {
+	return event.EventType != runtimeevents.EventUserMessageReceived
 }
 
 func (p *Projector) publishCommittedEvent(ctx context.Context, event Event) error {
@@ -98,20 +116,26 @@ func (p *Projector) projectSessionState(ctx context.Context, event Event) error 
 		if !event.OccurredAt.IsZero() {
 			updates["agent_turn_started_at"] = event.OccurredAt
 		}
-	case runtimeevents.EventTurnCompleted, runtimeevents.EventFinal, runtimeevents.EventDone:
+	case runtimeevents.EventTurnCompleted:
 		updates["agent_turn_status"] = model.SessionAgentTurnIdle
 		updates["agent_turn_id"] = ""
 		updates["agent_stream_id"] = ""
 		updates["agent_turn_started_at"] = nil
 		updates["agent_turn_last_outcome"] = model.SessionAgentTurnOutcomeDone
-	case runtimeevents.EventTurnFailed, runtimeevents.EventError, runtimeevents.EventAgentError:
+	case runtimeevents.EventTurnFailed:
 		updates["agent_turn_status"] = model.SessionAgentTurnIdle
 		updates["agent_turn_id"] = ""
 		updates["agent_stream_id"] = ""
 		updates["agent_turn_started_at"] = nil
 		updates["agent_turn_last_outcome"] = model.SessionAgentTurnOutcomeFailed
+	case runtimeevents.EventTurnInterrupted:
+		updates["agent_turn_status"] = model.SessionAgentTurnIdle
+		updates["agent_turn_id"] = ""
+		updates["agent_stream_id"] = ""
+		updates["agent_turn_started_at"] = nil
+		updates["agent_turn_last_outcome"] = model.SessionAgentTurnOutcomeStopped
 	}
-	if len(updates) == 1 && event.EventType != runtimeevents.EventFinal {
+	if len(updates) == 1 {
 		return nil
 	}
 	if err := p.db.WithContext(ctx).Model(&model.Session{}).
@@ -119,7 +143,7 @@ func (p *Projector) projectSessionState(ctx context.Context, event Event) error 
 		Updates(updates).Error; err != nil {
 		return fmt.Errorf("project session state: %w", err)
 	}
-	if isTerminalRuntimeEvent(event.EventType) {
+	if runtimeevents.ReleasesSessionTurn(event.EventType) {
 		if err := p.enqueuePendingSessionDelivery(ctx, sessionID); err != nil {
 			return err
 		}
@@ -128,13 +152,7 @@ func (p *Projector) projectSessionState(ctx context.Context, event Event) error 
 }
 
 func isTerminalRuntimeEvent(eventType string) bool {
-	switch eventType {
-	case runtimeevents.EventTurnCompleted, runtimeevents.EventFinal, runtimeevents.EventDone,
-		runtimeevents.EventTurnFailed, runtimeevents.EventError, runtimeevents.EventAgentError:
-		return true
-	default:
-		return false
-	}
+	return runtimeevents.ReleasesSessionTurn(eventType)
 }
 
 func (p *Projector) enqueuePendingSessionDelivery(ctx context.Context, sessionID uuid.UUID) error {

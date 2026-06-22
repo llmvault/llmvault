@@ -59,7 +59,7 @@ impl OutboundEmitter {
             let registry = self.registry.read().await;
             registry
                 .matching(&event.event_type)
-                .map(|channel| channel.name().to_string())
+                .map(|channel| (channel.name().to_string(), channel.kind()))
                 .collect::<Vec<_>>()
         };
 
@@ -67,12 +67,17 @@ impl OutboundEmitter {
             return;
         }
 
-        for channel_name in channels {
-            if let Err(error) = self
-                .outbox
-                .enqueue_runtime_event(&channel_name, &event.event_type, event.payload.clone())
-                .await
-            {
+        for (channel_name, channel_kind) in channels {
+            let enqueue = if channel_kind == "websocket" {
+                self.outbox
+                    .enqueue_runtime_event(&channel_name, &event.event_type, event.payload.clone())
+                    .await
+            } else {
+                self.outbox
+                    .enqueue(&channel_name, &event.event_type, event.payload.clone())
+                    .await
+            };
+            if let Err(error) = enqueue {
                 warn!(channel = %channel_name, event_type = %event.event_type, %error, "outbox enqueue failed");
             }
         }

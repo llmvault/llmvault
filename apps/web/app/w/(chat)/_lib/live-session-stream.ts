@@ -22,6 +22,9 @@ export function appendLiveSessionStreamFrame(
   if (next.event_type === "thinking" || next.event_type === "token") {
     const last = events.at(-1)
     if (last?.event_type === next.event_type && sameTurn(last, next)) {
+      if ((next.sequence_number ?? 0) <= (last.sequence_number ?? 0)) {
+        return events
+      }
       return [...events.slice(0, -1), mergeTextEvent(last, next)]
     }
   }
