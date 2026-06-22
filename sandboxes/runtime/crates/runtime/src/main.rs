@@ -395,10 +395,10 @@ impl OutboundConfigReloader for RegistryReloader {
         specs: &[OutboundChannelSpec],
         runtime_env: &HashMap<String, String>,
     ) -> anyhow::Result<()> {
-        let next = build_registry_with_env(specs, &runtime_env)
+        let next = build_registry_with_env(specs, runtime_env)
             .map_err(|error| anyhow::anyhow!("build outbound registry: {error}"))?;
         let names = next.names();
-        let next_batcher = StreamBatcher::from_specs(specs, &runtime_env)
+        let next_batcher = StreamBatcher::from_specs(specs, runtime_env)
             .map_err(|error| anyhow::anyhow!("build stream batcher: {error}"))?
             .map(|b| b.with_requeue(self.database_event_queue.clone()));
         *self.registry.write().await = next;
