@@ -51,6 +51,8 @@ import {
   type SessionRuntimeStatus,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
 
+const ENABLE_DIRECT_SESSION_STREAM = true
+
 export function SessionThreadView({
   session,
   sessionId,
@@ -62,6 +64,7 @@ export function SessionThreadView({
   const queryClient = useQueryClient()
   const agent = safeAgentById(session.agentId)
   const liveEvents = useSessionLiveEvents(sessionId)
+  const renderedLiveEvents = ENABLE_DIRECT_SESSION_STREAM ? liveEvents : []
   const runtimeStatus = useSessionRuntimeStatus(sessionId)
   const turnActive = isTurnActive(runtimeStatus)
   const optimisticSession = sessionId?.startsWith("tmp_") ?? false
@@ -102,12 +105,12 @@ export function SessionThreadView({
     () =>
       sessionHistoryPagesToEvents([
         { data: historyEvents },
-        { data: liveEvents },
+        { data: renderedLiveEvents },
       ]),
-    [historyEvents, liveEvents]
+    [historyEvents, renderedLiveEvents]
   )
   const activeTurnID = turnActive
-    ? session.agentTurnID?.trim() || latestTurnID(liveEvents)
+    ? session.agentTurnID?.trim() || latestTurnID(renderedLiveEvents)
     : undefined
   const visibleBlocks = useMemo(
     () =>
@@ -126,10 +129,7 @@ export function SessionThreadView({
     () => fetchNextHistoryPage(),
     [fetchNextHistoryPage]
   )
-  const historyReadyForStream =
-    optimisticSession ||
-    sessionHistoryQuery.isSuccess ||
-    sessionHistoryQuery.isError
+  const historyLoadedForStream = sessionHistoryQuery.isSuccess
 
   useEffect(() => {
     if (!sessionId || optimisticSession || historyEvents.length === 0) return
@@ -139,19 +139,16 @@ export function SessionThreadView({
   }, [historyEvents, optimisticSession, sessionId])
 
   useEffect(() => {
-    if (!sessionId || optimisticSession || !historyReadyForStream) return
-    if (!turnActive) return
+    if (!ENABLE_DIRECT_SESSION_STREAM) return
+    if (!sessionId || optimisticSession || !historyLoadedForStream) return
     ensureSessionStream(sessionId, {
       queryClient,
-      replay: sessionHistoryQuery.isSuccess
-        ? { mode: "none" }
-        : { mode: "all" },
+      replay: { mode: "none" },
     })
   }, [
-    historyReadyForStream,
+    historyLoadedForStream,
     optimisticSession,
     queryClient,
-    sessionHistoryQuery.isSuccess,
     sessionId,
     turnActive,
   ])
@@ -201,7 +198,6 @@ export function SessionThreadView({
       appendSessionEvents(queryClient, sessionId, [optimisticMessage])
     }
     beginOptimisticSessionTurn(sessionId, [optimisticThinking])
-    ensureSessionStream(sessionId, { queryClient, replay: { mode: "all" } })
     try {
       const response = await sendSessionMessage.mutateAsync({
         params: { path: { id: sessionId } },
@@ -218,7 +214,6 @@ export function SessionThreadView({
           response.event
         )
       }
-      ensureSessionStream(sessionId, { queryClient })
       return true
     } catch (error) {
       const message = extractErrorMessage(error, "Could not send message")

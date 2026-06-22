@@ -750,6 +750,15 @@
               "format": "int64",
               "minimum": 0
             }
+          },
+          {
+            "name": "from_turn_id",
+            "in": "query",
+            "description": "Replay retained events for one turn and continue live until that turn terminates",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

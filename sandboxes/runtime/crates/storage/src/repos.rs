@@ -107,6 +107,7 @@ pub struct OutboxRow {
     pub attempts: i32,
     pub session_id: Option<String>,
     pub runtime_seq: Option<i64>,
+    pub occurred_at: DateTime<Utc>,
 }
 
 #[async_trait]

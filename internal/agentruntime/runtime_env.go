@@ -243,6 +243,14 @@ func RuntimeEventWebSocketURL(cfg *config.Config, sandboxID uuid.UUID) string {
 	return fmt.Sprintf("%s/internal/runtime-events/sandboxes/%s/sessions/{session_id}/ws", base, sandboxID)
 }
 
+func RuntimeTurnStateWebhookURL(cfg *config.Config, sandboxID uuid.UUID) string {
+	if cfg == nil || sandboxID == uuid.Nil {
+		return ""
+	}
+	base := strings.TrimRight(cfg.RuntimeControlPlaneBaseURL(), "/")
+	return fmt.Sprintf("%s/internal/runtime-events/sandboxes/%s/turn-state", base, sandboxID)
+}
+
 func AgentGitUsername(agent *model.Agent) string {
 	if agent == nil {
 		return "agent"

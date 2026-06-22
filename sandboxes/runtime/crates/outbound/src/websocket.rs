@@ -110,9 +110,20 @@ impl OutboundChannel for WebSocketChannel {
     }
 
     async fn deliver(&self, event: &OutboundEvent) -> Result<()> {
-        let frame = RuntimeStreamFrame::from_outbound(event)?;
-        let session_id = frame.event.session_id.clone();
-        let runtime_seq = frame.event.runtime_seq;
+        self.deliver_batch(std::slice::from_ref(event)).await
+    }
+
+    async fn deliver_batch(&self, events: &[OutboundEvent]) -> Result<()> {
+        let frame = RuntimeStreamFrame::from_outbound_batch(events)?;
+        let Some(first) = frame.events.first() else {
+            return Ok(());
+        };
+        let session_id = first.session_id.clone();
+        let runtime_seqs = frame
+            .events
+            .iter()
+            .map(|event| event.runtime_seq)
+            .collect::<Vec<_>>();
         let body = serde_json::to_string(&frame)
             .map_err(|e| OutboundError::Delivery(format!("serialize websocket event: {e}")))?;
 
@@ -130,11 +141,16 @@ impl OutboundChannel for WebSocketChannel {
             })?;
         }
 
-        let ack = match timeout(ACK_TIMEOUT, read_ack(&mut stream, &session_id, runtime_seq)).await
+        let ack = match timeout(
+            ACK_TIMEOUT,
+            read_ack(&mut stream, &session_id, &runtime_seqs),
+        )
+        .await
         {
             Ok(result) => result,
             Err(_) => Err(OutboundError::Delivery(format!(
-                "websocket ack timeout for session_id {session_id} runtime_seq {runtime_seq}"
+                "websocket ack timeout for session_id {session_id} runtime_seq {:?}",
+                runtime_seqs
             ))),
         };
         if ack.is_err() {
@@ -146,13 +162,13 @@ impl OutboundChannel for WebSocketChannel {
     }
 }
 
-async fn read_ack(stream: &mut WsStream, session_id: &str, runtime_seq: i64) -> Result<()> {
+async fn read_ack(stream: &mut WsStream, session_id: &str, runtime_seqs: &[i64]) -> Result<()> {
     while let Some(message) = stream.next().await {
         let message = message.map_err(|e| OutboundError::Delivery(format!("read ack: {e}")))?;
         let Message::Text(text) = message else {
             continue;
         };
-        match decode_ack_match(&text, session_id, runtime_seq)? {
+        match decode_ack_match(&text, session_id, runtime_seqs)? {
             AckMatch::Accepted => return Ok(()),
             AckMatch::Rejected(message) => return Err(OutboundError::Delivery(message)),
             AckMatch::NoMatch => {}
@@ -170,32 +186,48 @@ enum AckMatch {
     NoMatch,
 }
 
-fn decode_ack_match(text: &str, session_id: &str, runtime_seq: i64) -> Result<AckMatch> {
+fn decode_ack_match(text: &str, session_id: &str, runtime_seqs: &[i64]) -> Result<AckMatch> {
     let ack: RuntimeIngressAck = serde_json::from_str(text)
         .map_err(|e| OutboundError::Delivery(format!("decode ack: {e}")))?;
-    Ok(match_ack(ack, session_id, runtime_seq))
+    Ok(match_ack(ack, session_id, runtime_seqs))
 }
 
-fn match_ack(ack: RuntimeIngressAck, session_id: &str, runtime_seq: i64) -> AckMatch {
+fn match_ack(ack: RuntimeIngressAck, session_id: &str, runtime_seqs: &[i64]) -> AckMatch {
+    if runtime_seqs.is_empty() {
+        return AckMatch::Accepted;
+    }
+    let mut matched = std::collections::HashSet::with_capacity(runtime_seqs.len());
     for result in ack.results {
-        if result.session_id == session_id && result.runtime_seq == runtime_seq {
-            if ack.r#type == "ack" && (result.status == "accepted" || result.status == "duplicate")
-            {
-                return AckMatch::Accepted;
+        if result.session_id == session_id && runtime_seqs.contains(&result.runtime_seq) {
+            if result.status == "accepted" || result.status == "duplicate" {
+                matched.insert(result.runtime_seq);
+                continue;
             }
             return AckMatch::Rejected(format!(
-                "session_id {session_id} runtime_seq {runtime_seq} rejected: {} {}",
+                "session_id {session_id} runtime_seq {} rejected: {} {}",
+                result.runtime_seq,
                 result.status,
                 result.error.unwrap_or_default()
             ));
         }
     }
-    AckMatch::NoMatch
+    if runtime_seqs.iter().all(|seq| matched.contains(seq)) {
+        if ack.r#type == "ack" {
+            AckMatch::Accepted
+        } else {
+            AckMatch::Rejected(format!(
+                "session_id {session_id} runtime_seq {:?} rejected by nack",
+                runtime_seqs
+            ))
+        }
+    } else {
+        AckMatch::NoMatch
+    }
 }
 
 #[derive(Debug, Serialize)]
 struct RuntimeStreamFrame {
-    event: RuntimeStreamEvent,
+    events: Vec<RuntimeStreamEvent>,
 }
 
 #[derive(Debug, Serialize)]
@@ -217,6 +249,27 @@ struct RuntimeStreamEvent {
 }
 
 impl RuntimeStreamFrame {
+    fn from_outbound_batch(events: &[OutboundEvent]) -> Result<Self> {
+        let mut converted = Vec::with_capacity(events.len());
+        for event in events {
+            converted.push(RuntimeStreamEvent::from_outbound(event)?);
+        }
+        if let Some(first) = converted.first() {
+            if let Some(other) = converted
+                .iter()
+                .find(|event| event.session_id != first.session_id)
+            {
+                return Err(OutboundError::Delivery(format!(
+                    "websocket batch mixes sessions {} and {}",
+                    first.session_id, other.session_id
+                )));
+            }
+        }
+        Ok(Self { events: converted })
+    }
+}
+
+impl RuntimeStreamEvent {
     fn from_outbound(event: &OutboundEvent) -> Result<Self> {
         let payload = event.payload.clone();
         let session_id = string_field(&payload, "session_id").ok_or_else(|| {
@@ -228,23 +281,21 @@ impl RuntimeStreamFrame {
             ))
         })?;
         Ok(Self {
-            event: RuntimeStreamEvent {
-                session_id,
-                sandbox_id: string_field(&payload, "sandbox_id"),
-                agent_id: string_field(&payload, "agent_id"),
-                org_id: string_field(&payload, "org_id"),
-                turn_id: string_field(&payload, "turn_id"),
-                stream_id: string_field(&payload, "stream_id"),
-                runtime_seq,
-                event_id: string_field(&payload, "event_id"),
-                event_type: event.event_type.clone(),
-                durability: string_field(&payload, "durability")
-                    .unwrap_or_else(|| "durable".to_string()),
-                span_id: string_field(&payload, "span_id"),
-                source: string_field(&payload, "source"),
-                payload,
-                occurred_at: event.at,
-            },
+            session_id,
+            sandbox_id: string_field(&payload, "sandbox_id"),
+            agent_id: string_field(&payload, "agent_id"),
+            org_id: string_field(&payload, "org_id"),
+            turn_id: string_field(&payload, "turn_id"),
+            stream_id: string_field(&payload, "stream_id"),
+            runtime_seq,
+            event_id: string_field(&payload, "event_id"),
+            event_type: event.event_type.clone(),
+            durability: string_field(&payload, "durability")
+                .unwrap_or_else(|| "durable".to_string()),
+            span_id: string_field(&payload, "span_id"),
+            source: string_field(&payload, "source"),
+            occurred_at: occurred_at_field(&payload).unwrap_or(event.at),
+            payload,
         })
     }
 }
@@ -282,6 +333,13 @@ fn integer_field(payload: &Value, key: &str) -> Option<i64> {
     })
 }
 
+fn occurred_at_field(payload: &Value) -> Option<DateTime<Utc>> {
+    let raw = string_field(payload, "occurred_at")?;
+    DateTime::parse_from_rfc3339(&raw)
+        .ok()
+        .map(|value| value.with_timezone(&Utc))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -295,7 +353,7 @@ mod tests {
             ]
         }"#;
         assert_eq!(
-            decode_ack_match(wrong_session, "session-a", 7).expect("decode ack"),
+            decode_ack_match(wrong_session, "session-a", &[7]).expect("decode ack"),
             AckMatch::NoMatch
         );
 
@@ -306,7 +364,7 @@ mod tests {
             ]
         }"#;
         assert_eq!(
-            decode_ack_match(matching_session, "session-a", 7).expect("decode ack"),
+            decode_ack_match(matching_session, "session-a", &[7]).expect("decode ack"),
             AckMatch::Accepted
         );
     }
@@ -320,7 +378,7 @@ mod tests {
             ]
         }"#;
         assert_eq!(
-            decode_ack_match(duplicate, "session-a", 8).expect("decode ack"),
+            decode_ack_match(duplicate, "session-a", &[8]).expect("decode ack"),
             AckMatch::Accepted
         );
 
@@ -336,11 +394,66 @@ mod tests {
             ]
         }"#;
         assert!(matches!(
-            decode_ack_match(rejected, "session-a", 9).expect("decode ack"),
+            decode_ack_match(rejected, "session-a", &[9]).expect("decode ack"),
             AckMatch::Rejected(message)
                 if message.contains("session-a")
                     && message.contains("runtime_seq 9")
                     && message.contains("gap")
         ));
+    }
+
+    #[test]
+    fn ack_matching_requires_every_runtime_seq_in_batch() {
+        let partial = r#"{
+            "type": "ack",
+            "results": [
+                {"session_id": "session-a", "runtime_seq": 7, "status": "accepted"}
+            ]
+        }"#;
+        assert_eq!(
+            decode_ack_match(partial, "session-a", &[7, 8]).expect("decode ack"),
+            AckMatch::NoMatch
+        );
+
+        let complete = r#"{
+            "type": "ack",
+            "results": [
+                {"session_id": "session-a", "runtime_seq": 7, "status": "accepted"},
+                {"session_id": "session-a", "runtime_seq": 8, "status": "duplicate"}
+            ]
+        }"#;
+        assert_eq!(
+            decode_ack_match(complete, "session-a", &[7, 8]).expect("decode ack"),
+            AckMatch::Accepted
+        );
+    }
+
+    #[test]
+    fn runtime_stream_frame_serializes_events_batch_and_preserves_payload_time() {
+        let original_at = DateTime::parse_from_rfc3339("2026-06-22T13:50:41.088180424Z")
+            .expect("parse time")
+            .with_timezone(&Utc);
+        let event = OutboundEvent {
+            event_type: "turn_completed".to_string(),
+            payload: serde_json::json!({
+                "session_id": "session-a",
+                "runtime_seq": 7,
+                "event_id": "evt-7",
+                "occurred_at": "2026-06-22T13:50:41.088180424Z"
+            }),
+            at: Utc::now(),
+        };
+
+        let frame = RuntimeStreamFrame::from_outbound_batch(&[event]).expect("build frame");
+        assert_eq!(frame.events.len(), 1);
+        assert_eq!(frame.events[0].occurred_at, original_at);
+
+        let raw = serde_json::to_value(&frame).expect("serialize frame");
+        assert!(raw.get("event").is_none());
+        assert_eq!(
+            raw.pointer("/events/0/runtime_seq")
+                .and_then(serde_json::Value::as_i64),
+            Some(7)
+        );
     }
 }

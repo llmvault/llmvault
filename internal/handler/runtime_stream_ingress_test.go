@@ -36,6 +36,23 @@ func TestRuntimeIngressRawFrameAllowsRouteSessionEnrichment(t *testing.T) {
 	}
 }
 
+func TestRuntimeIngressFrameDecodesBatchedEvents(t *testing.T) {
+	raw := []byte(`{
+		"events": [
+			{"runtime_seq": 1, "event_id": "evt-1", "event_type": "token", "durability": "durable", "occurred_at": "2026-06-22T14:00:00Z"},
+			{"runtime_seq": 2, "event_id": "evt-2", "event_type": "turn_completed", "durability": "durable", "occurred_at": "2026-06-22T14:00:01Z"}
+		]
+	}`)
+
+	events, err := decodeRuntimeIngressEvents(raw)
+	if err != nil {
+		t.Fatalf("decode batched frame: %v", err)
+	}
+	if len(events) != 2 || events[0].RuntimeSeq != 1 || events[1].RuntimeSeq != 2 {
+		t.Fatalf("decoded events = %+v", events)
+	}
+}
+
 func TestRuntimeIngressAckIdentifiesSessionAndConflict(t *testing.T) {
 	ctx := context.Background()
 	redisClient := redis.NewClient(&redis.Options{Addr: testdb.RedisAddr("HIVY_REDIS_ADDR", "TEST_REDIS_ADDR")})
@@ -94,5 +111,60 @@ func TestRuntimeIngressAckIdentifiesSessionAndConflict(t *testing.T) {
 	}
 	if got := conflict.Results[0]; got.SessionID != sessionID.String() || got.RuntimeSeq != 1 || got.Status != runtimestream.AppendConflict || got.Error == "" {
 		t.Fatalf("conflict result = %+v", got)
+	}
+}
+
+func TestRuntimeIngressAckAcceptsContiguousBatch(t *testing.T) {
+	ctx := context.Background()
+	redisClient := redis.NewClient(&redis.Options{Addr: testdb.RedisAddr("HIVY_REDIS_ADDR", "TEST_REDIS_ADDR")})
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		redisClient.Close()
+		t.Skipf("Redis is not available: %v", err)
+	}
+	t.Cleanup(func() { redisClient.Close() })
+
+	store := runtimestream.NewStore(redisClient, 1)
+	h := &RuntimeStreamIngressHandler{store: store}
+	orgID := uuid.New()
+	agentID := uuid.New()
+	sandboxID := uuid.New()
+	sessionID := uuid.New()
+	t.Cleanup(func() {
+		redisClient.Del(ctx,
+			runtimestream.LastSeqKey(sessionID.String()),
+			runtimestream.EventIndexKey(sessionID.String()),
+			runtimestream.ProjectedSeqKey(sessionID.String()),
+		)
+	})
+
+	sb := &model.Sandbox{ID: sandboxID, OrgID: &orgID, AgentID: &agentID}
+	session := &model.Session{ID: sessionID, OrgID: orgID, AgentID: agentID, SandboxID: &sandboxID}
+
+	ack, closeAfterWrite := h.acceptRuntimeEvents(ctx, sb, session, []runtimestream.Event{
+		{
+			RuntimeSeq: 1,
+			EventID:    "evt-batch-1",
+			EventType:  "token",
+			Durability: runtimestream.DurabilityDurable,
+			Payload:    map[string]any{"text": "hello"},
+			OccurredAt: time.Date(2026, 6, 22, 14, 0, 0, 0, time.UTC),
+		},
+		{
+			RuntimeSeq: 2,
+			EventID:    "evt-batch-2",
+			EventType:  "turn_completed",
+			Durability: runtimestream.DurabilityDurable,
+			Payload:    map[string]any{},
+			OccurredAt: time.Date(2026, 6, 22, 14, 0, 1, 0, time.UTC),
+		},
+	})
+	if closeAfterWrite || ack.Type != "ack" || ack.AckSeq != 2 || len(ack.Results) != 2 {
+		t.Fatalf("batch ack = %+v close=%t", ack, closeAfterWrite)
+	}
+	for i, result := range ack.Results {
+		wantSeq := int64(i + 1)
+		if result.SessionID != sessionID.String() || result.RuntimeSeq != wantSeq || result.Status != runtimestream.AppendAccepted {
+			t.Fatalf("result %d = %+v", i, result)
+		}
 	}
 }

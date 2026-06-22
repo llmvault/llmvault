@@ -44,18 +44,10 @@ const controllers = new Map<string, StreamControllerRecord>()
 
 export function hydrateSessionRuntimeFromResponse(
   session: SessionResponse | undefined,
-  queryClient: QueryClient
+  _queryClient: QueryClient
 ) {
   if (!session?.id) return
   useSessionRuntimeStore.getState().hydrateSession(session)
-  const status = sessionRuntimeStatusFromResponse(session)
-  if (
-    status === "streaming" ||
-    status === "queued" ||
-    status === "waiting_for_user"
-  ) {
-    ensureSessionStream(session.id, { queryClient })
-  }
 }
 
 export function hydrateSessionListRuntime(
@@ -276,12 +268,10 @@ function handleSessionStreamFrame(
   useSessionRuntimeStore.getState().applyStreamFrame(sessionId, frame)
   if (!subagentFrame && isTerminalFrame(frame.event)) {
     stopController(sessionId)
-    void refreshSessionQueries(controller.queryClient, sessionId).then(() => {
-      const message = terminalFrameErrorMessage(frame.data)
-      useSessionRuntimeStore.getState().finishStream(sessionId, {
-        preserveError: Boolean(message),
-        outcome: message ? "failed" : "completed",
-      })
+    const message = terminalFrameErrorMessage(frame.data)
+    useSessionRuntimeStore.getState().finishStream(sessionId, {
+      preserveError: Boolean(message),
+      outcome: message ? "failed" : "completed",
     })
   }
 }

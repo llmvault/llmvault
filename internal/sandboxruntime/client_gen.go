@@ -1454,6 +1454,9 @@ type GetSessionLiveStreamParams struct {
 
 	// AfterSeq Replay retained events with sequence greater than this value
 	AfterSeq *int64 `form:"after_seq,omitempty" json:"after_seq,omitempty"`
+
+	// FromTurnId Replay retained events for one turn and continue live until that turn terminates
+	FromTurnId *string `form:"from_turn_id,omitempty" json:"from_turn_id,omitempty"`
 }
 
 // PutConfigJSONRequestBody defines body for PutConfig for application/json ContentType.
@@ -3581,6 +3584,18 @@ func NewGetSessionLiveStreamRequest(server string, sessionId string, params *Get
 		if params.AfterSeq != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "after_seq", *params.AfterSeq, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.FromTurnId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from_turn_id", *params.FromTurnId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

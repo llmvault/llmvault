@@ -16,31 +16,58 @@ import (
 func TestControlPlaneOutboundChannels_EmitsRuntimeWebSocketSpec(t *testing.T) {
 	sandboxID := uuid.New()
 	channels := ControlPlaneOutboundChannels(&config.Config{APIWebhookBaseURL: "https://api.hivy.test"}, sandboxID)
-	if len(channels) != 1 {
+	if len(channels) != 2 {
 		t.Fatalf("channels = %#v", channels)
 	}
-	channel, ok := channels[0].(map[string]any)
-	if !ok {
-		t.Fatalf("channel has wrong type: %#v", channels[0])
+	streamChannel := outboundChannelByName(t, channels, "control-plane-runtime-stream")
+	if streamChannel["type"] != "websocket" {
+		t.Fatalf("stream type = %q", streamChannel["type"])
 	}
-	if channel["type"] != "websocket" {
-		t.Fatalf("type = %q", channel["type"])
+	if streamChannel["url"] != "wss://api.hivy.test/internal/runtime-events/sandboxes/"+sandboxID.String()+"/sessions/{session_id}/ws" {
+		t.Fatalf("stream url = %q", streamChannel["url"])
 	}
-	if channel["url"] != "wss://api.hivy.test/internal/runtime-events/sandboxes/"+sandboxID.String()+"/sessions/{session_id}/ws" {
-		t.Fatalf("url = %q", channel["url"])
+	if streamChannel["secret_env"] != AgentEnvRuntimeSecret {
+		t.Fatalf("stream secret env = %q", streamChannel["secret_env"])
 	}
-	if channel["secret_env"] != AgentEnvRuntimeSecret {
-		t.Fatalf("secret env = %q", channel["secret_env"])
+
+	stateChannel := outboundChannelByName(t, channels, "control-plane-turn-state")
+	if stateChannel["type"] != "webhook" {
+		t.Fatalf("turn-state type = %q", stateChannel["type"])
+	}
+	if stateChannel["url"] != "https://api.hivy.test/internal/runtime-events/sandboxes/"+sandboxID.String()+"/turn-state" {
+		t.Fatalf("turn-state url = %q", stateChannel["url"])
+	}
+	if stateChannel["secret_env"] != AgentEnvRuntimeSecret {
+		t.Fatalf("turn-state secret env = %q", stateChannel["secret_env"])
 	}
 }
 
 func TestControlPlaneOutboundChannels_UsesAPIWebhookBaseURL(t *testing.T) {
 	sandboxID := uuid.New()
 	channels := ControlPlaneOutboundChannels(&config.Config{APIWebhookBaseURL: "http://host.docker.internal:8080"}, sandboxID)
-	channel := channels[0].(map[string]any)
+	channel := outboundChannelByName(t, channels, "control-plane-runtime-stream")
 	if channel["url"] != "ws://host.docker.internal:8080/internal/runtime-events/sandboxes/"+sandboxID.String()+"/sessions/{session_id}/ws" {
 		t.Fatalf("url = %q", channel["url"])
 	}
+	stateChannel := outboundChannelByName(t, channels, "control-plane-turn-state")
+	if stateChannel["url"] != "http://host.docker.internal:8080/internal/runtime-events/sandboxes/"+sandboxID.String()+"/turn-state" {
+		t.Fatalf("turn-state url = %q", stateChannel["url"])
+	}
+}
+
+func outboundChannelByName(t *testing.T, channels []any, name string) map[string]any {
+	t.Helper()
+	for _, raw := range channels {
+		channel, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("channel has wrong type: %#v", raw)
+		}
+		if channel["name"] == name {
+			return channel
+		}
+	}
+	t.Fatalf("missing outbound channel %q in %#v", name, channels)
+	return nil
 }
 
 func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {

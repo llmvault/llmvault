@@ -2,11 +2,32 @@ use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use sqlx::{Connection, QueryBuilder, Row, Sqlite, SqliteConnection};
 
-use crate::repos::{OutboxRow, Result};
+use crate::repos::{OutboxRow, Result, StorageError};
 
 use super::EventsLogWrite;
 
 const EVENTS_LOG_INSERT_CHUNK_EVENTS: usize = 200;
+const SESSION_CLAIM_WINDOW: i64 = 100;
+
+fn payload_occurred_at(payload_json: &str) -> Option<String> {
+    let payload: Value = serde_json::from_str(payload_json).ok()?;
+    payload
+        .get("occurred_at")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn parse_rfc3339(raw: &str) -> Result<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(raw)
+        .map(|value| value.with_timezone(&Utc))
+        .map_err(|error| {
+            StorageError::Other(anyhow::anyhow!(
+                "invalid outbound occurred_at {raw:?}: {error}"
+            ))
+        })
+}
 
 pub(super) async fn outbox_enqueue(
     conn: &mut SqliteConnection,
@@ -15,16 +36,18 @@ pub(super) async fn outbox_enqueue(
     payload_json: &str,
     now: &str,
 ) -> Result<i64> {
+    let occurred_at = payload_occurred_at(payload_json).unwrap_or_else(|| now.to_string());
     let id: i64 = sqlx::query_scalar(
         "INSERT INTO outbound_outbox \
-         (channel_name, event_type, payload_json, attempts, next_retry_at, status, created_at) \
-         VALUES (?, ?, ?, 0, ?, ?, ?) RETURNING id",
+         (channel_name, event_type, payload_json, attempts, next_retry_at, status, occurred_at, created_at) \
+         VALUES (?, ?, ?, 0, ?, ?, ?, ?) RETURNING id",
     )
     .bind(channel_name)
     .bind(event_type)
     .bind(payload_json)
     .bind(now)
     .bind("pending")
+    .bind(occurred_at)
     .bind(now)
     .fetch_one(conn)
     .await?;
@@ -69,10 +92,11 @@ pub(super) async fn outbox_enqueue_runtime(
             .or_insert_with(|| json!(format!("evt_rt_{}_{}", session_id, runtime_seq)));
     }
     let payload_json = serde_json::to_string(&payload)?;
+    let occurred_at = payload_occurred_at(&payload_json).unwrap_or_else(|| now.to_string());
     let id: i64 = sqlx::query_scalar(
         "INSERT INTO outbound_outbox \
-         (channel_name, event_type, payload_json, session_id, runtime_seq, attempts, next_retry_at, status, created_at) \
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?) RETURNING id",
+         (channel_name, event_type, payload_json, session_id, runtime_seq, attempts, next_retry_at, status, occurred_at, created_at) \
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?) RETURNING id",
     )
     .bind(channel_name)
     .bind(event_type)
@@ -81,6 +105,7 @@ pub(super) async fn outbox_enqueue_runtime(
     .bind(runtime_seq)
     .bind(now)
     .bind("pending")
+    .bind(occurred_at)
     .bind(now)
     .fetch_one(&mut *tx)
     .await?;
@@ -94,27 +119,34 @@ pub(super) async fn outbox_claim_due(
     now: &str,
     lease_until: &str,
 ) -> Result<Vec<OutboxRow>> {
-    let limit = limit.min(256);
+    let limit = limit.min(1024);
     if limit == 0 {
         return Ok(Vec::new());
     }
 
     let rows = sqlx::query(
-        "WITH session_heads AS ( \
+        "WITH session_ordered AS ( \
+             SELECT \
+                 id, \
+                 ROW_NUMBER() OVER ( \
+                     PARTITION BY channel_name, session_id \
+                     ORDER BY COALESCE(runtime_seq, id), id \
+                 ) AS rn, \
+                 SUM(CASE \
+                     WHEN next_retry_at <= ? AND (lease_until IS NULL OR lease_until <= ?) THEN 0 \
+                     ELSE 1 \
+                 END) OVER ( \
+                     PARTITION BY channel_name, session_id \
+                     ORDER BY COALESCE(runtime_seq, id), id \
+                     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW \
+                 ) AS blockers \
+             FROM outbound_outbox \
+             WHERE status = ? AND session_id IS NOT NULL \
+         ), \
+         session_due AS ( \
              SELECT id \
-             FROM ( \
-                 SELECT \
-                     id, \
-                     next_retry_at, \
-                     lease_until, \
-                     ROW_NUMBER() OVER ( \
-                         PARTITION BY channel_name, session_id \
-                         ORDER BY COALESCE(runtime_seq, id), id \
-                     ) AS rn \
-                 FROM outbound_outbox \
-                 WHERE status = ? AND session_id IS NOT NULL \
-             ) \
-             WHERE rn = 1 AND next_retry_at <= ? AND (lease_until IS NULL OR lease_until <= ?) \
+             FROM session_ordered \
+             WHERE blockers = 0 AND rn <= ? \
          ), \
          non_session_due AS ( \
              SELECT id \
@@ -125,7 +157,7 @@ pub(super) async fn outbox_claim_due(
                AND (lease_until IS NULL OR lease_until <= ?) \
          ), \
          claim AS ( \
-             SELECT id FROM session_heads \
+             SELECT id FROM session_due \
              UNION ALL \
              SELECT id FROM non_session_due \
              ORDER BY id ASC \
@@ -134,11 +166,12 @@ pub(super) async fn outbox_claim_due(
          UPDATE outbound_outbox \
          SET lease_until = ? \
          WHERE id IN (SELECT id FROM claim) \
-         RETURNING id, channel_name, event_type, payload_json, attempts, session_id, runtime_seq",
+         RETURNING id, channel_name, event_type, payload_json, attempts, session_id, runtime_seq, occurred_at",
     )
+    .bind(now)
+    .bind(now)
     .bind("pending")
-    .bind(now)
-    .bind(now)
+    .bind(SESSION_CLAIM_WINDOW)
     .bind("pending")
     .bind(now)
     .bind(now)
@@ -150,6 +183,7 @@ pub(super) async fn outbox_claim_due(
     let mut outbox_rows = Vec::with_capacity(rows.len());
     for row in rows {
         let payload_text: String = row.try_get("payload_json")?;
+        let occurred_at_text: String = row.try_get("occurred_at")?;
         outbox_rows.push(OutboxRow {
             id: row.try_get("id")?,
             channel_name: row.try_get("channel_name")?,
@@ -158,6 +192,7 @@ pub(super) async fn outbox_claim_due(
             attempts: row.try_get("attempts")?,
             session_id: row.try_get("session_id")?,
             runtime_seq: row.try_get("runtime_seq")?,
+            occurred_at: parse_rfc3339(&occurred_at_text)?,
         });
     }
     Ok(outbox_rows)
