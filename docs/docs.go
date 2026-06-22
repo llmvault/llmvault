@@ -7218,7 +7218,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a channel-scoped session and dispatches or queues the first user message.",
+                "description": "Creates a channel-scoped session and optionally dispatches or queues the first user message.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7507,7 +7507,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Persists an answer to a runtime request_user_input turn and queues it for runtime delivery.",
+                "description": "Sends an answer command to a runtime request_user_input turn.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7647,7 +7647,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Persists a user message and queues it for FIFO runtime delivery.",
+                "description": "Queues a user message command for FIFO runtime delivery.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7863,14 +7863,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.",
+                "description": "Returns the sandbox base URL and a short-lived JWT scoped to read-only repository APIs.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "sessions"
                 ],
-                "summary": "Mint direct sandbox access",
+                "summary": "Mint sandbox repository access",
                 "parameters": [
                     {
                         "type": "string",
@@ -7885,64 +7885,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/sessionSandboxAccessResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/sessions/{id}/sandbox/wake": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Compatibility endpoint. Sandbox wake is managed by Microsandbox infrastructure, so this returns the current sandbox and managed_by_infra without starting it from the API.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "sessions"
-                ],
-                "summary": "Mark a session sandbox wake request",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Session ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/sessionSandboxWakeResponse"
                         }
                     },
                     "401": {
@@ -12958,6 +12900,9 @@ const docTemplate = `{
                 "agent_id": {
                     "type": "string"
                 },
+                "durability": {
+                    "type": "string"
+                },
                 "event_at": {
                     "type": "string"
                 },
@@ -12973,6 +12918,12 @@ const docTemplate = `{
                 "payload": {
                     "$ref": "#/definitions/JSON"
                 },
+                "runtime_event_id": {
+                    "type": "string"
+                },
+                "runtime_seq": {
+                    "type": "integer"
+                },
                 "sandbox_id": {
                     "type": "string"
                 },
@@ -12983,6 +12934,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source": {
+                    "type": "string"
+                },
+                "span_id": {
+                    "type": "string"
+                },
+                "turn_id": {
                     "type": "string"
                 }
             }
@@ -13157,29 +13114,6 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
-                }
-            }
-        },
-        "sessionSandboxWakeResponse": {
-            "type": "object",
-            "properties": {
-                "managed_by_infra": {
-                    "type": "boolean"
-                },
-                "runtime_url": {
-                    "type": "string"
-                },
-                "sandbox_id": {
-                    "type": "string"
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "woke": {
-                    "type": "boolean"
                 }
             }
         },
@@ -13545,9 +13479,6 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                },
-                "repos_cloned": {
-                    "type": "integer"
                 },
                 "restart_triggered": {
                     "type": "boolean"

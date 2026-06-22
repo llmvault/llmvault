@@ -155,11 +155,6 @@ func (h *SandboxHandler) Exec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sb.Status != "running" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "sandbox is not running"})
-		return
-	}
-
 	var req execRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})

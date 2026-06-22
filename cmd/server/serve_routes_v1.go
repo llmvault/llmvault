@@ -145,7 +145,6 @@ func setupV1Routes(
 					r.Post("/sessions/{id}/interrupt", sessionHandler.Interrupt)
 					r.Get("/sessions/{id}/events", sessionHandler.ListEvents)
 					r.Get("/sessions/{id}/stream", sessionHandler.Stream)
-					r.Post("/sessions/{id}/sandbox/wake", sessionHandler.WakeSandbox)
 					r.Post("/sessions/{id}/sandbox-access", sessionHandler.SandboxAccess)
 					r.Put("/sessions/{id}/participants/{userID}", sessionHandler.PutParticipant)
 					r.Delete("/sessions/{id}/participants/{userID}", sessionHandler.DeleteParticipant)

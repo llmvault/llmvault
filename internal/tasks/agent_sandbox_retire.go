@@ -60,10 +60,7 @@ func (h *AgentSandboxRetireHandler) retire(ctx context.Context, payload AgentSan
 		}
 		return fmt.Errorf("load old agent sandbox: %w", err)
 	}
-	// The old sandbox is usually 'stopped', but pause-less providers (Railway) leave it 'running'.
-	// Either way the new one serves traffic, so retire the old from both states to stop billing.
-	if sb.AgentID == nil || *sb.AgentID != payload.AgentID ||
-		(sb.Status != string(sandbox.StatusStopped) && sb.Status != string(sandbox.StatusRunning)) {
+	if sb.AgentID == nil || *sb.AgentID != payload.AgentID {
 		return nil
 	}
 	if upgrade.NewSandboxID != nil && *upgrade.NewSandboxID == sb.ID {

@@ -9,44 +9,6 @@ import (
 	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
-func TestIntegration_SessionSandboxWakeIsInfraManagedNoop(t *testing.T) {
-	runtime := newSessionSyncRuntime(t, http.StatusOK)
-	h, provider := newSessionRuntimeHarness(t, runtime, nil)
-	fx := h.seed(t)
-	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
-	created := h.createSession(t, fx, fx.owner, "Wake this sandbox")
-	sb := attachStoppedSessionSandbox(t, h, fx, created.Session.ID, runtime.server.URL)
-
-	rr := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/sandbox/wake", fx, fx.owner, nil)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("wake status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	var out struct {
-		SessionID  string `json:"session_id"`
-		SandboxID  string `json:"sandbox_id"`
-		Status     string `json:"status"`
-		RuntimeURL string `json:"runtime_url"`
-		Woke       bool   `json:"woke"`
-		Managed    bool   `json:"managed_by_infra"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
-		t.Fatalf("decode wake response: %v\n%s", err, rr.Body.String())
-	}
-	if out.SessionID != created.Session.ID || out.SandboxID != sb.ID.String() || out.Status != "stopped" || out.Woke || !out.Managed {
-		t.Fatalf("bad wake response: %+v", out)
-	}
-	if len(provider.started) != 0 {
-		t.Fatalf("provider started=%v, want no Go API wake", provider.started)
-	}
-	var current model.Sandbox
-	if err := h.db.First(&current, "id = ?", sb.ID).Error; err != nil {
-		t.Fatalf("load sandbox: %v", err)
-	}
-	if current.Status != "stopped" {
-		t.Fatalf("sandbox status=%q, want stopped", current.Status)
-	}
-}
-
 func TestIntegration_SandboxAccessMintsWithoutGoWake(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
 	h, provider := newSessionRuntimeHarness(t, runtime, nil)

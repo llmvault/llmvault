@@ -30,7 +30,7 @@ func TestPeriodicTaskConfigs_SkipsSandboxTasksWhenProviderIncomplete(t *testing.
 
 	for _, c := range configs {
 		switch c.Task.Type() {
-		case tasks.TypeSandboxHealthCheck, tasks.TypeSandboxResourceCheck, tasks.TypeSandboxLifecycle:
+		case tasks.TypeSandboxHealthCheck, tasks.TypeSandboxResourceCheck, tasks.TypeSandboxLifecycle, tasks.TypeSandboxReap, tasks.TypeAgentScheduleScan:
 			t.Fatalf("sandbox task %q should not be registered without complete provider config", c.Task.Type())
 		}
 	}
@@ -50,7 +50,10 @@ func TestPeriodicTaskConfigs_RegistersSandboxTasksWhenProviderComplete(t *testin
 	for _, c := range configs {
 		seen[c.Task.Type()] = true
 	}
-	if !seen[tasks.TypeSandboxHealthCheck] || !seen[tasks.TypeSandboxResourceCheck] || !seen[tasks.TypeSandboxLifecycle] {
-		t.Fatalf("sandbox periodic tasks missing: %#v", seen)
+	if !seen[tasks.TypeSandboxResourceCheck] || !seen[tasks.TypeSandboxReap] || !seen[tasks.TypeAgentScheduleScan] {
+		t.Fatalf("sandbox maintenance tasks missing: %#v", seen)
+	}
+	if seen[tasks.TypeSandboxHealthCheck] || seen[tasks.TypeSandboxLifecycle] {
+		t.Fatalf("provider status reconciliation tasks should not be registered: %#v", seen)
 	}
 }

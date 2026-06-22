@@ -150,15 +150,3 @@ func (o *Orchestrator) purgeMissingSandbox(sb *model.Sandbox) error {
 	}
 	return ErrSandboxNotFound
 }
-
-func (o *Orchestrator) UnarchiveSandbox(ctx context.Context, sb *model.Sandbox) (*model.Sandbox, error) {
-	if err := o.ensureSandboxProvider(sb); err != nil {
-		return nil, err
-	}
-	if err := o.db.Model(sb).Update("status", string(StatusStarting)).Error; err != nil {
-		return nil, fmt.Errorf("marking sandbox %s starting before unarchive: %w", sb.ID, err)
-	}
-	sb.Status = string(StatusStarting)
-
-	return o.WakeSandbox(ctx, sb)
-}

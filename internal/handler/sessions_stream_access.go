@@ -36,7 +36,7 @@ func (h *SessionHandler) SandboxAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	sb, err := h.sessionSandboxForAccess(r.Context(), &session)
 	if err != nil {
-		h.writeSessionSandboxWakeError(w, err)
+		h.writeSessionSandboxUnavailableError(w, err)
 		return
 	}
 	runtimeSecret, err := h.runtimeEncKey.DecryptString(sb.EncryptedRuntimeSecret)
