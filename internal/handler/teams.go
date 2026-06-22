@@ -65,6 +65,18 @@ type teamDetailResponse struct {
 	Members []teamMemberResponse `json:"members"`
 }
 
+// @Summary List teams
+// @Description Returns active teams for the current organization. Admin-only.
+// @Tags teams
+// @Produce json
+// @Param limit query int false "Maximum results to return"
+// @Param cursor query string false "Pagination cursor"
+// @Success 200 {object} paginatedResponse[teamResponse]
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/orgs/current/teams [get]
 func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {
 	org, ok := orgForTeamRequest(w, r)
 	if !ok {
@@ -98,6 +110,19 @@ func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// @Summary Create a team
+// @Description Creates a team in the current organization. Admin-only.
+// @Tags teams
+// @Accept json
+// @Produce json
+// @Param body body teamMutationRequest true "Team parameters"
+// @Success 201 {object} teamMutationResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/orgs/current/teams [post]
 func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 	org, ok := orgForTeamRequest(w, r)
 	if !ok {
@@ -132,6 +157,18 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, teamMutationResponse{Team: h.teamResponse(r.Context(), team)})
 }
 
+// @Summary Get a team
+// @Description Returns one active team and its members. Admin-only.
+// @Tags teams
+// @Produce json
+// @Param id path string true "Team ID"
+// @Success 200 {object} teamDetailResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/orgs/current/teams/{id} [get]
 func (h *TeamHandler) Get(w http.ResponseWriter, r *http.Request) {
 	team, ok := h.loadTeamForRequest(w, r)
 	if !ok {
@@ -143,6 +180,21 @@ func (h *TeamHandler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// @Summary Update a team
+// @Description Updates an active team in the current organization. Admin-only.
+// @Tags teams
+// @Accept json
+// @Produce json
+// @Param id path string true "Team ID"
+// @Param body body teamMutationRequest true "Team parameters"
+// @Success 200 {object} teamMutationResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/orgs/current/teams/{id} [patch]
 func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
 	team, ok := h.loadTeamForRequest(w, r)
 	if !ok {
@@ -184,6 +236,19 @@ func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, teamMutationResponse{Team: h.teamResponse(r.Context(), team)})
 }
 
+// @Summary Archive a team
+// @Description Archives an active team after all channels are removed from it. Admin-only.
+// @Tags teams
+// @Produce json
+// @Param id path string true "Team ID"
+// @Success 200 {object} teamMutationResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/orgs/current/teams/{id} [delete]
 func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	team, ok := h.loadTeamForRequest(w, r)
 	if !ok {
@@ -213,6 +278,21 @@ func (h *TeamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, teamMutationResponse{Team: h.teamResponse(r.Context(), team)})
 }
 
+// @Summary Add or update a team member
+// @Description Adds an existing organization member to a team or updates their team role. Admin-only.
+// @Tags teams
+// @Accept json
+// @Produce json
+// @Param id path string true "Team ID"
+// @Param userID path string true "User ID"
+// @Param body body teamMemberRequest false "Team member parameters"
+// @Success 200 {object} teamDetailResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/orgs/current/teams/{id}/members/{userID} [put]
 func (h *TeamHandler) PutMember(w http.ResponseWriter, r *http.Request) {
 	team, ok := h.loadTeamForRequest(w, r)
 	if !ok {
@@ -249,6 +329,19 @@ func (h *TeamHandler) PutMember(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// @Summary Remove a team member
+// @Description Removes an organization member from a team. Admin-only.
+// @Tags teams
+// @Produce json
+// @Param id path string true "Team ID"
+// @Param userID path string true "User ID"
+// @Success 200 {object} teamDetailResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/orgs/current/teams/{id}/members/{userID} [delete]
 func (h *TeamHandler) DeleteMember(w http.ResponseWriter, r *http.Request) {
 	team, ok := h.loadTeamForRequest(w, r)
 	if !ok {

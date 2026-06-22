@@ -141,6 +141,7 @@ func sessionMessageHasContent(text string, raw model.JSON) bool {
 		return true
 	}
 	return rawArrayLen(raw, "attachments") > 0 ||
+		rawArrayLen(raw, "attachment_ids") > 0 ||
 		rawArrayLen(raw, "code_line_comments") > 0
 }
 

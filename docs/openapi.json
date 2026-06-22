@@ -6990,6 +6990,577 @@
         }
       }
     },
+    "/v1/orgs/current/teams": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns active teams for the current organization. Admin-only.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "List teams",
+        "parameters": [
+          {
+            "description": "Maximum results to return",
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination cursor",
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/paginatedResponse-handler_teamResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Creates a team in the current organization. Admin-only.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Create a team",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/teamMutationRequest"
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/current/teams/{id}": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Returns one active team and its members. Admin-only.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Get a team",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Archives an active team after all channels are removed from it. Admin-only.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Archive a team",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Updates an active team in the current organization. Admin-only.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Update a team",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/teamMutationRequest"
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/current/teams/{id}/members/{userID}": {
+      "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Adds an existing organization member to a team or updates their team role. Admin-only.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Add or update a team member",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "User ID",
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/teamMemberRequest"
+              }
+            }
+          },
+          "description": "Team member parameters"
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Removes an organization member from a team. Admin-only.",
+        "tags": [
+          "teams"
+        ],
+        "summary": "Remove a team member",
+        "parameters": [
+          {
+            "description": "Team ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "User ID",
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/teamDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/plans": {
       "get": {
         "description": "Returns the public catalog of billing plans, ordered by price\nascending (free first). Public \u2014 no authentication required.",
@@ -9745,11 +10316,11 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns the sandbox base URL and a short-lived JWT scoped to read-only repository APIs.",
+        "description": "Returns the sandbox base URL and a short-lived JWT scoped to read-only sandbox APIs.",
         "tags": [
           "sessions"
         ],
-        "summary": "Mint sandbox repository access",
+        "summary": "Mint read-only sandbox access",
         "parameters": [
           {
             "description": "Session ID",
@@ -10993,6 +11564,19 @@
     }
   ],
   "components": {
+    "requestBodies": {
+      "teamMutationRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/teamMutationRequest"
+            }
+          }
+        },
+        "description": "Team parameters",
+        "required": true
+      }
+    },
     "securitySchemes": {
       "BearerAuth": {
         "description": "Bearer token (JWT or API key).",
@@ -11725,6 +12309,12 @@
           "catalog": {
             "$ref": "#/components/schemas/agentCatalogSummary"
           },
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "created_at": {
             "type": "string"
           },
@@ -11820,6 +12410,12 @@
           "avatar_url": {
             "type": "string"
           },
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "description": {
             "type": "string"
           },
@@ -11901,6 +12497,12 @@
           },
           "catalog": {
             "$ref": "#/components/schemas/agentCatalogSummary"
+          },
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "created_at": {
             "type": "string"
@@ -12367,6 +12969,9 @@
           "origin": {
             "type": "string"
           },
+          "team_id": {
+            "type": "string"
+          },
           "visibility": {
             "type": "string"
           }
@@ -12453,6 +13058,9 @@
             "type": "string"
           },
           "role": {
+            "type": "string"
+          },
+          "team_id": {
             "type": "string"
           },
           "updated_at": {
@@ -12703,6 +13311,12 @@
           },
           "role": {
             "type": "string"
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -12779,6 +13393,9 @@
             "type": "string"
           },
           "channel_id": {
+            "type": "string"
+          },
+          "client_event_id": {
             "type": "string"
           },
           "message": {
@@ -13585,6 +14202,12 @@
           },
           "role": {
             "type": "string"
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -13834,6 +14457,23 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/sandboxResponse"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "paginatedResponse-handler_teamResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/teamResponse"
             }
           },
           "has_more": {
@@ -15011,6 +15651,9 @@
       "sendSessionMessageRequest": {
         "type": "object",
         "properties": {
+          "client_event_id": {
+            "type": "string"
+          },
           "dynamic_context": {
             "$ref": "#/components/schemas/JSON"
           },
@@ -15104,6 +15747,9 @@
       "sessionInputResponseRequest": {
         "type": "object",
         "properties": {
+          "client_event_id": {
+            "type": "string"
+          },
           "option_id": {
             "type": "string"
           },
@@ -15676,6 +16322,102 @@
           },
           "stream": {
             "type": "boolean"
+          }
+        }
+      },
+      "teamDetailResponse": {
+        "type": "object",
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/teamMemberResponse"
+            }
+          },
+          "team": {
+            "$ref": "#/components/schemas/teamResponse"
+          }
+        }
+      },
+      "teamMemberRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "teamMemberResponse": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        }
+      },
+      "teamMutationRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "teamMutationResponse": {
+        "type": "object",
+        "properties": {
+          "team": {
+            "$ref": "#/components/schemas/teamResponse"
+          }
+        }
+      },
+      "teamResponse": {
+        "type": "object",
+        "properties": {
+          "archived_at": {
+            "type": "string"
+          },
+          "channel_count": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "member_count": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
           }
         }
       },

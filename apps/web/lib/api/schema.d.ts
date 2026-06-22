@@ -6986,6 +6986,505 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orgs/current/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List teams
+         * @description Returns active teams for the current organization. Admin-only.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Maximum results to return */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_teamResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a team
+         * @description Creates a team in the current organization. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["teamMutationRequest"];
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a team
+         * @description Returns one active team and its members. Admin-only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Archive a team
+         * @description Archives an active team after all channels are removed from it. Admin-only.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a team
+         * @description Updates an active team in the current organization. Admin-only.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["teamMutationRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/orgs/current/teams/{id}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add or update a team member
+         * @description Adds an existing organization member to a team or updates their team role. Admin-only.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                    /** @description User ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            /** @description Team member parameters */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["teamMemberRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Remove a team member
+         * @description Removes an organization member from a team. Admin-only.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Team ID */
+                    id: string;
+                    /** @description User ID */
+                    userID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["teamDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/plans": {
         parameters: {
             query?: never;
@@ -9579,8 +10078,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Mint sandbox repository access
-         * @description Returns the sandbox base URL and a short-lived JWT scoped to read-only repository APIs.
+         * Mint read-only sandbox access
+         * @description Returns the sandbox base URL and a short-lived JWT scoped to read-only sandbox APIs.
          */
         post: {
             parameters: {
@@ -10975,6 +11474,7 @@ export interface components {
             available_models?: string[];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
+            channel_ids?: string[];
             created_at?: string;
             description?: string;
             icon?: string;
@@ -11003,6 +11503,7 @@ export interface components {
         agentMutationRequest: {
             available_models?: string[];
             avatar_url?: string;
+            channel_ids?: string[];
             description?: string;
             icon?: string;
             instructions?: string;
@@ -11027,6 +11528,7 @@ export interface components {
             available_models?: string[];
             avatar_url?: string;
             catalog?: components["schemas"]["agentCatalogSummary"];
+            channel_ids?: string[];
             created_at?: string;
             description?: string;
             icon?: string;
@@ -11186,6 +11688,7 @@ export interface components {
             external_workspace_key?: string;
             name?: string;
             origin?: string;
+            team_id?: string;
             visibility?: string;
         };
         channelMutationResponse: {
@@ -11215,6 +11718,7 @@ export interface components {
             recent_sessions_has_more?: boolean;
             recent_sessions_next_cursor?: string;
             role?: string;
+            team_id?: string;
             updated_at?: string;
             visibility?: string;
         };
@@ -11301,6 +11805,7 @@ export interface components {
         createOrgInviteRequest: {
             email?: string;
             role?: string;
+            team_ids?: string[];
         };
         createOrgRequest: {
             name?: string;
@@ -11327,6 +11832,7 @@ export interface components {
             access_mode?: string;
             agent_id?: string;
             channel_id?: string;
+            client_event_id?: string;
             message?: string;
             model?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
@@ -11599,6 +12105,7 @@ export interface components {
             org_id?: string;
             revoked_at?: string;
             role?: string;
+            team_ids?: string[];
         };
         orgMemberDTO: {
             byok?: boolean;
@@ -11677,6 +12184,11 @@ export interface components {
         };
         "paginatedResponse-handler_sandboxResponse": {
             data?: components["schemas"]["sandboxResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_teamResponse": {
+            data?: components["schemas"]["teamResponse"][];
             has_more?: boolean;
             next_cursor?: string;
         };
@@ -12061,6 +12573,7 @@ export interface components {
             };
         };
         sendSessionMessageRequest: {
+            client_event_id?: string;
             dynamic_context?: components["schemas"]["JSON"];
             message?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
@@ -12092,6 +12605,7 @@ export interface components {
             turn_id?: string;
         };
         sessionInputResponseRequest: {
+            client_event_id?: string;
             option_id?: string;
             request_id?: string;
             text?: string;
@@ -12289,6 +12803,39 @@ export interface components {
             };
             stream?: boolean;
         };
+        teamDetailResponse: {
+            members?: components["schemas"]["teamMemberResponse"][];
+            team?: components["schemas"]["teamResponse"];
+        };
+        teamMemberRequest: {
+            role?: string;
+        };
+        teamMemberResponse: {
+            created_at?: string;
+            email?: string;
+            name?: string;
+            role?: string;
+            user_id?: string;
+        };
+        teamMutationRequest: {
+            description?: string;
+            name?: string;
+        };
+        teamMutationResponse: {
+            team?: components["schemas"]["teamResponse"];
+        };
+        teamResponse: {
+            archived_at?: string;
+            channel_count?: number;
+            created_at?: string;
+            created_by?: string;
+            description?: string;
+            id?: string;
+            member_count?: number;
+            name?: string;
+            org_id?: string;
+            updated_at?: string;
+        };
         tokenListItem: {
             created_at?: string;
             credential_id?: string;
@@ -12477,7 +13024,14 @@ export interface components {
     };
     responses: never;
     parameters: never;
-    requestBodies: never;
+    requestBodies: {
+        /** @description Team parameters */
+        teamMutationRequest: {
+            content: {
+                "application/json": components["schemas"]["teamMutationRequest"];
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }

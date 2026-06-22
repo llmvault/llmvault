@@ -32,7 +32,16 @@ import {
   sessionEventsToConversationBlocks,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history"
-import type { ImageAttachmentMetadata } from "@/app/w/(chat)/_lib/image-attachments"
+import {
+  eventTurnIDs,
+  replayModeForLoadedSession,
+  suppressBackendEventsForLiveTurn,
+  suppressBackendEventsForLiveTurns,
+} from "@/app/w/(chat)/_lib/session-stream-handoff"
+import {
+  imageAttachmentIDs,
+  type ImageAttachmentMetadata,
+} from "@/app/w/(chat)/_lib/image-attachments"
 import {
   codeLineCommentReferenceToPayload,
   type CodeLineCommentPayload,
@@ -97,6 +106,26 @@ export function SessionThreadView({
     () => sessionHistoryPagesToEvents(historyPages ?? []),
     [historyPages]
   )
+  const activeBackendTurnID =
+    turnActive && session.agentTurnID?.trim()
+      ? session.agentTurnID.trim()
+      : undefined
+  const liveTurnIDs = useMemo(
+    () => eventTurnIDs(renderedLiveEvents),
+    [renderedLiveEvents]
+  )
+  const renderedHistoryEvents = useMemo(
+    () =>
+      suppressBackendEventsForLiveTurns(historyEvents, [
+        activeBackendTurnID,
+        ...liveTurnIDs,
+      ]),
+    [activeBackendTurnID, historyEvents, liveTurnIDs]
+  )
+  const reconcileHistoryEvents = useMemo(
+    () => suppressBackendEventsForLiveTurn(historyEvents, activeBackendTurnID),
+    [activeBackendTurnID, historyEvents]
+  )
   const hasPendingClientEvent = useMemo(
     () => historyEvents.some(isPendingClientEvent),
     [historyEvents]
@@ -104,13 +133,13 @@ export function SessionThreadView({
   const combinedEvents = useMemo(
     () =>
       sessionHistoryPagesToEvents([
-        { data: historyEvents },
+        { data: renderedHistoryEvents },
         { data: renderedLiveEvents },
       ]),
-    [historyEvents, renderedLiveEvents]
+    [renderedHistoryEvents, renderedLiveEvents]
   )
   const activeTurnID = turnActive
-    ? session.agentTurnID?.trim() || latestTurnID(renderedLiveEvents)
+    ? activeBackendTurnID || latestTurnID(renderedLiveEvents)
     : undefined
   const visibleBlocks = useMemo(
     () =>
@@ -135,17 +164,23 @@ export function SessionThreadView({
     if (!sessionId || optimisticSession || historyEvents.length === 0) return
     useSessionRuntimeStore
       .getState()
-      .reconcileLiveEvents(sessionId, historyEvents)
-  }, [historyEvents, optimisticSession, sessionId])
+      .reconcileLiveEvents(sessionId, reconcileHistoryEvents)
+  }, [
+    historyEvents.length,
+    optimisticSession,
+    reconcileHistoryEvents,
+    sessionId,
+  ])
 
   useEffect(() => {
     if (!ENABLE_DIRECT_SESSION_STREAM) return
     if (!sessionId || optimisticSession || !historyLoadedForStream) return
     ensureSessionStream(sessionId, {
       queryClient,
-      replay: { mode: "none" },
+      replay: replayModeForLoadedSession(activeBackendTurnID),
     })
   }, [
+    activeBackendTurnID,
     historyLoadedForStream,
     optimisticSession,
     queryClient,
@@ -175,7 +210,9 @@ export function SessionThreadView({
     }
 
     const raw = {
-      ...(attachments.length ? { attachments } : {}),
+      ...(attachments.length
+        ? { attachment_ids: imageAttachmentIDs(attachments) }
+        : {}),
       ...(codeLineComments.length
         ? { code_line_comments: codeLineComments }
         : {}),

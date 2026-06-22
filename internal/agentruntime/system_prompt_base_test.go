@@ -36,7 +36,9 @@ func TestRenderBaseSystemPrompt_LeavesEmptyIdentityWhenOrgMissing(t *testing.T) 
 		t.Fatalf("rendered base prompt should not invent company identity:\n%s", prompt)
 	}
 	if !strings.Contains(prompt, "You are Hivy, an AI agent running in Hivy's sandbox environment.") ||
-		!strings.Contains(prompt, "<core_contract>") {
+		!strings.Contains(prompt, "<core_contract>") ||
+		!strings.Contains(prompt, "<attachment_context>") ||
+		!strings.Contains(prompt, "important_details") {
 		t.Fatalf("rendered base prompt should preserve role identity tag:\n%s", prompt)
 	}
 }

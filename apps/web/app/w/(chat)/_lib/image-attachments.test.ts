@@ -1,31 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
   attachmentMetadataFromDescription,
-  composeMessageWithAttachments,
+  imageAttachmentIDs,
   type ImageDescriptionResult,
   type UploadedDriveImageAsset,
 } from "@/app/w/(chat)/_lib/image-attachments"
 
 describe("image attachment helpers", () => {
-  it("composes attachment tags into the outgoing message", () => {
-    const message = composeMessageWithAttachments("Please match this UI", [
-      {
-        drive_asset_id: "asset-1",
-        asset_url: "https://api.test/v1/assets/preview?path=a&b=c",
-        filename: `screenshot "one".png`,
-        content_type: "image/png",
-        rendered_description: "Primary category: Product UI\nColor: <blue>",
-      },
-    ])
-
-    expect(message).toContain("Please match this UI")
-    expect(message).toContain("<attachment")
-    expect(message).toContain('mime_type="image/png"')
-    expect(message).toContain("screenshot &quot;one&quot;.png")
-    expect(message).toContain("a&amp;b=c")
-    expect(message).toContain("Color: &lt;blue&gt;")
-  })
-
   it("keeps structured metadata from upload and description responses", () => {
     const upload: UploadedDriveImageAsset = {
       id: "asset-1",
@@ -58,5 +39,15 @@ describe("image attachment helpers", () => {
       analysis: { summary: "A settings screen" },
       rendered_description: "Primary category: Product UI",
     })
+  })
+
+  it("extracts only drive asset ids for message sends", () => {
+    expect(
+      imageAttachmentIDs([
+        {
+          drive_asset_id: "asset-1",
+        },
+      ])
+    ).toEqual(["asset-1"])
   })
 })

@@ -16,7 +16,11 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
       { id: "general", label: "General", icon: "lucide:settings" },
       { id: "profile", label: "Profile", icon: "lucide:circle-user" },
       { id: "appearance", label: "Appearance", icon: "lucide:sun" },
-      { id: "configuration", label: "Configuration", icon: "lucide:sliders-horizontal" },
+      {
+        id: "configuration",
+        label: "Configuration",
+        icon: "lucide:sliders-horizontal",
+      },
       { id: "personalization", label: "Personalization", icon: "lucide:smile" },
       { id: "shortcuts", label: "Keyboard shortcuts", icon: "lucide:keyboard" },
       { id: "billing", label: "Usage & billing", icon: "lucide:gauge" },
@@ -26,7 +30,7 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
     label: "Workspace",
     items: [
       { id: "agents", label: "Agents", icon: "lucide:bot" },
-      { id: "team", label: "Team members", icon: "lucide:users" },
+      { id: "teams", label: "Teams", icon: "lucide:users" },
     ],
   },
   {
@@ -35,7 +39,11 @@ export const NAV_SECTIONS: SettingsNavSection[] = [
       { id: "appshots", label: "Appshots", icon: "lucide:scan" },
       { id: "mcp", label: "MCP servers", icon: "lucide:paperclip" },
       { id: "browser", label: "Browser", icon: "lucide:app-window" },
-      { id: "computer-use", label: "Computer use", icon: "lucide:mouse-pointer-click" },
+      {
+        id: "computer-use",
+        label: "Computer use",
+        icon: "lucide:mouse-pointer-click",
+      },
     ],
   },
   {

@@ -90,6 +90,11 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		payload["model_definition"] = modelDefinition
 	}
+	var hydrated bool
+	payload, hydrated = h.hydrateSessionMessageAttachmentsForRequest(w, r, session, payload)
+	if !hydrated {
+		return
+	}
 	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, text, payload, sessionMessageDeliveryOptions{
 		Model:           selectedModel,
 		ReasoningEffort: selectedReasoningEffort,
