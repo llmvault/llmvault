@@ -133,8 +133,13 @@ func agentSessionsCreateSession(t *testing.T, ctx context.Context, baseURL, toke
 
 func agentSessionsCreateSessionWithPayload(t *testing.T, ctx context.Context, baseURL, token, orgID string, payload map[string]any) agentSessionsMutation {
 	t.Helper()
+	return agentSessionsCreateSessionWithPayloadStatus(t, ctx, baseURL, token, orgID, payload, http.StatusCreated)
+}
+
+func agentSessionsCreateSessionWithPayloadStatus(t *testing.T, ctx context.Context, baseURL, token, orgID string, payload map[string]any, status int) agentSessionsMutation {
+	t.Helper()
 	var out agentSessionsMutation
-	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/sessions", token, orgID, payload, http.StatusCreated, &out)
+	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/sessions", token, orgID, payload, status, &out)
 	return out
 }
 
