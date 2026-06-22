@@ -103,12 +103,67 @@ func (h *MCPHandler) ValidateJTIMatch(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		urlJTI := chi.URLParam(r, "jti")
 		claims, ok := middleware.ClaimsFromContext(r.Context())
-		if !ok || urlJTI != claims.JTI {
+		if !ok {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "token JTI does not match URL"})
+			return
+		}
+		if urlJTI == claims.JTI {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !h.allowSameAgentSandboxProxyToken(r, urlJTI, claims.JTI) {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "token JTI does not match URL"})
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (h *MCPHandler) allowSameAgentSandboxProxyToken(r *http.Request, urlJTI, bearerJTI string) bool {
+	if h == nil || h.db == nil || urlJTI == "" || bearerJTI == "" {
+		return false
+	}
+	var tokens []model.Token
+	if err := h.db.WithContext(r.Context()).
+		Where("jti IN ?", []string{urlJTI, bearerJTI}).
+		Find(&tokens).Error; err != nil || len(tokens) != 2 {
+		return false
+	}
+	var urlToken, bearerToken *model.Token
+	for i := range tokens {
+		switch tokens[i].JTI {
+		case urlJTI:
+			urlToken = &tokens[i]
+		case bearerJTI:
+			bearerToken = &tokens[i]
+		}
+	}
+	if urlToken == nil || bearerToken == nil {
+		return false
+	}
+	now := time.Now().UTC()
+	if !activeAgentProxyToken(urlToken, now) || !activeAgentProxyToken(bearerToken, now) {
+		return false
+	}
+	if urlToken.OrgID != bearerToken.OrgID {
+		return false
+	}
+	urlAgentID, _ := urlToken.Meta[model.TokenMetaAgentID].(string)
+	bearerAgentID, _ := bearerToken.Meta[model.TokenMetaAgentID].(string)
+	urlSandboxID, _ := urlToken.Meta[model.TokenMetaSandboxID].(string)
+	bearerSandboxID, _ := bearerToken.Meta[model.TokenMetaSandboxID].(string)
+	return urlAgentID != "" &&
+		urlAgentID == bearerAgentID &&
+		urlSandboxID != "" &&
+		urlSandboxID == bearerSandboxID
+}
+
+func activeAgentProxyToken(token *model.Token, now time.Time) bool {
+	if token == nil || token.RevokedAt != nil || !token.ExpiresAt.After(now) {
+		return false
+	}
+	tokenType, _ := token.Meta[model.TokenMetaType].(string)
+	return tokenType == model.TokenTypeAgentProxy
 }
 
 // ValidateHasScopes preserves the existing middleware hook while MCP no longer

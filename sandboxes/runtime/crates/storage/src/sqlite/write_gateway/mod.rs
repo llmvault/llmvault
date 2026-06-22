@@ -10,15 +10,15 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use domain::{
-    AgentDefinition, EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionId,
-    SessionStatus, SubagentTask, SubagentTaskState,
+    EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionId, SessionStatus,
+    SubagentTask, SubagentTaskState,
 };
 use serde_json::Value;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::repos::{Result, SharedWriteNotifier, StorageError};
+use crate::repos::{ConfigSnapshot, Result, SharedWriteNotifier, StorageError};
 
 use request::{run_writer, WriteRequest, WRITE_QUEUE_CAPACITY};
 
@@ -57,12 +57,14 @@ impl SqliteWriteGateway {
         self.queued.load(Ordering::Relaxed)
     }
 
-    pub async fn upsert_config(&self, definition: &AgentDefinition) -> Result<()> {
-        let definition_json = serde_json::to_string(definition)?;
+    pub async fn upsert_config(&self, snapshot: &ConfigSnapshot) -> Result<()> {
+        let definition_json = serde_json::to_string(&snapshot.definition)?;
+        let runtime_env_json = serde_json::to_string(&snapshot.runtime_env)?;
         let updated_at = Utc::now().to_rfc3339();
         let (resp, rx) = oneshot::channel();
         self.send(WriteRequest::ConfigUpsert {
             definition_json,
+            runtime_env_json,
             updated_at,
             resp,
         })

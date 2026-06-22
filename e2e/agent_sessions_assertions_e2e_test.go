@@ -47,7 +47,7 @@ func assertAgentSessionsEventOrder(t *testing.T, events []agentSessionsEvent) {
 	var userMessages, agentMessages, participantJoins int
 	for _, event := range events {
 		switch event.EventType {
-		case "user.message":
+		case "user.message", "user.message.received":
 			userMessages++
 		case "final":
 			agentMessages++

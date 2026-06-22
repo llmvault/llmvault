@@ -42,8 +42,8 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 		SigningKey: []byte("session-sync-signing-key"),
 		Cfg:        cfg,
 	}
-	orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
-		return agentruntime.PushAgentRuntimeConfigForSandbox(ctx, compileDeps, sb)
+	orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, proxyToken *agentruntime.ProxyTokenResult) error {
+		return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyToken(ctx, compileDeps, sb, proxyToken)
 	})
 	h := handler.NewSessionHandler(db, enq).
 		WithRuntimeStreamKey(encKey).

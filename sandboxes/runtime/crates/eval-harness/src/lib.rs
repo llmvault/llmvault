@@ -12,7 +12,9 @@ use observability::{ModelUsage, ObservabilityEvent, TraceSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use skills::SkillWriter;
-use storage::{ConfigRepo, EventRepo, SessionListFilter, SessionRepo, StorageError};
+use storage::{
+    ConfigRepo, ConfigSnapshot, EventRepo, SessionListFilter, SessionRepo, StorageError,
+};
 use tokio::sync::{mpsc, oneshot};
 use tools::LocalBashOperations;
 
@@ -467,11 +469,14 @@ struct NoopConfigRepo;
 
 #[async_trait]
 impl ConfigRepo for NoopConfigRepo {
-    async fn load(&self) -> storage::Result<Option<AgentDefinition>> {
-        Ok(Some(fake_agent_definition()))
+    async fn load(&self) -> storage::Result<Option<ConfigSnapshot>> {
+        Ok(Some(ConfigSnapshot {
+            definition: fake_agent_definition(),
+            runtime_env: Default::default(),
+        }))
     }
 
-    async fn upsert(&self, _def: &AgentDefinition) -> storage::Result<()> {
+    async fn upsert(&self, _snapshot: &ConfigSnapshot) -> storage::Result<()> {
         Ok(())
     }
 }

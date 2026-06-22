@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -81,7 +80,7 @@ func TestCreateAgentSandboxUsesReadySandboxTemplateExternalID(t *testing.T) {
 		ProxyHost:                 "https://proxy.example",
 	})
 
-	created, err := orch.CreateAgentSandbox(context.Background(), &agent, &agentruntime.StartupSecrets{ProxyToken: "proxy-token"})
+	created, err := orch.CreateAgentSandbox(context.Background(), &agent, testStartupSecrets())
 	if err != nil {
 		t.Fatalf("CreateAgentSandbox: %v", err)
 	}

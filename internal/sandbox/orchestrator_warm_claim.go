@@ -55,7 +55,7 @@ func (o *Orchestrator) tryClaimWarmRuntime(ctx context.Context, sb *model.Sandbo
 		return false, fmt.Errorf("waiting for claimed runtime: %w", err)
 	}
 	if profile.Mode == model.SandboxWarmSlotModeAgent {
-		if err := o.pushAgentRuntimeConfig(ctx, sb, "warm claim"); err != nil {
+		if err := o.pushAgentRuntimeConfig(ctx, sb, "warm claim", nil); err != nil {
 			_ = o.warmPool.MarkError(context.WithoutCancel(ctx), claimed.ID, fmt.Sprintf("runtime config push: %v", err))
 			return false, err
 		}

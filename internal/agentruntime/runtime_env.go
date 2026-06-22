@@ -40,19 +40,28 @@ func BuildAgentRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent 
 	if err != nil {
 		return ConfigUpdateRequest{}, nil, err
 	}
+	config, err := BuildAgentRuntimeConfigUpdateWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
+	return config, token, err
+}
+
+func BuildAgentRuntimeConfigUpdateWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (ConfigUpdateRequest, error) {
 	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
 	if err != nil {
-		return ConfigUpdateRequest{}, token, err
+		return ConfigUpdateRequest{}, err
 	}
 	def, err := CompileWithProxyToken(ctx, deps, agent, token)
 	if err != nil {
-		return ConfigUpdateRequest{}, token, err
+		return ConfigUpdateRequest{}, err
+	}
+	sandboxID := uuid.Nil
+	if sb != nil {
+		sandboxID = sb.ID
 	}
 	def.OutboundChannels = ControlPlaneOutboundChannels(deps.Cfg, sandboxID)
 	return ConfigUpdateRequest{
 		Definition: def,
 		RuntimeEnv: env,
-	}, token, nil
+	}, nil
 }
 
 func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (map[string]string, error) {

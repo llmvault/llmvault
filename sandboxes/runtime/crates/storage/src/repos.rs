@@ -4,6 +4,7 @@ use domain::{
     AgentDefinition, EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionEvent,
     SessionId, SessionStatus, SubagentTask, SubagentTaskState,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, thiserror::Error)]
@@ -34,10 +35,16 @@ pub fn notify_write(notifier: &Option<SharedWriteNotifier>) {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ConfigSnapshot {
+    pub definition: AgentDefinition,
+    pub runtime_env: HashMap<String, String>,
+}
+
 #[async_trait]
 pub trait ConfigRepo: Send + Sync + 'static {
-    async fn load(&self) -> Result<Option<AgentDefinition>>;
-    async fn upsert(&self, def: &AgentDefinition) -> Result<()>;
+    async fn load(&self) -> Result<Option<ConfigSnapshot>>;
+    async fn upsert(&self, snapshot: &ConfigSnapshot) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
