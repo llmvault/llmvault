@@ -13,8 +13,8 @@ import (
 func TestIntegration_SandboxAccessRequiresParticipantAndMintsJWT(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
-	created := h.createSession(t, fx, fx.owner, "Stream this turn")
-	runtimeSecret := "runtime-stream-secret"
+	created := h.createSession(t, fx, fx.owner, "Inspect repo files")
+	runtimeSecret := "runtime-repo-secret"
 	encSecret, err := sessionTestEncKey(t).EncryptString(runtimeSecret)
 	if err != nil {
 		t.Fatalf("encrypt runtime secret: %v", err)
@@ -62,7 +62,7 @@ func TestIntegration_SandboxAccessRequiresParticipantAndMintsJWT(t *testing.T) {
 	if access.SandboxBaseURL != "http://203.0.113.10:7080" || access.SandboxID != sb.ID.String() {
 		t.Fatalf("bad sandbox access target: %+v", access)
 	}
-	if len(access.Scopes) != 2 || access.Scopes[0] != "stream:read" || access.Scopes[1] != "repo:read" {
+	if len(access.Scopes) != 1 || access.Scopes[0] != "repo:read" {
 		t.Fatalf("bad sandbox scopes: %+v", access.Scopes)
 	}
 	claims := jwt.MapClaims{}

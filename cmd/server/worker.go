@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/precontext"
+	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
 	// Blank import populates interfaces.Registry via init().
 	_ "github.com/usehivy/hivy/internal/rag/connectors"
@@ -126,6 +128,17 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 			slog.Error("enqueue agent sandbox auto-upgrade sweep", "error", err)
 		}
 	}
+	projector := runtimestream.NewProjector(
+		runtimestream.NewStore(deps.Redis, cfg.RuntimeRedisStreamShardCount),
+		deps.DB,
+		slog.Default(),
+	).WithEnqueuer(enqueuer)
+	goroutine.Go(ctx, func(ctx context.Context) {
+		slog.Info("runtime stream projector starting", "shards", cfg.RuntimeRedisStreamShardCount)
+		if err := projector.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("runtime stream projector stopped", "error", err)
+		}
+	})
 
 	mux := tasks.NewServeMux(workerDeps)
 	if agentHandler != nil {

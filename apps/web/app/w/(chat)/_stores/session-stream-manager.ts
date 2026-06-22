@@ -9,13 +9,10 @@ import {
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   isRuntimeRepoChangeFrame,
-  subscribeToDirectSessionStream,
-  type DirectSessionStreamReplayMode,
-} from "@/app/w/(chat)/_lib/direct-session-stream"
-import {
-  clearSessionSandboxAccess,
-  getSessionSandboxAccess,
-} from "@/app/w/(chat)/_lib/session-sandbox-access"
+  subscribeToGoSessionStream,
+  type GoSessionStreamFrame,
+  type GoSessionStreamReplayMode,
+} from "@/app/w/(chat)/_lib/go-session-stream"
 import {
   sessionRuntimeStatusFromResponse,
   useSessionRuntimeStore,
@@ -34,7 +31,7 @@ interface StreamControllerRecord {
 
 interface EnsureStreamOptions {
   queryClient: QueryClient
-  replay?: DirectSessionStreamReplayMode
+  replay?: GoSessionStreamReplayMode
 }
 
 const controllers = new Map<string, StreamControllerRecord>()
@@ -171,24 +168,19 @@ export function stopAllSessionStreams() {
 async function runSessionStream(
   sessionId: string,
   controller: StreamControllerRecord,
-  replayOverride?: DirectSessionStreamReplayMode
+  replayOverride?: GoSessionStreamReplayMode
 ) {
   try {
-    const access = await getSessionSandboxAccess(sessionId)
-    if (controller.abort.signal.aborted || controller.stopped) return
-    const directUrl = `${access.sandbox_base_url.replace(/\/+$/, "")}/sessions/${sessionId}/stream`
     const cursor =
       useSessionRuntimeStore.getState().cursorBySessionId[sessionId]
-    const replay: DirectSessionStreamReplayMode =
+    const replay: GoSessionStreamReplayMode =
       replayOverride ??
       (cursor
         ? { mode: "after_seq", afterSeq: cursor.sequence }
         : { mode: "all" })
 
-    await subscribeToDirectSessionStream({
+    await subscribeToGoSessionStream({
       sessionId,
-      directUrl,
-      token: access.token,
       replay,
       signal: controller.abort.signal,
       onOpen: ({ streamId, nextSequence }) => {
@@ -212,42 +204,12 @@ async function runSessionStream(
         }
       },
       onEvent: (frame) => {
-        resetWatchdog(sessionId, controller)
-        if (frame.event === "resync_required") {
-          controller.abort.abort()
-          void refreshSessionQueries(controller.queryClient, sessionId).finally(
-            () =>
-              reconnectSessionStream(sessionId, controller.queryClient, {
-                mode: "all",
-              })
-          )
-          return
-        }
-        if (isRuntimeRepoChangeFrame(frame)) {
-          void controller.queryClient.invalidateQueries({
-            queryKey: ["sandbox-runtime-review-diffs", sessionId],
-          })
-        }
-        const subagentFrame = isSubagentFrame(frame)
-        useSessionRuntimeStore.getState().applyStreamFrame(sessionId, frame)
-        if (!subagentFrame && isTerminalFrame(frame.event)) {
-          stopController(sessionId)
-          void refreshSessionQueries(controller.queryClient, sessionId).then(
-            () => {
-              const message = terminalFrameErrorMessage(frame.data)
-              useSessionRuntimeStore.getState().finishStream(sessionId, {
-                preserveError: Boolean(message),
-                outcome: message ? "failed" : "completed",
-              })
-            }
-          )
-        }
+        handleSessionStreamFrame(sessionId, controller, frame)
       },
     })
   } catch (error) {
     if (controller.abort.signal.aborted || controller.stopped) return
     if (shouldReconnectStream(error)) {
-      clearSessionSandboxAccess(sessionId)
       reconnectSessionStream(sessionId, controller.queryClient)
       return
     }
@@ -258,10 +220,44 @@ async function runSessionStream(
   }
 }
 
+function handleSessionStreamFrame(
+  sessionId: string,
+  controller: StreamControllerRecord,
+  frame: GoSessionStreamFrame
+) {
+  resetWatchdog(sessionId, controller)
+  if (frame.event === "resync_required") {
+    controller.abort.abort()
+    void refreshSessionQueries(controller.queryClient, sessionId).finally(() =>
+      reconnectSessionStream(sessionId, controller.queryClient, {
+        mode: "all",
+      })
+    )
+    return
+  }
+  if (isRuntimeRepoChangeFrame(frame)) {
+    void controller.queryClient.invalidateQueries({
+      queryKey: ["sandbox-runtime-review-diffs", sessionId],
+    })
+  }
+  const subagentFrame = isSubagentFrame(frame)
+  useSessionRuntimeStore.getState().applyStreamFrame(sessionId, frame)
+  if (!subagentFrame && isTerminalFrame(frame.event)) {
+    stopController(sessionId)
+    void refreshSessionQueries(controller.queryClient, sessionId).then(() => {
+      const message = terminalFrameErrorMessage(frame.data)
+      useSessionRuntimeStore.getState().finishStream(sessionId, {
+        preserveError: Boolean(message),
+        outcome: message ? "failed" : "completed",
+      })
+    })
+  }
+}
+
 function reconnectSessionStream(
   sessionId: string,
   queryClient: QueryClient,
-  replay?: DirectSessionStreamReplayMode
+  replay?: GoSessionStreamReplayMode
 ) {
   const currentAttempt =
     useSessionRuntimeStore.getState().reconnectAttemptsBySessionId[sessionId] ??

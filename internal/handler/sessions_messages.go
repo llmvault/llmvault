@@ -12,7 +12,7 @@ import (
 
 // SendMessage handles POST /v1/sessions/{id}/messages.
 // @Summary Send a session message
-// @Description Persists a user message and queues it for FIFO runtime delivery.
+// @Description Queues a user message command for FIFO runtime delivery.
 // @Tags sessions
 // @Accept json
 // @Produce json
@@ -116,7 +116,6 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
-		Event:   ptrSessionEventResponse(eventToResponse(intent.Event)),
 		Queued:  queued,
 	})
 }

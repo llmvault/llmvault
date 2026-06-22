@@ -15,6 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
+	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
 	"github.com/usehivy/hivy/internal/storage"
 	"github.com/usehivy/hivy/internal/transcription"
@@ -24,6 +25,7 @@ type SessionHandler struct {
 	db                       *gorm.DB
 	enqueuer                 enqueue.TaskEnqueuer
 	runtimeEncKey            *crypto.SymmetricKey
+	runtimeStreamStore       *runtimestream.Store
 	orchestrator             *sandbox.Orchestrator
 	compileDeps              agentruntime.CompileDeps
 	transcriptionKMS         *crypto.KeyWrapper
@@ -79,6 +81,11 @@ func NewSessionHandler(db *gorm.DB, enqueuers ...enqueue.TaskEnqueuer) *SessionH
 
 func (h *SessionHandler) WithRuntimeStreamKey(key *crypto.SymmetricKey) *SessionHandler {
 	h.runtimeEncKey = key
+	return h
+}
+
+func (h *SessionHandler) WithRuntimeStreamStore(store *runtimestream.Store) *SessionHandler {
+	h.runtimeStreamStore = store
 	return h
 }
 
@@ -214,6 +221,11 @@ type sessionEventResponse struct {
 	ActorUserID    *string    `json:"actor_user_id,omitempty"`
 	Source         string     `json:"source"`
 	SequenceNumber int64      `json:"sequence_number"`
+	RuntimeSeq     *int64     `json:"runtime_seq,omitempty"`
+	RuntimeEventID string     `json:"runtime_event_id,omitempty"`
+	TurnID         string     `json:"turn_id,omitempty"`
+	SpanID         string     `json:"span_id,omitempty"`
+	Durability     string     `json:"durability,omitempty"`
 	Payload        model.JSON `json:"payload"`
 	EventAt        string     `json:"event_at"`
 }

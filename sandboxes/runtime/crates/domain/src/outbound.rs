@@ -40,6 +40,12 @@ pub enum OutboundChannelKind {
         #[serde(default)]
         extra_headers: HashMap<String, String>,
     },
+    Websocket {
+        url: String,
+        secret_env: String,
+        #[serde(default)]
+        extra_headers: HashMap<String, String>,
+    },
 }
 
 pub mod event_types {

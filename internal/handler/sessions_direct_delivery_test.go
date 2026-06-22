@@ -130,8 +130,8 @@ func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(
 	if err := h.db.Where("session_id = ?", created.Session.ID).Order("sequence_number ASC").Find(&rows).Error; err != nil {
 		t.Fatalf("load queue rows: %v", err)
 	}
-	if len(rows) != 1 || rows[0].SequenceNumber != 2 || rows[0].Status != "pending" {
-		t.Fatalf("queue rows=%+v, want one pending sequence 2 row", rows)
+	if len(rows) != 1 || rows[0].SequenceNumber != 1 || rows[0].Status != "pending" || rows[0].MessageText != "Queue behind active turn" {
+		t.Fatalf("queue rows=%+v, want one pending command sequence 1 row", rows)
 	}
 	assertNoSessionMessageDeliverTask(t, h)
 }

@@ -1,0 +1,270 @@
+package handler
+
+import (
+	"context"
+	"crypto/subtle"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/runtimestream"
+)
+
+type RuntimeStreamIngressHandler struct {
+	db       *gorm.DB
+	encKey   *crypto.SymmetricKey
+	store    *runtimestream.Store
+	upgrader websocket.Upgrader
+}
+
+func NewRuntimeStreamIngressHandler(db *gorm.DB, encKey *crypto.SymmetricKey, store *runtimestream.Store) *RuntimeStreamIngressHandler {
+	return &RuntimeStreamIngressHandler{
+		db:     db,
+		encKey: encKey,
+		store:  store,
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(*http.Request) bool { return true },
+		},
+	}
+}
+
+type runtimeIngressFrame struct {
+	Type   string                `json:"type,omitempty"`
+	Event  *runtimestream.Event  `json:"event,omitempty"`
+	Events []runtimestream.Event `json:"events,omitempty"`
+}
+
+type runtimeIngressAck struct {
+	Type    string                    `json:"type"`
+	AckSeq  int64                     `json:"ack_seq"`
+	Results []runtimeIngressAckResult `json:"results"`
+}
+
+type runtimeIngressAckResult struct {
+	RuntimeSeq  int64  `json:"runtime_seq"`
+	Status      string `json:"status"`
+	ExpectedSeq int64  `json:"expected_seq,omitempty"`
+	StreamKey   string `json:"stream_key,omitempty"`
+	StreamID    string `json:"stream_id,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
+func (h *RuntimeStreamIngressHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.db == nil || h.store == nil {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "runtime stream ingress is not configured"})
+		return
+	}
+	sb, ok := h.loadRuntimeIngressSandbox(w, r)
+	if !ok {
+		return
+	}
+	if !h.verifyRuntimeBearer(r.Context(), sb, r.Header.Get("Authorization")) {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid runtime stream credentials"})
+		return
+	}
+
+	conn, err := h.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "runtime stream ingress: upgrade websocket", "sandbox_id", sb.ID, "error", err)
+		return
+	}
+	defer conn.Close()
+	conn.SetReadLimit(10 * 1024 * 1024)
+
+	for {
+		_, raw, err := conn.ReadMessage()
+		if err != nil {
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				logging.FromContext(r.Context()).DebugContext(r.Context(), "runtime stream ingress: websocket read stopped", "sandbox_id", sb.ID, "error", err)
+			}
+			return
+		}
+		events, err := decodeRuntimeIngressEvents(raw)
+		if err != nil {
+			_ = writeRuntimeIngressJSON(conn, runtimeIngressAck{
+				Type: "nack",
+				Results: []runtimeIngressAckResult{{
+					Status: "invalid",
+					Error:  err.Error(),
+				}},
+			})
+			continue
+		}
+		ack, closeAfterWrite := h.acceptRuntimeEvents(r.Context(), sb, events)
+		if err := writeRuntimeIngressJSON(conn, ack); err != nil {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "runtime stream ingress: write ack", "sandbox_id", sb.ID, "error", err)
+			return
+		}
+		if closeAfterWrite {
+			return
+		}
+	}
+}
+
+func decodeRuntimeIngressEvents(raw []byte) ([]runtimestream.Event, error) {
+	var frame runtimeIngressFrame
+	if err := json.Unmarshal(raw, &frame); err == nil && (frame.Event != nil || len(frame.Events) > 0) {
+		events := make([]runtimestream.Event, 0, len(frame.Events)+1)
+		if frame.Event != nil {
+			events = append(events, *frame.Event)
+		}
+		events = append(events, frame.Events...)
+		return events, nil
+	}
+	event, err := runtimestream.ParseEventJSON(raw)
+	if err != nil {
+		return nil, fmt.Errorf("decode runtime event frame: %w", err)
+	}
+	return []runtimestream.Event{event}, nil
+}
+
+func (h *RuntimeStreamIngressHandler) acceptRuntimeEvents(ctx context.Context, sb *model.Sandbox, events []runtimestream.Event) (runtimeIngressAck, bool) {
+	ack := runtimeIngressAck{
+		Type:    "ack",
+		Results: make([]runtimeIngressAckResult, 0, len(events)),
+	}
+	closeAfterWrite := false
+	for _, event := range events {
+		accepted, err := h.enrichRuntimeEvent(ctx, sb, &event)
+		if err != nil {
+			ack.Type = "nack"
+			ack.Results = append(ack.Results, runtimeIngressAckResult{
+				RuntimeSeq: event.RuntimeSeq,
+				Status:     "invalid",
+				Error:      err.Error(),
+			})
+			closeAfterWrite = true
+			break
+		}
+		result, err := h.store.Append(ctx, accepted)
+		if err != nil {
+			ack.Type = "nack"
+			ack.Results = append(ack.Results, runtimeIngressAckResult{
+				RuntimeSeq: accepted.RuntimeSeq,
+				Status:     "error",
+				Error:      err.Error(),
+			})
+			closeAfterWrite = true
+			break
+		}
+		ack.Results = append(ack.Results, runtimeIngressAckResult{
+			RuntimeSeq:  accepted.RuntimeSeq,
+			Status:      result.Status,
+			ExpectedSeq: result.ExpectedSeq,
+			StreamKey:   result.StreamKey,
+			StreamID:    result.StreamID,
+		})
+		if result.Status == runtimestream.AppendGap {
+			ack.Type = "nack"
+			closeAfterWrite = true
+			break
+		}
+		if accepted.RuntimeSeq > ack.AckSeq {
+			ack.AckSeq = accepted.RuntimeSeq
+		}
+	}
+	return ack, closeAfterWrite
+}
+
+func (h *RuntimeStreamIngressHandler) enrichRuntimeEvent(ctx context.Context, sb *model.Sandbox, event *runtimestream.Event) (runtimestream.Event, error) {
+	if sb == nil || sb.OrgID == nil || sb.AgentID == nil {
+		return runtimestream.Event{}, fmt.Errorf("sandbox is not attached to an org and agent")
+	}
+	event.Normalize()
+	if event.SandboxID == "" {
+		event.SandboxID = sb.ID.String()
+	}
+	if event.SandboxID != sb.ID.String() {
+		return runtimestream.Event{}, fmt.Errorf("event sandbox_id does not match websocket sandbox")
+	}
+	sessionID, err := uuid.Parse(event.SessionID)
+	if err != nil {
+		return runtimestream.Event{}, fmt.Errorf("invalid session_id: %w", err)
+	}
+	var session model.Session
+	err = h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND agent_id = ?", sessionID, *sb.OrgID, *sb.AgentID).
+		First(&session).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return runtimestream.Event{}, fmt.Errorf("session not found for sandbox")
+		}
+		return runtimestream.Event{}, fmt.Errorf("load session: %w", err)
+	}
+	if session.SandboxID != nil && *session.SandboxID != sb.ID {
+		return runtimestream.Event{}, fmt.Errorf("session is attached to a different sandbox")
+	}
+	event.OrgID = session.OrgID.String()
+	event.AgentID = session.AgentID.String()
+	event.SessionID = session.ID.String()
+	if event.SandboxID == "" && session.SandboxID != nil {
+		event.SandboxID = session.SandboxID.String()
+	}
+	if event.Source == "" {
+		event.Source = "runtime"
+	}
+	if event.EventID == "" {
+		event.EventID = fmt.Sprintf("runtime-%s-%d", event.SessionID, event.RuntimeSeq)
+	}
+	if event.OccurredAt.IsZero() {
+		event.OccurredAt = time.Now().UTC()
+	}
+	if err := event.Validate(); err != nil {
+		return runtimestream.Event{}, err
+	}
+	return *event, nil
+}
+
+func (h *RuntimeStreamIngressHandler) loadRuntimeIngressSandbox(w http.ResponseWriter, r *http.Request) (*model.Sandbox, bool) {
+	sandboxID, err := uuid.Parse(chi.URLParam(r, "sandboxID"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid sandbox_id"})
+		return nil, false
+	}
+	var sb model.Sandbox
+	if err := h.db.WithContext(r.Context()).Where("id = ?", sandboxID).First(&sb).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "sandbox not found"})
+			return nil, false
+		}
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load sandbox"})
+		return nil, false
+	}
+	return &sb, true
+}
+
+func (h *RuntimeStreamIngressHandler) verifyRuntimeBearer(ctx context.Context, sb *model.Sandbox, authorization string) bool {
+	if h == nil || h.encKey == nil || sb == nil {
+		return false
+	}
+	secret, err := h.encKey.DecryptString(sb.EncryptedRuntimeSecret)
+	if err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "runtime stream ingress: failed to decrypt runtime secret", "sandbox_id", sb.ID, "error", err)
+		return false
+	}
+	fields := strings.Fields(authorization)
+	if len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
+		return false
+	}
+	token := strings.TrimSpace(fields[1])
+	if token == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(token), []byte(secret)) == 1
+}
+
+func writeRuntimeIngressJSON(conn *websocket.Conn, value any) error {
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	return conn.WriteJSON(value)
+}

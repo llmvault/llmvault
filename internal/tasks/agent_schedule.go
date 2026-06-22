@@ -158,26 +158,12 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 		if err := tx.Create(&session).Error; err != nil {
 			return fmt.Errorf("create schedule session: %w", err)
 		}
-		event := model.SessionEvent{
-			OrgID:            run.OrgID,
-			SessionID:        sessionID,
-			AgentID:          run.AgentID,
-			SandboxID:        sandboxID,
-			RuntimeSessionID: sessionID.String(),
-			EventID:          "schedule-" + run.ID.String(),
-			EventType:        "user.message",
-			Source:           "schedule",
-			SequenceNumber:   1,
-			Payload:          scheduledMessagePayload(run, now),
-			EventAt:          now,
-		}
-		if err := tx.Create(&event).Error; err != nil {
-			return fmt.Errorf("create schedule session event: %w", err)
-		}
+		messagePayload := scheduledMessagePayload(run, now)
 		queue := model.SessionMessageQueue{
 			OrgID:          run.OrgID,
 			SessionID:      sessionID,
-			SessionEventID: event.ID,
+			MessageText:    run.Schedule.TaskPrompt,
+			MessagePayload: messagePayload,
 			SequenceNumber: 1,
 			Status:         "pending",
 		}

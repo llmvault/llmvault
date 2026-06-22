@@ -25,24 +25,48 @@ func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
 	if out.Session.AgentID != fx.agent.ID.String() || out.Session.ParticipantCount != 1 {
 		t.Fatalf("bad agent/participant response: %+v", out.Session)
 	}
-	if !out.Queued || out.Event == nil || out.Event.SequenceNumber != 1 {
-		t.Fatalf("bad queued event response: %+v", out)
-	}
-	if out.Event.Payload["text"] != "Investigate the deploy failure" {
-		t.Fatalf("event payload=%#v", out.Event.Payload)
+	if !out.Queued || out.Event != nil {
+		t.Fatalf("bad queued command response: %+v", out)
 	}
 
-	var queueCount int64
+	var queueRows []model.SessionMessageQueue
 	if err := h.db.Model(&model.SessionMessageQueue{}).
 		Where("session_id = ? AND status = ?", out.Session.ID, "pending").
-		Count(&queueCount).Error; err != nil {
-		t.Fatalf("count queue: %v", err)
+		Order("sequence_number ASC").
+		Find(&queueRows).Error; err != nil {
+		t.Fatalf("load queue: %v", err)
 	}
-	if queueCount != 1 {
-		t.Fatalf("queue count=%d, want 1", queueCount)
+	if len(queueRows) != 1 || queueRows[0].SequenceNumber != 1 || queueRows[0].MessageText != "Investigate the deploy failure" {
+		t.Fatalf("queue rows=%+v, want one pending command", queueRows)
 	}
 
 	assertSessionNameTaskEnqueued(t, h, out.Session.ID)
+}
+
+func TestIntegration_SessionsCreate_AllowsEmptySessionBeforeFirstMessage(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
+		"channel_id": fx.channel.ID.String(),
+	})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create empty session status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	out := decodeSessionMutation(t, rr)
+	if out.Session.ID == "" || out.Session.ParticipantCount != 1 {
+		t.Fatalf("bad empty session response: %+v", out.Session)
+	}
+	if out.Queued || out.Event != nil {
+		t.Fatalf("empty session queued/event=%v/%+v, want no message dispatch", out.Queued, out.Event)
+	}
+	var queueCount int64
+	if err := h.db.Model(&model.SessionMessageQueue{}).Where("session_id = ?", out.Session.ID).Count(&queueCount).Error; err != nil {
+		t.Fatalf("count queue: %v", err)
+	}
+	if queueCount != 0 {
+		t.Fatalf("queue count=%d, want 0", queueCount)
+	}
 }
 
 func TestIntegration_SessionsGet_ExposesAgentTurnState(t *testing.T) {
@@ -92,27 +116,22 @@ func TestIntegration_SessionsRespondToInput_QueuesAnswerAndRecordsMarker(t *test
 		t.Fatalf("input response status=%d body=%s", rr.Code, rr.Body.String())
 	}
 	out := decodeSessionMutation(t, rr)
-	if !out.Queued || out.Event == nil || out.Event.Payload["text"] != "Use option A" {
-		t.Fatalf("bad input response event: %+v", out)
+	if !out.Queued || out.Event != nil {
+		t.Fatalf("bad input response command: %+v", out)
 	}
-
-	var events []model.SessionEvent
-	if err := h.db.Where("session_id = ?", created.Session.ID).
-		Order("sequence_number ASC").
-		Find(&events).Error; err != nil {
-		t.Fatalf("load events: %v", err)
-	}
-	if got := eventTypes(events); len(got) != 3 || got[1] != "question_answered" || got[2] != "user.message" {
-		t.Fatalf("event types=%v", got)
-	}
-	var queueCount int64
-	if err := h.db.Model(&model.SessionMessageQueue{}).
+	var queueRows []model.SessionMessageQueue
+	if err := h.db.
 		Where("session_id = ?", created.Session.ID).
-		Count(&queueCount).Error; err != nil {
-		t.Fatalf("count queue: %v", err)
+		Order("sequence_number ASC").
+		Find(&queueRows).Error; err != nil {
+		t.Fatalf("load queue: %v", err)
 	}
-	if queueCount != 2 {
-		t.Fatalf("queue count=%d, want 2", queueCount)
+	if len(queueRows) != 2 || queueRows[1].MessageText != "Use option A" {
+		t.Fatalf("queue rows=%+v, want input response as second command", queueRows)
+	}
+	input, ok := queueRows[1].MessagePayload["input_response"].(map[string]any)
+	if !ok || input["request_id"] != "question-1" || input["text"] != "Use option A" {
+		t.Fatalf("input response payload=%#v", queueRows[1].MessagePayload["input_response"])
 	}
 }
 
@@ -178,18 +197,8 @@ func TestIntegration_SessionsParticipantsAndQueuedMessages(t *testing.T) {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
 	out := decodeSessionMutation(t, msg)
-	if !out.Queued || out.Event == nil || out.Event.SequenceNumber != 3 {
+	if !out.Queued || out.Event != nil {
 		t.Fatalf("message event=%+v queued=%v", out.Event, out.Queued)
-	}
-
-	var events []model.SessionEvent
-	if err := h.db.Where("session_id = ?", created.Session.ID).
-		Order("sequence_number ASC").
-		Find(&events).Error; err != nil {
-		t.Fatalf("load events: %v", err)
-	}
-	if got := eventTypes(events); len(got) != 3 || got[0] != "user.message" || got[1] != "participant.joined" || got[2] != "user.message" {
-		t.Fatalf("event types=%v", got)
 	}
 	var queueRows []model.SessionMessageQueue
 	if err := h.db.Where("session_id = ?", created.Session.ID).
@@ -197,8 +206,11 @@ func TestIntegration_SessionsParticipantsAndQueuedMessages(t *testing.T) {
 		Find(&queueRows).Error; err != nil {
 		t.Fatalf("load queue rows: %v", err)
 	}
-	if len(queueRows) != 2 || queueRows[0].SequenceNumber != 1 || queueRows[1].SequenceNumber != 3 {
+	if len(queueRows) != 2 || queueRows[0].SequenceNumber != 1 || queueRows[1].SequenceNumber != 2 {
 		t.Fatalf("queue rows=%+v", queueRows)
+	}
+	if queueRows[1].MessageText != "I can reproduce it" || queueRows[1].ActorUserID == nil || *queueRows[1].ActorUserID != fx.member.ID {
+		t.Fatalf("queued participant command=%+v", queueRows[1])
 	}
 }
 

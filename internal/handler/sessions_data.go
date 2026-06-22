@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,48 +95,38 @@ func sessionIDsV2(sessions []model.Session) []uuid.UUID {
 	return ids
 }
 
-func (h *SessionHandler) createUserMessageEvent(tx *gorm.DB, session *model.Session, actor *uuid.UUID, text string, payload model.JSON) (model.SessionEvent, error) {
-	seq, err := h.nextSessionSequence(tx, session.ID)
-	if err != nil {
-		return model.SessionEvent{}, err
-	}
+func sessionMessageCommandPayload(text string, payload model.JSON) model.JSON {
 	if payload == nil {
 		payload = model.JSON{}
+	} else {
+		clone := model.JSON{}
+		for key, value := range payload {
+			clone[key] = value
+		}
+		payload = clone
 	}
 	payload["text"] = text
-	event := model.SessionEvent{
-		OrgID:            session.OrgID,
-		SessionID:        session.ID,
-		AgentID:          session.AgentID,
-		SandboxID:        session.SandboxID,
-		RuntimeSessionID: session.ID.String(),
-		EventID:          "user-" + uuid.NewString(),
-		EventType:        "user.message",
-		ActorUserID:      actor,
-		Source:           defaultString(session.Source, "web"),
-		SequenceNumber:   seq,
-		Payload:          payload,
-		EventAt:          time.Now(),
-	}
-	if err := tx.Create(&event).Error; err != nil {
-		return model.SessionEvent{}, err
-	}
-	return event, nil
+	return payload
 }
 
-func (h *SessionHandler) enqueueSessionMessageEvent(tx *gorm.DB, session *model.Session, event model.SessionEvent) error {
+func (h *SessionHandler) enqueueSessionMessageCommand(tx *gorm.DB, session *model.Session, actor *uuid.UUID, text string, payload model.JSON, opts sessionMessageDeliveryOptions) error {
 	if session == nil || session.ID == uuid.Nil {
 		return fmt.Errorf("session message queue: session is required")
 	}
-	if event.ID == uuid.Nil {
-		return fmt.Errorf("session message queue: event is required")
+	seq, err := h.nextSessionQueueSequence(tx, session.ID)
+	if err != nil {
+		return err
 	}
 	queue := model.SessionMessageQueue{
-		OrgID:          session.OrgID,
-		SessionID:      session.ID,
-		SessionEventID: event.ID,
-		SequenceNumber: event.SequenceNumber,
-		Status:         "pending",
+		OrgID:           session.OrgID,
+		SessionID:       session.ID,
+		ActorUserID:     actor,
+		MessageText:     text,
+		MessagePayload:  sessionMessageCommandPayload(text, payload),
+		Model:           strings.TrimSpace(opts.Model),
+		ReasoningEffort: strings.TrimSpace(opts.ReasoningEffort),
+		SequenceNumber:  seq,
+		Status:          "pending",
 	}
 	if err := tx.Create(&queue).Error; err != nil {
 		return fmt.Errorf("create session message queue row: %w", err)
@@ -143,9 +134,9 @@ func (h *SessionHandler) enqueueSessionMessageEvent(tx *gorm.DB, session *model.
 	return nil
 }
 
-func (h *SessionHandler) nextSessionSequence(tx *gorm.DB, sessionID uuid.UUID) (int64, error) {
+func (h *SessionHandler) nextSessionQueueSequence(tx *gorm.DB, sessionID uuid.UUID) (int64, error) {
 	var maxSeq int64
-	err := tx.Model(&model.SessionEvent{}).
+	err := tx.Model(&model.SessionMessageQueue{}).
 		Where("session_id = ?", sessionID).
 		Select("COALESCE(MAX(sequence_number), 0)").
 		Scan(&maxSeq).Error
@@ -166,6 +157,11 @@ func eventToResponse(event model.SessionEvent) sessionEventResponse {
 		ActorUserID:    formatUUIDPtr(event.ActorUserID),
 		Source:         event.Source,
 		SequenceNumber: event.SequenceNumber,
+		RuntimeSeq:     event.RuntimeSeq,
+		RuntimeEventID: event.RuntimeEventID,
+		TurnID:         event.TurnID,
+		SpanID:         event.SpanID,
+		Durability:     event.Durability,
 		Payload:        event.Payload,
 		EventAt:        formatRuntimeTime(event.EventAt),
 	}

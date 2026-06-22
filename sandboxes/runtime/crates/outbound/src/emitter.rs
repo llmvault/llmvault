@@ -70,7 +70,7 @@ impl OutboundEmitter {
         for channel_name in channels {
             if let Err(error) = self
                 .outbox
-                .enqueue(&channel_name, &event.event_type, event.payload.clone())
+                .enqueue_runtime_event(&channel_name, &event.event_type, event.payload.clone())
                 .await
             {
                 warn!(channel = %channel_name, event_type = %event.event_type, %error, "outbox enqueue failed");

@@ -3,7 +3,7 @@ import {
   useSessionRuntimeStore,
   sessionRuntimeSummary,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
-import type { DirectSessionStreamFrame } from "@/app/w/(chat)/_lib/direct-session-stream"
+import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
 
 describe("session runtime store", () => {
   afterEach(() => {
@@ -304,7 +304,7 @@ describe("session runtime store", () => {
 function frame(
   event: string,
   data: Record<string, unknown>
-): DirectSessionStreamFrame {
+): GoSessionStreamFrame {
   return {
     sessionId: "session-1",
     event,

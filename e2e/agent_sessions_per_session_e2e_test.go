@@ -80,8 +80,8 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 		t.Fatalf("per-session sandbox base URLs are identical: %s", accessA.SandboxBaseURL)
 	}
 
-	streamA := agentSessionsStartDirectStream(t, ctx, agentSessionsDirectStreamURL(accessA, sessionA.Session.ID), accessA.Token)
-	streamB := agentSessionsStartDirectStream(t, ctx, agentSessionsDirectStreamURL(accessB, sessionB.Session.ID), accessB.Token)
+	streamA := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID)
+	streamB := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID)
 
 	sandboxA := agentSessionsWaitForSessionSandbox(t, ctx, orgID, sessionA.Session.ID)
 	sandboxB := agentSessionsWaitForSessionSandbox(t, ctx, orgID, sessionB.Session.ID)
@@ -115,8 +115,8 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 
 	msgA := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionA.Session.ID, agentSessionsPerSessionSecondPrompt(pathA, stateMarkerA, missingMarkerA, secondMarkerA))
 	msgB := agentSessionsSendMessage(t, ctx, apiBase, ownerToken, orgID, sessionB.Session.ID, agentSessionsPerSessionSecondPrompt(pathB, stateMarkerB, missingMarkerB, secondMarkerB))
-	if msgA.Event == nil || msgB.Event == nil {
-		t.Fatalf("per-session follow-up messages missing events: a=%+v b=%+v", msgA, msgB)
+	if msgA.Event != nil || msgB.Event != nil {
+		t.Fatalf("per-session follow-up messages returned optimistic events: a=%+v b=%+v", msgA, msgB)
 	}
 
 	stateA := streamA.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {

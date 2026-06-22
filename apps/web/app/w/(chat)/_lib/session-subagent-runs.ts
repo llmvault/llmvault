@@ -1,4 +1,4 @@
-import type { DirectSessionStreamFrame } from "@/app/w/(chat)/_lib/direct-session-stream"
+import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
 import { streamFrameToSessionEvent } from "@/app/w/(chat)/_lib/live-session-stream"
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
 import {
@@ -14,7 +14,7 @@ export interface SessionSubagentRun {
   parentSessionId?: string
   childSessionId?: string
   status: SubagentRunStatus
-  frames: DirectSessionStreamFrame[]
+  frames: GoSessionStreamFrame[]
   events: SessionEventResponse[]
   startedAt?: string
   completedAt?: string
@@ -28,7 +28,7 @@ export const EMPTY_SUBAGENT_RUNS: SessionSubagentRun[] = []
 export function appendSubagentRunFrame(
   runsBySessionId: Record<string, SessionSubagentRun[]>,
   sessionId: string,
-  frame: DirectSessionStreamFrame,
+  frame: GoSessionStreamFrame,
   metadata: SubagentFrameMetadata
 ) {
   const runs = runsBySessionId[sessionId] ?? EMPTY_SUBAGENT_RUNS
@@ -85,7 +85,7 @@ export function appendSubagentRunFrame(
 export function dispatchSubagentFrameDebugEvent(
   sessionId: string,
   metadata: SubagentFrameMetadata,
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ) {
   if (!isSubagentDebugEventEnabled()) return
   window.dispatchEvent(
@@ -117,7 +117,7 @@ function isTerminalStatus(status: SubagentRunStatus) {
 }
 
 function timestampFromFrame(
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ): string | undefined {
   const data = payloadRecord(frame.data)
   return (

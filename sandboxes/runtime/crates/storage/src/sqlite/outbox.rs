@@ -42,6 +42,22 @@ impl OutboxRepo for SqliteOutboxRepo {
             .await
     }
 
+    async fn enqueue_runtime_event(
+        &self,
+        channel_name: &str,
+        event_type: &str,
+        payload: serde_json::Value,
+    ) -> Result<i64> {
+        let payload_json = serde_json::to_string(&payload)?;
+        self.writer
+            .enqueue_runtime_outbox(
+                channel_name.to_string(),
+                event_type.to_string(),
+                payload_json,
+            )
+            .await
+    }
+
     async fn claim_due(&self, limit: u32) -> Result<Vec<OutboxRow>> {
         let limit = limit.min(256);
         let now = Utc::now().to_rfc3339();

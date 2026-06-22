@@ -260,6 +260,24 @@ impl SqliteWriteGateway {
         recv(rx).await
     }
 
+    pub async fn enqueue_runtime_outbox(
+        &self,
+        channel_name: String,
+        event_type: String,
+        payload_json: String,
+    ) -> Result<i64> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::OutboxEnqueueRuntime {
+            channel_name,
+            event_type,
+            payload_json,
+            now: Utc::now().to_rfc3339(),
+            resp,
+        })
+        .await?;
+        recv(rx).await
+    }
+
     pub async fn mark_outbox_delivered(&self, id: i64) -> Result<()> {
         let (resp, rx) = oneshot::channel();
         self.send(WriteRequest::OutboxMarkDelivered { id, resp })

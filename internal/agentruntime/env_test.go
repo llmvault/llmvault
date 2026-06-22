@@ -24,6 +24,7 @@ func TestAgentEnvCatalogGolden(t *testing.T) {
 		AgentEnvAgentMultimodalAPIKeyEnv,
 		AgentEnvAgentID,
 		AgentEnvCloudControlPlaneURL,
+		AgentEnvRuntimeEventWSURL,
 		AgentEnvDriveUploadBearer,
 		AgentEnvWorkspaceRoot,
 		AgentEnvDBPath,

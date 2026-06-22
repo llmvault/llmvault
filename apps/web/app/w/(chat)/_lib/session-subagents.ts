@@ -1,4 +1,4 @@
-import type { DirectSessionStreamFrame } from "@/app/w/(chat)/_lib/direct-session-stream"
+import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
 
 export type SubagentRunStatus = "running" | "completed" | "failed"
 
@@ -9,12 +9,12 @@ export interface SubagentFrameMetadata {
   childSessionId?: string
 }
 
-export function isSubagentFrame(frame: DirectSessionStreamFrame) {
+export function isSubagentFrame(frame: GoSessionStreamFrame) {
   return subagentFrameMetadata(frame) !== null
 }
 
 export function subagentFrameMetadata(
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ): SubagentFrameMetadata | null {
   const data = payloadRecord(frame.data)
   const subagent = payloadRecord(data.subagent)
@@ -48,7 +48,7 @@ export function subagentFrameMetadata(
 }
 
 export function subagentStatusForFrame(
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ): SubagentRunStatus | undefined {
   if (
     frame.event === "subagent_completed" ||
@@ -73,7 +73,7 @@ export function subagentStatusForFrame(
   return undefined
 }
 
-export function subagentFrameKey(frame: DirectSessionStreamFrame) {
+export function subagentFrameKey(frame: GoSessionStreamFrame) {
   const data = payloadRecord(frame.data)
   const eventID = stringValue(data, "event_id") || frame.id
   if (eventID) return eventID

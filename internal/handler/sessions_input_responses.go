@@ -4,18 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
 // RespondToInput handles POST /v1/sessions/{id}/input-responses.
 // @Summary Respond to a pending agent input request
-// @Description Persists an answer to a runtime request_user_input turn and queues it for runtime delivery.
+// @Description Sends an answer command to a runtime request_user_input turn.
 // @Tags sessions
 // @Accept json
 // @Produce json
@@ -67,9 +64,6 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 	}
 	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, messageText, payload, sessionMessageDeliveryOptions{
 		ClearLastOutcome: true,
-		BeforeUserMessage: func(tx *gorm.DB, locked *model.Session) error {
-			return h.createQuestionAnsweredEvent(tx, locked, userID, requestID, text, optionID)
-		},
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue input response"})
@@ -94,34 +88,6 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
-		Event:   ptrSessionEventResponse(eventToResponse(intent.Event)),
 		Queued:  queued,
 	})
-}
-
-func (h *SessionHandler) createQuestionAnsweredEvent(tx *gorm.DB, session *model.Session, actor *uuid.UUID, requestID, text, optionID string) error {
-	seq, err := h.nextSessionSequence(tx, session.ID)
-	if err != nil {
-		return err
-	}
-	event := model.SessionEvent{
-		OrgID:            session.OrgID,
-		SessionID:        session.ID,
-		AgentID:          session.AgentID,
-		SandboxID:        session.SandboxID,
-		RuntimeSessionID: session.ID.String(),
-		EventID:          "question-answered-" + uuid.NewString(),
-		EventType:        runtimeevents.EventQuestionAnswered,
-		ActorUserID:      actor,
-		Source:           defaultString(session.Source, "web"),
-		SequenceNumber:   seq,
-		Payload: model.JSON{
-			"request_id":  requestID,
-			"text":        text,
-			"option_id":   optionID,
-			"answered_at": time.Now().UTC().Format(time.RFC3339Nano),
-		},
-		EventAt: time.Now(),
-	}
-	return tx.Create(&event).Error
 }

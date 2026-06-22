@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -106,6 +107,9 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 			env[key] = value
 		}
 	}
+	if deps.Cfg != nil && sb != nil {
+		env[AgentEnvRuntimeEventWSURL] = RuntimeEventWebSocketURL(deps.Cfg, sb.ID)
+	}
 
 	return env, nil
 }
@@ -200,6 +204,28 @@ func ApplySandboxSentryEnv(env map[string]string, cfg *config.Config, dsn string
 	if strings.TrimSpace(cfg.SentryRelease) != "" {
 		env[AgentEnvSentryRelease] = cfg.SentryRelease
 	}
+}
+
+func RuntimeEventWebSocketURL(cfg *config.Config, sandboxID uuid.UUID) string {
+	if cfg == nil || sandboxID == uuid.Nil {
+		return ""
+	}
+	base := strings.TrimRight(cfg.RuntimeControlPlaneBaseURL(), "/")
+	parsed, err := url.Parse(base)
+	if err == nil && parsed.Scheme != "" {
+		switch parsed.Scheme {
+		case "http":
+			parsed.Scheme = "ws"
+		case "https":
+			parsed.Scheme = "wss"
+		}
+		base = strings.TrimRight(parsed.String(), "/")
+	} else if strings.HasPrefix(base, "http://") {
+		base = "ws://" + strings.TrimPrefix(base, "http://")
+	} else if strings.HasPrefix(base, "https://") {
+		base = "wss://" + strings.TrimPrefix(base, "https://")
+	}
+	return fmt.Sprintf("%s/internal/runtime-events/sandboxes/%s/ws", base, sandboxID)
 }
 
 func AgentGitUsername(agent *model.Agent) string {

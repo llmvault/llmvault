@@ -5,6 +5,7 @@ mod dispatcher;
 mod emitter;
 mod registry;
 mod webhook;
+mod websocket;
 
 use async_trait::async_trait;
 use domain::OutboundEvent;
@@ -19,6 +20,7 @@ pub use dispatcher::OutboundDispatcher;
 pub use emitter::OutboundEmitter;
 pub use registry::OutboundRegistry;
 pub use webhook::WebhookChannel;
+pub use websocket::WebSocketChannel;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OutboundError {

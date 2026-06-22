@@ -13,7 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func TestControlPlaneOutboundChannels_EmitsAgentWebhookSpec(t *testing.T) {
+func TestControlPlaneOutboundChannels_EmitsRuntimeWebSocketSpec(t *testing.T) {
 	sandboxID := uuid.New()
 	channels := ControlPlaneOutboundChannels(&config.Config{APIWebhookBaseURL: "https://api.hivy.test"}, sandboxID)
 	if len(channels) != 1 {
@@ -23,7 +23,10 @@ func TestControlPlaneOutboundChannels_EmitsAgentWebhookSpec(t *testing.T) {
 	if !ok {
 		t.Fatalf("channel has wrong type: %#v", channels[0])
 	}
-	if channel["url"] != "https://api.hivy.test/internal/webhooks/agent/"+sandboxID.String() {
+	if channel["type"] != "websocket" {
+		t.Fatalf("type = %q", channel["type"])
+	}
+	if channel["url"] != "wss://api.hivy.test/internal/runtime-events/sandboxes/"+sandboxID.String()+"/ws" {
 		t.Fatalf("url = %q", channel["url"])
 	}
 	if channel["secret_env"] != AgentEnvRuntimeSecret {
@@ -35,7 +38,7 @@ func TestControlPlaneOutboundChannels_UsesAPIWebhookBaseURL(t *testing.T) {
 	sandboxID := uuid.New()
 	channels := ControlPlaneOutboundChannels(&config.Config{APIWebhookBaseURL: "http://host.docker.internal:8080"}, sandboxID)
 	channel := channels[0].(map[string]any)
-	if channel["url"] != "http://host.docker.internal:8080/internal/webhooks/agent/"+sandboxID.String() {
+	if channel["url"] != "ws://host.docker.internal:8080/internal/runtime-events/sandboxes/"+sandboxID.String()+"/ws" {
 		t.Fatalf("url = %q", channel["url"])
 	}
 }

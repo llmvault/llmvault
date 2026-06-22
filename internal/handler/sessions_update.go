@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -104,25 +103,18 @@ func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *SessionHandler) writeSystemEvent(r *http.Request, session *model.Session, actor *uuid.UUID, eventType string, payload model.JSON) error {
-	return h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		seq, err := h.nextSessionSequence(tx, session.ID)
-		if err != nil {
-			return err
-		}
-		event := model.SessionEvent{
-			OrgID:            session.OrgID,
-			SessionID:        session.ID,
-			AgentID:          session.AgentID,
-			SandboxID:        session.SandboxID,
-			RuntimeSessionID: session.ID.String(),
-			EventID:          "system-" + uuid.NewString(),
-			EventType:        eventType,
-			ActorUserID:      actor,
-			Source:           "web",
-			SequenceNumber:   seq,
-			Payload:          payload,
-			EventAt:          time.Now(),
-		}
-		return tx.Create(&event).Error
-	})
+	event := model.SessionEvent{
+		OrgID:            session.OrgID,
+		SessionID:        session.ID,
+		AgentID:          session.AgentID,
+		SandboxID:        session.SandboxID,
+		RuntimeSessionID: session.ID.String(),
+		EventID:          "system-" + uuid.NewString(),
+		EventType:        eventType,
+		ActorUserID:      actor,
+		Source:           "web",
+		Payload:          payload,
+		EventAt:          time.Now(),
+	}
+	return h.db.WithContext(r.Context()).Create(&event).Error
 }

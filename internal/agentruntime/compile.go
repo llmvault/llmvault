@@ -279,13 +279,32 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 }
 
 func ControlPlaneOutboundChannels(cfg *config.Config, sandboxID uuid.UUID) []any {
-	baseURL := cfg.RuntimeControlPlaneBaseURL()
 	return []any{
 		map[string]any{
-			"name":       "control-plane",
-			"type":       "webhook",
-			"url":        fmt.Sprintf("%s/internal/webhooks/agent/%s", baseURL, sandboxID),
+			"name":       "control-plane-runtime-stream",
+			"type":       "websocket",
+			"url":        RuntimeEventWebSocketURL(cfg, sandboxID),
 			"secret_env": AgentEnvRuntimeSecret,
+			"event_filter": []string{
+				"user.message.received",
+				"turn_started",
+				"token",
+				"thinking",
+				"tool_call",
+				"tool_result",
+				"final",
+				"turn_completed",
+				"turn_failed",
+				"question_requested",
+				"question_answered",
+				"plan_updated",
+				"subagent_started",
+				"subagent_completed",
+				"subagent_errored",
+				"model_usage",
+				"error",
+				"session_waiting",
+			},
 		},
 	}
 }
