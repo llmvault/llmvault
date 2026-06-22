@@ -17,6 +17,7 @@ import {
   type CreditStep,
   type PlanAction,
 } from "./plans-modal-components"
+import { formatCreditLabel, formatUsageValue } from "./credit-value"
 
 type Plan = components["schemas"]["planDTO"]
 type SubscriptionResponse = components["schemas"]["subscriptionResponse"]
@@ -28,8 +29,8 @@ function planPrice(plan: Plan | undefined | null) {
 
 function formatMoney(minor: number | undefined | null, currency?: string) {
   if (minor == null) return "—"
-  const cur = (currency ?? "NGN").toUpperCase()
-  return new Intl.NumberFormat("en-NG", {
+  const cur = (currency ?? "USD").toUpperCase()
+  return new Intl.NumberFormat(cur === "USD" ? "en-US" : "en-NG", {
     style: "currency",
     currency: cur,
     maximumFractionDigits: 0,
@@ -48,14 +49,6 @@ function formatDate(value: string | undefined | null) {
     month: "short",
     year: "numeric",
   }).format(new Date(value))
-}
-
-function formatCreditLabel(credits: number) {
-  if (credits >= 1000) {
-    const thousands = credits / 1000
-    return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K`
-  }
-  return credits.toLocaleString("en-NG")
 }
 
 function planActionFor(
@@ -112,7 +105,9 @@ export function BillingPlansPage() {
   const [paidReference, setPaidReference] = useState<string | null>(null)
   const [busySlug, setBusySlug] = useState<string | null>(null)
 
-  const subscription = subscriptionQuery.data as SubscriptionResponse | undefined
+  const subscription = subscriptionQuery.data as
+    | SubscriptionResponse
+    | undefined
   const currentPlanSlug =
     subscription?.plan_slug ?? activeOrg?.plan?.slug ?? "free"
 
@@ -309,8 +304,11 @@ export function BillingPlansPage() {
       ? "Confirm upgrade"
       : "Schedule change"
 
-  const fromPlan = plans.find((plan) => plan.slug === pendingPreview?.from_plan_slug)
-  const fromName = fromPlan?.name ?? pendingPreview?.from_plan_slug ?? "Current plan"
+  const fromPlan = plans.find(
+    (plan) => plan.slug === pendingPreview?.from_plan_slug
+  )
+  const fromName =
+    fromPlan?.name ?? pendingPreview?.from_plan_slug ?? "Current plan"
   const toName = pendingPlan?.name ?? pendingPreview?.to_plan_slug ?? "New plan"
 
   const confirmRows: { label: string; value: string; emphasis?: boolean }[] = [
@@ -371,7 +369,7 @@ export function BillingPlansPage() {
           type="button"
           aria-label="Close"
           onClick={closePage}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-default hover:text-foreground"
+          className="hover:bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:text-foreground"
         >
           <Icon icon="lucide:x" className="h-5 w-5" />
         </button>
@@ -383,13 +381,14 @@ export function BillingPlansPage() {
             Pricing for AI work that actually runs
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
-            Start free, then choose the Business credit checkpoint that matches
-            how much work your team wants Hivy to handle.
+            Credits are metered transparently: 1,000 credits equals $1 of usage.
+            AI usage is charged at actual model cost, and sandbox usage will use
+            published credit rates.
           </p>
         </div>
 
         {businessSteps.length === 0 ? (
-          <div className="mt-12 rounded-2xl border border-border bg-surface px-5 py-16 text-center text-sm text-muted">
+          <div className="bg-surface mt-12 rounded-2xl border border-border px-5 py-16 text-center text-sm text-muted">
             Pricing plans are temporarily unavailable.
           </div>
         ) : (
@@ -402,13 +401,30 @@ export function BillingPlansPage() {
               />
             </div>
 
+            <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 gap-3 text-sm text-muted sm:grid-cols-3">
+              <div className="bg-surface rounded-xl border border-border px-4 py-3">
+                <span className="font-medium text-foreground">
+                  1,000 credits
+                </span>{" "}
+                = $1 of metered usage
+              </div>
+              <div className="bg-surface rounded-xl border border-border px-4 py-3">
+                AI calls spend credits at model cost.
+              </div>
+              <div className="bg-surface rounded-xl border border-border px-4 py-3">
+                Sandbox rates will be published before billing starts.
+              </div>
+            </div>
+
             <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
               <PlanCard
                 accentLabel="Free"
                 price="Free"
-                description={`Try Hivy with ${formatNumber(
+                description={`Start with ${formatNumber(
                   freePlan?.welcome_credits ?? 0
-                )} credits.`}
+                )} welcome credits, equivalent to ${formatUsageValue(
+                  freePlan?.welcome_credits ?? 0
+                )} of metered usage.`}
                 features={freePlan?.features ?? []}
                 action={
                   freePlan
@@ -434,7 +450,9 @@ export function BillingPlansPage() {
                   period="/mo"
                   description={`Includes ${formatNumber(
                     selectedTier.credits
-                  )} monthly credits.`}
+                  )} credits per month, equivalent to ${formatUsageValue(
+                    selectedTier.credits
+                  )} of model usage at cost.`}
                   features={selectedTier.plan.features ?? []}
                   action={planActionFor(
                     selectedTier.plan,
@@ -446,6 +464,25 @@ export function BillingPlansPage() {
                   highlighted
                 />
               ) : null}
+            </div>
+
+            <div className="bg-surface mx-auto mt-5 flex max-w-4xl flex-col gap-4 rounded-2xl border border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h2 className="text-sm font-medium text-foreground">
+                  Need more than 300K credits?
+                </h2>
+                <p className="text-sm text-muted">
+                  Contact support for custom credits, usage limits, and billing
+                  terms.
+                </p>
+              </div>
+              <a
+                href="mailto:hello@usehivy.com"
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Icon icon="lucide:mail" className="h-4 w-4" />
+                Contact support
+              </a>
             </div>
           </>
         )}
@@ -495,20 +532,20 @@ function PlanChangeConfirmOverlay({
       aria-labelledby="billing-plan-change-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
     >
-      <div className="relative flex w-full max-w-md flex-col rounded-3xl bg-overlay p-8 shadow-overlay outline-none">
+      <div className="bg-overlay shadow-overlay relative flex w-full max-w-md flex-col rounded-3xl p-8 outline-none">
         <button
           type="button"
           aria-label="Close"
           onClick={onCancel}
           disabled={isProcessing}
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-default hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          className="hover:bg-default absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
         >
           <Icon icon="lucide:x" className="h-4 w-4" />
         </button>
 
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-4">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-default text-foreground">
+            <div className="bg-default flex size-12 items-center justify-center rounded-2xl text-foreground">
               <Icon icon="lucide:credit-card" className="h-6 w-6" />
             </div>
             <div className="flex flex-col gap-1 pr-8">
@@ -526,7 +563,7 @@ function PlanChangeConfirmOverlay({
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <div className="bg-surface overflow-hidden rounded-2xl border border-border">
             {rows.map((row, index) => (
               <DetailRow
                 key={row.label}

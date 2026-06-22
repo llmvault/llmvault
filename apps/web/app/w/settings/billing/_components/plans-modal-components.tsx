@@ -32,14 +32,14 @@ export function CreditSlider({
     <div className="w-full">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-xs font-medium text-muted">
-          Business credits per month
+          Credits per month
         </span>
         <span className="text-lg font-medium text-foreground">
           {steps[value]?.credits.toLocaleString("en-NG") ?? "0"}
         </span>
       </div>
       <Slider
-        aria-label="Business credits per month"
+        aria-label="Credits per month"
         value={value}
         onChange={(next) => onChange(Array.isArray(next) ? next[0] : next)}
         minValue={0}
@@ -60,7 +60,9 @@ export function CreditSlider({
             onClick={() => onChange(index)}
             className={cn(
               "text-xs font-medium transition-colors",
-              index === value ? "text-foreground" : "text-muted hover:text-foreground"
+              index === value
+                ? "text-foreground"
+                : "text-muted hover:text-foreground"
             )}
           >
             {step.label}
@@ -132,7 +134,7 @@ export function PlanCard({
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-2xl border bg-surface p-6 sm:p-8",
+        "bg-surface relative flex flex-col rounded-2xl border p-6 sm:p-8",
         highlighted ? "border-primary/30" : "border-border"
       )}
     >
@@ -176,7 +178,10 @@ export function PlanCard({
           <div className="my-6 h-px bg-border" />
           <ul className="flex flex-col gap-3">
             {features.map((feature) => (
-              <li key={feature} className="flex items-center gap-2.5 text-sm text-muted">
+              <li
+                key={feature}
+                className="flex items-center gap-2.5 text-sm text-muted"
+              >
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Icon icon="lucide:check" className="h-3 w-3" />
                 </span>

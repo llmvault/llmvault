@@ -17,6 +17,7 @@ import {
   Separator,
   usePanelRef,
   type PanelImperativeHandle,
+  type PanelSize,
 } from "react-resizable-panels"
 import { animate, type AnimationPlaybackControls } from "motion/react"
 import { $api } from "@/lib/api/hooks"
@@ -44,6 +45,17 @@ import {
   sessionRouteFromPathname,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
+import {
+  DEFAULT_SIDEBAR_PREFERENCES,
+  SIDEBAR_COLLAPSED_THRESHOLD,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_OPEN_WIDTH,
+  SIDEBAR_PREFERENCES_DEBOUNCE_MS,
+  clampSidebarWidth,
+  loadSidebarPreferences,
+  saveSidebarPreferences,
+  type SidebarPreferences,
+} from "@/app/w/(chat)/_lib/sidebar-preferences"
 import { hydrateSessionRuntimeFromResponse } from "@/app/w/(chat)/_stores/session-stream-manager"
 import {
   getCachedSessionSandboxAccess,
@@ -57,7 +69,6 @@ import {
   type WorkspacePanelViewID,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
 
-const SIDEBAR_WIDTH = 300
 const RIGHT_SIZE = 42 // percent
 const RIGHT_MAX_SIZE = 70 // percent
 const PANEL_EASE = [0.32, 0.72, 0, 1] as const
@@ -123,10 +134,12 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const queryClient = useQueryClient()
-  const { user, activeOrg } = useAuth()
-  const [sidebarOpen, setSidebarOpenState] = useState(true)
+  const { user, activeOrg, isLoading: authLoading } = useAuth()
+  const [sidebarOpen, setSidebarOpenState] = useState(
+    DEFAULT_SIDEBAR_PREFERENCES.open
+  )
   const [rightOpen, setRightOpenState] = useState(false)
-  const sidebarOpenRef = useRef(true)
+  const sidebarOpenRef = useRef(DEFAULT_SIDEBAR_PREFERENCES.open)
   const rightOpenRef = useRef(false)
   const [draftSession, setDraftSession] = useState<ChatSession | null>(null)
   const [routePreviewSession, setRoutePreviewSession] = useState<{
@@ -261,6 +274,13 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const rightPanelRef = usePanelRef()
   const sidebarAnim = useRef<AnimationPlaybackControls | null>(null)
   const rightAnim = useRef<AnimationPlaybackControls | null>(null)
+  const sidebarWidthRef = useRef(DEFAULT_SIDEBAR_PREFERENCES.width)
+  const sidebarResizePersistDisabledRef = useRef(false)
+  const sidebarResizeWidthCaptureDisabledRef = useRef(false)
+  const sidebarPreferencesReadyRef = useRef(false)
+  const sidebarPreferencesPersistTimer = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null)
   const rightProgrammaticResizeRef = useRef(false)
   const rightPanelOpenRef = useRef(rightPanelOpen)
   const rightPanelSizePercentRef = useRef(RIGHT_SIZE)
@@ -294,6 +314,55 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     setRightOpenState(open)
   }, [])
 
+  const scheduleSidebarPreferencesPersist = useCallback(
+    (preferences: SidebarPreferences) => {
+      if (sidebarPreferencesPersistTimer.current) {
+        clearTimeout(sidebarPreferencesPersistTimer.current)
+      }
+      const userId = user?.id
+      const normalized = {
+        open: preferences.open,
+        width: clampSidebarWidth(preferences.width),
+      }
+      sidebarPreferencesPersistTimer.current = setTimeout(() => {
+        sidebarPreferencesPersistTimer.current = null
+        saveSidebarPreferences({ userId }, normalized)
+      }, SIDEBAR_PREFERENCES_DEBOUNCE_MS)
+    },
+    [user?.id]
+  )
+
+  const updateSidebarWidthFromResize = useCallback((size: PanelSize) => {
+    if (size.inPixels >= SIDEBAR_MIN_OPEN_WIDTH) {
+      sidebarWidthRef.current = clampSidebarWidth(size.inPixels)
+    }
+  }, [])
+
+  const handleSidebarResize = useCallback(
+    (size: PanelSize) => {
+      const open = size.inPixels > SIDEBAR_COLLAPSED_THRESHOLD
+      updateSidebarOpen(open)
+      if (!sidebarResizeWidthCaptureDisabledRef.current) {
+        updateSidebarWidthFromResize(size)
+      }
+      if (
+        !sidebarPreferencesReadyRef.current ||
+        sidebarResizePersistDisabledRef.current
+      ) {
+        return
+      }
+      scheduleSidebarPreferencesPersist({
+        open,
+        width: sidebarWidthRef.current,
+      })
+    },
+    [
+      scheduleSidebarPreferencesPersist,
+      updateSidebarOpen,
+      updateSidebarWidthFromResize,
+    ]
+  )
+
   const animatePanel = useCallback(
     (
       handle: PanelImperativeHandle | null,
@@ -319,15 +388,58 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     []
   )
 
+  const resizeSidebar = useCallback(
+    (width: number, options: { persist: boolean }) => {
+      const applyResize = () =>
+        animatePanel(sidebarPanelRef.current, sidebarAnim, width, "px", () => {
+          sidebarResizeWidthCaptureDisabledRef.current = false
+          if (!options.persist) {
+            sidebarResizePersistDisabledRef.current = false
+          }
+        })
+      if (options.persist) {
+        sidebarResizePersistDisabledRef.current = false
+        sidebarResizeWidthCaptureDisabledRef.current = true
+        applyResize()
+        return
+      }
+      sidebarResizePersistDisabledRef.current = true
+      sidebarResizeWidthCaptureDisabledRef.current = true
+      applyResize()
+    },
+    [animatePanel, sidebarPanelRef]
+  )
+
+  useEffect(() => {
+    if (!user?.id && authLoading) return
+    const preferences = loadSidebarPreferences({ userId: user?.id })
+    sidebarPreferencesReadyRef.current = true
+    sidebarWidthRef.current = preferences.width
+    sidebarOpenRef.current = preferences.open
+    window.queueMicrotask(() => setSidebarOpenState(preferences.open))
+    const targetWidth = preferences.open ? preferences.width : 0
+    sidebarResizePersistDisabledRef.current = true
+    sidebarResizeWidthCaptureDisabledRef.current = true
+    sidebarPanelRef.current?.resize(targetWidth)
+    window.requestAnimationFrame(() => {
+      sidebarResizePersistDisabledRef.current = false
+      sidebarResizeWidthCaptureDisabledRef.current = false
+    })
+  }, [authLoading, sidebarPanelRef, user?.id])
+
+  useEffect(
+    () => () => {
+      if (sidebarPreferencesPersistTimer.current) {
+        clearTimeout(sidebarPreferencesPersistTimer.current)
+      }
+    },
+    []
+  )
+
   const toggleSidebar = useCallback(() => {
     const isOpen = sidebarOpenRef.current
-    animatePanel(
-      sidebarPanelRef.current,
-      sidebarAnim,
-      isOpen ? 0 : SIDEBAR_WIDTH,
-      "px"
-    )
-  }, [animatePanel, sidebarPanelRef])
+    resizeSidebar(isOpen ? 0 : sidebarWidthRef.current, { persist: true })
+  }, [resizeSidebar])
 
   const setRightSize = useCallback(
     (percent: number) => {
@@ -384,17 +496,16 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       const sidebarOpenNow = sidebarOpenRef.current
       sidebarWasOpenRef.current = sidebarOpenNow
       if (sidebarOpenNow) {
-        animatePanel(sidebarPanelRef.current, sidebarAnim, 0, "px")
+        resizeSidebar(0, { persist: false })
       }
     } else if (sidebarWasOpenRef.current && !sidebarOpenRef.current) {
-      animatePanel(sidebarPanelRef.current, sidebarAnim, SIDEBAR_WIDTH, "px")
+      resizeSidebar(sidebarWidthRef.current, { persist: false })
     }
   }, [
-    animatePanel,
     rightMaximized,
+    resizeSidebar,
     setRightPanelOpen,
     setRightPanelMaximized,
-    sidebarPanelRef,
     workspaceSessionKey,
   ])
 
@@ -639,11 +750,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
             <Panel
               id="sidebar"
               panelRef={sidebarPanelRef}
-              defaultSize={SIDEBAR_WIDTH}
+              defaultSize={DEFAULT_SIDEBAR_PREFERENCES.width}
               minSize={0}
-              maxSize={420}
+              maxSize={SIDEBAR_MAX_WIDTH}
               className="min-w-0 overflow-hidden"
-              onResize={(size) => updateSidebarOpen(size.inPixels > 8)}
+              onResize={handleSidebarResize}
             >
               <div className="h-full min-w-[230px]">
                 <Sidebar onCollapse={toggleSidebar} />
