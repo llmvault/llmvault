@@ -238,11 +238,7 @@ impl ModelProfile {
 }
 
 fn normalize_profile_name(value: &str) -> String {
-    value
-        .trim()
-        .to_ascii_lowercase()
-        .replace('-', "_")
-        .replace('/', "_")
+    value.trim().to_ascii_lowercase().replace(['-', '/'], "_")
 }
 
 pub fn sanitize_schema(value: Value, strict: bool) -> Value {
@@ -278,8 +274,7 @@ fn sanitize_schema_inner(value: Value, root: &Value, strict: bool) -> Value {
                 if let Some(Value::Array(items)) = map.remove(keyword) {
                     if let Some(first) = items
                         .into_iter()
-                        .filter(|item| item.get("type").and_then(Value::as_str) != Some("null"))
-                        .next()
+                        .find(|item| item.get("type").and_then(Value::as_str) != Some("null"))
                     {
                         if let Some(object) = first.as_object() {
                             for (key, value) in object {
