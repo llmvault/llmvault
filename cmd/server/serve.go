@@ -85,8 +85,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		Canvas:     canvasService,
 	}
 	if orchestrator != nil {
-		orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox) error {
-			return agentruntime.PushAgentRuntimeConfigForSandbox(ctx, runtimeCompileDeps, sb)
+		orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, proxyToken *agentruntime.ProxyTokenResult) error {
+			return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyToken(ctx, runtimeCompileDeps, sb, proxyToken)
 		})
 	}
 	credHandler := handler.NewCredentialHandler(database, deps.KMS, cacheManager, ctr)

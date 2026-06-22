@@ -26,6 +26,7 @@ pub(super) type Resp<T> = oneshot::Sender<Result<T>>;
 pub(super) enum WriteRequest {
     ConfigUpsert {
         definition_json: String,
+        runtime_env_json: String,
         updated_at: String,
         resp: Resp<()>,
     },
@@ -161,11 +162,13 @@ impl WriteRequest {
         match self {
             WriteRequest::ConfigUpsert {
                 definition_json,
+                runtime_env_json,
                 updated_at,
                 resp,
             } => respond(
                 resp,
-                session_ops::config_upsert(conn, definition_json, updated_at).await,
+                session_ops::config_upsert(conn, definition_json, runtime_env_json, updated_at)
+                    .await,
             ),
             WriteRequest::SessionCreate { session, resp } => {
                 respond(resp, session_ops::session_create(conn, *session).await)

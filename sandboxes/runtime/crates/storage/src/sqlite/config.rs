@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use domain::AgentDefinition;
 use sqlx::SqlitePool;
 
-use crate::repos::{ConfigRepo, Result};
+use crate::repos::{ConfigRepo, ConfigSnapshot, Result};
 
 use super::{SqliteStore, SqliteWriteGateway};
 
@@ -24,18 +23,22 @@ impl SqliteConfigRepo {
 
 #[async_trait]
 impl ConfigRepo for SqliteConfigRepo {
-    async fn load(&self) -> Result<Option<AgentDefinition>> {
-        let row: Option<(String,)> =
-            sqlx::query_as("SELECT definition_json FROM agent_config WHERE id = 1")
-                .fetch_optional(self.pool.as_ref())
-                .await?;
+    async fn load(&self) -> Result<Option<ConfigSnapshot>> {
+        let row: Option<(String, String)> = sqlx::query_as(
+            "SELECT definition_json, runtime_env_json FROM agent_config WHERE id = 1",
+        )
+        .fetch_optional(self.pool.as_ref())
+        .await?;
         match row {
-            Some((definition_json,)) => Ok(Some(serde_json::from_str(&definition_json)?)),
+            Some((definition_json, runtime_env_json)) => Ok(Some(ConfigSnapshot {
+                definition: serde_json::from_str(&definition_json)?,
+                runtime_env: serde_json::from_str(&runtime_env_json)?,
+            })),
             None => Ok(None),
         }
     }
 
-    async fn upsert(&self, definition: &AgentDefinition) -> Result<()> {
-        self.writer.upsert_config(definition).await
+    async fn upsert(&self, snapshot: &ConfigSnapshot) -> Result<()> {
+        self.writer.upsert_config(snapshot).await
     }
 }

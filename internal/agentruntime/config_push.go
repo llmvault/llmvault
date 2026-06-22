@@ -8,6 +8,10 @@ import (
 )
 
 func PushAgentRuntimeConfigForSandbox(ctx context.Context, deps CompileDeps, sb *model.Sandbox) error {
+	return PushAgentRuntimeConfigForSandboxWithProxyToken(ctx, deps, sb, nil)
+}
+
+func PushAgentRuntimeConfigForSandboxWithProxyToken(ctx context.Context, deps CompileDeps, sb *model.Sandbox, proxyToken *ProxyTokenResult) error {
 	if deps.DB == nil {
 		return fmt.Errorf("agent runtime config push: db is required")
 	}
@@ -23,10 +27,14 @@ func PushAgentRuntimeConfigForSandbox(ctx context.Context, deps CompileDeps, sb 
 		First(&agent).Error; err != nil {
 		return fmt.Errorf("load agent for runtime config push: %w", err)
 	}
-	return PushAgentRuntimeConfig(ctx, deps, &agent, sb)
+	return PushAgentRuntimeConfigWithProxyToken(ctx, deps, &agent, sb, proxyToken)
 }
 
 func PushAgentRuntimeConfig(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox) error {
+	return PushAgentRuntimeConfigWithProxyToken(ctx, deps, agent, sb, nil)
+}
+
+func PushAgentRuntimeConfigWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, proxyToken *ProxyTokenResult) error {
 	if deps.EncKey == nil {
 		return fmt.Errorf("agent runtime config push: encryption key is required")
 	}
@@ -40,9 +48,22 @@ func PushAgentRuntimeConfig(ctx context.Context, deps CompileDeps, agent *model.
 	if err != nil {
 		return fmt.Errorf("decrypt runtime secret: %w", err)
 	}
-	configUpdate, _, err := BuildAgentRuntimeConfigUpdate(ctx, deps, agent, sb, runtimeSecret)
-	if err != nil {
-		return fmt.Errorf("build agent runtime config: %w", err)
+	var configUpdate ConfigUpdateRequest
+	if proxyToken != nil {
+		if err := AttachProxyTokenToSandbox(ctx, deps, agent, sb.ID, proxyToken.JTI); err != nil {
+			return err
+		}
+		var buildErr error
+		configUpdate, buildErr = BuildAgentRuntimeConfigUpdateWithProxyToken(ctx, deps, agent, sb, runtimeSecret, proxyToken)
+		if buildErr != nil {
+			return fmt.Errorf("build agent runtime config: %w", buildErr)
+		}
+	} else {
+		var buildErr error
+		configUpdate, _, buildErr = BuildAgentRuntimeConfigUpdate(ctx, deps, agent, sb, runtimeSecret)
+		if buildErr != nil {
+			return fmt.Errorf("build agent runtime config: %w", buildErr)
+		}
 	}
 	client := NewClient(sb.RuntimeURL, runtimeSecret)
 	if err := client.Healthz(ctx); err != nil {

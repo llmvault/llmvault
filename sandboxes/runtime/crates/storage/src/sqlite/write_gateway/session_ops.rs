@@ -17,15 +17,18 @@ pub(super) async fn configure_write_connection(conn: &mut SqliteConnection) -> R
 pub(super) async fn config_upsert(
     conn: &mut SqliteConnection,
     definition_json: String,
+    runtime_env_json: String,
     updated_at: String,
 ) -> Result<()> {
     sqlx::query(
-        "INSERT INTO agent_config (id, definition_json, updated_at) VALUES (1, ?, ?) \
+        "INSERT INTO agent_config (id, definition_json, runtime_env_json, updated_at) VALUES (1, ?, ?, ?) \
          ON CONFLICT(id) DO UPDATE SET \
          definition_json = excluded.definition_json, \
+         runtime_env_json = excluded.runtime_env_json, \
          updated_at = excluded.updated_at",
     )
     .bind(definition_json)
+    .bind(runtime_env_json)
     .bind(updated_at)
     .execute(conn)
     .await?;

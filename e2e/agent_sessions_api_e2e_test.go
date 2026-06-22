@@ -78,6 +78,7 @@ type agentSessionsEvent struct {
 	EventType      string         `json:"event_type"`
 	EventID        string         `json:"event_id"`
 	SequenceNumber int64          `json:"sequence_number"`
+	RuntimeSeq     *int64         `json:"runtime_seq,omitempty"`
 	Payload        map[string]any `json:"payload"`
 }
 

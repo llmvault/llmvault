@@ -69,6 +69,42 @@ func TestBuildHivyMCPServerSelectsAgentToken(t *testing.T) {
 	}
 }
 
+func TestBuildAgentRuntimeConfigUpdateWithProxyTokenReusesToken(t *testing.T) {
+	db := connectCompileTestDB(t)
+	agent := createCompileTokenAgent(t, db)
+	deps := CompileDeps{
+		DB:         db,
+		Cfg:        &config.Config{MCPBaseURL: "https://mcp.hivy.test"},
+		SigningKey: []byte("test-signing-key-32-bytes-long!!"),
+	}
+	agentToken, err := MintProxyToken(context.Background(), deps, &agent, uuid.Nil)
+	if err != nil {
+		t.Fatalf("mint agent token: %v", err)
+	}
+
+	configUpdate, err := BuildAgentRuntimeConfigUpdateWithProxyToken(context.Background(), deps, &agent, nil, "runtime-secret", agentToken)
+	if err != nil {
+		t.Fatalf("build config with proxy token: %v", err)
+	}
+
+	var count int64
+	if err := db.Model(&model.Token{}).
+		Where("meta->>? = ?", model.TokenMetaAgentID, agent.ID.String()).
+		Count(&count).Error; err != nil {
+		t.Fatalf("count tokens: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("token count = %d, want 1", count)
+	}
+	if got := configUpdate.RuntimeEnv[ProxyAPIKeyEnv]; got != agentToken.Token {
+		t.Fatalf("runtime env proxy token = %q, want startup token", got)
+	}
+	server := configUpdate.Definition.McpServers[0].(map[string]any)
+	if got := server["url"].(string); !strings.HasSuffix(got, "/"+agentToken.JTI) {
+		t.Fatalf("agent mcp url = %q, want suffix %q", got, agentToken.JTI)
+	}
+}
+
 func TestUpsertHivyMCPServer_ReplacesExistingHivyServer(t *testing.T) {
 	servers := []any{
 		map[string]any{"name": "hivy", "url": "old"},

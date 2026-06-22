@@ -21,8 +21,13 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("CreateAgentSandbox: agent must have org_id")
 	}
-	if secrets == nil || secrets.ProxyToken == "" {
+	if secrets == nil || secrets.ProxyToken == "" || secrets.ProxyTokenJTI == "" {
 		return nil, fmt.Errorf("CreateAgentSandbox: proxy token is required")
+	}
+	startupProxyToken := &agentruntime.ProxyTokenResult{
+		Token:     secrets.ProxyToken,
+		JTI:       secrets.ProxyTokenJTI,
+		ExpiresAt: secrets.ProxyExpires,
 	}
 	orgID := *agent.OrgID
 	exposedPorts, err := o.loadOrgSandboxExposedPorts(ctx, orgID)
@@ -167,7 +172,7 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime not live")
 		return nil, fmt.Errorf("waiting for agent runtime: %w", err)
 	}
-	if err := o.pushAgentRuntimeConfig(ctx, &sb, "create"); err != nil {
+	if err := o.pushAgentRuntimeConfig(ctx, &sb, "create", startupProxyToken); err != nil {
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime config push failed")
 		return nil, err
 	}

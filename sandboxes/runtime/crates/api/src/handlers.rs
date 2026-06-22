@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::Duration;
-use storage::{SessionListCursor, SessionListFilter};
+use storage::{ConfigSnapshot, SessionListCursor, SessionListFilter};
 use tools::{BashExecOptions, BashOperations};
 use tracing::warn;
 
@@ -253,22 +253,22 @@ pub async fn put_config(
         .runtime_secret
         .as_ref()
         .is_some_and(|v| !v.trim().is_empty());
-    if env_key_count > 0 {
-        state.config_store.merge_runtime_env(request.runtime_env);
-    }
+    let mut runtime_env = state.config_store.runtime_env().as_ref().clone();
+    runtime_env.extend(request.runtime_env);
+    let mut next_runtime_secret = None;
     if let Some(secret) = request.runtime_secret {
         let secret = secret.trim().to_string();
         if !secret.is_empty() {
-            state.config_store.merge_runtime_env(HashMap::from([(
-                "HIVY_RUNTIME_SECRET".to_string(),
-                secret.clone(),
-            )]));
-            let mut token = state.bearer_token.write().await;
-            *token = secret;
+            runtime_env.insert("HIVY_RUNTIME_SECRET".to_string(), secret.clone());
+            next_runtime_secret = Some(secret);
         }
     }
     let definition = request.definition;
-    apply_definition(&state, definition.clone()).await?;
+    apply_config_snapshot(&state, definition.clone(), runtime_env).await?;
+    if let Some(secret) = next_runtime_secret {
+        let mut token = state.bearer_token.write().await;
+        *token = secret;
+    }
     Ok(Json(ConfigResponse {
         applied_at: Utc::now(),
         definition,
@@ -277,9 +277,10 @@ pub async fn put_config(
     }))
 }
 
-async fn apply_definition(
+async fn apply_config_snapshot(
     state: &ApiState,
     definition: AgentDefinition,
+    runtime_env: HashMap<String, String>,
 ) -> Result<(), (StatusCode, String)> {
     if let Err(error) = definition.system_prompt.validate() {
         return Err((StatusCode::BAD_REQUEST, error));
@@ -293,7 +294,10 @@ async fn apply_definition(
 
     state
         .config_repo
-        .upsert(&definition)
+        .upsert(&ConfigSnapshot {
+            definition: definition.clone(),
+            runtime_env: runtime_env.clone(),
+        })
         .await
         .map_err(|error| internal_error_response("config.persist", error))?;
     state.skill_writer.sync(&definition.skills);
@@ -301,17 +305,17 @@ async fn apply_definition(
         state.skill_writer.sync(&sub_agent.skills);
     }
     if let Some(registry) = state.mcp_registry.as_ref() {
-        let runtime_env = state.config_store.runtime_env();
         registry
             .reload_from_specs(&definition.mcp_servers, &runtime_env)
             .await;
     }
     if let Some(reloader) = state.outbound_reloader.as_ref() {
         reloader
-            .reload_outbound_channels(&definition.outbound_channels)
+            .reload_outbound_channels(&definition.outbound_channels, &runtime_env)
             .await
             .map_err(|error| internal_error_response("config.reload_outbound_channels", error))?;
     }
+    state.config_store.set_runtime_env(runtime_env);
     state.config_store.replace(definition);
     state.mark_config_loaded();
     Ok(())

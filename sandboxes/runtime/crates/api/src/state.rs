@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -40,7 +41,11 @@ pub struct ApiState {
 
 #[async_trait]
 pub trait OutboundConfigReloader: Send + Sync {
-    async fn reload_outbound_channels(&self, specs: &[OutboundChannelSpec]) -> anyhow::Result<()>;
+    async fn reload_outbound_channels(
+        &self,
+        specs: &[OutboundChannelSpec],
+        runtime_env: &HashMap<String, String>,
+    ) -> anyhow::Result<()>;
 }
 
 impl ApiState {

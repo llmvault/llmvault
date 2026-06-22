@@ -108,18 +108,21 @@ async fn main() -> Result<()> {
     let question_request_repo: Arc<dyn storage::QuestionRequestRepo> =
         Arc::new(SqliteQuestionRequestRepo::new(&sqlite_store));
 
-    let (initial_definition, config_loaded_from_database) = match config_repo.load().await? {
-        Some(persisted) => {
-            info!("loaded agent definition from database");
-            (persisted, true)
-        }
-        None => {
-            info!("no persisted definition; waiting for first control-plane config push");
-            (bootstrap_agent_definition(), false)
-        }
-    };
+    let (initial_definition, initial_runtime_env, config_loaded_from_database) =
+        match config_repo.load().await? {
+            Some(persisted) => {
+                info!("loaded agent config snapshot from database");
+                let merged_runtime_env =
+                    merge_persisted_runtime_env(runtime_env, persisted.runtime_env);
+                (persisted.definition, merged_runtime_env, true)
+            }
+            None => {
+                info!("no persisted definition; waiting for first control-plane config push");
+                (bootstrap_agent_definition(), runtime_env, false)
+            }
+        };
 
-    let config = ConfigStore::with_runtime_env(initial_definition.clone(), runtime_env);
+    let config = ConfigStore::with_runtime_env(initial_definition.clone(), initial_runtime_env);
     let initial_runtime_env = config.runtime_env();
     let mcp_registry = Arc::new(
         McpRegistry::from_specs(&initial_definition.mcp_servers, &initial_runtime_env).await,
@@ -136,7 +139,6 @@ async fn main() -> Result<()> {
             .with_database_queue(database_event_queue.clone()),
     );
     let outbound_reloader: Arc<dyn OutboundConfigReloader> = Arc::new(RegistryReloader {
-        config: config.clone(),
         registry: registry.clone(),
         stream_batcher: stream_batcher.clone(),
         database_event_queue: database_event_queue.clone(),
@@ -378,7 +380,6 @@ async fn main() -> Result<()> {
 }
 
 struct RegistryReloader {
-    config: ConfigStore,
     registry: Arc<RwLock<OutboundRegistry>>,
     stream_batcher: Arc<RwLock<Option<Arc<StreamBatcher>>>>,
     database_event_queue: Arc<DatabaseEventQueue>,
@@ -386,8 +387,11 @@ struct RegistryReloader {
 
 #[async_trait]
 impl OutboundConfigReloader for RegistryReloader {
-    async fn reload_outbound_channels(&self, specs: &[OutboundChannelSpec]) -> anyhow::Result<()> {
-        let runtime_env = self.config.runtime_env();
+    async fn reload_outbound_channels(
+        &self,
+        specs: &[OutboundChannelSpec],
+        runtime_env: &HashMap<String, String>,
+    ) -> anyhow::Result<()> {
         let next = build_registry_with_env(specs, &runtime_env)
             .map_err(|error| anyhow::anyhow!("build outbound registry: {error}"))?;
         let names = next.names();
@@ -406,6 +410,14 @@ fn required_runtime_env(env: &HashMap<String, String>, key: &str, hint: &str) ->
         Some(value) if !value.is_empty() => Ok(value.clone()),
         _ => anyhow::bail!("env var `{key}` must be set ({hint})"),
     }
+}
+
+fn merge_persisted_runtime_env(
+    mut process_env: HashMap<String, String>,
+    persisted_env: HashMap<String, String>,
+) -> HashMap<String, String> {
+    process_env.extend(persisted_env);
+    process_env
 }
 
 fn bootstrap_agent_definition() -> AgentDefinition {
@@ -470,5 +482,35 @@ fn bootstrap_system_prompt() -> SystemPromptConfig {
                 item_template: "- {name}".into(),
             }),
         ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merge_persisted_runtime_env;
+    use std::collections::HashMap;
+
+    #[test]
+    fn persisted_runtime_env_overrides_process_env() {
+        let process_env = HashMap::from([
+            ("HIVY_PROXY_API_KEY".to_string(), "ptok_startup".to_string()),
+            (
+                "HIVY_RUNTIME_SECRET".to_string(),
+                "runtime-secret".to_string(),
+            ),
+        ]);
+        let persisted_env =
+            HashMap::from([("HIVY_PROXY_API_KEY".to_string(), "ptok_config".to_string())]);
+
+        let merged = merge_persisted_runtime_env(process_env, persisted_env);
+
+        assert_eq!(
+            merged.get("HIVY_PROXY_API_KEY"),
+            Some(&"ptok_config".to_string())
+        );
+        assert_eq!(
+            merged.get("HIVY_RUNTIME_SECRET"),
+            Some(&"runtime-secret".to_string())
+        );
     }
 }

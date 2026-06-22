@@ -26,7 +26,7 @@ type Orchestrator struct {
 	cfg               *config.Config
 	warmPool          *WarmPool
 	reconcileWarmPool func(context.Context, string, WarmPoolProfile) error
-	pushRuntimeConfig func(context.Context, *model.Sandbox) error
+	pushRuntimeConfig func(context.Context, *model.Sandbox, *agentruntime.ProxyTokenResult) error
 
 	// healthFailureCounts tracks consecutive bad provider health observations per sandbox so a
 	// single transient CRASHED reading does not persist a terminal error.
@@ -59,15 +59,15 @@ func (o *Orchestrator) SetWarmPoolReconciler(fn func(context.Context, string, Wa
 	o.reconcileWarmPool = fn
 }
 
-func (o *Orchestrator) SetAgentRuntimeConfigPusher(fn func(context.Context, *model.Sandbox) error) {
+func (o *Orchestrator) SetAgentRuntimeConfigPusher(fn func(context.Context, *model.Sandbox, *agentruntime.ProxyTokenResult) error) {
 	o.pushRuntimeConfig = fn
 }
 
-func (o *Orchestrator) pushAgentRuntimeConfig(ctx context.Context, sb *model.Sandbox, reason string) error {
+func (o *Orchestrator) pushAgentRuntimeConfig(ctx context.Context, sb *model.Sandbox, reason string, proxyToken *agentruntime.ProxyTokenResult) error {
 	if o.pushRuntimeConfig == nil {
 		return nil
 	}
-	if err := o.pushRuntimeConfig(ctx, sb); err != nil {
+	if err := o.pushRuntimeConfig(ctx, sb, proxyToken); err != nil {
 		return fmt.Errorf("push agent runtime config after %s: %w", reason, err)
 	}
 	return nil

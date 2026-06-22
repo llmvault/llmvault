@@ -68,8 +68,14 @@ func assertRuntimeCanonicalPayload(t *testing.T, event agentSessionsEvent, sessi
 	if got := eventString(event.Payload, "occurred_at"); got == "" {
 		t.Fatalf("event %s missing occurred_at payload=%v", event.EventType, event.Payload)
 	}
-	if got := eventNumber(event.Payload, "sequence"); int64(got) != event.SequenceNumber {
-		t.Fatalf("event %s sequence mismatch row=%d payload=%v", event.EventType, event.SequenceNumber, got)
+	if event.RuntimeSeq != nil && *event.RuntimeSeq != event.SequenceNumber {
+		t.Fatalf("event %s runtime_seq mismatch row=%d runtime_seq=%d", event.EventType, event.SequenceNumber, *event.RuntimeSeq)
+	}
+	if got := eventNumber(event.Payload, "runtime_seq"); got > 0 && int64(got) != event.SequenceNumber {
+		t.Fatalf("event %s payload runtime_seq mismatch row=%d payload=%v", event.EventType, event.SequenceNumber, got)
+	}
+	if _, ok := event.Payload["sequence"]; !ok {
+		t.Fatalf("event %s missing payload sequence payload=%v", event.EventType, event.Payload)
 	}
 }
 
