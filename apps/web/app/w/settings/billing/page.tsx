@@ -1,5 +1,5 @@
-import { Button } from "@heroui/react"
 import { YourPlanSection } from "./_components/your-plan-section"
+import { CreditsBalanceSection } from "./_components/credits-balance-section"
 import { CreditsUsageSection } from "./_components/credits-usage-section"
 
 export default function BillingSettingsPage() {
@@ -14,38 +14,7 @@ export default function BillingSettingsPage() {
 
       <YourPlanSection />
 
-      <section className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-sm font-medium">Credits balance</h2>
-          <p className="text-sm text-muted">
-            Buy credits or turn on auto-reload to continue using Hivy if you hit
-            a limit.{" "}
-            <a
-              href="#"
-              className="text-accent underline-offset-2 hover:underline"
-            >
-              Learn more
-            </a>
-          </p>
-        </div>
-        <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface px-4 py-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-sm font-medium">NGN 0</span>
-            <span className="text-sm text-muted">
-              Current balance ·{" "}
-              <a
-                href="#"
-                className="text-accent underline-offset-2 hover:underline"
-              >
-                Manage auto-reload
-              </a>
-            </span>
-          </div>
-          <Button variant="tertiary" size="sm">
-            Buy credits
-          </Button>
-        </div>
-      </section>
+      <CreditsBalanceSection />
 
       <CreditsUsageSection />
 

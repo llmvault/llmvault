@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/hashicorp/golang-lru/v2/expirable"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/connectionaccess"
@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	gitTokenCacheSize = 100000
-	gitTokenCacheTTL  = 30 * time.Minute
+	gitTokenCacheSize       = 100000
+	gitTokenCacheExpirySkew = 10 * time.Minute
 )
 
 type gitTokenCacheKey struct {
@@ -33,8 +33,8 @@ type gitTokenCacheKey struct {
 }
 
 type gitTokenEntry struct {
-	token    string
-	cachedAt time.Time
+	token      string
+	validUntil time.Time
 }
 
 type gitHubTokenConnection struct {
@@ -50,17 +50,22 @@ type GitCredentialsHandler struct {
 	db     *gorm.DB
 	encKey *crypto.SymmetricKey
 	nango  *nango.Client
-	cache  *expirable.LRU[gitTokenCacheKey, *gitTokenEntry]
+	cache  *lru.Cache[gitTokenCacheKey, *gitTokenEntry]
 }
 
 // NewGitCredentialsHandler creates a git credentials handler with an in-memory
-// token cache (30-minute TTL, max 1000 entries).
+// token cache bounded by size. Each entry carries its own Nango-derived expiry.
 func NewGitCredentialsHandler(db *gorm.DB, encKey *crypto.SymmetricKey, nangoClient *nango.Client) *GitCredentialsHandler {
+	cache, err := lru.New[gitTokenCacheKey, *gitTokenEntry](gitTokenCacheSize)
+	if err != nil {
+		panic(fmt.Sprintf("create git token cache: %v", err))
+	}
+
 	return &GitCredentialsHandler{
 		db:     db,
 		encKey: encKey,
 		nango:  nangoClient,
-		cache:  expirable.NewLRU[gitTokenCacheKey, *gitTokenEntry](gitTokenCacheSize, nil, gitTokenCacheTTL),
+		cache:  cache,
 	}
 }
 
@@ -133,8 +138,11 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if entry, ok := h.cache.Get(tokenConn.cacheKey); ok {
-		writeGitCredentials(w, entry.token)
-		return
+		if time.Now().Before(entry.validUntil) {
+			writeGitCredentials(w, entry.token)
+			return
+		}
+		h.cache.Remove(tokenConn.cacheKey)
 	}
 
 	nangoConn, err := h.nango.GetConnection(r.Context(), tokenConn.conn.NangoConnectionID, tokenConn.providerConfigKey)
@@ -159,10 +167,15 @@ func (h *GitCredentialsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.cache.Add(tokenConn.cacheKey, &gitTokenEntry{
-		token:    accessToken,
-		cachedAt: time.Now(),
-	})
+	if expiresAt, ok := parseGitTokenExpiresAt(creds); ok {
+		validUntil := expiresAt.Add(-gitTokenCacheExpirySkew)
+		if time.Now().Before(validUntil) {
+			h.cache.Add(tokenConn.cacheKey, &gitTokenEntry{
+				token:      accessToken,
+				validUntil: validUntil,
+			})
+		}
+	}
 
 	writeGitCredentials(w, accessToken)
 }
@@ -177,6 +190,18 @@ func (h *GitCredentialsHandler) resolveGitHubTokenConnection(ctx context.Context
 		providerConfigKey: result.ProviderConfigKey,
 		cacheKey:          gitTokenCacheKey{agentID: agent.ID, providerConfigKey: result.ProviderConfigKey, nangoConnectionID: result.Connection.NangoConnectionID},
 	}, nil
+}
+
+func parseGitTokenExpiresAt(creds map[string]any) (time.Time, bool) {
+	raw, ok := creds["expires_at"].(string)
+	if !ok || raw == "" {
+		return time.Time{}, false
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return expiresAt, true
 }
 
 // writeGitCredentials writes a response in git credential helper protocol format.

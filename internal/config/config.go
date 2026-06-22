@@ -189,9 +189,8 @@ type Config struct {
 
 	RagBatchSize int `env:"HIVY_RAG_BATCH_SIZE" envDefault:"100"`
 
-	// Paystack (billing provider). Empty PaystackSecretKey disables it; NGN
-	// checkout then fails with ErrUnknownProvider. Plan codes live on the plans
-	// table — run `make setup-paystack` to seed them.
+	// Paystack (billing provider). Empty PaystackSecretKey disables it; checkout
+	// then fails with ErrUnknownProvider. Plan prices live in the plan catalog.
 	PaystackSecretKey string `env:"HIVY_PAYSTACK_SECRET_KEY"`
 }
 

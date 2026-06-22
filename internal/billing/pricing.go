@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// CreditUSDValue is the customer-facing value of one credit for AI usage.
+	// CreditUSDValue is the customer-facing value of one credit for metered usage.
 	CreditUSDValue = 0.001
 
 	CostSourceProvider = "provider_reported"
