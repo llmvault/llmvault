@@ -822,12 +822,16 @@ fn replay_stream(
     broker: Arc<SessionStreamBroker>,
     stream_id: String,
     stop_on_done: bool,
-    turn_filter: Option<String>,
-    initial_last_seq: Option<u64>,
-    resync_required: Option<StreamResyncRequired>,
-    history: Vec<SeqEvent>,
-    mut receiver: broadcast::Receiver<SeqEvent>,
+    subscription: StreamSubscription,
 ) -> impl futures::Stream<Item = StreamFrame> {
+    let StreamSubscription {
+        history,
+        mut receiver,
+        initial_last_seq,
+        resync_required,
+        turn_filter,
+        ..
+    } = subscription;
     stream! {
         // Track the highest sequence number delivered to this subscriber so a
         // `Lagged` gap can be resynced precisely from history.
@@ -982,16 +986,7 @@ pub async fn stream_response(
     }
     let subscription = broker.subscribe(&stream_id, replay_mode).await?;
     let next_sequence = subscription.next_seq;
-    let frames = replay_stream(
-        broker,
-        stream_id.clone(),
-        true,
-        subscription.turn_filter,
-        subscription.initial_last_seq,
-        subscription.resync_required,
-        subscription.history,
-        subscription.receiver,
-    );
+    let frames = replay_stream(broker, stream_id.clone(), true, subscription);
     let output_stream_id = stream_id.clone();
     let output = stream! {
         use futures::StreamExt;
@@ -1022,16 +1017,7 @@ pub async fn session_stream_response(
         .await
         .expect("session stream was just created");
     let next_sequence = subscription.next_seq;
-    let frames = replay_stream(
-        broker,
-        stream_id.clone(),
-        false,
-        subscription.turn_filter,
-        subscription.initial_last_seq,
-        subscription.resync_required,
-        subscription.history,
-        subscription.receiver,
-    );
+    let frames = replay_stream(broker, stream_id.clone(), false, subscription);
     let output_stream_id = stream_id.clone();
     let output = stream! {
         use futures::StreamExt;
@@ -1321,21 +1307,11 @@ mod tests {
     async fn stable_session_stream_replay_does_not_stop_on_done() {
         let broker = Arc::new(SessionStreamBroker::new());
         let stream_id = broker.get_or_create_session_stream("session-stable").await;
-        let (history, receiver) = broker
+        let subscription = broker
             .subscribe(&stream_id, StreamReplayMode::All)
             .await
-            .expect("stable stream exists")
-            .into_parts();
-        let frames = replay_stream(
-            broker.clone(),
-            stream_id.clone(),
-            false,
-            None,
-            None,
-            None,
-            history,
-            receiver,
-        );
+            .expect("stable stream exists");
+        let frames = replay_stream(broker.clone(), stream_id.clone(), false, subscription);
         futures::pin_mut!(frames);
 
         broker
@@ -1756,12 +1732,11 @@ mod tests {
         // Subscribe (capacity 256) but do NOT consume, then publish far more than
         // the channel capacity so the broadcast drops events for this receiver —
         // forcing a `Lagged` on the first recv.
-        let (history, receiver) = broker
+        let subscription = broker
             .subscribe(&stream_id, StreamReplayMode::All)
             .await
-            .expect("stream exists")
-            .into_parts();
-        assert!(history.is_empty());
+            .expect("stream exists");
+        assert!(subscription.history.is_empty());
         let total = 400usize; // > broadcast capacity (256), < HISTORY_CAPACITY (512)
         for i in 0..total {
             broker
@@ -1774,16 +1749,7 @@ mod tests {
         broker.publish(&stream_id, "done", json!({})).await;
 
         // Drive the replay core directly so we can inspect the frame sequence.
-        let frames = replay_stream(
-            broker.clone(),
-            stream_id.clone(),
-            true,
-            None,
-            None,
-            None,
-            history,
-            receiver,
-        );
+        let frames = replay_stream(broker.clone(), stream_id.clone(), true, subscription);
         futures::pin_mut!(frames);
         let mut saw_resync = false;
         let mut replayed_tokens: Vec<String> = Vec::new();
@@ -1849,21 +1815,11 @@ mod tests {
             .await;
         broker.publish(&stream_id, "done", json!({})).await;
 
-        let (history, receiver) = broker
+        let subscription = broker
             .subscribe(&stream_id, StreamReplayMode::All)
             .await
-            .expect("stream exists")
-            .into_parts();
-        let frames = replay_stream(
-            broker.clone(),
-            stream_id,
-            true,
-            None,
-            None,
-            None,
-            history,
-            receiver,
-        );
+            .expect("stream exists");
+        let frames = replay_stream(broker.clone(), stream_id, true, subscription);
         futures::pin_mut!(frames);
         let mut resyncs = 0;
         while let Some(frame) = frames.next().await {
@@ -1982,16 +1938,7 @@ mod tests {
         assert!(subscription.resync_required.is_none());
         assert_eq!(subscription.turn_filter.as_deref(), Some("turn-2"));
 
-        let frames = replay_stream(
-            broker.clone(),
-            stream_id.clone(),
-            false,
-            subscription.turn_filter,
-            subscription.initial_last_seq,
-            subscription.resync_required,
-            subscription.history,
-            subscription.receiver,
-        );
+        let frames = replay_stream(broker.clone(), stream_id.clone(), false, subscription);
         futures::pin_mut!(frames);
 
         let Some(StreamFrame::Event(first)) = frames.next().await else {
@@ -2122,16 +2069,7 @@ mod tests {
         );
         assert!(subscription.resync_required.is_some());
 
-        let frames = replay_stream(
-            broker.clone(),
-            stream_id.clone(),
-            false,
-            subscription.turn_filter,
-            subscription.initial_last_seq,
-            subscription.resync_required,
-            subscription.history,
-            subscription.receiver,
-        );
+        let frames = replay_stream(broker.clone(), stream_id.clone(), false, subscription);
         futures::pin_mut!(frames);
         let Some(StreamFrame::ResyncRequired(resync)) = frames.next().await else {
             panic!("expired cursor must produce resync_required first");
