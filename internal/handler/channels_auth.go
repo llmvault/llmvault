@@ -55,13 +55,6 @@ func isOrgManager(role string) bool {
 	return role == "owner" || role == "admin"
 }
 
-func canViewChannel(channel model.Channel, orgRole, memberRole string, apiKey bool) bool {
-	if apiKey || isOrgManager(orgRole) || memberRole != "" {
-		return true
-	}
-	return channel.Visibility == "public"
-}
-
 func canManageChannel(orgRole, memberRole string, apiKey bool) bool {
 	return apiKey || isOrgManager(orgRole) || memberRole == "owner"
 }
@@ -97,7 +90,7 @@ func (h *ChannelHandler) authorizeChannel(w http.ResponseWriter, r *http.Request
 		return model.Channel{}, nil, "", false
 	}
 	apiKey := isAPIKeyRequest(ctx)
-	allowed := canViewChannel(channel, orgRole, memberRole, apiKey)
+	allowed := canViewChannel(ctx, h.db, channel, orgRole, userID, apiKey)
 	if requireManage {
 		allowed = canManageChannel(orgRole, memberRole, apiKey)
 	}

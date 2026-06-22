@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -40,8 +41,8 @@ func TestIntegration_SandboxAccessAllowsVisibleReadOnlySessionAndMintsJWT(t *tes
 		t.Fatalf("unshared member sandbox access status=%d body=%s", blocked.Code, blocked.Body.String())
 	}
 
-	if err := h.db.Create(&model.ChannelMember{ChannelID: fx.channel.ID, UserID: fx.viewer.ID, Role: "member"}).Error; err != nil {
-		t.Fatalf("add viewer to channel: %v", err)
+	if err := h.db.Create(&model.SessionParticipant{SessionID: uuid.MustParse(created.Session.ID), UserID: fx.viewer.ID, Role: "collaborator"}).Error; err != nil {
+		t.Fatalf("add viewer to session: %v", err)
 	}
 	sandboxAccess := h.doJSON(t, http.MethodPost, path, fx, fx.viewer, nil)
 	if sandboxAccess.Code != http.StatusOK {

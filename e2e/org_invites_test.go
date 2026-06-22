@@ -144,7 +144,10 @@ func (ih *inviteHarness) createUserAndOrg(t *testing.T, label, emailAddr, role s
 		t.Fatalf("create membership: %v", err)
 	}
 	t.Cleanup(func() {
+		ih.db.Where("org_id = ?", org.ID).Delete(&model.OrgInviteTeam{})
 		ih.db.Where("org_id = ?", org.ID).Delete(&model.OrgInvite{})
+		ih.db.Where("org_id = ?", org.ID).Delete(&model.TeamMember{})
+		ih.db.Where("org_id = ?", org.ID).Delete(&model.Team{})
 		ih.db.Where("org_id = ?", org.ID).Delete(&model.OrgMembership{})
 		ih.db.Where("id = ?", org.ID).Delete(&model.Org{})
 		ih.db.Where("id = ?", user.ID).Delete(&model.User{})
@@ -172,13 +175,14 @@ func (ih *inviteHarness) createUser(t *testing.T, emailAddr, name string) uuid.U
 }
 
 type inviteDTO struct {
-	ID             string `json:"id"`
-	OrgID          string `json:"org_id"`
-	Email          string `json:"email"`
-	Role           string `json:"role"`
-	ExpiresAt      string `json:"expires_at"`
-	InvitedByID    string `json:"invited_by_id"`
-	InvitedByEmail string `json:"invited_by_email"`
+	ID             string   `json:"id"`
+	OrgID          string   `json:"org_id"`
+	Email          string   `json:"email"`
+	Role           string   `json:"role"`
+	ExpiresAt      string   `json:"expires_at"`
+	InvitedByID    string   `json:"invited_by_id"`
+	InvitedByEmail string   `json:"invited_by_email"`
+	TeamIDs        []string `json:"team_ids"`
 }
 
 type invitePreviewDTO struct {

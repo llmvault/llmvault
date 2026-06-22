@@ -63,6 +63,10 @@ func (h *OrgInviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "role must be 'admin', 'member', or 'viewer'"})
 		return
 	}
+	teamIDs, ok := h.normalizeInviteTeamIDs(r.Context(), w, org.ID, req.TeamIDs)
+	if !ok {
+		return
+	}
 
 	var existingUser model.User
 	if err := h.db.Where("LOWER(email) = ?", emailAddr).First(&existingUser).Error; err == nil {
@@ -110,7 +114,21 @@ func (h *OrgInviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		InvitedByID: inviterID,
 		ExpiresAt:   time.Now().Add(h.inviteTTL),
 	}
-	if err := h.db.Create(&invite).Error; err != nil {
+	inviteTeamLinks := inviteTeamRows(org.ID, invite.ID, teamIDs)
+	if err := h.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&invite).Error; err != nil {
+			return err
+		}
+		if len(inviteTeamLinks) > 0 {
+			for i := range inviteTeamLinks {
+				inviteTeamLinks[i].OrgInviteID = invite.ID
+			}
+			if err := tx.Create(&inviteTeamLinks).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		if isDuplicateKeyError(err) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "invite already pending"})
 			return
@@ -123,6 +141,7 @@ func (h *OrgInviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var inviter model.User
 	_ = h.db.Where("id = ?", inviterID).First(&inviter).Error
 	invite.InvitedBy = inviter
+	invite.InviteTeams = inviteTeamLinks
 
 	inviteURL := fmt.Sprintf("%s/invites/accept?token=%s", h.frontendURL, plaintext)
 	if err := h.emailSender.SendTemplate(r.Context(), email.TemplateMessage{

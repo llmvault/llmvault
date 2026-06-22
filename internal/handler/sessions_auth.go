@@ -64,8 +64,7 @@ func (h *SessionHandler) canAccessSession(ctx context.Context, session model.Ses
 	if participant != "" {
 		return true
 	}
-	channelRole, _ := h.channelMemberRole(ctx, session.ChannelID, userID)
-	return channelRole != ""
+	return userID != nil && session.CreatedBy != nil && *session.CreatedBy == *userID
 }
 
 func (h *SessionHandler) canUseChannel(ctx context.Context, channel model.Channel, userID *uuid.UUID) bool {
@@ -73,11 +72,15 @@ func (h *SessionHandler) canUseChannel(ctx context.Context, channel model.Channe
 		return true
 	}
 	orgRole, err := h.orgRole(ctx, channel.OrgID, userID)
-	if err == nil && isOrgManager(orgRole) {
+	return err == nil && canUseChannel(ctx, h.db, channel, orgRole, userID, false)
+}
+
+func (h *SessionHandler) canViewChannel(ctx context.Context, channel model.Channel, userID *uuid.UUID) bool {
+	if isAPIKeyRequest(ctx) {
 		return true
 	}
-	role, _ := h.channelMemberRole(ctx, channel.ID, userID)
-	return role != ""
+	orgRole, err := h.orgRole(ctx, channel.OrgID, userID)
+	return err == nil && canViewChannel(ctx, h.db, channel, orgRole, userID, false)
 }
 
 func (h *SessionHandler) orgRole(ctx context.Context, orgID uuid.UUID, userID *uuid.UUID) (string, error) {

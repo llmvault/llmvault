@@ -139,7 +139,11 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 			query = query.Where("created_by = ? OR id IN (?)", *userID, h.participantSessionSubquery(userID))
 		}
 	} else if !isAPIKeyRequest(r.Context()) && !h.isOrgAdminForSession(r, org.ID, userID) {
-		query = query.Where("id IN (?) OR channel_id IN (?)", h.participantSessionSubquery(userID), h.memberChannelSubquery(userID))
+		if userID == nil {
+			query = query.Where("1 = 0")
+		} else {
+			query = query.Where("created_by = ? OR id IN (?)", *userID, h.participantSessionSubquery(userID))
+		}
 	}
 	if sort == sessionSortActivity {
 		query = applySessionActivityPagination(query, activityCursor, limit)
@@ -182,7 +186,7 @@ func (h *SessionHandler) canListChannelSessions(w http.ResponseWriter, r *http.R
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load channel"})
 		return false
 	}
-	if !h.canUseChannel(r.Context(), channel, userID) {
+	if !h.canViewChannel(r.Context(), channel, userID) {
 		writeJSON(w, http.StatusForbidden, errorResponse{Error: "channel access denied"})
 		return false
 	}

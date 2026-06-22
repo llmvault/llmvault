@@ -59,11 +59,7 @@ func (h *ChannelHandler) List(w http.ResponseWriter, r *http.Request) {
 		Model(&model.Channel{}).
 		Where("org_id = ? AND archived_at IS NULL", org.ID)
 	if !isAPIKeyRequest(ctx) && !isOrgManager(orgRole) {
-		if r.URL.Query().Get("discoverable") == "true" {
-			q = q.Where("visibility = ? OR id IN (?)", "public", h.memberChannelSubquery(userID))
-		} else {
-			q = q.Where("id IN (?)", h.memberChannelSubquery(userID))
-		}
+		q = q.Where("team_id IS NULL OR team_id IN (?) OR id IN (?)", visibleTeamSubquery(h.db, userID), participantChannelSubquery(h.db, userID))
 	}
 	q = applyPagination(q, cursor, limit)
 

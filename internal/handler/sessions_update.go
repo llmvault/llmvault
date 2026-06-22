@@ -57,6 +57,7 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Request, session *model.Session, userID *uuid.UUID, req updateSessionRequest, updates map[string]any) bool {
+	finalChannel := model.Channel{ID: session.ChannelID, OrgID: session.OrgID, DefaultAgentID: session.AgentID}
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		updates["name"] = name
@@ -87,9 +88,14 @@ func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Requ
 		}
 		updates["channel_id"] = channel.ID
 		session.ChannelID = channel.ID
+		finalChannel = channel
+		if req.AgentID == nil && !agentAllowedInChannel(r.Context(), h.db, session.OrgID, session.AgentID, finalChannel.ID) {
+			writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent is not available in this channel"})
+			return false
+		}
 	}
 	if req.AgentID != nil {
-		agent, ok := h.resolveSessionAgent(w, r, session.OrgID, model.Channel{DefaultAgentID: session.AgentID}, *req.AgentID)
+		agent, ok := h.resolveSessionAgent(w, r, session.OrgID, finalChannel, *req.AgentID)
 		if !ok {
 			return false
 		}

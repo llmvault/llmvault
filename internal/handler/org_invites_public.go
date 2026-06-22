@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/email"
 	"github.com/usehivy/hivy/internal/logging"
@@ -105,6 +106,20 @@ func (h *OrgInviteHandler) Accept(w http.ResponseWriter, r *http.Request) {
 			Update("accepted_at", &now).Error; err != nil {
 			return fmt.Errorf("mark invite accepted: %w", err)
 		}
+		if len(invite.InviteTeams) > 0 {
+			members := make([]model.TeamMember, len(invite.InviteTeams))
+			for i, link := range invite.InviteTeams {
+				members[i] = model.TeamMember{
+					OrgID:  invite.OrgID,
+					TeamID: link.TeamID,
+					UserID: user.ID,
+					Role:   "member",
+				}
+			}
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&members).Error; err != nil {
+				return fmt.Errorf("create team memberships: %w", err)
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -193,7 +208,7 @@ func (h *OrgInviteHandler) findValidInviteByToken(token string) (model.OrgInvite
 	}
 	hash := model.HashInviteToken(token)
 	var invite model.OrgInvite
-	err := h.db.Preload("Org").Preload("InvitedBy").
+	err := h.db.Preload("Org").Preload("InvitedBy").Preload("InviteTeams").
 		Where("token_hash = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?",
 			hash, time.Now()).
 		First(&invite).Error

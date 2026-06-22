@@ -9,20 +9,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
-func TestIntegration_SessionsChannelVisibilityDoesNotGrantSend(t *testing.T) {
+func TestIntegration_SessionsChannelVisibilityDoesNotGrantReadOrSend(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 	created := h.createSession(t, fx, fx.owner, "Shared channel visibility")
-	if err := h.db.Create(&model.ChannelMember{ChannelID: fx.channel.ID, UserID: fx.viewer.ID, Role: "member"}).Error; err != nil {
-		t.Fatalf("add viewer to channel: %v", err)
-	}
 
 	list := h.doJSON(t, http.MethodGet, "/v1/channels/"+fx.channel.ID.String()+"/sessions", fx, fx.viewer, nil)
-	assertSessionListIDs(t, list, []string{created.Session.ID})
+	assertSessionListIDs(t, list, nil)
 
 	send := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.viewer, map[string]any{
 		"text": "not a participant",

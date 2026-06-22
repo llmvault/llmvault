@@ -32,6 +32,7 @@ type agentMutationRequest struct {
 	Permissions       *model.JSON      `json:"permissions,omitempty"`
 	Resources         *model.JSON      `json:"resources,omitempty"`
 	SandboxTools      *[]string        `json:"sandbox_tools,omitempty"`
+	ChannelIDs        *[]string        `json:"channel_ids,omitempty"`
 }
 
 type agentMutationResponse struct {
@@ -152,8 +153,16 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		SandboxTools:      pq.StringArray(sandboxTools),
 		Status:            "active",
 	}
+	channelIDs, ok := h.normalizeAgentChannelIDs(ctx, w, org.ID, req.ChannelIDs)
+	if !ok {
+		return
+	}
+
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&agent).Error; err != nil {
+			return err
+		}
+		if err := h.replaceAgentChannelsTx(tx, org.ID, agent.ID, channelIDs); err != nil {
 			return err
 		}
 		return pluginstore.EnsureAutoInstalledForAgent(ctx, tx, org.ID, agent.ID)

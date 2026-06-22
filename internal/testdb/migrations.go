@@ -179,6 +179,7 @@ WHERE table_schema = current_schema()
 var migratedTables = []string{
 	"api_keys",
 	"agent_catalog",
+	"agent_channels",
 	"audit_log",
 	"channel_members",
 	"channels",
@@ -202,6 +203,7 @@ var migratedTables = []string{
 	"oauth_accounts",
 	"oauth_exchange_tokens",
 	"org_plugin_installs",
+	"org_invite_teams",
 	"org_invites",
 	"org_memberships",
 	"orgs",
@@ -232,10 +234,12 @@ var migratedTables = []string{
 	"skills",
 	"subscription_change_quotes",
 	"subscriptions",
+	"team_members",
+	"teams",
 	"tokens",
 	"tool_usages",
 	"usage",
 	"users",
 }
 
-const latestMigrationVersion = 36
+const latestMigrationVersion = 37
