@@ -57,6 +57,26 @@ func TestAgentSandboxUpgradeDrainsWhenAnyAlwaysOnSessionActive(t *testing.T) {
 	assertAgentSandboxUpgradeSucceeded(t, harness.db, upgrade.ID)
 }
 
+func TestAgentSandboxUpgradeContinuesWhenDrainSignalFailsTwice(t *testing.T) {
+	harness := newAgentSandboxUpgradeHarness(t)
+	harness.runtime.failNextDrainPOSTs(2)
+	org, agent, channel := seedAgentSandboxUpgradeFixture(t, harness.db, "always_on")
+	oldSandbox := seedAgentSandboxUpgradeSandbox(t, harness, org.ID, agent.ID, "old-runtime")
+	seedAgentSandboxUpgradeSession(t, harness.db, org.ID, channel.ID, agent.ID, oldSandbox.ID, model.SessionAgentTurnActive)
+	upgrade := seedAgentSandboxUpgradeRow(t, harness.db, org.ID, agent.ID, oldSandbox.ID)
+
+	if err := harness.handler.Handle(t.Context(), agentSandboxUpgradeTask(t, upgrade.ID, agent.ID)); err != nil {
+		t.Fatalf("handle upgrade: %v", err)
+	}
+
+	harness.runtime.assertDrainCalls(t, 2, 0)
+	assertAgentSandboxUpgradeSucceeded(t, harness.db, upgrade.ID)
+	assertAgentSandboxUpgradeActiveSandbox(t, harness.db, org.ID, agent.ID, oldSandbox.ID)
+	if len(harness.provider.stopped) != 1 || harness.provider.stopped[0] != oldSandbox.ExternalID {
+		t.Fatalf("stopped=%v want old sandbox %s", harness.provider.stopped, oldSandbox.ExternalID)
+	}
+}
+
 func TestAgentSandboxUpgradeTaskMarksPerSessionAgentFailed(t *testing.T) {
 	harness := newAgentSandboxUpgradeHarness(t)
 	org, agent, _ := seedAgentSandboxUpgradeFixture(t, harness.db, "per_session")
@@ -144,14 +164,15 @@ func newAgentSandboxUpgradeHarness(t *testing.T) *agentSandboxUpgradeHarness {
 }
 
 type agentSandboxUpgradeRuntime struct {
-	server       *httptest.Server
-	mu           sync.Mutex
-	configCalls  int
-	drainPOSTs   int
-	drainGETs    int
-	cancelPOSTs  int
-	healthzCalls int
-	readyzCalls  int
+	server                  *httptest.Server
+	mu                      sync.Mutex
+	configCalls             int
+	drainPOSTs              int
+	drainGETs               int
+	cancelPOSTs             int
+	healthzCalls            int
+	readyzCalls             int
+	failDrainPOSTsRemaining int
 }
 
 func newAgentSandboxUpgradeRuntime(t *testing.T) *agentSandboxUpgradeRuntime {
@@ -164,6 +185,7 @@ func newAgentSandboxUpgradeRuntime(t *testing.T) *agentSandboxUpgradeRuntime {
 
 func (rt *agentSandboxUpgradeRuntime) handle(w http.ResponseWriter, r *http.Request) {
 	rt.mu.Lock()
+	failDrainPOST := false
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/healthz":
 		rt.healthzCalls++
@@ -173,6 +195,10 @@ func (rt *agentSandboxUpgradeRuntime) handle(w http.ResponseWriter, r *http.Requ
 		rt.configCalls++
 	case r.Method == http.MethodPost && r.URL.Path == "/control/drain":
 		rt.drainPOSTs++
+		if rt.failDrainPOSTsRemaining > 0 {
+			rt.failDrainPOSTsRemaining--
+			failDrainPOST = true
+		}
 	case r.Method == http.MethodGet && r.URL.Path == "/control/drain":
 		rt.drainGETs++
 	case r.Method == http.MethodPost && r.URL.Path == "/control/drain/cancel":
@@ -183,6 +209,11 @@ func (rt *agentSandboxUpgradeRuntime) handle(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	rt.mu.Unlock()
+
+	if failDrainPOST {
+		http.Error(w, "runtime unavailable", http.StatusServiceUnavailable)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	switch r.URL.Path {
@@ -200,6 +231,12 @@ func (rt *agentSandboxUpgradeRuntime) handle(w http.ResponseWriter, r *http.Requ
 	default:
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 	}
+}
+
+func (rt *agentSandboxUpgradeRuntime) failNextDrainPOSTs(n int) {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	rt.failDrainPOSTsRemaining = n
 }
 
 func (rt *agentSandboxUpgradeRuntime) assertDrainCalls(t *testing.T, wantPOSTs, wantGETs int) {
