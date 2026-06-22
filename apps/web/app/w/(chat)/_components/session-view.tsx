@@ -132,11 +132,20 @@ export function SessionThreadView({
     sessionHistoryQuery.isError
 
   useEffect(() => {
+    if (!sessionId || optimisticSession || historyEvents.length === 0) return
+    useSessionRuntimeStore
+      .getState()
+      .reconcileLiveEvents(sessionId, historyEvents)
+  }, [historyEvents, optimisticSession, sessionId])
+
+  useEffect(() => {
     if (!sessionId || optimisticSession || !historyReadyForStream) return
     if (!turnActive) return
     ensureSessionStream(sessionId, {
       queryClient,
-      replay: sessionHistoryQuery.isSuccess ? { mode: "none" } : { mode: "all" },
+      replay: sessionHistoryQuery.isSuccess
+        ? { mode: "none" }
+        : { mode: "all" },
     })
   }, [
     historyReadyForStream,
@@ -221,6 +230,7 @@ export function SessionThreadView({
       )
       useSessionRuntimeStore.getState().finishStream(sessionId, {
         outcome: "failed",
+        clearLiveEvents: true,
       })
       toast.danger(message)
       return false
@@ -229,10 +239,9 @@ export function SessionThreadView({
 
   const stop = () => {
     if (!sessionId || optimisticSession) return
-    void interruptSessionTurn(sessionId, queryClient)
-      .catch((error) => {
-        toast.danger(extractErrorMessage(error, "Could not stop session"))
-      })
+    void interruptSessionTurn(sessionId, queryClient).catch((error) => {
+      toast.danger(extractErrorMessage(error, "Could not stop session"))
+    })
   }
 
   const retryMessage = (

@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use sqlx::{Row, SqlitePool};
+use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use sqlx::SqlitePool;
 
 use crate::repos::{OutboxRepo, OutboxRow, Result};
 
 use super::{SqliteStore, SqliteWriteGateway};
 
 const STATUS_PENDING: &str = "pending";
+const OUTBOX_LEASE_SECONDS: i64 = 120;
 
 pub struct SqliteOutboxRepo {
     pool: Arc<SqlitePool>,
@@ -59,33 +60,8 @@ impl OutboxRepo for SqliteOutboxRepo {
     }
 
     async fn claim_due(&self, limit: u32) -> Result<Vec<OutboxRow>> {
-        let limit = limit.min(256);
-        let now = Utc::now().to_rfc3339();
-        let rows = sqlx::query(
-            "SELECT id, channel_name, event_type, payload_json, attempts \
-             FROM outbound_outbox \
-             WHERE status = ? AND next_retry_at <= ? \
-             ORDER BY id ASC \
-             LIMIT ?",
-        )
-        .bind(STATUS_PENDING)
-        .bind(&now)
-        .bind(limit as i64)
-        .fetch_all(self.pool.as_ref())
-        .await?;
-
-        let mut outbox_rows = Vec::with_capacity(rows.len());
-        for row in &rows {
-            let payload_text: String = row.try_get("payload_json")?;
-            outbox_rows.push(OutboxRow {
-                id: row.try_get("id")?,
-                channel_name: row.try_get("channel_name")?,
-                event_type: row.try_get("event_type")?,
-                payload: serde_json::from_str(&payload_text)?,
-                attempts: row.try_get("attempts")?,
-            });
-        }
-        Ok(outbox_rows)
+        let lease_until = Utc::now() + ChronoDuration::seconds(OUTBOX_LEASE_SECONDS);
+        self.writer.claim_due_outbox(limit, lease_until).await
     }
 
     async fn pending_count(&self) -> Result<i64> {
@@ -113,5 +89,78 @@ impl OutboxRepo for SqliteOutboxRepo {
 
     async fn mark_failed(&self, id: i64) -> Result<()> {
         self.writer.mark_outbox_failed(id).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use serde_json::json;
+
+    use super::*;
+    use crate::init_sqlite_store;
+
+    async fn setup_repo() -> (tempfile::TempDir, SqliteOutboxRepo) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = init_sqlite_store(dir.path().join("outbox.db"))
+            .await
+            .expect("init sqlite store");
+        let repo = SqliteOutboxRepo::new(&store);
+        (dir, repo)
+    }
+
+    fn rows_by_session(rows: &[OutboxRow]) -> HashMap<String, i64> {
+        rows.iter()
+            .filter_map(|row| Some((row.session_id.clone()?, row.runtime_seq?)))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn claim_due_returns_one_head_row_per_runtime_session() {
+        let (_dir, repo) = setup_repo().await;
+
+        repo.enqueue_runtime_event("runtime-ws", "token", json!({"session_id": "session-a"}))
+            .await
+            .expect("enqueue a1");
+        repo.enqueue_runtime_event("runtime-ws", "token", json!({"session_id": "session-a"}))
+            .await
+            .expect("enqueue a2");
+        repo.enqueue_runtime_event("runtime-ws", "token", json!({"session_id": "session-b"}))
+            .await
+            .expect("enqueue b1");
+
+        let rows = repo.claim_due(10).await.expect("claim due");
+        let by_session = rows_by_session(&rows);
+        assert_eq!(by_session.len(), 2);
+        assert_eq!(by_session.get("session-a"), Some(&1));
+        assert_eq!(by_session.get("session-b"), Some(&1));
+        assert!(!rows.iter().any(
+            |row| row.session_id.as_deref() == Some("session-a") && row.runtime_seq == Some(2)
+        ));
+    }
+
+    #[tokio::test]
+    async fn leased_session_head_does_not_block_other_session_heads() {
+        let (_dir, repo) = setup_repo().await;
+
+        repo.enqueue_runtime_event("runtime-ws", "token", json!({"session_id": "stuck"}))
+            .await
+            .expect("enqueue stuck 1");
+        repo.enqueue_runtime_event("runtime-ws", "token", json!({"session_id": "stuck"}))
+            .await
+            .expect("enqueue stuck 2");
+        repo.enqueue_runtime_event("runtime-ws", "token", json!({"session_id": "ready"}))
+            .await
+            .expect("enqueue ready 1");
+
+        let first = repo.claim_due(1).await.expect("claim first");
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].session_id.as_deref(), Some("stuck"));
+
+        let second = repo.claim_due(10).await.expect("claim second");
+        assert_eq!(second.len(), 1);
+        assert_eq!(second[0].session_id.as_deref(), Some("ready"));
+        assert_eq!(second[0].runtime_seq, Some(1));
     }
 }

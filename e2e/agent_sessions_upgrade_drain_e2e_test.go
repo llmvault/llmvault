@@ -65,12 +65,13 @@ func TestAgentSessionsSandboxUpgradeDrainE2E(t *testing.T) {
 		"text":             agentSessionsDrainPrompt(stepMarkerPrefix, finalMarker),
 		"access_mode":      "full",
 	})
-	if session.Session.ID == "" || session.Event != nil {
+	if session.Session.ID == "" {
 		t.Fatalf("drain session was not created correctly: %+v", session)
 	}
+	assertAgentSessionsBackendOwnedMutationEvent(t, session.Event)
 	t.Logf("created drain session id=%s queued=%t", session.Session.ID, session.Queued)
 
-	stream := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
+	stream := agentSessionsStartSandboxStream(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	firstTool := stream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, stepMarkerPrefix+"1")
 	})

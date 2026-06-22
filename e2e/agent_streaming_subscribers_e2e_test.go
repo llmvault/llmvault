@@ -3,10 +3,8 @@ package e2e
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,18 +13,11 @@ import (
 	"time"
 )
 
-type goSessionSSEEvent struct {
-	Name    string
-	ID      string
-	RawData string
-	Payload map[string]any
-}
-
 type subscriberResult struct {
 	sessionID string
 	index     int
 	committed []int64
-	events    []goSessionSSEEvent
+	events    []runtimeSSEEvent
 }
 
 type subscriberReady struct {
@@ -34,27 +25,22 @@ type subscriberReady struct {
 	index     int
 }
 
-func runGoSessionSubscriber(ctx context.Context, apiBase, token, orgID, sessionID, marker string, index int, ready chan<- subscriberReady) (subscriberResult, error) {
+func runSandboxSessionSubscriber(ctx context.Context, apiBase, token, orgID, sessionID, marker string, index int, ready chan<- subscriberReady) (subscriberResult, error) {
 	streamCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	endpoint := fmt.Sprintf("%s/v1/sessions/%s/stream?after_seq=0", strings.TrimRight(apiBase, "/"), sessionID)
-	req, err := http.NewRequestWithContext(streamCtx, http.MethodGet, endpoint, nil)
+	access, err := fetchAgentSessionsSandboxAccessClient(streamCtx, apiBase, token, orgID, sessionID)
 	if err != nil {
-		return subscriberResult{}, err
+		return subscriberResult{}, fmt.Errorf("subscriber %s/%d sandbox access: %w", sessionID, index, err)
 	}
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Org-ID", orgID)
-	resp, err := http.DefaultClient.Do(req)
+	if err := validateAgentSessionsSandboxStreamAccess(access, sessionID); err != nil {
+		return subscriberResult{}, fmt.Errorf("subscriber %s/%d sandbox access: %w", sessionID, index, err)
+	}
+	resp, err := openSandboxSessionStreamClient(streamCtx, sessionID, access)
 	if err != nil {
 		return subscriberResult{}, fmt.Errorf("subscriber %s/%d open stream: %w", sessionID, index, err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return subscriberResult{}, fmt.Errorf("subscriber %s/%d stream status=%d body=%s", sessionID, index, resp.StatusCode, body)
-	}
 	if ready != nil {
 		select {
 		case ready <- subscriberReady{sessionID: sessionID, index: index}:
@@ -63,16 +49,22 @@ func runGoSessionSubscriber(ctx context.Context, apiBase, token, orgID, sessionI
 		}
 	}
 
-	events, err := readGoSessionStreamUntil(streamCtx, resp.Body, marker)
+	events, err := readSandboxSessionStreamUntil(streamCtx, resp.Body, marker)
 	if err != nil {
 		return subscriberResult{}, fmt.Errorf("subscriber %s/%d: %w", sessionID, index, err)
 	}
 	committed := make([]int64, 0, len(events))
 	for _, event := range events {
-		if event.Name != "session.event" {
+		if !isDurableSandboxRuntimeEvent(event) {
 			continue
 		}
-		seq := int64FromAny(event.Payload["sequence_number"])
+		seq := int64FromAny(event.Payload["runtime_seq"])
+		if seq == 0 {
+			seq = int64FromAny(event.Payload["sequence"])
+		}
+		if seq == 0 {
+			return subscriberResult{}, fmt.Errorf("subscriber %s/%d durable event missing runtime sequence: name=%s payload=%v", sessionID, index, event.Name, event.Payload)
+		}
 		if len(committed) > 0 && seq <= committed[len(committed)-1] {
 			return subscriberResult{}, fmt.Errorf("subscriber %s/%d sequence regression: prev=%d next=%d", sessionID, index, committed[len(committed)-1], seq)
 		}
@@ -112,8 +104,8 @@ func sendStreamingPrompts(t *testing.T, ctx context.Context, apiBase, token, org
 		go func() {
 			defer wg.Done()
 			out := agentSessionsSendMessage(t, ctx, apiBase, token, orgID, tc.session.Session.ID, tc.prompt)
-			if out.Event != nil {
-				errs <- fmt.Errorf("session %s send returned optimistic event=%+v, want nil until runtime commit", tc.session.Session.ID, out.Event)
+			if err := validateAgentSessionsBackendOwnedMutationEvent(out.Event); err != nil {
+				errs <- fmt.Errorf("session %s send backend event invalid: %w", tc.session.Session.ID, err)
 			}
 		}()
 	}
@@ -126,41 +118,36 @@ func sendStreamingPrompts(t *testing.T, ctx context.Context, apiBase, token, org
 	}
 }
 
-func readGoSessionStreamUntil(ctx context.Context, body io.Reader, marker string) ([]goSessionSSEEvent, error) {
+func readSandboxSessionStreamUntil(ctx context.Context, body io.Reader, marker string) ([]runtimeSSEEvent, error) {
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 1024), 4*1024*1024)
-	var events []goSessionSSEEvent
+	var events []runtimeSSEEvent
 	var name string
 	var id string
 	var dataLines []string
 	finalSeen := false
+	markerSeen := marker == ""
 	terminalSeen := false
 	flush := func() (bool, error) {
 		if name == "" && id == "" && len(dataLines) == 0 {
 			return false, nil
 		}
 		raw := strings.Join(dataLines, "\n")
-		payload := map[string]any{}
-		if raw != "" {
-			if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-				payload = map[string]any{"_raw": raw}
-			}
-		}
-		event := goSessionSSEEvent{Name: name, ID: id, RawData: raw, Payload: payload}
+		event := agentSessionsRuntimeEventFromSandboxSSE(name, raw)
 		events = append(events, event)
-		if event.Name == "session.event" {
-			eventType, _ := event.Payload["event_type"].(string)
-			if eventType == "final" {
-				finalSeen = true
-			}
-			if eventType == "turn_completed" || eventType == "turn_failed" || eventType == "done" {
-				terminalSeen = true
-			}
+		if event.Name == "final" {
+			finalSeen = true
+		}
+		if marker != "" && strings.Contains(event.RawData, marker) {
+			markerSeen = true
+		}
+		if event.Name == "turn_completed" || event.Name == "turn_failed" || event.Name == "done" {
+			terminalSeen = true
 		}
 		name = ""
 		id = ""
 		dataLines = nil
-		return finalSeen && terminalSeen, nil
+		return finalSeen && markerSeen && terminalSeen, nil
 	}
 	for {
 		if ctx.Err() != nil {
@@ -189,6 +176,11 @@ func readGoSessionStreamUntil(ctx context.Context, body io.Reader, marker string
 			dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
 		}
 	}
+}
+
+func isDurableSandboxRuntimeEvent(event runtimeSSEEvent) bool {
+	durability, _ := event.Payload["durability"].(string)
+	return durability == "durable" && event.Name != "done"
 }
 
 func assertStreamingSubscribersConverged(t *testing.T, sessionID string, results []subscriberResult) {

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -22,6 +23,7 @@ use crate::{OutboundChannel, OutboundError, Result};
 const ACK_TIMEOUT: Duration = Duration::from_secs(15);
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
+type SessionConnection = Arc<Mutex<Option<WsStream>>>;
 
 pub struct WebSocketChannel {
     name: String,
@@ -29,7 +31,7 @@ pub struct WebSocketChannel {
     secret: String,
     extra_headers: HashMap<String, String>,
     event_filter: Option<Vec<String>>,
-    connection: Mutex<Option<WsStream>>,
+    connections: Mutex<HashMap<String, SessionConnection>>,
 }
 
 impl WebSocketChannel {
@@ -46,13 +48,17 @@ impl WebSocketChannel {
             secret: secret.into(),
             extra_headers,
             event_filter,
-            connection: Mutex::new(None),
+            connections: Mutex::new(HashMap::new()),
         })
     }
 
-    async fn connect(&self) -> Result<WsStream> {
-        let mut request = self
-            .url
+    fn url_for_session(&self, session_id: &str) -> String {
+        self.url.replace("{session_id}", session_id)
+    }
+
+    async fn connect(&self, session_id: &str) -> Result<WsStream> {
+        let url = self.url_for_session(session_id);
+        let mut request = url
             .as_str()
             .into_client_request()
             .map_err(|e| OutboundError::Delivery(format!("websocket request: {e}")))?;
@@ -72,8 +78,16 @@ impl WebSocketChannel {
         }
         let (stream, _) = connect_async(request)
             .await
-            .map_err(|e| OutboundError::Delivery(format!("connect {}: {e}", self.url)))?;
+            .map_err(|e| OutboundError::Delivery(format!("connect {}: {e}", url)))?;
         Ok(stream)
+    }
+
+    async fn connection_for_session(&self, session_id: &str) -> SessionConnection {
+        let mut connections = self.connections.lock().await;
+        connections
+            .entry(session_id.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(None)))
+            .clone()
     }
 }
 
@@ -97,28 +111,30 @@ impl OutboundChannel for WebSocketChannel {
 
     async fn deliver(&self, event: &OutboundEvent) -> Result<()> {
         let frame = RuntimeStreamFrame::from_outbound(event)?;
+        let session_id = frame.event.session_id.clone();
         let runtime_seq = frame.event.runtime_seq;
         let body = serde_json::to_string(&frame)
             .map_err(|e| OutboundError::Delivery(format!("serialize websocket event: {e}")))?;
 
-        let mut guard = self.connection.lock().await;
+        let connection = self.connection_for_session(&session_id).await;
+        let mut guard = connection.lock().await;
         let mut stream = match guard.take() {
             Some(stream) => stream,
-            None => self.connect().await?,
+            None => self.connect(&session_id).await?,
         };
         if let Err(error) = stream.send(Message::Text(body.clone())).await {
             warn!(channel = %self.name, %error, "websocket send failed; reconnecting");
-            stream = self.connect().await?;
-            stream
-                .send(Message::Text(body))
-                .await
-                .map_err(|e| OutboundError::Delivery(format!("send {}: {e}", self.url)))?;
+            stream = self.connect(&session_id).await?;
+            stream.send(Message::Text(body)).await.map_err(|e| {
+                OutboundError::Delivery(format!("send {}: {e}", self.url_for_session(&session_id)))
+            })?;
         }
 
-        let ack = match timeout(ACK_TIMEOUT, read_ack(&mut stream, runtime_seq)).await {
+        let ack = match timeout(ACK_TIMEOUT, read_ack(&mut stream, &session_id, runtime_seq)).await
+        {
             Ok(result) => result,
             Err(_) => Err(OutboundError::Delivery(format!(
-                "websocket ack timeout for runtime_seq {runtime_seq}"
+                "websocket ack timeout for session_id {session_id} runtime_seq {runtime_seq}"
             ))),
         };
         if ack.is_err() {
@@ -130,32 +146,51 @@ impl OutboundChannel for WebSocketChannel {
     }
 }
 
-async fn read_ack(stream: &mut WsStream, runtime_seq: i64) -> Result<()> {
+async fn read_ack(stream: &mut WsStream, session_id: &str, runtime_seq: i64) -> Result<()> {
     while let Some(message) = stream.next().await {
         let message = message.map_err(|e| OutboundError::Delivery(format!("read ack: {e}")))?;
         let Message::Text(text) = message else {
             continue;
         };
-        let ack: RuntimeIngressAck = serde_json::from_str(&text)
-            .map_err(|e| OutboundError::Delivery(format!("decode ack: {e}")))?;
-        for result in ack.results {
-            if result.runtime_seq == runtime_seq {
-                if ack.r#type == "ack"
-                    && (result.status == "accepted" || result.status == "duplicate")
-                {
-                    return Ok(());
-                }
-                return Err(OutboundError::Delivery(format!(
-                    "runtime_seq {runtime_seq} rejected: {} {}",
-                    result.status,
-                    result.error.unwrap_or_default()
-                )));
-            }
+        match decode_ack_match(&text, session_id, runtime_seq)? {
+            AckMatch::Accepted => return Ok(()),
+            AckMatch::Rejected(message) => return Err(OutboundError::Delivery(message)),
+            AckMatch::NoMatch => {}
         }
     }
     Err(OutboundError::Delivery(
         "websocket closed before ack".to_string(),
     ))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum AckMatch {
+    Accepted,
+    Rejected(String),
+    NoMatch,
+}
+
+fn decode_ack_match(text: &str, session_id: &str, runtime_seq: i64) -> Result<AckMatch> {
+    let ack: RuntimeIngressAck = serde_json::from_str(text)
+        .map_err(|e| OutboundError::Delivery(format!("decode ack: {e}")))?;
+    Ok(match_ack(ack, session_id, runtime_seq))
+}
+
+fn match_ack(ack: RuntimeIngressAck, session_id: &str, runtime_seq: i64) -> AckMatch {
+    for result in ack.results {
+        if result.session_id == session_id && result.runtime_seq == runtime_seq {
+            if ack.r#type == "ack" && (result.status == "accepted" || result.status == "duplicate")
+            {
+                return AckMatch::Accepted;
+            }
+            return AckMatch::Rejected(format!(
+                "session_id {session_id} runtime_seq {runtime_seq} rejected: {} {}",
+                result.status,
+                result.error.unwrap_or_default()
+            ));
+        }
+    }
+    AckMatch::NoMatch
 }
 
 #[derive(Debug, Serialize)]
@@ -223,6 +258,7 @@ struct RuntimeIngressAck {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeIngressAckResult {
+    session_id: String,
     runtime_seq: i64,
     status: String,
     #[serde(default)]
@@ -244,4 +280,67 @@ fn integer_field(payload: &Value, key: &str) -> Option<i64> {
             .as_i64()
             .or_else(|| value.as_u64().and_then(|number| i64::try_from(number).ok()))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ack_matching_requires_session_id_and_runtime_seq() {
+        let wrong_session = r#"{
+            "type": "ack",
+            "results": [
+                {"session_id": "session-b", "runtime_seq": 7, "status": "accepted"}
+            ]
+        }"#;
+        assert_eq!(
+            decode_ack_match(wrong_session, "session-a", 7).expect("decode ack"),
+            AckMatch::NoMatch
+        );
+
+        let matching_session = r#"{
+            "type": "ack",
+            "results": [
+                {"session_id": "session-a", "runtime_seq": 7, "status": "accepted"}
+            ]
+        }"#;
+        assert_eq!(
+            decode_ack_match(matching_session, "session-a", 7).expect("decode ack"),
+            AckMatch::Accepted
+        );
+    }
+
+    #[test]
+    fn ack_matching_accepts_duplicates_and_rejects_target_errors() {
+        let duplicate = r#"{
+            "type": "ack",
+            "results": [
+                {"session_id": "session-a", "runtime_seq": 8, "status": "duplicate"}
+            ]
+        }"#;
+        assert_eq!(
+            decode_ack_match(duplicate, "session-a", 8).expect("decode ack"),
+            AckMatch::Accepted
+        );
+
+        let rejected = r#"{
+            "type": "nack",
+            "results": [
+                {
+                    "session_id": "session-a",
+                    "runtime_seq": 9,
+                    "status": "gap",
+                    "error": "expected 8"
+                }
+            ]
+        }"#;
+        assert!(matches!(
+            decode_ack_match(rejected, "session-a", 9).expect("decode ack"),
+            AckMatch::Rejected(message)
+                if message.contains("session-a")
+                    && message.contains("runtime_seq 9")
+                    && message.contains("gap")
+        ));
+    }
 }

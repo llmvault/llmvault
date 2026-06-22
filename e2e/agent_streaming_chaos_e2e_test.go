@@ -14,7 +14,7 @@ func runStreamingWorkerResumeChaos(t *testing.T, ctx context.Context, apiBase, w
 	session := agentSessionsCreateSession(t, ctx, apiBase, token, orgID, channelID, streamingE2EPrompt(runID, 9, 1, "STREAMING_E2E_WORKER_CHAOS_"+runID))
 	restartComposeService(t, ctx, "worker")
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
-	result, err := runGoSessionSubscriber(ctx, apiBase, token, orgID, session.Session.ID, "STREAMING_E2E_WORKER_CHAOS_"+runID, 0, nil)
+	result, err := runSandboxSessionSubscriber(ctx, apiBase, token, orgID, session.Session.ID, "STREAMING_E2E_WORKER_CHAOS_"+runID, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func runStreamingAPIReconnectChaos(t *testing.T, ctx context.Context, apiBase, w
 	restartComposeService(t, ctx, "api")
 	requireAgentSessionsHealthy(t, ctx, apiBase, "api")
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
-	result, err := runGoSessionSubscriber(ctx, apiBase, token, orgID, session.Session.ID, "STREAMING_E2E_API_CHAOS_"+runID, 0, nil)
+	result, err := runSandboxSessionSubscriber(ctx, apiBase, token, orgID, session.Session.ID, "STREAMING_E2E_API_CHAOS_"+runID, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

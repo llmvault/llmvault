@@ -57,7 +57,9 @@ type sessionOut struct {
 
 type sessionEventOut struct {
 	ID             string         `json:"id"`
+	EventID        string         `json:"event_id"`
 	EventType      string         `json:"event_type"`
+	Source         string         `json:"source"`
 	SequenceNumber int64          `json:"sequence_number"`
 	Payload        map[string]any `json:"payload"`
 }

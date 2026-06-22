@@ -6,6 +6,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/runtimeevents"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
@@ -18,6 +19,9 @@ func TestIntegration_SessionsCreate_AlwaysOnSendsFirstMessageDirectWithoutQueueO
 	out := h.createSession(t, fx, fx.owner, "Ship the always-on hot path")
 	if out.Queued {
 		t.Fatalf("queued=%t, want false for idle always-on session", out.Queued)
+	}
+	if out.Event == nil || out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Payload["text"] != "Ship the always-on hot path" {
+		t.Fatalf("bad backend event: %+v", out.Event)
 	}
 	if out.Session.SandboxID == nil || *out.Session.SandboxID != sb.ID.String() {
 		t.Fatalf("session sandbox_id=%v, want %s", out.Session.SandboxID, sb.ID)
@@ -49,6 +53,9 @@ func TestIntegration_SessionsCreate_AlwaysOnMissingSandboxProvisionsAndSendsFirs
 	out := h.createSession(t, fx, fx.owner, "Provision the missing always-on runtime")
 	if out.Queued {
 		t.Fatalf("queued=%t, want false after synchronous runtime provisioning", out.Queued)
+	}
+	if out.Event == nil || out.Event.EventType != runtimeevents.EventUserMessageReceived {
+		t.Fatalf("bad backend event: %+v", out.Event)
 	}
 	if out.Session.SandboxID == nil || *out.Session.SandboxID == "" {
 		t.Fatalf("session sandbox_id missing: %+v", out.Session)
@@ -90,6 +97,9 @@ func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *
 	if out.Queued {
 		t.Fatalf("queued=%t, want false for idle session", out.Queued)
 	}
+	if out.Event == nil || out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Payload["text"] != "Second direct turn" {
+		t.Fatalf("bad backend event: %+v", out.Event)
+	}
 	if out.Session.AgentTurnStatus != model.SessionAgentTurnActive || out.Session.AgentTurnID == "" || out.Session.AgentStreamID == "" {
 		t.Fatalf("session turn metadata missing: %+v", out.Session)
 	}
@@ -119,6 +129,9 @@ func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(
 	if !out.Queued {
 		t.Fatalf("queued=%t, want true while agent turn is active", out.Queued)
 	}
+	if out.Event == nil || out.Event.EventType != runtimeevents.EventUserMessageReceived {
+		t.Fatalf("bad backend event: %+v", out.Event)
+	}
 	if runtime.messageCalls != 1 {
 		t.Fatalf("runtime message calls=%d, want only the initial direct send", runtime.messageCalls)
 	}
@@ -132,6 +145,9 @@ func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(
 	}
 	if len(rows) != 1 || rows[0].SequenceNumber != 1 || rows[0].Status != "pending" || rows[0].MessageText != "Queue behind active turn" {
 		t.Fatalf("queue rows=%+v, want one pending command sequence 1 row", rows)
+	}
+	if rows[0].SessionEventID == nil || rows[0].SessionEventID.String() != out.Event.ID {
+		t.Fatalf("queue session_event_id=%v, want response event %s", rows[0].SessionEventID, out.Event.ID)
 	}
 	assertNoSessionMessageDeliverTask(t, h)
 }
@@ -189,6 +205,13 @@ func TestIntegration_SessionsCreate_DirectDeliveryFailureReleasesTurnWithoutQueu
 		t.Fatalf("session turn not released after failure: %+v", session)
 	}
 	assertSessionQueueCount(t, h, session.ID.String(), 0)
+	var eventCount int64
+	if err := h.db.Model(&model.SessionEvent{}).Where("session_id = ?", session.ID).Count(&eventCount).Error; err != nil {
+		t.Fatalf("count failed delivery events: %v", err)
+	}
+	if eventCount != 0 {
+		t.Fatalf("failed delivery event count=%d, want 0", eventCount)
+	}
 }
 
 func releaseSessionForNextUserTurn(t *testing.T, h *sessionHarness, sessionID string) {

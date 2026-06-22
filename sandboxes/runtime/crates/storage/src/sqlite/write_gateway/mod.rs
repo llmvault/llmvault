@@ -18,7 +18,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::repos::{ConfigSnapshot, Result, StorageError};
+use crate::repos::{ConfigSnapshot, OutboxRow, Result, StorageError};
 
 use request::{run_writer, WriteRequest, WRITE_QUEUE_CAPACITY};
 
@@ -273,6 +273,22 @@ impl SqliteWriteGateway {
             event_type,
             payload_json,
             now: Utc::now().to_rfc3339(),
+            resp,
+        })
+        .await?;
+        recv(rx).await
+    }
+
+    pub async fn claim_due_outbox(
+        &self,
+        limit: u32,
+        lease_until: DateTime<Utc>,
+    ) -> Result<Vec<OutboxRow>> {
+        let (resp, rx) = oneshot::channel();
+        self.send(WriteRequest::OutboxClaimDue {
+            limit,
+            now: Utc::now().to_rfc3339(),
+            lease_until: lease_until.to_rfc3339(),
             resp,
         })
         .await?;

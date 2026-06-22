@@ -105,6 +105,8 @@ pub struct OutboxRow {
     pub event_type: String,
     pub payload: serde_json::Value,
     pub attempts: i32,
+    pub session_id: Option<String>,
+    pub runtime_seq: Option<i64>,
 }
 
 #[async_trait]

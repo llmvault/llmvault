@@ -8,18 +8,20 @@ import {
   type SessionResponse,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
+  goSessionStreamHTTPStatus,
   isRuntimeRepoChangeFrame,
   subscribeToGoSessionStream,
   type GoSessionStreamFrame,
   type GoSessionStreamReplayMode,
 } from "@/app/w/(chat)/_lib/go-session-stream"
+import { getSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 import {
   sessionRuntimeStatusFromResponse,
   useSessionRuntimeStore,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
 import { isSubagentFrame } from "@/app/w/(chat)/_lib/session-subagents"
 
-const STREAM_WATCHDOG_MS = 10 * 60 * 1000
+const STREAM_WATCHDOG_MS = 0
 
 interface StreamControllerRecord {
   abort: AbortController
@@ -27,11 +29,15 @@ interface StreamControllerRecord {
   reconnect?: ReturnType<typeof setTimeout>
   queryClient: QueryClient
   stopped: boolean
+  forceAccessRefresh?: boolean
+  authRefreshAttempts?: number
 }
 
 interface EnsureStreamOptions {
   queryClient: QueryClient
   replay?: GoSessionStreamReplayMode
+  forceAccessRefresh?: boolean
+  authRefreshAttempts?: number
 }
 
 const controllers = new Map<string, StreamControllerRecord>()
@@ -66,7 +72,11 @@ export function beginOptimisticSessionTurn(
   events: SessionEventResponse[]
 ) {
   const runtime = useSessionRuntimeStore.getState()
-  runtime.setLiveEvents(sessionId, events)
+  const current = runtime.liveEventsBySessionId[sessionId] ?? []
+  runtime.setLiveEvents(sessionId, [
+    ...current.filter((event) => !isPendingClientEvent(event)),
+    ...events,
+  ])
   runtime.setStatus(sessionId, "streaming", {
     error: undefined,
     lastOutcome: undefined,
@@ -93,6 +103,8 @@ export function ensureSessionStream(
     abort,
     queryClient: options.queryClient,
     stopped: false,
+    forceAccessRefresh: options.forceAccessRefresh,
+    authRefreshAttempts: options.authRefreshAttempts,
   }
   controllers.set(sessionId, controller)
   resetWatchdog(sessionId, controller)
@@ -171,6 +183,9 @@ async function runSessionStream(
   replayOverride?: GoSessionStreamReplayMode
 ) {
   try {
+    const access = await getSessionSandboxAccess(sessionId, {
+      force: controller.forceAccessRefresh,
+    })
     const cursor =
       useSessionRuntimeStore.getState().cursorBySessionId[sessionId]
     const replay: GoSessionStreamReplayMode =
@@ -181,6 +196,7 @@ async function runSessionStream(
 
     await subscribeToGoSessionStream({
       sessionId,
+      access,
       replay,
       signal: controller.abort.signal,
       onOpen: ({ streamId, nextSequence }) => {
@@ -209,6 +225,22 @@ async function runSessionStream(
     })
   } catch (error) {
     if (controller.abort.signal.aborted || controller.stopped) return
+    const status = goSessionStreamHTTPStatus(error)
+    if (
+      (status === 401 || status === 403) &&
+      (controller.authRefreshAttempts ?? 0) < 1
+    ) {
+      reconnectSessionStream(
+        sessionId,
+        controller.queryClient,
+        replayOverride,
+        {
+          forceAccessRefresh: true,
+          authRefreshAttempts: (controller.authRefreshAttempts ?? 0) + 1,
+        }
+      )
+      return
+    }
     if (shouldReconnectStream(error)) {
       reconnectSessionStream(sessionId, controller.queryClient)
       return
@@ -257,7 +289,11 @@ function handleSessionStreamFrame(
 function reconnectSessionStream(
   sessionId: string,
   queryClient: QueryClient,
-  replay?: GoSessionStreamReplayMode
+  replay?: GoSessionStreamReplayMode,
+  options: {
+    forceAccessRefresh?: boolean
+    authRefreshAttempts?: number
+  } = {}
 ) {
   const currentAttempt =
     useSessionRuntimeStore.getState().reconnectAttemptsBySessionId[sessionId] ??
@@ -268,13 +304,20 @@ function reconnectSessionStream(
   stopController(sessionId, { keepStatus: true })
   const reconnect = setTimeout(() => {
     controllers.delete(sessionId)
-    ensureSessionStream(sessionId, { queryClient, replay })
+    ensureSessionStream(sessionId, {
+      queryClient,
+      replay,
+      forceAccessRefresh: options.forceAccessRefresh,
+      authRefreshAttempts: options.authRefreshAttempts,
+    })
   }, delay)
   controllers.set(sessionId, {
     abort: new AbortController(),
     queryClient,
     stopped: false,
     reconnect,
+    forceAccessRefresh: options.forceAccessRefresh,
+    authRefreshAttempts: options.authRefreshAttempts,
   })
 }
 
@@ -289,6 +332,7 @@ function resetReconnect(sessionId: string) {
 
 function resetWatchdog(sessionId: string, controller: StreamControllerRecord) {
   if (controller.watchdog) clearTimeout(controller.watchdog)
+  if (STREAM_WATCHDOG_MS <= 0) return
   controller.watchdog = setTimeout(() => {
     if (controller.abort.signal.aborted || controller.stopped) return
     useSessionRuntimeStore
@@ -359,7 +403,19 @@ function terminalFrameErrorMessage(data: unknown) {
   return typeof value === "string" && value.trim() ? value : ""
 }
 
+function isPendingClientEvent(event: SessionEventResponse) {
+  const payload = event.payload
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return false
+  }
+  return (payload as Record<string, unknown>).client_status === "pending"
+}
+
 function shouldReconnectStream(error: unknown) {
+  const status = goSessionStreamHTTPStatus(error)
+  if (status !== undefined) {
+    return status !== 400 && status !== 401 && status !== 403 && status !== 404
+  }
   const message = errorMessage(error, "")
   return !/\bHTTP (400|401|403|404)\b/.test(message)
 }

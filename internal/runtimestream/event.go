@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	DefaultShardCount = 64
+	DefaultShardCount           = 64
+	DefaultStreamMaxLen         = int64(100000)
+	DefaultSessionCheckpointTTL = 7 * 24 * time.Hour
 
 	DurabilityPreview = "preview"
 	DurabilityDurable = "durable"
@@ -152,6 +154,14 @@ func LiveChannel(sessionID string) string {
 
 func LastSeqKey(sessionID string) string {
 	return "runtime_session:{" + strings.TrimSpace(sessionID) + "}:last_seq"
+}
+
+func EventIndexKey(sessionID string) string {
+	return "runtime_session:{" + strings.TrimSpace(sessionID) + "}:event_index"
+}
+
+func ProjectedSeqKey(sessionID string) string {
+	return "runtime_session:{" + strings.TrimSpace(sessionID) + "}:projected_seq"
 }
 
 func ShardForSession(sessionID string, shardCount int) int {

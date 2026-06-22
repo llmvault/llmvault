@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest"
+import { fetchEventSource } from "@microsoft/fetch-event-source"
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest"
+
+vi.mock("@microsoft/fetch-event-source", () => ({
+  fetchEventSource: vi.fn(() => Promise.resolve()),
+}))
+
 import {
+  goSessionStreamHeaders,
+  goSessionStreamHTTPStatus,
   goSessionStreamCursor,
   goSessionStreamURL,
   isRuntimeRepoChangeFrame,
+  subscribeToGoSessionStream,
+  GoSessionStreamHTTPError,
   type GoSessionStreamFrame,
 } from "@/app/w/(chat)/_lib/go-session-stream"
+import type { SessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
+
+const fetchEventSourceMock = fetchEventSource as unknown as Mock
 
 function frame(data: unknown): GoSessionStreamFrame {
   return {
@@ -16,22 +29,121 @@ function frame(data: unknown): GoSessionStreamFrame {
 }
 
 describe("session stream", () => {
-  it("builds the proxied Go SSE url", () => {
-    const url = goSessionStreamURL("session_1", { mode: "none" })
+  afterEach(() => {
+    fetchEventSourceMock.mockReset()
+    fetchEventSourceMock.mockResolvedValue(undefined)
+  })
+
+  it("builds the direct sandbox runtime SSE url", () => {
+    const url = goSessionStreamURL("session_1", sandboxAccess(), {
+      mode: "none",
+    })
     const parsed = new URL(url)
-    expect(parsed.pathname).toBe("/api/proxy/v1/sessions/session_1/stream")
-    expect(parsed.searchParams.get("replay")).toBeNull()
+    expect(parsed.origin).toBe("https://sandbox.example.test")
+    expect(parsed.pathname).toBe("/sessions/session_1/stream")
+    expect(parsed.searchParams.get("replay")).toBe("none")
     expect(parsed.searchParams.get("after_seq")).toBeNull()
+    expect(url).not.toContain("/api/proxy")
   })
 
   it("builds an after-seq url without replay=none", () => {
-    const url = goSessionStreamURL("session_1", {
+    const url = goSessionStreamURL("session_1", sandboxAccess(), {
       mode: "after_seq",
       afterSeq: 42,
     })
     const parsed = new URL(url)
     expect(parsed.searchParams.get("replay")).toBeNull()
     expect(parsed.searchParams.get("after_seq")).toBe("42")
+  })
+
+  it("authenticates direct runtime reads with the sandbox token", async () => {
+    await subscribeToGoSessionStream({
+      sessionId: "session_1",
+      access: sandboxAccess({ token: " sandbox-token " }),
+      replay: { mode: "none" },
+      signal: new AbortController().signal,
+    })
+
+    expect(fetchEventSourceMock).toHaveBeenCalledWith(
+      "https://sandbox.example.test/sessions/session_1/stream?replay=none",
+      expect.objectContaining({
+        credentials: "omit",
+        headers: {
+          Accept: "text/event-stream",
+          Authorization: "Bearer sandbox-token",
+        },
+      })
+    )
+  })
+
+  it("reports direct runtime HTTP status for auth refresh decisions", async () => {
+    fetchEventSourceMock.mockImplementationOnce(async (_url, options) => {
+      await options.onopen?.({
+        ok: false,
+        status: 403,
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () => JSON.stringify({ error: "missing stream scope" }),
+      } as Response)
+    })
+
+    let caught: unknown
+    try {
+      await subscribeToGoSessionStream({
+        sessionId: "session_1",
+        access: sandboxAccess(),
+        signal: new AbortController().signal,
+      })
+    } catch (error) {
+      caught = error
+    }
+
+    expect(caught).toBeInstanceOf(GoSessionStreamHTTPError)
+    expect(goSessionStreamHTTPStatus(caught)).toBe(403)
+    expect(caught).toMatchObject({
+      message: "Session stream failed with HTTP 403: missing stream scope",
+    })
+  })
+
+  it("passes raw runtime event payloads through", async () => {
+    let received: GoSessionStreamFrame | undefined
+    fetchEventSourceMock.mockImplementationOnce(async (_url, options) => {
+      options.onmessage?.({
+        event: "token",
+        id: "",
+        data: JSON.stringify({
+          event_id: "event-token-1",
+          text: "Hello",
+        }),
+      })
+    })
+
+    await subscribeToGoSessionStream({
+      sessionId: "session_1",
+      access: sandboxAccess(),
+      signal: new AbortController().signal,
+      onEvent: (next) => {
+        received = next
+      },
+    })
+
+    expect(received).toEqual({
+      sessionId: "session_1",
+      event: "token",
+      id: "event-token-1",
+      data: {
+        event_id: "event-token-1",
+        text: "Hello",
+      },
+    })
+  })
+
+  it("builds sandbox auth headers", () => {
+    expect(goSessionStreamHeaders(sandboxAccess({ token: " token " }))).toEqual(
+      {
+        Accept: "text/event-stream",
+        Authorization: "Bearer token",
+      }
+    )
   })
 
   it("extracts a runtime cursor from streamed payloads", () => {
@@ -72,3 +184,17 @@ describe("session stream", () => {
     ).toBe(false)
   })
 })
+
+function sandboxAccess(
+  overrides: Partial<SessionSandboxAccess> = {}
+): SessionSandboxAccess {
+  return {
+    session_id: "session_1",
+    sandbox_id: "sandbox_1",
+    sandbox_base_url: "https://sandbox.example.test/",
+    token: "sandbox-token",
+    expires_at: "2026-06-20T12:00:00Z",
+    scopes: ["repo:read", "stream:read"],
+    ...overrides,
+  }
+}

@@ -35,8 +35,14 @@ func TestIntegration_SessionsSend_AllowsStructuredPayloadOnlyMessage(t *testing.
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
 	out := decodeSessionMutation(t, msg)
-	if out.Event != nil {
-		t.Fatalf("event=%+v, want nil until runtime commits", out.Event)
+	if out.Event == nil {
+		t.Fatalf("event=nil, want backend-owned user event")
+	}
+	if out.Event.Payload["text"] != "" {
+		t.Fatalf("event text=%#v, want empty string", out.Event.Payload["text"])
+	}
+	if comments, ok := out.Event.Payload["code_line_comments"].([]any); !ok || len(comments) != 1 {
+		t.Fatalf("event code_line_comments=%#v", out.Event.Payload["code_line_comments"])
 	}
 	row := latestSessionMessageQueueRow(t, h, created.Session.ID)
 	if row.MessagePayload["text"] != "" {
@@ -72,8 +78,14 @@ func TestIntegration_SessionsSend_AllowsAttachmentOnlyMessage(t *testing.T) {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
 	out := decodeSessionMutation(t, msg)
-	if out.Event != nil {
-		t.Fatalf("event=%+v, want nil until runtime commits", out.Event)
+	if out.Event == nil {
+		t.Fatalf("event=nil, want backend-owned user event")
+	}
+	if out.Event.Payload["text"] != "" {
+		t.Fatalf("event text=%#v, want empty string", out.Event.Payload["text"])
+	}
+	if attachments, ok := out.Event.Payload["attachments"].([]any); !ok || len(attachments) != 1 {
+		t.Fatalf("event attachments=%#v", out.Event.Payload["attachments"])
 	}
 	row := latestSessionMessageQueueRow(t, h, created.Session.ID)
 	if row.MessagePayload["text"] != "" {

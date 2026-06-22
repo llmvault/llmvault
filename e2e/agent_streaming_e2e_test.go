@@ -72,9 +72,7 @@ func TestAgentRuntimeRedisSequencingE2E(t *testing.T) {
 			if session.Queued {
 				t.Fatalf("empty session create queued a message: %+v", session)
 			}
-			if session.Event != nil {
-				t.Fatalf("session create returned optimistic event=%+v, want nil until runtime commit", session.Event)
-			}
+			assertAgentSessionsBackendOwnedMutationEvent(t, session.Event)
 			cases = append(cases, streamingSessionCase{agent: agent, channel: channel, session: session, marker: marker, prompt: prompt})
 		}
 	}
@@ -88,7 +86,7 @@ func TestAgentRuntimeRedisSequencingE2E(t *testing.T) {
 			wg.Add(1)
 			go func(tc streamingSessionCase, subscriberIndex int) {
 				defer wg.Done()
-				result, err := runGoSessionSubscriber(ctx, apiBase, token, orgID, tc.session.Session.ID, tc.marker, subscriberIndex, ready)
+				result, err := runSandboxSessionSubscriber(ctx, apiBase, token, orgID, tc.session.Session.ID, tc.marker, subscriberIndex, ready)
 				if err != nil {
 					errs <- err
 					return

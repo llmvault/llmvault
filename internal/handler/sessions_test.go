@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/runtimeevents"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
@@ -25,8 +26,11 @@ func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
 	if out.Session.AgentID != fx.agent.ID.String() || out.Session.ParticipantCount != 1 {
 		t.Fatalf("bad agent/participant response: %+v", out.Session)
 	}
-	if !out.Queued || out.Event != nil {
+	if !out.Queued || out.Event == nil {
 		t.Fatalf("bad queued command response: %+v", out)
+	}
+	if out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Source != "web" || out.Event.Payload["text"] != "Investigate the deploy failure" {
+		t.Fatalf("bad backend event: %+v", out.Event)
 	}
 
 	var queueRows []model.SessionMessageQueue
@@ -38,6 +42,9 @@ func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
 	}
 	if len(queueRows) != 1 || queueRows[0].SequenceNumber != 1 || queueRows[0].MessageText != "Investigate the deploy failure" {
 		t.Fatalf("queue rows=%+v, want one pending command", queueRows)
+	}
+	if queueRows[0].SessionEventID == nil || queueRows[0].SessionEventID.String() != out.Event.ID {
+		t.Fatalf("queue session_event_id=%v, want response event %s", queueRows[0].SessionEventID, out.Event.ID)
 	}
 
 	assertSessionNameTaskEnqueued(t, h, out.Session.ID)
@@ -116,8 +123,11 @@ func TestIntegration_SessionsRespondToInput_QueuesAnswerAndRecordsMarker(t *test
 		t.Fatalf("input response status=%d body=%s", rr.Code, rr.Body.String())
 	}
 	out := decodeSessionMutation(t, rr)
-	if !out.Queued || out.Event != nil {
+	if !out.Queued || out.Event == nil {
 		t.Fatalf("bad input response command: %+v", out)
+	}
+	if out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Payload["text"] != "Use option A" {
+		t.Fatalf("bad input response event: %+v", out.Event)
 	}
 	var queueRows []model.SessionMessageQueue
 	if err := h.db.
@@ -128,6 +138,9 @@ func TestIntegration_SessionsRespondToInput_QueuesAnswerAndRecordsMarker(t *test
 	}
 	if len(queueRows) != 2 || queueRows[1].MessageText != "Use option A" {
 		t.Fatalf("queue rows=%+v, want input response as second command", queueRows)
+	}
+	if queueRows[1].SessionEventID == nil || queueRows[1].SessionEventID.String() != out.Event.ID {
+		t.Fatalf("input queue session_event_id=%v, want response event %s", queueRows[1].SessionEventID, out.Event.ID)
 	}
 	input, ok := queueRows[1].MessagePayload["input_response"].(map[string]any)
 	if !ok || input["request_id"] != "question-1" || input["text"] != "Use option A" {
@@ -197,8 +210,11 @@ func TestIntegration_SessionsParticipantsAndQueuedMessages(t *testing.T) {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
 	out := decodeSessionMutation(t, msg)
-	if !out.Queued || out.Event != nil {
+	if !out.Queued || out.Event == nil {
 		t.Fatalf("message event=%+v queued=%v", out.Event, out.Queued)
+	}
+	if out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Payload["text"] != "I can reproduce it" {
+		t.Fatalf("bad participant event: %+v", out.Event)
 	}
 	var queueRows []model.SessionMessageQueue
 	if err := h.db.Where("session_id = ?", created.Session.ID).
@@ -211,6 +227,55 @@ func TestIntegration_SessionsParticipantsAndQueuedMessages(t *testing.T) {
 	}
 	if queueRows[1].MessageText != "I can reproduce it" || queueRows[1].ActorUserID == nil || *queueRows[1].ActorUserID != fx.member.ID {
 		t.Fatalf("queued participant command=%+v", queueRows[1])
+	}
+	if queueRows[1].SessionEventID == nil || queueRows[1].SessionEventID.String() != out.Event.ID {
+		t.Fatalf("participant queue session_event_id=%v, want response event %s", queueRows[1].SessionEventID, out.Event.ID)
+	}
+}
+
+func TestIntegration_SessionsSend_ClientEventIDIsIdempotent(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+	created := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
+		"channel_id": fx.channel.ID.String(),
+	})
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create empty session status=%d body=%s", created.Code, created.Body.String())
+	}
+	session := decodeSessionMutation(t, created)
+	body := map[string]any{
+		"text":            "Retry this only once",
+		"client_event_id": "client-msg-1",
+	}
+	first := h.doJSON(t, http.MethodPost, "/v1/sessions/"+session.Session.ID+"/messages", fx, fx.owner, body)
+	if first.Code != http.StatusAccepted {
+		t.Fatalf("first message status=%d body=%s", first.Code, first.Body.String())
+	}
+	firstOut := decodeSessionMutation(t, first)
+	if firstOut.Event == nil || firstOut.Event.EventID != "client:client-msg-1" || !firstOut.Queued {
+		t.Fatalf("bad first idempotent response: %+v", firstOut)
+	}
+	second := h.doJSON(t, http.MethodPost, "/v1/sessions/"+session.Session.ID+"/messages", fx, fx.owner, body)
+	if second.Code != http.StatusAccepted {
+		t.Fatalf("second message status=%d body=%s", second.Code, second.Body.String())
+	}
+	secondOut := decodeSessionMutation(t, second)
+	if secondOut.Event == nil || secondOut.Event.ID != firstOut.Event.ID || secondOut.Event.EventID != firstOut.Event.EventID || !secondOut.Queued {
+		t.Fatalf("duplicate response=%+v, want original queued event %s", secondOut, firstOut.Event.ID)
+	}
+	var eventCount int64
+	if err := h.db.Model(&model.SessionEvent{}).Where("session_id = ?", session.Session.ID).Count(&eventCount).Error; err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if eventCount != 1 {
+		t.Fatalf("event count=%d, want 1", eventCount)
+	}
+	var queueRows []model.SessionMessageQueue
+	if err := h.db.Where("session_id = ?", session.Session.ID).Find(&queueRows).Error; err != nil {
+		t.Fatalf("load queue rows: %v", err)
+	}
+	if len(queueRows) != 1 || queueRows[0].SessionEventID == nil || queueRows[0].SessionEventID.String() != firstOut.Event.ID {
+		t.Fatalf("queue rows=%+v, want one row linked to first event", queueRows)
 	}
 }
 

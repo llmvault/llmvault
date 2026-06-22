@@ -13,6 +13,7 @@ type agentSessionsAgentListItem struct {
 	IsDefault       bool   `json:"is_default"`
 	SandboxStrategy string `json:"sandbox_strategy"`
 	SandboxImage    string `json:"sandbox_image"`
+	Model           string `json:"model"`
 	Sandbox         *struct {
 		ID         string `json:"id"`
 		Status     string `json:"status"`
@@ -77,6 +78,8 @@ type agentSessionsEvent struct {
 	ID             string         `json:"id"`
 	EventType      string         `json:"event_type"`
 	EventID        string         `json:"event_id"`
+	ActorUserID    *string        `json:"actor_user_id,omitempty"`
+	Source         string         `json:"source"`
 	SequenceNumber int64          `json:"sequence_number"`
 	RuntimeSeq     *int64         `json:"runtime_seq,omitempty"`
 	Payload        map[string]any `json:"payload"`

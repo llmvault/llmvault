@@ -48,11 +48,11 @@ func TestRuntimeStreamKeysAreStable(t *testing.T) {
 }
 
 func TestParseAppendScriptResult(t *testing.T) {
-	status, seq, streamID, err := parseAppendScriptResult([]any{"accepted", "42", "1700000000-0"})
+	status, seq, streamID, message, err := parseAppendScriptResult([]any{"accepted", "42", "1700000000-0", ""})
 	if err != nil {
 		t.Fatalf("parse append result: %v", err)
 	}
-	if status != AppendAccepted || seq != 42 || streamID != "1700000000-0" {
-		t.Fatalf("result = %q %d %q", status, seq, streamID)
+	if status != AppendAccepted || seq != 42 || streamID != "1700000000-0" || message != "" {
+		t.Fatalf("result = %q %d %q %q", status, seq, streamID, message)
 	}
 }

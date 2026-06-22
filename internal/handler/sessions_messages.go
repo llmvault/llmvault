@@ -93,6 +93,7 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, text, payload, sessionMessageDeliveryOptions{
 		Model:           selectedModel,
 		ReasoningEffort: selectedReasoningEffort,
+		ClientEventID:   strings.TrimSpace(req.ClientEventID),
 	})
 	if err != nil {
 		if errors.Is(err, errSessionSandboxDraining) {
@@ -125,6 +126,7 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),
+		Event:   sessionMutationEventResponse(intent.Event),
 		Queued:  queued,
 	})
 }

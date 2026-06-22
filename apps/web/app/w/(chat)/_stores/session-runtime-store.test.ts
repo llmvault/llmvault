@@ -4,6 +4,7 @@ import {
   sessionRuntimeSummary,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
 import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
+import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
 
 describe("session runtime store", () => {
   afterEach(() => {
@@ -62,6 +63,91 @@ describe("session runtime store", () => {
     expect(
       useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
     ).toHaveLength(1)
+  })
+
+  it("preserves live final and tool events when the stream finishes before history catches up", () => {
+    const liveEvents = [
+      sessionEvent("tool-call-1", "tool_call", 4, {
+        tool_call_id: "tool-1",
+        name: "shell",
+      }),
+      sessionEvent("final-1", "final", 5, {
+        text: "Done.",
+      }),
+    ]
+    useSessionRuntimeStore.getState().setLiveEvents("session-1", liveEvents)
+    useSessionRuntimeStore.getState().setStatus("session-1", "streaming")
+
+    useSessionRuntimeStore
+      .getState()
+      .finishStream("session-1", { outcome: "completed" })
+
+    expect(sessionRuntimeSummary("session-1")).toMatchObject({
+      status: "idle",
+      lastOutcome: "completed",
+    })
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toEqual(liveEvents)
+  })
+
+  it("reconciles live events after matching durable history arrives", () => {
+    const final = sessionEvent("final-1", "final", 5, {
+      text: "Done.",
+    })
+    useSessionRuntimeStore.getState().setLiveEvents("session-1", [final])
+
+    useSessionRuntimeStore.getState().reconcileLiveEvents("session-1", [final])
+
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toEqual([])
+  })
+
+  it("keeps merged live text while durable history is still behind", () => {
+    useSessionRuntimeStore.getState().applyStreamFrame(
+      "session-1",
+      frame("token", {
+        event_id: "token-1",
+        sequence: 1,
+        stream_id: "stream-1",
+        turn_id: "turn-1",
+        text: "Hello",
+      })
+    )
+    useSessionRuntimeStore.getState().applyStreamFrame(
+      "session-1",
+      frame("token", {
+        event_id: "token-2",
+        sequence: 2,
+        stream_id: "stream-1",
+        turn_id: "turn-1",
+        text: " world",
+      })
+    )
+
+    useSessionRuntimeStore.getState().reconcileLiveEvents("session-1", [
+      sessionEvent("token-1", "token", 1, {
+        turn_id: "turn-1",
+        text: "Hello",
+      }),
+    ])
+
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]?.[0]
+        ?.payload
+    ).toMatchObject({ text: "Hello world" })
+
+    useSessionRuntimeStore.getState().reconcileLiveEvents("session-1", [
+      sessionEvent("token-1", "token", 2, {
+        turn_id: "turn-1",
+        text: "Hello world",
+      }),
+    ])
+
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toEqual([])
   })
 
   it("does not treat session_waiting frames as pending user input", () => {
@@ -311,4 +397,21 @@ function frame(
     id: `${event}-1`,
     data,
   }
+}
+
+function sessionEvent(
+  id: string,
+  eventType: string,
+  sequence: number,
+  payload: Record<string, unknown>
+): SessionEventResponse {
+  return {
+    id,
+    session_id: "session-1",
+    event_id: id,
+    event_type: eventType,
+    sequence_number: sequence,
+    payload,
+    event_at: `2026-06-20T10:00:0${sequence}.000Z`,
+  } as SessionEventResponse
 }

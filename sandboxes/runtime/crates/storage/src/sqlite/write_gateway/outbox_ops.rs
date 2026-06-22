@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
-use sqlx::{Connection, QueryBuilder, Sqlite, SqliteConnection};
+use sqlx::{Connection, QueryBuilder, Row, Sqlite, SqliteConnection};
 
-use crate::repos::Result;
+use crate::repos::{OutboxRow, Result};
 
 use super::EventsLogWrite;
 
@@ -71,12 +71,14 @@ pub(super) async fn outbox_enqueue_runtime(
     let payload_json = serde_json::to_string(&payload)?;
     let id: i64 = sqlx::query_scalar(
         "INSERT INTO outbound_outbox \
-         (channel_name, event_type, payload_json, attempts, next_retry_at, status, created_at) \
-         VALUES (?, ?, ?, 0, ?, ?, ?) RETURNING id",
+         (channel_name, event_type, payload_json, session_id, runtime_seq, attempts, next_retry_at, status, created_at) \
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?) RETURNING id",
     )
     .bind(channel_name)
     .bind(event_type)
     .bind(&payload_json)
+    .bind(&session_id)
+    .bind(runtime_seq)
     .bind(now)
     .bind("pending")
     .bind(now)
@@ -86,12 +88,87 @@ pub(super) async fn outbox_enqueue_runtime(
     Ok(id)
 }
 
+pub(super) async fn outbox_claim_due(
+    conn: &mut SqliteConnection,
+    limit: u32,
+    now: &str,
+    lease_until: &str,
+) -> Result<Vec<OutboxRow>> {
+    let limit = limit.min(256);
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+
+    let rows = sqlx::query(
+        "WITH session_heads AS ( \
+             SELECT id \
+             FROM ( \
+                 SELECT \
+                     id, \
+                     next_retry_at, \
+                     lease_until, \
+                     ROW_NUMBER() OVER ( \
+                         PARTITION BY channel_name, session_id \
+                         ORDER BY COALESCE(runtime_seq, id), id \
+                     ) AS rn \
+                 FROM outbound_outbox \
+                 WHERE status = ? AND session_id IS NOT NULL \
+             ) \
+             WHERE rn = 1 AND next_retry_at <= ? AND (lease_until IS NULL OR lease_until <= ?) \
+         ), \
+         non_session_due AS ( \
+             SELECT id \
+             FROM outbound_outbox \
+             WHERE status = ? \
+               AND session_id IS NULL \
+               AND next_retry_at <= ? \
+               AND (lease_until IS NULL OR lease_until <= ?) \
+         ), \
+         claim AS ( \
+             SELECT id FROM session_heads \
+             UNION ALL \
+             SELECT id FROM non_session_due \
+             ORDER BY id ASC \
+             LIMIT ? \
+         ) \
+         UPDATE outbound_outbox \
+         SET lease_until = ? \
+         WHERE id IN (SELECT id FROM claim) \
+         RETURNING id, channel_name, event_type, payload_json, attempts, session_id, runtime_seq",
+    )
+    .bind("pending")
+    .bind(now)
+    .bind(now)
+    .bind("pending")
+    .bind(now)
+    .bind(now)
+    .bind(limit as i64)
+    .bind(lease_until)
+    .fetch_all(conn)
+    .await?;
+
+    let mut outbox_rows = Vec::with_capacity(rows.len());
+    for row in rows {
+        let payload_text: String = row.try_get("payload_json")?;
+        outbox_rows.push(OutboxRow {
+            id: row.try_get("id")?,
+            channel_name: row.try_get("channel_name")?,
+            event_type: row.try_get("event_type")?,
+            payload: serde_json::from_str(&payload_text)?,
+            attempts: row.try_get("attempts")?,
+            session_id: row.try_get("session_id")?,
+            runtime_seq: row.try_get("runtime_seq")?,
+        });
+    }
+    Ok(outbox_rows)
+}
+
 pub(super) async fn outbox_mark_status(
     conn: &mut SqliteConnection,
     id: i64,
     status: &str,
 ) -> Result<()> {
-    sqlx::query("UPDATE outbound_outbox SET status = ? WHERE id = ?")
+    sqlx::query("UPDATE outbound_outbox SET status = ?, lease_until = NULL WHERE id = ?")
         .bind(status)
         .bind(id)
         .execute(conn)
@@ -106,7 +183,9 @@ pub(super) async fn outbox_schedule_retry(
     next_retry_at: DateTime<Utc>,
 ) -> Result<()> {
     sqlx::query(
-        "UPDATE outbound_outbox SET attempts = ?, next_retry_at = ?, status = ? WHERE id = ?",
+        "UPDATE outbound_outbox \
+         SET attempts = ?, next_retry_at = ?, status = ?, lease_until = NULL \
+         WHERE id = ?",
     )
     .bind(attempts)
     .bind(next_retry_at.to_rfc3339())

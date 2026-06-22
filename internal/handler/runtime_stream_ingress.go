@@ -52,6 +52,7 @@ type runtimeIngressAck struct {
 }
 
 type runtimeIngressAckResult struct {
+	SessionID   string `json:"session_id,omitempty"`
 	RuntimeSeq  int64  `json:"runtime_seq"`
 	Status      string `json:"status"`
 	ExpectedSeq int64  `json:"expected_seq,omitempty"`
@@ -61,6 +62,14 @@ type runtimeIngressAckResult struct {
 }
 
 func (h *RuntimeStreamIngressHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
+	h.handleWS(w, r, "")
+}
+
+func (h *RuntimeStreamIngressHandler) HandleSessionWS(w http.ResponseWriter, r *http.Request) {
+	h.handleWS(w, r, strings.TrimSpace(chi.URLParam(r, "sessionID")))
+}
+
+func (h *RuntimeStreamIngressHandler) handleWS(w http.ResponseWriter, r *http.Request, routeSessionID string) {
 	if h == nil || h.db == nil || h.store == nil {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "runtime stream ingress is not configured"})
 		return
@@ -72,6 +81,14 @@ func (h *RuntimeStreamIngressHandler) HandleWS(w http.ResponseWriter, r *http.Re
 	if !h.verifyRuntimeBearer(r.Context(), sb, r.Header.Get("Authorization")) {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid runtime stream credentials"})
 		return
+	}
+	var boundSession *model.Session
+	if routeSessionID != "" {
+		session, ok := h.loadRuntimeIngressSession(w, r, sb, routeSessionID)
+		if !ok {
+			return
+		}
+		boundSession = session
 	}
 
 	conn, err := h.upgrader.Upgrade(w, r, nil)
@@ -95,13 +112,14 @@ func (h *RuntimeStreamIngressHandler) HandleWS(w http.ResponseWriter, r *http.Re
 			_ = writeRuntimeIngressJSON(conn, runtimeIngressAck{
 				Type: "nack",
 				Results: []runtimeIngressAckResult{{
-					Status: "invalid",
-					Error:  err.Error(),
+					SessionID: routeSessionID,
+					Status:    "invalid",
+					Error:     err.Error(),
 				}},
 			})
 			continue
 		}
-		ack, closeAfterWrite := h.acceptRuntimeEvents(r.Context(), sb, events)
+		ack, closeAfterWrite := h.acceptRuntimeEvents(r.Context(), sb, boundSession, events)
 		if err := writeRuntimeIngressJSON(conn, ack); err != nil {
 			logging.FromContext(r.Context()).ErrorContext(r.Context(), "runtime stream ingress: write ack", "sandbox_id", sb.ID, "error", err)
 			return
@@ -122,24 +140,26 @@ func decodeRuntimeIngressEvents(raw []byte) ([]runtimestream.Event, error) {
 		events = append(events, frame.Events...)
 		return events, nil
 	}
-	event, err := runtimestream.ParseEventJSON(raw)
-	if err != nil {
+	var event runtimestream.Event
+	if err := json.Unmarshal(raw, &event); err != nil {
 		return nil, fmt.Errorf("decode runtime event frame: %w", err)
 	}
+	event.Normalize()
 	return []runtimestream.Event{event}, nil
 }
 
-func (h *RuntimeStreamIngressHandler) acceptRuntimeEvents(ctx context.Context, sb *model.Sandbox, events []runtimestream.Event) (runtimeIngressAck, bool) {
+func (h *RuntimeStreamIngressHandler) acceptRuntimeEvents(ctx context.Context, sb *model.Sandbox, boundSession *model.Session, events []runtimestream.Event) (runtimeIngressAck, bool) {
 	ack := runtimeIngressAck{
 		Type:    "ack",
 		Results: make([]runtimeIngressAckResult, 0, len(events)),
 	}
 	closeAfterWrite := false
 	for _, event := range events {
-		accepted, err := h.enrichRuntimeEvent(ctx, sb, &event)
+		accepted, err := h.enrichRuntimeEvent(ctx, sb, boundSession, &event)
 		if err != nil {
 			ack.Type = "nack"
 			ack.Results = append(ack.Results, runtimeIngressAckResult{
+				SessionID:  firstNonEmptyString(event.SessionID, routeBoundSessionID(boundSession)),
 				RuntimeSeq: event.RuntimeSeq,
 				Status:     "invalid",
 				Error:      err.Error(),
@@ -151,6 +171,7 @@ func (h *RuntimeStreamIngressHandler) acceptRuntimeEvents(ctx context.Context, s
 		if err != nil {
 			ack.Type = "nack"
 			ack.Results = append(ack.Results, runtimeIngressAckResult{
+				SessionID:  accepted.SessionID,
 				RuntimeSeq: accepted.RuntimeSeq,
 				Status:     "error",
 				Error:      err.Error(),
@@ -159,13 +180,15 @@ func (h *RuntimeStreamIngressHandler) acceptRuntimeEvents(ctx context.Context, s
 			break
 		}
 		ack.Results = append(ack.Results, runtimeIngressAckResult{
+			SessionID:   accepted.SessionID,
 			RuntimeSeq:  accepted.RuntimeSeq,
 			Status:      result.Status,
 			ExpectedSeq: result.ExpectedSeq,
 			StreamKey:   result.StreamKey,
 			StreamID:    result.StreamID,
+			Error:       result.Error,
 		})
-		if result.Status == runtimestream.AppendGap {
+		if result.Status == runtimestream.AppendGap || result.Status == runtimestream.AppendConflict {
 			ack.Type = "nack"
 			closeAfterWrite = true
 			break
@@ -177,11 +200,14 @@ func (h *RuntimeStreamIngressHandler) acceptRuntimeEvents(ctx context.Context, s
 	return ack, closeAfterWrite
 }
 
-func (h *RuntimeStreamIngressHandler) enrichRuntimeEvent(ctx context.Context, sb *model.Sandbox, event *runtimestream.Event) (runtimestream.Event, error) {
+func (h *RuntimeStreamIngressHandler) enrichRuntimeEvent(ctx context.Context, sb *model.Sandbox, boundSession *model.Session, event *runtimestream.Event) (runtimestream.Event, error) {
 	if sb == nil || sb.OrgID == nil || sb.AgentID == nil {
 		return runtimestream.Event{}, fmt.Errorf("sandbox is not attached to an org and agent")
 	}
 	event.Normalize()
+	if event.SessionID == "" && boundSession != nil {
+		event.SessionID = boundSession.ID.String()
+	}
 	if event.SandboxID == "" {
 		event.SandboxID = sb.ID.String()
 	}
@@ -193,14 +219,21 @@ func (h *RuntimeStreamIngressHandler) enrichRuntimeEvent(ctx context.Context, sb
 		return runtimestream.Event{}, fmt.Errorf("invalid session_id: %w", err)
 	}
 	var session model.Session
-	err = h.db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND agent_id = ?", sessionID, *sb.OrgID, *sb.AgentID).
-		First(&session).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return runtimestream.Event{}, fmt.Errorf("session not found for sandbox")
+	if boundSession != nil {
+		if boundSession.ID != sessionID {
+			return runtimestream.Event{}, fmt.Errorf("event session_id does not match websocket session")
 		}
-		return runtimestream.Event{}, fmt.Errorf("load session: %w", err)
+		session = *boundSession
+	} else {
+		err = h.db.WithContext(ctx).
+			Where("id = ? AND org_id = ? AND agent_id = ?", sessionID, *sb.OrgID, *sb.AgentID).
+			First(&session).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return runtimestream.Event{}, fmt.Errorf("session not found for sandbox")
+			}
+			return runtimestream.Event{}, fmt.Errorf("load session: %w", err)
+		}
 	}
 	if session.SandboxID != nil && *session.SandboxID != sb.ID {
 		return runtimestream.Event{}, fmt.Errorf("session is attached to a different sandbox")
@@ -242,6 +275,42 @@ func (h *RuntimeStreamIngressHandler) loadRuntimeIngressSandbox(w http.ResponseW
 		return nil, false
 	}
 	return &sb, true
+}
+
+func (h *RuntimeStreamIngressHandler) loadRuntimeIngressSession(w http.ResponseWriter, r *http.Request, sb *model.Sandbox, rawSessionID string) (*model.Session, bool) {
+	sessionID, err := uuid.Parse(strings.TrimSpace(rawSessionID))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid session_id"})
+		return nil, false
+	}
+	if sb == nil || sb.OrgID == nil || sb.AgentID == nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox is not attached to an org and agent"})
+		return nil, false
+	}
+	var session model.Session
+	err = h.db.WithContext(r.Context()).
+		Where("id = ? AND org_id = ? AND agent_id = ?", sessionID, *sb.OrgID, *sb.AgentID).
+		First(&session).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "session not found for sandbox"})
+			return nil, false
+		}
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load session"})
+		return nil, false
+	}
+	if session.SandboxID != nil && *session.SandboxID != sb.ID {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "session is attached to a different sandbox"})
+		return nil, false
+	}
+	return &session, true
+}
+
+func routeBoundSessionID(session *model.Session) string {
+	if session == nil {
+		return ""
+	}
+	return session.ID.String()
 }
 
 func (h *RuntimeStreamIngressHandler) verifyRuntimeBearer(ctx context.Context, sb *model.Sandbox, authorization string) bool {

@@ -156,7 +156,7 @@ func waitForPluginServiceDiscoverySession(t *testing.T, ctx context.Context, org
 			err := db.Table("sessions").
 				Select("sessions.id AS session_id, channels.id AS channel_id, channels.name AS channel_name, channels.kind AS channel_kind, COALESCE(NULLIF(session_message_queue.status, ''), NULLIF(sessions.agent_turn_status, ''), 'direct') AS delivery_status").
 				Joins("JOIN channels ON channels.id = sessions.channel_id").
-				Joins("JOIN session_events ON session_events.session_id = sessions.id AND session_events.sequence_number = 1").
+				Joins("JOIN session_events ON session_events.session_id = sessions.id AND session_events.event_type = ?", "user.message.received").
 				Joins("LEFT JOIN session_message_queue ON session_message_queue.session_event_id = session_events.id").
 				Where("sessions.org_id = ? AND sessions.source = ? AND sessions.source_id = ? AND sessions.source_resource_key = ?",
 					orgID, "plugin.service_discovery", fx.InstallID, resourceKey).

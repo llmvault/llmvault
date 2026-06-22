@@ -37,10 +37,9 @@ describe("session sandbox access cache", () => {
 
     expect(first).toBe(second)
     expect(third).toBe(first)
+    expect(first.scopes).toContain("stream:read")
     expect(postMock).toHaveBeenCalledTimes(1)
-    expect(postMock.mock.calls[0]?.[0]).toBe(
-      "/v1/sessions/{id}/sandbox-access"
-    )
+    expect(postMock.mock.calls[0]?.[0]).toBe("/v1/sessions/{id}/sandbox-access")
   })
 
   it("refreshes access when the cached token is inside the expiry buffer", async () => {
@@ -133,6 +132,6 @@ function sandboxAccess({
     sandbox_base_url: "https://sandbox.example.test",
     token,
     expires_at: expiresAt,
-    scopes: ["repo:read"],
+    scopes: ["repo:read", "stream:read"],
   }
 }

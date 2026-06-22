@@ -61,6 +61,10 @@ interface SessionRuntimeStoreState {
     patch?: Partial<Omit<SessionRuntimeSummary, "status" | "updatedAt">>
   ) => void
   setLiveEvents: (sessionId: string, events: SessionEventResponse[]) => void
+  reconcileLiveEvents: (
+    sessionId: string,
+    historyEvents: SessionEventResponse[]
+  ) => void
   appendStreamError: (sessionId: string, message: string) => void
   applyStreamFrame: (sessionId: string, frame: GoSessionStreamFrame) => void
   finishStream: (
@@ -68,6 +72,7 @@ interface SessionRuntimeStoreState {
     options?: {
       preserveError?: boolean
       outcome?: SessionLastTurnOutcome
+      clearLiveEvents?: boolean
     }
   ) => void
   clearSessionRuntime: (sessionId: string) => void
@@ -129,6 +134,24 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
           [sessionId]: events,
         },
       }))
+    },
+    reconcileLiveEvents(sessionId, historyEvents) {
+      if (historyEvents.length === 0) return
+      setState((state) => {
+        const current = state.liveEventsBySessionId[sessionId] ?? EMPTY_EVENTS
+        if (current.length === 0) return state
+        const historyByKey = historyEventMap(historyEvents)
+        const next = current.filter(
+          (event) => !historyContainsLiveEvent(historyByKey, event)
+        )
+        if (next.length === current.length) return state
+        return {
+          liveEventsBySessionId: {
+            ...state.liveEventsBySessionId,
+            [sessionId]: next,
+          },
+        }
+      })
     },
     appendStreamError(sessionId, message) {
       setState((state) => {
@@ -212,9 +235,11 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
     finishStream(sessionId, options = {}) {
       setState((state) => {
         const current = state.liveEventsBySessionId[sessionId] ?? EMPTY_EVENTS
-        const events = options.preserveError
-          ? current.filter((event) => event.event_type === "error")
-          : EMPTY_EVENTS
+        const events = options.clearLiveEvents
+          ? EMPTY_EVENTS
+          : options.preserveError
+            ? current.filter((event) => event.event_type === "error")
+            : current
         return {
           statusBySessionId: {
             ...state.statusBySessionId,
@@ -454,6 +479,53 @@ function isActiveStreamFrame(event: string) {
 function isPendingClientEvent(event: SessionEventResponse) {
   const payload = payloadRecord(event.payload)
   return payload.client_status === "pending"
+}
+
+function historyEventMap(events: SessionEventResponse[]) {
+  const byKey = new Map<string, SessionEventResponse>()
+  for (const event of events) {
+    for (const key of eventKeys(event)) {
+      byKey.set(key, event)
+    }
+  }
+  return byKey
+}
+
+function historyContainsLiveEvent(
+  historyByKey: Map<string, SessionEventResponse>,
+  live: SessionEventResponse
+) {
+  for (const key of eventKeys(live)) {
+    const history = historyByKey.get(key)
+    if (!history) continue
+    if (isMergedTextEvent(live)) {
+      return (
+        eventText(history).length >= eventText(live).length ||
+        (history.sequence_number ?? 0) >= (live.sequence_number ?? 0)
+      )
+    }
+    return true
+  }
+  return false
+}
+
+function eventKeys(event: SessionEventResponse) {
+  return [event.id, event.event_id].filter((key): key is string => Boolean(key))
+}
+
+function isMergedTextEvent(event: SessionEventResponse) {
+  return event.event_type === "thinking" || event.event_type === "token"
+}
+
+function eventText(event: SessionEventResponse) {
+  const payload = payloadRecord(event.payload)
+  return (
+    stringValue(payload, "text") ||
+    stringValue(payload, "message") ||
+    stringValue(payload, "content") ||
+    stringValue(payload, "markdown") ||
+    stringValue(payload, "result_summary")
+  )
 }
 
 function terminalFrameErrorMessage(frame: GoSessionStreamFrame): string {

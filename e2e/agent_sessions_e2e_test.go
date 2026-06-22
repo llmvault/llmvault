@@ -19,7 +19,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	}
 	loadEnv(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
 	apiBase := agentSessionsBaseURL("HIVY_API_BASE_URL", "HIVY_COMPOSE_API_PORT", "8080")
@@ -71,14 +71,15 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		"After the bash result, emit a hidden thinking segment exactly like <think>" + thinkingMarker + "</think>, then visible final reply exactly " + firstMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created session id=%s queued=%t first_event=%s", session.Session.ID, session.Queued, eventType(session.Event))
-	if session.Session.ID == "" || session.Event != nil {
+	if session.Session.ID == "" {
 		t.Fatalf("session was not created correctly: %+v", session)
 	}
+	assertAgentSessionsBackendOwnedMutationEvent(t, session.Event)
 
 	agentSessionsSendMessageStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, "I should be blocked before sharing", http.StatusForbidden)
 	agentSessionsSandboxAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, http.StatusForbidden)
 	ownerSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
-	firstStream := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
+	firstStream := agentSessionsStartSandboxStreamWithAccess(t, ctx, session.Session.ID, ownerSandboxAccess)
 	firstToolEvent := firstStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, "bash")
 	})
@@ -96,10 +97,12 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		"I am now shared into this session while the first turn is still running.",
 		"Emit a hidden thinking segment exactly like <think>" + thinkingMarker + "_SECOND</think>, then visible final reply exactly " + secondMarker + " and no other text.",
 	}, "\n"))
-	if !memberMessage.Queued || memberMessage.Event != nil {
+	if !memberMessage.Queued {
 		t.Fatalf("collaborator message was not queued after sharing: %+v", memberMessage)
 	}
+	assertAgentSessionsBackendOwnedMutationEvent(t, memberMessage.Event)
 	memberSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, memberToken, orgID, session.Session.ID)
+	requireAgentSessionsSandboxStreamAccess(t, memberSandboxAccess, session.Session.ID)
 	if memberSandboxAccess.Token == ownerSandboxAccess.Token {
 		t.Fatalf("member sandbox token should be independently minted")
 	}
@@ -110,13 +113,13 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	firstMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, firstMarker)
 	})
-	t.Logf("first turn marker observed on Go session stream event=%s", firstMarkerEvent.RawData)
+	t.Logf("first turn marker observed on direct sandbox stream event=%s", firstMarkerEvent.RawData)
 	firstResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, firstMarker)
 	t.Logf("first agent response observed event_id=%s type=%s", firstResponse.ID, firstResponse.EventType)
 	secondMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, secondMarker)
 	})
-	t.Logf("second turn marker observed on same Go session stream event=%s", secondMarkerEvent.RawData)
+	t.Logf("second turn marker observed on same direct sandbox stream event=%s", secondMarkerEvent.RawData)
 
 	secondResponse := waitForAgentSessionsResponse(t, ctx, apiBase, memberToken, orgID, session.Session.ID, secondMarker)
 	t.Logf("collaborator agent response observed event_id=%s type=%s", secondResponse.ID, secondResponse.EventType)
@@ -124,7 +127,9 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	t.Logf("plugin service discovery session observed install=%s", pluginFixture.InstallID)
 	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	assertAgentSessionsEventOrder(t, events)
+	assertAgentSessionsBackendOwnedUserMessages(t, events, ownerAuth.User.ID, memberAuth.User.ID)
 	assertAgentSessionsCanonicalIngestion(t, events, session.Session.ID, "", thinkingMarker, firstMarker, secondMarker)
+	assertAgentSessionsHistoryMatchesLiveMarkers(t, events, firstMarker, secondMarker)
 
 	agents = agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
 	defaultAgent = findDefaultAgent(t, agents)
@@ -140,6 +145,8 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	assertAgentSessionsDockerContainerImage(t, ctx, "default Hivy", defaultAgent.Sandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
 	t.Logf("sandbox id=%s status=%s external_id=%s", defaultAgent.Sandbox.ID, defaultAgent.Sandbox.Status, defaultAgent.Sandbox.ExternalID)
 
+	runAgentSessionsSameSandboxDirectStreamsE2E(t, ctx, apiBase, ownerToken, orgID, general.ID, runID, ownerSandboxAccess.SandboxID, ownerSandboxAccess.SandboxBaseURL)
+
 	interruptCommand := "python3 -c 'import pathlib,time; time.sleep(8); pathlib.Path(\"" + interruptSentinelPath + "\").write_text(\"done\")'"
 	interruptSession := agentSessionsCreateSession(t, ctx, apiBase, ownerToken, orgID, general.ID, strings.Join([]string{
 		"This is the agent sessions interrupt E2E.",
@@ -147,10 +154,11 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		"Do not run it in the background. If the bash result completes, final reply exactly " + interruptMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created interrupt session id=%s queued=%t", interruptSession.Session.ID, interruptSession.Queued)
-	if interruptSession.Session.ID == "" || interruptSession.Event != nil {
+	if interruptSession.Session.ID == "" {
 		t.Fatalf("interrupt session was not created correctly: %+v", interruptSession)
 	}
-	interruptStream := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID)
+	assertAgentSessionsBackendOwnedMutationEvent(t, interruptSession.Event)
+	interruptStream := agentSessionsStartSandboxStream(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID)
 	interruptToolEvent := interruptStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, interruptSentinelPath)
 	})
