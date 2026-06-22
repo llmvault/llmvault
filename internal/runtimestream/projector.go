@@ -7,18 +7,14 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/sourcegraph/conc/pool"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/usehivy/hivy/internal/enqueue"
-	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/runtimeevents"
-	"github.com/usehivy/hivy/internal/tasks"
+	"github.com/usehivy/hivy/internal/goroutine"
 )
 
 const (
@@ -88,18 +84,20 @@ func (p *Projector) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	errCh := make(chan error, p.store.ShardCount())
+	shards := pool.New().
+		WithContext(ctx).
+		WithCancelOnError().
+		WithFirstError().
+		WithMaxGoroutines(p.store.ShardCount())
 	for shard := range p.store.ShardCount() {
 		shard := shard
-		go func() {
-			errCh <- p.runShard(ctx, shard)
-		}()
+		shards.Go(func(ctx context.Context) error {
+			return p.runShard(ctx, shard)
+		})
 	}
-	for range p.store.ShardCount() {
-		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-			cancel()
-			return err
-		}
+	if err := shards.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		cancel()
+		return err
 	}
 	return ctx.Err()
 }
@@ -131,7 +129,9 @@ func (p *Projector) runOwnedShard(ctx context.Context, shard int, leaseKey strin
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	go p.renewShardLease(ctx, cancel, shard, leaseKey)
+	goroutine.Go(ctx, func(ctx context.Context) {
+		p.renewShardLease(ctx, cancel, shard, leaseKey)
+	})
 	if err := p.store.EnsureConsumerGroup(ctx, shard, ProjectorGroup); err != nil {
 		return err
 	}
@@ -204,235 +204,4 @@ func (p *Projector) claimStale(ctx context.Context, stream string, shard int) er
 	}
 	p.logger.InfoContext(ctx, "runtime stream projector: claimed pending messages", "shard", shard, "count", len(messages))
 	return p.processMessages(ctx, stream, messages)
-}
-
-func (p *Projector) processMessages(ctx context.Context, stream string, messages []redis.XMessage) error {
-	if len(messages) == 0 {
-		return nil
-	}
-	ackIDs := make([]string, 0, len(messages))
-	durable := make([]Event, 0, len(messages))
-	for _, msg := range messages {
-		event, err := EventFromStreamValues(msg.Values)
-		if err != nil {
-			return fmt.Errorf("decode stream message %s: %w", msg.ID, err)
-		}
-		ackIDs = append(ackIDs, msg.ID)
-		if event.Durability == DurabilityDurable {
-			durable = append(durable, event)
-		}
-	}
-	if len(durable) > 0 {
-		if err := p.persistDurableEvents(ctx, durable); err != nil {
-			return err
-		}
-	}
-	if len(ackIDs) > 0 {
-		if err := p.store.Redis().XAck(ctx, stream, ProjectorGroup, ackIDs...).Err(); err != nil {
-			return fmt.Errorf("ack runtime stream messages: %w", err)
-		}
-	}
-	return nil
-}
-
-func (p *Projector) persistDurableEvents(ctx context.Context, events []Event) error {
-	rows := make([]model.SessionEvent, 0, len(events))
-	for _, event := range events {
-		row, err := sessionEventFromRuntimeEvent(event)
-		if err != nil {
-			return err
-		}
-		rows = append(rows, row)
-	}
-	if len(rows) == 0 {
-		return nil
-	}
-	if err := p.db.WithContext(ctx).Clauses(runtimeSeqOnConflict()).Create(&rows).Error; err != nil {
-		return fmt.Errorf("insert durable runtime events: %w", err)
-	}
-	for _, event := range events {
-		if err := p.publishCommittedEvent(ctx, event); err != nil {
-			return err
-		}
-		if err := p.projectSessionState(ctx, event); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *Projector) publishCommittedEvent(ctx context.Context, event Event) error {
-	sessionID, err := uuid.Parse(event.SessionID)
-	if err != nil {
-		return err
-	}
-	var stored model.SessionEvent
-	if err := p.db.WithContext(ctx).
-		Where("session_id = ? AND runtime_seq = ?", sessionID, event.RuntimeSeq).
-		First(&stored).Error; err != nil {
-		return fmt.Errorf("load committed runtime event: %w", err)
-	}
-	return p.store.PublishCommitted(ctx, stored)
-}
-
-func (p *Projector) projectSessionState(ctx context.Context, event Event) error {
-	sessionID, err := uuid.Parse(event.SessionID)
-	if err != nil {
-		return err
-	}
-	updates := map[string]any{
-		"updated_at": event.OccurredAt,
-	}
-	switch event.EventType {
-	case runtimeevents.EventTurnStarted:
-		updates["agent_turn_status"] = model.SessionAgentTurnActive
-		updates["agent_turn_id"] = event.TurnID
-		updates["agent_stream_id"] = defaultString(event.StreamID, event.TurnID)
-		updates["agent_turn_last_outcome"] = ""
-		if !event.OccurredAt.IsZero() {
-			updates["agent_turn_started_at"] = event.OccurredAt
-		}
-	case runtimeevents.EventTurnCompleted, runtimeevents.EventFinal, runtimeevents.EventDone:
-		updates["agent_turn_status"] = model.SessionAgentTurnIdle
-		updates["agent_turn_id"] = ""
-		updates["agent_stream_id"] = ""
-		updates["agent_turn_started_at"] = nil
-		updates["agent_turn_last_outcome"] = model.SessionAgentTurnOutcomeDone
-	case runtimeevents.EventTurnFailed, runtimeevents.EventError, runtimeevents.EventAgentError:
-		updates["agent_turn_status"] = model.SessionAgentTurnIdle
-		updates["agent_turn_id"] = ""
-		updates["agent_stream_id"] = ""
-		updates["agent_turn_started_at"] = nil
-		updates["agent_turn_last_outcome"] = model.SessionAgentTurnOutcomeFailed
-	}
-	if len(updates) == 1 && event.EventType != runtimeevents.EventFinal {
-		return nil
-	}
-	if err := p.db.WithContext(ctx).Model(&model.Session{}).
-		Where("id = ?", sessionID).
-		Updates(updates).Error; err != nil {
-		return fmt.Errorf("project session state: %w", err)
-	}
-	if isTerminalRuntimeEvent(event.EventType) {
-		if err := p.enqueuePendingSessionDelivery(ctx, sessionID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func isTerminalRuntimeEvent(eventType string) bool {
-	switch eventType {
-	case runtimeevents.EventTurnCompleted, runtimeevents.EventFinal, runtimeevents.EventDone,
-		runtimeevents.EventTurnFailed, runtimeevents.EventError, runtimeevents.EventAgentError:
-		return true
-	default:
-		return false
-	}
-}
-
-func (p *Projector) enqueuePendingSessionDelivery(ctx context.Context, sessionID uuid.UUID) error {
-	if p.enqueuer == nil {
-		return nil
-	}
-	var pending int64
-	if err := p.db.WithContext(ctx).Model(&model.SessionMessageQueue{}).
-		Where("session_id = ? AND status <> ?", sessionID, "delivered").
-		Count(&pending).Error; err != nil {
-		return fmt.Errorf("count pending session message commands: %w", err)
-	}
-	if pending == 0 {
-		return nil
-	}
-	if err := tasks.EnqueueSessionMessageDeliver(ctx, p.enqueuer, sessionID); err != nil {
-		return fmt.Errorf("enqueue pending session message command: %w", err)
-	}
-	return nil
-}
-
-func sessionEventFromRuntimeEvent(event Event) (model.SessionEvent, error) {
-	event.Normalize()
-	if err := event.Validate(); err != nil {
-		return model.SessionEvent{}, err
-	}
-	sessionID, err := uuid.Parse(event.SessionID)
-	if err != nil {
-		return model.SessionEvent{}, fmt.Errorf("parse session id: %w", err)
-	}
-	orgID, err := uuid.Parse(event.OrgID)
-	if err != nil {
-		return model.SessionEvent{}, fmt.Errorf("parse org id: %w", err)
-	}
-	agentID, err := uuid.Parse(event.AgentID)
-	if err != nil {
-		return model.SessionEvent{}, fmt.Errorf("parse agent id: %w", err)
-	}
-	var sandboxID *uuid.UUID
-	if strings.TrimSpace(event.SandboxID) != "" {
-		id, err := uuid.Parse(event.SandboxID)
-		if err != nil {
-			return model.SessionEvent{}, fmt.Errorf("parse sandbox id: %w", err)
-		}
-		sandboxID = &id
-	}
-	var actorUserID *uuid.UUID
-	if strings.TrimSpace(event.ActorUserID) != "" {
-		id, err := uuid.Parse(event.ActorUserID)
-		if err != nil {
-			return model.SessionEvent{}, fmt.Errorf("parse actor user id: %w", err)
-		}
-		actorUserID = &id
-	}
-	runtimeSeq := event.RuntimeSeq
-	payload := model.JSON{}
-	for key, value := range event.Payload {
-		payload[key] = value
-	}
-	return model.SessionEvent{
-		OrgID:            orgID,
-		SessionID:        sessionID,
-		AgentID:          agentID,
-		SandboxID:        sandboxID,
-		RuntimeSessionID: event.SessionID,
-		EventID:          event.EventID,
-		EventType:        event.EventType,
-		ActorUserID:      actorUserID,
-		Source:           defaultString(event.Source, "runtime"),
-		SequenceNumber:   event.RuntimeSeq,
-		RuntimeSeq:       &runtimeSeq,
-		RuntimeEventID:   event.EventID,
-		TurnID:           event.TurnID,
-		SpanID:           event.SpanID,
-		Durability:       event.Durability,
-		Payload:          payload,
-		EventAt:          event.OccurredAt,
-	}, nil
-}
-
-func runtimeSeqOnConflict() clause.OnConflict {
-	return clause.OnConflict{
-		Columns:     []clause.Column{{Name: "session_id"}, {Name: "runtime_seq"}},
-		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("runtime_seq IS NOT NULL")}},
-		DoNothing:   true,
-	}
-}
-
-func shardLeaseKey(shard int) string {
-	return StreamKey(shard) + ":lease"
-}
-
-func defaultString(value, fallback string) string {
-	if strings.TrimSpace(value) != "" {
-		return strings.TrimSpace(value)
-	}
-	return fallback
-}
-
-func sleepOrDone(ctx context.Context, d time.Duration) {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-	case <-timer.C:
-	}
 }

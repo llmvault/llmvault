@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
+	"github.com/sourcegraph/conc/pool"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/logging"
@@ -61,9 +61,7 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 		text  string
 	}
 	results := make(chan result, 2)
-	var wg sync.WaitGroup
 	run := func(index int, name string, fetch SourceFetcher) {
-		defer wg.Done()
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				logging.Capture(ctx, fmt.Errorf("agent precontext %s panic: %v", name, recovered))
@@ -76,10 +74,12 @@ func (s *Service) Build(ctx context.Context, req Request) ([]string, error) {
 		}
 		results <- result{index: index, text: text}
 	}
-	wg.Add(2)
-	go run(0, "sessions", s.cached(SessionsCacheKey(req.OrgID, req.AgentID), s.sessions))
-	go run(1, "knowledge", s.cached(KnowledgeCacheKey(req.OrgID, req.AgentID, req.Text), s.knowledge))
-	wg.Wait()
+	fetchers := pool.New().WithMaxGoroutines(2)
+	fetchers.Go(func() { run(0, "sessions", s.cached(SessionsCacheKey(req.OrgID, req.AgentID), s.sessions)) })
+	fetchers.Go(func() {
+		run(1, "knowledge", s.cached(KnowledgeCacheKey(req.OrgID, req.AgentID, req.Text), s.knowledge))
+	})
+	fetchers.Wait()
 	close(results)
 
 	ordered := make([]string, 2)
