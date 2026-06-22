@@ -9579,8 +9579,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Mint direct sandbox access
-         * @description Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.
+         * Mint sandbox repository access
+         * @description Returns the sandbox base URL and a short-lived JWT scoped to read-only repository APIs.
          */
         post: {
             parameters: {

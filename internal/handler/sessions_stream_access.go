@@ -13,8 +13,8 @@ import (
 )
 
 // SandboxAccess handles POST /v1/sessions/{id}/sandbox-access.
-// @Summary Mint direct sandbox access
-// @Description Returns the direct sandbox base URL and a short-lived JWT scoped to read-only stream and repository APIs.
+// @Summary Mint sandbox repository access
+// @Description Returns the sandbox base URL and a short-lived JWT scoped to read-only repository APIs.
 // @Tags sessions
 // @Produce json
 // @Param id path string true "Session ID"
@@ -45,7 +45,7 @@ func (h *SessionHandler) SandboxAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expiresAt := time.Now().UTC().Add(time.Hour)
-	scopes := []string{"stream:read", "repo:read"}
+	scopes := []string{"repo:read"}
 	sub := ""
 	if userID != nil {
 		sub = userID.String()

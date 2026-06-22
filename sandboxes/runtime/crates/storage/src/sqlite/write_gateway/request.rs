@@ -105,6 +105,13 @@ pub(super) enum WriteRequest {
         now: String,
         resp: Resp<i64>,
     },
+    OutboxEnqueueRuntime {
+        channel_name: String,
+        event_type: String,
+        payload_json: String,
+        now: String,
+        resp: Resp<i64>,
+    },
     OutboxMarkDelivered {
         id: i64,
         resp: Resp<()>,
@@ -277,6 +284,23 @@ impl WriteRequest {
                 resp,
                 outbox_ops::outbox_enqueue(conn, &channel_name, &event_type, &payload_json, &now)
                     .await,
+            ),
+            WriteRequest::OutboxEnqueueRuntime {
+                channel_name,
+                event_type,
+                payload_json,
+                now,
+                resp,
+            } => respond(
+                resp,
+                outbox_ops::outbox_enqueue_runtime(
+                    conn,
+                    &channel_name,
+                    &event_type,
+                    &payload_json,
+                    &now,
+                )
+                .await,
             ),
             WriteRequest::OutboxMarkDelivered { id, resp } => respond(
                 resp,

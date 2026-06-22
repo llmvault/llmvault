@@ -4,7 +4,9 @@ use std::sync::Arc;
 use domain::{OutboundChannelKind, OutboundChannelSpec};
 use tracing::{info, warn};
 
-use crate::{OutboundChannel, OutboundError, OutboundRegistry, Result, WebhookChannel};
+use crate::{
+    OutboundChannel, OutboundError, OutboundRegistry, Result, WebSocketChannel, WebhookChannel,
+};
 
 pub fn build_registry(specs: &[OutboundChannelSpec]) -> Result<OutboundRegistry> {
     build_registry_with_env(specs, &HashMap::new())
@@ -47,6 +49,26 @@ fn build_channel_from_spec(
                 ))
             })?;
             let channel = WebhookChannel::new(
+                spec.name.clone(),
+                url.clone(),
+                secret,
+                extra_headers.clone(),
+                spec.event_filter.clone(),
+            )?;
+            Ok(Arc::new(channel))
+        }
+        OutboundChannelKind::Websocket {
+            url,
+            secret_env,
+            extra_headers,
+        } => {
+            let secret = runtime_env.get(secret_env).cloned().ok_or_else(|| {
+                OutboundError::Other(anyhow::anyhow!(
+                    "env var `{secret_env}` not set for websocket `{}`",
+                    spec.name
+                ))
+            })?;
+            let channel = WebSocketChannel::new(
                 spec.name.clone(),
                 url.clone(),
                 secret,

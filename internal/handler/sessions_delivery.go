@@ -17,16 +17,15 @@ import (
 
 type sessionMessageDeliveryIntent struct {
 	Session       model.Session
-	Event         model.SessionEvent
+	Command       tasks.SessionMessageCommand
 	Queued        bool
 	DispatchQueue bool
 }
 
 type sessionMessageDeliveryOptions struct {
-	Model             string
-	ReasoningEffort   string
-	ClearLastOutcome  bool
-	BeforeUserMessage func(*gorm.DB, *model.Session) error
+	Model            string
+	ReasoningEffort  string
+	ClearLastOutcome bool
 }
 
 func (h *SessionHandler) runtimeDeliveryConfigured() bool {
@@ -41,7 +40,6 @@ func (h *SessionHandler) createInitialSessionMessageIntent(ctx context.Context, 
 	if direct {
 		markSessionTurnStarting(session, time.Now())
 	}
-	var event model.SessionEvent
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(session).Error; err != nil {
 			return err
@@ -57,13 +55,8 @@ func (h *SessionHandler) createInitialSessionMessageIntent(ctx context.Context, 
 				return err
 			}
 		}
-		var err error
-		event, err = h.createUserMessageEvent(tx, session, userID, text, payload)
-		if err != nil {
-			return err
-		}
 		if !direct {
-			return h.enqueueSessionMessageEvent(tx, session, event)
+			return h.enqueueSessionMessageCommand(tx, session, userID, text, payload, sessionMessageDeliveryOptions{})
 		}
 		return nil
 	})
@@ -72,10 +65,31 @@ func (h *SessionHandler) createInitialSessionMessageIntent(ctx context.Context, 
 	}
 	return sessionMessageDeliveryIntent{
 		Session:       *session,
-		Event:         event,
+		Command:       tasks.SessionMessageCommand{ActorUserID: userID, Text: text, Payload: sessionMessageCommandPayload(text, payload)},
 		Queued:        !direct,
 		DispatchQueue: !direct,
 	}, nil
+}
+
+func (h *SessionHandler) createSessionOnly(ctx context.Context, session *model.Session, userID *uuid.UUID) error {
+	if session == nil || session.ID == uuid.Nil {
+		return fmt.Errorf("session is required")
+	}
+	return h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(session).Error; err != nil {
+			return err
+		}
+		if userID == nil {
+			return nil
+		}
+		now := time.Now()
+		return tx.Create(&model.SessionParticipant{
+			SessionID: session.ID,
+			UserID:    *userID,
+			Role:      "owner",
+			JoinedAt:  &now,
+		}).Error
+	})
 }
 
 func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base model.Session, actor *uuid.UUID, text string, payload model.JSON, opts sessionMessageDeliveryOptions) (sessionMessageDeliveryIntent, error) {
@@ -87,18 +101,9 @@ func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base mo
 			First(&session).Error; err != nil {
 			return fmt.Errorf("lock session for message delivery: %w", err)
 		}
-		if opts.BeforeUserMessage != nil {
-			if err := opts.BeforeUserMessage(tx, &session); err != nil {
-				return err
-			}
-		}
-		event, err := h.createUserMessageEvent(tx, &session, actor, text, payload)
-		if err != nil {
-			return err
-		}
-
-		updates := map[string]any{"updated_at": event.EventAt}
-		session.UpdatedAt = event.EventAt
+		now := time.Now()
+		updates := map[string]any{"updated_at": now}
+		session.UpdatedAt = now
 		if strings.TrimSpace(opts.Model) != "" {
 			updates["model"] = strings.TrimSpace(opts.Model)
 			updates["reasoning_effort"] = strings.TrimSpace(opts.ReasoningEffort)
@@ -112,7 +117,7 @@ func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base mo
 
 		queued := session.AgentTurnStatus == model.SessionAgentTurnActive || !h.runtimeDeliveryConfigured()
 		if queued {
-			if err := h.enqueueSessionMessageEvent(tx, &session, event); err != nil {
+			if err := h.enqueueSessionMessageCommand(tx, &session, actor, text, payload, opts); err != nil {
 				return err
 			}
 		} else {
@@ -130,7 +135,7 @@ func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base mo
 		}
 		intent = sessionMessageDeliveryIntent{
 			Session:       session,
-			Event:         event,
+			Command:       tasks.SessionMessageCommand{ActorUserID: actor, Text: text, Payload: sessionMessageCommandPayload(text, payload), Model: opts.Model, ReasoningEffort: opts.ReasoningEffort},
 			Queued:        queued,
 			DispatchQueue: queued && session.AgentTurnStatus != model.SessionAgentTurnActive,
 		}
@@ -155,7 +160,7 @@ func (h *SessionHandler) dispatchSessionMessageIntent(ctx context.Context, inten
 		return true, nil
 	}
 	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer)
-	delivery, err := dispatcher.DeliverEvent(ctx, intent.Session, intent.Event)
+	delivery, err := dispatcher.DeliverCommand(ctx, intent.Session, intent.Command)
 	if err != nil {
 		_ = h.releaseDirectSessionTurn(context.WithoutCancel(ctx), intent.Session.ID)
 		return false, err

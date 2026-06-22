@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,6 +38,14 @@ func init() {
 
 type SessionMessageDeliverPayload struct {
 	SessionID uuid.UUID `json:"session_id"`
+}
+
+type SessionMessageCommand struct {
+	ActorUserID     *uuid.UUID
+	Text            string
+	Payload         model.JSON
+	Model           string
+	ReasoningEffort string
 }
 
 func NewSessionMessageDeliverTask(payload SessionMessageDeliverPayload) (*asynq.Task, []asynq.Option, error) {
@@ -207,21 +216,36 @@ FOR UPDATE SKIP LOCKED`, sessionID).Scan(&row)
 
 func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *model.SessionMessageQueue) (*agentruntime.HTTPMessageResponse, error) {
 	session := queue.Session
-	event := queue.SessionEvent
-	if session.ID == uuid.Nil || event.ID == uuid.Nil {
-		return nil, fmt.Errorf("session message delivery: queue row missing session or event")
+	if session.ID == uuid.Nil {
+		return nil, fmt.Errorf("session message delivery: queue row missing session")
 	}
-	return h.DeliverEvent(ctx, session, event)
+	command := SessionMessageCommand{
+		ActorUserID:     queue.ActorUserID,
+		Text:            queue.MessageText,
+		Payload:         queue.MessagePayload,
+		Model:           queue.Model,
+		ReasoningEffort: queue.ReasoningEffort,
+	}
+	if strings.TrimSpace(command.Text) == "" && queue.SessionEvent != nil {
+		command = commandFromLegacyEvent(*queue.SessionEvent)
+	}
+	return h.DeliverCommand(ctx, session, command)
 }
 
 // DeliverEvent posts a persisted session event directly to the runtime without
 // creating or updating any queue rows.
 func (h *SessionMessageDeliverHandler) DeliverEvent(ctx context.Context, session model.Session, event model.SessionEvent) (*agentruntime.HTTPMessageResponse, error) {
+	return h.DeliverCommand(ctx, session, commandFromLegacyEvent(event))
+}
+
+// DeliverCommand posts a user command directly to the runtime without
+// creating or updating any queue rows.
+func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, session model.Session, command SessionMessageCommand) (*agentruntime.HTTPMessageResponse, error) {
 	if h.orchestrator == nil {
 		return nil, fmt.Errorf("session message delivery: orchestrator is required")
 	}
-	if session.ID == uuid.Nil || event.ID == uuid.Nil {
-		return nil, fmt.Errorf("session message delivery: session and event are required")
+	if session.ID == uuid.Nil {
+		return nil, fmt.Errorf("session message delivery: session is required")
 	}
 	var agent model.Agent
 	if err := h.db.WithContext(ctx).
@@ -241,14 +265,25 @@ func (h *SessionMessageDeliverHandler) DeliverEvent(ctx context.Context, session
 		}
 		session.SandboxID = &sb.ID
 	}
-	modelDef, err := agentruntime.SessionModelDefinition(ctx, h.compileDeps, &agent, session.Model, session.ReasoningEffort)
+	modelName := firstNonEmpty(command.Model, session.Model)
+	reasoningEffort := firstNonEmpty(command.ReasoningEffort, session.ReasoningEffort)
+	modelDef, err := agentruntime.SessionModelDefinition(ctx, h.compileDeps, &agent, modelName, reasoningEffort)
 	if err != nil {
 		return nil, fmt.Errorf("build session model definition: %w", err)
 	}
-	msg := runtimeMessageFromEvent(session, event, modelDef)
+	msg := runtimeMessageFromCommand(session, command, modelDef)
 	resp, err := client.PostHTTPMessage(ctx, msg)
 	if err != nil {
 		return nil, fmt.Errorf("post session message to runtime: %w", err)
 	}
 	return resp, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

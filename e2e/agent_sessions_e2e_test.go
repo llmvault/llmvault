@@ -71,16 +71,14 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		"After the bash result, emit a hidden thinking segment exactly like <think>" + thinkingMarker + "</think>, then visible final reply exactly " + firstMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created session id=%s queued=%t first_event=%s", session.Session.ID, session.Queued, eventType(session.Event))
-	if session.Session.ID == "" || session.Event == nil || session.Event.SequenceNumber != 1 {
+	if session.Session.ID == "" || session.Event != nil {
 		t.Fatalf("session was not created correctly: %+v", session)
 	}
 
 	agentSessionsSendMessageStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, "I should be blocked before sharing", http.StatusForbidden)
 	agentSessionsSandboxAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, http.StatusForbidden)
 	ownerSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
-	directURL := agentSessionsDirectStreamURL(ownerSandboxAccess, session.Session.ID)
-	t.Logf("first direct sandbox stream url=%s", directURL)
-	firstStream := agentSessionsStartDirectStream(t, ctx, directURL, ownerSandboxAccess.Token)
+	firstStream := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	firstToolEvent := firstStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, "bash")
 	})
@@ -98,27 +96,27 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		"I am now shared into this session while the first turn is still running.",
 		"Emit a hidden thinking segment exactly like <think>" + thinkingMarker + "_SECOND</think>, then visible final reply exactly " + secondMarker + " and no other text.",
 	}, "\n"))
-	if !memberMessage.Queued || memberMessage.Event == nil || memberMessage.Event.SequenceNumber <= session.Event.SequenceNumber {
+	if !memberMessage.Queued || memberMessage.Event != nil {
 		t.Fatalf("collaborator message was not queued after sharing: %+v", memberMessage)
 	}
 	memberSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, memberToken, orgID, session.Session.ID)
 	if memberSandboxAccess.Token == ownerSandboxAccess.Token {
 		t.Fatalf("member sandbox token should be independently minted")
 	}
-	if memberDirectURL := agentSessionsDirectStreamURL(memberSandboxAccess, session.Session.ID); memberDirectURL != directURL {
-		t.Fatalf("member stream direct_url=%q want stable session stream %q", memberDirectURL, directURL)
+	if memberSandboxAccess.SandboxBaseURL != ownerSandboxAccess.SandboxBaseURL {
+		t.Fatalf("member sandbox base_url=%q want stable session sandbox %q", memberSandboxAccess.SandboxBaseURL, ownerSandboxAccess.SandboxBaseURL)
 	}
 
 	firstMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, firstMarker)
 	})
-	t.Logf("first turn marker observed on stable direct stream event=%s", firstMarkerEvent.RawData)
+	t.Logf("first turn marker observed on Go session stream event=%s", firstMarkerEvent.RawData)
 	firstResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, firstMarker)
 	t.Logf("first agent response observed event_id=%s type=%s", firstResponse.ID, firstResponse.EventType)
 	secondMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, secondMarker)
 	})
-	t.Logf("second turn marker observed on same stable direct stream event=%s", secondMarkerEvent.RawData)
+	t.Logf("second turn marker observed on same Go session stream event=%s", secondMarkerEvent.RawData)
 
 	secondResponse := waitForAgentSessionsResponse(t, ctx, apiBase, memberToken, orgID, session.Session.ID, secondMarker)
 	t.Logf("collaborator agent response observed event_id=%s type=%s", secondResponse.ID, secondResponse.EventType)
@@ -149,13 +147,10 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 		"Do not run it in the background. If the bash result completes, final reply exactly " + interruptMarker + " and no other text.",
 	}, "\n"))
 	t.Logf("created interrupt session id=%s queued=%t", interruptSession.Session.ID, interruptSession.Queued)
-	if interruptSession.Session.ID == "" || interruptSession.Event == nil {
+	if interruptSession.Session.ID == "" || interruptSession.Event != nil {
 		t.Fatalf("interrupt session was not created correctly: %+v", interruptSession)
 	}
-	interruptSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID)
-	interruptDirectURL := agentSessionsDirectStreamURL(interruptSandboxAccess, interruptSession.Session.ID)
-	t.Logf("interrupt direct sandbox stream url=%s", interruptDirectURL)
-	interruptStream := agentSessionsStartDirectStream(t, ctx, interruptDirectURL, interruptSandboxAccess.Token)
+	interruptStream := agentSessionsStartGoStream(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID)
 	interruptToolEvent := interruptStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, interruptSentinelPath)
 	})
@@ -196,7 +191,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	recoveryResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, interruptSession.Session.ID, interruptRecoveryMarker)
 	t.Logf("post-interrupt session response observed event_id=%s type=%s", recoveryResponse.ID, recoveryResponse.EventType)
 	interruptStream.waitForEvent(t, ctx, time.Minute, func(event runtimeSSEEvent) bool {
-		return event.Name == "done"
+		return event.Name == "turn_completed" || event.Name == "done"
 	})
 
 	runAgentSessionsPerSessionCatalogAgentE2E(t, ctx, apiBase, ownerToken, orgID, ownerAuth.User.ID, runID)

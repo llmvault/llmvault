@@ -37,8 +37,9 @@ func TestAgentRuntimeRepositoryStreamingE2E(t *testing.T) {
 
 	sessionID := "agent-runtime-repo-stream-e2e"
 	token := directRuntimeJWT(t, scenario.runtimeSecret, sessionID, scenario.sandboxID, "stream:read", "repo:read")
-	stream := agentSessionsStartDirectStream(
+	stream := startDirectRuntimeLiveStream(
 		t,
+		trace,
 		ctx,
 		directRuntimeStreamURL(t, scenario.baseURL, "/sessions/"+sessionID+"/stream?replay=none"),
 		token,
@@ -219,7 +220,7 @@ func assertTreeContains(t *testing.T, tree runtimeRepoTreeResponse, path string)
 	t.Fatalf("tree missing %s entries=%+v", path, tree.Entries)
 }
 
-func assertRepoChangeEvent(t *testing.T, stream *agentSessionsLiveDirectStream, ctx context.Context, repoID, path string) {
+func assertRepoChangeEvent(t *testing.T, stream *directRuntimeLiveStream, ctx context.Context, repoID, path string) {
 	t.Helper()
 	event := stream.waitForEvent(t, ctx, 30*time.Second, func(event runtimeSSEEvent) bool {
 		if event.Name != "repo.change_batch" || event.Payload["repo_id"] != repoID {

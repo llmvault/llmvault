@@ -28,7 +28,6 @@ func setupPublicRoutes(
 	actionsCatalog *catalog.Catalog,
 	orgInviteHandler *handler.OrgInviteHandler,
 	plansHandler *handler.PlansHandler,
-	agentOutboundWebhookHandler *handler.AgentOutboundWebhookHandler,
 	nangoWebhookHandler *handler.NangoWebhookHandler,
 	incomingWebhookHandler *handler.IncomingWebhookHandler,
 	nangoClient *nango.Client,
@@ -70,8 +69,6 @@ func setupPublicRoutes(
 	}
 
 	// Webhook receivers (HMAC-verified, no auth middleware)
-	r.Post("/internal/webhooks/agent/{sandboxID}", agentOutboundWebhookHandler.Handle)
-	r.Post("/internal/webhooks/agent/{sandboxID}/batch", agentOutboundWebhookHandler.HandleBatch)
 	r.Post("/internal/webhooks/nango", nangoWebhookHandler.Handle)
 	if cfg.PreviewActivityToken != "" {
 		previewActivityHandler := handler.NewPreviewActivityHandler(database, orchestrator, cfg.PreviewActivityToken)

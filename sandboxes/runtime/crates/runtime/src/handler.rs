@@ -1797,6 +1797,7 @@ async fn consume_agent_stream(
                     .await;
             }
         }
+        emit_preview_runtime_event(&event_context, sequence, &client_event).await;
         durable
             .record_event(&event_context, sequence, &client_event)
             .await;
@@ -2165,6 +2166,51 @@ async fn emit_canonical_runtime_event(
         .await;
 }
 
+async fn emit_preview_runtime_event(
+    context: &DurableEventContext<'_>,
+    sequence: u64,
+    event: &AgentEvent,
+) {
+    let (event_type, payload) = match event {
+        AgentEvent::ThinkingChunk { text } => (event_types::THINKING, json!({ "text": text })),
+        AgentEvent::TokenChunk { text } => (event_types::TOKEN, json!({ "text": text })),
+        AgentEvent::ToolCall { id, tool, args } => (
+            "tool_call",
+            json!({
+                "id": id,
+                "tool": tool,
+                "args": args,
+            }),
+        ),
+        AgentEvent::ToolResult { id, result } => (
+            event_types::TOOL_RESULT,
+            json!({
+                "id": id,
+                "result": result,
+            }),
+        ),
+        AgentEvent::RunEvent { event, payload } => (event.as_str(), payload.clone()),
+        AgentEvent::FinalMessage { text } => (event_types::FINAL, json!({ "text": text })),
+        AgentEvent::Error { message } => (event_types::ERROR, json!({ "message": message })),
+    };
+    let mut payload = canonical_runtime_payload(
+        event_type,
+        context.session_id,
+        context.source,
+        sequence,
+        context.stream_id,
+        context.metadata,
+        payload,
+    );
+    if let Some(map) = payload.as_object_mut() {
+        map.insert("durability".to_string(), json!("preview"));
+    }
+    context
+        .emitter
+        .emit(OutboundEvent::new(event_type, payload))
+        .await;
+}
+
 fn canonical_runtime_payload(
     event_type: &str,
     session_id: &SessionId,
@@ -2185,6 +2231,8 @@ fn canonical_runtime_payload(
     map.insert("session_id".to_string(), json!(session_id.as_str()));
     map.insert("source".to_string(), json!(source));
     map.insert("sequence".to_string(), json!(sequence));
+    map.entry("durability".to_string())
+        .or_insert_with(|| json!("durable"));
     map.insert("occurred_at".to_string(), json!(Utc::now()));
     if let Some(stream_id) = stream_id {
         map.insert("stream_id".to_string(), json!(stream_id));

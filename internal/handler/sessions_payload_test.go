@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func TestIntegration_SessionsSend_AllowsStructuredPayloadOnlyMessage(t *testing.T) {
@@ -33,14 +35,15 @@ func TestIntegration_SessionsSend_AllowsStructuredPayloadOnlyMessage(t *testing.
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
 	out := decodeSessionMutation(t, msg)
-	if out.Event == nil {
-		t.Fatalf("missing event: %+v", out)
+	if out.Event != nil {
+		t.Fatalf("event=%+v, want nil until runtime commits", out.Event)
 	}
-	if out.Event.Payload["text"] != "" {
-		t.Fatalf("stored text=%#v, want empty string", out.Event.Payload["text"])
+	row := latestSessionMessageQueueRow(t, h, created.Session.ID)
+	if row.MessagePayload["text"] != "" {
+		t.Fatalf("stored text=%#v, want empty string", row.MessagePayload["text"])
 	}
-	if comments, ok := out.Event.Payload["code_line_comments"].([]any); !ok || len(comments) != 1 {
-		t.Fatalf("stored code_line_comments=%#v", out.Event.Payload["code_line_comments"])
+	if comments, ok := row.MessagePayload["code_line_comments"].([]any); !ok || len(comments) != 1 {
+		t.Fatalf("stored code_line_comments=%#v", row.MessagePayload["code_line_comments"])
 	}
 }
 
@@ -69,13 +72,25 @@ func TestIntegration_SessionsSend_AllowsAttachmentOnlyMessage(t *testing.T) {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
 	out := decodeSessionMutation(t, msg)
-	if out.Event == nil {
-		t.Fatalf("missing event: %+v", out)
+	if out.Event != nil {
+		t.Fatalf("event=%+v, want nil until runtime commits", out.Event)
 	}
-	if out.Event.Payload["text"] != "" {
-		t.Fatalf("stored text=%#v, want empty string", out.Event.Payload["text"])
+	row := latestSessionMessageQueueRow(t, h, created.Session.ID)
+	if row.MessagePayload["text"] != "" {
+		t.Fatalf("stored text=%#v, want empty string", row.MessagePayload["text"])
 	}
-	if attachments, ok := out.Event.Payload["attachments"].([]any); !ok || len(attachments) != 1 {
-		t.Fatalf("stored attachments=%#v", out.Event.Payload["attachments"])
+	if attachments, ok := row.MessagePayload["attachments"].([]any); !ok || len(attachments) != 1 {
+		t.Fatalf("stored attachments=%#v", row.MessagePayload["attachments"])
 	}
+}
+
+func latestSessionMessageQueueRow(t *testing.T, h *sessionHarness, sessionID string) model.SessionMessageQueue {
+	t.Helper()
+	var row model.SessionMessageQueue
+	if err := h.db.Where("session_id = ?", sessionID).
+		Order("sequence_number DESC").
+		First(&row).Error; err != nil {
+		t.Fatalf("load latest queue row: %v", err)
+	}
+	return row
 }

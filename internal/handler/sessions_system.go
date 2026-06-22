@@ -101,5 +101,5 @@ func (h *SessionHandler) createSystemSession(ctx context.Context, req systemSess
 			logging.FromContext(ctx).WarnContext(ctx, "reload system session after initial delivery failed", "session_id", session.ID, "error", err)
 		}
 	}
-	return &session, &intent.Event, queued, nil
+	return &session, nil, queued, nil
 }

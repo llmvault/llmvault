@@ -120,6 +120,14 @@ pub trait OutboxRepo: Send + Sync + 'static {
         event_type: &str,
         payload: serde_json::Value,
     ) -> Result<i64>;
+    async fn enqueue_runtime_event(
+        &self,
+        channel_name: &str,
+        event_type: &str,
+        payload: serde_json::Value,
+    ) -> Result<i64> {
+        self.enqueue(channel_name, event_type, payload).await
+    }
     async fn claim_due(&self, limit: u32) -> Result<Vec<OutboxRow>>;
     async fn mark_delivered(&self, id: i64) -> Result<()>;
     async fn schedule_retry(

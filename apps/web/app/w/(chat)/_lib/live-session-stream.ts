@@ -1,4 +1,4 @@
-import type { DirectSessionStreamFrame } from "@/app/w/(chat)/_lib/direct-session-stream"
+import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
 
 const displayableEvents = new Set([
@@ -13,7 +13,7 @@ const displayableEvents = new Set([
 
 export function appendLiveSessionStreamFrame(
   events: SessionEventResponse[],
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ): SessionEventResponse[] {
   if (!displayableEvents.has(frame.event)) return events
   const next = streamFrameToSessionEvent(frame)
@@ -29,7 +29,7 @@ export function appendLiveSessionStreamFrame(
   return [...events, next]
 }
 
-export function isTerminalStreamFrame(frame: DirectSessionStreamFrame) {
+export function isTerminalStreamFrame(frame: GoSessionStreamFrame) {
   return (
     frame.event === "done" ||
     frame.event === "turn_completed" ||
@@ -39,7 +39,7 @@ export function isTerminalStreamFrame(frame: DirectSessionStreamFrame) {
 }
 
 export function streamFrameToSessionEvent(
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ): SessionEventResponse | null {
   if (
     !frame.data ||

@@ -75,7 +75,10 @@ impl StreamBatcher {
                 url,
                 secret_env,
                 extra_headers,
-            } = &spec.kind;
+            } = &spec.kind
+            else {
+                continue;
+            };
             let secret = match runtime_env.get(secret_env) {
                 Some(secret) => secret.clone(),
                 None => {

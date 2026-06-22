@@ -3,10 +3,10 @@
 import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
 import {
-  directSessionStreamCursor,
-  type DirectSessionStreamCursor,
-  type DirectSessionStreamFrame,
-} from "@/app/w/(chat)/_lib/direct-session-stream"
+  goSessionStreamCursor,
+  type GoSessionStreamCursor,
+  type GoSessionStreamFrame,
+} from "@/app/w/(chat)/_lib/go-session-stream"
 import {
   appendLiveSessionStreamFrame,
   isTerminalStreamFrame,
@@ -52,7 +52,7 @@ interface SessionRuntimeStoreState {
   statusBySessionId: Record<string, SessionRuntimeSummary>
   liveEventsBySessionId: Record<string, SessionEventResponse[]>
   subagentRunsBySessionId: Record<string, SessionSubagentRun[]>
-  cursorBySessionId: Record<string, DirectSessionStreamCursor | undefined>
+  cursorBySessionId: Record<string, GoSessionStreamCursor | undefined>
   reconnectAttemptsBySessionId: Record<string, number>
   hydrateSession: (session: SessionResponse | undefined) => void
   setStatus: (
@@ -62,7 +62,7 @@ interface SessionRuntimeStoreState {
   ) => void
   setLiveEvents: (sessionId: string, events: SessionEventResponse[]) => void
   appendStreamError: (sessionId: string, message: string) => void
-  applyStreamFrame: (sessionId: string, frame: DirectSessionStreamFrame) => void
+  applyStreamFrame: (sessionId: string, frame: GoSessionStreamFrame) => void
   finishStream: (
     sessionId: string,
     options?: {
@@ -155,7 +155,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
       })
     },
     applyStreamFrame(sessionId, frame) {
-      const nextCursor = directSessionStreamCursor(frame)
+      const nextCursor = goSessionStreamCursor(frame)
       const subagentMetadata = subagentFrameMetadata(frame)
       setState((state) => {
         const cursorPatch =
@@ -336,7 +336,7 @@ function sessionLastOutcomeFromResponse(
 
 function summaryForFrame(
   current: SessionRuntimeSummary | undefined,
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ): SessionRuntimeSummary {
   const pendingInput = pendingInputFromFrame(frame)
   if (pendingInput) {
@@ -390,7 +390,7 @@ function summaryForFrame(
 }
 
 function pendingInputFromFrame(
-  frame: DirectSessionStreamFrame
+  frame: GoSessionStreamFrame
 ): PendingInputRequest | undefined {
   if (frame.event !== "question_requested") return undefined
   const data = payloadRecord(frame.data)
@@ -418,8 +418,8 @@ function pendingInputFromFrame(
 }
 
 function shouldAdvanceCursor(
-  current: DirectSessionStreamCursor | undefined,
-  next: DirectSessionStreamCursor
+  current: GoSessionStreamCursor | undefined,
+  next: GoSessionStreamCursor
 ) {
   return (
     !current ||
@@ -456,7 +456,7 @@ function isPendingClientEvent(event: SessionEventResponse) {
   return payload.client_status === "pending"
 }
 
-function terminalFrameErrorMessage(frame: DirectSessionStreamFrame): string {
+function terminalFrameErrorMessage(frame: GoSessionStreamFrame): string {
   if (frame.event !== "error" && frame.event !== "turn_failed") return ""
   const fallback =
     frame.event === "turn_failed"

@@ -3,14 +3,14 @@ import {
   appendLiveSessionStreamFrame,
   isTerminalStreamFrame,
 } from "@/app/w/(chat)/_lib/live-session-stream"
-import type { DirectSessionStreamFrame } from "@/app/w/(chat)/_lib/direct-session-stream"
+import type { GoSessionStreamFrame } from "@/app/w/(chat)/_lib/go-session-stream"
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
 
 function frame(
   event: string,
   data: Record<string, unknown>,
   id = `${event}-frame`
-): DirectSessionStreamFrame {
+): GoSessionStreamFrame {
   return {
     sessionId: "session_1",
     event,

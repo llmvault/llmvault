@@ -15,15 +15,32 @@ import (
 )
 
 func runtimeMessageFromEvent(session model.Session, event model.SessionEvent, modelDef *agentruntime.ModelConfig) agentruntime.HTTPMessageRequest {
+	return runtimeMessageFromCommand(session, commandFromLegacyEvent(event), modelDef)
+}
+
+func commandFromLegacyEvent(event model.SessionEvent) SessionMessageCommand {
+	text, _ := event.Payload["text"].(string)
+	return SessionMessageCommand{
+		ActorUserID: event.ActorUserID,
+		Text:        text,
+		Payload:     event.Payload,
+	}
+}
+
+func runtimeMessageFromCommand(session model.Session, command SessionMessageCommand, modelDef *agentruntime.ModelConfig) agentruntime.HTTPMessageRequest {
 	payload := map[string]any{}
-	for key, value := range event.Payload {
+	for key, value := range command.Payload {
 		payload[key] = value
 	}
-	text, _ := payload["text"].(string)
+	text := command.Text
+	if strings.TrimSpace(text) == "" {
+		text, _ = payload["text"].(string)
+	}
+	payload["text"] = text
 	user, _ := payload["user"].(string)
 	display, _ := payload["user_display_name"].(string)
-	if user == "" && event.ActorUserID != nil {
-		user = event.ActorUserID.String()
+	if user == "" && command.ActorUserID != nil {
+		user = command.ActorUserID.String()
 	}
 	return agentruntime.HTTPMessageRequest{
 		Text:            runtimeTextFromPayload(text, payload),

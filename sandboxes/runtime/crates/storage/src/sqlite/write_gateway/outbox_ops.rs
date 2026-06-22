@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use serde_json::{json, Value};
 use sqlx::{Connection, QueryBuilder, Sqlite, SqliteConnection};
 
 use crate::repos::Result;
@@ -27,6 +28,61 @@ pub(super) async fn outbox_enqueue(
     .bind(now)
     .fetch_one(conn)
     .await?;
+    Ok(id)
+}
+
+pub(super) async fn outbox_enqueue_runtime(
+    conn: &mut SqliteConnection,
+    channel_name: &str,
+    event_type: &str,
+    payload_json: &str,
+    now: &str,
+) -> Result<i64> {
+    let mut payload: Value = serde_json::from_str(payload_json)?;
+    let Some(session_id) = payload
+        .get("session_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+    else {
+        return outbox_enqueue(conn, channel_name, event_type, payload_json, now).await;
+    };
+
+    let mut tx = conn.begin().await?;
+    let runtime_seq: i64 = sqlx::query_scalar(
+        "INSERT INTO runtime_event_sequences (session_id, last_seq, updated_at) \
+         VALUES (?, 1, ?) \
+         ON CONFLICT(session_id) DO UPDATE SET \
+             last_seq = last_seq + 1, \
+             updated_at = excluded.updated_at \
+         RETURNING last_seq",
+    )
+    .bind(&session_id)
+    .bind(now)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    if let Some(map) = payload.as_object_mut() {
+        map.insert("runtime_seq".to_string(), json!(runtime_seq));
+        map.entry("event_id".to_string())
+            .or_insert_with(|| json!(format!("evt_rt_{}_{}", session_id, runtime_seq)));
+    }
+    let payload_json = serde_json::to_string(&payload)?;
+    let id: i64 = sqlx::query_scalar(
+        "INSERT INTO outbound_outbox \
+         (channel_name, event_type, payload_json, attempts, next_retry_at, status, created_at) \
+         VALUES (?, ?, ?, 0, ?, ?, ?) RETURNING id",
+    )
+    .bind(channel_name)
+    .bind(event_type)
+    .bind(&payload_json)
+    .bind(now)
+    .bind("pending")
+    .bind(now)
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(id)
 }
 

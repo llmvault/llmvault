@@ -136,6 +136,6 @@ function sandboxAccess({
     sandbox_base_url: "https://sandbox.example.test",
     token,
     expires_at: expiresAt,
-    scopes: ["stream:read", "repo:read"],
+    scopes: ["repo:read"],
   }
 }

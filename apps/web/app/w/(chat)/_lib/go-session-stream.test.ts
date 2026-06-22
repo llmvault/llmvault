@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
-  directSessionStreamCursor,
-  directSessionStreamURL,
+  goSessionStreamCursor,
+  goSessionStreamURL,
   isRuntimeRepoChangeFrame,
-  type DirectSessionStreamFrame,
-} from "@/app/w/(chat)/_lib/direct-session-stream"
+  type GoSessionStreamFrame,
+} from "@/app/w/(chat)/_lib/go-session-stream"
 
-function frame(data: unknown): DirectSessionStreamFrame {
+function frame(data: unknown): GoSessionStreamFrame {
   return {
     sessionId: "session_1",
     event: "token",
@@ -15,32 +15,28 @@ function frame(data: unknown): DirectSessionStreamFrame {
   }
 }
 
-describe("direct session stream", () => {
-  it("builds a live-only replay=none url", () => {
-    const url = directSessionStreamURL(
-      "https://preview.usehivy.com/sessions/session_1/stream",
-      { mode: "none" }
-    )
+describe("session stream", () => {
+  it("builds the proxied Go SSE url", () => {
+    const url = goSessionStreamURL("session_1", { mode: "none" })
     const parsed = new URL(url)
-    expect(parsed.searchParams.get("stream_token")).toBeNull()
-    expect(parsed.searchParams.get("replay")).toBe("none")
+    expect(parsed.pathname).toBe("/api/proxy/v1/sessions/session_1/stream")
+    expect(parsed.searchParams.get("replay")).toBeNull()
     expect(parsed.searchParams.get("after_seq")).toBeNull()
   })
 
   it("builds an after-seq url without replay=none", () => {
-    const url = directSessionStreamURL(
-      "https://preview.usehivy.com/sessions/session_1/stream?replay=none",
-      { mode: "after_seq", afterSeq: 42 }
-    )
+    const url = goSessionStreamURL("session_1", {
+      mode: "after_seq",
+      afterSeq: 42,
+    })
     const parsed = new URL(url)
-    expect(parsed.searchParams.get("stream_token")).toBeNull()
     expect(parsed.searchParams.get("replay")).toBeNull()
     expect(parsed.searchParams.get("after_seq")).toBe("42")
   })
 
   it("extracts a runtime cursor from streamed payloads", () => {
     expect(
-      directSessionStreamCursor(
+      goSessionStreamCursor(
         frame({
           stream_id: "session-stream-1",
           sequence: 7,
@@ -53,8 +49,8 @@ describe("direct session stream", () => {
   })
 
   it("ignores frames without a valid runtime cursor", () => {
-    expect(directSessionStreamCursor(frame("plain text"))).toBeNull()
-    expect(directSessionStreamCursor(frame({ stream_id: "abc" }))).toBeNull()
+    expect(goSessionStreamCursor(frame("plain text"))).toBeNull()
+    expect(goSessionStreamCursor(frame({ stream_id: "abc" }))).toBeNull()
   })
 
   it("detects runtime repo change batches", () => {

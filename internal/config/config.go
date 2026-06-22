@@ -108,6 +108,8 @@ type Config struct {
 	APIWebhookBaseURL string `env:"HIVY_API_WEBHOOK_BASE_URL" envDefault:"https://api.usehivy.com"` // public API base URL for provider webhook callbacks
 	ProxyHost         string `env:"HIVY_PROXY_HOST" envDefault:"proxy.usehivy.com"`                 // LLM proxy hostname (proxy.usehivy.com)
 
+	RuntimeRedisStreamShardCount int `env:"HIVY_RUNTIME_REDIS_STREAM_SHARD_COUNT" envDefault:"64"`
+
 	// Agent sandbox runtime images. HIVY_SANDBOXES_RUNTIME_BASE_IMAGE is a deprecated fallback.
 	SandboxesRuntimeImageTag     string `env:"HIVY_SANDBOXES_RUNTIME_IMAGE_TAG"`
 	SandboxesRuntimeBaseImage    string `env:"HIVY_SANDBOXES_RUNTIME_BASE_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime:latest"`
@@ -207,6 +209,9 @@ func Load() (*Config, error) {
 
 	if cfg.RedisURL == "" && cfg.RedisAddr == "" {
 		return nil, fmt.Errorf("either HIVY_REDIS_URL or HIVY_REDIS_ADDR must be set")
+	}
+	if cfg.RuntimeRedisStreamShardCount <= 0 {
+		cfg.RuntimeRedisStreamShardCount = 64
 	}
 
 	// Fail closed: an empty Nango webhook secret lets attackers forge signatures (HMAC with an

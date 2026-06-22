@@ -17,6 +17,7 @@ const (
 	AgentEnvAgentMultimodalAPIKeyEnv   = "HIVY_AGENT_MULTIMODAL_API_KEY_ENV" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvAgentID                    = "HIVY_AGENT_ID"
 	AgentEnvCloudControlPlaneURL       = "HIVY_CONTROL_PLANE_URL"
+	AgentEnvRuntimeEventWSURL          = "HIVY_RUNTIME_EVENT_WS_URL"
 	AgentEnvDriveUploadBearer          = "HIVY_DRIVE_UPLOAD_BEARER" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvWorkspaceRoot              = "HIVY_WORKSPACE_ROOT"
 	AgentEnvDBPath                     = "HIVY_DB_PATH"
@@ -110,6 +111,7 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvAgentMultimodalAPIKeyEnv, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvAgentID, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvCloudControlPlaneURL, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvRuntimeEventWSURL, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true, Optional: true},
 	{Key: AgentEnvDriveUploadBearer, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvWorkspaceRoot, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvDBPath, Source: AgentEnvSourceControlPlaneInjected},
