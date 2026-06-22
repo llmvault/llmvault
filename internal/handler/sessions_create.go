@@ -65,6 +65,13 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
+	if hasInitialMessage {
+		var hydrated bool
+		raw, hydrated = h.hydrateSessionMessageAttachmentsForRequest(w, r, session, raw)
+		if !hydrated {
+			return
+		}
+	}
 	var perSessionSandbox *model.Sandbox
 	if agent.SandboxStrategy == agentStrategyPerSession {
 		sb, err := h.provisionPerSessionSandbox(r.Context(), &agent)

@@ -50,7 +50,7 @@ export function eventText(event: SessionEventResponse): string {
 }
 
 export function eventTurnID(event: SessionEventResponse): string {
-  return stringValue(payloadRecord(event), "turn_id")
+  return event.turn_id || stringValue(payloadRecord(event), "turn_id")
 }
 
 export function stripAttachmentTags(text: string): string {

@@ -56,6 +56,17 @@ describe("session stream", () => {
     expect(parsed.searchParams.get("after_seq")).toBe("42")
   })
 
+  it("builds a from-turn url without replay or after_seq", () => {
+    const url = goSessionStreamURL("session_1", sandboxAccess(), {
+      mode: "from_turn_id",
+      turnId: "turn_123",
+    })
+    const parsed = new URL(url)
+    expect(parsed.searchParams.get("from_turn_id")).toBe("turn_123")
+    expect(parsed.searchParams.get("replay")).toBeNull()
+    expect(parsed.searchParams.get("after_seq")).toBeNull()
+  })
+
   it("authenticates direct runtime reads with the sandbox token", async () => {
     await subscribeToGoSessionStream({
       sessionId: "session_1",

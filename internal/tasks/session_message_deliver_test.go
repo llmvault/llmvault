@@ -24,6 +24,8 @@ func TestRuntimeMessageFromEventRendersStructuredAttachmentsAndComments(t *testi
 						"asset_url":            "https://api.example.test/assets/screen.png",
 						"content_type":         "image/png",
 						"rendered_description": "Primary category: Product UI",
+						"short_description":    "A UI screenshot.",
+						"important_details":    "Shows the primary action.",
 					},
 				},
 				"code_line_comments": []any{
@@ -43,9 +45,15 @@ func TestRuntimeMessageFromEventRendersStructuredAttachmentsAndComments(t *testi
 	want := `Please review this
 
 <attachment name="screen.png" url="https://api.example.test/assets/screen.png" mime_type="image/png">
-<description>
+<important_details>
+Shows the primary action.
+</important_details>
+<full_description>
 Primary category: Product UI
-</description>
+</full_description>
+<short_description>
+A UI screenshot.
+</short_description>
 </attachment>
 
 Code comments to address:
@@ -58,8 +66,8 @@ Code comments to address:
 	if msg.Raw["text"] != "Please review this" {
 		t.Fatalf("raw text was not preserved: %#v", msg.Raw["text"])
 	}
-	if len(msg.Attachments) != 1 {
-		t.Fatalf("attachments len=%d, want 1", len(msg.Attachments))
+	if len(msg.Attachments) != 0 {
+		t.Fatalf("attachments len=%d, want 0 for described images", len(msg.Attachments))
 	}
 }
 

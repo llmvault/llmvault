@@ -100,28 +100,16 @@ export function attachmentMetadataFromDescription(
   }
 }
 
-export function composeMessageWithAttachments(
-  text: string,
-  attachments: ImageAttachmentMetadata[]
-): string {
-  const trimmed = text.trim()
-  if (!attachments.length) return trimmed
-  const tags = attachments.map(attachmentTag).join("\n")
-  return trimmed ? `${trimmed}\n\n${tags}` : tags
-}
-
-export function attachmentTag(attachment: ImageAttachmentMetadata): string {
-  return `<attachment name="${escapeXMLAttribute(attachment.filename)}" url="${escapeXMLAttribute(attachment.asset_url)}" mime_type="${escapeXMLAttribute(attachment.content_type)}">
-<description>
-${escapeXMLText(attachment.rendered_description)}
-</description>
-</attachment>`
-}
-
 export function imageAttachmentMediaURL(
   attachment: Pick<ImageAttachmentMetadata, "asset_url">
 ) {
   return attachment.asset_url
+}
+
+export function imageAttachmentIDs(
+  attachments: Pick<ImageAttachmentMetadata, "drive_asset_id">[]
+) {
+  return attachments.map((attachment) => attachment.drive_asset_id)
 }
 
 async function responseError(response: Response, fallback: string) {
@@ -140,15 +128,4 @@ async function responseError(response: Response, fallback: string) {
     // Ignore body parse failures and use the stable fallback below.
   }
   return fallback
-}
-
-function escapeXMLAttribute(value: string) {
-  return escapeXMLText(value).replaceAll('"', "&quot;")
-}
-
-function escapeXMLText(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
 }

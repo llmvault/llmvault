@@ -100,6 +100,60 @@ describe("session stream manager", () => {
     )
   })
 
+  it("reopens the stream when the loaded replay mode changes to from_turn_id", async () => {
+    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
+    subscribeToGoSessionStreamMock.mockResolvedValue(undefined)
+
+    const queryClient = testQueryClient()
+    ensureSessionStream("session-1", {
+      queryClient,
+      replay: { mode: "none" },
+    })
+    await flushAsync()
+
+    ensureSessionStream("session-1", {
+      queryClient,
+      replay: { mode: "from_turn_id", turnId: "turn-1" },
+    })
+    await flushAsync()
+
+    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        replay: { mode: "none" },
+      })
+    )
+    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        replay: { mode: "from_turn_id", turnId: "turn-1" },
+      })
+    )
+  })
+
+  it("preserves from_turn_id across an early reconnect before a cursor exists", async () => {
+    vi.useFakeTimers()
+    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
+    subscribeToGoSessionStreamMock
+      .mockRejectedValueOnce(new Error("network closed"))
+      .mockResolvedValueOnce(undefined)
+
+    ensureSessionStream("session-1", {
+      queryClient: testQueryClient(),
+      replay: { mode: "from_turn_id", turnId: "turn-1" },
+    })
+    await flushAsync()
+    await vi.advanceTimersByTimeAsync(400)
+    await flushAsync()
+
+    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        replay: { mode: "from_turn_id", turnId: "turn-1" },
+      })
+    )
+  })
+
   it("reconnects with a full replay after resync_required", async () => {
     vi.useFakeTimers()
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())

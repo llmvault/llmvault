@@ -48,7 +48,6 @@ func runtimeMessageFromCommand(session model.Session, command SessionMessageComm
 		User:            strings.TrimSpace(user),
 		UserDisplayName: strings.TrimSpace(display),
 		ModelDefinition: modelDef,
-		Attachments:     anySlice(payload["attachments"]),
 		DynamicContext:  stringSlice(payload["dynamic_context"]),
 		Raw:             payload,
 	}
@@ -93,12 +92,11 @@ func runtimeAttachmentBlock(value any) string {
 		if filename == "" {
 			filename = "attachment"
 		}
-		description := firstRuntimeString(record, "rendered_description", "description")
-		tags = append(tags, fmt.Sprintf("<attachment name=\"%s\" url=\"%s\" mime_type=\"%s\">\n<description>\n%s\n</description>\n</attachment>",
+		tags = append(tags, fmt.Sprintf("<attachment name=\"%s\" url=\"%s\" mime_type=\"%s\">\n%s\n</attachment>",
 			escapeXMLText(filename),
 			escapeXMLText(url),
 			escapeXMLText(mimeType),
-			escapeXMLText(description),
+			runtimeAttachmentDetails(record),
 		))
 	}
 	return strings.Join(tags, "\n")

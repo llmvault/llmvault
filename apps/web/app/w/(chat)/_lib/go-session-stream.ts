@@ -28,6 +28,7 @@ export type GoSessionStreamReplayMode =
   | { mode: "all" }
   | { mode: "none" }
   | { mode: "after_seq"; afterSeq: number }
+  | { mode: "from_turn_id"; turnId: string }
 
 export class GoSessionStreamHTTPError extends Error {
   constructor(
@@ -114,6 +115,9 @@ export function goSessionStreamURL(
   }
   if (replay.mode === "after_seq") {
     parsed.searchParams.set("after_seq", `${replay.afterSeq}`)
+  }
+  if (replay.mode === "from_turn_id") {
+    parsed.searchParams.set("from_turn_id", replay.turnId)
   }
   return parsed.toString()
 }

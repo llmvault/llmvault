@@ -69,15 +69,14 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 }
 
 type sessionSyncRuntime struct {
-	server          *httptest.Server
-	messageStatus   int
-	configCalls     int
-	readyzCalls     int
-	messageCalls    int
-	lastSessionID   string
-	lastMessageText string
-	lastModelID     string
-	lastAPIKeyEnv   string
+	server                         *httptest.Server
+	messageStatus                  int
+	configCalls                    int
+	readyzCalls                    int
+	messageCalls                   int
+	lastSessionID, lastMessageText string
+	lastAttachments                []any
+	lastModelID, lastAPIKeyEnv     string
 }
 
 func newSessionSyncRuntime(t *testing.T, messageStatus int) *sessionSyncRuntime {
@@ -114,6 +113,7 @@ func (rt *sessionSyncRuntime) handleMessage(w http.ResponseWriter, r *http.Reque
 	}
 	var body struct {
 		Text            string `json:"text"`
+		Attachments     []any  `json:"attachments"`
 		ModelDefinition *struct {
 			ModelID   string `json:"model_id"`
 			APIKeyEnv string `json:"api_key_env"`
@@ -121,6 +121,7 @@ func (rt *sessionSyncRuntime) handleMessage(w http.ResponseWriter, r *http.Reque
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	rt.lastMessageText = body.Text
+	rt.lastAttachments = body.Attachments
 	if body.ModelDefinition != nil {
 		rt.lastModelID = body.ModelDefinition.ModelID
 		rt.lastAPIKeyEnv = body.ModelDefinition.APIKeyEnv

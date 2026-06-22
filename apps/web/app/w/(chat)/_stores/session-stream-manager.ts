@@ -31,6 +31,7 @@ interface StreamControllerRecord {
   stopped: boolean
   forceAccessRefresh?: boolean
   authRefreshAttempts?: number
+  replayKey?: string
 }
 
 interface EnsureStreamOptions {
@@ -80,11 +81,15 @@ export function ensureSessionStream(
   sessionId: string,
   options: EnsureStreamOptions
 ) {
+  const nextReplayKey = replayKey(options.replay)
   const existing = controllers.get(sessionId)
   if (existing && !existing.stopped && !existing.reconnect) {
     existing.queryClient = options.queryClient
-    resetWatchdog(sessionId, existing)
-    return
+    if (existing.replayKey === nextReplayKey) {
+      resetWatchdog(sessionId, existing)
+      return
+    }
+    stopController(sessionId, { keepStatus: true })
   }
   if (existing?.reconnect) {
     clearTimeout(existing.reconnect)
@@ -97,6 +102,7 @@ export function ensureSessionStream(
     stopped: false,
     forceAccessRefresh: options.forceAccessRefresh,
     authRefreshAttempts: options.authRefreshAttempts,
+    replayKey: nextReplayKey,
   }
   controllers.set(sessionId, controller)
   resetWatchdog(sessionId, controller)
@@ -174,6 +180,7 @@ async function runSessionStream(
   controller: StreamControllerRecord,
   replayOverride?: GoSessionStreamReplayMode
 ) {
+  let attemptedReplay: GoSessionStreamReplayMode | undefined = replayOverride
   try {
     const access = await getSessionSandboxAccess(sessionId, {
       force: controller.forceAccessRefresh,
@@ -185,6 +192,7 @@ async function runSessionStream(
       (cursor
         ? { mode: "after_seq", afterSeq: cursor.sequence }
         : { mode: "all" })
+    attemptedReplay = replay
 
     await subscribeToGoSessionStream({
       sessionId,
@@ -234,7 +242,13 @@ async function runSessionStream(
       return
     }
     if (shouldReconnectStream(error)) {
-      reconnectSessionStream(sessionId, controller.queryClient)
+      reconnectSessionStream(
+        sessionId,
+        controller.queryClient,
+        attemptedReplay
+          ? replayForFailedStreamReconnect(sessionId, attemptedReplay)
+          : undefined
+      )
       return
     }
     const message = errorMessage(error, "The live session stream failed.")
@@ -308,6 +322,7 @@ function reconnectSessionStream(
     reconnect,
     forceAccessRefresh: options.forceAccessRefresh,
     authRefreshAttempts: options.authRefreshAttempts,
+    replayKey: replayKey(replay),
   })
 }
 
@@ -414,4 +429,20 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim()
     ? error.message
     : fallback
+}
+
+function replayKey(replay?: GoSessionStreamReplayMode) {
+  if (!replay) return "auto"
+  if (replay.mode === "after_seq") return `after_seq:${replay.afterSeq}`
+  if (replay.mode === "from_turn_id") return `from_turn_id:${replay.turnId}`
+  return replay.mode
+}
+
+function replayForFailedStreamReconnect(
+  sessionId: string,
+  replay: GoSessionStreamReplayMode
+): GoSessionStreamReplayMode | undefined {
+  if (replay.mode !== "from_turn_id") return undefined
+  const cursor = useSessionRuntimeStore.getState().cursorBySessionId[sessionId]
+  return cursor ? undefined : replay
 }
