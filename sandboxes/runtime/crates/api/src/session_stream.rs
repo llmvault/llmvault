@@ -80,11 +80,12 @@ impl std::ops::Deref for SeqEvent {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StreamReplayMode {
     All,
     None,
     AfterSeq(u64),
+    FromTurnId(String),
 }
 
 pub struct StreamSubscription {
@@ -92,7 +93,8 @@ pub struct StreamSubscription {
     receiver: broadcast::Receiver<SeqEvent>,
     initial_last_seq: Option<u64>,
     next_seq: u64,
-    resync_required: Option<ResyncRequired>,
+    resync_required: Option<StreamResyncRequired>,
+    turn_filter: Option<String>,
 }
 
 #[cfg(test)]
@@ -111,6 +113,20 @@ struct ResyncRequired {
     requested_after_seq: u64,
     earliest_seq: u64,
     latest_seq: u64,
+}
+
+#[derive(Debug, Clone)]
+struct TurnResyncRequired {
+    turn_id: String,
+    reason: &'static str,
+    earliest_seq: Option<u64>,
+    latest_seq: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
+enum StreamResyncRequired {
+    Cursor(ResyncRequired),
+    Turn(TurnResyncRequired),
 }
 
 struct StreamState {
@@ -380,17 +396,18 @@ impl SessionStreamBroker {
         let latest_seq = state.next_seq.checked_sub(1);
         let earliest_seq = state.history.front().map(|item| item.seq);
         let mut resync_required = None;
+        let mut turn_filter = None;
         let (history, initial_last_seq) = match replay_mode {
             StreamReplayMode::All => (state.history.iter().cloned().collect(), None),
             StreamReplayMode::None => (Vec::new(), latest_seq),
             StreamReplayMode::AfterSeq(after_seq) => {
                 if let (Some(first), Some(latest)) = (earliest_seq, latest_seq) {
                     if after_seq < first.saturating_sub(1) {
-                        resync_required = Some(ResyncRequired {
+                        resync_required = Some(StreamResyncRequired::Cursor(ResyncRequired {
                             requested_after_seq: after_seq,
                             earliest_seq: first,
                             latest_seq: latest,
-                        });
+                        }));
                         (Vec::new(), Some(latest))
                     } else {
                         (
@@ -407,6 +424,44 @@ impl SessionStreamBroker {
                     (Vec::new(), Some(after_seq))
                 }
             }
+            StreamReplayMode::FromTurnId(turn_id) => {
+                turn_filter = Some(turn_id.clone());
+                let turn_start_seq = state
+                    .history
+                    .iter()
+                    .find(|item| {
+                        item.inner.event == "turn_started"
+                            && event_turn_id(&item.inner).as_deref() == Some(turn_id.as_str())
+                    })
+                    .map(|item| item.seq);
+                let Some(turn_start_seq) = turn_start_seq else {
+                    resync_required = Some(StreamResyncRequired::Turn(TurnResyncRequired {
+                        turn_id,
+                        reason: "turn_not_retained",
+                        earliest_seq,
+                        latest_seq,
+                    }));
+                    return Some(StreamSubscription {
+                        history: Vec::new(),
+                        receiver: state.sender.subscribe(),
+                        initial_last_seq: latest_seq,
+                        next_seq: state.next_seq,
+                        resync_required,
+                        turn_filter,
+                    });
+                };
+                let matching = state
+                    .history
+                    .iter()
+                    .filter(|item| {
+                        item.seq >= turn_start_seq
+                            && event_turn_id(&item.inner).as_deref() == Some(turn_id.as_str())
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let last_seq = matching.last().map(|item| item.seq);
+                (matching, last_seq)
+            }
         };
         Some(StreamSubscription {
             history,
@@ -414,6 +469,7 @@ impl SessionStreamBroker {
             initial_last_seq,
             next_seq: state.next_seq,
             resync_required,
+            turn_filter,
         })
     }
 
@@ -754,7 +810,7 @@ impl SessionMessageState {
 enum StreamFrame {
     Event(SessionStreamEvent),
     Resync { skipped: u64, from_seq: Option<u64> },
-    ResyncRequired(ResyncRequired),
+    ResyncRequired(StreamResyncRequired),
 }
 
 /// Core of the SSE replay stream, decoupled from the `Sse`/`Event` wire types so
@@ -766,8 +822,9 @@ fn replay_stream(
     broker: Arc<SessionStreamBroker>,
     stream_id: String,
     stop_on_done: bool,
+    turn_filter: Option<String>,
     initial_last_seq: Option<u64>,
-    resync_required: Option<ResyncRequired>,
+    resync_required: Option<StreamResyncRequired>,
     history: Vec<SeqEvent>,
     mut receiver: broadcast::Receiver<SeqEvent>,
 ) -> impl futures::Stream<Item = StreamFrame> {
@@ -781,8 +838,11 @@ fn replay_stream(
         for item in history {
             last_seq = Some(item.seq);
             let is_done = item.inner.event == "done";
+            let is_turn_terminal = turn_filter
+                .as_deref()
+                .is_some_and(|turn_id| is_terminal_turn_event(&item.inner, turn_id));
             yield StreamFrame::Event(item.inner);
-            if stop_on_done && is_done {
+            if stop_on_done && is_done || is_turn_terminal {
                 return;
             }
         }
@@ -790,9 +850,17 @@ fn replay_stream(
             match receiver.recv().await {
                 Ok(item) => {
                     last_seq = Some(item.seq);
+                    if let Some(turn_id) = turn_filter.as_deref() {
+                        if event_turn_id(&item.inner).as_deref() != Some(turn_id) {
+                            continue;
+                        }
+                    }
                     let is_done = item.inner.event == "done";
+                    let is_turn_terminal = turn_filter
+                        .as_deref()
+                        .is_some_and(|turn_id| is_terminal_turn_event(&item.inner, turn_id));
                     yield StreamFrame::Event(item.inner);
-                    if stop_on_done && is_done {
+                    if stop_on_done && is_done || is_turn_terminal {
                         break;
                     }
                 }
@@ -812,14 +880,23 @@ fn replay_stream(
                     }
                     .unwrap_or_default();
                     let mut done = false;
+                    let mut turn_done = false;
                     for item in missed {
                         last_seq = Some(item.seq);
+                        if let Some(turn_id) = turn_filter.as_deref() {
+                            if event_turn_id(&item.inner).as_deref() != Some(turn_id) {
+                                continue;
+                            }
+                            if is_terminal_turn_event(&item.inner, turn_id) {
+                                turn_done = true;
+                            }
+                        }
                         if item.inner.event == "done" {
                             done = true;
                         }
                         yield StreamFrame::Event(item.inner);
                     }
-                    if stop_on_done && done {
+                    if stop_on_done && done || turn_done {
                         break;
                     }
                     continue;
@@ -841,15 +918,27 @@ fn stream_frame_to_sse(stream_id: &str, frame: StreamFrame) -> Event {
                 "from_seq": from_seq,
             }))
             .unwrap_or_else(|_| Event::default().event("resync").data("{}")),
-        StreamFrame::ResyncRequired(resync) => Event::default()
-            .event("resync_required")
-            .json_data(json!({
-                "stream_id": stream_id,
-                "requested_after_seq": resync.requested_after_seq,
-                "earliest_seq": resync.earliest_seq,
-                "latest_seq": resync.latest_seq,
-            }))
-            .unwrap_or_else(|_| Event::default().event("resync_required").data("{}")),
+        StreamFrame::ResyncRequired(resync) => match resync {
+            StreamResyncRequired::Cursor(resync) => Event::default()
+                .event("resync_required")
+                .json_data(json!({
+                    "stream_id": stream_id,
+                    "requested_after_seq": resync.requested_after_seq,
+                    "earliest_seq": resync.earliest_seq,
+                    "latest_seq": resync.latest_seq,
+                }))
+                .unwrap_or_else(|_| Event::default().event("resync_required").data("{}")),
+            StreamResyncRequired::Turn(resync) => Event::default()
+                .event("resync_required")
+                .json_data(json!({
+                    "stream_id": stream_id,
+                    "from_turn_id": resync.turn_id,
+                    "reason": resync.reason,
+                    "earliest_seq": resync.earliest_seq,
+                    "latest_seq": resync.latest_seq,
+                }))
+                .unwrap_or_else(|_| Event::default().event("resync_required").data("{}")),
+        },
     }
 }
 
@@ -897,6 +986,7 @@ pub async fn stream_response(
         broker,
         stream_id.clone(),
         true,
+        subscription.turn_filter,
         subscription.initial_last_seq,
         subscription.resync_required,
         subscription.history,
@@ -936,6 +1026,7 @@ pub async fn session_stream_response(
         broker,
         stream_id.clone(),
         false,
+        subscription.turn_filter,
         subscription.initial_last_seq,
         subscription.resync_required,
         subscription.history,
@@ -965,6 +1056,25 @@ fn to_sse_event(item: SessionStreamEvent) -> Event {
         .event(item.event)
         .json_data(item.payload)
         .unwrap_or_else(|_| Event::default().event("error").data("serialize event"))
+}
+
+fn event_turn_id(event: &SessionStreamEvent) -> Option<String> {
+    event
+        .payload
+        .get("turn_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+}
+
+fn is_terminal_turn_event(event: &SessionStreamEvent, turn_id: &str) -> bool {
+    if event_turn_id(event).as_deref() != Some(turn_id) {
+        return false;
+    }
+    matches!(
+        event.event.as_str(),
+        "turn_completed" | "turn_failed" | "turn_interrupted" | "done"
+    )
 }
 
 fn default_session_user() -> String {
@@ -1220,6 +1330,7 @@ mod tests {
             broker.clone(),
             stream_id.clone(),
             false,
+            None,
             None,
             None,
             history,
@@ -1669,6 +1780,7 @@ mod tests {
             true,
             None,
             None,
+            None,
             history,
             receiver,
         );
@@ -1748,6 +1860,7 @@ mod tests {
             true,
             None,
             None,
+            None,
             history,
             receiver,
         );
@@ -1813,6 +1926,182 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn subscribe_from_turn_id_replays_and_streams_only_that_turn() {
+        let broker = Arc::new(SessionStreamBroker::new());
+        let stream_id = broker.create_stream().await;
+        broker
+            .publish(
+                &stream_id,
+                "turn_started",
+                json!({"turn_id": "turn-1", "text": "old"}),
+            )
+            .await;
+        broker
+            .publish(
+                &stream_id,
+                "token",
+                json!({"turn_id": "turn-1", "text": "old"}),
+            )
+            .await;
+        broker
+            .publish(
+                &stream_id,
+                "turn_started",
+                json!({"turn_id": "turn-2", "text": "start"}),
+            )
+            .await;
+        broker
+            .publish(
+                &stream_id,
+                "token",
+                json!({"turn_id": "turn-2", "text": "new"}),
+            )
+            .await;
+
+        let subscription = broker
+            .subscribe(
+                &stream_id,
+                StreamReplayMode::FromTurnId("turn-2".to_string()),
+            )
+            .await
+            .expect("stream exists");
+        let replayed = subscription
+            .history
+            .iter()
+            .map(|event| {
+                (
+                    event.event.as_str(),
+                    event.payload["turn_id"].as_str().unwrap(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replayed,
+            vec![("turn_started", "turn-2"), ("token", "turn-2")]
+        );
+        assert!(subscription.resync_required.is_none());
+        assert_eq!(subscription.turn_filter.as_deref(), Some("turn-2"));
+
+        let frames = replay_stream(
+            broker.clone(),
+            stream_id.clone(),
+            false,
+            subscription.turn_filter,
+            subscription.initial_last_seq,
+            subscription.resync_required,
+            subscription.history,
+            subscription.receiver,
+        );
+        futures::pin_mut!(frames);
+
+        let Some(StreamFrame::Event(first)) = frames.next().await else {
+            panic!("expected replayed turn start");
+        };
+        assert_eq!(first.event, "turn_started");
+        let Some(StreamFrame::Event(second)) = frames.next().await else {
+            panic!("expected replayed turn token");
+        };
+        assert_eq!(second.payload["text"], "new");
+
+        broker
+            .publish(
+                &stream_id,
+                "token",
+                json!({"turn_id": "turn-1", "text": "ignored"}),
+            )
+            .await;
+        broker
+            .publish(
+                &stream_id,
+                "error",
+                json!({"turn_id": "turn-2", "message": "retryable"}),
+            )
+            .await;
+        broker
+            .publish(&stream_id, "turn_completed", json!({"turn_id": "turn-2"}))
+            .await;
+
+        let Some(StreamFrame::Event(error)) =
+            tokio::time::timeout(Duration::from_secs(1), frames.next())
+                .await
+                .expect("turn error event")
+        else {
+            panic!("expected turn error event");
+        };
+        assert_eq!(error.event, "error");
+        assert_eq!(error.payload["turn_id"], "turn-2");
+
+        let Some(StreamFrame::Event(done)) =
+            tokio::time::timeout(Duration::from_secs(1), frames.next())
+                .await
+                .expect("turn terminal event")
+        else {
+            panic!("expected terminal turn event");
+        };
+        assert_eq!(done.event, "turn_completed");
+        assert_eq!(done.payload["turn_id"], "turn-2");
+
+        let stopped = tokio::time::timeout(Duration::from_secs(1), frames.next())
+            .await
+            .expect("from_turn_id stream should stop promptly");
+        assert!(stopped.is_none());
+    }
+
+    #[tokio::test]
+    async fn subscribe_from_turn_id_reports_resync_when_turn_not_retained() {
+        let broker = SessionStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+        broker
+            .publish(&stream_id, "token", json!({"turn_id": "turn-other"}))
+            .await;
+
+        let subscription = broker
+            .subscribe(
+                &stream_id,
+                StreamReplayMode::FromTurnId("turn-missing".to_string()),
+            )
+            .await
+            .expect("stream exists");
+        assert!(subscription.history.is_empty());
+        let Some(StreamResyncRequired::Turn(resync)) = subscription.resync_required else {
+            panic!("missing turn should request turn resync");
+        };
+        assert_eq!(resync.turn_id, "turn-missing");
+        assert_eq!(resync.reason, "turn_not_retained");
+        assert_eq!(resync.earliest_seq, Some(0));
+        assert_eq!(resync.latest_seq, Some(0));
+    }
+
+    #[tokio::test]
+    async fn subscribe_from_turn_id_rejects_partial_retained_turn() {
+        let broker = SessionStreamBroker::new();
+        let stream_id = broker.create_stream().await;
+        broker
+            .publish(
+                &stream_id,
+                "token",
+                json!({"turn_id": "turn-partial", "text": "already mid-turn"}),
+            )
+            .await;
+
+        let subscription = broker
+            .subscribe(
+                &stream_id,
+                StreamReplayMode::FromTurnId("turn-partial".to_string()),
+            )
+            .await
+            .expect("stream exists");
+        assert!(subscription.history.is_empty());
+        let Some(StreamResyncRequired::Turn(resync)) = subscription.resync_required else {
+            panic!("partial turn should request turn resync");
+        };
+        assert_eq!(resync.turn_id, "turn-partial");
+        assert_eq!(resync.reason, "turn_not_retained");
+        assert_eq!(resync.earliest_seq, Some(0));
+        assert_eq!(resync.latest_seq, Some(0));
+    }
+
+    #[tokio::test]
     async fn subscribe_after_expired_seq_emits_resync_required_without_old_history() {
         let broker = Arc::new(SessionStreamBroker::new());
         let stream_id = broker.create_stream().await;
@@ -1837,6 +2126,7 @@ mod tests {
             broker.clone(),
             stream_id.clone(),
             false,
+            subscription.turn_filter,
             subscription.initial_last_seq,
             subscription.resync_required,
             subscription.history,
@@ -1845,6 +2135,9 @@ mod tests {
         futures::pin_mut!(frames);
         let Some(StreamFrame::ResyncRequired(resync)) = frames.next().await else {
             panic!("expired cursor must produce resync_required first");
+        };
+        let StreamResyncRequired::Cursor(resync) = resync else {
+            panic!("expired cursor should produce cursor resync");
         };
         assert_eq!(resync.requested_after_seq, 0);
         assert_eq!(resync.earliest_seq, 2);

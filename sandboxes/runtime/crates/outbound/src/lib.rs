@@ -40,4 +40,10 @@ pub trait OutboundChannel: Send + Sync + 'static {
     fn kind(&self) -> &'static str;
     fn accepts(&self, event_type: &str) -> bool;
     async fn deliver(&self, event: &OutboundEvent) -> Result<()>;
+    async fn deliver_batch(&self, events: &[OutboundEvent]) -> Result<()> {
+        for event in events {
+            self.deliver(event).await?;
+        }
+        Ok(())
+    }
 }

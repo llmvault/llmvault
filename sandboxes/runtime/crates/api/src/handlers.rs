@@ -71,11 +71,16 @@ const INTERNAL_RETRY_MESSAGE: &str =
 pub struct SessionStreamQuery {
     replay: Option<String>,
     after_seq: Option<String>,
+    from_turn_id: Option<String>,
 }
 
 impl SessionStreamQuery {
     fn replay_mode(&self) -> Result<StreamReplayMode, String> {
         let replay = self.replay.as_deref().unwrap_or("all");
+        let from_turn_id = self.from_turn_id.as_deref().map(str::trim);
+        if matches!(from_turn_id, Some("")) {
+            return Err("from_turn_id is required".to_string());
+        }
         let after_seq = self
             .after_seq
             .as_deref()
@@ -85,6 +90,13 @@ impl SessionStreamQuery {
                     .map_err(|_| "after_seq must be an unsigned integer".to_string())
             })
             .transpose()?;
+
+        if let Some(turn_id) = from_turn_id {
+            if self.replay.is_some() || after_seq.is_some() {
+                return Err("from_turn_id cannot be combined with replay or after_seq".to_string());
+            }
+            return Ok(StreamReplayMode::FromTurnId(turn_id.to_string()));
+        }
 
         match replay {
             "all" => {}
@@ -846,7 +858,8 @@ fn question_answer_error_response(error: QuestionAnswerError) -> (StatusCode, St
     params(
         ("session_id" = String, Path, description = "Session identifier"),
         ("replay" = Option<String>, Query, description = "Replay mode: `all` or `none`"),
-        ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value")
+        ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value"),
+        ("from_turn_id" = Option<String>, Query, description = "Replay retained events for one turn and continue live until that turn terminates")
     ),
     responses(
         (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
@@ -890,7 +903,8 @@ pub async fn get_session_live_stream(
         ("session_id" = String, Path, description = "Session identifier"),
         ("stream_id" = String, Path, description = "Turn stream identifier"),
         ("replay" = Option<String>, Query, description = "Replay mode: `all` or `none`"),
-        ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value")
+        ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value"),
+        ("from_turn_id" = Option<String>, Query, description = "Replay retained events for one turn and continue live until that turn terminates")
     ),
     responses(
         (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
@@ -1000,16 +1014,28 @@ mod tests {
         let none = SessionStreamQuery {
             replay: Some("none".to_string()),
             after_seq: None,
+            from_turn_id: None,
         };
         assert_eq!(none.replay_mode().unwrap(), StreamReplayMode::None);
 
         let after_seq = SessionStreamQuery {
             replay: None,
             after_seq: Some("42".to_string()),
+            from_turn_id: None,
         };
         assert_eq!(
             after_seq.replay_mode().unwrap(),
             StreamReplayMode::AfterSeq(42)
+        );
+
+        let from_turn = SessionStreamQuery {
+            replay: None,
+            after_seq: None,
+            from_turn_id: Some("turn-123".to_string()),
+        };
+        assert_eq!(
+            from_turn.replay_mode().unwrap(),
+            StreamReplayMode::FromTurnId("turn-123".to_string())
         );
     }
 
@@ -1018,20 +1044,37 @@ mod tests {
         let invalid_combo = SessionStreamQuery {
             replay: Some("none".to_string()),
             after_seq: Some("42".to_string()),
+            from_turn_id: None,
         };
         assert!(invalid_combo.replay_mode().is_err());
 
         let invalid_replay = SessionStreamQuery {
             replay: Some("latest".to_string()),
             after_seq: None,
+            from_turn_id: None,
         };
         assert!(invalid_replay.replay_mode().is_err());
 
         let invalid_sequence = SessionStreamQuery {
             replay: None,
             after_seq: Some("nope".to_string()),
+            from_turn_id: None,
         };
         assert!(invalid_sequence.replay_mode().is_err());
+
+        let invalid_turn_combo = SessionStreamQuery {
+            replay: Some("all".to_string()),
+            after_seq: None,
+            from_turn_id: Some("turn-123".to_string()),
+        };
+        assert!(invalid_turn_combo.replay_mode().is_err());
+
+        let empty_turn = SessionStreamQuery {
+            replay: None,
+            after_seq: None,
+            from_turn_id: Some("  ".to_string()),
+        };
+        assert!(empty_turn.replay_mode().is_err());
     }
 
     fn test_definition() -> AgentDefinition {

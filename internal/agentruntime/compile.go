@@ -306,5 +306,17 @@ func ControlPlaneOutboundChannels(cfg *config.Config, sandboxID uuid.UUID) []any
 				"session_waiting",
 			},
 		},
+		map[string]any{
+			"name":       "control-plane-turn-state",
+			"type":       "webhook",
+			"url":        RuntimeTurnStateWebhookURL(cfg, sandboxID),
+			"secret_env": AgentEnvRuntimeSecret,
+			"event_filter": []string{
+				"turn_started",
+				"turn_completed",
+				"turn_failed",
+				"turn_interrupted",
+			},
+		},
 	}
 }

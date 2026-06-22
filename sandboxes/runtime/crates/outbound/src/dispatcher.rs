@@ -10,8 +10,8 @@ use tracing::{info, warn};
 use crate::OutboundRegistry;
 
 const MAX_RETRY_ATTEMPTS: i32 = 8;
-const POLL_INTERVAL: Duration = Duration::from_millis(250);
-const CLAIM_BATCH_SIZE: u32 = 32;
+const POLL_INTERVAL: Duration = Duration::from_millis(25);
+const CLAIM_BATCH_SIZE: u32 = 512;
 const MAX_CONCURRENT_DELIVERIES: usize = 32;
 
 pub struct OutboundDispatcher {
@@ -51,77 +51,108 @@ impl OutboundDispatcher {
     }
 
     async fn drain_one_batch(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let capacity = self
-            .permits
-            .available_permits()
-            .min(CLAIM_BATCH_SIZE as usize);
-        if capacity == 0 {
+        if self.permits.available_permits() == 0 {
             return Ok(());
         }
 
-        let due = self.outbox.claim_due(capacity as u32).await?;
+        let due = self.outbox.claim_due(CLAIM_BATCH_SIZE).await?;
         if due.is_empty() {
             return Ok(());
         }
-        for row in due {
+        for rows in group_claimed_rows(due) {
             let Ok(permit) = self.permits.clone().try_acquire_owned() else {
-                let _ = self
-                    .outbox
-                    .schedule_retry(row.id, row.attempts, Utc::now())
-                    .await;
+                for row in rows {
+                    let _ = self
+                        .outbox
+                        .schedule_retry(row.id, row.attempts, Utc::now())
+                        .await;
+                }
                 continue;
             };
             let outbox = self.outbox.clone();
             let registry = self.registry.clone();
             tokio::spawn(async move {
-                Self::deliver_one(outbox, registry, row).await;
+                Self::deliver_rows(outbox, registry, rows).await;
                 drop(permit);
             });
         }
         Ok(())
     }
 
-    async fn deliver_one(
+    async fn deliver_rows(
         outbox: Arc<dyn OutboxRepo>,
         registry: Arc<RwLock<OutboundRegistry>>,
-        row: OutboxRow,
+        rows: Vec<OutboxRow>,
     ) {
+        if rows.is_empty() {
+            return;
+        }
+        let channel_name = rows[0].channel_name.clone();
         let registry_snapshot = registry.read().await;
-        let channel = registry_snapshot.find(&row.channel_name);
+        let channel = registry_snapshot.find(&channel_name);
         drop(registry_snapshot);
 
         let Some(channel) = channel else {
-            warn!(channel = %row.channel_name, id = row.id, "channel not registered; marking failed");
-            let _ = outbox.mark_failed(row.id).await;
+            for row in rows {
+                warn!(channel = %row.channel_name, id = row.id, "channel not registered; marking failed");
+                let _ = outbox.mark_failed(row.id).await;
+            }
             return;
         };
 
-        let event = OutboundEvent {
-            event_type: row.event_type.clone(),
-            payload: row.payload.clone(),
-            at: Utc::now(),
-        };
+        let events = rows.iter().map(event_from_row).collect::<Vec<_>>();
 
-        match channel.deliver(&event).await {
+        match channel.deliver_batch(&events).await {
             Ok(()) => {
-                if let Err(error) = outbox.mark_delivered(row.id).await {
-                    warn!(%error, id = row.id, "mark_delivered failed");
+                for row in rows {
+                    if let Err(error) = outbox.mark_delivered(row.id).await {
+                        warn!(%error, id = row.id, "mark_delivered failed");
+                    }
                 }
             }
             Err(error) => {
-                warn!(%error, id = row.id, channel = %row.channel_name, "delivery failed");
-                let next_attempts = row.attempts + 1;
-                if next_attempts >= MAX_RETRY_ATTEMPTS {
-                    let _ = outbox.mark_failed(row.id).await;
-                    return;
+                for row in rows {
+                    warn!(%error, id = row.id, channel = %row.channel_name, "delivery failed");
+                    let next_attempts = row.attempts + 1;
+                    if next_attempts >= MAX_RETRY_ATTEMPTS {
+                        let _ = outbox.mark_failed(row.id).await;
+                        continue;
+                    }
+                    let backoff_seconds = 2_i64.pow(next_attempts.min(10) as u32) * 5;
+                    let next_retry_at = Utc::now() + ChronoDuration::seconds(backoff_seconds);
+                    let _ = outbox
+                        .schedule_retry(row.id, next_attempts, next_retry_at)
+                        .await;
                 }
-                let backoff_seconds = 2_i64.pow(next_attempts.min(10) as u32) * 5;
-                let next_retry_at = Utc::now() + ChronoDuration::seconds(backoff_seconds);
-                let _ = outbox
-                    .schedule_retry(row.id, next_attempts, next_retry_at)
-                    .await;
             }
         }
+    }
+}
+
+fn group_claimed_rows(rows: Vec<OutboxRow>) -> Vec<Vec<OutboxRow>> {
+    let mut groups: Vec<Vec<OutboxRow>> = Vec::new();
+    for row in rows {
+        if row.session_id.is_some() {
+            if let Some(group) = groups.iter_mut().find(|group| {
+                group[0].channel_name == row.channel_name && group[0].session_id == row.session_id
+            }) {
+                group.push(row);
+                continue;
+            }
+        }
+        groups.push(vec![row]);
+    }
+    for group in &mut groups {
+        group.sort_by_key(|row| (row.runtime_seq.unwrap_or(row.id), row.id));
+    }
+    groups
+}
+
+fn event_from_row(row: &OutboxRow) -> OutboundEvent {
+    OutboundEvent {
+        event_type: row.event_type.clone(),
+        payload: row.payload.clone(),
+        at: row.occurred_at,
     }
 }
 
@@ -232,6 +263,45 @@ mod tests {
         }
     }
 
+    struct BatchRecordingChannel {
+        batches: Arc<Mutex<Vec<Vec<i64>>>>,
+        notify: Arc<Notify>,
+    }
+
+    #[async_trait]
+    impl OutboundChannel for BatchRecordingChannel {
+        fn name(&self) -> &str {
+            "runtime-ws"
+        }
+
+        fn kind(&self) -> &'static str {
+            "websocket"
+        }
+
+        fn accepts(&self, _event_type: &str) -> bool {
+            true
+        }
+
+        async fn deliver(&self, event: &OutboundEvent) -> crate::Result<()> {
+            self.deliver_batch(std::slice::from_ref(event)).await
+        }
+
+        async fn deliver_batch(&self, events: &[OutboundEvent]) -> crate::Result<()> {
+            let seqs = events
+                .iter()
+                .filter_map(|event| {
+                    event
+                        .payload
+                        .get("runtime_seq")
+                        .and_then(serde_json::Value::as_i64)
+                })
+                .collect::<Vec<_>>();
+            self.batches.lock().await.push(seqs);
+            self.notify.notify_waiters();
+            Ok(())
+        }
+    }
+
     fn outbox_row(id: i64, session_id: &str, runtime_seq: i64) -> OutboxRow {
         OutboxRow {
             id,
@@ -245,6 +315,7 @@ mod tests {
             attempts: 0,
             session_id: Some(session_id.to_string()),
             runtime_seq: Some(runtime_seq),
+            occurred_at: Utc::now(),
         }
     }
 
@@ -278,5 +349,41 @@ mod tests {
         let delivered = outbox.delivered.lock().await;
         assert!(delivered.contains(&2));
         assert!(!delivered.contains(&1));
+    }
+
+    #[tokio::test]
+    async fn same_session_rows_deliver_as_one_ordered_batch() {
+        let outbox = Arc::new(FakeOutbox::default());
+        {
+            let mut due = outbox.due.lock().await;
+            due.push(outbox_row(1, "session-a", 1));
+            due.push(outbox_row(2, "session-b", 1));
+            due.push(outbox_row(3, "session-a", 2));
+        }
+        let batches = Arc::new(Mutex::new(Vec::new()));
+        let notify = Arc::new(Notify::new());
+        let registry = OutboundRegistry::new().with_channel(Arc::new(BatchRecordingChannel {
+            batches: batches.clone(),
+            notify: notify.clone(),
+        }));
+        let dispatcher = OutboundDispatcher::new(outbox.clone(), Arc::new(RwLock::new(registry)));
+
+        dispatcher.drain_one_batch().await.expect("drain one batch");
+
+        tokio::time::timeout(Duration::from_millis(100), async {
+            loop {
+                let notified = notify.notified();
+                if batches.lock().await.len() >= 2 {
+                    break;
+                }
+                notified.await;
+            }
+        })
+        .await
+        .expect("recorded both session batches");
+
+        let batches = batches.lock().await.clone();
+        assert!(batches.iter().any(|batch| batch == &vec![1, 2]));
+        assert!(batches.iter().any(|batch| batch == &vec![1]));
     }
 }

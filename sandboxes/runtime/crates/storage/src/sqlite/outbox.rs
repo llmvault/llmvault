@@ -110,14 +110,21 @@ mod tests {
         (dir, repo)
     }
 
-    fn rows_by_session(rows: &[OutboxRow]) -> HashMap<String, i64> {
-        rows.iter()
-            .filter_map(|row| Some((row.session_id.clone()?, row.runtime_seq?)))
-            .collect()
+    fn rows_by_session(rows: &[OutboxRow]) -> HashMap<String, Vec<i64>> {
+        let mut by_session: HashMap<String, Vec<i64>> = HashMap::new();
+        for row in rows {
+            if let (Some(session_id), Some(runtime_seq)) = (&row.session_id, row.runtime_seq) {
+                by_session
+                    .entry(session_id.clone())
+                    .or_default()
+                    .push(runtime_seq);
+            }
+        }
+        by_session
     }
 
     #[tokio::test]
-    async fn claim_due_returns_one_head_row_per_runtime_session() {
+    async fn claim_due_returns_ordered_rows_per_runtime_session() {
         let (_dir, repo) = setup_repo().await;
 
         repo.enqueue_runtime_event("runtime-ws", "token", json!({"session_id": "session-a"}))
@@ -133,11 +140,8 @@ mod tests {
         let rows = repo.claim_due(10).await.expect("claim due");
         let by_session = rows_by_session(&rows);
         assert_eq!(by_session.len(), 2);
-        assert_eq!(by_session.get("session-a"), Some(&1));
-        assert_eq!(by_session.get("session-b"), Some(&1));
-        assert!(!rows.iter().any(
-            |row| row.session_id.as_deref() == Some("session-a") && row.runtime_seq == Some(2)
-        ));
+        assert_eq!(by_session.get("session-a"), Some(&vec![1, 2]));
+        assert_eq!(by_session.get("session-b"), Some(&vec![1]));
     }
 
     #[tokio::test]
@@ -162,5 +166,28 @@ mod tests {
         assert_eq!(second.len(), 1);
         assert_eq!(second[0].session_id.as_deref(), Some("ready"));
         assert_eq!(second[0].runtime_seq, Some(1));
+    }
+
+    #[tokio::test]
+    async fn runtime_outbox_preserves_payload_occurred_at() {
+        let (_dir, repo) = setup_repo().await;
+        let occurred_at = DateTime::parse_from_rfc3339("2026-06-22T13:50:41.088180424Z")
+            .expect("parse occurred_at")
+            .with_timezone(&Utc);
+
+        repo.enqueue_runtime_event(
+            "runtime-ws",
+            "turn_completed",
+            json!({
+                "session_id": "session-a",
+                "occurred_at": "2026-06-22T13:50:41.088180424Z"
+            }),
+        )
+        .await
+        .expect("enqueue event");
+
+        let rows = repo.claim_due(10).await.expect("claim due");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].occurred_at, occurred_at);
     }
 }
