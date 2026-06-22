@@ -2,6 +2,85 @@
 
 This repository is set up so a new agent or developer can start the full local stack with Docker Compose and make live changes to the web app, API, and worker.
 
+## CI Quality Gates — Run These Before Creating a PR
+
+**40% of CI failures come from the `ci-quality` job.** Every agent MUST run these checks on their changes before pushing or opening a PR. Skipping them wastes pipeline minutes and reviewer attention.
+
+### Prerequisite
+
+```sh
+# Ensure golangci-lint is installed (the CI version is v1.64.8)
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+```
+
+### Run the full quality check locally
+
+This mirrors the `ci-quality` Makefile target exactly:
+
+```sh
+cd /workspace/repos/hivy
+
+# 1. Check for whitespace / merge-conflict markers in the diff
+git diff --check
+
+# 2. Go vet — structural issues the compiler won't catch
+go vet ./internal/... ./cmd/server/...
+
+# 3. File-length ceiling — Go files ≤300 lines, TS/TSX files ≤600 lines
+./scripts/check-go-file-length.sh
+./scripts/check-ts-file-length.sh
+
+# 4. Comment density — comments must be ≤10% of added Go lines in your PR.
+#    This rule is specifically aimed at AI agents: delete comments that
+#    restate what well-named code already says, step-by-step narration,
+#    "added for X" notes, placeholder TODOs, and decorative banners.
+#    Keep only comments that explain non-obvious WHY — hidden constraints,
+#    subtle invariants, workarounds for specific bugs.
+./scripts/check-go-comment-density.sh
+
+# 5. Log budget — total log call sites must stay under 475. Don't add
+#    net-new slog.Info/Warn/Error or fmt.Print calls without a good reason.
+#    Prefer slog.Debug or logging.Capture(ctx, err) for non-critical paths.
+./scripts/check-log-budget.sh
+
+# 6. Bare goroutine gate — forbid bare 'go ' statements outside the
+#    explicit allowlist. Use goroutine.Go(ctx, fn) or sourcegraph/conc
+#    pools instead.
+./scripts/check-bare-goroutines.sh
+
+# 7. Migration sanity — migration files must be contiguously numbered
+#    with no gaps or duplicates.
+./scripts/check-migrations.sh
+```
+
+Alternatively, run the aggregate `check` target which also builds and runs tests:
+
+```sh
+make check
+```
+
+### Also: golangci-lint (separate CI job)
+
+The lint workflow runs `golangci-lint` scoped to new code only (`--new-from-rev=origin/main`). Run it locally before pushing:
+
+```sh
+golangci-lint run --timeout=5m --new-from-rev=origin/main ./internal/... ./cmd/server/...
+```
+
+### Common failure patterns and how to fix them
+
+| CI Failure | Cause | Fix |
+|---|---|---|
+| `Go files exceeding 300 lines` | A Go file you created or edited is too long | Split the file. Do NOT add it to `scripts/file-length-allowlist.txt` unless it's genuinely generated code. |
+| `Comment density N% exceeds the 10% ceiling` | You added too many comment lines vs code lines | Delete low-signal comments: step-by-step narration, obvious restatements, "added for X" notes, decorative banners. Keep only non-obvious WHY explanations. |
+| `Log emit count N exceeds budget 475` | You added net-new log call sites | Replace with `slog.Debug` or `logging.Capture(ctx, err)` if not critical. |
+| `Bare 'go' statements found` | You wrote `go func()` without panic recovery | Use `goroutine.Go(ctx, func(ctx context.Context) { ... })` or a `sourcegraph/conc` pool. |
+| `golangci-lint` reports issues | Linter caught style/safety problems | Run `golangci-lint run --new-from-rev=origin/main ./internal/... ./cmd/server/...` locally and fix the reported issues. |
+
+### Why these checks exist
+
+These quality gates exist because past incidents (unrecovered panics in bare goroutines, log noise drift, excessive commenting from AI agents, file-length bloat) caused real production issues and wasted review cycles. The checks are fast — run them before `git push` and keep CI green.
+
 ## First Run
 
 Prerequisites:
