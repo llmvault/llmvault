@@ -11,6 +11,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 const agentSandboxStrategyAlwaysOn = "always_on"
@@ -63,6 +64,13 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 	if agent == nil || agent.OrgID == nil {
 		return nil, nil, fmt.Errorf("session message delivery: agent must have org_id")
 	}
+	draining, err := sessionRuntimeDraining(ctx, h.db, session)
+	if err != nil {
+		return nil, nil, fmt.Errorf("check session runtime drain status: %w", err)
+	}
+	if draining {
+		return nil, nil, ErrSessionRuntimeDraining
+	}
 	sb, err := h.loadRuntimeSandbox(ctx, session, agent)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if !h.allowProvisioning {
@@ -87,4 +95,37 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 		return nil, nil, fmt.Errorf("get runtime client: %w", err)
 	}
 	return sb, client, nil
+}
+
+func sessionRuntimeDraining(ctx context.Context, db *gorm.DB, session model.Session) (bool, error) {
+	if db == nil || session.OrgID == uuid.Nil || session.AgentID == uuid.Nil {
+		return false, nil
+	}
+	if session.SandboxID != nil {
+		var count int64
+		if err := db.WithContext(ctx).Model(&model.Sandbox{}).
+			Where("id = ? AND org_id = ? AND agent_id = ? AND status = ?", *session.SandboxID, session.OrgID, session.AgentID, string(sandbox.StatusDraining)).
+			Count(&count).Error; err != nil {
+			return false, err
+		}
+		return count > 0, nil
+	}
+
+	var running int64
+	if err := db.WithContext(ctx).Model(&model.Sandbox{}).
+		Where("org_id = ? AND agent_id = ? AND status = ?", session.OrgID, session.AgentID, string(sandbox.StatusRunning)).
+		Count(&running).Error; err != nil {
+		return false, err
+	}
+	if running > 0 {
+		return false, nil
+	}
+
+	var count int64
+	if err := db.WithContext(ctx).Model(&model.Sandbox{}).
+		Where("org_id = ? AND agent_id = ? AND status = ?", session.OrgID, session.AgentID, string(sandbox.StatusDraining)).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

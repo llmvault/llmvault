@@ -84,11 +84,22 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			if perSessionSandbox != nil {
 				h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
 			}
+			if errors.Is(err, errSessionSandboxDraining) {
+				writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
+				return
+			}
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 			return
 		}
 		queued, err = h.dispatchSessionMessageIntent(r.Context(), intent)
 		if err != nil {
+			if errors.Is(err, errSessionSandboxDraining) {
+				if perSessionSandbox != nil {
+					h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
+				}
+				writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
+				return
+			}
 			if agent.SandboxStrategy == agentStrategyPerSession {
 				h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
 				logging.FromContext(r.Context()).ErrorContext(r.Context(), "send initial per-session message failed", "session_id", session.ID, "agent_id", agent.ID, "error", err)

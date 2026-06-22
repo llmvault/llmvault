@@ -287,3 +287,14 @@ func (h *SessionMessageDeliverHandler) releaseSessionTurn(ctx context.Context, s
 			"agent_turn_last_outcome": model.SessionAgentTurnOutcomeFailed,
 		}).Error
 }
+
+func (h *SessionMessageDeliverHandler) releaseSessionTurnIdle(ctx context.Context, sessionID uuid.UUID) error {
+	return h.db.WithContext(ctx).Model(&model.Session{}).
+		Where("id = ?", sessionID).
+		Updates(map[string]any{
+			"agent_turn_status":     model.SessionAgentTurnIdle,
+			"agent_turn_id":         "",
+			"agent_stream_id":       "",
+			"agent_turn_started_at": nil,
+		}).Error
+}

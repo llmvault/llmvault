@@ -200,6 +200,14 @@ impl StreamBatcher {
         self.spawn_send(events);
     }
 
+    pub async fn flush_all(&self) -> Result<()> {
+        let mut state = self.state.lock().await;
+        if !state.coalescing.is_empty() || !state.pending.is_empty() {
+            self.flush_locked(&mut state).await?;
+        }
+        Ok(())
+    }
+
     async fn flush_locked(&self, state: &mut BatchState) -> Result<()> {
         state.finish_all();
         let events = state.drain_pending();
@@ -772,7 +780,7 @@ mod tests {
             std::process::id(),
             BATCH_DB_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
-        let store = init_sqlite_store(&db_path, None).await.expect("init store");
+        let store = init_sqlite_store(&db_path).await.expect("init store");
         let queue = DatabaseEventQueue::new(store.writer());
         (store, queue)
     }

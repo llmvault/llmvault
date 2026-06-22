@@ -12,9 +12,7 @@ async fn idempotent_event_append_is_enforced_by_sqlite() {
         "agent-event-idempotency-{}-{unique}.db",
         std::process::id()
     ));
-    let store = init_sqlite_store(&db_path, None)
-        .await
-        .expect("init sqlite");
+    let store = init_sqlite_store(&db_path).await.expect("init sqlite");
     let sessions = SqliteSessionRepo::new(&store);
     let events = SqliteEventRepo::new(&store);
     let now = Utc::now();

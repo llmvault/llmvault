@@ -53,22 +53,6 @@ func recordAgentSandboxUpgradeNewSandbox(ctx context.Context, upgrade *model.Age
 	})
 }
 
-func recordAgentSandboxUpgradeBackup(ctx context.Context, upgrade *model.AgentSandboxUpgrade, meta *agentSandboxBackupMetadata) {
-	hub := agentUpgradeHub(ctx)
-	if hub == nil || upgrade == nil || meta == nil {
-		return
-	}
-	setAgentUpgradeContext(hub, upgrade, nil, sentrygo.Context{
-		"backup_key":    meta.Key,
-		"backup_sha256": meta.SHA256,
-		"backup_bytes":  meta.Bytes,
-	})
-	addAgentUpgradeBreadcrumb(ctx, "backup captured", sentrygo.LevelInfo, sentrygo.Context{
-		"backup_key":   meta.Key,
-		"backup_bytes": meta.Bytes,
-	})
-}
-
 func recordAgentSandboxUpgradeFailure(ctx context.Context, upgrade *model.AgentSandboxUpgrade, phase, message string) {
 	hub := agentUpgradeHub(ctx)
 	if hub == nil || upgrade == nil {

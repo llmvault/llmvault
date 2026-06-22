@@ -88,6 +88,14 @@ impl OutboxRepo for SqliteOutboxRepo {
         Ok(outbox_rows)
     }
 
+    async fn pending_count(&self) -> Result<i64> {
+        let count = sqlx::query_scalar("SELECT COUNT(*) FROM outbound_outbox WHERE status = ?")
+            .bind(STATUS_PENDING)
+            .fetch_one(self.pool.as_ref())
+            .await?;
+        Ok(count)
+    }
+
     async fn mark_delivered(&self, id: i64) -> Result<()> {
         self.writer.mark_outbox_delivered(id).await
     }

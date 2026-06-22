@@ -1,5 +1,5 @@
 mod activity;
-mod db_sync;
+mod drain;
 mod handler;
 mod sentry_support;
 mod session_coordinator;
@@ -18,7 +18,6 @@ use agent::{AgentRunner, RigAgentRunner};
 use anyhow::{Context, Result};
 use api::{ApiState, OutboundConfigReloader};
 use async_trait::async_trait;
-use db_sync::{spawn_db_sync, DbSyncConfig, DbSyncNotifierHandle};
 use domain::{
     AgentDefinition, AgentMeta, ConfigStore, DynamicContextPromptSegment, InboundEvent,
     ListPromptSegment, ModelConfig, OutboundChannelSpec, ReasoningEffort, StaticPromptSegment,
@@ -93,9 +92,7 @@ async fn main() -> Result<()> {
     info!(workspace = %workspace_root.display(), "workspace ready");
     info!(database = %database_path, "initializing storage");
     let database_path = PathBuf::from(&database_path);
-    let db_sync_notifier_handle = Arc::new(DbSyncNotifierHandle::default());
-    let write_notifier: storage::SharedWriteNotifier = db_sync_notifier_handle.clone();
-    let sqlite_store = init_sqlite_store(database_path.clone(), Some(write_notifier)).await?;
+    let sqlite_store = init_sqlite_store(database_path.clone()).await?;
     let config_repo: Arc<dyn storage::ConfigRepo> = Arc::new(SqliteConfigRepo::new(&sqlite_store));
     let session_repo: Arc<dyn storage::SessionRepo> =
         Arc::new(SqliteSessionRepo::new(&sqlite_store));
@@ -196,6 +193,13 @@ async fn main() -> Result<()> {
     let attachment_downloader: Arc<dyn handler::AttachmentDownloader> =
         Arc::new(handler::HttpAttachmentDownloader::new());
     let coordinator = Arc::new(SessionCoordinator::new());
+    let drain_controller = Arc::new(drain::RuntimeDrainController::new(
+        coordinator.clone(),
+        inbound_sink.clone(),
+        emitter.clone(),
+        outbox_repo.clone(),
+        sqlite_store.clone(),
+    ));
 
     let api_state = ApiState::new(
         config.clone(),
@@ -215,6 +219,7 @@ async fn main() -> Result<()> {
         Some(repo_service.clone()),
         Some(mcp_registry.clone()),
         Some(outbound_reloader),
+        Some(drain_controller),
         sentry_enabled,
         sentry_dsn_set,
     );
@@ -226,21 +231,6 @@ async fn main() -> Result<()> {
 
     api_state.wait_for_config_loaded().await;
     let active_definition = config.snapshot();
-    let active_runtime_env = config.runtime_env();
-    let db_sync_notifier =
-        DbSyncConfig::from_runtime_env(database_path.clone(), &active_runtime_env).map(|config| {
-            info!(
-                threshold = config.write_threshold,
-                interval_seconds = config.interval.as_secs(),
-                "sqlite backup sync enabled"
-            );
-            let notifier = spawn_db_sync(config);
-            db_sync_notifier_handle.set(notifier.clone());
-            notifier
-        });
-    if db_sync_notifier.is_none() {
-        info!("sqlite backup sync disabled");
-    }
     info!(
         agent = %active_definition.agent.name,
         mcp_servers = active_definition.mcp_servers.len(),

@@ -34,7 +34,6 @@ func setupPublicRoutes(
 	sandboxEncKey *crypto.SymmetricKey,
 	kms *crypto.KeyWrapper,
 	uploadsHandler *handler.UploadsHandler,
-	sqliteBackupHandler *handler.AgentSQLiteBackupHandler,
 	canvasHandler *handler.CanvasHandler,
 	orchestrator *sandbox.Orchestrator,
 	orchestratorMissing bool,
@@ -117,11 +116,6 @@ func setupPublicRoutes(
 		r.Delete("/internal/agents/{agentID}/drive/*", uploadsHandler.DeleteAgentAsset)
 	}
 
-	if sqliteBackupHandler != nil {
-		r.Put("/internal/agents/{agentID}/sqlite-backup", sqliteBackupHandler.Upload)
-		r.Post("/internal/agents/{agentID}/sqlite-backup/presign", sqliteBackupHandler.Presign)
-		r.Post("/internal/agents/{agentID}/sqlite-backup/confirm", sqliteBackupHandler.Confirm)
-	}
 	if canvasHandler != nil {
 		r.Get("/internal/agents/{agentID}/canvas/projects", canvasHandler.ListAgentProjects)
 		r.Post("/internal/agents/{agentID}/canvas/projects", canvasHandler.CreateAgentProject)

@@ -112,6 +112,10 @@ impl OutboxRepo for FakeOutbox {
         Ok(Vec::new())
     }
 
+    async fn pending_count(&self) -> storage::Result<i64> {
+        Ok(self.rows.lock().expect("outbox lock").len() as i64)
+    }
+
     async fn mark_delivered(&self, _id: i64) -> storage::Result<()> {
         Ok(())
     }

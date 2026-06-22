@@ -17,9 +17,7 @@ fn history_payload(text: &str, role: &str) -> serde_json::Value {
 async fn search_sessions_finds_readable_conversation_rows() {
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().join("runtime.db");
-    let store = init_sqlite_store(&db_path, None)
-        .await
-        .expect("init sqlite");
+    let store = init_sqlite_store(&db_path).await.expect("init sqlite");
     let sessions = SqliteSessionRepo::new(&store);
     let events = SqliteEventRepo::new(&store);
     let now = chrono::Utc::now();

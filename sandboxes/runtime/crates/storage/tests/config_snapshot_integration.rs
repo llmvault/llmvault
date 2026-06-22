@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use domain::{
     AgentDefinition, AgentMeta, ModelConfig, StaticPromptSegment, SystemPromptConfig,
-    SystemPromptSegment,
+    SystemPromptSegment, WorkspaceConfig, WorkspaceRepoConfig,
 };
 use storage::{init_sqlite_store, ConfigRepo, ConfigSnapshot, SqliteConfigRepo};
 
@@ -16,9 +16,7 @@ async fn config_snapshot_persists_definition_and_runtime_env() {
         "agent-config-snapshot-{}-{unique}.db",
         std::process::id()
     ));
-    let store = init_sqlite_store(&db_path, None)
-        .await
-        .expect("init sqlite");
+    let store = init_sqlite_store(&db_path).await.expect("init sqlite");
     let repo = SqliteConfigRepo::new(&store);
 
     repo.upsert(&ConfigSnapshot {
@@ -30,6 +28,15 @@ async fn config_snapshot_persists_definition_and_runtime_env() {
                 "runtime-secret".to_string(),
             ),
         ]),
+        workspace: WorkspaceConfig {
+            repos: vec![WorkspaceRepoConfig {
+                id: "usehivy/hivy".to_string(),
+                name: "hivy".to_string(),
+                full_name: "usehivy/hivy".to_string(),
+                clone_url: "https://github.com/usehivy/hivy.git".to_string(),
+                depth: Some(1),
+            }],
+        },
     })
     .await
     .expect("upsert snapshot");
@@ -44,6 +51,8 @@ async fn config_snapshot_persists_definition_and_runtime_env() {
         loaded.runtime_env.get("HIVY_PROXY_API_KEY"),
         Some(&"ptok_config".to_string())
     );
+    assert_eq!(loaded.workspace.repos.len(), 1);
+    assert_eq!(loaded.workspace.repos[0].full_name, "usehivy/hivy");
 
     let _ = std::fs::remove_file(db_path);
 }

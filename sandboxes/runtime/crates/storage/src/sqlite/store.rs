@@ -5,7 +5,7 @@ use std::sync::Arc;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::{Executor, SqlitePool};
 
-use crate::repos::{Result, SharedWriteNotifier, StorageError};
+use crate::repos::{Result, StorageError};
 
 use super::write_gateway::SqliteWriteGateway;
 
@@ -29,10 +29,7 @@ impl SqliteStore {
     }
 }
 
-pub async fn init_sqlite_store(
-    database_path: impl AsRef<Path>,
-    write_notifier: Option<SharedWriteNotifier>,
-) -> Result<SqliteStore> {
+pub async fn init_sqlite_store(database_path: impl AsRef<Path>) -> Result<SqliteStore> {
     let path = database_path.as_ref();
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -53,7 +50,7 @@ pub async fn init_sqlite_store(
         .map_err(|error| StorageError::Other(anyhow::anyhow!(error)))?;
     setup_pool.close().await;
 
-    let writer = SqliteWriteGateway::spawn(write_options, write_notifier).await?;
+    let writer = SqliteWriteGateway::spawn(write_options).await?;
 
     let read_options = sqlite_options(path, "ro")?;
     let read_pool = SqlitePoolOptions::new()

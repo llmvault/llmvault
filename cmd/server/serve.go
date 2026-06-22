@@ -149,16 +149,6 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		authHandler.SetAgentSyncer(agentHandler)
 		oauthHandler.SetAgentSyncer(agentHandler)
 	}
-	var sqliteBackupHandler *handler.AgentSQLiteBackupHandler
-	if deps.S3Client != nil && sandboxEncKey != nil {
-		sqliteBackupHandler = handler.NewAgentSQLiteBackupHandler(
-			database,
-			deps.S3Client,
-			sandboxEncKey,
-			cfg.AgentSQLiteBackupMaxBytes,
-		).WithRuntimeImages(sandbox.AgentRuntimeImageRef(cfg, model.SandboxImageDefault))
-	}
-
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
 	imageDescribeHandler := buildImageDescribeHandler(database, cfg, deps)
 	if imageDescribeHandler != nil && uploadsHandler != nil {
@@ -204,7 +194,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, sqliteBackupHandler, canvasHandler, orchestrator, orchestratorMissing)
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, canvasHandler, orchestrator, orchestratorMissing)
 	runtimeIngressHandler := handler.NewRuntimeStreamIngressHandler(database, sandboxEncKey, runtimeStreamStore)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/ws", runtimeIngressHandler.HandleWS)
 
@@ -220,7 +210,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: r,
 		// ReadHeaderTimeout guards against Slowloris without killing long request
-		// bodies (drive uploads, sqlite backups); per-handler deadlines use the ctx.
+		// bodies (drive uploads); per-handler deadlines use the ctx.
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      0,
 		IdleTimeout:       120 * time.Second,

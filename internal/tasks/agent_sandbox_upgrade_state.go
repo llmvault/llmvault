@@ -62,7 +62,11 @@ func (h *AgentSandboxUpgradeHandler) loadAndStart(ctx context.Context, payload A
 	var oldSandbox *model.Sandbox
 	var oldSandboxErr error
 	if upgrade.OldSandboxID != nil {
-		oldSandbox, oldSandboxErr = selector.MainRuntimeByID(ctx, upgrade.OrgID, upgrade.AgentID, *upgrade.OldSandboxID)
+		var recorded model.Sandbox
+		oldSandboxErr = h.db.WithContext(ctx).
+			Where("id = ? AND org_id = ? AND agent_id = ?", *upgrade.OldSandboxID, upgrade.OrgID, upgrade.AgentID).
+			First(&recorded).Error
+		oldSandbox = &recorded
 	} else {
 		oldSandbox, oldSandboxErr = selector.MainRuntime(ctx, upgrade.OrgID, upgrade.AgentID)
 	}

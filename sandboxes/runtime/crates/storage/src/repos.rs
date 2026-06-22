@@ -5,7 +5,6 @@ use domain::{
     SessionId, SessionStatus, SubagentTask, SubagentTaskState, WorkspaceConfig,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
@@ -22,18 +21,6 @@ pub enum StorageError {
 }
 
 pub type Result<T> = std::result::Result<T, StorageError>;
-
-pub trait WriteNotifier: Send + Sync + 'static {
-    fn record_write(&self);
-}
-
-pub type SharedWriteNotifier = Arc<dyn WriteNotifier>;
-
-pub fn notify_write(notifier: &Option<SharedWriteNotifier>) {
-    if let Some(notifier) = notifier {
-        notifier.record_write();
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct ConfigSnapshot {
@@ -137,6 +124,7 @@ pub trait OutboxRepo: Send + Sync + 'static {
         self.enqueue(channel_name, event_type, payload).await
     }
     async fn claim_due(&self, limit: u32) -> Result<Vec<OutboxRow>>;
+    async fn pending_count(&self) -> Result<i64>;
     async fn mark_delivered(&self, id: i64) -> Result<()>;
     async fn schedule_retry(
         &self,

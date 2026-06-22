@@ -7,6 +7,7 @@ import (
 )
 
 var ErrSandboxNotFound = errors.New("sandbox not found upstream")
+var ErrSandboxDraining = errors.New("sandbox is draining")
 
 const (
 	ProviderDaytona      = "daytona"
@@ -26,6 +27,10 @@ const (
 	StatusArchived  SandboxStatus = "archived"
 	StatusArchiving SandboxStatus = "archiving"
 	StatusError     SandboxStatus = "error"
+	// StatusDraining marks a sandbox that has accepted a recycle drain signal.
+	// It is deliberately non-selectable for new runtime traffic; the control
+	// plane polls the runtime until accepted turns and outbound webhooks finish.
+	StatusDraining SandboxStatus = "draining"
 	// StatusUpgrading marks the replacement sandbox mid-upgrade. It is deliberately
 	// NOT in activeSandboxStatuses, so traffic stays on the old sandbox until the
 	// new one is restored, synced, and flipped to running.

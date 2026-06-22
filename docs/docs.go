@@ -1903,7 +1903,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Queues a control-plane upgrade that snapshots the agent runtime SQLite database,\nrecreates the sandbox on the current agent image, restores the database,\nsyncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.\nIf an upgrade is already queued or running for the agent, the active operation is returned.",
+                "description": "Queues a control-plane upgrade that creates a replacement sandbox, syncs config,\ndrains the old runtime until active turns and webhooks finish, activates the replacement,\nand schedules cleanup for the old sandbox.\nIf an upgrade is already queued or running for the agent, the active operation is returned.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9839,15 +9839,6 @@ const docTemplate = `{
         "agentSandboxUpgradeResponse": {
             "type": "object",
             "properties": {
-                "backup_bytes": {
-                    "type": "integer"
-                },
-                "backup_key": {
-                    "type": "string"
-                },
-                "backup_sha256": {
-                    "type": "string"
-                },
                 "completed_at": {
                     "type": "string"
                 },

@@ -121,6 +121,88 @@
         ]
       }
     },
+    "/control/drain": {
+      "get": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "operationId": "get_control_drain",
+        "responses": {
+          "200": {
+            "description": "Current drain status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainStatusResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "drain API is not enabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "operationId": "post_control_drain",
+        "responses": {
+          "200": {
+            "description": "Drain signal accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainStatusResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "drain API is not enabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/control/drain/cancel": {
+      "post": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "operationId": "post_control_drain_cancel",
+        "responses": {
+          "200": {
+            "description": "Drain cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainStatusResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "drain API is not enabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -1175,6 +1257,54 @@
           }
         }
       },
+      "DrainStatusResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "draining",
+          "complete",
+          "active_turns",
+          "pending_accepted_messages",
+          "pending_outbox_events"
+        ],
+        "properties": {
+          "active_turns": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "draining": {
+            "type": "boolean"
+          },
+          "pending_accepted_messages": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending_outbox_events": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "DynamicContextPromptSegment": {
         "type": "object",
         "properties": {
@@ -1932,6 +2062,37 @@
                 "type": "string",
                 "enum": [
                   "webhook"
+                ]
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "url",
+              "secret_env",
+              "type"
+            ],
+            "properties": {
+              "extra_headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              },
+              "secret_env": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "websocket"
                 ]
               },
               "url": {

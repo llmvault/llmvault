@@ -18,7 +18,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqliteConnection};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::repos::{ConfigSnapshot, Result, SharedWriteNotifier, StorageError};
+use crate::repos::{ConfigSnapshot, Result, StorageError};
 
 use request::{run_writer, WriteRequest, WRITE_QUEUE_CAPACITY};
 
@@ -36,10 +36,7 @@ pub struct EventsLogWrite {
 }
 
 impl SqliteWriteGateway {
-    pub async fn spawn(
-        options: SqliteConnectOptions,
-        write_notifier: Option<SharedWriteNotifier>,
-    ) -> Result<Arc<Self>> {
+    pub async fn spawn(options: SqliteConnectOptions) -> Result<Arc<Self>> {
         let mut conn = SqliteConnection::connect_with(&options)
             .await
             .map_err(StorageError::from)?;
@@ -49,7 +46,7 @@ impl SqliteWriteGateway {
             tx,
             queued: Arc::new(AtomicUsize::new(0)),
         });
-        tokio::spawn(run_writer(rx, conn, gateway.queued.clone(), write_notifier));
+        tokio::spawn(run_writer(rx, conn, gateway.queued.clone()));
         Ok(gateway)
     }
 
