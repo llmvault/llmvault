@@ -17,7 +17,11 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-const agentSandboxDrainTimeout = 10 * time.Minute
+const (
+	agentSandboxDrainTimeout        = 10 * time.Minute
+	agentSandboxDrainSignalAttempts = 2
+	agentSandboxDrainSignalBackoff  = 500 * time.Millisecond
+)
 
 type AgentSandboxUpgradeHandler struct {
 	db           *gorm.DB

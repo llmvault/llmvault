@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
@@ -46,8 +47,12 @@ func (h *AgentSandboxUpgradeHandler) waitForOldSandboxRuntimeDrain(ctx context.C
 	if err != nil {
 		return err
 	}
-	if _, err := client.StartDrain(ctx); err != nil {
-		return fmt.Errorf("send runtime drain signal: %w", err)
+	signaled, err := h.sendOldSandboxDrainSignal(ctx, client, oldSandbox)
+	if err != nil {
+		return err
+	}
+	if !signaled {
+		return nil
 	}
 
 	pollCtx, cancel := context.WithTimeout(ctx, agentSandboxDrainTimeout)
@@ -74,6 +79,41 @@ func (h *AgentSandboxUpgradeHandler) waitForOldSandboxRuntimeDrain(ctx context.C
 		case <-ticker.C:
 		}
 	}
+}
+
+func (h *AgentSandboxUpgradeHandler) sendOldSandboxDrainSignal(ctx context.Context, client *agentruntime.Client, oldSandbox *model.Sandbox) (bool, error) {
+	var lastErr error
+	for attempt := 1; attempt <= agentSandboxDrainSignalAttempts; attempt++ {
+		if _, err := client.StartDrain(ctx); err != nil {
+			lastErr = err
+			if ctx.Err() != nil {
+				return false, fmt.Errorf("send runtime drain signal: %w", err)
+			}
+			logging.FromContext(ctx).WarnContext(ctx, "agent sandbox upgrade drain signal failed",
+				"sandbox_id", oldSandbox.ID,
+				"attempt", attempt,
+				"max_attempts", agentSandboxDrainSignalAttempts,
+				"error", err,
+			)
+			if attempt < agentSandboxDrainSignalAttempts {
+				select {
+				case <-ctx.Done():
+					return false, fmt.Errorf("send runtime drain signal: %w", ctx.Err())
+				case <-time.After(agentSandboxDrainSignalBackoff):
+				}
+			}
+			continue
+		}
+		return true, nil
+	}
+	err := fmt.Errorf("runtime drain signal failed after %d attempts: %w", agentSandboxDrainSignalAttempts, lastErr)
+	logging.Capture(ctx, err)
+	logging.FromContext(ctx).WarnContext(ctx, "agent sandbox upgrade continuing because old runtime did not accept drain signal",
+		"sandbox_id", oldSandbox.ID,
+		"attempts", agentSandboxDrainSignalAttempts,
+		"error", lastErr,
+	)
+	return false, nil
 }
 
 func (h *AgentSandboxUpgradeHandler) countNonIdleSessionsForAgent(ctx context.Context, orgID, agentID uuid.UUID) (int64, error) {
