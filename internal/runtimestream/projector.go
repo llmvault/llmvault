@@ -20,6 +20,7 @@ import (
 const (
 	defaultProjectorBatchSize = int64(100)
 	defaultProjectorBlock     = 5 * time.Second
+	defaultProjectorFlushWait = time.Second
 	defaultProjectorMinIdle   = 30 * time.Second
 	defaultShardLeaseTTL      = 15 * time.Second
 )
@@ -45,6 +46,7 @@ type Projector struct {
 	consumer  string
 	batchSize int64
 	block     time.Duration
+	flushWait time.Duration
 	minIdle   time.Duration
 	leaseTTL  time.Duration
 	logger    *slog.Logger
@@ -63,6 +65,7 @@ func NewProjector(store *Store, db *gorm.DB, logger *slog.Logger) *Projector {
 		consumer:  consumer,
 		batchSize: defaultProjectorBatchSize,
 		block:     defaultProjectorBlock,
+		flushWait: defaultProjectorFlushWait,
 		minIdle:   defaultProjectorMinIdle,
 		leaseTTL:  defaultShardLeaseTTL,
 		logger:    logger,
@@ -136,34 +139,60 @@ func (p *Projector) runOwnedShard(ctx context.Context, shard int, leaseKey strin
 		return err
 	}
 	stream := StreamKey(shard)
+	batch := newProjectorMessageBatch(p.batchSize, p.flushWait)
 	for ctx.Err() == nil {
-		if err := p.claimStale(ctx, stream, shard); err != nil {
-			p.logger.ErrorContext(ctx, "runtime stream projector: claim stale messages", "shard", shard, "error", err)
-			sleepOrDone(ctx, time.Second)
+		if batch.empty() {
+			if err := p.claimStale(ctx, stream, shard); err != nil {
+				p.logger.ErrorContext(ctx, "runtime stream projector: claim stale messages", "shard", shard, "error", err)
+				sleepOrDone(ctx, time.Second)
+				continue
+			}
+		}
+		now := time.Now()
+		if batch.ready(now) {
+			p.flushRuntimeBatch(ctx, stream, shard, &batch)
+			continue
+		}
+		block := batch.readBlock(now, p.block)
+		if block <= 0 {
+			p.flushRuntimeBatch(ctx, stream, shard, &batch)
 			continue
 		}
 		streams, err := p.store.Redis().XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:    ProjectorGroup,
 			Consumer: p.consumer,
 			Streams:  []string{stream, ">"},
-			Count:    p.batchSize,
-			Block:    p.block,
+			Count:    batch.remaining(),
+			Block:    block,
 		}).Result()
 		if err != nil {
 			if errors.Is(err, redis.Nil) {
+				if !batch.empty() {
+					p.flushRuntimeBatch(ctx, stream, shard, &batch)
+				}
 				continue
 			}
 			return err
 		}
 		for _, result := range streams {
-			if err := p.processMessages(ctx, stream, result.Messages); err != nil {
-				p.logger.ErrorContext(ctx, "runtime stream projector: process messages", "shard", shard, "error", err)
-				sleepOrDone(ctx, time.Second)
-				break
+			batch.add(result.Messages, time.Now())
+			if batch.ready(time.Now()) {
+				p.flushRuntimeBatch(ctx, stream, shard, &batch)
 			}
 		}
 	}
 	return ctx.Err()
+}
+
+func (p *Projector) flushRuntimeBatch(ctx context.Context, stream string, shard int, batch *projectorMessageBatch) {
+	if batch == nil || batch.empty() {
+		return
+	}
+	if err := p.processMessages(ctx, stream, batch.messages); err != nil {
+		p.logger.ErrorContext(ctx, "runtime stream projector: process messages", "shard", shard, "error", err)
+		sleepOrDone(ctx, time.Second)
+	}
+	batch.reset()
 }
 
 func (p *Projector) renewShardLease(ctx context.Context, cancel context.CancelFunc, shard int, leaseKey string) {
