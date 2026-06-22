@@ -18,6 +18,7 @@ const (
 	AgentSandboxUpgradePhaseRestore     = "restore"
 	AgentSandboxUpgradePhaseRestartNew  = "restart_new"
 	AgentSandboxUpgradePhaseSync        = "sync"
+	AgentSandboxUpgradePhaseDrainingOld = "draining_old"
 	AgentSandboxUpgradePhasePausingOld  = "pausing_old"
 	AgentSandboxUpgradePhaseCleanupOld  = "cleanup_old"
 	AgentSandboxUpgradePhaseCompleted   = "completed"

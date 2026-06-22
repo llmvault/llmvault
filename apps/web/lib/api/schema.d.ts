@@ -2454,9 +2454,9 @@ export interface paths {
         put?: never;
         /**
          * Start an agent sandbox upgrade
-         * @description Queues a control-plane upgrade that snapshots the agent runtime SQLite database,
-         *     recreates the sandbox on the current agent image, restores the database,
-         *     syncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.
+         * @description Queues a control-plane upgrade that creates a replacement sandbox, syncs config,
+         *     drains the old runtime until active turns and webhooks finish, activates the replacement,
+         *     and schedules cleanup for the old sandbox.
          *     If an upgrade is already queued or running for the agent, the active operation is returned.
          */
         post: {
@@ -11059,9 +11059,6 @@ export interface components {
             status?: string;
         };
         agentSandboxUpgradeResponse: {
-            backup_bytes?: number;
-            backup_key?: string;
-            backup_sha256?: string;
             completed_at?: string;
             created_at?: string;
             error_message?: string;

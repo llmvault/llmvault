@@ -38,6 +38,15 @@ func (h *SessionHandler) createInitialSessionMessageIntent(ctx context.Context, 
 	}
 	direct := h.runtimeDeliveryConfigured()
 	if direct {
+		draining, err := h.sessionSandboxDraining(ctx, *session)
+		if err != nil {
+			return sessionMessageDeliveryIntent{}, fmt.Errorf("check session sandbox drain status: %w", err)
+		}
+		if draining {
+			return sessionMessageDeliveryIntent{}, errSessionSandboxDraining
+		}
+	}
+	if direct {
 		markSessionTurnStarting(session, time.Now())
 	}
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -101,6 +110,13 @@ func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base mo
 			First(&session).Error; err != nil {
 			return fmt.Errorf("lock session for message delivery: %w", err)
 		}
+		draining, err := h.sessionSandboxDraining(ctx, session)
+		if err != nil {
+			return fmt.Errorf("check session sandbox drain status: %w", err)
+		}
+		if draining {
+			return errSessionSandboxDraining
+		}
 		now := time.Now()
 		updates := map[string]any{"updated_at": now}
 		session.UpdatedAt = now
@@ -162,6 +178,10 @@ func (h *SessionHandler) dispatchSessionMessageIntent(ctx context.Context, inten
 	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer)
 	delivery, err := dispatcher.DeliverCommand(ctx, intent.Session, intent.Command)
 	if err != nil {
+		if agentruntime.IsRuntimeDrainingError(err) {
+			_ = h.releaseDirectSessionTurnIdle(context.WithoutCancel(ctx), intent.Session.ID)
+			return false, errSessionSandboxDraining
+		}
 		_ = h.releaseDirectSessionTurn(context.WithoutCancel(ctx), intent.Session.ID)
 		return false, err
 	}
@@ -194,5 +214,16 @@ func (h *SessionHandler) releaseDirectSessionTurn(ctx context.Context, sessionID
 			"agent_stream_id":         "",
 			"agent_turn_started_at":   nil,
 			"agent_turn_last_outcome": model.SessionAgentTurnOutcomeFailed,
+		}).Error
+}
+
+func (h *SessionHandler) releaseDirectSessionTurnIdle(ctx context.Context, sessionID uuid.UUID) error {
+	return h.db.WithContext(ctx).Model(&model.Session{}).
+		Where("id = ?", sessionID).
+		Updates(map[string]any{
+			"agent_turn_status":     model.SessionAgentTurnIdle,
+			"agent_turn_id":         "",
+			"agent_stream_id":       "",
+			"agent_turn_started_at": nil,
 		}).Error
 }

@@ -4,9 +4,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use domain::{ConfigStore, OutboundChannelSpec};
 use mcp::McpRegistry;
 use observability::ObservabilityRecorder;
+use serde::Serialize;
 use skills::SkillWriter;
 use storage::{ConfigRepo, EventRepo, SessionRepo};
 use tokio::sync::{Notify, RwLock};
@@ -34,6 +36,7 @@ pub struct ApiState {
     pub repo_service: Option<Arc<RepoService>>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
     pub outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
+    pub drain_controller: Option<Arc<dyn DrainController>>,
     pub observability: ObservabilityRecorder,
     pub sentry_enabled: bool,
     pub sentry_dsn_set: bool,
@@ -46,6 +49,27 @@ pub trait OutboundConfigReloader: Send + Sync {
         specs: &[OutboundChannelSpec],
         runtime_env: &HashMap<String, String>,
     ) -> anyhow::Result<()>;
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct DrainStatusResponse {
+    pub status: String,
+    pub draining: bool,
+    pub complete: bool,
+    pub active_turns: usize,
+    pub pending_accepted_messages: usize,
+    pub pending_outbox_events: i64,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[async_trait]
+pub trait DrainController: Send + Sync {
+    fn is_draining(&self) -> bool;
+    async fn start(&self) -> anyhow::Result<DrainStatusResponse>;
+    async fn status(&self) -> anyhow::Result<DrainStatusResponse>;
+    async fn cancel(&self) -> anyhow::Result<DrainStatusResponse>;
 }
 
 impl ApiState {
@@ -64,6 +88,7 @@ impl ApiState {
         repo_service: Option<Arc<RepoService>>,
         mcp_registry: Option<Arc<McpRegistry>>,
         outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
+        drain_controller: Option<Arc<dyn DrainController>>,
         sentry_enabled: bool,
         sentry_dsn_set: bool,
     ) -> Self {
@@ -88,6 +113,7 @@ impl ApiState {
             repo_service,
             mcp_registry,
             outbound_reloader,
+            drain_controller,
             observability,
             sentry_enabled,
             sentry_dsn_set,
@@ -119,5 +145,11 @@ impl ApiState {
 
     pub fn is_ready(&self) -> bool {
         self.session_api_ready.load(Ordering::Acquire) && self.config_loaded.load(Ordering::Acquire)
+    }
+
+    pub fn is_draining(&self) -> bool {
+        self.drain_controller
+            .as_ref()
+            .is_some_and(|controller| controller.is_draining())
     }
 }

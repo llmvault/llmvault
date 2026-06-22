@@ -28,7 +28,7 @@ pub use repos::RepoService;
 pub use session_stream::{
     SessionInterrupter, SessionMessageState, SessionStreamBroker, SessionStreamEvent,
 };
-pub use state::{ApiState, OutboundConfigReloader};
+pub use state::{ApiState, DrainController, DrainStatusResponse, OutboundConfigReloader};
 
 #[cfg(feature = "openapi")]
 mod openapi {
@@ -40,6 +40,9 @@ mod openapi {
         paths(
             crate::handlers::put_config,
             crate::handlers::post_control_commands,
+            crate::handlers::post_control_drain,
+            crate::handlers::get_control_drain,
+            crate::handlers::post_control_drain_cancel,
             crate::handlers::get_config,
             crate::handlers::list_sessions,
             crate::handlers::get_session_detail,
@@ -120,6 +123,7 @@ mod openapi {
             crate::handlers::ControlCommandsRequest,
             crate::handlers::ControlCommandsResponse,
             crate::handlers::ControlCommandResult,
+            crate::state::DrainStatusResponse,
             crate::handlers::ListSessionsParams,
             crate::handlers::ListSessionsResponse,
             crate::handlers::SessionDetailResponse,
@@ -171,6 +175,14 @@ pub fn build_router(state: ApiState) -> Router {
             put(handlers::put_config).get(handlers::get_config),
         )
         .route("/control/commands", post(handlers::post_control_commands))
+        .route(
+            "/control/drain",
+            post(handlers::post_control_drain).get(handlers::get_control_drain),
+        )
+        .route(
+            "/control/drain/cancel",
+            post(handlers::post_control_drain_cancel),
+        )
         .route("/sessions", get(handlers::list_sessions))
         .route("/sessions/:session_id", get(handlers::get_session_detail))
         .route(
@@ -260,6 +272,8 @@ mod openapi_tests {
         let expected = BTreeSet::from([
             "/config".to_string(),
             "/control/commands".to_string(),
+            "/control/drain".to_string(),
+            "/control/drain/cancel".to_string(),
             "/healthz".to_string(),
             "/observability/traces/{trace_id}/events".to_string(),
             "/observability/traces/{trace_id}/summary".to_string(),

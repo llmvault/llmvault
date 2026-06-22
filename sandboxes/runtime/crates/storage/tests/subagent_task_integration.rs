@@ -14,7 +14,7 @@ async fn setup_repos() -> (Arc<dyn SubagentTaskRepo>, SqliteSessionRepo) {
         "subagent-task-integration-{}-{unique}.db",
         std::process::id()
     ));
-    let store = init_sqlite_store(&db_path, None).await.unwrap();
+    let store = init_sqlite_store(&db_path).await.unwrap();
     (
         Arc::new(SqliteSubagentTaskRepo::new(&store)),
         SqliteSessionRepo::new(&store),

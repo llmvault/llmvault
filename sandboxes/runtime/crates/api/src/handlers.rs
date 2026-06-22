@@ -48,6 +48,13 @@ pub struct SessionInterruptResponse {
     pub status: &'static str,
 }
 
+fn drain_reject_response() -> (StatusCode, String) {
+    (
+        StatusCode::CONFLICT,
+        "runtime is draining and cannot accept new messages".to_string(),
+    )
+}
+
 const MAX_RUNTIME_ENV_KEYS: usize = 128;
 const MAX_RUNTIME_ENV_KEY_LENGTH: usize = 128;
 const MAX_RUNTIME_ENV_VALUE_LENGTH: usize = 8192;
@@ -388,6 +395,81 @@ pub async fn post_control_commands(
     Ok(Json(ControlCommandsResponse { ok, results }))
 }
 
+#[cfg_attr(feature = "openapi", utoipa::path(
+    post,
+    path = "/control/drain",
+    responses(
+        (status = 200, description = "Drain signal accepted", body = crate::state::DrainStatusResponse),
+        (status = 503, description = "drain API is not enabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn post_control_drain(
+    State(state): State<ApiState>,
+) -> Result<Json<crate::state::DrainStatusResponse>, (StatusCode, String)> {
+    let Some(controller) = state.drain_controller.as_ref() else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "drain API is not enabled".to_string(),
+        ));
+    };
+    controller
+        .start()
+        .await
+        .map(Json)
+        .map_err(|error| internal_error_response("drain.start", error))
+}
+
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/control/drain",
+    responses(
+        (status = 200, description = "Current drain status", body = crate::state::DrainStatusResponse),
+        (status = 503, description = "drain API is not enabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn get_control_drain(
+    State(state): State<ApiState>,
+) -> Result<Json<crate::state::DrainStatusResponse>, (StatusCode, String)> {
+    let Some(controller) = state.drain_controller.as_ref() else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "drain API is not enabled".to_string(),
+        ));
+    };
+    controller
+        .status()
+        .await
+        .map(Json)
+        .map_err(|error| internal_error_response("drain.status", error))
+}
+
+#[cfg_attr(feature = "openapi", utoipa::path(
+    post,
+    path = "/control/drain/cancel",
+    responses(
+        (status = 200, description = "Drain cancelled", body = crate::state::DrainStatusResponse),
+        (status = 503, description = "drain API is not enabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn post_control_drain_cancel(
+    State(state): State<ApiState>,
+) -> Result<Json<crate::state::DrainStatusResponse>, (StatusCode, String)> {
+    let Some(controller) = state.drain_controller.as_ref() else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "drain API is not enabled".to_string(),
+        ));
+    };
+    controller
+        .cancel()
+        .await
+        .map(Json)
+        .map_err(|error| internal_error_response("drain.cancel", error))
+}
+
 fn validate_control_commands(request: &ControlCommandsRequest) -> Result<(), (StatusCode, String)> {
     if request.commands.is_empty() {
         return Err((
@@ -656,6 +738,9 @@ pub async fn post_session_message(
     Path(session_id): Path<String>,
     Json(request): Json<SessionMessageRequest>,
 ) -> Result<Json<SessionMessageResponse>, (StatusCode, String)> {
+    if state.is_draining() {
+        return Err(drain_reject_response());
+    }
     let Some(session_stream) = state.session_stream.as_ref() else {
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
@@ -726,6 +811,9 @@ pub async fn post_question_answer(
     Path((session_id, question_request_id)): Path<(String, String)>,
     Json(answer): Json<QuestionAnswerPayload>,
 ) -> Result<Json<QuestionAnswerResponse>, (StatusCode, String)> {
+    if state.is_draining() {
+        return Err(drain_reject_response());
+    }
     let Some(manager) = state.question_manager.as_ref() else {
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,

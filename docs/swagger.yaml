@@ -663,12 +663,6 @@ definitions:
     type: object
   agentSandboxUpgradeResponse:
     properties:
-      backup_bytes:
-        type: integer
-      backup_key:
-        type: string
-      backup_sha256:
-        type: string
       completed_at:
         type: string
       created_at:
@@ -4562,9 +4556,9 @@ paths:
       consumes:
       - application/json
       description: |-
-        Queues a control-plane upgrade that snapshots the agent runtime SQLite database,
-        recreates the sandbox on the current agent image, restores the database,
-        syncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.
+        Queues a control-plane upgrade that creates a replacement sandbox, syncs config,
+        drains the old runtime until active turns and webhooks finish, activates the replacement,
+        and schedules cleanup for the old sandbox.
         If an upgrade is already queued or running for the agent, the active operation is returned.
       parameters:
       - description: Agent agent ID

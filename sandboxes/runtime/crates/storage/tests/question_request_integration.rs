@@ -16,7 +16,7 @@ async fn repos() -> (
 ) {
     let dir = tempfile::tempdir().expect("tempdir");
     let db = dir.path().join("runtime.db");
-    let store = init_sqlite_store(db, None).await.expect("init sqlite");
+    let store = init_sqlite_store(db).await.expect("init sqlite");
     let sessions: Arc<dyn SessionRepo> = Arc::new(storage::SqliteSessionRepo::new(&store));
     let questions: Arc<dyn QuestionRequestRepo> =
         Arc::new(storage::SqliteQuestionRequestRepo::new(&store));

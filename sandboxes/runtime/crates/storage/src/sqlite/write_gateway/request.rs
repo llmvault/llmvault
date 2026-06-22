@@ -10,7 +10,7 @@ use serde_json::Value;
 use sqlx::SqliteConnection;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::repos::{notify_write, Result, SharedWriteNotifier};
+use crate::repos::Result;
 
 use super::event_ops;
 use super::outbox_ops;
@@ -142,23 +142,14 @@ pub(super) async fn run_writer(
     mut rx: mpsc::Receiver<WriteRequest>,
     mut conn: SqliteConnection,
     queued: Arc<AtomicUsize>,
-    write_notifier: Option<SharedWriteNotifier>,
 ) {
     while let Some(request) = rx.recv().await {
         queued.fetch_sub(1, Ordering::Relaxed);
-        let wrote = request.is_write();
         request.execute(&mut conn).await;
-        if wrote {
-            notify_write(&write_notifier);
-        }
     }
 }
 
 impl WriteRequest {
-    fn is_write(&self) -> bool {
-        !matches!(self, WriteRequest::Flush { .. })
-    }
-
     async fn execute(self, conn: &mut SqliteConnection) {
         match self {
             WriteRequest::ConfigUpsert {

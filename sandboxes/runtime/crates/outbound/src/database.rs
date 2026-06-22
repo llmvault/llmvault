@@ -258,7 +258,7 @@ mod tests {
             std::process::id(),
             DB_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
-        init_sqlite_store(&db_path, None)
+        init_sqlite_store(&db_path)
             .await
             .expect("init sqlite store")
     }

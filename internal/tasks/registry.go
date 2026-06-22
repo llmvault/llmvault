@@ -106,9 +106,9 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 	}
 
 	mux.HandleFunc(TypeCanvasOrgSync, NewCanvasOrgSyncHandler(deps.CanvasSyncer).Handle)
-	if deps.Orchestrator != nil && deps.S3Client != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil {
+	if deps.Orchestrator != nil && deps.AgentCompile.EncKey != nil && deps.AgentCompile.KMS != nil && deps.Enqueuer != nil {
 		mux.HandleFunc(TypeAgentSandboxUpgrade,
-			NewAgentSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.S3Client, deps.AgentCompile, deps.Enqueuer).Handle)
+			NewAgentSandboxUpgradeHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		if AgentSandboxAutoUpgradeEnabled {
 			mux.HandleFunc(TypeAgentSandboxAutoUpgrade,
 				NewAgentSandboxAutoUpgradeHandler(deps.DB, deps.AgentCompile, deps.Enqueuer).Handle)

@@ -100,6 +100,15 @@ impl OutboundEmitter {
             }
         }
     }
+
+    pub async fn flush_for_drain(&self) {
+        if let Some(batcher) = self.stream_batcher.read().await.clone() {
+            if let Err(error) = batcher.flush_all().await {
+                warn!(%error, "stream batch drain flush failed");
+            }
+        }
+        self.flush_database().await;
+    }
 }
 
 #[cfg(test)]
@@ -142,6 +151,10 @@ mod tests {
 
         async fn claim_due(&self, _limit: u32) -> storage::Result<Vec<OutboxRow>> {
             Ok(Vec::new())
+        }
+
+        async fn pending_count(&self) -> storage::Result<i64> {
+            Ok(self.rows.lock().expect("outbox lock").len() as i64)
         }
 
         async fn mark_delivered(&self, _id: i64) -> storage::Result<()> {
@@ -189,7 +202,7 @@ mod tests {
             std::process::id(),
             DB_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
-        init_sqlite_store(&db_path, None)
+        init_sqlite_store(&db_path)
             .await
             .expect("init sqlite store")
     }

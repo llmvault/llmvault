@@ -1496,9 +1496,7 @@ dependencies = [
  "dashmap",
  "domain",
  "dotenvy",
- "flate2",
  "futures",
- "hex",
  "mcp",
  "outbound",
  "reqwest 0.12.28",
@@ -1506,11 +1504,9 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
- "sha2",
  "skills",
  "sqlx",
  "storage",
- "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tools",
@@ -4388,8 +4384,12 @@ checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite 0.24.0",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -4615,6 +4615,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.6",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
  "utf-8",

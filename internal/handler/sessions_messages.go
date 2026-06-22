@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -94,11 +95,19 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		ReasoningEffort: selectedReasoningEffort,
 	})
 	if err != nil {
+		if errors.Is(err, errSessionSandboxDraining) {
+			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session message"})
 		return
 	}
 	queued, err := h.dispatchSessionMessageIntent(r.Context(), intent)
 	if err != nil {
+		if errors.Is(err, errSessionSandboxDraining) {
+			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
+			return
+		}
 		if intent.Queued {
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue session delivery"})
 			return

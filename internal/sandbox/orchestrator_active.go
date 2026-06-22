@@ -64,6 +64,9 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 		// rather than probing or flipping it.
 		return nil, fmt.Errorf("sandbox %s is mid-upgrade", sb.ID)
 
+	case string(StatusDraining):
+		return nil, fmt.Errorf("%w: %s", ErrSandboxDraining, sb.ID)
+
 	default:
 		if strings.TrimSpace(sb.RuntimeURL) == "" {
 			return nil, fmt.Errorf("sandbox %s is not ready", sb.ID)

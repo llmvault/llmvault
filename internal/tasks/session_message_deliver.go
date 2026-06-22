@@ -24,6 +24,7 @@ const sessionMessageLease = 5 * time.Minute
 var (
 	ErrSessionTurnActive      = errors.New("session agent turn active")
 	ErrSessionRuntimeNotReady = errors.New("session runtime not ready")
+	ErrSessionRuntimeDraining = errors.New("session runtime draining")
 )
 
 func init() {
@@ -113,7 +114,7 @@ func (h *SessionMessageDeliverHandler) Handle(ctx context.Context, task *asynq.T
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("unmarshal payload: %w", err)
 	}
-	if _, err := h.DispatchNext(ctx, payload.SessionID); errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, ErrSessionTurnActive) {
+	if _, err := h.DispatchNext(ctx, payload.SessionID); errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, ErrSessionTurnActive) || errors.Is(err, ErrSessionRuntimeDraining) {
 		return nil
 	} else if err != nil {
 		return err
@@ -132,7 +133,11 @@ func (h *SessionMessageDeliverHandler) DispatchNext(ctx context.Context, session
 	delivery, err := h.deliverClaim(ctx, queue)
 	if err != nil {
 		_ = h.releaseClaim(ctx, queue.ID, err)
-		_ = h.releaseSessionTurn(ctx, queue.SessionID)
+		if errors.Is(err, ErrSessionRuntimeDraining) {
+			_ = h.releaseSessionTurnIdle(ctx, queue.SessionID)
+		} else {
+			_ = h.releaseSessionTurn(ctx, queue.SessionID)
+		}
 		return nil, err
 	}
 	if err := h.markDelivered(ctx, queue, delivery); err != nil {
@@ -152,6 +157,13 @@ func (h *SessionMessageDeliverHandler) claimNext(ctx context.Context, sessionID 
 		}
 		if session.AgentTurnStatus == model.SessionAgentTurnActive {
 			return ErrSessionTurnActive
+		}
+		draining, err := sessionRuntimeDraining(ctx, tx, session)
+		if err != nil {
+			return fmt.Errorf("check session runtime drain status: %w", err)
+		}
+		if draining {
+			return ErrSessionRuntimeDraining
 		}
 		var row model.SessionMessageQueue
 		res := tx.Raw(`
@@ -274,6 +286,9 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 	msg := runtimeMessageFromCommand(session, command, modelDef)
 	resp, err := client.PostHTTPMessage(ctx, msg)
 	if err != nil {
+		if agentruntime.IsRuntimeDrainingError(err) {
+			return nil, ErrSessionRuntimeDraining
+		}
 		return nil, fmt.Errorf("post session message to runtime: %w", err)
 	}
 	return resp, nil

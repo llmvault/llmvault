@@ -27,9 +27,6 @@ type agentSandboxUpgradeResponse struct {
 	Phase        string     `json:"phase"`
 	OldSandboxID *string    `json:"old_sandbox_id,omitempty"`
 	NewSandboxID *string    `json:"new_sandbox_id,omitempty"`
-	BackupKey    *string    `json:"backup_key,omitempty"`
-	BackupSHA256 *string    `json:"backup_sha256,omitempty"`
-	BackupBytes  int64      `json:"backup_bytes,omitempty"`
 	ErrorMessage *string    `json:"error_message,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
@@ -37,9 +34,9 @@ type agentSandboxUpgradeResponse struct {
 }
 
 // @Summary Start an agent sandbox upgrade
-// @Description Queues a control-plane upgrade that snapshots the agent runtime SQLite database,
-// @Description recreates the sandbox on the current agent image, restores the database,
-// @Description syncs config, verifies readiness, pauses the old sandbox, and schedules cleanup.
+// @Description Queues a control-plane upgrade that creates a replacement sandbox, syncs config,
+// @Description drains the old runtime until active turns and webhooks finish, activates the replacement,
+// @Description and schedules cleanup for the old sandbox.
 // @Description If an upgrade is already queued or running for the agent, the active operation is returned.
 // @Tags agents
 // @Accept json
@@ -248,9 +245,6 @@ func toAgentSandboxUpgradeResponse(upgrade *model.AgentSandboxUpgrade) agentSand
 		Status:       upgrade.Status,
 		Phase:        upgrade.Phase,
 		ErrorMessage: upgrade.ErrorMessage,
-		BackupKey:    upgrade.BackupKey,
-		BackupSHA256: upgrade.BackupSHA256,
-		BackupBytes:  upgrade.BackupBytes,
 		CreatedAt:    upgrade.CreatedAt,
 		UpdatedAt:    upgrade.UpdatedAt,
 		CompletedAt:  upgrade.CompletedAt,

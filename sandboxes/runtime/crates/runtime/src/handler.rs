@@ -2673,6 +2673,10 @@ mod stream_tests {
             Ok(Vec::new())
         }
 
+        async fn pending_count(&self) -> storage::Result<i64> {
+            Ok(0)
+        }
+
         async fn mark_delivered(&self, _id: i64) -> storage::Result<()> {
             Ok(())
         }
@@ -2767,6 +2771,9 @@ mod scheduled_run_tests {
         }
         async fn claim_due(&self, _limit: u32) -> StorageResult<Vec<OutboxRow>> {
             Ok(Vec::new())
+        }
+        async fn pending_count(&self) -> StorageResult<i64> {
+            Ok(self.rows.lock().unwrap().len() as i64)
         }
         async fn mark_delivered(&self, _id: i64) -> StorageResult<()> {
             Ok(())

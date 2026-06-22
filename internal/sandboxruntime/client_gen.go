@@ -168,6 +168,21 @@ func (e OutboundChannelKind0Type) Valid() bool {
 	}
 }
 
+// Defines values for OutboundChannelKind1Type.
+const (
+	OutboundChannelKind1TypeWebsocket OutboundChannelKind1Type = "websocket"
+)
+
+// Valid indicates whether the value is a known member of the OutboundChannelKind1Type enum.
+func (e OutboundChannelKind1Type) Valid() bool {
+	switch e {
+	case OutboundChannelKind1TypeWebsocket:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OutboundChannelSpec0Type.
 const (
 	OutboundChannelSpec0TypeWebhook OutboundChannelSpec0Type = "webhook"
@@ -177,6 +192,21 @@ const (
 func (e OutboundChannelSpec0Type) Valid() bool {
 	switch e {
 	case OutboundChannelSpec0TypeWebhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OutboundChannelSpec1Type.
+const (
+	OutboundChannelSpec1TypeWebsocket OutboundChannelSpec1Type = "websocket"
+)
+
+// Valid indicates whether the value is a known member of the OutboundChannelSpec1Type enum.
+func (e OutboundChannelSpec1Type) Valid() bool {
+	switch e {
+	case OutboundChannelSpec1TypeWebsocket:
 		return true
 	default:
 		return false
@@ -698,6 +728,18 @@ type DiffResponse struct {
 	RepoId string  `json:"repo_id"`
 }
 
+// DrainStatusResponse defines model for DrainStatusResponse.
+type DrainStatusResponse struct {
+	ActiveTurns             int        `json:"active_turns"`
+	Complete                bool       `json:"complete"`
+	CompletedAt             *time.Time `json:"completed_at,omitempty"`
+	Draining                bool       `json:"draining"`
+	PendingAcceptedMessages int        `json:"pending_accepted_messages"`
+	PendingOutboxEvents     int64      `json:"pending_outbox_events"`
+	StartedAt               *time.Time `json:"started_at,omitempty"`
+	Status                  string     `json:"status"`
+}
+
 // DynamicContextPromptSegment defines model for DynamicContextPromptSegment.
 type DynamicContextPromptSegment struct {
 	ItemTemplate *string `json:"item_template,omitempty"`
@@ -891,6 +933,17 @@ type OutboundChannelKind0 struct {
 // OutboundChannelKind0Type defines model for OutboundChannelKind.0.Type.
 type OutboundChannelKind0Type string
 
+// OutboundChannelKind1 defines model for .
+type OutboundChannelKind1 struct {
+	ExtraHeaders *map[string]string       `json:"extra_headers,omitempty"`
+	SecretEnv    string                   `json:"secret_env"`
+	Type         OutboundChannelKind1Type `json:"type"`
+	Url          string                   `json:"url"`
+}
+
+// OutboundChannelKind1Type defines model for OutboundChannelKind.1.Type.
+type OutboundChannelKind1Type string
+
 // OutboundChannelSpec defines model for OutboundChannelSpec.
 type OutboundChannelSpec struct {
 	EventFilter *[]string `json:"event_filter,omitempty"`
@@ -908,6 +961,17 @@ type OutboundChannelSpec0 struct {
 
 // OutboundChannelSpec0Type defines model for OutboundChannelSpec.0.Type.
 type OutboundChannelSpec0Type string
+
+// OutboundChannelSpec1 defines model for .
+type OutboundChannelSpec1 struct {
+	ExtraHeaders *map[string]string       `json:"extra_headers,omitempty"`
+	SecretEnv    string                   `json:"secret_env"`
+	Type         OutboundChannelSpec1Type `json:"type"`
+	Url          string                   `json:"url"`
+}
+
+// OutboundChannelSpec1Type defines model for OutboundChannelSpec.1.Type.
+type OutboundChannelSpec1Type string
 
 // OverthinkingConfig defines model for OverthinkingConfig.
 type OverthinkingConfig struct {
@@ -1554,6 +1618,32 @@ func (t *OutboundChannelKind) MergeOutboundChannelKind0(v OutboundChannelKind0) 
 	return err
 }
 
+// AsOutboundChannelKind1 returns the union data inside the OutboundChannelKind as a OutboundChannelKind1
+func (t OutboundChannelKind) AsOutboundChannelKind1() (OutboundChannelKind1, error) {
+	var body OutboundChannelKind1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOutboundChannelKind1 overwrites any union data inside the OutboundChannelKind as the provided OutboundChannelKind1
+func (t *OutboundChannelKind) FromOutboundChannelKind1(v OutboundChannelKind1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOutboundChannelKind1 performs a merge with any union data inside the OutboundChannelKind, using the provided OutboundChannelKind1
+func (t *OutboundChannelKind) MergeOutboundChannelKind1(v OutboundChannelKind1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t OutboundChannelKind) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
@@ -1580,6 +1670,32 @@ func (t *OutboundChannelSpec) FromOutboundChannelSpec0(v OutboundChannelSpec0) e
 
 // MergeOutboundChannelSpec0 performs a merge with any union data inside the OutboundChannelSpec, using the provided OutboundChannelSpec0
 func (t *OutboundChannelSpec) MergeOutboundChannelSpec0(v OutboundChannelSpec0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsOutboundChannelSpec1 returns the union data inside the OutboundChannelSpec as a OutboundChannelSpec1
+func (t OutboundChannelSpec) AsOutboundChannelSpec1() (OutboundChannelSpec1, error) {
+	var body OutboundChannelSpec1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOutboundChannelSpec1 overwrites any union data inside the OutboundChannelSpec as the provided OutboundChannelSpec1
+func (t *OutboundChannelSpec) FromOutboundChannelSpec1(v OutboundChannelSpec1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOutboundChannelSpec1 performs a merge with any union data inside the OutboundChannelSpec, using the provided OutboundChannelSpec1
+func (t *OutboundChannelSpec) MergeOutboundChannelSpec1(v OutboundChannelSpec1) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2361,6 +2477,15 @@ type ClientInterface interface {
 
 	PostControlCommands(ctx context.Context, body PostControlCommandsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetControlDrain request
+	GetControlDrain(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostControlDrain request
+	PostControlDrain(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostControlDrainCancel request
+	PostControlDrainCancel(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Healthz request
 	Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2458,6 +2583,42 @@ func (c *Client) PostControlCommandsWithBody(ctx context.Context, contentType st
 
 func (c *Client) PostControlCommands(ctx context.Context, body PostControlCommandsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostControlCommandsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetControlDrain(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetControlDrainRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostControlDrain(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostControlDrainRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostControlDrainCancel(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostControlDrainCancelRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2763,6 +2924,87 @@ func NewPostControlCommandsRequestWithBody(server string, contentType string, bo
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetControlDrainRequest generates requests for GetControlDrain
+func NewGetControlDrainRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/control/drain")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostControlDrainRequest generates requests for PostControlDrain
+func NewPostControlDrainRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/control/drain")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostControlDrainCancelRequest generates requests for PostControlDrainCancel
+func NewPostControlDrainCancelRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/control/drain/cancel")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -3418,6 +3660,15 @@ type ClientWithResponsesInterface interface {
 
 	PostControlCommandsWithResponse(ctx context.Context, body PostControlCommandsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostControlCommandsResp, error)
 
+	// GetControlDrainWithResponse request
+	GetControlDrainWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetControlDrainResp, error)
+
+	// PostControlDrainWithResponse request
+	PostControlDrainWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostControlDrainResp, error)
+
+	// PostControlDrainCancelWithResponse request
+	PostControlDrainCancelWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostControlDrainCancelResp, error)
+
 	// HealthzWithResponse request
 	HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResp, error)
 
@@ -3549,6 +3800,96 @@ func (r PostControlCommandsResp) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostControlCommandsResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetControlDrainResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DrainStatusResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetControlDrainResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetControlDrainResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetControlDrainResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostControlDrainResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DrainStatusResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostControlDrainResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostControlDrainResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostControlDrainResp) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostControlDrainCancelResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DrainStatusResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostControlDrainCancelResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostControlDrainCancelResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostControlDrainCancelResp) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4016,6 +4357,33 @@ func (c *ClientWithResponses) PostControlCommandsWithResponse(ctx context.Contex
 	return ParsePostControlCommandsResp(rsp)
 }
 
+// GetControlDrainWithResponse request returning *GetControlDrainResp
+func (c *ClientWithResponses) GetControlDrainWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetControlDrainResp, error) {
+	rsp, err := c.GetControlDrain(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetControlDrainResp(rsp)
+}
+
+// PostControlDrainWithResponse request returning *PostControlDrainResp
+func (c *ClientWithResponses) PostControlDrainWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostControlDrainResp, error) {
+	rsp, err := c.PostControlDrain(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostControlDrainResp(rsp)
+}
+
+// PostControlDrainCancelWithResponse request returning *PostControlDrainCancelResp
+func (c *ClientWithResponses) PostControlDrainCancelWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostControlDrainCancelResp, error) {
+	rsp, err := c.PostControlDrainCancel(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostControlDrainCancelResp(rsp)
+}
+
 // HealthzWithResponse request returning *HealthzResp
 func (c *ClientWithResponses) HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResp, error) {
 	rsp, err := c.Healthz(ctx, reqEditors...)
@@ -4226,6 +4594,84 @@ func ParsePostControlCommandsResp(rsp *http.Response) (*PostControlCommandsResp,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ControlCommandsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetControlDrainResp parses an HTTP response from a GetControlDrainWithResponse call
+func ParseGetControlDrainResp(rsp *http.Response) (*GetControlDrainResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetControlDrainResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DrainStatusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostControlDrainResp parses an HTTP response from a PostControlDrainWithResponse call
+func ParsePostControlDrainResp(rsp *http.Response) (*PostControlDrainResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostControlDrainResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DrainStatusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostControlDrainCancelResp parses an HTTP response from a PostControlDrainCancelWithResponse call
+func ParsePostControlDrainCancelResp(rsp *http.Response) (*PostControlDrainCancelResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostControlDrainCancelResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DrainStatusResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

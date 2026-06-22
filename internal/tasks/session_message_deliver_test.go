@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 func TestRuntimeMessageFromEventRendersStructuredAttachmentsAndComments(t *testing.T) {
@@ -101,6 +102,50 @@ func TestLoadRuntimeSandboxReusesAgentRuntimeForAlwaysOn(t *testing.T) {
 	}
 	if loaded.ID != existing.ID {
 		t.Fatalf("loaded sandbox = %s, want always-on sandbox %s", loaded.ID, existing.ID)
+	}
+}
+
+func TestClaimNextSkipsDrainingSessionSandbox(t *testing.T) {
+	db := connectTestDB(t)
+	org, agent, channel := seedSessionRuntimeSelectionFixture(t, db, "always_on")
+	existing := seedSessionRuntimeSelectionSandbox(t, db, org.ID, agent.ID)
+	if err := db.Model(&existing).Update("status", string(sandbox.StatusDraining)).Error; err != nil {
+		t.Fatalf("mark sandbox draining: %v", err)
+	}
+	session := seedSessionRuntimeSelectionSession(t, db, org.ID, channel.ID, agent.ID, &existing.ID)
+	queue := model.SessionMessageQueue{
+		OrgID:          org.ID,
+		SessionID:      session.ID,
+		MessageText:    "hold until replacement",
+		MessagePayload: model.JSON{"text": "hold until replacement"},
+		SequenceNumber: 1,
+		Status:         "pending",
+	}
+	if err := db.Create(&queue).Error; err != nil {
+		t.Fatalf("create queued message: %v", err)
+	}
+
+	handler := &SessionMessageDeliverHandler{db: db}
+	claimed, err := handler.claimNext(t.Context(), session.ID)
+	if !errors.Is(err, ErrSessionRuntimeDraining) {
+		t.Fatalf("claimNext error = %v, want ErrSessionRuntimeDraining", err)
+	}
+	if claimed != nil {
+		t.Fatalf("claimNext returned row while draining: %+v", claimed)
+	}
+	var storedQueue model.SessionMessageQueue
+	if err := db.First(&storedQueue, "id = ?", queue.ID).Error; err != nil {
+		t.Fatalf("reload queue: %v", err)
+	}
+	if storedQueue.Status != "pending" || storedQueue.AttemptCount != 0 {
+		t.Fatalf("queue mutated while draining: status=%s attempts=%d", storedQueue.Status, storedQueue.AttemptCount)
+	}
+	var storedSession model.Session
+	if err := db.First(&storedSession, "id = ?", session.ID).Error; err != nil {
+		t.Fatalf("reload session: %v", err)
+	}
+	if storedSession.AgentTurnStatus != model.SessionAgentTurnIdle {
+		t.Fatalf("session turn status=%s, want idle", storedSession.AgentTurnStatus)
 	}
 }
 

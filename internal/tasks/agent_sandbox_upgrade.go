@@ -15,21 +15,13 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
-	"github.com/usehivy/hivy/internal/storage"
 )
 
-const agentSandboxUpgradeCommandTimeout = 60 * time.Minute
-
-type agentSandboxUpgradeBackupStore interface {
-	Head(ctx context.Context, key string) (*storage.S3ObjectInfo, error)
-	PresignedURL(ctx context.Context, key string, ttl time.Duration) (string, error)
-	PresignedPutURL(ctx context.Context, key string, ttl time.Duration) (string, error)
-}
+const agentSandboxDrainTimeout = 10 * time.Minute
 
 type AgentSandboxUpgradeHandler struct {
 	db           *gorm.DB
 	orchestrator *sandbox.Orchestrator
-	store        agentSandboxUpgradeBackupStore
 	compileDeps  agentruntime.CompileDeps
 	enqueuer     enqueue.TaskEnqueuer
 }
@@ -37,21 +29,19 @@ type AgentSandboxUpgradeHandler struct {
 func NewAgentSandboxUpgradeHandler(
 	db *gorm.DB,
 	orchestrator *sandbox.Orchestrator,
-	store agentSandboxUpgradeBackupStore,
 	compileDeps agentruntime.CompileDeps,
 	enqueuer enqueue.TaskEnqueuer,
 ) *AgentSandboxUpgradeHandler {
 	return &AgentSandboxUpgradeHandler{
 		db:           db,
 		orchestrator: orchestrator,
-		store:        store,
 		compileDeps:  compileDeps,
 		enqueuer:     enqueuer,
 	}
 }
 
 func (h *AgentSandboxUpgradeHandler) Handle(ctx context.Context, task *asynq.Task) error {
-	if h == nil || h.db == nil || h.orchestrator == nil || h.store == nil || h.compileDeps.EncKey == nil || h.enqueuer == nil {
+	if h == nil || h.db == nil || h.orchestrator == nil || h.compileDeps.EncKey == nil || h.enqueuer == nil {
 		return fmt.Errorf("agent sandbox upgrade handler not configured")
 	}
 	var payload AgentSandboxUpgradePayload
@@ -95,28 +85,13 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 			}
 		}
 		if oldSandbox != nil && oldSandbox.ID != uuid.Nil {
-			_ = h.db.WithContext(rollbackCtx).Model(oldSandbox).Updates(map[string]any{
-				"status":        string(sandbox.StatusRunning),
-				"error_message": nil,
-			}).Error
-			oldSandbox.Status = string(sandbox.StatusRunning)
-			oldSandbox.ErrorMessage = nil
+			if err := h.restoreOldSandboxAfterDrainFailure(rollbackCtx, oldSandbox); err != nil {
+				msg += "; failed to restore old sandbox during rollback: " + err.Error()
+			}
 		}
 		h.markFailed(rollbackCtx, upgrade, phase, msg)
 		return cause
 	}
-
-	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseBackup); err != nil {
-		return err
-	}
-	backupMeta, err := h.runBackup(ctx, upgrade, agent, oldSandbox)
-	if err != nil {
-		return fail(model.AgentSandboxUpgradePhaseBackup, err)
-	}
-	if err := h.verifyAndRecordBackup(ctx, upgrade, backupMeta); err != nil {
-		return fail(model.AgentSandboxUpgradePhaseBackup, err)
-	}
-	recordAgentSandboxUpgradeBackup(ctx, upgrade, backupMeta)
 
 	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseCreatingNew); err != nil {
 		return err
@@ -130,7 +105,7 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 		return fail(model.AgentSandboxUpgradePhaseCreatingNew, err)
 	}
 	// CreateAgentSandbox marks it 'running', and the selector orders by
-	// created_at DESC, so it would be picked for live traffic before restore/sync.
+	// created_at DESC, so it would be picked for live traffic before sync.
 	// Park it 'upgrading' (non-selectable) so turns stay on the old sandbox.
 	if err := h.db.WithContext(ctx).Model(newSandbox).Update("status", string(sandbox.StatusUpgrading)).Error; err != nil {
 		return fail(model.AgentSandboxUpgradePhaseCreatingNew, fmt.Errorf("park new sandbox as upgrading: %w", err))
@@ -142,46 +117,40 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 	upgrade.NewSandboxID = &newSandbox.ID
 	recordAgentSandboxUpgradeNewSandbox(ctx, upgrade, newSandbox)
 
-	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseRestore); err != nil {
-		return fail(model.AgentSandboxUpgradePhaseRestore, err)
-	}
-	if err := h.runRestore(ctx, backupMeta, newSandbox); err != nil {
-		return fail(model.AgentSandboxUpgradePhaseRestore, err)
-	}
-
-	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseRestartNew); err != nil {
-		return fail(model.AgentSandboxUpgradePhaseRestartNew, err)
-	}
-	if err := h.orchestrator.RestartAgentSandbox(ctx, newSandbox); err != nil {
-		return fail(model.AgentSandboxUpgradePhaseRestartNew, err)
-	}
-	// RestartAgentSandbox flips the row back to 'running'; re-park it as
-	// 'upgrading' so it stays non-selectable until the sync below succeeds.
-	if err := h.db.WithContext(ctx).Model(newSandbox).Update("status", string(sandbox.StatusUpgrading)).Error; err != nil {
-		return fail(model.AgentSandboxUpgradePhaseRestartNew, fmt.Errorf("re-park new sandbox as upgrading: %w", err))
-	}
-	newSandbox.Status = string(sandbox.StatusUpgrading)
-
 	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseSync); err != nil {
 		return fail(model.AgentSandboxUpgradePhaseSync, err)
 	}
 	if err := h.syncAgentRuntime(ctx, agent, newSandbox); err != nil {
 		return fail(model.AgentSandboxUpgradePhaseSync, err)
 	}
-	// Restored, restarted and synced — only now flip to 'running' so the selector
-	// routes live traffic, after the old session DB transferred so no turn is lost.
+
+	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseDrainingOld); err != nil {
+		return fail(model.AgentSandboxUpgradePhaseDrainingOld, err)
+	}
+	if err := h.drainOldSandbox(ctx, agent, oldSandbox); err != nil {
+		return fail(model.AgentSandboxUpgradePhaseDrainingOld, err)
+	}
+
+	// The replacement is synced and the old runtime has drained all accepted
+	// turns/webhooks. Only now flip to running so new traffic selects it.
 	activatedAt := time.Now()
 	if err := h.db.WithContext(ctx).Model(newSandbox).Updates(map[string]any{
 		"status":         string(sandbox.StatusRunning),
 		"last_active_at": activatedAt,
 	}).Error; err != nil {
-		return fail(model.AgentSandboxUpgradePhaseSync, fmt.Errorf("activate new sandbox: %w", err))
+		return fail(model.AgentSandboxUpgradePhaseDrainingOld, fmt.Errorf("activate new sandbox: %w", err))
 	}
 	newSandbox.Status = string(sandbox.StatusRunning)
 	newSandbox.LastActiveAt = &activatedAt
+	if err := h.enqueuePendingSessionDeliveries(ctx, agent.ID); err != nil {
+		logging.Capture(ctx, fmt.Errorf("agent sandbox upgrade %s: enqueue pending session deliveries failed: %w", upgrade.ID, err))
+	}
 
 	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseCleanupOld); err != nil {
 		return fail(model.AgentSandboxUpgradePhaseCleanupOld, err)
+	}
+	if err := h.stopDrainedOldSandbox(ctx, oldSandbox); err != nil {
+		logging.Capture(ctx, fmt.Errorf("agent sandbox upgrade %s: stop drained old sandbox failed: %w", upgrade.ID, err))
 	}
 	if err := h.scheduleOldSandboxRetirement(ctx, upgrade, oldSandbox); err != nil {
 		logging.Capture(ctx, fmt.Errorf("agent sandbox upgrade %s: schedule old sandbox retirement failed: %w", upgrade.ID, err))

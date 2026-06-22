@@ -99,6 +99,17 @@ impl SessionCoordinator {
         self.active_turns.remove(session_id);
     }
 
+    pub fn active_turn_count(&self) -> usize {
+        self.active_turns.len()
+    }
+
+    pub fn queued_message_count(&self) -> usize {
+        self.sessions
+            .iter()
+            .map(|entry| entry.value().lock().unwrap().len())
+            .sum()
+    }
+
     pub fn interrupt(&self, session_id: &SessionId) -> InterruptResult {
         let Some(active) = self.active_turns.get(session_id) else {
             return InterruptResult::NotRunning;
