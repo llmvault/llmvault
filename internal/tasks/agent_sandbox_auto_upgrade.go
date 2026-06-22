@@ -136,9 +136,10 @@ WITH latest AS (
 		s.snapshot_id
 	FROM sandboxes s
 	JOIN agents e ON e.id = s.agent_id AND e.org_id = s.org_id
-	WHERE s.status = 'running'
-		AND s.org_id IS NOT NULL
+	WHERE s.org_id IS NOT NULL
 		AND s.agent_id IS NOT NULL
+		AND s.external_id <> ''
+		AND s.runtime_url <> ''
 		AND e.status <> 'archived'
 `
 	query += `

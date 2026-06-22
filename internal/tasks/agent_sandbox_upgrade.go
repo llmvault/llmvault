@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -77,7 +76,6 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 	}
 	annotateAgentSandboxUpgradeSentry(ctx, upgrade, agent, oldSandbox)
 
-	var oldPaused bool
 	var newSandbox *model.Sandbox
 	fail := func(phase string, cause error) error {
 		msg := cause.Error()
@@ -97,20 +95,12 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 			}
 		}
 		if oldSandbox != nil && oldSandbox.ID != uuid.Nil {
-			if oldPaused {
-				if err := h.orchestrator.StartAgentSandbox(rollbackCtx, oldSandbox); err != nil {
-					msg += "; failed to restart old sandbox during rollback: " + err.Error()
-				} else if err := h.syncAgentRuntime(rollbackCtx, agent, oldSandbox); err != nil {
-					msg += "; failed to sync old sandbox during rollback: " + err.Error()
-				}
-			} else {
-				_ = h.db.WithContext(rollbackCtx).Model(oldSandbox).Updates(map[string]any{
-					"status":        string(sandbox.StatusRunning),
-					"error_message": nil,
-				}).Error
-				oldSandbox.Status = string(sandbox.StatusRunning)
-				oldSandbox.ErrorMessage = nil
-			}
+			_ = h.db.WithContext(rollbackCtx).Model(oldSandbox).Updates(map[string]any{
+				"status":        string(sandbox.StatusRunning),
+				"error_message": nil,
+			}).Error
+			oldSandbox.Status = string(sandbox.StatusRunning)
+			oldSandbox.ErrorMessage = nil
 		}
 		h.markFailed(rollbackCtx, upgrade, phase, msg)
 		return cause
@@ -189,23 +179,6 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 	}
 	newSandbox.Status = string(sandbox.StatusRunning)
 	newSandbox.LastActiveAt = &activatedAt
-
-	// Phase 6: Pause old sandbox only after the new one is restored and ready.
-	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhasePausingOld); err != nil {
-		return fail(model.AgentSandboxUpgradePhasePausingOld, err)
-	}
-	if err := h.orchestrator.StopSandbox(ctx, oldSandbox); err != nil {
-		// Pause-less providers (Railway): fine here, since the new sandbox serves
-		// traffic and Phase 7 retires the old one. Don't roll back over an unsupported
-		// pause; oldPaused stays false so a later rollback won't restart it.
-		if !errors.Is(err, sandbox.ErrUnsupported) {
-			return fail(model.AgentSandboxUpgradePhasePausingOld, err)
-		}
-		log.InfoContext(ctx, "agent sandbox upgrade: provider cannot pause old sandbox; relying on retirement to delete it",
-			"upgrade_id", upgrade.ID, "old_sandbox_id", oldSandbox.ID)
-	} else {
-		oldPaused = true
-	}
 
 	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseCleanupOld); err != nil {
 		return fail(model.AgentSandboxUpgradePhaseCleanupOld, err)

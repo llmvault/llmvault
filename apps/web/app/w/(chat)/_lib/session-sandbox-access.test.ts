@@ -23,7 +23,7 @@ describe("session sandbox access cache", () => {
     vi.useRealTimers()
   })
 
-  it("dedupes access requests and reuses fresh cached access without waking", async () => {
+  it("dedupes access requests and reuses fresh cached access", async () => {
     postMock.mockResolvedValueOnce({
       data: sandboxAccess({ sessionId: "session-a" }),
       error: undefined,
@@ -40,9 +40,6 @@ describe("session sandbox access cache", () => {
     expect(postMock).toHaveBeenCalledTimes(1)
     expect(postMock.mock.calls[0]?.[0]).toBe(
       "/v1/sessions/{id}/sandbox-access"
-    )
-    expect(postMock.mock.calls.map((call) => call[0])).not.toContain(
-      "/v1/sessions/{id}/sandbox/wake"
     )
   })
 

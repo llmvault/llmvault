@@ -15,48 +15,6 @@ import (
 
 var errSessionSandboxUnavailable = errors.New("session sandbox is not available yet")
 
-type sessionSandboxWakeResponse struct {
-	SessionID      string `json:"session_id"`
-	SandboxID      string `json:"sandbox_id"`
-	Status         string `json:"status"`
-	RuntimeURL     string `json:"runtime_url"`
-	Woke           bool   `json:"woke"`
-	ManagedByInfra bool   `json:"managed_by_infra"`
-}
-
-// WakeSandbox handles POST /v1/sessions/{id}/sandbox/wake.
-// @Summary Mark a session sandbox wake request
-// @Description Compatibility endpoint. Sandbox wake is managed by Microsandbox infrastructure, so this returns the current sandbox and managed_by_infra without starting it from the API.
-// @Tags sessions
-// @Produce json
-// @Param id path string true "Session ID"
-// @Success 200 {object} sessionSandboxWakeResponse
-// @Failure 401 {object} errorResponse
-// @Failure 403 {object} errorResponse
-// @Failure 404 {object} errorResponse
-// @Failure 503 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/sessions/{id}/sandbox/wake [post]
-func (h *SessionHandler) WakeSandbox(w http.ResponseWriter, r *http.Request) {
-	session, _, ok := h.authorizeSession(w, r, true)
-	if !ok {
-		return
-	}
-	sb, err := h.loadSessionSandbox(r.Context(), &session)
-	if err != nil {
-		h.writeSessionSandboxWakeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, sessionSandboxWakeResponse{
-		SessionID:      session.ID.String(),
-		SandboxID:      sb.ID.String(),
-		Status:         sb.Status,
-		RuntimeURL:     sb.RuntimeURL,
-		Woke:           false,
-		ManagedByInfra: true,
-	})
-}
-
 func (h *SessionHandler) loadSessionSandbox(ctx context.Context, session *model.Session) (*model.Sandbox, error) {
 	if session == nil {
 		return nil, errSessionSandboxUnavailable
@@ -124,7 +82,7 @@ func (h *SessionHandler) loadAlwaysOnSessionSandbox(ctx context.Context, session
 	return sb, nil
 }
 
-func (h *SessionHandler) writeSessionSandboxWakeError(w http.ResponseWriter, err error) {
+func (h *SessionHandler) writeSessionSandboxUnavailableError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errSessionSandboxUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "session sandbox is not available yet"})

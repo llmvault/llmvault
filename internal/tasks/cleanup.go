@@ -49,17 +49,15 @@ func (h *TokenCleanupHandler) Handle(ctx context.Context, _ *asynq.Task) error {
 	return nil
 }
 
-// SandboxHealthCheckHandler syncs sandbox status from the provider.
-type SandboxHealthCheckHandler struct {
-	orchestrator *sandbox.Orchestrator
-}
+// SandboxHealthCheckHandler is retained as a no-op so old queued tasks drain
+// after provider status reconciliation was removed from the control plane.
+type SandboxHealthCheckHandler struct{}
 
 func NewSandboxHealthCheckHandler(orchestrator *sandbox.Orchestrator) *SandboxHealthCheckHandler {
-	return &SandboxHealthCheckHandler{orchestrator: orchestrator}
+	return &SandboxHealthCheckHandler{}
 }
 
 func (h *SandboxHealthCheckHandler) Handle(ctx context.Context, _ *asynq.Task) error {
-	h.orchestrator.RunHealthCheck(ctx)
 	return nil
 }
 
@@ -92,21 +90,15 @@ func (h *CreditsExpireHandler) Handle(ctx context.Context, _ *asynq.Task) error 
 	return h.credits.SweepAllExpiredGrants(ctx)
 }
 
-// SandboxLifecycleHandler runs the periodic lifecycle policy:
-//   - running sandboxes idle for >10 minutes → stop
-//   - stopped sandboxes stopped for >24 hours → archive
-//
-// Scheduled every 5 minutes. System sandboxes are exempt.
-type SandboxLifecycleHandler struct {
-	orchestrator *sandbox.Orchestrator
-}
+// SandboxLifecycleHandler is retained as a no-op so old queued tasks drain.
+// Sandbox sleep is provider/infra-managed, not control-plane reconciled.
+type SandboxLifecycleHandler struct{}
 
 func NewSandboxLifecycleHandler(orchestrator *sandbox.Orchestrator) *SandboxLifecycleHandler {
-	return &SandboxLifecycleHandler{orchestrator: orchestrator}
+	return &SandboxLifecycleHandler{}
 }
 
 func (h *SandboxLifecycleHandler) Handle(ctx context.Context, _ *asynq.Task) error {
-	h.orchestrator.RunSandboxLifecycle(ctx)
 	return nil
 }
 

@@ -8794,7 +8794,7 @@ export interface paths {
         put?: never;
         /**
          * Create a session
-         * @description Creates a channel-scoped session and dispatches or queues the first user message.
+         * @description Creates a channel-scoped session and optionally dispatches or queues the first user message.
          */
         post: {
             parameters: {
@@ -9147,7 +9147,7 @@ export interface paths {
         put?: never;
         /**
          * Respond to a pending agent input request
-         * @description Persists an answer to a runtime request_user_input turn and queues it for runtime delivery.
+         * @description Sends an answer command to a runtime request_user_input turn.
          */
         post: {
             parameters: {
@@ -9326,7 +9326,7 @@ export interface paths {
         put?: never;
         /**
          * Send a session message
-         * @description Persists a user message and queues it for FIFO runtime delivery.
+         * @description Queues a user message command for FIFO runtime delivery.
          */
         post: {
             parameters: {
@@ -9601,84 +9601,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["sessionSandboxAccessResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Service Unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/sessions/{id}/sandbox/wake": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mark a session sandbox wake request
-         * @description Compatibility endpoint. Sandbox wake is managed by Microsandbox infrastructure, so this returns the current sandbox and managed_by_infra without starting it from the API.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Session ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["sessionSandboxWakeResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -12157,15 +12079,20 @@ export interface components {
         sessionEventResponse: {
             actor_user_id?: string;
             agent_id?: string;
+            durability?: string;
             event_at?: string;
             event_id?: string;
             event_type?: string;
             id?: string;
             payload?: components["schemas"]["JSON"];
+            runtime_event_id?: string;
+            runtime_seq?: number;
             sandbox_id?: string;
             sequence_number?: number;
             session_id?: string;
             source?: string;
+            span_id?: string;
+            turn_id?: string;
         };
         sessionInputResponseRequest: {
             option_id?: string;
@@ -12225,14 +12152,6 @@ export interface components {
             scopes?: string[];
             session_id?: string;
             token?: string;
-        };
-        sessionSandboxWakeResponse: {
-            managed_by_infra?: boolean;
-            runtime_url?: string;
-            sandbox_id?: string;
-            session_id?: string;
-            status?: string;
-            woke?: boolean;
         };
         sessionSummary: {
             created_at?: string;
@@ -12356,7 +12275,6 @@ export interface components {
             applied?: number;
             deleted?: number;
             errors?: string[];
-            repos_cloned?: number;
             restart_triggered?: boolean;
         };
         syncTriggerRequest: {

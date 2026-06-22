@@ -161,8 +161,8 @@ Observed API log latencies:
 Code path:
 
 - `SandboxAccess` calls `ensureSessionSandboxReady`.
-- `EnsureSandboxRuntimeReady` calls `reconcileRunningSandboxStatus`, `EnsureSandboxActive`, optional URL refresh, then `waitForAgentRuntimeLive`.
-- `WakeSandbox` itself also refreshes URL and calls `waitForAgentRuntimeLive` before returning.
+- Runtime readiness now assumes an already-provisioned sandbox remains active, refreshes an expired runtime URL when needed, then probes the runtime directly.
+- The deleted Go wake path no longer starts stopped sandboxes or performs duplicate readiness waits from browser access.
 
 So a wake path can perform provider start/refresh plus a health wait, then `EnsureSandboxRuntimeReady` performs another health wait. Concurrent UI calls can also queue behind the lifecycle lock and repeat the same checks.
 
@@ -257,9 +257,9 @@ For running sandboxes with non-expired runtime URL and recent health:
 - Skip duplicate `/healthz`.
 - Return cached access token/URL or mint JWT only.
 
-For stopped sandboxes:
+For browser access:
 
-- Keep the lifecycle lock, but remove the second health wait after `WakeSandbox`.
+- Do not ask the provider for live sandbox status.
 - Singleflight concurrent browser calls for the same session/sandbox.
 - Frontend should not fan out multiple `/sandbox-access` calls on page load.
 

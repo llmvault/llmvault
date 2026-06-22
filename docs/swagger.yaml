@@ -2666,6 +2666,8 @@ definitions:
         type: string
       agent_id:
         type: string
+      durability:
+        type: string
       event_at:
         type: string
       event_id:
@@ -2676,6 +2678,10 @@ definitions:
         type: string
       payload:
         $ref: '#/definitions/JSON'
+      runtime_event_id:
+        type: string
+      runtime_seq:
+        type: integer
       sandbox_id:
         type: string
       sequence_number:
@@ -2683,6 +2689,10 @@ definitions:
       session_id:
         type: string
       source:
+        type: string
+      span_id:
+        type: string
+      turn_id:
         type: string
     type: object
   sessionInputResponseRequest:
@@ -2797,21 +2807,6 @@ definitions:
         type: string
       token:
         type: string
-    type: object
-  sessionSandboxWakeResponse:
-    properties:
-      managed_by_infra:
-        type: boolean
-      runtime_url:
-        type: string
-      sandbox_id:
-        type: string
-      session_id:
-        type: string
-      status:
-        type: string
-      woke:
-        type: boolean
     type: object
   sessionSummary:
     properties:
@@ -3053,8 +3048,6 @@ definitions:
         items:
           type: string
         type: array
-      repos_cloned:
-        type: integer
       restart_triggered:
         type: boolean
     type: object
@@ -8176,8 +8169,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a channel-scoped session and dispatches or queues the first
-        user message.
+      description: Creates a channel-scoped session and optionally dispatches or queues
+        the first user message.
       parameters:
       - description: Session create payload
         in: body
@@ -8363,8 +8356,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Persists an answer to a runtime request_user_input turn and queues
-        it for runtime delivery.
+      description: Sends an answer command to a runtime request_user_input turn.
       parameters:
       - description: Session ID
         in: path
@@ -8455,7 +8447,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Persists a user message and queues it for FIFO runtime delivery.
+      description: Queues a user message command for FIFO runtime delivery.
       parameters:
       - description: Session ID
         in: path
@@ -8593,8 +8585,8 @@ paths:
       - sessions
   /v1/sessions/{id}/sandbox-access:
     post:
-      description: Returns the direct sandbox base URL and a short-lived JWT scoped
-        to read-only stream and repository APIs.
+      description: Returns the sandbox base URL and a short-lived JWT scoped to read-only
+        repository APIs.
       parameters:
       - description: Session ID
         in: path
@@ -8626,46 +8618,7 @@ paths:
             $ref: '#/definitions/errorResponse'
       security:
       - BearerAuth: []
-      summary: Mint direct sandbox access
-      tags:
-      - sessions
-  /v1/sessions/{id}/sandbox/wake:
-    post:
-      description: Compatibility endpoint. Sandbox wake is managed by Microsandbox
-        infrastructure, so this returns the current sandbox and managed_by_infra without
-        starting it from the API.
-      parameters:
-      - description: Session ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/sessionSandboxWakeResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "503":
-          description: Service Unavailable
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Mark a session sandbox wake request
+      summary: Mint sandbox repository access
       tags:
       - sessions
   /v1/sessions/{id}/transcriptions:

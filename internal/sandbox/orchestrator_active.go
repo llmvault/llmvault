@@ -18,10 +18,7 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 		return sb, nil
 
 	case string(StatusStopped):
-		return o.WakeSandbox(ctx, sb)
-
-	case string(StatusArchived), string(StatusArchiving):
-		return o.UnarchiveSandbox(ctx, sb)
+		return o.markAssumedActive(ctx, sb)
 
 	case string(StatusCreating), string(StatusStarting):
 		// A 'creating'/'starting' row may not have runtime_url yet (concurrent warm
@@ -68,19 +65,29 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 		return nil, fmt.Errorf("sandbox %s is mid-upgrade", sb.ID)
 
 	default:
-		status, err := o.provider.GetStatus(ctx, sb.ExternalID)
-		if err != nil {
-			return nil, fmt.Errorf("getting provider status for sandbox %s: %w", sb.ID, err)
+		if strings.TrimSpace(sb.RuntimeURL) == "" {
+			return nil, fmt.Errorf("sandbox %s is not ready", sb.ID)
 		}
-		sb.Status = string(status)
-		if err := o.db.Model(sb).Update("status", sb.Status).Error; err != nil {
-			return nil, fmt.Errorf("reconciling provider status for sandbox %s: %w", sb.ID, err)
-		}
-		if sb.Status == string(StatusRunning) {
-			return sb, nil
-		}
-		return o.EnsureSandboxActive(ctx, sb)
+		return o.markAssumedActive(ctx, sb)
 	}
+}
+
+func (o *Orchestrator) markAssumedActive(ctx context.Context, sb *model.Sandbox) (*model.Sandbox, error) {
+	if strings.TrimSpace(sb.RuntimeURL) == "" {
+		return nil, fmt.Errorf("sandbox %s is not ready", sb.ID)
+	}
+	now := time.Now()
+	if err := o.db.WithContext(ctx).Model(sb).Updates(map[string]any{
+		"status":         string(StatusRunning),
+		"last_active_at": now,
+		"error_message":  nil,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("marking sandbox %s active: %w", sb.ID, err)
+	}
+	sb.Status = string(StatusRunning)
+	sb.LastActiveAt = &now
+	sb.ErrorMessage = nil
+	return sb, nil
 }
 
 const inFlightRuntimeURLInterval = 1 * time.Second

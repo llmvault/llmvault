@@ -63,17 +63,6 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 	}
 
 	if sandboxPeriodicTasksConfigured(cfg) {
-		configs = append(configs, &asynq.PeriodicTaskConfig{
-			Cronspec: "@every 30s",
-			Task:     asynq.NewTask(TypeSandboxHealthCheck, nil),
-			Opts: []asynq.Option{
-				asynq.Queue(QueuePeriodic),
-				asynq.MaxRetry(1),
-				asynq.Timeout(time.Minute),
-				asynq.Unique(30 * time.Second),
-			},
-		})
-
 		interval := cfg.SandboxResourceCheckInterval
 		if interval > 0 {
 			configs = append(configs, &asynq.PeriodicTaskConfig{
@@ -87,22 +76,6 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 				},
 			})
 		}
-
-		// Sandbox lifecycle policy: stops idle sandboxes and archives old stopped rows.
-		lifecycleInterval := cfg.SandboxLifecycleInterval
-		if lifecycleInterval <= 0 {
-			lifecycleInterval = 5 * time.Second
-		}
-		configs = append(configs, &asynq.PeriodicTaskConfig{
-			Cronspec: fmt.Sprintf("@every %s", lifecycleInterval),
-			Task:     asynq.NewTask(TypeSandboxLifecycle, nil),
-			Opts: []asynq.Option{
-				asynq.Queue(QueuePeriodic),
-				asynq.MaxRetry(1),
-				asynq.Timeout(10 * time.Minute),
-				asynq.Unique(lifecycleInterval),
-			},
-		})
 
 		// Sandbox reaper: releases leaked paid compute the inline cleanup missed
 		// (stuck creating/error and stranded warm slots).
