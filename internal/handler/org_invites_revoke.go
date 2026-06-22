@@ -90,7 +90,7 @@ func (h *OrgInviteHandler) Resend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var invite model.OrgInvite
-	if err := h.db.Preload("InvitedBy").Where("id = ? AND org_id = ?", id, org.ID).First(&invite).Error; err != nil {
+	if err := h.db.Preload("InvitedBy").Preload("InviteTeams").Where("id = ? AND org_id = ?", id, org.ID).First(&invite).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "invite not found"})
 			return

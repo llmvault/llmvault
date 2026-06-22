@@ -206,6 +206,10 @@ func (h *SessionHandler) resolveSessionAgent(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
 		return model.Agent{}, false
 	}
+	if !agentAllowedInChannel(r.Context(), h.db, orgID, agent.ID, channel.ID) {
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: "agent is not available in this channel"})
+		return model.Agent{}, false
+	}
 	return agent, true
 }
 

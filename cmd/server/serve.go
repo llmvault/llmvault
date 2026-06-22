@@ -160,6 +160,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	dashboardHandler := handler.NewDashboardHandler(database, deps.Credits)
 	slackChannelHandler := handler.NewSlackChannelHandler(database, nangoClient, enqueuer)
 	channelHandler := handler.NewChannelHandler(database)
+	teamHandler := handler.NewTeamHandler(database)
 	runtimeStreamStore := runtimestream.NewStore(redisClient, cfg.RuntimeRedisStreamShardCount)
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).
 		WithRuntimeStreamKey(sandboxEncKey).
@@ -203,7 +204,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
 	systemTaskHandler := buildSystemTaskHandler(database, deps, redisClient)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, canvasHandler, orchestrator, auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, teamHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, canvasHandler, orchestrator, auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, integrationHandler, connectionHandler, credHandler)
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)

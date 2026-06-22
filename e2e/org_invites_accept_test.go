@@ -20,14 +20,25 @@ func TestOrgInvitePreviewAndAccept(t *testing.T) {
 
 	inviteeEmail := fmt.Sprintf("invitee-%s@test.local", randomSuffix())
 	inviteeID := ih.createUser(t, inviteeEmail, "Invitee")
+	team := model.Team{
+		ID:    uuid.New(),
+		OrgID: orgID,
+		Name:  "Engineering " + randomSuffix(),
+	}
+	if err := ih.db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
 
 	rr := ih.do(t, http.MethodPost, "/v1/orgs/current/invites",
-		fmt.Sprintf(`{"email":%q,"role":"viewer"}`, inviteeEmail), adminTok)
+		fmt.Sprintf(`{"email":%q,"role":"viewer","team_ids":[%q]}`, inviteeEmail, team.ID.String()), adminTok)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create invite: got %d: %s", rr.Code, rr.Body.String())
 	}
 	var created inviteDTO
 	_ = json.NewDecoder(rr.Body).Decode(&created)
+	if len(created.TeamIDs) != 1 || created.TeamIDs[0] != team.ID.String() {
+		t.Fatalf("created team_ids=%v, want %s", created.TeamIDs, team.ID)
+	}
 
 	plaintext, hash, err := model.GenerateInviteToken()
 	if err != nil {
@@ -45,6 +56,9 @@ func TestOrgInvitePreviewAndAccept(t *testing.T) {
 	ih.db.Model(&model.OrgInvite{}).Where("id = ?", created.ID).Update("revoked_at", time.Now())
 	if err := ih.db.Create(&injected).Error; err != nil {
 		t.Fatalf("insert known-token invite: %v", err)
+	}
+	if err := ih.db.Create(&model.OrgInviteTeam{OrgID: orgID, OrgInviteID: injected.ID, TeamID: team.ID}).Error; err != nil {
+		t.Fatalf("insert invite team: %v", err)
 	}
 
 	rr = ih.do(t, http.MethodGet, fmt.Sprintf("/v1/invites/%s", plaintext), "", "")
@@ -76,6 +90,10 @@ func TestOrgInvitePreviewAndAccept(t *testing.T) {
 	}
 	if m.Role != "viewer" {
 		t.Fatalf("membership role: got %s", m.Role)
+	}
+	var tm model.TeamMember
+	if err := ih.db.Where("user_id = ? AND org_id = ? AND team_id = ?", inviteeID, orgID, team.ID).First(&tm).Error; err != nil {
+		t.Fatalf("team membership not created: %v", err)
 	}
 
 	rr = ih.do(t, http.MethodGet, fmt.Sprintf("/v1/invites/%s", plaintext), "", "")

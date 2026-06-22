@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 
@@ -67,11 +68,30 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !h.applyAgentUpdateFields(w, ctx, &agent, &req, updates) {
 		return
 	}
-	if len(updates) > 0 {
-		if err := h.db.WithContext(ctx).
-			Model(&model.Agent{}).
-			Where("id = ? AND org_id = ?", agent.ID, org.ID).
-			Updates(updates).Error; err != nil {
+	var channelIDs []uuid.UUID
+	if req.ChannelIDs != nil {
+		var parsed bool
+		channelIDs, parsed = h.normalizeAgentChannelIDs(ctx, w, org.ID, req.ChannelIDs)
+		if !parsed {
+			return
+		}
+	}
+	if len(updates) > 0 || req.ChannelIDs != nil {
+		if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if len(updates) > 0 {
+				if err := tx.Model(&model.Agent{}).
+					Where("id = ? AND org_id = ?", agent.ID, org.ID).
+					Updates(updates).Error; err != nil {
+					return err
+				}
+			}
+			if req.ChannelIDs != nil {
+				if err := h.replaceAgentChannelsTx(tx, org.ID, agent.ID, channelIDs); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
 			if isDuplicateKeyError(err) {
 				writeJSON(w, http.StatusConflict, errorResponse{Error: "agent name already exists"})
 				return

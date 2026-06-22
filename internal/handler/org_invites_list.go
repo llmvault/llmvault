@@ -25,7 +25,7 @@ func (h *OrgInviteHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var invites []model.OrgInvite
-	if err := h.db.Preload("InvitedBy").
+	if err := h.db.Preload("InvitedBy").Preload("InviteTeams").
 		Where("org_id = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?", org.ID, time.Now()).
 		Order("created_at DESC").
 		Find(&invites).Error; err != nil {

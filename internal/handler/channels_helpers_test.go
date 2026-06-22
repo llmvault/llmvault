@@ -49,6 +49,7 @@ type channelOut struct {
 	ID                       string       `json:"id"`
 	Name                     string       `json:"name"`
 	Visibility               string       `json:"visibility"`
+	TeamID                   *string      `json:"team_id"`
 	DefaultAgentID           string       `json:"default_agent_id"`
 	Origin                   string       `json:"origin"`
 	ExternalProvider         string       `json:"external_provider"`

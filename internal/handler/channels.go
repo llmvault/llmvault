@@ -26,6 +26,7 @@ type channelMutationRequest struct {
 	Name                 *string     `json:"name,omitempty"`
 	Description          *string     `json:"description,omitempty"`
 	Visibility           *string     `json:"visibility,omitempty"`
+	TeamID               *string     `json:"team_id,omitempty"`
 	DefaultAgentID       *string     `json:"default_agent_id,omitempty"`
 	Origin               *string     `json:"origin,omitempty"`
 	ExternalProvider     *string     `json:"external_provider,omitempty"`
@@ -53,6 +54,7 @@ type channelResponse struct {
 	Description              string             `json:"description"`
 	Kind                     string             `json:"kind"`
 	Visibility               string             `json:"visibility"`
+	TeamID                   *string            `json:"team_id,omitempty"`
 	DefaultAgentID           string             `json:"default_agent_id"`
 	IsDefault                bool               `json:"is_default"`
 	Origin                   string             `json:"origin"`
@@ -157,6 +159,7 @@ func channelToResponse(channel model.Channel, role string, memberCount int64) ch
 		Description:          channel.Description,
 		Kind:                 channel.Kind,
 		Visibility:           channel.Visibility,
+		TeamID:               formatUUIDPtr(channel.TeamID),
 		DefaultAgentID:       channel.DefaultAgentID.String(),
 		IsDefault:            channel.IsDefault,
 		Origin:               channel.Origin,

@@ -54,6 +54,10 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	teamID, ok := h.resolveTeamID(ctx, w, org.ID, req.TeamID)
+	if !ok {
+		return
+	}
 	source, ok := channelSourceFromCreate(w, &req)
 	if !ok {
 		return
@@ -65,6 +69,7 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Description:          cleanStringPtr(req.Description),
 		Kind:                 "standard",
 		Visibility:           visibility,
+		TeamID:               teamID,
 		DefaultAgentID:       defaultAgentID,
 		Origin:               source.Origin,
 		ExternalProvider:     source.ExternalProvider,
@@ -223,6 +228,14 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		}
 		updates["visibility"] = value
 		channel.Visibility = value
+	}
+	if req.TeamID != nil {
+		teamID, ok := h.resolveTeamID(r.Context(), w, channel.OrgID, req.TeamID)
+		if !ok {
+			return false
+		}
+		updates["team_id"] = teamID
+		channel.TeamID = teamID
 	}
 	if req.DefaultAgentID != nil {
 		agentID, ok := h.resolveDefaultAgentID(r.Context(), w, channel.OrgID, req.DefaultAgentID)

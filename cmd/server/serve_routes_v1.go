@@ -23,6 +23,7 @@ func setupV1Routes(
 	enqueuer enqueue.TaskEnqueuer,
 	orgHandler *handler.OrgHandler,
 	orgInviteHandler *handler.OrgInviteHandler,
+	teamHandler *handler.TeamHandler,
 	usageHandler *handler.UsageHandler,
 	auditHandler *handler.AuditHandler,
 	reportingHandler *handler.ReportingHandler,
@@ -80,6 +81,15 @@ func setupV1Routes(
 				r.Get("/orgs/current/invites", orgInviteHandler.List)
 				r.Delete("/orgs/current/invites/{id}", orgInviteHandler.Revoke)
 				r.Post("/orgs/current/invites/{id}/resend", orgInviteHandler.Resend)
+				if teamHandler != nil {
+					r.Get("/orgs/current/teams", teamHandler.List)
+					r.Post("/orgs/current/teams", teamHandler.Create)
+					r.Get("/orgs/current/teams/{id}", teamHandler.Get)
+					r.Patch("/orgs/current/teams/{id}", teamHandler.Update)
+					r.Delete("/orgs/current/teams/{id}", teamHandler.Archive)
+					r.Put("/orgs/current/teams/{id}/members/{userID}", teamHandler.PutMember)
+					r.Delete("/orgs/current/teams/{id}/members/{userID}", teamHandler.DeleteMember)
+				}
 			})
 			r.Get("/usage", usageHandler.Get)
 			if dashboardHandler != nil {

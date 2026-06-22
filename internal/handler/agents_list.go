@@ -87,10 +87,12 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 	triggers := h.loadAgentTriggers(agentIDs...)
 	skills := h.loadAgentSkills(agentIDs...)
 	sandboxes := h.loadMainAgentRuntimeSandboxSummaries(r.Context(), org.ID, agentIDs)
+	channelIDs := h.loadAgentChannelIDs(r.Context(), org.ID, agentIDs)
 
 	items := make([]agentListItem, len(agents))
 	for i, a := range agents {
 		base := toAgentResponse(a)
+		base.ChannelIDs = channelIDs[a.ID]
 		base.Triggers = triggers[a.ID]
 		base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &a, skills[a.ID])
 		currentSnapshotID := h.currentAgentSandboxSnapshotIDForAgent(a)
@@ -152,6 +154,7 @@ func (h *AgentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	base := toAgentResponse(agent)
+	base.ChannelIDs = h.loadAgentChannelIDs(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(r.Context(), org.ID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
 	sandbox := h.loadMainAgentRuntimeSandboxSummaries(r.Context(), org.ID, []uuid.UUID{agent.ID})[agent.ID]
@@ -185,6 +188,7 @@ func (h *AgentHandler) currentAgentSandboxSnapshotIDForAgent(agent model.Agent) 
 
 func (h *AgentHandler) agentListItem(ctx context.Context, orgID uuid.UUID, agent model.Agent) agentListItem {
 	base := toAgentResponse(agent)
+	base.ChannelIDs = h.loadAgentChannelIDs(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]
 	base.Triggers = h.loadAgentTriggers(agent.ID)[agent.ID]
 	base.AttachedSkills = h.markAgentSkillLocks(ctx, orgID, &agent, h.loadAgentSkills(agent.ID)[agent.ID])
 	sandbox := h.loadMainAgentRuntimeSandboxSummaries(ctx, orgID, []uuid.UUID{agent.ID})[agent.ID]

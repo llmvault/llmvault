@@ -34,22 +34,24 @@ func (h *OrgInviteHandler) SetEnqueuer(enq enqueue.TaskEnqueuer) {
 }
 
 type createOrgInviteRequest struct {
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	Email   string   `json:"email"`
+	Role    string   `json:"role"`
+	TeamIDs []string `json:"team_ids,omitempty"`
 }
 
 type orgInviteResponse struct {
-	ID             string  `json:"id"`
-	OrgID          string  `json:"org_id"`
-	Email          string  `json:"email"`
-	Role           string  `json:"role"`
-	InvitedByID    string  `json:"invited_by_id"`
-	InvitedByName  string  `json:"invited_by_name,omitempty"`
-	InvitedByEmail string  `json:"invited_by_email,omitempty"`
-	ExpiresAt      string  `json:"expires_at"`
-	CreatedAt      string  `json:"created_at"`
-	AcceptedAt     *string `json:"accepted_at,omitempty"`
-	RevokedAt      *string `json:"revoked_at,omitempty"`
+	ID             string   `json:"id"`
+	OrgID          string   `json:"org_id"`
+	Email          string   `json:"email"`
+	Role           string   `json:"role"`
+	InvitedByID    string   `json:"invited_by_id"`
+	InvitedByName  string   `json:"invited_by_name,omitempty"`
+	InvitedByEmail string   `json:"invited_by_email,omitempty"`
+	ExpiresAt      string   `json:"expires_at"`
+	CreatedAt      string   `json:"created_at"`
+	AcceptedAt     *string  `json:"accepted_at,omitempty"`
+	RevokedAt      *string  `json:"revoked_at,omitempty"`
+	TeamIDs        []string `json:"team_ids,omitempty"`
 }
 
 type orgInvitePreviewResponse struct {
@@ -102,6 +104,9 @@ func toInviteResponse(inv model.OrgInvite) orgInviteResponse {
 	if inv.RevokedAt != nil {
 		s := inv.RevokedAt.Format(time.RFC3339)
 		resp.RevokedAt = &s
+	}
+	for _, link := range inv.InviteTeams {
+		resp.TeamIDs = append(resp.TeamIDs, link.TeamID.String())
 	}
 	return resp
 }

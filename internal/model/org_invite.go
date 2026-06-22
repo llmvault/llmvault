@@ -26,8 +26,9 @@ type OrgInvite struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 
-	Org       Org  `gorm:"foreignKey:OrgID"`
-	InvitedBy User `gorm:"foreignKey:InvitedByID"`
+	Org         Org             `gorm:"foreignKey:OrgID"`
+	InvitedBy   User            `gorm:"foreignKey:InvitedByID"`
+	InviteTeams []OrgInviteTeam `gorm:"foreignKey:OrgInviteID"`
 }
 
 func (OrgInvite) TableName() string { return "org_invites" }

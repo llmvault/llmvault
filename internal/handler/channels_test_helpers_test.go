@@ -49,6 +49,55 @@ func assertChannelNames(t *testing.T, rr *httptest.ResponseRecorder, want []stri
 	}
 }
 
+func assertChannelNameSet(t *testing.T, rr *httptest.ResponseRecorder, want []string) {
+	t.Helper()
+	if rr.Code != http.StatusOK {
+		t.Fatalf("list status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var out channelListOut
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode list: %v\n%s", err, rr.Body.String())
+	}
+	got := map[string]bool{}
+	for _, channel := range out.Data {
+		got[channel.Name] = true
+	}
+	if len(got) != len(want) {
+		t.Fatalf("channel names=%v, want=%v", got, want)
+	}
+	for _, name := range want {
+		if !got[name] {
+			t.Fatalf("channel names=%v, want %q", got, name)
+		}
+	}
+}
+
+func seedChannelTeam(t *testing.T, h *channelHarness, fx channelFixture, name string) model.Team {
+	t.Helper()
+	team := model.Team{OrgID: fx.org.ID, Name: name, Description: name + " team", CreatedBy: &fx.owner.ID}
+	if err := h.db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	return team
+}
+
+func createTeamChannelForTest(t *testing.T, h *channelHarness, fx channelFixture, name string, teamID uuid.UUID) string {
+	t.Helper()
+	rr := h.doJSON(t, http.MethodPost, "/v1/channels", fx, fx.owner, map[string]any{
+		"name":             name,
+		"team_id":          teamID.String(),
+		"default_agent_id": fx.agent.ID.String(),
+	})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create team channel %s status=%d body=%s", name, rr.Code, rr.Body.String())
+	}
+	out := decodeChannelCreate(t, rr)
+	if out.Channel.TeamID == nil || *out.Channel.TeamID != teamID.String() {
+		t.Fatalf("team_id=%v, want %s", out.Channel.TeamID, teamID)
+	}
+	return out.Channel.ID
+}
+
 func seedDefaultChannel(t *testing.T, h *channelHarness, fx channelFixture) string {
 	t.Helper()
 	channel := model.Channel{

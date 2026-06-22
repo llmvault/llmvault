@@ -39,6 +39,34 @@ func (h *ChannelHandler) resolveDefaultAgentID(ctx context.Context, w http.Respo
 	return agent.ID, true
 }
 
+func (h *ChannelHandler) resolveTeamID(ctx context.Context, w http.ResponseWriter, orgID uuid.UUID, raw *string) (*uuid.UUID, bool) {
+	if raw == nil {
+		return nil, true
+	}
+	value := cleanStringPtr(raw)
+	if value == "" {
+		return nil, true
+	}
+	teamID, err := uuid.Parse(value)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id must be a uuid"})
+		return nil, false
+	}
+	var count int64
+	if err := h.db.WithContext(ctx).
+		Model(&model.Team{}).
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", teamID, orgID).
+		Count(&count).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load team"})
+		return nil, false
+	}
+	if count != 1 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id must belong to an active team in this org"})
+		return nil, false
+	}
+	return &teamID, true
+}
+
 func (h *ChannelHandler) agentBelongsToOrg(ctx context.Context, orgID, agentID uuid.UUID) bool {
 	var count int64
 	if err := h.db.WithContext(ctx).

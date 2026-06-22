@@ -95,7 +95,8 @@ func TestIntegration_ChannelsVisibilityAndJoin(t *testing.T) {
 	h := newChannelHarness(t)
 	fx := h.seed(t)
 	publicID := createChannelForTest(t, h, fx, fx.owner, "ops", "public")
-	privateID := createChannelForTest(t, h, fx, fx.owner, "leadership", "private")
+	team := seedChannelTeam(t, h, fx, "Leadership")
+	privateID := createTeamChannelForTest(t, h, fx, "leadership", team.ID)
 
 	privateGet := h.doJSON(t, http.MethodGet, "/v1/channels/"+privateID, fx, fx.member, nil)
 	if privateGet.Code != http.StatusForbidden {
@@ -103,7 +104,7 @@ func TestIntegration_ChannelsVisibilityAndJoin(t *testing.T) {
 	}
 
 	memberList := h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil)
-	assertChannelNames(t, memberList, nil)
+	assertChannelNames(t, memberList, []string{"ops"})
 	discoverable := h.doJSON(t, http.MethodGet, "/v1/channels?discoverable=true", fx, fx.member, nil)
 	assertChannelNames(t, discoverable, []string{"ops"})
 
@@ -115,6 +116,36 @@ func TestIntegration_ChannelsVisibilityAndJoin(t *testing.T) {
 	assertChannelNames(t, memberList, []string{"ops"})
 	if privateID == "" {
 		t.Fatal("private channel was not created")
+	}
+}
+
+func TestIntegration_ChannelsListIncludesPublicTeamAndParticipantChannels(t *testing.T) {
+	h := newChannelHarness(t)
+	fx := h.seed(t)
+	publicID := createChannelForTest(t, h, fx, fx.owner, "general", "public")
+	engineering := seedChannelTeam(t, h, fx, "Engineering")
+	engineeringID := createTeamChannelForTest(t, h, fx, "engineering", engineering.ID)
+	privateTeam := seedChannelTeam(t, h, fx, "Private")
+	privateID := createTeamChannelForTest(t, h, fx, "private-work", privateTeam.ID)
+
+	assertChannelNameSet(t, h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil), []string{"general"})
+
+	if err := h.db.Create(&model.TeamMember{OrgID: fx.org.ID, TeamID: engineering.ID, UserID: fx.member.ID, Role: "member"}).Error; err != nil {
+		t.Fatalf("add team member: %v", err)
+	}
+	assertChannelNameSet(t, h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil), []string{"general", "engineering"})
+
+	privateUUID := uuid.MustParse(privateID)
+	seedChannelRecentSession(t, h, fx, privateUUID, fx.owner.ID, []uuid.UUID{fx.member.ID}, time.Now())
+	list := h.doJSON(t, http.MethodGet, "/v1/channels", fx, fx.member, nil)
+	assertChannelNameSet(t, list, []string{"general", "engineering", "private-work"})
+
+	privateGet := h.doJSON(t, http.MethodGet, "/v1/channels/"+privateID, fx, fx.member, nil)
+	if privateGet.Code != http.StatusOK {
+		t.Fatalf("participant channel get status=%d body=%s", privateGet.Code, privateGet.Body.String())
+	}
+	if publicID == "" || engineeringID == "" {
+		t.Fatal("expected channels to be created")
 	}
 }
 

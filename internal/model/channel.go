@@ -14,6 +14,8 @@ type Channel struct {
 	Description          string      `gorm:"type:text;not null;default:''"`
 	Kind                 string      `gorm:"type:text;not null;default:'standard'"`
 	Visibility           string      `gorm:"type:text;not null;default:'public'"`
+	TeamID               *uuid.UUID  `gorm:"type:uuid;index"`
+	Team                 *Team       `gorm:"foreignKey:TeamID;constraint:OnDelete:SET NULL"`
 	DefaultAgentID       uuid.UUID   `gorm:"type:uuid;not null;index"`
 	DefaultAgent         Agent       `gorm:"foreignKey:DefaultAgentID;constraint:OnDelete:RESTRICT"`
 	IsDefault            bool        `gorm:"not null;default:false;index"`
