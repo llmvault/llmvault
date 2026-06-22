@@ -141,6 +141,7 @@ WITH latest AS (
 		AND s.external_id <> ''
 		AND s.runtime_url <> ''
 		AND e.status <> 'archived'
+		AND e.sandbox_strategy = 'always_on'
 `
 	query += `
 	ORDER BY s.agent_id, s.created_at DESC

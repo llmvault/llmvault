@@ -14,7 +14,10 @@ import (
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-const agentSandboxStrategyAlwaysOn = "always_on"
+const (
+	agentSandboxStrategyAlwaysOn   = "always_on"
+	agentSandboxStrategyPerSession = "per_session"
+)
 
 func (h *SessionMessageDeliverHandler) loadRuntimeSandbox(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, error) {
 	if agent == nil || agent.OrgID == nil {

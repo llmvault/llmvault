@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/config"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -115,7 +116,7 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	if deps.Canvas != nil {
 		canvasEnv, err := deps.Canvas.AgentRuntimeEnv(ctx, agent)
 		if err != nil {
-			return nil, err
+			logging.FromContext(ctx).WarnContext(ctx, "agent runtime canvas env injection failed", "agent_id", agent.ID, "error", err)
 		}
 		for key, value := range canvasEnv {
 			env[key] = value

@@ -8,13 +8,37 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
-func (h *AgentSandboxUpgradeHandler) drainOldSandbox(ctx context.Context, agent *model.Agent, oldSandbox *model.Sandbox) error {
+func (h *AgentSandboxUpgradeHandler) prepareOldSandboxForReplacement(ctx context.Context, agent *model.Agent, oldSandbox *model.Sandbox) (bool, error) {
+	if agent == nil || agent.OrgID == nil {
+		return false, fmt.Errorf("agent with org is required")
+	}
+	if oldSandbox == nil || oldSandbox.ID == uuid.Nil {
+		return false, fmt.Errorf("old sandbox is required")
+	}
+	if err := h.db.WithContext(ctx).Model(oldSandbox).Updates(map[string]any{
+		"status":        string(sandbox.StatusDraining),
+		"error_message": nil,
+	}).Error; err != nil {
+		return false, fmt.Errorf("mark old sandbox draining: %w", err)
+	}
+	oldSandbox.Status = string(sandbox.StatusDraining)
+	oldSandbox.ErrorMessage = nil
+
+	activeSessions, err := h.countNonIdleSessionsForAgent(ctx, *agent.OrgID, agent.ID)
+	if err != nil {
+		return false, err
+	}
+	return activeSessions > 0, nil
+}
+
+func (h *AgentSandboxUpgradeHandler) waitForOldSandboxRuntimeDrain(ctx context.Context, oldSandbox *model.Sandbox) error {
 	if oldSandbox == nil || oldSandbox.ID == uuid.Nil {
 		return fmt.Errorf("old sandbox is required")
 	}
@@ -22,15 +46,6 @@ func (h *AgentSandboxUpgradeHandler) drainOldSandbox(ctx context.Context, agent 
 	if err != nil {
 		return err
 	}
-	if err := h.db.WithContext(ctx).Model(oldSandbox).Updates(map[string]any{
-		"status":        string(sandbox.StatusDraining),
-		"error_message": nil,
-	}).Error; err != nil {
-		return fmt.Errorf("mark old sandbox draining: %w", err)
-	}
-	oldSandbox.Status = string(sandbox.StatusDraining)
-	oldSandbox.ErrorMessage = nil
-
 	if _, err := client.StartDrain(ctx); err != nil {
 		return fmt.Errorf("send runtime drain signal: %w", err)
 	}
@@ -59,6 +74,22 @@ func (h *AgentSandboxUpgradeHandler) drainOldSandbox(ctx context.Context, agent 
 		case <-ticker.C:
 		}
 	}
+}
+
+func (h *AgentSandboxUpgradeHandler) countNonIdleSessionsForAgent(ctx context.Context, orgID, agentID uuid.UUID) (int64, error) {
+	var count int64
+	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("LOCK TABLE sessions IN SHARE MODE").Error; err != nil {
+			return fmt.Errorf("lock sessions before drain decision: %w", err)
+		}
+		return tx.Model(&model.Session{}).
+			Where("org_id = ? AND agent_id = ? AND agent_turn_status <> ?", orgID, agentID, model.SessionAgentTurnIdle).
+			Count(&count).Error
+	})
+	if err != nil {
+		return 0, fmt.Errorf("count active sessions before drain decision: %w", err)
+	}
+	return count, nil
 }
 
 func (h *AgentSandboxUpgradeHandler) restoreOldSandboxAfterDrainFailure(ctx context.Context, oldSandbox *model.Sandbox) error {

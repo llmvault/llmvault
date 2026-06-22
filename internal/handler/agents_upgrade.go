@@ -77,15 +77,6 @@ func (h *AgentHandler) StartSandboxUpgrade(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	if existing, ok, err := activeAgentSandboxUpgrade(ctx, h.db, org.ID, agentID); err != nil {
-		log.ErrorContext(ctx, "load active agent sandbox upgrade", "error", err, "agent_id", agentID)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load active upgrade"})
-		return
-	} else if ok {
-		writeJSON(w, http.StatusAccepted, toAgentSandboxUpgradeResponse(existing))
-		return
-	}
-
 	var agent model.Agent
 	if err := h.db.WithContext(ctx).
 		Where("id = ? AND org_id = ? AND status <> ?", agentID, org.ID, "archived").
@@ -96,6 +87,18 @@ func (h *AgentHandler) StartSandboxUpgrade(w http.ResponseWriter, r *http.Reques
 		}
 		log.ErrorContext(ctx, "load agent for sandbox upgrade", "error", err, "agent_id", agentID)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load agent"})
+		return
+	}
+	if agent.SandboxStrategy == agentStrategyPerSession {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "per-session agents do not use sandbox upgrades"})
+		return
+	}
+	if existing, ok, err := activeAgentSandboxUpgrade(ctx, h.db, org.ID, agentID); err != nil {
+		log.ErrorContext(ctx, "load active agent sandbox upgrade", "error", err, "agent_id", agentID)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load active upgrade"})
+		return
+	} else if ok {
+		writeJSON(w, http.StatusAccepted, toAgentSandboxUpgradeResponse(existing))
 		return
 	}
 	if err := h.deleteStaleAgentSandboxUpgradeTask(agentID); err != nil {
