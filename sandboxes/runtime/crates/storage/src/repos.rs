@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::{
     AgentDefinition, EventKind, QuestionAnswerPayload, QuestionRequest, Session, SessionEvent,
-    SessionId, SessionStatus, SubagentTask, SubagentTaskState,
+    SessionId, SessionStatus, SubagentTask, SubagentTaskState, WorkspaceConfig,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -39,6 +39,7 @@ pub fn notify_write(notifier: &Option<SharedWriteNotifier>) {
 pub struct ConfigSnapshot {
     pub definition: AgentDefinition,
     pub runtime_env: HashMap<String, String>,
+    pub workspace: WorkspaceConfig,
 }
 
 #[async_trait]

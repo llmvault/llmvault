@@ -84,6 +84,8 @@ mod openapi {
             domain::OutboundEvent,
             domain::OutboundChannelSpec,
             domain::OutboundChannelKind,
+            domain::WorkspaceConfig,
+            domain::WorkspaceRepoConfig,
             domain::Attachment,
             domain::LinkPreview,
             domain::HistoryMessage,

@@ -990,6 +990,9 @@
               "string",
               "null"
             ]
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/WorkspaceConfig"
           }
         }
       },
@@ -3357,6 +3360,48 @@
             "items": {
               "$ref": "#/components/schemas/PlanItem"
             }
+          }
+        }
+      },
+      "WorkspaceConfig": {
+        "type": "object",
+        "properties": {
+          "repos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRepoConfig"
+            }
+          }
+        }
+      },
+      "WorkspaceRepoConfig": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "full_name",
+          "clone_url"
+        ],
+        "properties": {
+          "clone_url": {
+            "type": "string"
+          },
+          "depth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },

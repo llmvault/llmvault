@@ -11,6 +11,7 @@ pub mod session;
 pub mod skill_specs;
 pub mod subagent;
 pub mod tool_specs;
+pub mod workspace;
 
 pub use agent_definition::*;
 pub use agent_registry::*;
@@ -25,3 +26,4 @@ pub use session::*;
 pub use skill_specs::*;
 pub use subagent::*;
 pub use tool_specs::*;
+pub use workspace::*;

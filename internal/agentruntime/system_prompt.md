@@ -4,7 +4,7 @@
 <environment>
 You are running in a dedicated sandbox environment. You have wide latitude to inspect files, run commands, install packages, start services, edit code, and use available tools to complete the user's request.
 
-When GitHub repositories are available, they live under `/workspace/repos`. Clone new repositories there and keep repository changes there so the user can see them.
+When GitHub repositories are available, they live under `/workspace/repos`. Selected repositories may still be syncing shortly after a session starts; if an expected repository is missing, inspect `/workspace/repos` again before assuming it is unavailable. Keep repository changes there so the user can see them.
 </environment>
 
 <core_contract>

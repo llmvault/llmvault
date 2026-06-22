@@ -8,7 +8,7 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
-use domain::{AgentDefinition, QuestionAnswerPayload, SessionId, SessionStatus};
+use domain::{AgentDefinition, QuestionAnswerPayload, SessionId, SessionStatus, WorkspaceConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -127,6 +127,8 @@ pub struct ConfigUpdateRequest {
     #[serde(default)]
     pub runtime_env: HashMap<String, String>,
     pub definition: AgentDefinition,
+    #[serde(default)]
+    pub workspace: WorkspaceConfig,
 }
 
 #[derive(Deserialize)]
@@ -264,7 +266,7 @@ pub async fn put_config(
         }
     }
     let definition = request.definition;
-    apply_config_snapshot(&state, definition.clone(), runtime_env).await?;
+    apply_config_snapshot(&state, definition.clone(), runtime_env, request.workspace).await?;
     if let Some(secret) = next_runtime_secret {
         let mut token = state.bearer_token.write().await;
         *token = secret;
@@ -281,6 +283,7 @@ async fn apply_config_snapshot(
     state: &ApiState,
     definition: AgentDefinition,
     runtime_env: HashMap<String, String>,
+    workspace: WorkspaceConfig,
 ) -> Result<(), (StatusCode, String)> {
     if let Err(error) = definition.system_prompt.validate() {
         return Err((StatusCode::BAD_REQUEST, error));
@@ -297,9 +300,13 @@ async fn apply_config_snapshot(
         .upsert(&ConfigSnapshot {
             definition: definition.clone(),
             runtime_env: runtime_env.clone(),
+            workspace: workspace.clone(),
         })
         .await
         .map_err(|error| internal_error_response("config.persist", error))?;
+    if let Some(repo_service) = state.repo_service.as_ref() {
+        repo_service.apply_workspace_config(workspace).await;
+    }
     state.skill_writer.sync(&definition.skills);
     for sub_agent in definition.sub_agents.values() {
         state.skill_writer.sync(&sub_agent.skills);
@@ -1002,6 +1009,7 @@ mod tests {
                 ("GOOD_KEY".to_string(), "value".to_string()),
                 ("ANOTHER_KEY_1".to_string(), "another".to_string()),
             ]),
+            workspace: WorkspaceConfig::default(),
         };
 
         assert!(
@@ -1016,6 +1024,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("1BAD_KEY".to_string(), "value".to_string())]),
+            workspace: WorkspaceConfig::default(),
         };
         assert_eq!(
             update.validate().unwrap_err(),
@@ -1029,6 +1038,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("OPENAI_API_KEY".to_string(), "value".to_string())]),
+            workspace: WorkspaceConfig::default(),
         };
         assert!(update.validate().is_ok());
     }
@@ -1044,6 +1054,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: entries,
+            workspace: WorkspaceConfig::default(),
         };
         assert_eq!(
             update.validate().unwrap_err(),
@@ -1060,6 +1071,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::from([("VALUE_TOO_LONG".to_string(), "x".repeat(8193))]),
+            workspace: WorkspaceConfig::default(),
         };
 
         assert_eq!(
@@ -1081,6 +1093,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: entries,
+            workspace: WorkspaceConfig::default(),
         };
 
         assert_eq!(
@@ -1095,6 +1108,7 @@ mod tests {
             definition: test_definition(),
             runtime_secret: None,
             runtime_env: HashMap::new(),
+            workspace: WorkspaceConfig::default(),
         };
         assert!(
             update.validate().is_ok(),

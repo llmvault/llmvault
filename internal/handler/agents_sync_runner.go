@@ -121,25 +121,17 @@ func (h *AgentHandler) runAgentSync(ctx context.Context, agent *model.Agent, sb 
 	if err != nil {
 		return nil, fmt.Errorf("mint proxy token: %w", err)
 	}
-	runtimeEnv, err := agentruntime.BuildRuntimeEnvWithProxyToken(ctx, h.compileDeps, agent, sb, apiKey, proxyToken)
+	configUpdate, err := agentruntime.BuildAgentRuntimeConfigUpdateWithProxyToken(ctx, h.compileDeps, agent, sb, apiKey, proxyToken)
 	if err != nil {
-		return nil, fmt.Errorf("load runtime env: %w", err)
+		return nil, fmt.Errorf("build agent runtime config: %w", err)
 	}
-	def, err := agentruntime.CompileWithProxyToken(ctx, h.compileDeps, agent, proxyToken)
-	if err != nil {
-		return nil, fmt.Errorf("compile: %w", err)
-	}
-	def.OutboundChannels = agentruntime.ControlPlaneOutboundChannels(h.compileDeps.Cfg, sb.ID)
 
 	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
 	if err != nil {
 		return nil, fmt.Errorf("agent runtime client: %w", err)
 	}
 
-	resp, err := client.PutRuntimeConfig(ctx, agentruntime.ConfigUpdateRequest{
-		Definition: def,
-		RuntimeEnv: runtimeEnv,
-	})
+	resp, err := client.PutRuntimeConfig(ctx, configUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +197,6 @@ func toSyncResponseDTO(resp *agentruntime.SyncResponse) syncAgentResponse {
 	}
 	out.Applied = resp.Applied
 	out.Deleted = resp.Deleted
-	out.ReposCloned = resp.ReposCloned
 	out.RestartTriggered = resp.RestartTriggered
 	out.Errors = resp.Errors
 	return out

@@ -31,6 +31,17 @@ func TestRedactConfigUpdateRequestStripsSecrets(t *testing.T) {
 				},
 			},
 		},
+		Workspace: &WorkspaceConfig{
+			Repos: []WorkspaceRepoConfig{
+				{
+					ID:       "usehivy/hivy",
+					Name:     "hivy",
+					FullName: "usehivy/hivy",
+					CloneURL: "https://token@example.com/usehivy/hivy.git",
+					Depth:    1,
+				},
+			},
+		},
 	}
 
 	out := redactConfigUpdateRequest(body)
@@ -47,6 +58,7 @@ func TestRedactConfigUpdateRequestStripsSecrets(t *testing.T) {
 		"leak-me",
 		"hunter2",
 		"Bearer real-jwt-here",
+		"https://token@example.com/usehivy/hivy.git",
 	} {
 		if strings.Contains(dump, secret) {
 			t.Fatalf("redacted payload still contains secret %q: %s", secret, dump)
@@ -56,6 +68,11 @@ func TestRedactConfigUpdateRequestStripsSecrets(t *testing.T) {
 	for _, keep := range []string{"https://llm.local", "on", "keep-this", "https://mcp.example/abc"} {
 		if !strings.Contains(dump, keep) {
 			t.Fatalf("redacted payload dropped non-sensitive value %q: %s", keep, dump)
+		}
+	}
+	for _, keep := range []string{"usehivy/hivy", "hivy"} {
+		if !strings.Contains(dump, keep) {
+			t.Fatalf("redacted payload dropped safe repo value %q: %s", keep, dump)
 		}
 	}
 

@@ -3,11 +3,13 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use domain::{WorkspaceConfig, WorkspaceRepoConfig};
 use percent_encoding::percent_decode_str;
 use serde_json::json;
-use tokio::sync::RwLock;
-use tracing::warn;
+use tokio::process::Command;
+use tokio::sync::{Mutex, RwLock, Semaphore};
+use tracing::{info, warn};
 
 use crate::session_stream::SessionStreamBroker;
 
@@ -22,6 +24,9 @@ const REPOS_DIR: &str = "repos";
 const DEFAULT_DIFF_CONTEXT: u32 = 3;
 const MAX_CONTENT_BYTES: u64 = 512 * 1024;
 const MAX_LIST_DEPTH: usize = 4;
+const DEFAULT_REPO_SYNC_DEPTH: u32 = 1;
+const MAX_REPO_SYNC_DEPTH: u32 = 1000;
+const REPO_SYNC_CONCURRENCY: usize = 2;
 
 #[derive(Clone)]
 pub struct RepoService {
@@ -29,6 +34,8 @@ pub struct RepoService {
     repos_root: PathBuf,
     state: Arc<RwLock<RepoState>>,
     broker: Arc<SessionStreamBroker>,
+    active_syncs: Arc<Mutex<BTreeSet<String>>>,
+    sync_semaphore: Arc<Semaphore>,
 }
 
 #[derive(Default)]
@@ -47,6 +54,8 @@ impl RepoService {
             repos_root,
             state: Arc::new(RwLock::new(RepoState::default())),
             broker,
+            active_syncs: Arc::new(Mutex::new(BTreeSet::new())),
+            sync_semaphore: Arc::new(Semaphore::new(REPO_SYNC_CONCURRENCY)),
         }
     }
 
@@ -67,6 +76,49 @@ impl RepoService {
             .await
             .sessions
             .insert(session_id.to_string());
+    }
+
+    pub async fn apply_workspace_config(&self, workspace: WorkspaceConfig) {
+        for repo in workspace.repos {
+            self.schedule_repo_sync(repo).await;
+        }
+    }
+
+    async fn schedule_repo_sync(&self, repo: WorkspaceRepoConfig) {
+        let key = repo_sync_key(&repo);
+        if key.is_empty() {
+            capture_repo_sync_error(&repo, "repo sync skipped: missing repo id");
+            return;
+        }
+        {
+            let mut active = self.active_syncs.lock().await;
+            if !active.insert(key.clone()) {
+                return;
+            }
+        }
+
+        let repos_root = self.repos_root.clone();
+        let active_syncs = self.active_syncs.clone();
+        let sync_semaphore = self.sync_semaphore.clone();
+        tokio::spawn(async move {
+            let permit = match sync_semaphore.acquire_owned().await {
+                Ok(permit) => permit,
+                Err(error) => {
+                    let error = format!("repo sync semaphore closed: {error}");
+                    warn!(repo_id = %repo.id, repo_name = %repo.name, error = %error, "repo sync failed");
+                    capture_repo_sync_error(&repo, &error);
+                    active_syncs.lock().await.remove(&key);
+                    return;
+                }
+            };
+            let _permit = permit;
+            if let Err(error) = sync_workspace_repo(&repos_root, &repo).await {
+                let error = error.to_string();
+                warn!(repo_id = %repo.id, repo_name = %repo.name, error = %error, "repo sync failed");
+                capture_repo_sync_error(&repo, &error);
+            }
+            active_syncs.lock().await.remove(&key);
+        });
     }
 
     pub async fn list_repos(&self) -> Result<RepoListResponse> {
@@ -367,6 +419,140 @@ impl RepoService {
     }
 }
 
+async fn sync_workspace_repo(repos_root: &Path, repo: &WorkspaceRepoConfig) -> Result<()> {
+    validate_workspace_repo(repo)?;
+    tokio::fs::create_dir_all(repos_root)
+        .await
+        .with_context(|| format!("create repos directory {}", repos_root.display()))?;
+    let target = repos_root.join(&repo.name);
+    let depth = repo
+        .depth
+        .unwrap_or(DEFAULT_REPO_SYNC_DEPTH)
+        .clamp(1, MAX_REPO_SYNC_DEPTH);
+
+    match tokio::fs::metadata(&target).await {
+        Ok(meta) if meta.is_dir() => {
+            if tokio::fs::metadata(target.join(".git")).await.is_ok() {
+                info!(repo_id = %repo.id, repo_name = %repo.name, "fetching workspace repository");
+                run_git(
+                    &[
+                        "-C".to_string(),
+                        target.display().to_string(),
+                        "fetch".to_string(),
+                        format!("--depth={depth}"),
+                        "origin".to_string(),
+                    ],
+                    "fetch workspace repository",
+                )
+                .await
+            } else {
+                bail!("repository target exists but is not a git checkout");
+            }
+        }
+        Ok(_) => bail!("repository target exists but is not a directory"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            info!(repo_id = %repo.id, repo_name = %repo.name, "cloning workspace repository");
+            run_git(
+                &[
+                    "clone".to_string(),
+                    format!("--depth={depth}"),
+                    repo.clone_url.clone(),
+                    target.display().to_string(),
+                ],
+                "clone workspace repository",
+            )
+            .await
+        }
+        Err(error) => Err(error).context("inspect repository target"),
+    }
+}
+
+fn validate_workspace_repo(repo: &WorkspaceRepoConfig) -> Result<()> {
+    if !is_safe_repo_directory(&repo.name) {
+        bail!("invalid repository directory name");
+    }
+    let full_name = if repo.full_name.trim().is_empty() {
+        repo.id.trim()
+    } else {
+        repo.full_name.trim()
+    };
+    if !is_safe_github_repo(full_name) {
+        bail!("invalid repository full name");
+    }
+    if repo.clone_url.trim().is_empty() {
+        bail!("missing repository clone URL");
+    }
+    if clone_url_contains_credentials(&repo.clone_url) {
+        bail!("repository clone URL must not contain credentials");
+    }
+    Ok(())
+}
+
+async fn run_git(args: &[String], context: &'static str) -> Result<()> {
+    let output = Command::new("git").args(args).output().await?;
+    if !output.status.success() {
+        bail!(
+            "{} failed: {}",
+            context,
+            safe_git_stderr(&String::from_utf8_lossy(&output.stderr))
+        );
+    }
+    Ok(())
+}
+
+fn safe_git_stderr(stderr: &str) -> String {
+    let stderr = stderr.trim();
+    if stderr.is_empty() {
+        return "git exited with non-zero status".to_string();
+    }
+    stderr.chars().take(512).collect()
+}
+
+fn repo_sync_key(repo: &WorkspaceRepoConfig) -> String {
+    if !repo.full_name.trim().is_empty() {
+        return repo.full_name.trim().to_string();
+    }
+    repo.id.trim().to_string()
+}
+
+fn is_safe_github_repo(value: &str) -> bool {
+    let parts = value.split('/').collect::<Vec<_>>();
+    parts.len() == 2 && parts.iter().all(|part| is_safe_repo_directory(part))
+}
+
+fn is_safe_repo_directory(value: &str) -> bool {
+    if value.is_empty() || value == "." || value == ".." {
+        return false;
+    }
+    value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.')
+}
+
+fn clone_url_contains_credentials(value: &str) -> bool {
+    let Some(scheme_idx) = value.find("://") else {
+        return false;
+    };
+    let authority_and_path = &value[(scheme_idx + 3)..];
+    let authority_end = authority_and_path
+        .find('/')
+        .unwrap_or(authority_and_path.len());
+    authority_and_path[..authority_end].contains('@')
+}
+
+fn capture_repo_sync_error(repo: &WorkspaceRepoConfig, error: &str) {
+    sentry::with_scope(
+        |scope| {
+            scope.set_tag("runtime.api_context", "repo_sync");
+            scope.set_tag("repo_id", repo.id.clone());
+            scope.set_tag("repo_name", repo.name.clone());
+            scope.set_extra("repo_full_name", repo.full_name.clone().into());
+            scope.set_extra("repo_sync_error", error.to_string().into());
+        },
+        || sentry::capture_message("runtime repository sync failed", sentry::Level::Error),
+    );
+}
+
 fn repo_id(relative: &str) -> String {
     let mut out = String::from("repo_");
     for ch in relative.chars() {
@@ -508,6 +694,72 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn workspace_sync_clones_desired_repositories_into_repos_root() {
+        let remote_workspace = unique_workspace();
+        let source = remote_workspace.join("source");
+        init_repo(&source, "README.md", "hello from remote\n").await;
+
+        let workspace = unique_workspace();
+        let broker = Arc::new(SessionStreamBroker::new());
+        let service = RepoService::new(workspace.clone(), broker);
+        service
+            .apply_workspace_config(WorkspaceConfig {
+                repos: vec![WorkspaceRepoConfig {
+                    id: "usehivy/hivy".to_string(),
+                    name: "hivy".to_string(),
+                    full_name: "usehivy/hivy".to_string(),
+                    clone_url: source.display().to_string(),
+                    depth: Some(1),
+                }],
+            })
+            .await;
+
+        wait_for_path(&workspace.join("repos").join("hivy").join(".git")).await;
+        let listed = service.list_repos().await.unwrap();
+        assert!(listed.repos.iter().any(|repo| repo.name == "hivy"));
+
+        let _ = tokio::fs::remove_dir_all(workspace).await;
+        let _ = tokio::fs::remove_dir_all(remote_workspace).await;
+    }
+
+    #[tokio::test]
+    async fn workspace_sync_does_not_delete_existing_non_git_path() {
+        let remote_workspace = unique_workspace();
+        let source = remote_workspace.join("source");
+        init_repo(&source, "README.md", "hello from remote\n").await;
+
+        let workspace = unique_workspace();
+        let target = workspace.join("repos").join("hivy");
+        tokio::fs::create_dir_all(&target).await.unwrap();
+        tokio::fs::write(target.join("note.txt"), "local state\n")
+            .await
+            .unwrap();
+
+        let broker = Arc::new(SessionStreamBroker::new());
+        let service = RepoService::new(workspace.clone(), broker);
+        service
+            .apply_workspace_config(WorkspaceConfig {
+                repos: vec![WorkspaceRepoConfig {
+                    id: "usehivy/hivy".to_string(),
+                    name: "hivy".to_string(),
+                    full_name: "usehivy/hivy".to_string(),
+                    clone_url: source.display().to_string(),
+                    depth: Some(1),
+                }],
+            })
+            .await;
+
+        wait_for_no_active_syncs(&service).await;
+        let content = tokio::fs::read_to_string(target.join("note.txt"))
+            .await
+            .unwrap();
+        assert_eq!(content, "local state\n");
+
+        let _ = tokio::fs::remove_dir_all(workspace).await;
+        let _ = tokio::fs::remove_dir_all(remote_workspace).await;
+    }
+
+    #[tokio::test]
     async fn diff_shows_changes_on_feature_branch_relative_to_main() {
         let workspace = unique_workspace();
         let repos = workspace.join("repos");
@@ -597,5 +849,25 @@ mod tests {
             args,
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    async fn wait_for_path(path: &Path) {
+        for _ in 0..100 {
+            if tokio::fs::metadata(path).await.is_ok() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        panic!("path did not appear: {}", path.display());
+    }
+
+    async fn wait_for_no_active_syncs(service: &RepoService) {
+        for _ in 0..100 {
+            if service.active_syncs.lock().await.is_empty() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        panic!("repo sync job did not finish");
     }
 }

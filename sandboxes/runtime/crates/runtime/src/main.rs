@@ -108,17 +108,27 @@ async fn main() -> Result<()> {
     let question_request_repo: Arc<dyn storage::QuestionRequestRepo> =
         Arc::new(SqliteQuestionRequestRepo::new(&sqlite_store));
 
-    let (initial_definition, initial_runtime_env, config_loaded_from_database) =
+    let (initial_definition, initial_runtime_env, initial_workspace, config_loaded_from_database) =
         match config_repo.load().await? {
             Some(persisted) => {
                 info!("loaded agent config snapshot from database");
                 let merged_runtime_env =
                     merge_persisted_runtime_env(runtime_env, persisted.runtime_env);
-                (persisted.definition, merged_runtime_env, true)
+                (
+                    persisted.definition,
+                    merged_runtime_env,
+                    persisted.workspace,
+                    true,
+                )
             }
             None => {
                 info!("no persisted definition; waiting for first control-plane config push");
-                (bootstrap_agent_definition(), runtime_env, false)
+                (
+                    bootstrap_agent_definition(),
+                    runtime_env,
+                    domain::WorkspaceConfig::default(),
+                    false,
+                )
             }
         };
 
@@ -172,6 +182,9 @@ async fn main() -> Result<()> {
         session_stream_broker.clone(),
     ));
     repo_service.clone().start();
+    if config_loaded_from_database {
+        repo_service.apply_workspace_config(initial_workspace).await;
+    }
     let plan_manager = Arc::new(
         api::PlanManager::new(session_stream_broker.clone()).with_outbound_emitter(emitter.clone()),
     );

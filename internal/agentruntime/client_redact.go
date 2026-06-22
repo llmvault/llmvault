@@ -31,8 +31,24 @@ func redactConfigUpdateRequest(body ConfigUpdateRequest) map[string]any {
 	} else {
 		out["definition"] = nil
 	}
+	if body.Workspace != nil {
+		out["workspace"] = redactWorkspace(*body.Workspace)
+	}
 
 	return out
+}
+
+func redactWorkspace(workspace WorkspaceConfig) map[string]any {
+	repos := make([]map[string]any, 0, len(workspace.Repos))
+	for _, repo := range workspace.Repos {
+		repos = append(repos, map[string]any{
+			"id":        repo.ID,
+			"name":      repo.Name,
+			"full_name": repo.FullName,
+			"depth":     repo.Depth,
+		})
+	}
+	return map[string]any{"repos": repos}
 }
 
 // redactDefinition round-trips the definition through a generic map and redacts

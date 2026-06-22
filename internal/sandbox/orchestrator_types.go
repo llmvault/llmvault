@@ -19,11 +19,6 @@ const (
 	runtimeURLTTL           = 55 * time.Minute
 )
 
-type repoResource struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
 func agentDriveUploadURL(cfg *config.Config, agentID uuid.UUID) string {
 	return agentruntime.AgentDriveUploadURL(cfg.RuntimeControlPlaneBaseURL(), agentID)
 }

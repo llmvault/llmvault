@@ -113,10 +113,6 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 			return nil, err
 		}
 		if claimed {
-			if err := o.cloneAgentSelectedRepositories(ctx, &sb, agent); err != nil {
-				o.cleanupFailedSandbox(ctx, &sb, sb.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
-				return nil, fmt.Errorf("cloning agent repositories: %w", err)
-			}
 			logging.FromContext(ctx).InfoContext(ctx, "agent sandbox claimed from warm pool",
 				"sandbox_id", sb.ID, "external_id", sb.ExternalID, "agent_id", agent.ID,
 				"sandbox_image", sandboxImage, "sandbox_size", sandboxSize)
@@ -175,11 +171,6 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	if err := o.pushAgentRuntimeConfig(ctx, &sb, "create", startupProxyToken); err != nil {
 		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, "agent runtime config push failed")
 		return nil, err
-	}
-
-	if err := o.cloneAgentSelectedRepositories(ctx, &sb, agent); err != nil {
-		o.cleanupFailedSandbox(ctx, &sb, info.ExternalID, fmt.Sprintf("repository cloning failed: %v", err))
-		return nil, fmt.Errorf("cloning agent repositories: %w", err)
 	}
 
 	idleTimeout := time.Duration(0)
