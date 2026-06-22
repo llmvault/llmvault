@@ -645,6 +645,7 @@ type ConfigUpdateRequest struct {
 	Definition    AgentDefinition    `json:"definition"`
 	RuntimeEnv    *map[string]string `json:"runtime_env,omitempty"`
 	RuntimeSecret *string            `json:"runtime_secret,omitempty"`
+	Workspace     *WorkspaceConfig   `json:"workspace,omitempty"`
 }
 
 // ContentResponse defines model for ContentResponse.
@@ -1337,6 +1338,20 @@ type TreeResponse struct {
 	Entries []TreeEntry `json:"entries"`
 	Path    string      `json:"path"`
 	RepoId  string      `json:"repo_id"`
+}
+
+// WorkspaceConfig defines model for WorkspaceConfig.
+type WorkspaceConfig struct {
+	Repos *[]WorkspaceRepoConfig `json:"repos,omitempty"`
+}
+
+// WorkspaceRepoConfig defines model for WorkspaceRepoConfig.
+type WorkspaceRepoConfig struct {
+	CloneUrl string `json:"clone_url"`
+	Depth    *int32 `json:"depth,omitempty"`
+	FullName string `json:"full_name"`
+	Id       string `json:"id"`
+	Name     string `json:"name"`
 }
 
 // WriteFileConfig defines model for WriteFileConfig.

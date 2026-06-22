@@ -58,9 +58,14 @@ func BuildAgentRuntimeConfigUpdateWithProxyToken(ctx context.Context, deps Compi
 		sandboxID = sb.ID
 	}
 	def.OutboundChannels = ControlPlaneOutboundChannels(deps.Cfg, sandboxID)
+	workspace, err := BuildWorkspaceConfig(ctx, deps, agent)
+	if err != nil {
+		return ConfigUpdateRequest{}, err
+	}
 	return ConfigUpdateRequest{
 		Definition: def,
 		RuntimeEnv: env,
+		Workspace:  &workspace,
 	}, nil
 }
 

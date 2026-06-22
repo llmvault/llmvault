@@ -27,6 +27,7 @@ pub(super) enum WriteRequest {
     ConfigUpsert {
         definition_json: String,
         runtime_env_json: String,
+        workspace_json: String,
         updated_at: String,
         resp: Resp<()>,
     },
@@ -163,12 +164,19 @@ impl WriteRequest {
             WriteRequest::ConfigUpsert {
                 definition_json,
                 runtime_env_json,
+                workspace_json,
                 updated_at,
                 resp,
             } => respond(
                 resp,
-                session_ops::config_upsert(conn, definition_json, runtime_env_json, updated_at)
-                    .await,
+                session_ops::config_upsert(
+                    conn,
+                    definition_json,
+                    runtime_env_json,
+                    workspace_json,
+                    updated_at,
+                )
+                .await,
             ),
             WriteRequest::SessionCreate { session, resp } => {
                 respond(resp, session_ops::session_create(conn, *session).await)

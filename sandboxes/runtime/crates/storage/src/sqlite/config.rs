@@ -24,15 +24,16 @@ impl SqliteConfigRepo {
 #[async_trait]
 impl ConfigRepo for SqliteConfigRepo {
     async fn load(&self) -> Result<Option<ConfigSnapshot>> {
-        let row: Option<(String, String)> = sqlx::query_as(
-            "SELECT definition_json, runtime_env_json FROM agent_config WHERE id = 1",
+        let row: Option<(String, String, String)> = sqlx::query_as(
+            "SELECT definition_json, runtime_env_json, workspace_json FROM agent_config WHERE id = 1",
         )
         .fetch_optional(self.pool.as_ref())
         .await?;
         match row {
-            Some((definition_json, runtime_env_json)) => Ok(Some(ConfigSnapshot {
+            Some((definition_json, runtime_env_json, workspace_json)) => Ok(Some(ConfigSnapshot {
                 definition: serde_json::from_str(&definition_json)?,
                 runtime_env: serde_json::from_str(&runtime_env_json)?,
+                workspace: serde_json::from_str(&workspace_json)?,
             })),
             None => Ok(None),
         }

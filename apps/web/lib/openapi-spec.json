@@ -12554,9 +12554,6 @@
               "type": "string"
             }
           },
-          "repos_cloned": {
-            "type": "integer"
-          },
           "restart_triggered": {
             "type": "boolean"
           }

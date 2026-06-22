@@ -30,7 +30,6 @@ const defaultHTTPTimeout = 2 * time.Minute
 type SyncResponse struct {
 	Applied          int      `json:"applied"`
 	Deleted          int      `json:"deleted"`
-	ReposCloned      int      `json:"repos_cloned"`
 	RestartTriggered bool     `json:"restart_triggered"`
 	Errors           []string `json:"errors,omitempty"`
 }
@@ -39,6 +38,7 @@ type ConfigUpdateRequest struct {
 	RuntimeSecret string            `json:"runtime_secret,omitempty"`
 	RuntimeEnv    map[string]string `json:"runtime_env,omitempty"`
 	Definition    *AgentDefinition  `json:"definition"`
+	Workspace     *WorkspaceConfig  `json:"workspace,omitempty"`
 }
 
 type HTTPMessageRequest struct {

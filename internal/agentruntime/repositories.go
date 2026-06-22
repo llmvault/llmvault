@@ -1,4 +1,4 @@
-package sandbox
+package agentruntime
 
 import (
 	"context"
@@ -13,50 +13,60 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (o *Orchestrator) cloneAgentSelectedRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Agent) error {
-	return o.SyncAgentSelectedRepositories(ctx, sb, agent)
+const defaultWorkspaceRepoDepth = 1
+
+type WorkspaceConfig struct {
+	Repos []WorkspaceRepoConfig `json:"repos"`
 }
 
-func (o *Orchestrator) SyncAgentSelectedRepositories(ctx context.Context, sb *model.Sandbox, agent *model.Agent) error {
-	repos, err := o.loadAgentSelectedGitHubRepositories(ctx, agent)
+type WorkspaceRepoConfig struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	FullName string `json:"full_name"`
+	CloneURL string `json:"clone_url"`
+	Depth    int    `json:"depth"`
+}
+
+type selectedGitHubRepository struct {
+	ID   string
+	Name string
+}
+
+func BuildWorkspaceConfig(ctx context.Context, deps CompileDeps, agent *model.Agent) (WorkspaceConfig, error) {
+	repos, err := loadSelectedGitHubRepositoriesForAgent(ctx, deps.DB, agent)
 	if err != nil {
-		return err
+		return WorkspaceConfig{}, err
 	}
-	if len(repos) == 0 {
-		return nil
-	}
-	return o.cloneRepositories(ctx, sb, repos, o.runtimeLayout().AgentRepoDir)
-}
-
-func (o *Orchestrator) SyncGitHubConnectionResources(ctx context.Context, sb *model.Sandbox, resources model.JSON) error {
-	repos, err := selectedGitHubRepositoriesFromResources(resources)
-	if err != nil {
-		return err
-	}
-	if len(repos) == 0 {
-		return nil
-	}
-	return o.cloneRepositories(ctx, sb, repos, o.runtimeLayout().AgentRepoDir)
-}
-
-func (o *Orchestrator) loadAgentSelectedGitHubRepositories(ctx context.Context, agent *model.Agent) ([]repoResource, error) {
-	if agent == nil {
-		return nil, nil
-	}
-	return loadSelectedGitHubRepositoriesForAgent(ctx, o.db, agent.ID)
-}
-
-func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, agentID uuid.UUID) ([]repoResource, error) {
-	if db == nil {
-		return nil, nil
-	}
-	var agent model.Agent
-	err := db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+	out := WorkspaceConfig{Repos: make([]WorkspaceRepoConfig, 0, len(repos))}
+	for _, repo := range repos {
+		if !isSafeGitHubRepo(repo.ID) || !isSafeRepoDirectory(repo.Name) {
+			continue
 		}
-		return nil, fmt.Errorf("load agent github resources: %w", err)
+		out.Repos = append(out.Repos, WorkspaceRepoConfig{
+			ID:       repo.ID,
+			Name:     repo.Name,
+			FullName: repo.ID,
+			CloneURL: "https://github.com/" + repo.ID + ".git",
+			Depth:    defaultWorkspaceRepoDepth,
+		})
+	}
+	return out, nil
+}
+
+func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, agent *model.Agent) ([]selectedGitHubRepository, error) {
+	if db == nil || agent == nil || agent.ID == uuid.Nil {
+		return nil, nil
+	}
+	if agent.OrgID == nil {
+		var loaded model.Agent
+		err := db.WithContext(ctx).Where("id = ?", agent.ID).First(&loaded).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("load agent github resources: %w", err)
+		}
+		agent = &loaded
 	}
 	if agent.OrgID == nil {
 		return nil, nil
@@ -77,7 +87,7 @@ func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, ag
 		return nil, fmt.Errorf("load agent github connections: %w", err)
 	}
 
-	var repos []repoResource
+	repos := make([]selectedGitHubRepository, 0)
 	for _, conn := range conns {
 		selected, err := selectedGitHubRepositoriesFromResources(connectionaccess.EffectiveResources(agent.Resources, conn))
 		if err != nil {
@@ -85,10 +95,10 @@ func loadSelectedGitHubRepositoriesForAgent(ctx context.Context, db *gorm.DB, ag
 		}
 		repos = append(repos, selected...)
 	}
-	return dedupeRepoResources(repos), nil
+	return dedupeSelectedGitHubRepositories(repos), nil
 }
 
-func selectedGitHubRepositoriesFromResources(resources model.JSON) ([]repoResource, error) {
+func selectedGitHubRepositoriesFromResources(resources model.JSON) ([]selectedGitHubRepository, error) {
 	if len(resources) == 0 {
 		return nil, nil
 	}
@@ -100,13 +110,13 @@ func selectedGitHubRepositoriesFromResources(resources model.JSON) ([]repoResour
 	if err != nil {
 		return nil, err
 	}
-	return dedupeRepoResources(repos), nil
+	return dedupeSelectedGitHubRepositories(repos), nil
 }
 
-func selectedGitHubRepositoriesFromRaw(raw any) ([]repoResource, error) {
+func selectedGitHubRepositoriesFromRaw(raw any) ([]selectedGitHubRepository, error) {
 	switch items := raw.(type) {
 	case []any:
-		repos := make([]repoResource, 0, len(items))
+		repos := make([]selectedGitHubRepository, 0, len(items))
 		for _, item := range items {
 			itemMap, ok := item.(map[string]any)
 			if !ok {
@@ -118,7 +128,7 @@ func selectedGitHubRepositoriesFromRaw(raw any) ([]repoResource, error) {
 		}
 		return repos, nil
 	case []map[string]any:
-		repos := make([]repoResource, 0, len(items))
+		repos := make([]selectedGitHubRepository, 0, len(items))
 		for _, item := range items {
 			if repo, ok := selectedGitHubRepositoryFromMap(item); ok {
 				repos = append(repos, repo)
@@ -130,7 +140,7 @@ func selectedGitHubRepositoriesFromRaw(raw any) ([]repoResource, error) {
 	}
 }
 
-func selectedGitHubRepositoryFromMap(item map[string]any) (repoResource, bool) {
+func selectedGitHubRepositoryFromMap(item map[string]any) (selectedGitHubRepository, bool) {
 	id := strings.TrimSpace(stringMapValue(item, "full_name"))
 	if id == "" {
 		id = strings.TrimSpace(stringMapValue(item, "id"))
@@ -141,9 +151,9 @@ func selectedGitHubRepositoryFromMap(item map[string]any) (repoResource, bool) {
 		name = parts[len(parts)-1]
 	}
 	if id == "" || name == "" {
-		return repoResource{}, false
+		return selectedGitHubRepository{}, false
 	}
-	return repoResource{ID: id, Name: name}, true
+	return selectedGitHubRepository{ID: id, Name: name}, true
 }
 
 func stringMapValue(item map[string]any, key string) string {
@@ -151,12 +161,12 @@ func stringMapValue(item map[string]any, key string) string {
 	return value
 }
 
-func dedupeRepoResources(repos []repoResource) []repoResource {
+func dedupeSelectedGitHubRepositories(repos []selectedGitHubRepository) []selectedGitHubRepository {
 	if len(repos) < 2 {
 		return repos
 	}
 	seen := make(map[string]struct{}, len(repos))
-	out := make([]repoResource, 0, len(repos))
+	out := make([]selectedGitHubRepository, 0, len(repos))
 	for _, repo := range repos {
 		key := strings.TrimSpace(repo.ID)
 		if key == "" {
@@ -169,38 +179,6 @@ func dedupeRepoResources(repos []repoResource) []repoResource {
 		out = append(out, repo)
 	}
 	return out
-}
-
-func (o *Orchestrator) cloneRepositories(ctx context.Context, sb *model.Sandbox, repos []repoResource, baseDir string) error {
-	if _, err := o.ExecuteCommand(ctx, sb, "mkdir -p "+shellQuote(baseDir)); err != nil {
-		return fmt.Errorf("creating repos directory: %w", err)
-	}
-	for _, repo := range repos {
-		if !isSafeGitHubRepo(repo.ID) {
-			return fmt.Errorf("invalid GitHub repository full name %q", repo.ID)
-		}
-		if !isSafeRepoDirectory(repo.Name) {
-			return fmt.Errorf("invalid repository directory name %q", repo.Name)
-		}
-		repoPath := baseDir + "/" + repo.Name
-		cloneURL := "https://github.com/" + repo.ID + ".git"
-
-		command := fmt.Sprintf("if [ -d %s ]; then if [ -d %s ]; then git -C %s fetch --depth=1 origin; else echo 'repository path exists but is not a git checkout' >&2; exit 1; fi; else git clone --depth=1 %s %s; fi",
-			shellQuote(repoPath),
-			shellQuote(repoPath+"/.git"),
-			shellQuote(repoPath),
-			shellQuote(cloneURL),
-			shellQuote(repoPath),
-		)
-		if _, err := o.ExecuteCommand(ctx, sb, command); err != nil {
-			return fmt.Errorf("cloning %s: %w", repo.ID, err)
-		}
-	}
-	return nil
-}
-
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 func isSafeGitHubRepo(value string) bool {

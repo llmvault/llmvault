@@ -473,6 +473,7 @@ impl ConfigRepo for NoopConfigRepo {
         Ok(Some(ConfigSnapshot {
             definition: fake_agent_definition(),
             runtime_env: Default::default(),
+            workspace: Default::default(),
         }))
     }
 

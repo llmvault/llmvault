@@ -16,7 +16,6 @@ import (
 type syncAgentResponse struct {
 	Applied          int      `json:"applied"`
 	Deleted          int      `json:"deleted"`
-	ReposCloned      int      `json:"repos_cloned"`
 	RestartTriggered bool     `json:"restart_triggered"`
 	Errors           []string `json:"errors,omitempty"`
 }

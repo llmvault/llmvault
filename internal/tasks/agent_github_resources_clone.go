@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
-	"github.com/usehivy/hivy/internal/connectionaccess"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -68,10 +67,10 @@ func (h *AgentGitHubResourcesCloneHandler) Handle(ctx context.Context, task *asy
 		"connection_id": payload.ConnectionID.String(),
 	}
 	if err := h.run(ctx, payload); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("github resources clone failed: %w", err), fields)
+		logging.CaptureWithFields(ctx, fmt.Errorf("github resources config push failed: %w", err), fields)
 		return nil
 	}
-	logging.FromContext(ctx).InfoContext(ctx, "github resources clone completed",
+	logging.FromContext(ctx).InfoContext(ctx, "github resources config pushed",
 		"org_id", payload.OrgID,
 		"agent_id", payload.AgentID,
 		"connection_id", payload.ConnectionID,
@@ -89,16 +88,6 @@ func (h *AgentGitHubResourcesCloneHandler) run(ctx context.Context, payload Agen
 		}
 		return fmt.Errorf("load agent: %w", err)
 	}
-	access, err := connectionaccess.ResolveAgentConnection(ctx, h.db, payload.OrgID, payload.AgentID, payload.ConnectionID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		return fmt.Errorf("resolve github connection access: %w", err)
-	}
-	if !connectionaccess.IsGitHubProvider(access.Connection.Integration.Provider) {
-		return nil
-	}
 	sb, err := agentRuntimeSelector(h.db, h.compileDeps).MainRuntime(ctx, payload.OrgID, payload.AgentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -110,13 +99,6 @@ func (h *AgentGitHubResourcesCloneHandler) run(ctx context.Context, payload Agen
 		if err := h.orchestrator.RefreshAgentSandboxURL(ctx, sb); err != nil {
 			return fmt.Errorf("refresh agent sandbox url: %w", err)
 		}
-	}
-	if err := h.orchestrator.SyncGitHubConnectionResources(ctx, sb, access.Resources); err != nil {
-		logging.CaptureWithFields(ctx, fmt.Errorf("sync selected github repositories: %w", err), map[string]any{
-			"org_id":        payload.OrgID.String(),
-			"agent_id":      payload.AgentID.String(),
-			"connection_id": payload.ConnectionID.String(),
-		})
 	}
 	if err := agentruntime.PushAgentRuntimeConfig(ctx, h.compileDeps, &agent, sb); err != nil {
 		return fmt.Errorf("push agent runtime config: %w", err)

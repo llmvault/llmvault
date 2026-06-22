@@ -60,11 +60,13 @@ impl SqliteWriteGateway {
     pub async fn upsert_config(&self, snapshot: &ConfigSnapshot) -> Result<()> {
         let definition_json = serde_json::to_string(&snapshot.definition)?;
         let runtime_env_json = serde_json::to_string(&snapshot.runtime_env)?;
+        let workspace_json = serde_json::to_string(&snapshot.workspace)?;
         let updated_at = Utc::now().to_rfc3339();
         let (resp, rx) = oneshot::channel();
         self.send(WriteRequest::ConfigUpsert {
             definition_json,
             runtime_env_json,
+            workspace_json,
             updated_at,
             resp,
         })
