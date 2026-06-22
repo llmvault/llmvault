@@ -124,11 +124,23 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 		return fail(model.AgentSandboxUpgradePhaseSync, err)
 	}
 
-	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseDrainingOld); err != nil {
+	needsRuntimeDrain, err := h.prepareOldSandboxForReplacement(ctx, agent, oldSandbox)
+	if err != nil {
 		return fail(model.AgentSandboxUpgradePhaseDrainingOld, err)
 	}
-	if err := h.drainOldSandbox(ctx, agent, oldSandbox); err != nil {
-		return fail(model.AgentSandboxUpgradePhaseDrainingOld, err)
+	if needsRuntimeDrain {
+		if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseDrainingOld); err != nil {
+			return fail(model.AgentSandboxUpgradePhaseDrainingOld, err)
+		}
+		if err := h.waitForOldSandboxRuntimeDrain(ctx, oldSandbox); err != nil {
+			return fail(model.AgentSandboxUpgradePhaseDrainingOld, err)
+		}
+	} else {
+		log.InfoContext(ctx, "agent sandbox upgrade skipping runtime drain because all sessions are idle",
+			"upgrade_id", upgrade.ID,
+			"agent_id", upgrade.AgentID,
+			"old_sandbox_id", oldSandbox.ID,
+		)
 	}
 
 	// The replacement is synced and the old runtime has drained all accepted

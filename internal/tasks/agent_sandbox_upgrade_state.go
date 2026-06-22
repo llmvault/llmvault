@@ -58,6 +58,10 @@ func (h *AgentSandboxUpgradeHandler) loadAndStart(ctx context.Context, payload A
 		h.markFailed(ctx, &upgrade, model.AgentSandboxUpgradePhaseCreatingNew, "agent missing org")
 		return nil, nil, nil, fmt.Errorf("agent missing org")
 	}
+	if agent.SandboxStrategy == agentSandboxStrategyPerSession {
+		h.markFailed(ctx, &upgrade, model.AgentSandboxUpgradePhaseCreatingNew, "per-session agents do not use sandbox upgrades")
+		return nil, nil, nil, nil
+	}
 	selector := agentRuntimeSelector(h.db, h.compileDeps)
 	var oldSandbox *model.Sandbox
 	var oldSandboxErr error
