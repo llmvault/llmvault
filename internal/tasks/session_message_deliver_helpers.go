@@ -20,7 +20,9 @@ func runtimeMessageFromEvent(session model.Session, event model.SessionEvent, mo
 
 func commandFromLegacyEvent(event model.SessionEvent) SessionMessageCommand {
 	text, _ := event.Payload["text"].(string)
+	eventID := event.ID
 	return SessionMessageCommand{
+		EventID:     &eventID,
 		ActorUserID: event.ActorUserID,
 		Text:        text,
 		Payload:     event.Payload,

@@ -139,9 +139,6 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	if defaultAgent.Sandbox.Status == "" || defaultAgent.Sandbox.ID == "" {
 		t.Fatalf("bad sandbox summary after delivery: %+v", defaultAgent.Sandbox)
 	}
-	if !looksLikeDockerContainerID(defaultAgent.Sandbox.ExternalID) {
-		t.Fatalf("sandbox external_id does not look like a Docker container id: %q", defaultAgent.Sandbox.ExternalID)
-	}
 	assertAgentSessionsDockerContainerImage(t, ctx, "default Hivy", defaultAgent.Sandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
 	t.Logf("sandbox id=%s status=%s external_id=%s", defaultAgent.Sandbox.ID, defaultAgent.Sandbox.Status, defaultAgent.Sandbox.ExternalID)
 

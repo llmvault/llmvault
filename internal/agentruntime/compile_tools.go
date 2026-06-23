@@ -38,6 +38,8 @@ var runtimeToolOrder = []string{
 	"skill_view",
 	"skill_manage",
 	"search_sessions",
+	"generate_image",
+	"generate_vector_image",
 	"request_user_input",
 	"update_plan",
 }

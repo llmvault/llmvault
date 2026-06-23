@@ -15,6 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -39,6 +40,7 @@ type SessionMessageDeliverPayload struct {
 }
 
 type SessionMessageCommand struct {
+	EventID         *uuid.UUID
 	ActorUserID     *uuid.UUID
 	Text            string
 	Payload         model.JSON
@@ -81,6 +83,7 @@ type SessionMessageDeliverHandler struct {
 	orchestrator      *sandbox.Orchestrator
 	compileDeps       agentruntime.CompileDeps
 	enqueuer          enqueue.TaskEnqueuer
+	preContext        precontext.Builder
 	allowProvisioning bool
 	leaseOwner        string
 }
@@ -149,6 +152,7 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 		return nil, fmt.Errorf("session message delivery: queue row missing session")
 	}
 	command := SessionMessageCommand{
+		EventID:         queue.SessionEventID,
 		ActorUserID:     queue.ActorUserID,
 		Text:            queue.MessageText,
 		Payload:         queue.MessagePayload,
@@ -200,6 +204,7 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 	if err != nil {
 		return nil, fmt.Errorf("build session model definition: %w", err)
 	}
+	command = h.commandWithPreContext(ctx, session, command)
 	msg := runtimeMessageFromCommand(session, command, modelDef)
 	resp, err := client.PostHTTPMessage(ctx, msg)
 	if err != nil {

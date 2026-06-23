@@ -54,6 +54,16 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	imageModel := cleanStringPtr(req.ImageModel)
+	if err := validateImageModelPreference(imageModel, false); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	vectorImageModel := cleanStringPtr(req.VectorImageModel)
+	if err := validateImageModelPreference(vectorImageModel, true); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
 	teamID, ok := h.resolveTeamID(ctx, w, org.ID, req.TeamID)
 	if !ok {
 		return
@@ -71,6 +81,8 @@ func (h *ChannelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Visibility:           visibility,
 		TeamID:               teamID,
 		DefaultAgentID:       defaultAgentID,
+		ImageModel:           imageModel,
+		VectorImageModel:     vectorImageModel,
 		Origin:               source.Origin,
 		ExternalProvider:     source.ExternalProvider,
 		ExternalConnectionID: source.ExternalConnectionID,
@@ -244,6 +256,24 @@ func (h *ChannelHandler) applyChannelUpdates(w http.ResponseWriter, r *http.Requ
 		}
 		updates["default_agent_id"] = agentID
 		channel.DefaultAgentID = agentID
+	}
+	if req.ImageModel != nil {
+		value := cleanStringPtr(req.ImageModel)
+		if err := validateImageModelPreference(value, false); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return false
+		}
+		updates["image_model"] = value
+		channel.ImageModel = value
+	}
+	if req.VectorImageModel != nil {
+		value := cleanStringPtr(req.VectorImageModel)
+		if err := validateImageModelPreference(value, true); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return false
+		}
+		updates["vector_image_model"] = value
+		channel.VectorImageModel = value
 	}
 	return applyChannelSourceUpdate(w, channel, req, updates)
 }

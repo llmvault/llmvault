@@ -64,6 +64,14 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
+	if err := validateImageModelPreference(req.ImageModel, false); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if err := validateImageModelPreference(req.VectorImageModel, true); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
 	if hasInitialMessage {
 		var hydrated bool
@@ -235,6 +243,8 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 		SandboxID:         h.bestEffortSandboxID(r, orgID, agent),
 		CreatedBy:         userID,
 		Model:             modelID,
+		ImageModel:        strings.TrimSpace(req.ImageModel),
+		VectorImageModel:  strings.TrimSpace(req.VectorImageModel),
 		AccessMode:        defaultString(strings.TrimSpace(req.AccessMode), "full"),
 		ReasoningEffort:   reasoningEffort,
 		Source:            "web",

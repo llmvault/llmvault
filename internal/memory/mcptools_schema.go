@@ -1,0 +1,69 @@
+package memory
+
+const searchMemoriesDescription = `Search durable memories using a short semantic query.
+
+Use query as a 2-6 word phrase, not a sentence. target.owner selects org, user, or both. target.visibility selects this_agent, all_agents, or both. tags are optional exact lowercase slug filters.`
+
+const retainMemoryDescription = `Store one stable memory for future work.
+
+Use content for one durable fact, preference, rule, or decision. target.owner chooses user or org. target.visibility chooses this_agent or all_agents; prefer this_agent unless other agents should use it. tags are optional lowercase slugs. Do not store secrets, raw logs, guesses, or transient status.`
+
+const forgetMemoryDescription = `Archive a memory that is wrong, stale, duplicated, unsafe, or no longer useful.
+
+Call search_memories first if you need the memory_id. Agents may forget org memories. User memories may only be forgotten in a session for that same user.`
+
+func memorySearchTargetSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"description":          "Optional memory scope filter. Defaults to owner=both and visibility=both.",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"owner": map[string]any{
+				"type":        "string",
+				"enum":        []string{memoryToolOwnerOrg, memoryToolOwnerUser, memoryToolOwnerBoth},
+				"description": "org searches organization memories; user searches memories for the current session creator; both searches accessible org and user memories.",
+			},
+			"visibility": map[string]any{
+				"type":        "string",
+				"enum":        []string{AgentVisibilityAllAgents, AgentVisibilityThisAgent, AgentVisibilityBoth},
+				"description": "all_agents searches shared memories; this_agent searches only this agent's private memories; both searches both.",
+			},
+		},
+	}
+}
+
+func memoryRetainTargetSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"description":          "Required write target. Pick the narrowest durable audience that should remember this.",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"owner": map[string]any{
+				"type":        "string",
+				"enum":        []string{memoryToolOwnerOrg, memoryToolOwnerUser},
+				"description": "user means the current session creator; org means the memory belongs to the whole organization.",
+			},
+			"visibility": map[string]any{
+				"type":        "string",
+				"enum":        []string{AgentVisibilityAllAgents, AgentVisibilityThisAgent},
+				"description": "this_agent keeps the memory private to this agent; all_agents makes it shared across agents for the selected owner.",
+			},
+		},
+		"required": []string{"owner", "visibility"},
+	}
+}
+
+func memoryTagsSchema(description string) map[string]any {
+	return map[string]any{
+		"type":        "array",
+		"description": description,
+		"items": map[string]any{
+			"type":        "string",
+			"pattern":     "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$",
+			"maxLength":   64,
+			"description": "Lowercase kebab-case slug. Use short labels like preference, billing, or project-helio.",
+		},
+		"maxItems":    memoryToolMaxTags,
+		"uniqueItems": true,
+	}
+}

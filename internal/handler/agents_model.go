@@ -190,6 +190,9 @@ func (h *AgentHandler) agentModelSummaries(ctx context.Context, orgID uuid.UUID)
 	out := make([]modelSummary, 0, len(canonical))
 	for _, routed := range canonical {
 		mdl := routed.Model
+		if !registry.ModelSupportsTextOutput(mdl) {
+			continue
+		}
 		out = append(out, modelSummary{
 			ID:               mdl.ID,
 			Name:             mdl.Name,
@@ -215,6 +218,9 @@ func (h *AgentHandler) agentModelSummaries(ctx context.Context, orgID uuid.UUID)
 func (h *AgentHandler) validateAgentSelectableModel(ctx context.Context, orgID uuid.UUID, modelID string) error {
 	if modelID == "" {
 		return fmt.Errorf("model is required")
+	}
+	if model, ok := h.agentModelRegistry().CanonicalModel(modelID); ok && !registry.ModelSupportsTextOutput(model.Model) {
+		return fmt.Errorf("model %q does not support text output", modelID)
 	}
 	_, err := credentials.ResolveForModel(ctx, h.db, h.agentModelRegistry(), orgID, modelID)
 	return err

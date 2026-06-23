@@ -1316,6 +1316,79 @@ var curatedProviders = []Provider{
 		API:  "https://openrouter.ai/api/v1",
 		Doc:  "https://openrouter.ai/models",
 		Models: map[string]Model{
+			"black-forest-labs/flux.2-klein-4b": {
+				ID:          "black-forest-labs/flux.2-klein-4b",
+				Name:        "FLUX.2 Klein 4B",
+				Family:      "flux-image",
+				OpenWeights: true,
+				ReleaseDate: "2026-01-14",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"image"},
+				},
+				Limit: &Limit{
+					Context: 41000,
+				},
+				Description: "Default open-weight raster image model. Optimized for fast high-throughput text-to-image and image-to-image generation; OpenRouter bills by output megapixel.",
+			},
+			"sourceful/riverflow-v2.5-fast": {
+				ID:          "sourceful/riverflow-v2.5-fast",
+				Name:        "Riverflow V2.5 Fast",
+				Family:      "riverflow-image",
+				Reasoning:   true,
+				ReleaseDate: "2026-06-04",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"image"},
+				},
+				Limit: &Limit{
+					Context: 33000,
+				},
+				Description: "Recent low-latency raster image model for production drafts and edits. Uses open diffusion components but is not a pure open-weight endpoint.",
+			},
+			"sourceful/riverflow-v2.5-pro": {
+				ID:          "sourceful/riverflow-v2.5-pro",
+				Name:        "Riverflow V2.5 Pro",
+				Family:      "riverflow-image",
+				Reasoning:   true,
+				ReleaseDate: "2026-06-04",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"image"},
+				},
+				Limit: &Limit{
+					Context: 33000,
+				},
+				Description: "Recent higher-control raster image model for quality-sensitive generation and editing. Supports 1K/2K/4K and multiple references through OpenRouter image configuration.",
+			},
+			"recraft/recraft-v4.1-vector": {
+				ID:          "recraft/recraft-v4.1-vector",
+				Name:        "Recraft V4.1 Vector",
+				Family:      "recraft-vector",
+				ReleaseDate: "2026-05-13",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"image"},
+				},
+				Limit: &Limit{
+					Context: 66000,
+				},
+				Description: "Default vector/SVG image model for scalable icons, logos, illustrations, and canvas-ready graphics.",
+			},
+			"recraft/recraft-v4.1-pro-vector": {
+				ID:          "recraft/recraft-v4.1-pro-vector",
+				Name:        "Recraft V4.1 Pro Vector",
+				Family:      "recraft-vector",
+				ReleaseDate: "2026-05-13",
+				Modalities: &Modalities{
+					Input:  []string{"text", "image"},
+					Output: []string{"image"},
+				},
+				Limit: &Limit{
+					Context: 66000,
+				},
+				Description: "Premium vector/SVG image model for higher-resolution production graphics, icons, logos, and illustrations.",
+			},
 			"qwen/qwen3.7-max": {
 				ID:               "qwen/qwen3.7-max",
 				Name:             "Qwen3.7 Max",

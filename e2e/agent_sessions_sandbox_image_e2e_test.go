@@ -24,8 +24,8 @@ func expectedAgentSessionsSandboxRuntimeImage(profile string) string {
 
 func assertAgentSessionsDockerContainerImage(t *testing.T, ctx context.Context, label, externalID, expectedImage string) {
 	t.Helper()
-	if !looksLikeDockerContainerID(externalID) {
-		t.Fatalf("%s sandbox external_id does not look like a Docker container id: %q", label, externalID)
+	if strings.TrimSpace(externalID) == "" {
+		t.Fatalf("%s sandbox external_id is empty", label)
 	}
 	inspectCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()

@@ -19,9 +19,11 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/handler"
+	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -97,6 +99,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	connectionHandler := handler.NewConnectionHandler(database, nangoClient, actionsCatalog, enqueuer)
 	orgHandler := handler.NewOrgHandler(database, enqueuer)
 	orgHandler.SetEnvironmentEncryptionKey(sandboxEncKey)
+	brandHandler := handler.NewBrandHandler(database)
 	plansHandler := handler.NewPlansHandler(database)
 	var emailSender email.Sender = &email.LogSender{}
 	if enqueuer != nil && cfg.ResendAPIKey != "" {
@@ -128,6 +131,15 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if err != nil {
 		return err
 	}
+	preContextCache := precontext.NewRedisCache(redisClient)
+	memorySearchService := buildMemorySearchService(cfg, database, cacheManager)
+	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
+	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))
+	preContextBuilder := buildPreContextService(
+		cfg, database, preContextCache, memorySearchService,
+		ragRuntime.qd, ragRuntime.embedder, ragRuntime.reranker,
+	)
+	memoryHandler := handler.NewMemoryHandler(database, enqueuer, cacheManager, cfg)
 	nangoWebhookHandler := handler.NewNangoWebhookHandler(database, cfg.NangoWebhooksSecret, sandboxEncKey, nangoClient, enqueuer)
 
 	incomingWebhookHandler := handler.NewIncomingWebhookHandler(database, enqueuer)
@@ -150,6 +162,12 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		oauthHandler.SetAgentSyncer(agentHandler)
 	}
 	uploadsHandler := buildUploadsHandler(cfg, database, sandboxEncKey)
+	if uploadsHandler != nil && deps.KMS != nil {
+		uploadsHandler.WithImageGeneration(deps.KMS, reg, &http.Client{
+			Transport: &proxy.CaptureTransport{Inner: proxy.NewTransport()},
+			Timeout:   3 * time.Minute,
+		})
+	}
 	imageDescribeHandler := buildImageDescribeHandler(database, cfg, deps)
 	if imageDescribeHandler != nil && uploadsHandler != nil {
 		imageDescribeHandler.WithAssetReader(uploadsHandler.AssetReader())
@@ -164,7 +182,8 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	runtimeStreamStore := runtimestream.NewStore(redisClient, cfg.RuntimeRedisStreamShardCount)
 	sessionHandler := handler.NewSessionHandler(database, enqueuer).
 		WithRuntimeStreamKey(sandboxEncKey).
-		WithRuntimeDelivery(orchestrator, runtimeCompileDeps)
+		WithRuntimeDelivery(orchestrator, runtimeCompileDeps).
+		WithPreContextBuilder(preContextBuilder)
 	sessionHandler.WithRuntimeStreamStore(runtimeStreamStore)
 	if uploadsHandler != nil && deps.KMS != nil {
 		sessionHandler.WithTranscription(
@@ -204,7 +223,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	r.Post("/incoming/triggers/{triggerID}", httpTriggerHandler.Handle)
 	setupAuthRoutes(r, ctx, cfg, rsaPub, authHandler, oauthHandler)
 	systemTaskHandler := buildSystemTaskHandler(database, deps, redisClient)
-	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, teamHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, canvasHandler, orchestrator, auditWriter)
+	setupV1Routes(r, cfg, rsaPub, database, apiKeyCache, enqueuer, orgHandler, orgInviteHandler, brandHandler, teamHandler, usageHandler, auditHandler, reportingHandler, generationHandler, apiKeyHandler, billingHandler, subscriptionHandler, dashboardHandler, slackChannelHandler, channelHandler, sessionHandler, memoryHandler, credHandler, tokenHandler, sandboxTemplateHandler, skillHandler, pluginHandler, databaseIntegrationHandler, ragRuntime.sourceHandler, ragRuntime.searchHandler, uploadsHandler, imageDescribeHandler, systemTaskHandler, agentHandler, canvasHandler, orchestrator, auditWriter)
 
 	setupConnectRoutes(r, cfg, rsaPub, database, integrationHandler, connectionHandler, credHandler)
 	setupProxyAndAuxRoutes(r, cfg, deps, signingKey, database, proxyHandler, auditWriter, generationWriter, ctr, enqueuer, runtimeCompileDeps)

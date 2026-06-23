@@ -64,8 +64,11 @@ func TestStateRoundTripUsesConfiguredStateDir(t *testing.T) {
 func TestDoctorDoesNotExposeRuntimeVariableNames(t *testing.T) {
 	dir := t.TempDir()
 	browserPath := filepath.Join(dir, "browser")
-	if err := os.WriteFile(browserPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	if err := os.WriteFile(browserPath, []byte("#!/bin/sh\nexit 0\n"), 0o600); err != nil {
 		t.Fatalf("write fake browser: %v", err)
+	}
+	if err := os.Chmod(browserPath, 0o700); err != nil {
+		t.Fatalf("chmod fake browser: %v", err)
 	}
 	t.Setenv("PATH", dir)
 	for _, key := range []string{

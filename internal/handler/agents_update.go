@@ -197,6 +197,24 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model must be included in available_models"})
 		return false
 	}
+	if req.ImageModel != nil {
+		value := cleanStringPtr(req.ImageModel)
+		if err := validateImageModelPreference(value, false); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return false
+		}
+		updates["image_model"] = value
+		agent.ImageModel = value
+	}
+	if req.VectorImageModel != nil {
+		value := cleanStringPtr(req.VectorImageModel)
+		if err := validateImageModelPreference(value, true); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return false
+		}
+		updates["vector_image_model"] = value
+		agent.VectorImageModel = value
+	}
 	if req.Tools != nil {
 		value := normalizeJSONPtr(req.Tools)
 		updates["tools"] = value

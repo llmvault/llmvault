@@ -11,6 +11,36 @@ func combinedHivyModels() []HivyModel {
 
 var latestHivyModels = []HivyModel{
 	{
+		ID: DefaultRasterImageGenerationModelID,
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "black-forest-labs/flux.2-klein-4b"},
+		},
+	},
+	{
+		ID: "riverflow-v2.5-fast",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "sourceful/riverflow-v2.5-fast"},
+		},
+	},
+	{
+		ID: "riverflow-v2.5-pro",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "sourceful/riverflow-v2.5-pro"},
+		},
+	},
+	{
+		ID: DefaultVectorImageGenerationModelID,
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "recraft/recraft-v4.1-vector"},
+		},
+	},
+	{
+		ID: "recraft-v4.1-pro-vector",
+		Routes: []ModelRoute{
+			{ProviderID: "openrouter", ModelID: "recraft/recraft-v4.1-pro-vector"},
+		},
+	},
+	{
 		ID: "crof-deepseek-v4-pro",
 		Routes: []ModelRoute{
 			{ProviderID: "crof", ModelID: "deepseek-v4-pro"},

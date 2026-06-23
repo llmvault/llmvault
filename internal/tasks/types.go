@@ -26,6 +26,7 @@ const (
 	TypeOrgHivyAgentProvision     = "org:hivy_agent_provision"
 	TypeCanvasOrgSync             = "canvas:org_sync"
 	TypePluginInstallSync         = "plugin:install_sync"
+	TypeMemoryEmbed               = "memory:embed"
 	TypeSandboxWarmPoolReconcile  = "sandbox:warm_pool_reconcile"
 	TypeSandboxWarmSlotCheck      = "sandbox:warm_slot_check"
 

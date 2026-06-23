@@ -5,12 +5,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/memory"
 )
 
 const (
 	TotalBudgetBytes     = 3 * 1024
 	SessionsBudgetBytes  = 1200
 	KnowledgeBudgetBytes = 800
+	MemoriesBudgetBytes  = 900
 	DefaultCacheTTL      = 24 * time.Hour
 )
 
@@ -26,6 +29,10 @@ type Request struct {
 
 type Builder interface {
 	Build(context.Context, Request) ([]string, error)
+}
+
+type MemorySearcher interface {
+	SearchForTurn(context.Context, memory.SearchRequest) (memory.TurnMemories, error)
 }
 
 type Cache interface {

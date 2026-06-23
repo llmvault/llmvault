@@ -48,3 +48,7 @@ func ApplyServiceProxyEnv(env map[string]string, controlPlaneBaseURL string, age
 func AgentDriveUploadURL(controlPlaneBaseURL string, agentID uuid.UUID) string {
 	return fmt.Sprintf("%s/internal/agents/%s/drive", strings.TrimRight(controlPlaneBaseURL, "/"), agentID)
 }
+
+func AgentImageGenerationURL(controlPlaneBaseURL string, agentID uuid.UUID) string {
+	return fmt.Sprintf("%s/internal/agents/%s/images/generate", strings.TrimRight(controlPlaneBaseURL, "/"), agentID)
+}

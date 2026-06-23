@@ -138,15 +138,3 @@ func eventType(event *agentSessionsEvent) string {
 	}
 	return event.EventType
 }
-
-func looksLikeDockerContainerID(value string) bool {
-	if len(value) != 64 {
-		return false
-	}
-	for _, r := range value {
-		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
-			return false
-		}
-	}
-	return true
-}

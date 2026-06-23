@@ -1,6 +1,9 @@
 package agentruntime
 
-import "github.com/usehivy/hivy/internal/model"
+import (
+	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/registry"
+)
 
 func defaultBashEnvPassthrough() []any {
 	return []any{
@@ -82,8 +85,46 @@ func defaultRuntimeToolConfig(id string) (map[string]any, bool) {
 		return map[string]any{
 			"agents": []any{},
 		}, true
+	case "generate_image":
+		return map[string]any{
+			"endpoint_env":         AgentEnvImageGenerationURL,
+			"auth_env":             AgentEnvDriveUploadBearer,
+			"mode":                 "raster",
+			"default_model":        registry.DefaultRasterImageGenerationModelID,
+			"default_output_path":  "generated/images",
+			"max_reference_assets": 10,
+			"max_count":            4,
+			"result_shape":         imageGenerationToolResultShape(),
+		}, true
+	case "generate_vector_image":
+		return map[string]any{
+			"endpoint_env":         AgentEnvImageGenerationURL,
+			"auth_env":             AgentEnvDriveUploadBearer,
+			"mode":                 "vector",
+			"default_model":        registry.DefaultVectorImageGenerationModelID,
+			"default_output_path":  "generated/vectors",
+			"max_reference_assets": 10,
+			"max_count":            4,
+			"result_shape":         imageGenerationToolResultShape(),
+		}, true
 	default:
 		return nil, false
+	}
+}
+
+func imageGenerationToolResultShape() map[string]any {
+	return map[string]any{
+		"type": "array",
+		"items": map[string]any{
+			"type": "object",
+			"fields": []any{
+				"drive_asset_id",
+				"content_type",
+				"bytes",
+				"public_url",
+				"reference_asset_ids",
+			},
+		},
 	}
 }
 

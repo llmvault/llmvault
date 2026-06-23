@@ -90,7 +90,7 @@ func (h *SessionHandler) createInitialSessionMessageIntentWithOptions(ctx contex
 	return sessionMessageDeliveryIntent{
 		Session:       *session,
 		Event:         &event,
-		Command:       tasks.SessionMessageCommand{ActorUserID: userID, Text: text, Payload: event.Payload},
+		Command:       tasks.SessionMessageCommand{EventID: &event.ID, ActorUserID: userID, Text: text, Payload: event.Payload},
 		Queued:        !direct,
 		DispatchQueue: !direct,
 		EventCreated:  eventCreated,
@@ -146,7 +146,7 @@ func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base mo
 			intent = sessionMessageDeliveryIntent{
 				Session:      session,
 				Event:        &event,
-				Command:      tasks.SessionMessageCommand{ActorUserID: actor, Text: text, Payload: event.Payload, Model: opts.Model, ReasoningEffort: opts.ReasoningEffort},
+				Command:      tasks.SessionMessageCommand{EventID: &event.ID, ActorUserID: actor, Text: text, Payload: event.Payload, Model: opts.Model, ReasoningEffort: opts.ReasoningEffort},
 				Queued:       queued,
 				SkipDispatch: true,
 			}
@@ -187,7 +187,7 @@ func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base mo
 		intent = sessionMessageDeliveryIntent{
 			Session:       session,
 			Event:         &event,
-			Command:       tasks.SessionMessageCommand{ActorUserID: actor, Text: text, Payload: event.Payload, Model: opts.Model, ReasoningEffort: opts.ReasoningEffort},
+			Command:       tasks.SessionMessageCommand{EventID: &event.ID, ActorUserID: actor, Text: text, Payload: event.Payload, Model: opts.Model, ReasoningEffort: opts.ReasoningEffort},
 			Queued:        queued,
 			DispatchQueue: queued && session.AgentTurnStatus != model.SessionAgentTurnActive,
 			EventCreated:  eventCreated,
@@ -215,7 +215,8 @@ func (h *SessionHandler) dispatchSessionMessageIntent(ctx context.Context, inten
 		}
 		return true, nil
 	}
-	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer)
+	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer).
+		WithPreContextBuilder(h.preContext)
 	delivery, err := dispatcher.DeliverCommand(ctx, intent.Session, intent.Command)
 	if err != nil {
 		_ = h.deleteCreatedSessionEvent(context.WithoutCancel(ctx), intent)

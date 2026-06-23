@@ -9,5 +9,4 @@
 # Existing chat workspace files predate the TypeScript length gate. Split in a
 # dedicated frontend refactor; keep CI focused on new growth meanwhile.
 apps/web/app/w/(chat)/_components/shell.tsx
-apps/web/app/w/(chat)/_lib/session-history.test.ts
 apps/web/app/w/(chat)/_lib/session-tools.ts

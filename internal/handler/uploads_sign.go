@@ -74,8 +74,8 @@ func (h *UploadsHandler) Sign(w http.ResponseWriter, r *http.Request) {
 		Filename:    req.Filename,
 	}
 
-	if assetType == storage.AssetTypeOrgLogo {
-		orgID, err := resolveOrgLogoOrg(req.OrgID, org)
+	if uploadAssetTypeRequiresOrg(assetType) {
+		orgID, err := resolveOrgScopedUploadOrg(assetType, req.OrgID, org)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -105,7 +105,7 @@ func (h *UploadsHandler) Sign(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func resolveOrgLogoOrg(reqOrgID *string, ctxOrg *model.Org) (uuid.UUID, error) {
+func resolveOrgScopedUploadOrg(assetType storage.AssetType, reqOrgID *string, ctxOrg *model.Org) (uuid.UUID, error) {
 	if reqOrgID != nil && *reqOrgID != "" {
 		parsed, err := uuid.Parse(*reqOrgID)
 		if err != nil {
@@ -116,7 +116,11 @@ func resolveOrgLogoOrg(reqOrgID *string, ctxOrg *model.Org) (uuid.UUID, error) {
 	if ctxOrg != nil {
 		return ctxOrg.ID, nil
 	}
-	return uuid.Nil, errors.New("org_id is required for org_logo")
+	return uuid.Nil, errors.New("org_id is required for " + string(assetType))
+}
+
+func uploadAssetTypeRequiresOrg(assetType storage.AssetType) bool {
+	return assetType == storage.AssetTypeOrgLogo || assetType == storage.AssetTypeBrandAsset
 }
 
 // requireOrgMembership asserts the user belongs to the target org. Any

@@ -26,6 +26,8 @@ type agentMutationRequest struct {
 	SandboxTemplateID *string          `json:"sandbox_template_id,omitempty"`
 	Model             *string          `json:"model,omitempty"`
 	AvailableModels   *[]string        `json:"available_models,omitempty"`
+	ImageModel        *string          `json:"image_model,omitempty"`
+	VectorImageModel  *string          `json:"vector_image_model,omitempty"`
 	Tools             *model.JSON      `json:"tools,omitempty"`
 	McpServers        *json.RawMessage `json:"mcp_servers,omitempty"`
 	Skills            *model.JSON      `json:"skills,omitempty"`
@@ -91,6 +93,16 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
+	imageModel := cleanStringPtr(req.ImageModel)
+	if err := validateImageModelPreference(imageModel, false); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	vectorImageModel := cleanStringPtr(req.VectorImageModel)
+	if err := validateImageModelPreference(vectorImageModel, true); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
 
 	strategy := cleanStringPtr(req.SandboxStrategy)
 	if strategy == "" {
@@ -145,6 +157,8 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		SandboxTemplateID: sandboxTemplateID,
 		Model:             modelID,
 		AvailableModels:   availableModels,
+		ImageModel:        imageModel,
+		VectorImageModel:  vectorImageModel,
 		Tools:             normalizeJSONPtr(req.Tools),
 		McpServers:        mcpServers,
 		Skills:            normalizeJSONPtr(req.Skills),

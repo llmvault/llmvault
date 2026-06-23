@@ -18,6 +18,8 @@ type Channel struct {
 	Team                 *Team       `gorm:"foreignKey:TeamID;constraint:OnDelete:SET NULL"`
 	DefaultAgentID       uuid.UUID   `gorm:"type:uuid;not null;index"`
 	DefaultAgent         Agent       `gorm:"foreignKey:DefaultAgentID;constraint:OnDelete:RESTRICT"`
+	ImageModel           string      `gorm:"type:text;not null;default:''"`
+	VectorImageModel     string      `gorm:"type:text;not null;default:''"`
 	IsDefault            bool        `gorm:"not null;default:false;index"`
 	Origin               string      `gorm:"type:text;not null;default:'native';index;uniqueIndex:idx_channels_org_source_name,priority:2,where:archived_at IS NULL"`
 	ExternalProvider     string      `gorm:"type:text;not null;default:'';uniqueIndex:idx_channels_org_source_name,priority:3,where:archived_at IS NULL;uniqueIndex:idx_channels_org_external_resource,priority:2,where:external_resource_key <> ''"`

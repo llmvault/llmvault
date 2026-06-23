@@ -1,0 +1,73 @@
+package memory
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+
+	"github.com/usehivy/hivy/internal/model"
+)
+
+type Embedder interface {
+	Embed(context.Context, []string) ([][]float32, error)
+}
+
+type EnqueueEmbeddingFunc func(context.Context, uuid.UUID, int) error
+
+type CreateRequest struct {
+	OrgID           uuid.UUID
+	AgentID         *uuid.UUID
+	UserID          *uuid.UUID
+	Scope           string
+	Content         string
+	Tags            []string
+	Metadata        model.JSON
+	SourceSessionID *uuid.UUID
+	SourceEventID   *uuid.UUID
+	CreatedByUserID *uuid.UUID
+}
+
+type UpdateRequest struct {
+	OrgID    uuid.UUID
+	ID       uuid.UUID
+	AgentID  *uuid.UUID
+	Content  *string
+	Tags     *[]string
+	Metadata *model.JSON
+}
+
+type ArchiveRequest struct {
+	OrgID uuid.UUID
+	ID    uuid.UUID
+}
+
+type ListRequest struct {
+	OrgID   uuid.UUID
+	UserID  *uuid.UUID
+	AgentID *uuid.UUID
+	Scope   string
+	Tags    []string
+	Limit   int
+}
+
+type SearchRequest struct {
+	OrgID           uuid.UUID
+	UserID          *uuid.UUID
+	AgentID         uuid.UUID
+	Scope           string
+	AgentVisibility string
+	Query           string
+	QueryVector     []float32
+	Tags            []string
+	Limit           int
+}
+
+type SearchHit struct {
+	Memory     model.AgentMemory
+	Similarity float64
+}
+
+type TurnMemories struct {
+	Org  []SearchHit
+	User []SearchHit
+}

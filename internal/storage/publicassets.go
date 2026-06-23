@@ -21,6 +21,7 @@ type AssetType string
 const (
 	AssetTypeAvatar       AssetType = "avatar"
 	AssetTypeOrgLogo      AssetType = "org_logo"
+	AssetTypeBrandAsset   AssetType = "brand_asset"
 	AssetTypeGeneric      AssetType = "generic"
 	AssetTypeConversation AssetType = "conversation_asset"
 )
@@ -88,6 +89,18 @@ func defaultPolicies() map[AssetType]AssetPolicy {
 		"application/pdf": "pdf",
 		"text/plain":      "txt",
 	}
+	brandAssetTypes := map[string]string{
+		"image/png":              "png",
+		"image/jpeg":             "jpg",
+		"image/webp":             "webp",
+		"image/gif":              "gif",
+		"application/pdf":        "pdf",
+		"text/plain":             "txt",
+		"font/woff":              "woff",
+		"font/woff2":             "woff2",
+		"application/font-woff":  "woff",
+		"application/font-woff2": "woff2",
+	}
 	return map[AssetType]AssetPolicy{
 		AssetTypeAvatar: {
 			MaxBytes:     5 * 1024 * 1024,
@@ -104,6 +117,16 @@ func defaultPolicies() map[AssetType]AssetPolicy {
 					return "", fmt.Errorf("org_id is required for org_logo")
 				}
 				return fmt.Sprintf("pub/o/%s/", *req.OrgID), nil
+			},
+		},
+		AssetTypeBrandAsset: {
+			MaxBytes:     25 * 1024 * 1024,
+			AllowedTypes: brandAssetTypes,
+			KeyPrefix: func(req SignRequest) (string, error) {
+				if req.OrgID == nil {
+					return "", fmt.Errorf("org_id is required for brand_asset")
+				}
+				return fmt.Sprintf("pub/o/%s/brand-assets/", *req.OrgID), nil
 			},
 		},
 		AssetTypeGeneric: {

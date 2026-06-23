@@ -183,6 +183,9 @@ type Config struct {
 	LLMModel        string `env:"HIVY_LLM_MODEL"`
 	LLMEmbeddingDim uint32 `env:"HIVY_LLM_EMBEDDING_DIM" envDefault:"3072"`
 
+	MemoryEmbeddingModel string `env:"HIVY_MEMORY_EMBEDDING_MODEL" envDefault:"qwen/qwen3-embedding-8b"`
+	MemoryEmbeddingDim   uint32 `env:"HIVY_MEMORY_EMBEDDING_DIM" envDefault:"1024"`
+
 	RerankerBaseURL string `env:"HIVY_RERANKER_BASE_URL"`
 	RerankerAPIKey  string `env:"HIVY_RERANKER_API_KEY"`
 	RerankerModel   string `env:"HIVY_RERANKER_MODEL"`

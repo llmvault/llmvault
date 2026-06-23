@@ -108,6 +108,24 @@ func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Requ
 			"agent_id": agent.ID.String(),
 		})
 	}
+	if req.ImageModel != nil {
+		value := strings.TrimSpace(*req.ImageModel)
+		if err := validateImageModelPreference(value, false); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return false
+		}
+		updates["image_model"] = value
+		session.ImageModel = value
+	}
+	if req.VectorImageModel != nil {
+		value := strings.TrimSpace(*req.VectorImageModel)
+		if err := validateImageModelPreference(value, true); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return false
+		}
+		updates["vector_image_model"] = value
+		session.VectorImageModel = value
+	}
 	return true
 }
 

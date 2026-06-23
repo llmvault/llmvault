@@ -1,0 +1,78 @@
+package memory
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"gorm.io/gorm"
+
+	"github.com/usehivy/hivy/internal/cache"
+	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/rag/embedclient"
+)
+
+func (s *Service) EmbedMemoryContent(ctx context.Context, content string) ([]float32, error) {
+	return s.embedOne(ctx, content)
+}
+
+func (s *Service) EmbedQuery(ctx context.Context, query string) ([]float32, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, fmt.Errorf("query is required")
+	}
+	return s.embedOne(ctx, "Instruct: Retrieve relevant organization and user memories that help an AI agent answer or act on the user message.\nQuery: "+query)
+}
+
+func (s *Service) embedOne(ctx context.Context, input string) ([]float32, error) {
+	emb, err := s.embedder(ctx)
+	if err != nil {
+		return nil, err
+	}
+	vectors, err := emb.Embed(ctx, []string{input})
+	if err != nil {
+		return nil, err
+	}
+	if len(vectors) != 1 {
+		return nil, fmt.Errorf("embed returned %d vectors", len(vectors))
+	}
+	if err := validateVector(vectors[0], s.embeddingDim()); err != nil {
+		return nil, err
+	}
+	return vectors[0], nil
+}
+
+func (s *Service) embedder(ctx context.Context) (Embedder, error) {
+	if s.cfg.Embedder != nil {
+		return s.cfg.Embedder, nil
+	}
+	if s.cfg.DB == nil || s.cfg.CacheManager == nil {
+		return nil, fmt.Errorf("memory embedding dependencies are not configured")
+	}
+	cred, err := loadOpenRouterCredential(ctx, s.cfg.DB, s.cfg.CacheManager)
+	if err != nil {
+		return nil, err
+	}
+	return embedclient.NewEmbedder(embedclient.EmbedderConfig{
+		BaseURL: cred.BaseURL,
+		APIKey:  string(cred.APIKey),
+		Model:   s.embeddingModel(),
+		Dim:     s.embeddingDim(),
+	}), nil
+}
+
+func loadOpenRouterCredential(ctx context.Context, db *gorm.DB, cacheManager *cache.Manager) (*cache.DecryptedCredential, error) {
+	var cred model.Credential
+	if err := db.WithContext(ctx).
+		Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", OpenRouterProviderID).
+		Order("created_at ASC").
+		First(&cred).Error; err != nil {
+		return nil, fmt.Errorf("load system OpenRouter credential: %w", err)
+	}
+	decrypted, err := cacheManager.GetDecryptedCredentialByID(ctx, cred.ID.String())
+	if err != nil {
+		return nil, fmt.Errorf("decrypt system OpenRouter credential: %w", err)
+	}
+	return decrypted, nil
+}
+

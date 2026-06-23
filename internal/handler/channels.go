@@ -28,6 +28,8 @@ type channelMutationRequest struct {
 	Visibility           *string     `json:"visibility,omitempty"`
 	TeamID               *string     `json:"team_id,omitempty"`
 	DefaultAgentID       *string     `json:"default_agent_id,omitempty"`
+	ImageModel           *string     `json:"image_model,omitempty"`
+	VectorImageModel     *string     `json:"vector_image_model,omitempty"`
 	Origin               *string     `json:"origin,omitempty"`
 	ExternalProvider     *string     `json:"external_provider,omitempty"`
 	ExternalConnectionID *string     `json:"external_connection_id,omitempty"`
@@ -56,6 +58,8 @@ type channelResponse struct {
 	Visibility               string             `json:"visibility"`
 	TeamID                   *string            `json:"team_id,omitempty"`
 	DefaultAgentID           string             `json:"default_agent_id"`
+	ImageModel               string             `json:"image_model"`
+	VectorImageModel         string             `json:"vector_image_model"`
 	IsDefault                bool               `json:"is_default"`
 	Origin                   string             `json:"origin"`
 	ExternalProvider         string             `json:"external_provider"`
@@ -161,6 +165,8 @@ func channelToResponse(channel model.Channel, role string, memberCount int64) ch
 		Visibility:           channel.Visibility,
 		TeamID:               formatUUIDPtr(channel.TeamID),
 		DefaultAgentID:       channel.DefaultAgentID.String(),
+		ImageModel:           channel.ImageModel,
+		VectorImageModel:     channel.VectorImageModel,
 		IsDefault:            channel.IsDefault,
 		Origin:               channel.Origin,
 		ExternalProvider:     channel.ExternalProvider,

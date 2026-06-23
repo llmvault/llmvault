@@ -99,7 +99,6 @@ func sendStreamingPrompts(t *testing.T, ctx context.Context, apiBase, token, org
 	errs := make(chan error, len(cases))
 	var wg sync.WaitGroup
 	for _, tc := range cases {
-		tc := tc
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

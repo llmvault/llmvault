@@ -7,39 +7,13 @@ import (
 	"testing"
 
 	"github.com/usehivy/hivy/internal/handler"
-	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
 )
 
 func TestProviderHandler_AllModelsReturnsCanonicalModels(t *testing.T) {
-	db := connectTestDB(t)
-
-	creds := []model.Credential{
-		{
-			Label:        "test-anthropic",
-			BaseURL:      "https://api.anthropic.com",
-			AuthScheme:   "bearer",
-			ProviderID:   "anthropic",
-			EncryptedKey: []byte("enc"),
-			WrappedDEK:   []byte("dek"),
-		},
-		{
-			Label:        "test-openrouter",
-			BaseURL:      "https://openrouter.ai/api/v1",
-			AuthScheme:   "bearer",
-			ProviderID:   "openrouter",
-			EncryptedKey: []byte("enc"),
-			WrappedDEK:   []byte("dek"),
-		},
-	}
-	if err := db.Create(&creds).Error; err != nil {
-		t.Fatalf("create credentials: %v", err)
-	}
-	t.Cleanup(func() {
-		for _, cred := range creds {
-			db.Where("id = ?", cred.ID).Delete(&model.Credential{})
-		}
-	})
+	db := newModelCatalogTestDB(t)
+	seedModelCatalogCredential(t, db, "anthropic")
+	seedModelCatalogCredential(t, db, "openrouter")
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	rr := httptest.NewRecorder()
@@ -60,6 +34,9 @@ func TestProviderHandler_AllModelsReturnsCanonicalModels(t *testing.T) {
 	for _, model := range models {
 		if model.ID == "anthropic/claude-sonnet-4.6" {
 			t.Fatalf("response exposed upstream route alias: %#v", model)
+		}
+		if model.ID == "flux.2-klein-4b" {
+			t.Fatalf("response exposed image-only model in text model list: %#v", model)
 		}
 		if model.ID == "claude-sonnet-4.6" {
 			foundCanonical = true
