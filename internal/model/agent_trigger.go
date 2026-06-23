@@ -19,6 +19,7 @@ type AgentTrigger struct {
 	Connection   *Connection    `gorm:"foreignKey:ConnectionID;constraint:OnDelete:CASCADE"`
 	TriggerKeys  pq.StringArray `gorm:"type:text[];not null;default:'{}'"` // e.g. {"issues.opened","issues.reopened"}
 	Enabled      bool           `gorm:"not null;default:true"`
+	SourceSlug   string         `gorm:"type:text;not null;default:'';index"`
 	Conditions   RawJSON        `gorm:"type:jsonb"`                    // TriggerMatch JSON
 	Instructions string         `gorm:"type:text;not null;default:''"` // per-trigger task instruction
 	SecretKey    string         `gorm:"type:text;not null;default:''"` // bcrypt hash for HTTP triggers

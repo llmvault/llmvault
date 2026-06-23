@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "railway-weekly-environment-audit",
+  "name": "Railway Weekly Environment Audit",
+  "description": "Review Railway services and environments for operational risks, drift, stale deploys, and missing safeguards.",
+  "category": "Operations",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "railway",
+    "required": true
+  },
+  "plugins": {
+    "required": ["railway"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 11 * * 1",
+    "timezone": "workspace",
+    "suggested_time_label": "Mondays at 11:00 AM"
+  },
+  "resources": {
+    "supported": ["railway_project", "railway_service", "railway_environment"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 168,
+    "max_items": 50
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

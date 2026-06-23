@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "github-daily-ci-failure-digest",
+  "name": "GitHub Daily CI Failure Digest",
+  "description": "Summarize failed workflow runs from the last day, group repeated failures, and flag likely flaky tests.",
+  "category": "Engineering",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "30 9 * * 1-5",
+    "timezone": "workspace",
+    "suggested_time_label": "Weekdays at 9:30 AM"
+  },
+  "resources": {
+    "supported": ["github_repo"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 24,
+    "max_items": 30
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

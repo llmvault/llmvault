@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "github-release-readiness-check",
+  "name": "GitHub Release Readiness Check",
+  "description": "Check release branches, open blockers, failing checks, and unreleased work before a release window.",
+  "category": "Operations",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 14 * * 3",
+    "timezone": "workspace",
+    "suggested_time_label": "Wednesdays at 2:00 PM"
+  },
+  "resources": {
+    "supported": ["github_repo"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 168,
+    "max_items": 50
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

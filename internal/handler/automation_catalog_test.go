@@ -1,0 +1,93 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
+	catalogHandler := NewAutomationCatalogHandler("global/triggers", "global/schedules")
+	router := chi.NewRouter()
+	router.Get("/v1/catalog/triggers", catalogHandler.ListTriggers)
+	router.Get("/v1/catalog/automations", catalogHandler.ListAutomations)
+
+	cases := []struct {
+		name    string
+		path    string
+		kind    string
+		wantMin int
+	}{
+		{
+			name:    "triggers",
+			path:    "/v1/catalog/triggers",
+			kind:    "trigger",
+			wantMin: 4,
+		},
+		{
+			name:    "automations",
+			path:    "/v1/catalog/automations",
+			kind:    "schedule",
+			wantMin: 11,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+
+			var resp struct {
+				Data []struct {
+					Kind        string `json:"kind"`
+					Slug        string `json:"slug"`
+					Category    string `json:"category"`
+					Enabled     bool   `json:"enabled"`
+					Integration struct {
+						Provider string `json:"provider"`
+					} `json:"integration"`
+					Instructions string `json:"instructions"`
+					Trigger      *struct {
+						Type string   `json:"type"`
+						Keys []string `json:"keys"`
+					} `json:"trigger,omitempty"`
+					Schedule *struct {
+						Kind     string `json:"kind"`
+						Cron     string `json:"cron"`
+						Timezone string `json:"timezone"`
+					} `json:"schedule,omitempty"`
+				} `json:"data"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if len(resp.Data) < tc.wantMin {
+				t.Fatalf("items = %d, want at least %d", len(resp.Data), tc.wantMin)
+			}
+			for _, item := range resp.Data {
+				if item.Kind != tc.kind {
+					t.Fatalf("item %q kind = %q, want %q", item.Slug, item.Kind, tc.kind)
+				}
+				if item.Slug == "" || item.Category == "" || item.Integration.Provider == "" {
+					t.Fatalf("item %q missing required catalog metadata", item.Slug)
+				}
+				if !item.Enabled || item.Instructions == "" {
+					t.Fatalf("item %q should be enabled with instructions", item.Slug)
+				}
+				if tc.kind == "trigger" && (item.Trigger == nil || len(item.Trigger.Keys) == 0) {
+					t.Fatalf("trigger item %q missing trigger keys", item.Slug)
+				}
+				if tc.kind == "schedule" && (item.Schedule == nil || item.Schedule.Cron == "") {
+					t.Fatalf("schedule item %q missing schedule cron", item.Slug)
+				}
+			}
+		})
+	}
+}

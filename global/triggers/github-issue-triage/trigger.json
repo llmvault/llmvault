@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "slug": "github-issue-triage",
+  "name": "GitHub Issue Triage",
+  "description": "Classify new or reopened GitHub issues, identify missing information, and suggest the next owner or action.",
+  "category": "Engineering",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "trigger": {
+    "type": "webhook",
+    "keys": ["issues.opened", "issues.reopened"]
+  },
+  "install": {
+    "default_agent": "hivy",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "slug": "github-ci-failure-triage",
+  "name": "GitHub CI Failure Triage",
+  "description": "Investigate failed GitHub Actions workflow runs, identify the likely cause, and recommend a concrete fix.",
+  "category": "Engineering",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "trigger": {
+    "type": "webhook",
+    "keys": ["workflow_run.completed"],
+    "conditions": {
+      "mode": "all",
+      "conditions": [
+        {
+          "path": "workflow_run.conclusion",
+          "operator": "one_of",
+          "value": ["failure", "timed_out", "cancelled", "action_required"]
+        }
+      ]
+    }
+  },
+  "install": {
+    "default_agent": "hivy",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

@@ -15,6 +15,7 @@ type agentTriggerInput struct {
 	ConnectionID string              `json:"connection_id,omitempty"`
 	TriggerKeys  []string            `json:"trigger_keys,omitempty"`
 	Conditions   *model.TriggerMatch `json:"conditions,omitempty"`
+	SourceSlug   string              `json:"source_slug,omitempty"`
 	Instructions string              `json:"instructions,omitempty"`
 	// SecretKey is the optional plaintext shared secret for HTTP triggers.
 	// When provided, the server bcrypt-hashes it before storing. Never returned
@@ -30,6 +31,7 @@ type agentTriggerResponse struct {
 	TriggerKeys  []string `json:"trigger_keys,omitempty"`
 	Enabled      bool     `json:"enabled"`
 	Conditions   any      `json:"conditions,omitempty"`
+	SourceSlug   string   `json:"source_slug,omitempty"`
 	Instructions string   `json:"instructions,omitempty"`
 	// SecretSet indicates whether an HTTP trigger has a shared secret configured.
 	// True when the trigger requires auth on incoming requests. The secret value

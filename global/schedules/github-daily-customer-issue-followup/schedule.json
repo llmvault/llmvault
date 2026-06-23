@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "github-daily-customer-issue-followup",
+  "name": "GitHub Daily Customer Issue Follow-up",
+  "description": "Find GitHub issues that need maintainer response, customer follow-up, or missing information.",
+  "category": "Customer Support",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 9 * * 1-5",
+    "timezone": "workspace",
+    "suggested_time_label": "Weekdays at 9:00 AM"
+  },
+  "resources": {
+    "supported": ["github_repo"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 72,
+    "max_items": 30
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

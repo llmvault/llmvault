@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "slug": "github-pr-review-prep",
+  "name": "GitHub PR Review Prep",
+  "description": "Prepare a pull request for review by summarizing scope, risks, test coverage, and reviewer guidance.",
+  "category": "Engineering",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "trigger": {
+    "type": "webhook",
+    "keys": ["pull_request.opened", "pull_request.ready_for_review"],
+    "conditions": {
+      "mode": "all",
+      "conditions": [
+        {
+          "path": "pull_request.draft",
+          "operator": "equals",
+          "value": false
+        }
+      ]
+    }
+  },
+  "install": {
+    "default_agent": "hivy",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

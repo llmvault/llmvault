@@ -33,6 +33,7 @@ import {
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { ChatRow, type SidebarSessionAgent } from "./sidebar-chat-row"
+import { ChannelActionsMenu } from "./channel-actions-menu"
 import {
   IndentedStatusRow,
   SessionSkeletonList,
@@ -48,18 +49,22 @@ export function ChannelGroup({
   channel,
   agentsByID,
   autoExpanded,
+  onRenameChannel,
   onRenameSession,
   onShareSession,
+  onShowChannelDetails,
   slugAmbiguous,
 }: {
   channel: SidebarChannelResponse
   agentsByID: Map<string, SidebarAgentResponse>
   autoExpanded: boolean
+  onRenameChannel: (channel: SidebarChannelResponse) => void
   onRenameSession: (sessionId: string, name: string) => void
   onShareSession: (sessionId: string) => void
+  onShowChannelDetails: (channel: SidebarChannelResponse) => void
   slugAmbiguous: boolean
 }) {
-  const { openChannel, openChat } = useWorkspace()
+  const { openChat } = useWorkspace()
   const queryClient = useQueryClient()
   const pathname = usePathname()
   const slug = channelRouteSlug(channel)
@@ -68,9 +73,10 @@ export function ChannelGroup({
     !slugAmbiguous &&
     (pathname === channelPath || pathname.startsWith(`${channelPath}/`))
   const [manualOpen, setManualOpen] = useState<boolean | null>(null)
-  const open = channelActive || (manualOpen ?? autoExpanded)
+  const open = manualOpen ?? (channelActive || autoExpanded)
   const chatActive = (id: string) => pathname === `${channelPath}/${id}`
   const channelID = channel.id ?? ""
+  const name = channelDisplayName(channel)
   const initialSessions = channel.recent_sessions
   const initialSessionsData = useMemo<
     InfiniteData<PaginatedSessions> | undefined
@@ -136,25 +142,20 @@ export function ChannelGroup({
       >
         <button
           type="button"
-          onClick={() => openChannel(slug)}
+          aria-expanded={open}
+          aria-label={`${open ? "Collapse" : "Expand"} ${name}`}
+          onClick={() => setManualOpen(!open)}
           className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-1.5 text-left"
         >
           <Icon icon="lucide:hash" className="h-4 w-4 shrink-0 text-muted" />
-          <span className="min-w-0 flex-1 truncate">
-            {channelDisplayName(channel)}
-          </span>
+          <span className="min-w-0 flex-1 truncate">{name}</span>
         </button>
-        <button
-          type="button"
-          aria-label={open ? "Collapse channel" : "Expand channel"}
-          onClick={() => setManualOpen(!open)}
-          className="hover:bg-surface mr-1 rounded-md p-1 text-muted transition-colors"
-        >
-          <Icon
-            icon={open ? "lucide:chevron-down" : "lucide:chevron-right"}
-            className="h-3.5 w-3.5"
-          />
-        </button>
+        <ChannelActionsMenu
+          onRename={channelID ? () => onRenameChannel(channel) : undefined}
+          onDetails={
+            channelID ? () => onShowChannelDetails(channel) : undefined
+          }
+        />
       </div>
 
       <AnimatePresence initial={false}>
@@ -191,7 +192,8 @@ export function ChannelGroup({
                       active={chatActive(id)}
                       onRename={
                         id
-                          ? () => onRenameSession(id, sessionDisplayName(session))
+                          ? () =>
+                              onRenameSession(id, sessionDisplayName(session))
                           : undefined
                       }
                       onShare={id ? () => onShareSession(id) : undefined}

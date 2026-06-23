@@ -6,6 +6,7 @@ import {
   insertSessionIntoChannelCache,
   optimisticThinkingEvent,
   optimisticUserEvent,
+  patchChannelInChatCaches,
   patchSessionInChatCaches,
   removeSessionEvent,
   replaceOptimisticEvent,
@@ -214,6 +215,93 @@ describe("chat cache helpers", () => {
         { params: { query: { limit: 100 } } },
       ])?.pages[0].data?.[0].recent_sessions?.[0].name
     ).toBe("New title")
+  })
+
+  it("patches renamed channels across detail and channel list caches", () => {
+    const queryClient = client()
+    const original = {
+      id: "channel-1",
+      name: "general",
+      description: "Workspace updates",
+    }
+    const renamed = { id: "channel-1", name: "announcements" }
+
+    queryClient.setQueryData(chatQueryKeys.channel("channel-1"), {
+      channel: original,
+      members: [],
+    })
+    queryClient.setQueryData<PaginatedChannels>(
+      ["get", "/v1/channels", { params: { query: { limit: 100 } } }],
+      { data: [original], has_more: false }
+    )
+    queryClient.setQueryData<{
+      pages: PaginatedChannels[]
+      pageParams: string[]
+    }>(
+      [
+        "get",
+        "/v1/channels",
+        {
+          _hivyQueryKey: "channels-infinite-v1",
+          params: { query: { limit: 100 } },
+        },
+      ],
+      { pageParams: ["0"], pages: [{ data: [original], has_more: false }] }
+    )
+
+    patchChannelInChatCaches(queryClient, renamed)
+
+    expect(
+      queryClient.getQueryData<{ channel?: { name?: string } }>(
+        chatQueryKeys.channel("channel-1")
+      )?.channel?.name
+    ).toBe("announcements")
+    expect(
+      queryClient.getQueryData<{ channel?: { description?: string } }>(
+        chatQueryKeys.channel("channel-1")
+      )?.channel?.description
+    ).toBe("Workspace updates")
+    expect(
+      queryClient.getQueryData<PaginatedChannels>([
+        "get",
+        "/v1/channels",
+        { params: { query: { limit: 100 } } },
+      ])?.data?.[0].name
+    ).toBe("announcements")
+    expect(
+      queryClient.getQueryData<{ pages: PaginatedChannels[] }>([
+        "get",
+        "/v1/channels",
+        {
+          _hivyQueryKey: "channels-infinite-v1",
+          params: { query: { limit: 100 } },
+        },
+      ])?.pages[0].data?.[0].name
+    ).toBe("announcements")
+  })
+
+  it("does not seed a partial channel detail cache from a list update", () => {
+    const queryClient = client()
+    const original = { id: "channel-1", name: "general" }
+    const renamed = { id: "channel-1", name: "announcements" }
+
+    queryClient.setQueryData<PaginatedChannels>(
+      ["get", "/v1/channels", { params: { query: { limit: 100 } } }],
+      { data: [original], has_more: false }
+    )
+
+    patchChannelInChatCaches(queryClient, renamed)
+
+    expect(
+      queryClient.getQueryData(chatQueryKeys.channel("channel-1"))
+    ).toBeUndefined()
+    expect(
+      queryClient.getQueryData<PaginatedChannels>([
+        "get",
+        "/v1/channels",
+        { params: { query: { limit: 100 } } },
+      ])?.data?.[0].name
+    ).toBe("announcements")
   })
 })
 

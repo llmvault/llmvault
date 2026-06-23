@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "github-daily-pr-review-queue",
+  "name": "GitHub Daily PR Review Queue",
+  "description": "Summarize open pull requests that need review, have failing checks, or are getting stale.",
+  "category": "Engineering",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 9 * * 1-5",
+    "timezone": "workspace",
+    "suggested_time_label": "Weekdays at 9:00 AM"
+  },
+  "resources": {
+    "supported": ["github_repo"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 24,
+    "max_items": 25
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

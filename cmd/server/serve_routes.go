@@ -52,11 +52,14 @@ func setupPublicRoutes(
 
 	// Integration catalog discovery (no auth)
 	actionsHandler := handler.NewActionsHandler(actionsCatalog)
+	automationCatalogHandler := handler.NewAutomationCatalogHandler("global/triggers", "global/schedules")
 	r.Get("/v1/catalog/integrations", actionsHandler.ListIntegrations)
 	r.Get("/v1/catalog/integrations/{id}", actionsHandler.GetIntegration)
 	r.Get("/v1/catalog/integrations/{id}/actions", actionsHandler.ListActions)
 	r.Get("/v1/catalog/integrations/{id}/triggers", actionsHandler.ListTriggers)
 	r.Get("/v1/catalog/integrations/{id}/schema-paths", actionsHandler.GetSchemaPaths)
+	r.Get("/v1/catalog/triggers", automationCatalogHandler.ListTriggers)
+	r.Get("/v1/catalog/automations", automationCatalogHandler.ListAutomations)
 
 	// Org invite preview (public, token-based lookup)
 	r.Get("/v1/invites/{token}", orgInviteHandler.Preview)

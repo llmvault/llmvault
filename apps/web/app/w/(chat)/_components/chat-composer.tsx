@@ -112,7 +112,7 @@ export function ChatComposer({
             void submit()
           }
         }}
-        className="min-h-24 w-full resize-none bg-transparent px-2 text-[15px] outline-none placeholder:text-muted"
+        className="max-h-16 min-h-16 w-full resize-none overflow-y-auto bg-transparent px-2 text-[15px] outline-none placeholder:text-muted"
       />
 
       <div className="flex items-center gap-1">

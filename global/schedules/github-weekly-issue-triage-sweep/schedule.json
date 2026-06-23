@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "github-weekly-issue-triage-sweep",
+  "name": "GitHub Weekly Issue Triage Sweep",
+  "description": "Review untriaged and stale GitHub issues, then suggest labels, owners, duplicates, and next actions.",
+  "category": "Engineering",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "github-app",
+    "required": true
+  },
+  "plugins": {
+    "required": ["github"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 10 * * 1",
+    "timezone": "workspace",
+    "suggested_time_label": "Mondays at 10:00 AM"
+  },
+  "resources": {
+    "supported": ["github_repo"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 168,
+    "max_items": 40
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

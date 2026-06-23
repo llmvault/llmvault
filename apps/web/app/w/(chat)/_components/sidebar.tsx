@@ -1,7 +1,7 @@
 "use client"
 
-import { memo, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { memo, useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
@@ -16,15 +16,21 @@ import {
   channelRouteSlug,
   channelRouteSlugCounts,
   sortChannelsByRecentSession,
+  type SidebarChannelResponse,
   type SidebarSessionResponse,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 import { AccountMenu } from "./sidebar-account-menu"
+import { ChannelDetailsModal } from "./channel-details-modal"
 import { ChannelSkeletonList, SidebarStatusRow } from "./sidebar-channel-state"
 import { NavRow, SectionLabel } from "./sidebar-nav"
 import { hydrateSessionListRuntime } from "@/app/w/(chat)/_stores/session-stream-manager"
 
 const SIDEBAR_CHANNEL_PAGE_LIMIT = 100
 const CHANNELS_INFINITE_KEY = "channels-infinite-v1"
+type ChannelDetailsTarget = {
+  channel: SidebarChannelResponse
+  editName?: boolean
+}
 
 export const Sidebar = memo(function Sidebar({
   onCollapse,
@@ -37,7 +43,10 @@ export const Sidebar = memo(function Sidebar({
 }) {
   const { startNewChat } = useWorkspace()
   const router = useRouter()
+  const pathname = usePathname()
   const queryClient = useQueryClient()
+  const [detailsTarget, setDetailsTarget] =
+    useState<ChannelDetailsTarget | null>(null)
   const channelsQuery = $api.useInfiniteQuery(
     "get",
     "/v1/channels",
@@ -98,15 +107,30 @@ export const Sidebar = memo(function Sidebar({
   )
   const latestSessions = useMemo(
     () =>
-      channels.flatMap((channel) => channel.recent_sessions ?? []).filter(
-        (session): session is SidebarSessionResponse => Boolean(session)
-      ),
+      channels
+        .flatMap((channel) => channel.recent_sessions ?? [])
+        .filter((session): session is SidebarSessionResponse =>
+          Boolean(session)
+        ),
     [channels]
   )
 
   useEffect(() => {
     hydrateSessionListRuntime(latestSessions, queryClient)
   }, [latestSessions, queryClient])
+
+  function openRenameChannel(channel: SidebarChannelResponse) {
+    setDetailsTarget({ channel, editName: true })
+  }
+
+  function openChannelDetails(channel: SidebarChannelResponse) {
+    setDetailsTarget({ channel })
+  }
+
+  const pluginsActive =
+    pathname === "/w/plugins" || pathname.startsWith("/w/plugins/")
+  const automationsActive =
+    pathname === "/w/automations" || pathname.startsWith("/w/automations/")
 
   return (
     <div className="bg-surface flex h-full flex-col">
@@ -139,9 +163,15 @@ export const Sidebar = memo(function Sidebar({
           <NavRow
             icon="lucide:toy-brick"
             label="Plugins"
+            active={pluginsActive}
             onClick={() => router.push("/w/plugins")}
           />
-          <NavRow icon="lucide:clock" label="Automations" />
+          <NavRow
+            icon="lucide:clock"
+            label="Automations"
+            active={automationsActive}
+            onClick={() => router.push("/w/automations")}
+          />
         </div>
 
         <div className="flex flex-col gap-0.5">
@@ -161,8 +191,10 @@ export const Sidebar = memo(function Sidebar({
                 channel={channel}
                 agentsByID={agentsByID}
                 autoExpanded={index < 4}
+                onRenameChannel={openRenameChannel}
                 onRenameSession={onRenameSession}
                 onShareSession={onShareSession}
+                onShowChannelDetails={openChannelDetails}
                 slugAmbiguous={
                   (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
                 }
@@ -194,6 +226,14 @@ export const Sidebar = memo(function Sidebar({
           </Button>
         </div>
       </div>
+      <ChannelDetailsModal
+        channel={detailsTarget?.channel ?? null}
+        initialNameEdit={Boolean(detailsTarget?.editName)}
+        open={Boolean(detailsTarget)}
+        onOpenChange={(next) => {
+          if (!next) setDetailsTarget(null)
+        }}
+      />
     </div>
   )
 })

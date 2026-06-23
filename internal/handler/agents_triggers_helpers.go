@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -93,6 +94,7 @@ func createAgentTriggersWithExistingSecrets(tx *gorm.DB, orgID, agentID uuid.UUI
 			AgentID:      agentID,
 			Enabled:      true,
 			TriggerType:  triggerType,
+			SourceSlug:   strings.TrimSpace(input.SourceSlug),
 			Instructions: input.Instructions,
 		}
 		if existingID != uuid.Nil {

@@ -32,30 +32,6 @@ import type { CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comme
 import { ComposerLineComments } from "./composer-line-comments"
 import { displayModel, ModelIcon } from "./model-display"
 
-const ACCESS_MODES = [
-  {
-    id: "full",
-    label: "Full access",
-    icon: "lucide:octagon-alert",
-    description: "Edit files, run commands, and use the network",
-    warning: true,
-  },
-  {
-    id: "edits",
-    label: "Approve edits",
-    icon: "lucide:file-check-2",
-    description: "Ask before changing files or running commands",
-    warning: false,
-  },
-  {
-    id: "read",
-    label: "Read only",
-    icon: "lucide:eye",
-    description: "Explore the workspace without making changes",
-    warning: false,
-  },
-]
-
 const EFFORTS = ["Low", "Medium", "High"]
 
 export function Composer({
@@ -87,21 +63,14 @@ export function Composer({
     selectSessionWorkspace(state, sessionId)
   )
   const value = workspace.composer.text
-  const accessMode =
-    ACCESS_MODES.find((mode) => mode.id === workspace.composer.accessMode) ??
-    ACCESS_MODES[0]
   const effort = workspace.composer.effort
   const setValue = useSessionWorkspaceStore((state) => state.setComposerText)
-  const setAccessModeValue = useSessionWorkspaceStore(
-    (state) => state.setComposerAccessMode
-  )
   const setEffortValue = useSessionWorkspaceStore(
     (state) => state.setComposerEffort
   )
   const setAttachmentDescriptions = useSessionWorkspaceStore(
     (state) => state.setAttachmentDescriptions
   )
-  const [accessOpen, setAccessOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [recording, setRecording] = useState(false)
   const lineComments = useCodeLineComments()
@@ -348,7 +317,7 @@ export function Composer({
           onChange={(event) => {
             setValue(sessionId, event.target.value)
             event.target.style.height = "auto"
-            event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`
+            event.target.style.height = `${Math.min(event.target.scrollHeight, 64)}px`
           }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -356,7 +325,7 @@ export function Composer({
               void submit()
             }
           }}
-          className="max-h-40 w-full resize-none bg-transparent px-2 text-[15px] outline-none placeholder:text-muted"
+          className="max-h-16 min-h-16 w-full resize-none overflow-y-auto bg-transparent px-2 text-[15px] outline-none placeholder:text-muted"
         />
 
         <div className="flex items-center gap-1">
@@ -369,51 +338,6 @@ export function Composer({
           >
             <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
           </Button>
-
-          <Popover isOpen={accessOpen} onOpenChange={setAccessOpen}>
-            <Popover.Trigger
-              aria-label="Access mode"
-              className={`hover:bg-default flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
-                accessMode.warning ? "text-warning" : "text-muted"
-              }`}
-            >
-              <Icon icon={accessMode.icon} className="h-4 w-4" />
-              {accessMode.label}
-              <Icon icon="lucide:chevron-down" className="h-3.5 w-3.5" />
-            </Popover.Trigger>
-            <Popover.Content className="w-72 rounded-2xl border border-border p-1.5">
-              <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-                {ACCESS_MODES.map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => {
-                      setAccessModeValue(sessionId, mode.id)
-                      setAccessOpen(false)
-                    }}
-                    className="hover:bg-default flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors"
-                  >
-                    <Icon
-                      icon={mode.icon}
-                      className={`mt-0.5 h-4 w-4 shrink-0 ${mode.warning ? "text-warning" : "text-muted"}`}
-                    />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-sm">{mode.label}</span>
-                      <span className="text-xs text-muted">
-                        {mode.description}
-                      </span>
-                    </span>
-                    {mode.id === accessMode.id ? (
-                      <Icon
-                        icon="lucide:check"
-                        className="mt-1 h-4 w-4 shrink-0"
-                      />
-                    ) : null}
-                  </button>
-                ))}
-              </Popover.Dialog>
-            </Popover.Content>
-          </Popover>
 
           <div className="flex-1" />
 

@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "linear-weekly-roadmap-risk-review",
+  "name": "Linear Weekly Roadmap Risk Review",
+  "description": "Review Linear projects, cycles, and issues for slipping work, blockers, stale priorities, and missing owners.",
+  "category": "Product",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "linear",
+    "required": true
+  },
+  "plugins": {
+    "required": ["linear"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 9 * * 1",
+    "timezone": "workspace",
+    "suggested_time_label": "Mondays at 9:00 AM"
+  },
+  "resources": {
+    "supported": ["linear_team", "linear_project"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 168,
+    "max_items": 50
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}
