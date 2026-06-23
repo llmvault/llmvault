@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-daily-customer-issue-followup",
   "name": "GitHub Daily Customer Issue Follow-up",
-  "description": "Find GitHub issues that need maintainer response, customer follow-up, or missing information.",
+  "description": "Find issues needing customer follow-up.",
   "category": "Customer Support",
   "enabled": true,
   "official": true,

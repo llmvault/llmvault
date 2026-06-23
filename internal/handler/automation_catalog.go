@@ -19,6 +19,14 @@ type automationCatalogResponse struct {
 	Data []automationcatalog.CatalogItem `json:"data"`
 }
 
+// ListTriggers handles GET /v1/catalog/triggers.
+// @Summary List trigger automation catalog
+// @Description Returns enabled one-click installable trigger templates from the file-backed global catalog.
+// @Tags catalog
+// @Produce json
+// @Success 200 {object} automationCatalogResponse
+// @Failure 500 {object} errorResponse
+// @Router /v1/catalog/triggers [get]
 func (h *AutomationCatalogHandler) ListTriggers(w http.ResponseWriter, r *http.Request) {
 	items, err := automationcatalog.LoadTriggers(h.triggerDir)
 	if err != nil {
@@ -28,6 +36,14 @@ func (h *AutomationCatalogHandler) ListTriggers(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, automationCatalogResponse{Data: enabledCatalogItems(items)})
 }
 
+// ListAutomations handles GET /v1/catalog/automations.
+// @Summary List schedule automation catalog
+// @Description Returns enabled one-click installable schedule templates from the file-backed global catalog.
+// @Tags catalog
+// @Produce json
+// @Success 200 {object} automationCatalogResponse
+// @Failure 500 {object} errorResponse
+// @Router /v1/catalog/automations [get]
 func (h *AutomationCatalogHandler) ListAutomations(w http.ResponseWriter, r *http.Request) {
 	items, err := automationcatalog.LoadSchedules(h.scheduleDir)
 	if err != nil {

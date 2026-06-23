@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-weekly-bug-pattern-review",
   "name": "GitHub Weekly Bug Pattern Review",
-  "description": "Group recent bug reports by area, severity, recurrence, and likely ownership.",
+  "description": "Group recurring GitHub bug patterns.",
   "category": "Product",
   "enabled": true,
   "official": true,

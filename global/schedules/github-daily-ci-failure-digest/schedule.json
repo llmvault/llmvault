@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-daily-ci-failure-digest",
   "name": "GitHub Daily CI Failure Digest",
-  "description": "Summarize failed workflow runs from the last day, group repeated failures, and flag likely flaky tests.",
+  "description": "Summarize daily GitHub CI failures.",
   "category": "Engineering",
   "enabled": true,
   "official": true,

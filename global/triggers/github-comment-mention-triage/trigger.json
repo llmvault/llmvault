@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-comment-mention-triage",
   "name": "GitHub Comment Mention Triage",
-  "description": "Respond when a GitHub issue or pull request comment appears to mention Hivy for help.",
+  "description": "Triage GitHub comments mentioning Hivy.",
   "category": "Engineering",
   "enabled": true,
   "official": true,

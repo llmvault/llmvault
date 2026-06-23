@@ -3656,6 +3656,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalog/automations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List schedule automation catalog
+         * @description Returns enabled one-click installable schedule templates from the file-backed global catalog.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["automationCatalogResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/integrations": {
         parameters: {
             query?: never;
@@ -3885,6 +3933,54 @@ export interface paths {
                 };
                 /** @description Not Found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List trigger automation catalog
+         * @description Returns enabled one-click installable trigger templates from the file-backed global catalog.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["automationCatalogResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6440,6 +6536,534 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/v1/orgs/current/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List brands
+         * @description Returns active brands for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Maximum results to return */
+                    limit?: number;
+                    /** @description Pagination cursor */
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_brandResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a brand
+         * @description Creates a brand for the current organization. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Brand parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createBrandRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["brandMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/brands/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a brand
+         * @description Returns one active brand for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Brand ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["brandMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Archive a brand
+         * @description Archives an active brand for the current organization. Admin-only.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Brand ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["brandMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a brand
+         * @description Updates an active brand for the current organization. Admin-only.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Brand ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to patch */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["brandMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/orgs/current/brands/{id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List brand assets
+         * @description Returns assets attached to one brand.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Brand ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["paginatedResponse-handler_brandAssetResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create brand asset
+         * @description Stores metadata for an uploaded brand asset. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Brand ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Brand asset metadata */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createBrandAssetRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["brandAssetMutationResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/brands/{id}/assets/{assetID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete brand asset
+         * @description Deletes a brand asset metadata row if no logo references it. Admin-only.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Brand ID */
+                    id: string;
+                    /** @description Brand asset ID */
+                    assetID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["brandAssetMutationResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/current/brands/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set default brand
+         * @description Makes a brand the current organization's default brand. Admin-only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Brand ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["brandMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/orgs/current/environment-variables": {
@@ -11410,6 +12034,28 @@ export interface components {
             required_environment_variables?: string[];
             title?: string;
         };
+        CatalogItem: {
+            category?: string;
+            description?: string;
+            enabled?: boolean;
+            install?: components["schemas"]["InstallSpec"];
+            instructions?: string;
+            integration?: components["schemas"]["IntegrationSpec"];
+            kind?: string;
+            limits?: {
+                [key: string]: unknown;
+            };
+            name?: string;
+            official?: boolean;
+            plugins?: components["schemas"]["PluginsSpec"];
+            resources?: {
+                [key: string]: unknown;
+            };
+            schedule?: components["schemas"]["ScheduleSpec"];
+            slug?: string;
+            trigger?: components["schemas"]["TriggerSpec"];
+            version?: number;
+        };
         ConfigurableResourceSummary: {
             description?: string;
             display_name?: string;
@@ -11452,6 +12098,17 @@ export interface components {
         DiscoveryResult: {
             resources?: components["schemas"]["AvailableResource"][];
         };
+        InstallSpec: {
+            default_agent?: string;
+            default_channel?: string;
+            enabled?: boolean;
+            instructions?: string;
+        };
+        IntegrationSpec: {
+            manual_webhook?: boolean;
+            provider?: string;
+            required?: boolean;
+        };
         JSON: {
             [key: string]: unknown;
         };
@@ -11485,6 +12142,10 @@ export interface components {
             webhook_url?: string;
             webhook_user_defined_secret?: boolean;
         };
+        PluginsSpec: {
+            recommended?: string[];
+            required?: string[];
+        };
         Policy: {
             allowed_collections?: string[];
             allowed_schemas?: string[];
@@ -11495,6 +12156,12 @@ export interface components {
         Reference: {
             body?: string;
             path?: string;
+        };
+        ScheduleSpec: {
+            cron?: string;
+            kind?: string;
+            suggested_time_label?: string;
+            timezone?: string;
         };
         SchemaDefinition: {
             /** @description for array types */
@@ -11513,6 +12180,12 @@ export interface components {
         };
         SchemaRef: {
             $ref?: string;
+        };
+        TriggerSpec: {
+            conditions?: number[];
+            keys?: string[];
+            secret_required_default?: boolean;
+            type?: string;
         };
         Usage: {
             cached_tokens?: number;
@@ -11603,6 +12276,7 @@ export interface components {
             description?: string;
             icon?: string;
             id?: string;
+            image_model?: string;
             instructions?: string;
             is_default?: boolean;
             latest_runtime_version?: string;
@@ -11623,6 +12297,7 @@ export interface components {
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
             upgrade_available?: boolean;
+            vector_image_model?: string;
         };
         agentMutationRequest: {
             available_models?: string[];
@@ -11630,6 +12305,7 @@ export interface components {
             channel_ids?: string[];
             description?: string;
             icon?: string;
+            image_model?: string;
             instructions?: string;
             mcp_servers?: number[];
             model?: string;
@@ -11643,6 +12319,7 @@ export interface components {
             sandbox_tools?: string[];
             skills?: components["schemas"]["JSON"];
             tools?: components["schemas"]["JSON"];
+            vector_image_model?: string;
         };
         agentMutationResponse: {
             agent?: components["schemas"]["agentListItem"];
@@ -11657,6 +12334,7 @@ export interface components {
             description?: string;
             icon?: string;
             id?: string;
+            image_model?: string;
             instructions?: string;
             is_default?: boolean;
             mcp_servers?: number[];
@@ -11674,6 +12352,7 @@ export interface components {
             tools?: components["schemas"]["JSON"];
             triggers?: components["schemas"]["agentTriggerResponse"][];
             updated_at?: string;
+            vector_image_model?: string;
         };
         agentSandboxSummary: {
             created_at?: string;
@@ -11718,6 +12397,7 @@ export interface components {
              *     is never returned.
              */
             secret_set?: boolean;
+            source_slug?: string;
             trigger_keys?: string[];
             trigger_type?: string;
         };
@@ -11776,6 +12456,51 @@ export interface components {
             refresh_token?: string;
             user?: components["schemas"]["userResponse"];
         };
+        automationCatalogResponse: {
+            data?: components["schemas"]["CatalogItem"][];
+        };
+        brandAssetMutationResponse: {
+            asset?: components["schemas"]["brandAssetResponse"];
+        };
+        brandAssetResponse: {
+            brand_id?: string;
+            bytes?: number;
+            content_type?: string;
+            created_at?: string;
+            created_by?: string;
+            height?: number;
+            id?: string;
+            key?: string;
+            kind?: string;
+            metadata?: components["schemas"]["JSON"];
+            name?: string;
+            org_id?: string;
+            public_url?: string;
+            role?: string;
+            updated_at?: string;
+            width?: number;
+        };
+        brandMutationResponse: {
+            brand?: components["schemas"]["brandResponse"];
+        };
+        brandResponse: {
+            archived_at?: string;
+            colors?: number[];
+            created_at?: string;
+            created_by?: string;
+            description?: string;
+            id?: string;
+            is_default?: boolean;
+            logos?: number[];
+            name?: string;
+            org_id?: string;
+            raw_import?: number[];
+            slug?: string;
+            source?: number[];
+            typography?: number[];
+            updated_at?: string;
+            voice?: number[];
+        };
         cancelRequest: {
             at_period_end?: boolean;
         };
@@ -11811,9 +12536,11 @@ export interface components {
             external_resource_type?: string;
             external_resource_url?: string;
             external_workspace_key?: string;
+            image_model?: string;
             name?: string;
             origin?: string;
             team_id?: string;
+            vector_image_model?: string;
             visibility?: string;
         };
         channelMutationResponse: {
@@ -11834,6 +12561,7 @@ export interface components {
             external_resource_url?: string;
             external_workspace_key?: string;
             id?: string;
+            image_model?: string;
             is_default?: boolean;
             kind?: string;
             member_count?: number;
@@ -11845,6 +12573,7 @@ export interface components {
             role?: string;
             team_id?: string;
             updated_at?: string;
+            vector_image_model?: string;
             visibility?: string;
         };
         commandResult: {
@@ -11890,6 +12619,30 @@ export interface components {
             key_prefix?: string;
             name?: string;
             scopes?: string[];
+        };
+        createBrandAssetRequest: {
+            bytes?: number;
+            content_type?: string;
+            height?: number;
+            key?: string;
+            kind?: string;
+            metadata?: components["schemas"]["JSON"];
+            name?: string;
+            public_url?: string;
+            role?: string;
+            width?: number;
+        };
+        createBrandRequest: {
+            colors?: number[];
+            description?: string;
+            is_default?: boolean;
+            logos?: number[];
+            name?: string;
+            raw_import?: number[];
+            slug?: string;
+            source?: number[];
+            typography?: number[];
+            voice?: number[];
         };
         createCheckoutRequest: {
             cancel_url?: string;
@@ -11958,6 +12711,7 @@ export interface components {
             agent_id?: string;
             channel_id?: string;
             client_event_id?: string;
+            image_model?: string;
             message?: string;
             model?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
@@ -11965,6 +12719,7 @@ export interface components {
             raw?: components["schemas"]["JSON"];
             reasoning_effort?: string;
             text?: string;
+            vector_image_model?: string;
         };
         createSkillRequest: {
             bundle?: components["schemas"]["Bundle"];
@@ -12304,6 +13059,16 @@ export interface components {
         };
         "paginatedResponse-handler_auditEntryResponse": {
             data?: components["schemas"]["auditEntryResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_brandAssetResponse": {
+            data?: components["schemas"]["brandAssetResponse"][];
+            has_more?: boolean;
+            next_cursor?: string;
+        };
+        "paginatedResponse-handler_brandResponse": {
+            data?: components["schemas"]["brandResponse"][];
             has_more?: boolean;
             next_cursor?: string;
         };
@@ -12772,6 +13537,7 @@ export interface components {
             ended_at?: string;
             event_count?: number;
             id?: string;
+            image_model?: string;
             last_activity_at?: string;
             last_turn_outcome?: string;
             model?: string;
@@ -12783,6 +13549,7 @@ export interface components {
             source_resource_key?: string;
             status?: string;
             updated_at?: string;
+            vector_image_model?: string;
         };
         sessionSandboxAccessResponse: {
             expires_at?: string;
@@ -13098,8 +13865,10 @@ export interface components {
         updateSessionRequest: {
             agent_id?: string;
             channel_id?: string;
+            image_model?: string;
             name?: string;
             status?: string;
+            vector_image_model?: string;
         };
         updateSkillRequest: {
             category?: string;

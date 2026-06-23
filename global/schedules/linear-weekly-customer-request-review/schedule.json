@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "linear-weekly-customer-request-review",
   "name": "Linear Weekly Customer Request Review",
-  "description": "Review Linear customer requests, needs, or support-linked issues and surface follow-up priorities.",
+  "description": "Prioritize customer requests in Linear.",
   "category": "Customer Support",
   "enabled": true,
   "official": true,

@@ -4,10 +4,11 @@ import { useMemo, useState } from "react"
 import NextLink from "next/link"
 import { Button, Input, ListBox, Select } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
 import {
   AUTOMATION_TABS,
-  STATIC_AUTOMATIONS,
+  automationFromCatalog,
   automationCategories,
   automationCategory,
   automationMatchesCategory,
@@ -22,10 +23,27 @@ export default function AutomationsPage() {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<AutomationCategory>("All")
 
-  const tabAutomations = useMemo(
-    () => STATIC_AUTOMATIONS.filter((automation) => automation.type === tab),
-    [tab]
+  const triggersQuery = $api.useQuery("get", "/v1/catalog/triggers")
+  const schedulesQuery = $api.useQuery("get", "/v1/catalog/automations")
+  const triggerAutomations = useMemo(
+    () =>
+      (triggersQuery.data?.data ?? []).map((item) =>
+        automationFromCatalog(item, "Triggers")
+      ),
+    [triggersQuery.data?.data]
   )
+  const scheduleAutomations = useMemo(
+    () =>
+      (schedulesQuery.data?.data ?? []).map((item) =>
+        automationFromCatalog(item, "Schedules")
+      ),
+    [schedulesQuery.data?.data]
+  )
+  const tabAutomations = useMemo(
+    () => (tab === "Triggers" ? triggerAutomations : scheduleAutomations),
+    [scheduleAutomations, tab, triggerAutomations]
+  )
+  const activeQuery = tab === "Triggers" ? triggersQuery : schedulesQuery
   const categories = useMemo(
     () => automationCategories(tabAutomations),
     [tabAutomations]
@@ -102,7 +120,7 @@ export default function AutomationsPage() {
 
             <Button variant="primary" size="sm" className="shrink-0">
               <Icon icon="lucide:plus" className="h-4 w-4" />
-              Add trigger
+              {tab === "Triggers" ? "Add trigger" : "Add schedule"}
             </Button>
           </div>
 
@@ -127,7 +145,11 @@ export default function AutomationsPage() {
             />
           </div>
 
-          {sectionEntries.length === 0 ? (
+          {activeQuery.isLoading ? (
+            <CatalogSkeleton />
+          ) : activeQuery.isError ? (
+            <ErrorState tab={tab} onRetry={() => void activeQuery.refetch()} />
+          ) : sectionEntries.length === 0 ? (
             <EmptyState query={query} tab={tab} />
           ) : (
             <div className="flex flex-col gap-8">
@@ -222,6 +244,53 @@ function AutomationRow({ automation }: { automation: AutomationItem }) {
         </div>
       </div>
     </NextLink>
+  )
+}
+
+function CatalogSkeleton() {
+  return (
+    <div className="flex flex-col gap-8">
+      {Array.from({ length: 2 }).map((_, section) => (
+        <section key={section} className="flex flex-col gap-3">
+          <div className="bg-default h-4 w-28 animate-pulse rounded" />
+          <div className="flex flex-col gap-3 bg-card">
+            {Array.from({ length: 3 }).map((_, row) => (
+              <div key={row} className="flex items-center gap-3 py-1.5">
+                <div className="bg-default h-9 w-9 animate-pulse rounded-lg" />
+                <div className="min-w-0 flex-1">
+                  <div className="bg-default h-4 w-40 animate-pulse rounded" />
+                  <div className="bg-default mt-2 h-4 w-full max-w-sm animate-pulse rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function ErrorState({
+  tab,
+  onRetry,
+}: {
+  tab: AutomationTab
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
+      <Icon
+        icon="lucide:triangle-alert"
+        className="h-7 w-7 text-muted-foreground"
+      />
+      <p className="mt-3 text-sm font-medium text-foreground">
+        Could not load {tab.toLowerCase()}
+      </p>
+      <Button variant="ghost" size="sm" className="mt-3" onPress={onRetry}>
+        <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
+        Retry
+      </Button>
+    </div>
   )
 }
 

@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-weekly-product-feedback-review",
   "name": "GitHub Weekly Product Feedback Review",
-  "description": "Review enhancement and feedback issues, extract themes, and surface high-signal product requests.",
+  "description": "Extract themes from product feedback.",
   "category": "Product",
   "enabled": true,
   "official": true,

@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "railway-daily-deployment-health-check",
   "name": "Railway Daily Deployment Health Check",
-  "description": "Review recent Railway deployments and flag failed, crashed, or unstable services.",
+  "description": "Check recent Railway deployment health.",
   "category": "Operations",
   "enabled": true,
   "official": true,

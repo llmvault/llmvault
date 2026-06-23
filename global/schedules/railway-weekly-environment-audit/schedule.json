@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "railway-weekly-environment-audit",
   "name": "Railway Weekly Environment Audit",
-  "description": "Review Railway services and environments for operational risks, drift, stale deploys, and missing safeguards.",
+  "description": "Audit Railway environments for drift.",
   "category": "Operations",
   "enabled": true,
   "official": true,

@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-pr-review-prep",
   "name": "GitHub PR Review Prep",
-  "description": "Prepare a pull request for review by summarizing scope, risks, test coverage, and reviewer guidance.",
+  "description": "Prepare pull requests for review.",
   "category": "Engineering",
   "enabled": true,
   "official": true,

@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-ci-failure-triage",
   "name": "GitHub CI Failure Triage",
-  "description": "Investigate failed GitHub Actions workflow runs, identify the likely cause, and recommend a concrete fix.",
+  "description": "Investigate failing GitHub Actions runs.",
   "category": "Engineering",
   "enabled": true,
   "official": true,
