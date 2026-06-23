@@ -1193,6 +1193,8 @@ mod tests {
             ToolSpec::SkillView => "skill_view",
             ToolSpec::SkillManage => "skill_manage",
             ToolSpec::SearchSessions => "search_sessions",
+            ToolSpec::GenerateImage(_) => "generate_image",
+            ToolSpec::GenerateVectorImage(_) => "generate_vector_image",
             ToolSpec::RequestUserInput => "request_user_input",
             ToolSpec::UpdatePlan => "update_plan",
         }
@@ -1268,6 +1270,20 @@ mod tests {
         for kind in ["subagent_task", "request_user_input"] {
             assert!(!has_tool(&specs, kind), "unexpected {kind}");
         }
+    }
+
+    #[test]
+    fn explicit_image_generation_tools_remain_available_to_child_agents() {
+        let mut definition = test_definition();
+        definition.tools = Some(vec![
+            ToolSpec::GenerateImage(Default::default()),
+            ToolSpec::GenerateVectorImage(Default::default()),
+        ]);
+
+        let specs = effective_tool_specs(&definition, true);
+
+        assert!(has_tool(&specs, "generate_image"));
+        assert!(has_tool(&specs, "generate_vector_image"));
     }
 
     #[test]
