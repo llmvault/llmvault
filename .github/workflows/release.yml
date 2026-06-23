@@ -252,7 +252,12 @@ jobs:
         with:
           name: release-manifest
 
+      - name: skip runner image cache warm-up
+        if: ${{ vars.HIVY_MICROSANDBOX_RUNNER_URLS == '' || vars.HIVY_MICROSANDBOX_RUNNER_URLS == '[]' }}
+        run: echo "HIVY_MICROSANDBOX_RUNNER_URLS is empty; skipping runner image cache warm-up"
+
       - name: warm runner image caches
+        if: ${{ vars.HIVY_MICROSANDBOX_RUNNER_URLS != '' && vars.HIVY_MICROSANDBOX_RUNNER_URLS != '[]' }}
         env:
           HIVY_MICROSANDBOX_RUNNER_API_TOKEN: ${{ secrets.HIVY_MICROSANDBOX_RUNNER_API_TOKEN }}
           HIVY_MICROSANDBOX_RUNNER_URLS: ${{ vars.HIVY_MICROSANDBOX_RUNNER_URLS }}

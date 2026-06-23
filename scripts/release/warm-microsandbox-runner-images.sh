@@ -3,9 +3,12 @@ set -euo pipefail
 
 manifest="${1:?usage: warm-microsandbox-runner-images.sh <release-manifest.json>}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+runner_urls_input="${HIVY_MICROSANDBOX_RUNNER_URLS:-}"
 
-: "${HIVY_MICROSANDBOX_RUNNER_API_TOKEN:?HIVY_MICROSANDBOX_RUNNER_API_TOKEN is required}"
-: "${HIVY_MICROSANDBOX_RUNNER_URLS:?HIVY_MICROSANDBOX_RUNNER_URLS is required}"
+if [[ -z "${runner_urls_input//[[:space:]]/}" ]]; then
+  echo "HIVY_MICROSANDBOX_RUNNER_URLS is empty; skipping runner image cache warm-up"
+  exit 0
+fi
 
 command -v curl >/dev/null || {
   echo "curl is required" >&2
@@ -33,22 +36,24 @@ images=(
 )
 
 runner_urls=()
-if jq -e 'type == "array"' >/dev/null 2>&1 <<<"${HIVY_MICROSANDBOX_RUNNER_URLS}"; then
-  json_runner_urls="$(jq -r '.[]' <<<"${HIVY_MICROSANDBOX_RUNNER_URLS}")"
+if jq -e 'type == "array"' >/dev/null 2>&1 <<<"${runner_urls_input}"; then
+  json_runner_urls="$(jq -r '.[]' <<<"${runner_urls_input}")"
   while IFS= read -r runner_url; do
     if [[ -n "${runner_url}" ]]; then
       runner_urls+=("${runner_url}")
     fi
   done <<<"${json_runner_urls}"
 else
-  normalized_urls="$(printf '%s' "${HIVY_MICROSANDBOX_RUNNER_URLS}" | tr ',\n' '  ')"
+  normalized_urls="$(printf '%s' "${runner_urls_input}" | tr ',\n' '  ')"
   read -r -a runner_urls <<<"${normalized_urls}"
 fi
 
 if [[ "${#runner_urls[@]}" -eq 0 ]]; then
-  echo "HIVY_MICROSANDBOX_RUNNER_URLS did not contain any runner URLs" >&2
-  exit 1
+  echo "HIVY_MICROSANDBOX_RUNNER_URLS did not contain any runner URLs; skipping runner image cache warm-up"
+  exit 0
 fi
+
+: "${HIVY_MICROSANDBOX_RUNNER_API_TOKEN:?HIVY_MICROSANDBOX_RUNNER_API_TOKEN is required}"
 
 created=()
 
