@@ -2,6 +2,23 @@ package agentruntime
 
 import "github.com/usehivy/hivy/internal/model"
 
+func defaultBashEnvPassthrough() []any {
+	return []any{
+		"HOME",
+		"PATH",
+		"LANG",
+		"LC_ALL",
+		AgentEnvPenpotCanvasURL,
+		AgentEnvPenpotCanvasTeamID,
+		AgentEnvPenpotCanvasProfileID,
+		AgentEnvPenpotCanvasSessionJWT,
+		AgentEnvPenpotCanvasMCPURL,
+		AgentEnvCloudControlPlaneURL,
+		AgentEnvAgentID,
+		AgentEnvRuntimeSecret,
+	}
+}
+
 func defaultRuntimeToolConfig(id string) (map[string]any, bool) {
 	switch id {
 	case "bash":
@@ -18,7 +35,7 @@ func defaultRuntimeToolConfig(id string) (map[string]any, bool) {
 				"shutdown",
 				"reboot",
 			},
-			"env_passthrough": []any{"HOME", "PATH", "LANG", "LC_ALL"},
+			"env_passthrough": defaultBashEnvPassthrough(),
 			"sandbox":         "process_isolated",
 		}, true
 	case "read_file":
@@ -93,4 +110,48 @@ func cloneRuntimeToolConfigValue(value any) any {
 	default:
 		return typed
 	}
+}
+
+func ensureBashEnvPassthrough(config map[string]any) {
+	raw, ok := config["env_passthrough"]
+	if !ok {
+		config["env_passthrough"] = defaultBashEnvPassthrough()
+		return
+	}
+	values := envPassthroughValues(raw)
+	if len(values) == 0 {
+		return
+	}
+	for _, required := range defaultBashEnvPassthrough() {
+		key, ok := required.(string)
+		if !ok || containsEnvPassthrough(values, key) {
+			continue
+		}
+		values = append(values, key)
+	}
+	config["env_passthrough"] = values
+}
+
+func envPassthroughValues(raw any) []any {
+	switch typed := raw.(type) {
+	case []any:
+		return typed
+	case []string:
+		values := make([]any, len(typed))
+		for i, value := range typed {
+			values[i] = value
+		}
+		return values
+	default:
+		return nil
+	}
+}
+
+func containsEnvPassthrough(values []any, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }

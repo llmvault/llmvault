@@ -209,6 +209,9 @@ func runtimeToolConfig(id string, value any) (map[string]any, bool, error) {
 	for key, item := range overrides {
 		defaults[key] = item
 	}
+	if id == "bash" {
+		ensureBashEnvPassthrough(defaults)
+	}
 	return defaults, true, nil
 }
 

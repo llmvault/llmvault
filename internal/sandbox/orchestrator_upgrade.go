@@ -32,6 +32,11 @@ func (o *Orchestrator) UpgradeAgentSandboxInPlace(ctx context.Context, agent *mo
 	if secrets == nil || secrets.ProxyToken == "" || secrets.ProxyTokenJTI == "" {
 		return nil, fmt.Errorf("UpgradeAgentSandboxInPlace: proxy token is required")
 	}
+	startupProxyToken := &agentruntime.ProxyTokenResult{
+		Token:     secrets.ProxyToken,
+		JTI:       secrets.ProxyTokenJTI,
+		ExpiresAt: secrets.ProxyExpires,
+	}
 	if err := o.ensureSandboxProvider(sb); err != nil {
 		return nil, err
 	}
@@ -137,6 +142,13 @@ func (o *Orchestrator) UpgradeAgentSandboxInPlace(ctx context.Context, agent *mo
 	sb.LastActiveAt = &now
 	sb.ExposedPorts = model.SandboxExposedPortsInt64Array(exposedPorts)
 	sb.ErrorMessage = nil
+
+	if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
+		return nil, fmt.Errorf("waiting for upgraded agent runtime: %w", err)
+	}
+	if err := o.pushAgentRuntimeConfig(ctx, sb, "upgrade", startupProxyToken); err != nil {
+		return nil, err
+	}
 
 	idleTimeout := time.Duration(0)
 	if o.cfg != nil {
