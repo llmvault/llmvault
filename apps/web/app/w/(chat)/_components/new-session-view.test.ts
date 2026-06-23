@@ -7,8 +7,13 @@ const mocks = vi.hoisted(() => ({
     onSend: (text: string, effort: string) => boolean | Promise<boolean>
   },
   mutateAsync: vi.fn(),
+  queryClient: {
+    invalidateQueries: vi.fn(),
+    setQueryData: vi.fn(),
+  },
   useMutation: vi.fn(),
   useQuery: vi.fn(),
+  watchGeneratedSessionName: vi.fn(),
 }))
 
 vi.mock("@/app/w/(chat)/_components/chat-composer", () => ({
@@ -27,14 +32,29 @@ vi.mock("@/lib/api/hooks", () => ({
   },
 }))
 
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>()
+  return {
+    ...actual,
+    useQueryClient: () => mocks.queryClient,
+  }
+})
+
+vi.mock("@/app/w/(chat)/_lib/session-name-updates", () => ({
+  watchGeneratedSessionName: mocks.watchGeneratedSessionName,
+}))
+
 import { SessionView } from "@/app/w/(chat)/_components/new-session-view"
 
 describe("SessionView", () => {
   beforeEach(() => {
     mocks.composerProps = null
     mocks.mutateAsync.mockReset()
+    mocks.queryClient.invalidateQueries.mockReset()
+    mocks.queryClient.setQueryData.mockReset()
     mocks.useMutation.mockReset()
     mocks.useQuery.mockReset()
+    mocks.watchGeneratedSessionName.mockReset()
 
     mocks.useQuery.mockImplementation((_method: string, path: string) => {
       if (path === "/v1/channels") {
@@ -110,6 +130,13 @@ describe("SessionView", () => {
       "session-1",
       undefined,
       { replace: true }
+    )
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["get", "/v1/channels"],
+    })
+    expect(mocks.watchGeneratedSessionName).toHaveBeenCalledWith(
+      mocks.queryClient,
+      expect.objectContaining({ id: "session-1" })
     )
   })
 })

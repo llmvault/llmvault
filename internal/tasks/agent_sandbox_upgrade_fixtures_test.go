@@ -227,3 +227,20 @@ func assertAgentSandboxUpgradeInPlaceSandbox(t *testing.T, db *gorm.DB, orgID, a
 		t.Fatalf("status=%q want running", got.Status)
 	}
 }
+
+func assertAgentSandboxUpgradeInPlaceRowCount(t *testing.T, db *gorm.DB, orgID, agentID, sandboxID uuid.UUID) {
+	t.Helper()
+	var sandboxes []model.Sandbox
+	if err := db.Where("org_id = ? AND agent_id = ?", orgID, agentID).Find(&sandboxes).Error; err != nil {
+		t.Fatalf("load sandboxes: %v", err)
+	}
+	if len(sandboxes) != 1 {
+		t.Fatalf("sandboxes=%d want existing sandbox only", len(sandboxes))
+	}
+	if sandboxes[0].ID != sandboxID {
+		t.Fatalf("sandbox id=%s want %s", sandboxes[0].ID, sandboxID)
+	}
+	if sandboxes[0].Status != string(sandbox.StatusRunning) {
+		t.Fatalf("status=%q want running", sandboxes[0].Status)
+	}
+}

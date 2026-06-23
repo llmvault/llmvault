@@ -4,23 +4,17 @@ import { Button, ListBox, Select } from "@heroui/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Paperclip, ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import { useState } from "react"
+import { ProviderLogo } from "@/components/provider-logo"
 import { cn } from "@/lib/utils"
-import { ClaudeIcon } from "@/app/w/(chat)/_components/claude"
-import { DeepseekIcon } from "@/app/w/(chat)/_components/deepseek"
-import { GeminiIcon } from "@/app/w/(chat)/_components/gemini"
-import { GrokIcon } from "@/app/w/(chat)/_components/grok"
-import { MoonshotIcon } from "@/app/w/(chat)/_components/moonshot"
-import { QwenIcon } from "@/app/w/(chat)/_components/qwen"
-import { XaiIcon } from "@/app/w/(chat)/_components/xai"
 
 const models = [
-  { id: "claude", label: "Claude", Icon: ClaudeIcon },
-  { id: "deepseek", label: "DeepSeek", Icon: DeepseekIcon },
-  { id: "gemini", label: "Gemini", Icon: GeminiIcon },
-  { id: "grok", label: "Grok", Icon: GrokIcon },
-  { id: "moonshot", label: "Moonshot", Icon: MoonshotIcon },
-  { id: "qwen", label: "Qwen", Icon: QwenIcon },
-  { id: "xai", label: "xAI", Icon: XaiIcon },
+  { id: "claude", label: "Claude", provider: "anthropic" },
+  { id: "deepseek", label: "DeepSeek", provider: "deepseek" },
+  { id: "gemini", label: "Gemini", provider: "google" },
+  { id: "grok", label: "Grok", provider: "x-ai" },
+  { id: "moonshot", label: "Moonshot", provider: "moonshotai" },
+  { id: "qwen", label: "Qwen", provider: "qwen" },
+  { id: "xai", label: "xAI", provider: "x-ai" },
 ]
 
 interface ChatInputProps {
@@ -114,7 +108,11 @@ export function ChatInput({
                         {models.map((model) => (
                           <ListBox.Item key={model.id} textValue={model.label}>
                             <div className="flex items-center gap-2">
-                              <model.Icon className="h-4 w-4" />
+                              <ProviderLogo
+                                provider={model.provider}
+                                size={16}
+                                className="rounded-[4px]"
+                              />
                               <span>{model.label}</span>
                             </div>
                           </ListBox.Item>

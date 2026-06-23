@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -225,6 +226,22 @@ func cleanupIntegrationArtifacts(ctx context.Context, driver *Driver) error {
 			if err != nil && !cerrdefs.IsNotFound(err) {
 				return fmt.Errorf("removing docker test image %s: %w", ref, err)
 			}
+		}
+	}
+
+	volumes, err := driver.cli.VolumeList(ctx, volume.ListOptions{
+		Filters: filters.NewArgs(filters.Arg("label", label)),
+	})
+	if err != nil {
+		return fmt.Errorf("listing docker test volumes: %w", err)
+	}
+	for _, item := range volumes.Volumes {
+		if item == nil {
+			continue
+		}
+		err := driver.cli.VolumeRemove(ctx, item.Name, true)
+		if err != nil && !cerrdefs.IsNotFound(err) {
+			return fmt.Errorf("removing docker test volume %s: %w", item.Name, err)
 		}
 	}
 	return nil

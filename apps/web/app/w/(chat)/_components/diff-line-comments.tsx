@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useMemo, useRef, useState } from "react"
 import { getSingularPatch, type SelectedLineRange } from "@pierre/diffs"
 import {
   File as DiffFile,
@@ -76,7 +76,7 @@ export type CommentableFileProps = Omit<
   source?: CodeLineCommentSourceHint
 }
 
-export function CommentablePatchDiff({
+export const CommentablePatchDiff = memo(function CommentablePatchDiff({
   options,
   source,
   ...props
@@ -174,7 +174,7 @@ export function CommentablePatchDiff({
       renderGutterUtility={renderGutterUtility}
     />
   )
-}
+})
 
 export function CommentableFile({
   options,

@@ -11,8 +11,8 @@ React Email workspace for Hivy transactional emails.
 
 Local preview serves logo images from `emails/static`. When uploading templates to
 Resend, the custom uploader sets `HIVY_EMAIL_RENDER_TARGET=resend` so rendered
-HTML uses production image URLs from `https://usehivy.com/email`. Override the
-public asset host with `HIVY_EMAIL_ASSET_URL=https://your-host.example/email pnpm upload:resend`.
+HTML uses production image URLs from `https://usehivy.com`. Override the public
+asset host with `HIVY_EMAIL_ASSET_URL=https://your-host.example pnpm upload:resend`.
 
 ## Production Upload
 

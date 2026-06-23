@@ -17,8 +17,9 @@ import {
 export const siteUrl = "https://usehivy.com"
 
 const emailAssetBaseUrl =
-  process.env.HIVY_EMAIL_RENDER_TARGET === "resend" || process.env.NODE_ENV === "production"
-    ? (process.env.HIVY_EMAIL_ASSET_URL ?? `${siteUrl}/email`)
+  process.env.HIVY_EMAIL_RENDER_TARGET === "resend" ||
+  process.env.NODE_ENV === "production"
+    ? (process.env.HIVY_EMAIL_ASSET_URL ?? siteUrl)
     : "/static"
 
 export const brand = {
@@ -31,7 +32,7 @@ export const brand = {
   mutedForeground: "#7C4A52",
   accent: "#FB7185",
   border: "#FECDD3",
-  logo: `${emailAssetBaseUrl}/hivy-logo-dark.png`,
+  logo: `${emailAssetBaseUrl}/hivy-logo.png`,
 }
 
 const legalAddress =
@@ -54,7 +55,7 @@ export function HivyEmail({ preview, eyebrow, title, children, footerNote }: Hiv
         <Container style={styles.container}>
           <Section style={styles.header}>
             <Link href={siteUrl} style={styles.logoLink}>
-              <Img src={brand.logo} width="118" height="48" alt="Hivy" style={styles.logo} />
+              <Img src={brand.logo} width="48" height="48" alt="Hivy" style={styles.logo} />
             </Link>
           </Section>
 

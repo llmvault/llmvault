@@ -1,12 +1,13 @@
-import type { ComponentType } from "react"
+import Image from "next/image"
 import { Icon } from "@iconify/react"
 import { modelById } from "@/app/w/(chat)/_lib/agents"
+import { modelLogoURL } from "@/lib/model-logos"
+import { cn } from "@/lib/utils"
 
 export type DisplayModel = {
   id: string
   label: string
   provider: string
-  Icon?: ComponentType<{ className?: string }>
 }
 
 export function displayModel(id: string): DisplayModel {
@@ -28,9 +29,24 @@ export function ModelIcon({
   model: DisplayModel
   className?: string
 }) {
-  const IconComponent = model.Icon
-  if (IconComponent) {
-    return <IconComponent className={className} />
+  const logoURL = modelLogoURL(model.id)
+  if (logoURL) {
+    return (
+      <span
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-md bg-white p-0.5",
+          className
+        )}
+      >
+        <Image
+          src={logoURL}
+          alt=""
+          width={16}
+          height={16}
+          className="size-full object-contain"
+        />
+      </span>
+    )
   }
   return <Icon icon="lucide:brain" className={`${className} text-muted`} />
 }

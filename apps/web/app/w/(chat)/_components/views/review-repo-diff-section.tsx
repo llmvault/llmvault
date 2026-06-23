@@ -1,16 +1,27 @@
+import { memo, useMemo } from "react"
 import { Icon } from "@iconify/react"
 import { CommentablePatchDiff } from "@/app/w/(chat)/_components/diff-line-comments"
 import { REVIEW_DIFF_STYLE } from "./review-diff-config"
 import { formatPatchCount } from "./review-format"
 import type { ReviewDiffOptions, ReviewRepoDiff } from "./review-types"
 
-export function RepoDiffSection({
+export const RepoDiffSection = memo(function RepoDiffSection({
   repoDiff,
   options,
 }: {
   repoDiff: ReviewRepoDiff
   options: ReviewDiffOptions
 }) {
+  const source = useMemo(
+    () => ({
+      kind: "review" as const,
+      repoId: repoDiff.repo.id,
+      repoName: repoDiff.repo.name,
+      repoPath: repoDiff.repo.relative_path,
+    }),
+    [repoDiff.repo.id, repoDiff.repo.name, repoDiff.repo.relative_path]
+  )
+
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
       <div className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3">
@@ -34,12 +45,7 @@ export function RepoDiffSection({
             key={`${repoDiff.repo.id}:${index}:${patch.slice(0, 48)}`}
             patch={patch}
             options={options}
-            source={{
-              kind: "review",
-              repoId: repoDiff.repo.id,
-              repoName: repoDiff.repo.name,
-              repoPath: repoDiff.repo.relative_path,
-            }}
+            source={source}
             className={index > 0 ? "border-t border-border" : undefined}
             style={REVIEW_DIFF_STYLE}
             disableWorkerPool
@@ -48,4 +54,4 @@ export function RepoDiffSection({
       </div>
     </section>
   )
-}
+})

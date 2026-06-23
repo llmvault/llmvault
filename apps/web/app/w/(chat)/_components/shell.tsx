@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
 } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -25,6 +26,11 @@ import type { components } from "@/lib/api/schema"
 import { useAuth } from "@/lib/auth/auth-context"
 import { ChatHeader } from "@/app/w/(chat)/_components/chat-header"
 import type { ChatHeaderAgent } from "@/app/w/(chat)/_components/chat-header-types"
+import {
+  RenameSessionModal,
+  type RenameSessionTarget,
+} from "@/app/w/(chat)/_components/rename-session-modal"
+import { ShareSessionModal } from "@/app/w/(chat)/_components/share-session-modal"
 import {
   RightPanel,
   type PanelViewID,
@@ -71,6 +77,8 @@ import {
 
 const RIGHT_SIZE = 42 // percent
 const RIGHT_MAX_SIZE = 70 // percent
+const RIGHT_PANEL_COLLAPSED_THRESHOLD_PX = 8
+const RIGHT_PANEL_SIZE_EPSILON = 0.1
 const PANEL_EASE = [0.32, 0.72, 0, 1] as const
 
 // A chat session is pinned to one agent for its whole lifetime; only the
@@ -142,6 +150,9 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const sidebarOpenRef = useRef(DEFAULT_SIDEBAR_PREFERENCES.open)
   const rightOpenRef = useRef(false)
   const [draftSession, setDraftSession] = useState<ChatSession | null>(null)
+  const [renameSession, setRenameSession] =
+    useState<RenameSessionTarget | null>(null)
+  const [shareSessionID, setShareSessionID] = useState<string | null>(null)
   const [routePreviewSession, setRoutePreviewSession] = useState<{
     sessionId: string
     session: ChatSession
@@ -281,13 +292,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const sidebarPreferencesPersistTimer = useRef<ReturnType<
     typeof setTimeout
   > | null>(null)
-  const rightProgrammaticResizeRef = useRef(false)
+  const rightManualResizeRef = useRef(false)
+  const rightSkipNextSyncRef = useRef(false)
   const rightPanelOpenRef = useRef(rightPanelOpen)
   const rightPanelSizePercentRef = useRef(RIGHT_SIZE)
   const workspaceSessionKeyRef = useRef(workspaceSessionKey)
-  const rightPanelSizePersistTimer = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null)
   const sidebarWasOpenRef = useRef(true)
 
   useEffect(() => {
@@ -443,36 +452,76 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
   const setRightSize = useCallback(
     (percent: number) => {
-      rightProgrammaticResizeRef.current = true
-      animatePanel(rightPanelRef.current, rightAnim, percent, "%", () => {
-        rightProgrammaticResizeRef.current = false
-      })
+      animatePanel(rightPanelRef.current, rightAnim, percent, "%")
     },
     [animatePanel, rightPanelRef]
   )
 
-  const scheduleRightPanelSizePersist = useCallback(
-    (percent: number) => {
-      rightPanelSizePercentRef.current = percent
-      if (rightPanelSizePersistTimer.current) {
-        clearTimeout(rightPanelSizePersistTimer.current)
-      }
-      const sessionKey = workspaceSessionKeyRef.current
-      rightPanelSizePersistTimer.current = setTimeout(() => {
-        rightPanelSizePersistTimer.current = null
-        setRightPanelSize(sessionKey, percent)
-      }, 200)
-    },
-    [setRightPanelSize]
-  )
+  const beginRightManualResize = useCallback(() => {
+    rightManualResizeRef.current = true
+    rightAnim.current?.stop()
+  }, [])
 
-  useEffect(
-    () => () => {
-      if (rightPanelSizePersistTimer.current) {
-        clearTimeout(rightPanelSizePersistTimer.current)
+  const commitRightManualResize = useCallback(() => {
+    if (!rightManualResizeRef.current) return
+    rightManualResizeRef.current = false
+    const size = rightPanelRef.current?.getSize()
+    if (!size) return
+
+    const sessionKey = workspaceSessionKeyRef.current
+    const open = size.inPixels > RIGHT_PANEL_COLLAPSED_THRESHOLD_PX
+    const wasOpen = rightPanelOpenRef.current
+    const nextPercent = size.asPercentage
+    updateRightOpen(open)
+    rightPanelOpenRef.current = open
+
+    if (!open) {
+      setRightSize(0)
+      if (wasOpen || rightMaximized) {
+        rightSkipNextSyncRef.current = true
+        setRightPanelOpen(sessionKey, false)
+      }
+      return
+    }
+
+    const sizeChanged =
+      Math.abs(nextPercent - rightPanelSizePercentRef.current) >
+      RIGHT_PANEL_SIZE_EPSILON
+    rightPanelSizePercentRef.current = nextPercent
+    if (rightMaximized) {
+      rightSkipNextSyncRef.current = true
+      setRightPanelMaximized(sessionKey, false)
+    }
+    if (sizeChanged || rightMaximized) {
+      setRightPanelSize(sessionKey, nextPercent)
+    }
+    if (!wasOpen) {
+      rightSkipNextSyncRef.current = true
+      setRightPanelOpen(sessionKey, true)
+    }
+  }, [
+    rightMaximized,
+    rightPanelRef,
+    setRightPanelMaximized,
+    setRightPanelOpen,
+    setRightPanelSize,
+    setRightSize,
+    updateRightOpen,
+  ])
+
+  const beginRightKeyboardResize = useCallback(
+    (event: KeyboardEvent) => {
+      if (
+        event.key === "ArrowLeft" ||
+        event.key === "ArrowRight" ||
+        event.key === "Home" ||
+        event.key === "End" ||
+        event.key === "Enter"
+      ) {
+        beginRightManualResize()
       }
     },
-    []
+    [beginRightManualResize]
   )
 
   const toggleRight = useCallback(() => {
@@ -696,6 +745,10 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   }, [queryClient, routeSessionQuery.data?.session])
 
   useEffect(() => {
+    if (rightSkipNextSyncRef.current) {
+      rightSkipNextSyncRef.current = false
+      return
+    }
     const nextSize = rightPanelOpen
       ? rightMaximized
         ? RIGHT_MAX_SIZE
@@ -741,12 +794,24 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     () => (session ? chatHeaderAgent(session) : null),
     [session]
   )
+  const openRenameSession = useCallback((sessionID: string, name: string) => {
+    if (!sessionID || sessionID.startsWith("tmp_")) return
+    setRenameSession({ id: sessionID, name })
+  }, [])
+  const openShareSession = useCallback((sessionID: string) => {
+    if (!sessionID || sessionID.startsWith("tmp_")) return
+    setShareSessionID(sessionID)
+  }, [])
 
   return (
     <WorkspaceContext.Provider value={workspace}>
       <LineCommentsProvider scopeKey={routeSessionID ?? "new-chat"}>
         <div className="bg-surface h-screen w-screen overflow-hidden text-foreground">
-          <Group orientation="horizontal" className="h-full w-full">
+          <Group
+            orientation="horizontal"
+            className="h-full w-full"
+            onLayoutChanged={commitRightManualResize}
+          >
             <Panel
               id="sidebar"
               panelRef={sidebarPanelRef}
@@ -757,7 +822,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               onResize={handleSidebarResize}
             >
               <div className="h-full min-w-[230px]">
-                <Sidebar onCollapse={toggleSidebar} />
+                <Sidebar
+                  onCollapse={toggleSidebar}
+                  onRenameSession={openRenameSession}
+                  onShareSession={openShareSession}
+                />
               </div>
             </Panel>
             <Separator
@@ -773,6 +842,16 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                   agent={headerAgent}
                   sidebarOpen={sidebarOpen}
                   onExpandSidebar={toggleSidebar}
+                  onRename={
+                    routeSessionID && !routeIsOptimistic && session
+                      ? () => openRenameSession(routeSessionID, session.title)
+                      : undefined
+                  }
+                  onShare={
+                    routeSessionID && !routeIsOptimistic
+                      ? () => openShareSession(routeSessionID)
+                      : undefined
+                  }
                   rightOpen={rightPanelOpen || rightOpen}
                   onToggleRight={toggleRight}
                 />
@@ -783,6 +862,8 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
             </Panel>
 
             <Separator
+              onPointerDownCapture={beginRightManualResize}
+              onKeyDownCapture={beginRightKeyboardResize}
               className={`shrink-0 bg-border transition-colors hover:bg-accent data-[resizing]:bg-accent ${
                 rightPanelOpen || rightOpen ? "w-px" : "w-0"
               }`}
@@ -794,16 +875,9 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               minSize={0}
               className="min-w-0 overflow-hidden"
               onResize={(size) => {
-                const open = size.inPixels > 8
-                const programmatic = rightProgrammaticResizeRef.current
+                const open =
+                  size.inPixels > RIGHT_PANEL_COLLAPSED_THRESHOLD_PX
                 updateRightOpen(open)
-                if (!programmatic && open !== rightPanelOpenRef.current) {
-                  rightPanelOpenRef.current = open
-                  setRightPanelOpen(workspaceSessionKey, open)
-                }
-                if (open && !rightMaximized && !programmatic) {
-                  scheduleRightPanelSizePersist(size.asPercentage)
-                }
               }}
             >
               <div className="h-full min-w-90">
@@ -825,6 +899,25 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               </div>
             </Panel>
           </Group>
+          <RenameSessionModal
+            key={
+              renameSession
+                ? `${renameSession.id}:${renameSession.name}`
+                : "rename-session"
+            }
+            session={renameSession}
+            open={Boolean(renameSession)}
+            onOpenChange={(next) => {
+              if (!next) setRenameSession(null)
+            }}
+          />
+          <ShareSessionModal
+            sessionId={shareSessionID}
+            open={Boolean(shareSessionID)}
+            onOpenChange={(next) => {
+              if (!next) setShareSessionID(null)
+            }}
+          />
         </div>
       </LineCommentsProvider>
     </WorkspaceContext.Provider>

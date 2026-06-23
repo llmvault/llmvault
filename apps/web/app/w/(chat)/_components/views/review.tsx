@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useQuery } from "@tanstack/react-query"
+import { Virtualizer } from "@pierre/diffs/react"
 import {
   RuntimeRepoAccessError,
   RuntimeRepoHTTPError,
@@ -169,25 +170,28 @@ export function ReviewView({
         </Button>
       </div>
 
-      <div className="bg-surface min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        {changedRepoDiffs.length > 0 ? (
-          <div className="flex min-h-full min-w-0 flex-col gap-3">
-            {changedRepoDiffs.map((repoDiff) => (
-              <RepoDiffSection
-                key={repoDiff.repo.id}
-                repoDiff={repoDiff}
-                options={diffOptions}
-              />
-            ))}
-          </div>
-        ) : (
+      {changedRepoDiffs.length > 0 ? (
+        <Virtualizer
+          className="bg-surface min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+          contentClassName="flex min-h-full min-w-0 flex-col gap-3"
+        >
+          {changedRepoDiffs.map((repoDiff) => (
+            <RepoDiffSection
+              key={repoDiff.repo.id}
+              repoDiff={repoDiff}
+              options={diffOptions}
+            />
+          ))}
+        </Virtualizer>
+      ) : (
+        <div className="bg-surface min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <ReviewEmptyState
             icon="lucide:check-circle-2"
             title="No changes to review"
             message="Sandbox repositories currently match their base commits."
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -116,6 +116,7 @@ func (o *Orchestrator) UpgradeAgentSandboxInPlace(ctx context.Context, agent *mo
 	now := time.Now()
 	expiresAt := now.Add(runtimeURLTTL)
 	if err := o.db.WithContext(ctx).Model(sb).Updates(map[string]any{
+		"external_id":            info.ExternalID,
 		"sandbox_template_id":    agent.SandboxTemplateID,
 		"snapshot_id":            snapshotID,
 		"runtime_url":            sandboxURL,
@@ -127,6 +128,7 @@ func (o *Orchestrator) UpgradeAgentSandboxInPlace(ctx context.Context, agent *mo
 	}).Error; err != nil {
 		return nil, fmt.Errorf("updating upgraded sandbox: %w", err)
 	}
+	sb.ExternalID = info.ExternalID
 	sb.SandboxTemplateID = agent.SandboxTemplateID
 	sb.SnapshotID = &snapshotID
 	sb.RuntimeURL = sandboxURL

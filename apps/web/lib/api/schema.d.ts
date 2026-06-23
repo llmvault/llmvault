@@ -9977,6 +9977,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{id}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add session participants */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Participant user IDs */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["sessionParticipantsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["sessionDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{id}/participants/{userID}": {
         parameters: {
             query?: never;
@@ -11641,6 +11694,7 @@ export interface components {
             status?: string;
             updated_at?: string;
             upgrade_id?: string;
+            upgrade_mode?: string;
         };
         agentSkillSummary: {
             description?: string;
@@ -12701,6 +12755,9 @@ export interface components {
             joined_at?: string;
             role?: string;
             user_id?: string;
+        };
+        sessionParticipantsRequest: {
+            user_ids?: string[];
         };
         sessionResponse: {
             access_mode?: string;

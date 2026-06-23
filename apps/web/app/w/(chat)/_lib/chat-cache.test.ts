@@ -6,12 +6,15 @@ import {
   insertSessionIntoChannelCache,
   optimisticThinkingEvent,
   optimisticUserEvent,
+  patchSessionInChatCaches,
   removeSessionEvent,
   replaceOptimisticEvent,
   replaceOptimisticSessionID,
   seedSessionDetail,
   seedSessionEvents,
+  type PaginatedChannels,
   type PaginatedSessionEvents,
+  type PaginatedSessions,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/chat-cache"
 
@@ -146,6 +149,71 @@ describe("chat cache helpers", () => {
       session_id: "session-1",
       payload: { text: "Research this" },
     })
+  })
+
+  it("patches renamed sessions across detail and sidebar caches", () => {
+    const queryClient = client()
+    const original = {
+      id: "session-1",
+      channel_id: "channel-1",
+      name: "Old title",
+    }
+    const renamed = { ...original, name: "New title" }
+
+    seedSessionDetail(queryClient, original)
+    queryClient.setQueryData<{
+      pages: PaginatedSessions[]
+      pageParams: string[]
+    }>(["get", "/v1/sessions", { params: { query: { limit: 5 } } }], {
+      pageParams: ["0"],
+      pages: [{ data: [original], has_more: false }],
+    })
+    insertSessionIntoChannelCache(queryClient, original)
+    queryClient.setQueryData<{
+      pages: PaginatedChannels[]
+      pageParams: string[]
+    }>(["get", "/v1/channels", { params: { query: { limit: 100 } } }], {
+      pageParams: ["0"],
+      pages: [
+        {
+          data: [
+            {
+              id: "channel-1",
+              name: "general",
+              recent_sessions: [original],
+            },
+          ],
+          has_more: false,
+        },
+      ],
+    })
+
+    patchSessionInChatCaches(queryClient, renamed)
+
+    expect(
+      queryClient.getQueryData<{ session?: { name?: string } }>(
+        chatQueryKeys.session("session-1")
+      )?.session?.name
+    ).toBe("New title")
+    expect(
+      queryClient.getQueryData<{ pages: PaginatedSessions[] }>(
+        chatQueryKeys.channelSessions("channel-1")
+      )?.pages[0].data?.[0].name
+    ).toBe("New title")
+    expect(
+      queryClient.getQueryData<{ pages: PaginatedSessions[] }>([
+        "get",
+        "/v1/sessions",
+        { params: { query: { limit: 5 } } },
+      ])?.pages[0].data?.[0].name
+    ).toBe("New title")
+    expect(
+      queryClient.getQueryData<{ pages: PaginatedChannels[] }>([
+        "get",
+        "/v1/channels",
+        { params: { query: { limit: 100 } } },
+      ])?.pages[0].data?.[0].recent_sessions?.[0].name
+    ).toBe("New title")
   })
 })
 

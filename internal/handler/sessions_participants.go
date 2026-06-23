@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +17,48 @@ import (
 
 type sessionParticipantRequest struct {
 	Role string `json:"role,omitempty"`
+}
+
+type sessionParticipantsRequest struct {
+	UserIDs []string `json:"user_ids"`
+}
+
+// @Summary Add session participants
+// @Tags sessions
+// @Accept json
+// @Param id path string true "Session ID"
+// @Param body body sessionParticipantsRequest true "Participant user IDs"
+// @Success 200 {object} sessionDetailResponse
+// @Failure 400 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sessions/{id}/participants [post]
+func (h *SessionHandler) AddParticipants(w http.ResponseWriter, r *http.Request) {
+	session, inviter, ok := h.authorizeSession(w, r, true)
+	if !ok {
+		return
+	}
+	req := sessionParticipantsRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+		return
+	}
+	targets, err := sessionParticipantIDs(req.UserIDs)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if !h.usersInOrg(r.Context(), session.OrgID, targets) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "all users must belong to this org"})
+		return
+	}
+	if err := h.upsertSessionParticipants(r.Context(), session, inviter, targets); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to update participants"})
+		return
+	}
+	for _, target := range targets {
+		_ = h.writeSystemEvent(r, &session, inviter, "participant.joined", model.JSON{"user_id": target.String()})
+	}
+	writeSessionDetail(w, r, h, session)
 }
 
 // PutParticipant handles PUT /v1/sessions/{id}/participants/{userID}.
@@ -44,18 +89,7 @@ func (h *SessionHandler) PutParticipant(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "user must belong to this org"})
 		return
 	}
-	now := time.Now()
-	participant := model.SessionParticipant{
-		SessionID: session.ID,
-		UserID:    target,
-		Role:      "collaborator",
-		InvitedBy: inviter,
-		JoinedAt:  &now,
-	}
-	if err := h.db.WithContext(r.Context()).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "session_id"}, {Name: "user_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"role", "invited_by", "joined_at"}),
-	}).Create(&participant).Error; err != nil {
+	if err := h.upsertSessionParticipants(r.Context(), session, inviter, []uuid.UUID{target}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to update participant"})
 		return
 	}
@@ -115,11 +149,56 @@ func sessionUserIDParam(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool
 }
 
 func (h *SessionHandler) userInOrg(ctx context.Context, orgID, userID uuid.UUID) bool {
+	return h.usersInOrg(ctx, orgID, []uuid.UUID{userID})
+}
+
+func (h *SessionHandler) usersInOrg(ctx context.Context, orgID uuid.UUID, userIDs []uuid.UUID) bool {
 	var count int64
 	_ = h.db.WithContext(ctx).Model(&model.OrgMembership{}).
-		Where("org_id = ? AND user_id = ?", orgID, userID).
+		Where("org_id = ? AND user_id IN ?", orgID, userIDs).
 		Count(&count).Error
-	return count == 1
+	return count == int64(len(userIDs))
+}
+
+func sessionParticipantIDs(raw []string) ([]uuid.UUID, error) {
+	if len(raw) == 0 {
+		return nil, errors.New("select at least one user")
+	}
+	out := make([]uuid.UUID, 0, len(raw))
+	seen := make(map[uuid.UUID]struct{}, len(raw))
+	for _, value := range raw {
+		id, err := uuid.Parse(strings.TrimSpace(value))
+		if err != nil {
+			return nil, errors.New("invalid user id")
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	if len(out) == 0 {
+		return nil, errors.New("select at least one user")
+	}
+	return out, nil
+}
+
+func (h *SessionHandler) upsertSessionParticipants(ctx context.Context, session model.Session, inviter *uuid.UUID, targets []uuid.UUID) error {
+	now := time.Now()
+	participants := make([]model.SessionParticipant, 0, len(targets))
+	for _, target := range targets {
+		participants = append(participants, model.SessionParticipant{
+			SessionID: session.ID,
+			UserID:    target,
+			Role:      "collaborator",
+			InvitedBy: inviter,
+			JoinedAt:  &now,
+		})
+	}
+	return h.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "session_id"}, {Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"role", "invited_by", "joined_at"}),
+	}).Create(&participants).Error
 }
 
 func (h *SessionHandler) actorCanManageParticipants(r *http.Request, session model.Session, actor *uuid.UUID) bool {

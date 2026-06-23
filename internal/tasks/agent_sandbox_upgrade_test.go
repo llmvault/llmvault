@@ -80,6 +80,28 @@ func TestAgentSandboxUpgradeInPlacePreservesSandboxIdentityAfterDrain(t *testing
 	}
 }
 
+func TestAgentSandboxUpgradeInPlacePersistsProviderExternalIDChange(t *testing.T) {
+	harness := newAgentSandboxUpgradeInPlaceHarness(t)
+	harness.upgradeProvider.returnExternalID = "old-runtime-recreated"
+	org, agent, _ := seedAgentSandboxUpgradeFixture(t, harness.db, "always_on")
+	oldSandbox := seedAgentSandboxUpgradeSandbox(t, harness, org.ID, agent.ID, "old-runtime")
+	upgrade := seedAgentSandboxUpgradeRow(t, harness.db, org.ID, agent.ID, oldSandbox.ID)
+
+	if err := harness.handler.Handle(t.Context(), agentSandboxUpgradeTask(t, upgrade.ID, agent.ID)); err != nil {
+		t.Fatalf("handle upgrade: %v", err)
+	}
+
+	var stored model.Sandbox
+	if err := harness.db.First(&stored, "id = ?", oldSandbox.ID).Error; err != nil {
+		t.Fatalf("load sandbox: %v", err)
+	}
+	if stored.ExternalID != "old-runtime-recreated" {
+		t.Fatalf("external id=%q want updated provider id", stored.ExternalID)
+	}
+	assertAgentSandboxUpgradeSucceeded(t, harness.db, upgrade.ID)
+	assertAgentSandboxUpgradeInPlaceRowCount(t, harness.db, org.ID, agent.ID, oldSandbox.ID)
+}
+
 func TestAgentSandboxUpgradeContinuesWhenDrainSignalFailsTwice(t *testing.T) {
 	harness := newAgentSandboxUpgradeHarness(t)
 	harness.runtime.failNextDrainPOSTs(2)

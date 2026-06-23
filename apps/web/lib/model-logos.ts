@@ -1,67 +1,101 @@
+import { providerLogoURL } from "@/lib/provider-logos"
+
 // Keep in sync with canonical model IDs in internal/registry/hivy_models.go.
-// Values point to static assets in apps/web/public/logos.
-export const MODEL_LOGOS = {
-  "claude-opus-4.7": "/logos/anthropic.svg",
-  "claude-opus-4.7-fast": "/logos/anthropic.svg",
-  "claude-opus-4.6": "/logos/anthropic.svg",
-  "claude-opus-4.5": "/logos/anthropic.svg",
-  "claude-sonnet-4.6": "/logos/anthropic.svg",
-  "claude-sonnet-4.5": "/logos/anthropic.svg",
-  "claude-sonnet-4": "/logos/anthropic.svg",
-  "gpt-5.5": "/logos/openai.svg",
-  "gpt-5.5-pro": "/logos/openai.svg",
-  "gpt-5.4": "/logos/openai.svg",
-  "gpt-5.4-pro": "/logos/openai.svg",
-  "gpt-5.4-mini": "/logos/openai.svg",
-  "gpt-5.4-nano": "/logos/openai.svg",
-  "gpt-4o-mini": "/logos/openai.svg",
-  "scribe-v2": "/logos/elevenlabs.svg",
-  "gpt-5.3-codex": "/logos/openai.svg",
-  "gpt-5.3-codex-spark": "/logos/openai.svg",
-  "gemini-3.5-flash": "/logos/google.svg",
-  "gemini-3.1-flash-lite": "/logos/google.svg",
-  "gemini-3.1-pro-preview": "/logos/google.svg",
-  "gemini-3-flash-preview": "/logos/google.svg",
-  "deepseek-v4-pro": "/logos/deepseek.svg",
-  "deepseek-v4-flash": "/logos/deepseek.svg",
-  "crof-deepseek-v4-pro": "/logos/deepseek.svg",
-  "crof-deepseek-v4-flash": "/logos/deepseek.svg",
-  "step-3.7-flash": "/logos/stepfun.svg",
-  "ling-2.6-1t": "/logos/alibaba.svg",
-  "qwen3.7-max": "/logos/alibaba.svg",
-  "qwen3.7-plus": "/logos/alibaba.svg",
-  "grok-4.3": "/logos/xai.svg",
-  "nemotron-3-ultra-550b-a55b": "/logos/nvidia.svg",
-  "qwen3.6-max-preview": "/logos/alibaba.svg",
-  "qwen3.6-flash": "/logos/alibaba.svg",
-  "qwen3.6-35b-a3b": "/logos/alibaba.svg",
-  "qwen3.6-27b": "/logos/alibaba.svg",
-  "kimi-k2.7-code": "/logos/moonshotai.svg",
-  "crof-kimi-k2.7-code": "/logos/moonshotai.svg",
-  "kimi-k2.6": "/logos/moonshotai.svg",
-  "mimo-v2.5-pro": "/logos/xiaomi.svg",
-  "crof-mimo-v2.5-pro": "/logos/xiaomi.svg",
-  "mimo-v2.5": "/logos/xiaomi.svg",
-  "minimax-m3": "/logos/minimax.svg",
-  "minimax-m2.7": "/logos/minimax.svg",
-  "glm-5.2": "/logos/zai.svg",
-  "crof-glm-5.2": "/logos/zai.svg",
-  "glm-5.1": "/logos/zai.svg",
-  "glm-5-turbo": "/logos/zai.svg",
-  "glm-5": "/logos/zai.svg",
-  "glm-4.7": "/logos/zai.svg",
-  "glm-4.7-flash": "/logos/zai.svg",
-  "mistral-small-4": "/logos/mistral.svg",
-  "minimax-m2.5": "/logos/minimax.svg",
-  "step-3.5-flash": "/logos/stepfun.svg",
-  "kimi-k2.5": "/logos/moonshotai.svg",
+// Values are OpenRouter model author slugs, resolved to local assets.
+export const MODEL_LOGO_PROVIDERS = {
+  "claude-opus-4.7": "anthropic",
+  "claude-opus-4.7-fast": "anthropic",
+  "claude-opus-4.6": "anthropic",
+  "claude-opus-4.5": "anthropic",
+  "claude-sonnet-4.6": "anthropic",
+  "claude-sonnet-4.5": "anthropic",
+  "claude-sonnet-4": "anthropic",
+  "gpt-5.5": "openai",
+  "gpt-5.5-pro": "openai",
+  "gpt-5.4": "openai",
+  "gpt-5.4-pro": "openai",
+  "gpt-5.4-mini": "openai",
+  "gpt-5.4-nano": "openai",
+  "gpt-4o-mini": "openai",
+  "scribe-v2": "elevenlabs",
+  "gpt-5.3-codex": "openai",
+  "gpt-5.3-codex-spark": "openai",
+  "gemini-3.5-flash": "google",
+  "gemini-3.1-flash-lite": "google",
+  "gemini-3.1-pro-preview": "google",
+  "gemini-3-flash-preview": "google",
+  "deepseek-v4-pro": "deepseek",
+  "deepseek-v4-flash": "deepseek",
+  "crof-deepseek-v4-pro": "deepseek",
+  "crof-deepseek-v4-flash": "deepseek",
+  "step-3.7-flash": "stepfun",
+  "ling-2.6-1t": "inclusionai",
+  "qwen3.7-max": "qwen",
+  "qwen3.7-plus": "qwen",
+  "grok-4.3": "x-ai",
+  "nemotron-3-ultra-550b-a55b": "nvidia",
+  "qwen3.6-max-preview": "qwen",
+  "qwen3.6-flash": "qwen",
+  "qwen3.6-35b-a3b": "qwen",
+  "qwen3.6-27b": "qwen",
+  "kimi-k2.7-code": "moonshotai",
+  "crof-kimi-k2.7-code": "moonshotai",
+  "kimi-k2.6": "moonshotai",
+  "mimo-v2.5-pro": "xiaomi",
+  "crof-mimo-v2.5-pro": "xiaomi",
+  "mimo-v2.5": "xiaomi",
+  "minimax-m3": "minimax",
+  "minimax-m2.7": "minimax",
+  "glm-5.2": "z-ai",
+  "crof-glm-5.2": "z-ai",
+  "glm-5.1": "z-ai",
+  "glm-5-turbo": "z-ai",
+  "glm-5": "z-ai",
+  "glm-4.7": "z-ai",
+  "glm-4.7-flash": "z-ai",
+  "mistral-small-4": "mistralai",
+  "minimax-m2.5": "minimax",
+  "step-3.5-flash": "stepfun",
+  "kimi-k2.5": "moonshotai",
 } as const
 
-export type KnownModelID = keyof typeof MODEL_LOGOS
+const LEGACY_CHAT_MODEL_LOGO_PROVIDERS = {
+  "claude-opus": "anthropic",
+  "claude-sonnet": "anthropic",
+  "deepseek-v3": "deepseek",
+  "gemini-pro": "google",
+  "grok-4": "x-ai",
+  "kimi-k2": "moonshotai",
+  "qwen-max": "qwen",
+} as const
+
+export type KnownModelID = keyof typeof MODEL_LOGO_PROVIDERS
+
+function logoForProvider(provider: string): string {
+  const logo = providerLogoURL(provider)
+  if (!logo) {
+    throw new Error(`Missing provider logo for ${provider}`)
+  }
+  return logo
+}
+
+export const MODEL_LOGOS = Object.fromEntries(
+  Object.entries(MODEL_LOGO_PROVIDERS).map(([modelID, provider]) => [
+    modelID,
+    logoForProvider(provider),
+  ])
+) as Record<KnownModelID, string>
 
 export function modelLogoURL(
   modelID: string | null | undefined
 ): string | undefined {
   if (!modelID) return undefined
-  return MODEL_LOGOS[modelID as KnownModelID]
+
+  const provider =
+    MODEL_LOGO_PROVIDERS[modelID as KnownModelID] ??
+    LEGACY_CHAT_MODEL_LOGO_PROVIDERS[
+      modelID as keyof typeof LEGACY_CHAT_MODEL_LOGO_PROVIDERS
+    ]
+
+  return provider ? providerLogoURL(provider) : undefined
 }

@@ -5,6 +5,7 @@ import { Button, Popover } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { ChatHeaderAgentLogo } from "./chat-header-agent-logo"
 import type { ChatHeaderAgent } from "./chat-header-types"
+import { SessionActionsMenu } from "./session-actions-menu"
 
 const EDITORS = [
   {
@@ -21,19 +22,13 @@ const EDITORS = [
   { id: "copy", label: "Copy worktree path", icon: "lucide:copy" },
 ]
 
-const CHAT_ACTIONS = [
-  { id: "rename", label: "Rename chat", icon: "lucide:pencil" },
-  { id: "share", label: "Share", icon: "lucide:share" },
-  { id: "move", label: "Move to project", icon: "lucide:folder-input" },
-  { id: "archive", label: "Archive", icon: "lucide:archive" },
-  { id: "delete", label: "Delete", icon: "lucide:trash-2", danger: true },
-]
-
 export const ChatHeader = memo(function ChatHeader({
   title,
   agent,
   sidebarOpen,
   onExpandSidebar,
+  onRename,
+  onShare,
   rightOpen,
   onToggleRight,
 }: {
@@ -41,10 +36,11 @@ export const ChatHeader = memo(function ChatHeader({
   agent: ChatHeaderAgent | null
   sidebarOpen: boolean
   onExpandSidebar: () => void
+  onRename?: () => void
+  onShare?: () => void
   rightOpen: boolean
   onToggleRight: () => void
 }) {
-  const [actionsOpen, setActionsOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
 
   return (
@@ -73,31 +69,7 @@ export const ChatHeader = memo(function ChatHeader({
           {agent.name}
         </span>
       ) : null}
-      <Popover isOpen={actionsOpen} onOpenChange={setActionsOpen}>
-        <Popover.Trigger
-          aria-label="Chat options"
-          className="hover:bg-default flex items-center rounded-lg p-1.5 text-muted transition-colors"
-        >
-          <Icon icon="lucide:ellipsis" className="h-4 w-4" />
-        </Popover.Trigger>
-        <Popover.Content className="w-52 rounded-2xl border border-border p-1.5">
-          <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-            {CHAT_ACTIONS.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() => setActionsOpen(false)}
-                className={`hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors ${
-                  action.danger ? "text-danger" : ""
-                }`}
-              >
-                <Icon icon={action.icon} className="h-4 w-4 shrink-0" />
-                {action.label}
-              </button>
-            ))}
-          </Popover.Dialog>
-        </Popover.Content>
-      </Popover>
+      <SessionActionsMenu onRename={onRename} onShare={onShare} />
 
       <div className="flex-1" />
 
