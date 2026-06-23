@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "linear-weekly-customer-request-review",
+  "name": "Linear Weekly Customer Request Review",
+  "description": "Review Linear customer requests, needs, or support-linked issues and surface follow-up priorities.",
+  "category": "Customer Support",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "linear",
+    "required": true
+  },
+  "plugins": {
+    "required": ["linear"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 10 * * 4",
+    "timezone": "workspace",
+    "suggested_time_label": "Thursdays at 10:00 AM"
+  },
+  "resources": {
+    "supported": ["linear_team", "linear_project"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 168,
+    "max_items": 40
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

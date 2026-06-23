@@ -39,6 +39,7 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 		TriggerKeys  pq.StringArray `gorm:"column:trigger_keys;type:text[]"`
 		Enabled      bool           `gorm:"column:enabled"`
 		Conditions   model.RawJSON  `gorm:"column:conditions"`
+		SourceSlug   string         `gorm:"column:source_slug"`
 		Instructions string         `gorm:"column:instructions"`
 		SecretKey    string         `gorm:"column:secret_key"`
 	}
@@ -54,6 +55,7 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 			at.trigger_keys,
 			at.enabled,
 			at.conditions,
+			at.source_slug,
 			at.instructions,
 			at.secret_key
 		FROM agent_triggers at
@@ -79,6 +81,7 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 			TriggerKeys:  []string(row.TriggerKeys),
 			Enabled:      row.Enabled,
 			Conditions:   conditions,
+			SourceSlug:   row.SourceSlug,
 			Instructions: row.Instructions,
 			SecretSet:    row.SecretKey != "",
 		}

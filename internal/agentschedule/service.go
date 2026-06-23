@@ -31,6 +31,7 @@ const (
 
 type CreateInput struct {
 	JobID           string
+	SourceSlug      string
 	Description     string
 	TaskPrompt      string
 	ChannelID       string
@@ -65,13 +66,9 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 		First(&session).Error; err != nil {
 		return nil, fmt.Errorf("load current session: %w", err)
 	}
-	channelID := session.ChannelID.String()
-	if strings.TrimSpace(input.ChannelID) != "" {
-		if parsed, err := uuid.Parse(strings.TrimSpace(input.ChannelID)); err == nil && parsed != uuid.Nil {
-			channelID = parsed.String()
-		} else {
-			return nil, fmt.Errorf("channel_id must be a uuid")
-		}
+	channelID, err := resolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, input.ChannelID)
+	if err != nil {
+		return nil, err
 	}
 	kind, nextRunAt, err := normalizeCadence(time.Now().UTC(), input.IntervalSeconds, input.CronExpression)
 	if err != nil {
@@ -97,6 +94,7 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 		SandboxID:        sandboxID,
 		RuntimeJobID:     jobID,
 		Status:           StatusActive,
+		SourceSlug:       strings.TrimSpace(input.SourceSlug),
 		ScheduleKind:     kind,
 		Channel:          channelID,
 		Description:      defaultDescription(input.Description, taskPrompt),
@@ -115,6 +113,7 @@ func CreateFromSession(ctx context.Context, db *gorm.DB, agent *model.Agent, ses
 			"org_id":             schedule.OrgID,
 			"sandbox_id":         schedule.SandboxID,
 			"status":             schedule.Status,
+			"source_slug":        gorm.Expr("CASE WHEN EXCLUDED.source_slug <> '' THEN EXCLUDED.source_slug ELSE agent_schedules.source_slug END"),
 			"schedule_kind":      schedule.ScheduleKind,
 			"channel":            schedule.Channel,
 			"description":        schedule.Description,
@@ -171,13 +170,9 @@ func Update(ctx context.Context, db *gorm.DB, agent *model.Agent, jobID string, 
 		updates["task_prompt"] = taskPrompt
 	}
 	if input.ChannelID != nil {
-		channelID := strings.TrimSpace(*input.ChannelID)
-		if channelID != "" {
-			parsed, err := uuid.Parse(channelID)
-			if err != nil || parsed == uuid.Nil {
-				return nil, fmt.Errorf("channel_id must be a uuid")
-			}
-			channelID = parsed.String()
+		channelID, err := resolveScheduleChannel(ctx, db, *agent.OrgID, agent.ID, *input.ChannelID)
+		if err != nil {
+			return nil, err
 		}
 		updates["channel"] = channelID
 	}

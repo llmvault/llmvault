@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "slug": "railway-daily-deployment-health-check",
+  "name": "Railway Daily Deployment Health Check",
+  "description": "Review recent Railway deployments and flag failed, crashed, or unstable services.",
+  "category": "Operations",
+  "enabled": true,
+  "official": true,
+  "integration": {
+    "provider": "railway",
+    "required": true
+  },
+  "plugins": {
+    "required": ["railway"],
+    "recommended": []
+  },
+  "schedule": {
+    "kind": "cron",
+    "cron": "0 8 * * 1-5",
+    "timezone": "workspace",
+    "suggested_time_label": "Weekdays at 8:00 AM"
+  },
+  "resources": {
+    "supported": ["railway_project", "railway_service", "railway_environment"],
+    "selection": "optional"
+  },
+  "limits": {
+    "lookback_hours": 24,
+    "max_items": 25
+  },
+  "install": {
+    "default_agent": "hivy",
+    "default_channel": "workspace",
+    "enabled": true,
+    "instructions": "./instructions.md"
+  }
+}

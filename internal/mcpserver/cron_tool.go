@@ -66,7 +66,7 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 				},
 				"channel_id": map[string]any{
 					"type":        "string",
-					"description": "Optional channel UUID. Defaults to the current session channel.",
+					"description": "Optional channel UUID for the scheduled run. Defaults to the org system channel.",
 				},
 			},
 			"required": []string{"action"},
@@ -197,6 +197,9 @@ func cronScheduleResponse(row model.AgentSchedule) map[string]any {
 		"last_error":       row.LastError,
 		"created_at":       row.CreatedAt,
 		"updated_at":       row.UpdatedAt,
+	}
+	if row.SourceSlug != "" {
+		out["source_slug"] = row.SourceSlug
 	}
 	return out
 }
