@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-daily-pr-review-queue",
   "name": "GitHub Daily PR Review Queue",
-  "description": "Summarize open pull requests that need review, have failing checks, or are getting stale.",
+  "description": "Summarize pull requests needing review.",
   "category": "Engineering",
   "enabled": true,
   "official": true,

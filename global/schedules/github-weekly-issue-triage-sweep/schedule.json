@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-weekly-issue-triage-sweep",
   "name": "GitHub Weekly Issue Triage Sweep",
-  "description": "Review untriaged and stale GitHub issues, then suggest labels, owners, duplicates, and next actions.",
+  "description": "Review stale and untriaged issues.",
   "category": "Engineering",
   "enabled": true,
   "official": true,

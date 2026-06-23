@@ -111,6 +111,43 @@ definitions:
       title:
         type: string
     type: object
+  CatalogItem:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      install:
+        $ref: '#/definitions/InstallSpec'
+      instructions:
+        type: string
+      integration:
+        $ref: '#/definitions/IntegrationSpec'
+      kind:
+        type: string
+      limits:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      official:
+        type: boolean
+      plugins:
+        $ref: '#/definitions/PluginsSpec'
+      resources:
+        additionalProperties: {}
+        type: object
+      schedule:
+        $ref: '#/definitions/ScheduleSpec'
+      slug:
+        type: string
+      trigger:
+        $ref: '#/definitions/TriggerSpec'
+      version:
+        type: integer
+    type: object
   ConfigurableResourceSummary:
     properties:
       description:
@@ -190,6 +227,26 @@ definitions:
           $ref: '#/definitions/AvailableResource'
         type: array
     type: object
+  InstallSpec:
+    properties:
+      default_agent:
+        type: string
+      default_channel:
+        type: string
+      enabled:
+        type: boolean
+      instructions:
+        type: string
+    type: object
+  IntegrationSpec:
+    properties:
+      manual_webhook:
+        type: boolean
+      provider:
+        type: string
+      required:
+        type: boolean
+    type: object
   JSON:
     additionalProperties: {}
     type: object
@@ -251,6 +308,17 @@ definitions:
       webhook_user_defined_secret:
         type: boolean
     type: object
+  PluginsSpec:
+    properties:
+      recommended:
+        items:
+          type: string
+        type: array
+      required:
+        items:
+          type: string
+        type: array
+    type: object
   Policy:
     properties:
       allowed_collections:
@@ -277,6 +345,17 @@ definitions:
       body:
         type: string
       path:
+        type: string
+    type: object
+  ScheduleSpec:
+    properties:
+      cron:
+        type: string
+      kind:
+        type: string
+      suggested_time_label:
+        type: string
+      timezone:
         type: string
     type: object
   SchemaDefinition:
@@ -307,6 +386,21 @@ definitions:
   SchemaRef:
     properties:
       $ref:
+        type: string
+    type: object
+  TriggerSpec:
+    properties:
+      conditions:
+        items:
+          type: integer
+        type: array
+      keys:
+        items:
+          type: string
+        type: array
+      secret_required_default:
+        type: boolean
+      type:
         type: string
     type: object
   Usage:
@@ -490,6 +584,8 @@ definitions:
         type: string
       id:
         type: string
+      image_model:
+        type: string
       instructions:
         type: string
       is_default:
@@ -536,6 +632,8 @@ definitions:
         type: string
       upgrade_available:
         type: boolean
+      vector_image_model:
+        type: string
     type: object
   agentMutationRequest:
     properties:
@@ -552,6 +650,8 @@ definitions:
       description:
         type: string
       icon:
+        type: string
+      image_model:
         type: string
       instructions:
         type: string
@@ -583,6 +683,8 @@ definitions:
         $ref: '#/definitions/JSON'
       tools:
         $ref: '#/definitions/JSON'
+      vector_image_model:
+        type: string
     type: object
   agentMutationResponse:
     properties:
@@ -614,6 +716,8 @@ definitions:
       icon:
         type: string
       id:
+        type: string
+      image_model:
         type: string
       instructions:
         type: string
@@ -654,6 +758,8 @@ definitions:
           $ref: '#/definitions/agentTriggerResponse'
         type: array
       updated_at:
+        type: string
+      vector_image_model:
         type: string
     type: object
   agentSandboxSummary:
@@ -732,6 +838,8 @@ definitions:
           True when the trigger requires auth on incoming requests. The secret value
           is never returned.
         type: boolean
+      source_slug:
+        type: string
       trigger_keys:
         items:
           type: string
@@ -847,6 +955,105 @@ definitions:
       user:
         $ref: '#/definitions/userResponse'
     type: object
+  automationCatalogResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/CatalogItem'
+        type: array
+    type: object
+  brandAssetMutationResponse:
+    properties:
+      asset:
+        $ref: '#/definitions/brandAssetResponse'
+    type: object
+  brandAssetResponse:
+    properties:
+      brand_id:
+        type: string
+      bytes:
+        type: integer
+      content_type:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      height:
+        type: integer
+      id:
+        type: string
+      key:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      name:
+        type: string
+      org_id:
+        type: string
+      public_url:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: string
+      width:
+        type: integer
+    type: object
+  brandMutationResponse:
+    properties:
+      brand:
+        $ref: '#/definitions/brandResponse'
+    type: object
+  brandResponse:
+    properties:
+      archived_at:
+        type: string
+      colors:
+        items:
+          type: integer
+        type: array
+      created_at:
+        type: string
+      created_by:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      logos:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+      org_id:
+        type: string
+      raw_import:
+        items:
+          type: integer
+        type: array
+      slug:
+        type: string
+      source:
+        items:
+          type: integer
+        type: array
+      typography:
+        items:
+          type: integer
+        type: array
+      updated_at:
+        type: string
+      voice:
+        items:
+          type: integer
+        type: array
+    type: object
   cancelRequest:
     properties:
       at_period_end:
@@ -913,11 +1120,15 @@ definitions:
         type: string
       external_workspace_key:
         type: string
+      image_model:
+        type: string
       name:
         type: string
       origin:
         type: string
       team_id:
+        type: string
+      vector_image_model:
         type: string
       visibility:
         type: string
@@ -957,6 +1168,8 @@ definitions:
         type: string
       id:
         type: string
+      image_model:
+        type: string
       is_default:
         type: boolean
       kind:
@@ -980,6 +1193,8 @@ definitions:
       team_id:
         type: string
       updated_at:
+        type: string
+      vector_image_model:
         type: string
       visibility:
         type: string
@@ -1070,6 +1285,64 @@ definitions:
       scopes:
         items:
           type: string
+        type: array
+    type: object
+  createBrandAssetRequest:
+    properties:
+      bytes:
+        type: integer
+      content_type:
+        type: string
+      height:
+        type: integer
+      key:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/JSON'
+      name:
+        type: string
+      public_url:
+        type: string
+      role:
+        type: string
+      width:
+        type: integer
+    type: object
+  createBrandRequest:
+    properties:
+      colors:
+        items:
+          type: integer
+        type: array
+      description:
+        type: string
+      is_default:
+        type: boolean
+      logos:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+      raw_import:
+        items:
+          type: integer
+        type: array
+      slug:
+        type: string
+      source:
+        items:
+          type: integer
+        type: array
+      typography:
+        items:
+          type: integer
+        type: array
+      voice:
+        items:
+          type: integer
         type: array
     type: object
   createCheckoutRequest:
@@ -1198,6 +1471,8 @@ definitions:
         type: string
       client_event_id:
         type: string
+      image_model:
+        type: string
       message:
         type: string
       model:
@@ -1211,6 +1486,8 @@ definitions:
       reasoning_effort:
         type: string
       text:
+        type: string
+      vector_image_model:
         type: string
     type: object
   createSkillRequest:
@@ -1877,6 +2154,28 @@ definitions:
       data:
         items:
           $ref: '#/definitions/auditEntryResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
+  paginatedResponse-handler_brandAssetResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/brandAssetResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
+  paginatedResponse-handler_brandResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/brandResponse'
         type: array
       has_more:
         type: boolean
@@ -2812,6 +3111,8 @@ definitions:
         type: integer
       id:
         type: string
+      image_model:
+        type: string
       last_activity_at:
         type: string
       last_turn_outcome:
@@ -2833,6 +3134,8 @@ definitions:
       status:
         type: string
       updated_at:
+        type: string
+      vector_image_model:
         type: string
     type: object
   sessionSandboxAccessResponse:
@@ -3430,9 +3733,13 @@ definitions:
         type: string
       channel_id:
         type: string
+      image_model:
+        type: string
       name:
         type: string
       status:
+        type: string
+      vector_image_model:
         type: string
     type: object
   updateSkillRequest:
@@ -5462,6 +5769,24 @@ paths:
       summary: Verify checkout completed
       tags:
       - billing
+  /v1/catalog/automations:
+    get:
+      description: Returns enabled one-click installable schedule templates from the
+        file-backed global catalog.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/automationCatalogResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: List schedule automation catalog
+      tags:
+      - catalog
   /v1/catalog/integrations:
     get:
       description: Returns every integration provider in the catalog with action counts.
@@ -5578,6 +5903,24 @@ paths:
       summary: List triggers for an integration
       tags:
       - integrations
+  /v1/catalog/triggers:
+    get:
+      description: Returns enabled one-click installable trigger templates from the
+        file-backed global catalog.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/automationCatalogResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      summary: List trigger automation catalog
+      tags:
+      - catalog
   /v1/channels:
     get:
       description: Lists channels visible to the caller. Use discoverable=true to
@@ -6945,6 +7288,306 @@ paths:
       summary: Update current organization
       tags:
       - orgs
+  /v1/orgs/current/brands:
+    get:
+      description: Returns active brands for the current organization.
+      parameters:
+      - description: Maximum results to return
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-handler_brandResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List brands
+      tags:
+      - brands
+    post:
+      consumes:
+      - application/json
+      description: Creates a brand for the current organization. Admin-only.
+      parameters:
+      - description: Brand parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createBrandRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/brandMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a brand
+      tags:
+      - brands
+  /v1/orgs/current/brands/{id}:
+    delete:
+      description: Archives an active brand for the current organization. Admin-only.
+      parameters:
+      - description: Brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/brandMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a brand
+      tags:
+      - brands
+    get:
+      description: Returns one active brand for the current organization.
+      parameters:
+      - description: Brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/brandMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a brand
+      tags:
+      - brands
+    patch:
+      consumes:
+      - application/json
+      description: Updates an active brand for the current organization. Admin-only.
+      parameters:
+      - description: Brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to patch
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/brandMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a brand
+      tags:
+      - brands
+  /v1/orgs/current/brands/{id}/assets:
+    get:
+      description: Returns assets attached to one brand.
+      parameters:
+      - description: Brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-handler_brandAssetResponse'
+      security:
+      - BearerAuth: []
+      summary: List brand assets
+      tags:
+      - brands
+    post:
+      consumes:
+      - application/json
+      description: Stores metadata for an uploaded brand asset. Admin-only.
+      parameters:
+      - description: Brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Brand asset metadata
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createBrandAssetRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/brandAssetMutationResponse'
+      security:
+      - BearerAuth: []
+      summary: Create brand asset
+      tags:
+      - brands
+  /v1/orgs/current/brands/{id}/assets/{assetID}:
+    delete:
+      description: Deletes a brand asset metadata row if no logo references it. Admin-only.
+      parameters:
+      - description: Brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Brand asset ID
+        in: path
+        name: assetID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/brandAssetMutationResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete brand asset
+      tags:
+      - brands
+  /v1/orgs/current/brands/{id}/default:
+    post:
+      description: Makes a brand the current organization's default brand. Admin-only.
+      parameters:
+      - description: Brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/brandMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set default brand
+      tags:
+      - brands
   /v1/orgs/current/environment-variables:
     get:
       description: Lists custom environment variables stored on the Hivy agent. Values

@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-release-readiness-check",
   "name": "GitHub Release Readiness Check",
-  "description": "Check release branches, open blockers, failing checks, and unreleased work before a release window.",
+  "description": "Check release blockers and readiness.",
   "category": "Operations",
   "enabled": true,
   "official": true,

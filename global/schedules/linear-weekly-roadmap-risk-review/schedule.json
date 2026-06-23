@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "linear-weekly-roadmap-risk-review",
   "name": "Linear Weekly Roadmap Risk Review",
-  "description": "Review Linear projects, cycles, and issues for slipping work, blockers, stale priorities, and missing owners.",
+  "description": "Review slipping roadmap work.",
   "category": "Product",
   "enabled": true,
   "official": true,

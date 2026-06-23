@@ -1,11 +1,21 @@
 "use client"
 
-import { use } from "react"
+import { use, useMemo } from "react"
 import NextLink from "next/link"
 import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { $api } from "@/lib/api/hooks"
+import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
 import {
-  STATIC_AUTOMATIONS,
+  automationCadenceLabel,
+  automationDefaultAgent,
+  automationDefaultChannel,
+  automationEventLabel,
+  automationFromCatalog,
+  automationInstructions,
+  automationRequiredPlugins,
+  automationSourceLabel,
+  automationTimezoneLabel,
   type AutomationItem,
 } from "@/app/w/(chat)/automations/_data"
 
@@ -15,7 +25,41 @@ export default function AutomationDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
-  const automation = STATIC_AUTOMATIONS.find((item) => item.id === id)
+  const triggersQuery = $api.useQuery("get", "/v1/catalog/triggers")
+  const schedulesQuery = $api.useQuery("get", "/v1/catalog/automations")
+  const automations = useMemo(
+    () => [
+      ...(triggersQuery.data?.data ?? []).map((item) =>
+        automationFromCatalog(item, "Triggers")
+      ),
+      ...(schedulesQuery.data?.data ?? []).map((item) =>
+        automationFromCatalog(item, "Schedules")
+      ),
+    ],
+    [schedulesQuery.data?.data, triggersQuery.data?.data]
+  )
+  const automation = automations.find((item) => item.id === id)
+  const isLoading = triggersQuery.isLoading || schedulesQuery.isLoading
+  const isError = triggersQuery.isError || schedulesQuery.isError
+
+  if (isLoading) {
+    return <AutomationDetailShell content={<AutomationDetailSkeleton />} />
+  }
+
+  if (isError) {
+    return (
+      <AutomationDetailShell
+        content={
+          <AutomationCatalogError
+            onRetry={() => {
+              void triggersQuery.refetch()
+              void schedulesQuery.refetch()
+            }}
+          />
+        }
+      />
+    )
+  }
 
   if (!automation) {
     return (
@@ -27,7 +71,7 @@ export default function AutomationDetailPage({
               Automation not found
             </p>
             <p className="mt-1 text-sm text-muted">
-              This static automation may have been removed from the catalog.
+              This automation may have been removed from the catalog.
             </p>
             <NextLink
               href="/w/automations"
@@ -76,9 +120,9 @@ export default function AutomationDetailPage({
             <h2 className="text-sm font-medium text-foreground">
               Instructions
             </h2>
-            <p className="mt-2 text-sm leading-5 text-muted-foreground">
-              {automationInstructions(automation)}
-            </p>
+            <div className="mt-3">
+              <MarkdownProse text={automationInstructions(automation)} muted />
+            </div>
           </section>
 
           <section className="flex flex-col gap-3">
@@ -158,67 +202,84 @@ function AutomationLogo({
 function configurationRows(automation: AutomationItem) {
   if (automation.type === "Triggers") {
     return [
-      { label: "Event", value: automation.name },
-      { label: "Source", value: sourceLabel(automation) },
-      { label: "Agent", value: "Choose during setup" },
-      { label: "Delivery", value: "Workspace thread" },
+      { label: "Event", value: automationEventLabel(automation) },
+      { label: "Source", value: automationSourceLabel(automation) },
+      { label: "Agent", value: automationDefaultAgent(automation) },
+      { label: "Delivery", value: automationDefaultChannel(automation) },
     ]
   }
 
   return [
     { label: "Cadence", value: cadenceLabel(automation) },
-    { label: "Timezone", value: "Workspace timezone" },
-    { label: "Agent", value: "Choose during setup" },
-    { label: "Delivery", value: "Workspace thread" },
+    { label: "Timezone", value: automationTimezoneLabel(automation) },
+    { label: "Source", value: automationSourceLabel(automation) },
+    { label: "Agent", value: automationDefaultAgent(automation) },
+    { label: "Delivery", value: automationDefaultChannel(automation) },
   ]
 }
 
-function automationInstructions(automation: AutomationItem): string {
-  if (automation.type === "Triggers") {
-    return `When ${automation.name.toLowerCase()} happens, review the event context, identify the important update, and draft the next action for the workspace.`
-  }
-
-  return `On each ${cadenceLabel(automation).toLowerCase()} run, gather the latest workspace context, summarize the important changes, and draft the next action for the workspace.`
-}
-
 function workflowSteps(automation: AutomationItem): string[] {
+  const plugins = automationRequiredPlugins(automation)
   if (automation.type === "Triggers") {
     return [
-      `Watch for ${automation.name.toLowerCase()} events from ${sourceLabel(automation).toLowerCase()}.`,
-      "Start an agent run with the event context and the instructions you configure.",
+      `Watch for ${automationEventLabel(automation)} events from ${automationSourceLabel(automation)}.`,
+      `Install ${plugins.length > 0 ? plugins.join(", ") : automationSourceLabel(automation)} access for the selected agent.`,
+      "Start an agent run with the event context and saved instructions.",
       "Post the result back to a workspace thread for review.",
     ]
   }
 
   return [
     `Run on the ${cadenceLabel(automation).toLowerCase()} cadence you configure.`,
+    `Use ${automationSourceLabel(automation)} context available to the selected agent.`,
     "Start an agent run with saved instructions and the latest workspace context.",
     "Post the recurring result back to a workspace thread for review.",
   ]
 }
 
-function sourceLabel(automation: AutomationItem): string {
-  const labels: Partial<Record<AutomationItem["category"], string>> = {
-    "Business & Operations": "CRM or support workspace",
-    Communication: "Team communication app",
-    Creativity: "Creative workspace",
-    "Data & Analytics": "Analytics workspace",
-    "Developer Tools": "Developer platform",
-    "Education & Research": "Learning workspace",
-    Finance: "Finance workspace",
-    Productivity: "Productivity workspace",
-    Research: "Research source",
-    Security: "Security event stream",
-    Travel: "Travel workspace",
-    Other: "Custom source",
-  }
-  return labels[automation.category] ?? "Workspace event"
+function cadenceLabel(automation: AutomationItem): string {
+  return automationCadenceLabel(automation)
 }
 
-function cadenceLabel(automation: AutomationItem): string {
-  if (automation.name.toLowerCase().includes("daily")) return "Daily"
-  if (automation.name.toLowerCase().includes("weekly")) return "Weekly"
-  if (automation.name.toLowerCase().includes("monthly")) return "Monthly"
-  if (automation.name.toLowerCase().includes("quarterly")) return "Quarterly"
-  return "Custom"
+function AutomationDetailSkeleton() {
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="bg-default h-5 w-28 animate-pulse rounded" />
+      <div className="flex items-start gap-3">
+        <div className="bg-default h-12 w-12 animate-pulse rounded-xl" />
+        <div className="min-w-0 flex-1">
+          <div className="bg-default h-6 w-56 animate-pulse rounded" />
+          <div className="bg-default mt-3 h-4 w-full max-w-lg animate-pulse rounded" />
+        </div>
+      </div>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <section
+          key={index}
+          className="rounded-xl border border-border bg-card p-4"
+        >
+          <div className="bg-default h-4 w-32 animate-pulse rounded" />
+          <div className="bg-default mt-3 h-4 w-full animate-pulse rounded" />
+          <div className="bg-default mt-2 h-4 w-4/5 animate-pulse rounded" />
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function AutomationCatalogError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-border bg-card px-6 text-center">
+      <Icon
+        icon="lucide:triangle-alert"
+        className="h-7 w-7 text-muted-foreground"
+      />
+      <p className="mt-3 text-sm font-medium text-foreground">
+        Could not load automation
+      </p>
+      <Button variant="ghost" size="sm" className="mt-3" onPress={onRetry}>
+        <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
+        Retry
+      </Button>
+    </div>
+  )
 }

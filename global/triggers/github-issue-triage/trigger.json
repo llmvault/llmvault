@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "github-issue-triage",
   "name": "GitHub Issue Triage",
-  "description": "Classify new or reopened GitHub issues, identify missing information, and suggest the next owner or action.",
+  "description": "Classify new and reopened issues.",
   "category": "Engineering",
   "enabled": true,
   "official": true,
