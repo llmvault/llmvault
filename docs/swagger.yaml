@@ -1892,17 +1892,6 @@ definitions:
       next_cursor:
         type: string
     type: object
-  paginatedResponse-handler_teamResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/teamResponse'
-        type: array
-      has_more:
-        type: boolean
-      next_cursor:
-        type: string
-    type: object
   paginatedResponse-handler_tokenListItem:
     properties:
       data:
@@ -1952,6 +1941,17 @@ definitions:
       data:
         items:
           $ref: '#/definitions/skillResponse'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
+  paginatedResponse-teamResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/teamResponse'
         type: array
       has_more:
         type: boolean
@@ -7234,7 +7234,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/paginatedResponse-handler_teamResponse'
+            $ref: '#/definitions/paginatedResponse-teamResponse'
         "400":
           description: Bad Request
           schema:
@@ -8604,6 +8604,46 @@ paths:
       tags:
       - sessions
   /v1/sessions/{id}:
+    delete:
+      description: Archives a session when the caller is a session member or owner.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sessionMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a session
+      tags:
+      - sessions
     get:
       description: Returns one visible session and its participants.
       parameters:

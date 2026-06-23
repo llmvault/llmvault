@@ -149,6 +149,7 @@ func setupV1Routes(
 					r.Post("/sessions", sessionHandler.Create)
 					r.Get("/sessions/{id}", sessionHandler.Get)
 					r.Patch("/sessions/{id}", sessionHandler.Update)
+					r.Delete("/sessions/{id}", sessionHandler.Archive)
 					r.Post("/sessions/{id}/messages", sessionHandler.SendMessage)
 					r.Post("/sessions/{id}/input-responses", sessionHandler.RespondToInput)
 					r.Post("/sessions/{id}/transcriptions", sessionHandler.TranscribeAudio)

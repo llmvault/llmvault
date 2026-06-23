@@ -23,7 +23,7 @@ func (h *UsageHandler) querySessions(orgID uuid.UUID) ([]sessionSummary, error) 
 			s.created_at, s.ended_at
 		FROM sessions s
 		LEFT JOIN session_events se ON se.session_id = s.id
-		WHERE s.org_id = ?
+		WHERE s.org_id = ? AND s.status <> 'archived'
 		GROUP BY s.id
 		ORDER BY s.created_at DESC
 		LIMIT 50`, orgID).Scan(&rows).Error; err != nil {

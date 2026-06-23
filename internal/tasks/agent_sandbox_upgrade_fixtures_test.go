@@ -203,3 +203,27 @@ func assertAgentSandboxUpgradeActiveSandbox(t *testing.T, db *gorm.DB, orgID, ag
 		t.Fatalf("new running sandbox external_id=%q", running[0].ExternalID)
 	}
 }
+
+func assertAgentSandboxUpgradeInPlaceSandbox(t *testing.T, db *gorm.DB, orgID, agentID uuid.UUID, oldSandbox model.Sandbox) {
+	t.Helper()
+	var sandboxes []model.Sandbox
+	if err := db.Where("org_id = ? AND agent_id = ?", orgID, agentID).Order("created_at ASC").Find(&sandboxes).Error; err != nil {
+		t.Fatalf("load sandboxes: %v", err)
+	}
+	if len(sandboxes) != 1 {
+		t.Fatalf("sandboxes=%d want existing sandbox only", len(sandboxes))
+	}
+	got := sandboxes[0]
+	if got.ID != oldSandbox.ID {
+		t.Fatalf("sandbox id=%s want %s", got.ID, oldSandbox.ID)
+	}
+	if got.ExternalID != oldSandbox.ExternalID {
+		t.Fatalf("external id=%q want %q", got.ExternalID, oldSandbox.ExternalID)
+	}
+	if got.RuntimeURL != oldSandbox.RuntimeURL {
+		t.Fatalf("runtime url=%q want %q", got.RuntimeURL, oldSandbox.RuntimeURL)
+	}
+	if got.Status != string(sandbox.StatusRunning) {
+		t.Fatalf("status=%q want running", got.Status)
+	}
+}

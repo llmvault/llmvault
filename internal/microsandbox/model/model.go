@@ -117,10 +117,11 @@ const (
 	RunnerStatusHealthy   = "healthy"
 	RunnerStatusUnhealthy = "unhealthy"
 
-	SandboxStatusCreating = "creating"
-	SandboxStatusRunning  = "running"
-	SandboxStatusStopped  = "stopped"
-	SandboxStatusError    = "error"
+	SandboxStatusCreating  = "creating"
+	SandboxStatusRunning   = "running"
+	SandboxStatusStopped   = "stopped"
+	SandboxStatusUpgrading = "upgrading"
+	SandboxStatusError     = "error"
 
 	TemplateStatusBuilding = "building"
 	TemplateStatusReady    = "ready"

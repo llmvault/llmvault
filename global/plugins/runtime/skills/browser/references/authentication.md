@@ -145,7 +145,7 @@ browser get url  # Should be dashboard, not login
 
 Use credential provider plugins when credentials live in external vault software. Plugins are configured in `browser.json` and run as external executables over the `browser.plugin.v1` stdio JSON protocol.
 
-Add a plugin with `plugin add`. A plain `name` or `@scope/name` resolves from npm; `owner/repo` resolves from GitHub:
+Add a plugin with `plugin add` only when the environment or user supplies the plugin reference:
 
 ```bash
 browser plugin add browser-plugin-vault --name vault

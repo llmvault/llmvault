@@ -50,7 +50,7 @@ func (s *Service) fetchSessionsSection(ctx context.Context, req Request) (string
 
 func (s *Service) loadRecentSessions(ctx context.Context, req Request) ([]model.Session, error) {
 	query := s.cfg.DB.WithContext(ctx).
-		Where("org_id = ? AND agent_id = ? AND status <> ?", req.OrgID, req.AgentID, "error")
+		Where("org_id = ? AND agent_id = ? AND status NOT IN ?", req.OrgID, req.AgentID, []string{"archived", "error"})
 	if req.CurrentSessionID != uuid.Nil {
 		query = query.Where("id <> ?", req.CurrentSessionID)
 	}

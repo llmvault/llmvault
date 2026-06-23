@@ -97,6 +97,10 @@ func (h *AgentSandboxUpgradeHandler) run(ctx context.Context, payload AgentSandb
 		return cause
 	}
 
+	if h.orchestrator.SupportsInPlaceUpgrade(oldSandbox) {
+		return h.runInPlace(ctx, upgrade, agent, oldSandbox, fail)
+	}
+
 	if err := h.markPhase(ctx, upgrade, model.AgentSandboxUpgradePhaseCreatingNew); err != nil {
 		return err
 	}

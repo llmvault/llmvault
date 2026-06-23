@@ -2,6 +2,7 @@ import {
   currentCollaborator,
   type ConversationBlock,
   type MediaAttachment,
+  type ToolConversationBlock,
 } from "@/app/w/(chat)/_lib/static-data"
 import {
   mergeToolBlocks,
@@ -12,9 +13,8 @@ import {
 import { codeLineCommentReferenceFromPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 import {
   compareSessionEvents,
-  durationBetween,
-  eventText,
   eventTime,
+  eventText,
   eventTurnID,
   formatDuration,
   parseTimestamp,
@@ -22,7 +22,6 @@ import {
   stringRecordValue,
   stringValue,
   stripAttachmentTags,
-  type Payload,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history-event-utils"
 
@@ -31,34 +30,33 @@ export type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history-e
 type SessionHistoryPage = {
   data?: SessionEventResponse[]
 }
+
 type SessionBlocksMode = "history" | "live"
-type TimelineRole = "work" | "final" | "standalone"
+
 type SessionBlocksOptions = {
   mode?: SessionBlocksMode
   activeTurnID?: string
   activeTurnStartedAt?: string
 }
 
-interface TimelineItem {
+type TimelineItem = {
   block: ConversationBlock
-  role: TimelineRole
+  mergeKind?: "assistant-token" | "thinking"
   turnID?: string
+  terminal?: boolean
   at: number
 }
 
-interface TurnInfo {
+type TurnInfo = {
   startedAt?: number
   endedAt?: number
 }
 
-const hiddenEventTypes = new Set([
-  "turn_started",
-  "turn_completed",
-  "model_usage",
-  "model_request_started",
-  "model_request_completed",
-  "plan_updated",
-])
+const hiddenEventTypes = new Set(
+  "turn_started turn_completed turn_failed turn_interrupted done model_usage model_request_started model_request_completed plan_updated question_answered session_waiting".split(
+    " "
+  )
+)
 
 export function sessionHistoryPagesToEvents(
   pages: SessionHistoryPage[]
@@ -86,232 +84,250 @@ export function sessionEventsToConversationBlocks(
 ): ConversationBlock[] {
   const mode = options.mode ?? "history"
   const ordered = [...events].sort(compareSessionEvents)
-  const finalTurns = new Set<string>()
-  const finalTextByTurn = new Map<string, string>()
-  const thinkingTurns = new Set<string>()
-  const lastTokenEventByTurn = new Map<string, SessionEventResponse>()
-  const toolTurns = new Set<string>()
+  const duplicatedFinalTokens = duplicatedFinalTokenEvents(ordered)
   const turnInfoByID = new Map<string, TurnInfo>()
-
-  for (const event of ordered) {
-    const turn = eventTurnID(event)
-    if (!turn) continue
-    captureTurnInfo(turnInfoByID, turn, event)
-    if (event.event_type === "final" && eventText(event)) {
-      finalTurns.add(turn)
-      finalTextByTurn.set(turn, eventText(event))
-    }
-    if (event.event_type === "thinking") thinkingTurns.add(turn)
-    if (event.event_type === "token" && eventText(event)) {
-      lastTokenEventByTurn.set(turn, event)
-    }
-    if (
-      event.event_type === "tool_call" ||
-      event.event_type === "tool_result"
-    ) {
-      toolTurns.add(turn)
-    }
-  }
-  seedActiveTurnInfo(turnInfoByID, options)
-
   const items: TimelineItem[] = []
-  const toolBlockIndexByID = new Map<string, number>()
+  const toolItemIndexByID = new Map<string, number>()
 
   for (const event of ordered) {
+    captureTurnInfo(turnInfoByID, event)
     const type = event.event_type ?? ""
     if (hiddenEventTypes.has(type)) continue
 
     if (type === "user.message" || type === "user.message.received") {
-      const text = stripAttachmentTags(eventText(event))
-      const attachments = eventAttachments(event)
-      const codeLineComments = eventCodeLineComments(event)
-      if (text || attachments.length || codeLineComments.length) {
-        items.push({
-          block: {
-            type: "user",
-            key: eventBlockKey(event, "user"),
-            text,
-            ...(attachments.length ? { attachments } : {}),
-            ...(codeLineComments.length ? { codeLineComments } : {}),
-            author: currentCollaborator,
-            clientEventID: event.id ?? event.event_id ?? undefined,
-            clientStatus: clientStatus(event),
-            clientError: clientError(event),
-          },
-          role: "standalone",
-          at: eventTime(event),
-        })
+      const block = userBlock(event)
+      if (
+        !block.text &&
+        !block.attachments?.length &&
+        !block.codeLineComments?.length
+      ) {
+        continue
       }
+      appendItem(items, {
+        block,
+        at: eventTime(event),
+      })
       continue
     }
 
     if (type === "thinking") {
-      const text = eventText(event).trim()
-      const turn = eventTurnID(event)
-      const hasTool = Boolean(turn && toolTurns.has(turn))
-      const eventMode = turnMode(turn, mode, finalTurns, options)
-      items.push({
-        block: thinkingBlock(event, text, eventMode),
-        role: hasTool || eventMode === "live" ? "work" : "standalone",
-        turnID: turn,
+      appendItem(items, {
+        block: thinkingBlock(event),
+        mergeKind: "thinking",
+        turnID: eventTurnID(event),
         at: eventTime(event),
       })
       continue
     }
 
-    if (type === "tool_call" || type === "tool_result") {
-      const toolID = toolEventID(event)
-      const next = {
-        ...toolBlock(event),
-        key: toolID ? `tool:${toolID}` : eventBlockKey(event, "tool"),
-      }
-      if (toolID && toolBlockIndexByID.has(toolID)) {
-        const index = toolBlockIndexByID.get(toolID)
-        if (index !== undefined) {
-          items[index] = {
-            ...items[index],
-            block: mergeToolBlocks(items[index].block, next),
-            at: eventTime(event),
-          }
-        }
-        continue
-      }
-      if (!shouldRenderToolBlock(next)) continue
-      items.push({
-        block: next,
-        role: "work",
-        turnID: eventTurnID(event),
-        at: eventTime(event),
+    if (type === "token") {
+      if (duplicatedFinalTokens.has(event)) continue
+      appendAssistantItem(items, event, {
+        streaming: eventIsLive(event, mode, options),
+        mergeKind: "assistant-token",
       })
-      if (toolID) toolBlockIndexByID.set(toolID, items.length - 1)
+      continue
+    }
+
+    if (type === "final") {
+      appendAssistantItem(items, event, { streaming: false, terminal: true })
+      continue
+    }
+
+    if (type === "tool_call" || type === "tool_result") {
+      appendToolItem(items, toolItemIndexByID, event)
       continue
     }
 
     if (type === "error") {
       const text = eventErrorText(event)
       if (text) {
-        items.push({
+        appendItem(items, {
           block: {
             type: "error",
             key: eventBlockKey(event, "error"),
             text,
           },
-          role: "standalone",
+          terminal: true,
           turnID: eventTurnID(event),
           at: eventTime(event),
         })
       }
-      continue
-    }
-
-    if (type === "final") {
-      appendAssistantItem(items, eventText(event), mode, "final", event)
-      continue
-    }
-
-    if (type === "token") {
-      const turn = eventTurnID(event)
-      const hasTool = Boolean(turn && toolTurns.has(turn))
-      const hasWork = hasTool || Boolean(turn && thinkingTurns.has(turn))
-      const eventMode = turnMode(turn, mode, finalTurns, options)
-      if (turn && finalTurns.has(turn) && !hasTool) continue
-      if (
-        turn &&
-        hasTool &&
-        finalTurns.has(turn) &&
-        lastTokenEventByTurn.get(turn) === event &&
-        finalTextByTurn.get(turn)?.trim() === eventText(event).trim()
-      ) {
-        continue
-      }
-      appendAssistantItem(
-        items,
-        eventText(event),
-        eventMode,
-        (eventMode === "live" && hasWork) || (hasTool && finalTurns.has(turn))
-          ? "work"
-          : "final",
-        event
-      )
     }
   }
 
-  return buildConversationBlocks(items, turnInfoByID, mode, options)
-}
-
-function turnMode(
-  turnID: string,
-  mode: SessionBlocksMode,
-  finalTurns: Set<string>,
-  options: SessionBlocksOptions
-): SessionBlocksMode {
-  if (!turnID || !options.activeTurnID || turnID !== options.activeTurnID) {
-    return mode
-  }
-  return finalTurns.has(turnID) ? "history" : "live"
+  return groupToolChains(groupAgentWork(items, options, turnInfoByID))
 }
 
 function appendAssistantItem(
   items: TimelineItem[],
-  text: string,
-  mode: SessionBlocksMode,
-  role: TimelineRole,
-  event: SessionEventResponse
+  event: SessionEventResponse,
+  options: {
+    streaming: boolean
+    mergeKind?: "assistant-token"
+    terminal?: boolean
+  }
 ) {
-  const trimmed = text.trim()
-  if (!trimmed) return
-  items.push({
+  const rawText = eventText(event)
+  const text = options.mergeKind ? rawText : rawText.trim()
+  if (!text.trim()) return
+
+  appendItem(items, {
     block: {
       type: "assistant",
-      key: eventBlockKey(event, role === "final" ? "final" : "assistant"),
-      text: trimmed,
-      streaming: mode === "live",
+      key: eventBlockKey(event, options.mergeKind ? "token" : "final"),
+      text,
+      streaming: options.streaming,
     },
-    role,
+    mergeKind: options.mergeKind,
+    terminal: options.terminal,
     turnID: eventTurnID(event),
     at: eventTime(event),
   })
 }
 
-function buildConversationBlocks(
+function appendToolItem(
   items: TimelineItem[],
-  turnInfoByID: Map<string, TurnInfo>,
-  mode: SessionBlocksMode,
-  options: SessionBlocksOptions
+  toolItemIndexByID: Map<string, number>,
+  event: SessionEventResponse
+) {
+  const toolID = toolEventID(event)
+  const next: ToolConversationBlock = {
+    ...toolBlock(event),
+    key: toolID ? `tool:${toolID}` : eventBlockKey(event, "tool"),
+  }
+
+  if (toolID && toolItemIndexByID.has(toolID)) {
+    const index = toolItemIndexByID.get(toolID)
+    if (index === undefined) return
+    const current = items[index]
+    if (!current) return
+    current.block = mergeToolBlocks(
+      current.block,
+      next
+    ) as ToolConversationBlock
+    current.turnID ||= eventTurnID(event)
+    current.at = eventTime(event)
+    return
+  }
+
+  if (!shouldRenderToolBlock(next)) return
+  appendItem(items, {
+    block: next,
+    turnID: eventTurnID(event),
+    at: eventTime(event),
+  })
+  if (toolID) toolItemIndexByID.set(toolID, items.length - 1)
+}
+
+function appendItem(items: TimelineItem[], item: TimelineItem) {
+  const previous = items.at(-1)
+  if (previous && canMergeTimelineItems(previous, item)) {
+    previous.block = mergeTimelineBlocks(previous.block, item.block)
+    return
+  }
+  items.push(item)
+}
+
+function canMergeTimelineItems(left: TimelineItem, right: TimelineItem) {
+  return (
+    Boolean(left.mergeKind) &&
+    left.mergeKind === right.mergeKind &&
+    left.turnID === right.turnID
+  )
+}
+
+function mergeTimelineBlocks(
+  left: ConversationBlock,
+  right: ConversationBlock
+): ConversationBlock {
+  if (left.type === "assistant" && right.type === "assistant") {
+    return {
+      ...left,
+      text: left.text + right.text,
+      streaming: left.streaming || right.streaming,
+    }
+  }
+
+  if (left.type === "thinking" && right.type === "thinking") {
+    return {
+      ...left,
+      text: `${left.text ?? ""}${right.text ?? ""}` || undefined,
+      active: left.active || right.active,
+    }
+  }
+
+  return right
+}
+
+function groupToolChains(blocks: ConversationBlock[]): ConversationBlock[] {
+  const grouped: ConversationBlock[] = []
+  let tools: ToolConversationBlock[] = []
+
+  const flushTools = () => {
+    if (tools.length === 0) return
+    if (tools.length > 2) {
+      grouped.push({
+        type: "tool_chain",
+        key: `tool-chain:${tools.map((tool) => tool.key ?? tool.label).join("|")}`,
+        tools,
+        running: tools.some((tool) => tool.running),
+      })
+    } else {
+      grouped.push(...tools)
+    }
+    tools = []
+  }
+
+  for (const block of blocks) {
+    if (block.type === "tool") {
+      tools.push(block)
+      continue
+    }
+    flushTools()
+    grouped.push(block)
+  }
+
+  flushTools()
+  return grouped
+}
+
+function groupAgentWork(
+  items: TimelineItem[],
+  options: SessionBlocksOptions,
+  turnInfoByID: Map<string, TurnInfo>
 ): ConversationBlock[] {
   const blocks: ConversationBlock[] = []
   let workTurnID: string | undefined
   let workItems: TimelineItem[] = []
 
-  const flushWork = (completed: boolean) => {
+  const flushWork = (completed: boolean, terminalAt?: number) => {
     if (workItems.length === 0) return
-    const hasPendingWork = workItems.some(
-      (item) => item.block.type === "thinking" && item.block.active
+    const groupedWorkBlocks = groupToolChains(
+      workItems.map((item) => item.block)
     )
-    const hasActiveTurnWork = Boolean(
-      !completed && workTurnID && workTurnID === options.activeTurnID
-    )
-    const shouldShowActiveWork =
-      hasPendingWork || hasActiveTurnWork || (!completed && mode === "live")
-    const workBlocks = resolveLiveThinkingState(
-      workItems.map((item) => item.block),
-      shouldShowActiveWork
-    )
+    const active =
+      !completed && isActiveWork(workTurnID, groupedWorkBlocks, options)
     blocks.push({
-      type: "worklog",
-      key: worklogBlockKey(workTurnID, workItems),
-      duration: workDuration(workTurnID, workItems, turnInfoByID),
-      startedAt: workStartedAt(workTurnID, workItems, turnInfoByID),
-      blocks: workBlocks,
-      active: shouldShowActiveWork,
-      defaultExpanded: shouldShowActiveWork,
+      type: "agent_work",
+      key: agentWorkBlockKey(workTurnID, groupedWorkBlocks),
+      duration: workDuration(workTurnID, workItems, terminalAt, turnInfoByID),
+      blocks: groupedWorkBlocks,
+      active,
+      defaultExpanded: active,
     })
-    workItems = []
     workTurnID = undefined
+    workItems = []
   }
 
   for (const item of items) {
-    if (item.role === "work") {
+    if (item.terminal) {
+      flushWork(true, item.at)
+      blocks.push(item.block)
+      continue
+    }
+
+    if (isAgentWorkItem(item)) {
       if (workItems.length > 0 && workTurnID !== item.turnID) {
         flushWork(false)
       }
@@ -320,31 +336,201 @@ function buildConversationBlocks(
       continue
     }
 
-    flushWork(item.role === "final")
+    flushWork(false)
     blocks.push(item.block)
-    if (
-      item.role === "final" &&
-      mode !== "live" &&
-      item.block.type === "assistant" &&
-      !item.block.streaming
-    )
-      blocks.push({
-        type: "actions",
-        key: `actions:${item.turnID ?? item.block.key ?? item.at}`,
-      })
   }
 
   flushWork(false)
   return blocks
 }
 
-function eventBlockKey(event: SessionEventResponse, prefix: string) {
-  return `${prefix}:${event.id ?? event.event_id ?? event.sequence_number ?? eventTime(event)}`
+function isAgentWorkItem(item: TimelineItem) {
+  return Boolean(item.turnID) && isAgentWorkBlock(item.block)
 }
 
-function worklogBlockKey(turnID: string | undefined, items: TimelineItem[]) {
-  if (turnID) return `worklog:${turnID}`
-  return `worklog:${items.map((item) => item.block.key).join("|")}`
+function isAgentWorkBlock(block: ConversationBlock) {
+  return (
+    block.type === "assistant" ||
+    block.type === "thinking" ||
+    block.type === "tool"
+  )
+}
+
+function isActiveWork(
+  turnID: string | undefined,
+  blocks: ConversationBlock[],
+  options: SessionBlocksOptions
+) {
+  return (
+    options.mode === "live" ||
+    Boolean(turnID && turnID === options.activeTurnID) ||
+    blocks.some((block) => {
+      if (block.type === "assistant") return Boolean(block.streaming)
+      if (block.type === "thinking") return Boolean(block.active)
+      if (block.type === "tool") return Boolean(block.running)
+      if (block.type === "tool_chain") return Boolean(block.running)
+      return false
+    })
+  )
+}
+
+function agentWorkBlockKey(
+  turnID: string | undefined,
+  blocks: ConversationBlock[]
+) {
+  if (turnID) return `agent-work:${turnID}`
+  return `agent-work:${blocks.map((block) => block.key).join("|")}`
+}
+
+function workDuration(
+  turnID: string | undefined,
+  items: TimelineItem[],
+  terminalAt: number | undefined,
+  turnInfoByID: Map<string, TurnInfo>
+) {
+  const startedAt = workStartedAt(turnID, items, turnInfoByID)
+  const itemTimes = items.map((item) => item.at).filter((time) => time > 0)
+  const info = turnID ? turnInfoByID.get(turnID) : undefined
+  const endedAt = info?.endedAt ?? terminalAt ?? Math.max(...itemTimes)
+
+  if (
+    typeof startedAt !== "number" ||
+    !Number.isFinite(startedAt) ||
+    !Number.isFinite(endedAt) ||
+    endedAt < startedAt
+  ) {
+    return undefined
+  }
+
+  return formatDuration(endedAt - startedAt)
+}
+
+function workStartedAt(
+  turnID: string | undefined,
+  items: TimelineItem[],
+  turnInfoByID: Map<string, TurnInfo>
+) {
+  const info = turnID ? turnInfoByID.get(turnID) : undefined
+  const itemTimes = items.map((item) => item.at).filter((time) => time > 0)
+  const startedAt = info?.startedAt ?? Math.min(...itemTimes)
+  return Number.isFinite(startedAt) ? startedAt : undefined
+}
+
+function captureTurnInfo(
+  infoByID: Map<string, TurnInfo>,
+  event: SessionEventResponse
+) {
+  const turnID = eventTurnID(event)
+  if (!turnID) return
+
+  const info = infoByID.get(turnID) ?? {}
+  const type = event.event_type ?? ""
+  const payload = payloadRecord(event)
+  const at = eventTime(event)
+
+  if (type === "turn_started") {
+    info.startedAt = timestampValue(payload, "started_at") ?? at
+  } else if (
+    type === "turn_completed" ||
+    type === "turn_failed" ||
+    type === "turn_interrupted"
+  ) {
+    info.endedAt =
+      timestampValue(payload, "ended_at") ??
+      timestampValue(payload, "occurred_at") ??
+      at
+  } else if (
+    (type === "final" || type === "error") &&
+    info.endedAt === undefined
+  ) {
+    info.endedAt = at
+  }
+
+  infoByID.set(turnID, info)
+}
+
+function timestampValue(payload: Record<string, unknown>, key: string) {
+  return parseTimestamp(stringValue(payload, key))
+}
+
+function userBlock(
+  event: SessionEventResponse
+): Extract<ConversationBlock, { type: "user" }> {
+  const text = stripAttachmentTags(eventText(event))
+  const attachments = eventAttachments(event)
+  const codeLineComments = eventCodeLineComments(event)
+
+  return {
+    type: "user",
+    key: eventBlockKey(event, "user"),
+    text,
+    ...(attachments.length ? { attachments } : {}),
+    ...(codeLineComments.length ? { codeLineComments } : {}),
+    author: currentCollaborator,
+    clientEventID: event.id ?? event.event_id ?? undefined,
+    clientStatus: clientStatus(event),
+    clientError: clientError(event),
+  }
+}
+
+function thinkingBlock(
+  event: SessionEventResponse
+): Extract<ConversationBlock, { type: "thinking" }> {
+  const active = clientStatus(event) === "pending"
+
+  return {
+    type: "thinking",
+    key: eventBlockKey(event, "thinking"),
+    label: active ? "Thinking" : "Thought",
+    text: eventText(event).trim() || undefined,
+    active,
+  }
+}
+
+function duplicatedFinalTokenEvents(events: SessionEventResponse[]) {
+  const duplicated = new Set<SessionEventResponse>()
+
+  events.forEach((event, index) => {
+    if (event.event_type !== "final") return
+    const text = eventText(event).trim()
+    if (!text) return
+    const turnID = eventTurnID(event)
+    const previous = previousVisibleEvent(events, index)
+    if (
+      previous?.event_type === "token" &&
+      eventTurnID(previous) === turnID &&
+      eventText(previous).trim() === text
+    ) {
+      duplicated.add(previous)
+    }
+  })
+
+  return duplicated
+}
+
+function previousVisibleEvent(
+  events: SessionEventResponse[],
+  beforeIndex: number
+) {
+  for (let index = beforeIndex - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (!event || hiddenEventTypes.has(event.event_type ?? "")) continue
+    return event
+  }
+  return undefined
+}
+
+function eventIsLive(
+  event: SessionEventResponse,
+  mode: SessionBlocksMode,
+  options: SessionBlocksOptions
+) {
+  const turnID = eventTurnID(event)
+  return mode === "live" || Boolean(turnID && turnID === options.activeTurnID)
+}
+
+function eventBlockKey(event: SessionEventResponse, prefix: string) {
+  return `${prefix}:${event.id ?? event.event_id ?? event.sequence_number ?? event.event_at ?? "unknown"}`
 }
 
 function eventAttachments(event: SessionEventResponse): MediaAttachment[] {
@@ -364,7 +550,7 @@ function eventAttachments(event: SessionEventResponse): MediaAttachment[] {
     const id =
       stringRecordValue(record, "drive_asset_id") ||
       stringRecordValue(record, "id") ||
-      `attachment:${event.id ?? event.event_id ?? eventTime(event)}:${index}`
+      `attachment:${event.id ?? event.event_id ?? event.event_at ?? index}`
     return [
       {
         id,
@@ -382,7 +568,7 @@ function eventCodeLineComments(event: SessionEventResponse) {
   return value.flatMap((entry, index) => {
     const comment = codeLineCommentReferenceFromPayload(
       entry,
-      `code-comment:${event.id ?? event.event_id ?? eventTime(event)}:${index}`
+      `code-comment:${event.id ?? event.event_id ?? event.event_at ?? index}`
     )
     return comment ? [comment] : []
   })
@@ -407,158 +593,4 @@ function eventErrorText(event: SessionEventResponse): string {
     stringValue(payload, "text") ||
     "The session stream failed. Try sending your message again."
   )
-}
-
-function captureTurnInfo(
-  infoByID: Map<string, TurnInfo>,
-  turnID: string,
-  event: SessionEventResponse
-) {
-  const info = infoByID.get(turnID) ?? {}
-  const type = event.event_type ?? ""
-  const at = eventTime(event)
-  const payload = payloadRecord(event)
-  const startedAt = timestampValue(payload, "started_at")
-  const endedAt =
-    timestampValue(payload, "ended_at") ||
-    timestampValue(payload, "occurred_at") ||
-    at
-
-  if (type === "turn_started") {
-    info.startedAt = startedAt || at
-  } else if (type === "turn_completed") {
-    info.endedAt = endedAt
-  }
-
-  infoByID.set(turnID, info)
-}
-
-function seedActiveTurnInfo(
-  infoByID: Map<string, TurnInfo>,
-  options: SessionBlocksOptions
-) {
-  if (!options.activeTurnID || !options.activeTurnStartedAt) return
-  const startedAt = parseTimestamp(options.activeTurnStartedAt)
-  if (startedAt === undefined) return
-  const info = infoByID.get(options.activeTurnID) ?? {}
-  if (info.startedAt === undefined) info.startedAt = startedAt
-  infoByID.set(options.activeTurnID, info)
-}
-
-function timestampValue(payload: Payload, key: string): number | undefined {
-  const value = stringValue(payload, key)
-  return parseTimestamp(value)
-}
-
-function workDuration(
-  turnID: string | undefined,
-  items: TimelineItem[],
-  turnInfoByID: Map<string, TurnInfo>
-): string | undefined {
-  const info = turnID ? turnInfoByID.get(turnID) : undefined
-  const startedAt = workStartedAt(turnID, items, turnInfoByID)
-  const itemTimes = itemEventTimes(items)
-  const endedAt = info?.endedAt ?? Math.max(...itemTimes)
-
-  if (
-    typeof startedAt !== "number" ||
-    !Number.isFinite(startedAt) ||
-    !Number.isFinite(endedAt)
-  ) {
-    return undefined
-  }
-  if (endedAt < startedAt) return undefined
-  return formatDuration(endedAt - startedAt)
-}
-
-function workStartedAt(
-  turnID: string | undefined,
-  items: TimelineItem[],
-  turnInfoByID: Map<string, TurnInfo>
-): number | undefined {
-  const info = turnID ? turnInfoByID.get(turnID) : undefined
-  const itemTimes = itemEventTimes(items)
-  const startedAt = info?.startedAt ?? Math.min(...itemTimes)
-  return Number.isFinite(startedAt) ? startedAt : undefined
-}
-
-function itemEventTimes(items: TimelineItem[]): number[] {
-  return items.map((item) => item.at).filter((time) => time > 0)
-}
-
-function thinkingBlock(
-  event: SessionEventResponse,
-  text: string,
-  mode: SessionBlocksMode
-): Extract<ConversationBlock, { type: "thinking" }> {
-  if (mode === "live" || clientStatus(event) === "pending") {
-    return {
-      type: "thinking",
-      key: eventBlockKey(event, "thinking"),
-      label: clientStatus(event) === "pending" ? "Thinking" : "Thought",
-      text: text || undefined,
-      active: clientStatus(event) === "pending",
-      defaultExpanded: true,
-    }
-  }
-
-  return {
-    type: "thinking",
-    key: eventBlockKey(event, "thinking"),
-    label: thoughtLabel(event),
-    duration: thoughtDuration(event),
-    text: text || undefined,
-  }
-}
-
-function resolveLiveThinkingState(
-  blocks: ConversationBlock[],
-  allowActive = true
-): ConversationBlock[] {
-  const activeThinkingIndex = allowActive ? liveActiveThinkingIndex(blocks) : -1
-
-  return blocks.map((block, index) => {
-    if (block.type !== "thinking") return block
-
-    const active = index === activeThinkingIndex
-    return {
-      ...block,
-      label: active ? "Thinking" : inactiveThoughtLabel(block),
-      active,
-      defaultExpanded: active ? true : block.defaultExpanded,
-    }
-  })
-}
-
-function liveActiveThinkingIndex(blocks: ConversationBlock[]) {
-  for (let index = blocks.length - 1; index >= 0; index -= 1) {
-    const block = blocks[index]
-    if (block.type === "actions") continue
-    return block.type === "thinking" ? index : -1
-  }
-  return -1
-}
-
-function inactiveThoughtLabel(
-  block: Extract<ConversationBlock, { type: "thinking" }>
-) {
-  return block.duration ? `Thought for ${block.duration}` : "Thought"
-}
-
-function thoughtLabel(event: SessionEventResponse): string {
-  const duration = thoughtDuration(event)
-  return duration ? `Thought for ${duration}` : "Thought"
-}
-
-function thoughtDuration(event: SessionEventResponse): string | undefined {
-  const payload = payloadRecord(event)
-  const startedAt = stringValue(payload, "started_at")
-  const endedAt =
-    stringValue(payload, "ended_at") ||
-    stringValue(payload, "occurred_at") ||
-    event.event_at ||
-    ""
-  const durationMs = durationBetween(startedAt, endedAt)
-  if (durationMs === undefined) return undefined
-  return formatDuration(durationMs)
 }

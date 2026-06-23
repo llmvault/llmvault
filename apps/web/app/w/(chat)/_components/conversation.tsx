@@ -3,25 +3,17 @@
 import { useMemo, useState } from "react"
 import { Icon } from "@iconify/react"
 import { Lightbox } from "@/app/w/(chat)/_components/lightbox"
-import { ToolBlock } from "@/app/w/(chat)/_components/tool-block"
-import { ActionsBlock } from "@/app/w/(chat)/_components/conversation-actions"
 import {
-  ActivityBlock,
-  WorkedBlock,
-} from "@/app/w/(chat)/_components/conversation-activity"
+  ToolBlock,
+  ToolChainBlock,
+} from "@/app/w/(chat)/_components/tool-block"
+import { AgentWorkBlock } from "@/app/w/(chat)/_components/conversation-agent-work"
 import {
   AssistantBlock,
   assistantPreviewAttachments,
 } from "@/app/w/(chat)/_components/conversation-assistant"
-import { AttachmentThumbs } from "@/app/w/(chat)/_components/conversation-attachments"
-import { EditsBlock } from "@/app/w/(chat)/_components/conversation-edits"
 import { ThinkingBlock } from "@/app/w/(chat)/_components/conversation-thinking"
 import { UserMessageBlock } from "@/app/w/(chat)/_components/conversation-user-message"
-import { WorklogBlock } from "@/app/w/(chat)/_components/conversation-worklog"
-import {
-  QueuedBlock,
-  WorkingBlock,
-} from "@/app/w/(chat)/_components/conversation-work-status"
 import type { CodeLineCommentReference } from "@/app/w/(chat)/_lib/code-line-comments"
 import {
   type ConversationBlock,
@@ -89,8 +81,6 @@ function Block({
       return (
         <AssistantBlock block={block} onOpenAttachment={onOpenAttachment} />
       )
-    case "activity":
-      return <ActivityBlock block={block} />
     case "user":
       return (
         <UserMessageBlock
@@ -98,15 +88,6 @@ function Block({
           onOpenAttachment={onOpenAttachment}
           onRetryMessage={onRetryMessage}
         />
-      )
-    case "attachments":
-      return <AttachmentThumbs items={block.items} onOpen={onOpenAttachment} />
-    case "system":
-      return (
-        <div className="flex items-center gap-2 self-center py-1 text-xs text-muted">
-          <span className="h-1 w-1 rounded-full bg-muted/50" />
-          {block.text}
-        </div>
       )
     case "error":
       return (
@@ -118,13 +99,9 @@ function Block({
           <span className="min-w-0">{block.text}</span>
         </div>
       )
-    case "queued":
-      return <QueuedBlock block={block} />
-    case "worked":
-      return <WorkedBlock block={block} />
-    case "worklog":
+    case "agent_work":
       return (
-        <WorklogBlock
+        <AgentWorkBlock
           block={block}
           renderBlock={(child, index) => (
             <Block
@@ -136,21 +113,17 @@ function Block({
           )}
         />
       )
-    case "working":
-      return <WorkingBlock block={block} />
     case "tool":
       return <ToolBlock block={block} />
+    case "tool_chain":
+      return <ToolChainBlock block={block} />
     case "thinking":
       return <ThinkingBlock block={block} />
-    case "edits":
-      return <EditsBlock block={block} />
-    case "actions":
-      return <ActionsBlock />
   }
 }
 
 function conversationBlockKey(block: ConversationBlock, index: number) {
-  if (block.type === "worklog") {
+  if (block.type === "agent_work") {
     return `${block.key ?? `${block.type}:${index}`}:${
       block.active ? "active" : "complete"
     }`
@@ -165,10 +138,7 @@ function blockAttachments(block: ConversationBlock): MediaAttachment[] {
   if (block.type === "user") {
     return block.attachments ?? []
   }
-  if (block.type === "attachments") {
-    return block.items
-  }
-  if (block.type === "worklog") {
+  if (block.type === "agent_work") {
     return block.blocks.flatMap(blockAttachments)
   }
   return []

@@ -19,6 +19,7 @@ type agentSessionsSandboxUpgrade struct {
 	UpgradeID    string  `json:"upgrade_id"`
 	Status       string  `json:"status"`
 	Phase        string  `json:"phase"`
+	UpgradeMode  string  `json:"upgrade_mode"`
 	OldSandboxID *string `json:"old_sandbox_id,omitempty"`
 	NewSandboxID *string `json:"new_sandbox_id,omitempty"`
 	ErrorMessage *string `json:"error_message,omitempty"`
@@ -91,12 +92,12 @@ func TestAgentSessionsSandboxUpgradeDrainE2E(t *testing.T) {
 	t.Logf("started sandbox upgrade id=%s phase=%s status=%s", upgrade.UpgradeID, upgrade.Phase, upgrade.Status)
 
 	drainingPhase := agentSessionsWaitForSandboxUpgradePhase(t, ctx, apiBase, ownerToken, orgID, agent.ID, upgrade.UpgradeID, model.AgentSandboxUpgradePhaseDrainingOld, 8*time.Minute)
-	if drainingPhase.NewSandboxID == nil || *drainingPhase.NewSandboxID == "" {
-		t.Fatalf("draining upgrade has no new_sandbox_id: %+v", drainingPhase)
+	if drainingPhase.UpgradeMode != "in_place" || drainingPhase.NewSandboxID == nil || *drainingPhase.NewSandboxID != oldSandbox.ID.String() {
+		t.Fatalf("draining upgrade did not preserve sandbox id: old=%s upgrade=%+v", oldSandbox.ID, drainingPhase)
 	}
 	drainStartedAt := time.Now()
 	oldDraining := agentSessionsWaitForSandboxDBStatus(t, ctx, oldSandbox.ID, string(sandbox.StatusDraining))
-	t.Logf("old sandbox entered drain id=%s status=%s new_sandbox=%s", oldDraining.ID, oldDraining.Status, *drainingPhase.NewSandboxID)
+	t.Logf("sandbox entered drain id=%s status=%s mode=%s", oldDraining.ID, oldDraining.Status, drainingPhase.UpgradeMode)
 
 	stillDraining := agentSessionsGetSandboxUpgrade(t, ctx, apiBase, ownerToken, orgID, agent.ID, upgrade.UpgradeID)
 	if stillDraining.Status == model.AgentSandboxUpgradeStatusSucceeded {
@@ -117,26 +118,26 @@ func TestAgentSessionsSandboxUpgradeDrainE2E(t *testing.T) {
 	t.Logf("drain session final persisted event_id=%s type=%s", finalResponse.ID, finalResponse.EventType)
 
 	completed := agentSessionsWaitForSandboxUpgradeSucceeded(t, ctx, apiBase, ownerToken, orgID, agent.ID, upgrade.UpgradeID, 10*time.Minute)
-	if completed.NewSandboxID == nil || *completed.NewSandboxID == "" || *completed.NewSandboxID == oldSandbox.ID.String() {
-		t.Fatalf("bad completed upgrade sandbox ids old=%s upgrade=%+v", oldSandbox.ID, completed)
+	if completed.UpgradeMode != "in_place" || completed.NewSandboxID == nil || *completed.NewSandboxID != oldSandbox.ID.String() {
+		t.Fatalf("bad completed in-place upgrade ids old=%s upgrade=%+v", oldSandbox.ID, completed)
 	}
-	t.Logf("upgrade completed id=%s total=%s drain_wait=%s new_sandbox=%s", completed.UpgradeID, time.Since(upgradeStartedAt), time.Since(drainStartedAt), *completed.NewSandboxID)
+	t.Logf("upgrade completed id=%s total=%s drain_wait=%s sandbox=%s", completed.UpgradeID, time.Since(upgradeStartedAt), time.Since(drainStartedAt), *completed.NewSandboxID)
 
 	agents = agentSessionsListAgents(t, ctx, apiBase, ownerToken, orgID)
 	agent = findDefaultAgent(t, agents)
 	if agent.Sandbox == nil {
 		t.Fatalf("default agent has no active sandbox after drain upgrade")
 	}
-	if agent.Sandbox.ID != *completed.NewSandboxID {
-		t.Fatalf("active sandbox id=%s want upgraded sandbox %s agent=%+v", agent.Sandbox.ID, *completed.NewSandboxID, agent)
+	if agent.Sandbox.ID != oldSandbox.ID.String() {
+		t.Fatalf("active sandbox id=%s want preserved sandbox %s agent=%+v", agent.Sandbox.ID, oldSandbox.ID, agent)
+	}
+	if agent.Sandbox.ExternalID != oldSandbox.ExternalID {
+		t.Fatalf("active sandbox external_id=%s want preserved external_id %s", agent.Sandbox.ExternalID, oldSandbox.ExternalID)
 	}
 	if agent.Sandbox.Status != string(sandbox.StatusRunning) {
 		t.Fatalf("active sandbox status=%s want running agent=%+v", agent.Sandbox.Status, agent)
 	}
 	assertAgentSessionsDockerContainerImage(t, ctx, "default Hivy upgraded", agent.Sandbox.ExternalID, defaultAgentSessionsSandboxRuntimeImage())
-	t.Cleanup(func() {
-		agentSessionsDeleteSandbox(t, ctx, apiBase, ownerToken, orgID, agent.Sandbox.ID)
-	})
 
 	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	assertPersistedFinals(t, events, finalMarker)
