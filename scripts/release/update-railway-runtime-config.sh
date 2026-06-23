@@ -2,6 +2,7 @@
 set -euo pipefail
 
 manifest="${1:?usage: update-railway-runtime-config.sh <release-manifest.json>}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${RAILWAY_TOKEN:?RAILWAY_TOKEN is required}"
 : "${RAILWAY_ENVIRONMENT:?RAILWAY_ENVIRONMENT is required}"
 : "${RAILWAY_SERVICES:?RAILWAY_SERVICES is required}"
@@ -71,11 +72,10 @@ railway_with_retry() {
   done
 }
 
-sandboxes_runtime_image_tag="$(jq -r '.runtimeConfig.HIVY_SANDBOXES_RUNTIME_IMAGE_TAG' "${manifest}")"
-
-if [[ -n "${runtime_arch_suffix}" && "${sandboxes_runtime_image_tag}" != *"-${runtime_arch_suffix}" ]]; then
-  sandboxes_runtime_image_tag="${sandboxes_runtime_image_tag}-${runtime_arch_suffix}"
-fi
+sandboxes_runtime_image_tag="$(
+  HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX="${runtime_arch_suffix}" \
+    bash "${script_dir}/runtime-image-tag.sh" "${manifest}"
+)"
 
 for value in \
   "${sandboxes_runtime_image_tag}"
