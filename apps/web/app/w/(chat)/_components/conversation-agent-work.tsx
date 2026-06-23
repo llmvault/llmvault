@@ -17,13 +17,9 @@ export function AgentWorkBlock({
   if (block.active) {
     return (
       <div className="flex min-w-0 flex-col gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-muted">
-          <Icon
-            icon="lucide:loader-circle"
-            className="hivy-shimmer h-4 w-4 shrink-0"
-          />
-          <span className="hivy-shimmer">Working</span>
-        </div>
+        <span className="hivy-shimmer self-start text-sm font-medium text-muted">
+          Working
+        </span>
         <div className="flex min-w-0 flex-col gap-5">
           {block.blocks.map((child, index) => renderBlock(child, index))}
         </div>

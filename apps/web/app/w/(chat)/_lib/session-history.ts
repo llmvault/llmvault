@@ -11,6 +11,7 @@ import {
   toolEventID,
 } from "@/app/w/(chat)/_lib/session-tools"
 import { codeLineCommentReferenceFromPayload } from "@/app/w/(chat)/_lib/code-line-comments"
+import { orderActiveTurnAfterLatestUserMessage } from "@/app/w/(chat)/_lib/session-history-order"
 import {
   compareSessionEvents,
   eventTime,
@@ -83,7 +84,10 @@ export function sessionEventsToConversationBlocks(
   options: SessionBlocksOptions = {}
 ): ConversationBlock[] {
   const mode = options.mode ?? "history"
-  const ordered = [...events].sort(compareSessionEvents)
+  const ordered = orderActiveTurnAfterLatestUserMessage(
+    [...events].sort(compareSessionEvents),
+    options.activeTurnID
+  )
   const duplicatedFinalTokens = duplicatedFinalTokenEvents(ordered)
   const turnInfoByID = new Map<string, TurnInfo>()
   const items: TimelineItem[] = []

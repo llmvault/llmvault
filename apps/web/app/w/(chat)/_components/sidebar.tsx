@@ -28,8 +28,12 @@ const CHANNELS_INFINITE_KEY = "channels-infinite-v1"
 
 export const Sidebar = memo(function Sidebar({
   onCollapse,
+  onRenameSession,
+  onShareSession,
 }: {
   onCollapse: () => void
+  onRenameSession: (sessionId: string, name: string) => void
+  onShareSession: (sessionId: string) => void
 }) {
   const { startNewChat } = useWorkspace()
   const router = useRouter()
@@ -157,6 +161,8 @@ export const Sidebar = memo(function Sidebar({
                 channel={channel}
                 agentsByID={agentsByID}
                 autoExpanded={index < 4}
+                onRenameSession={onRenameSession}
+                onShareSession={onShareSession}
                 slugAmbiguous={
                   (channelSlugCounts.get(channelRouteSlug(channel)) ?? 0) > 1
                 }

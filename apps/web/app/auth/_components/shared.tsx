@@ -2,6 +2,7 @@
 
 import { Button, Link, Separator, Typography } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import Image from "next/image"
 import NextLink from "next/link"
 import { apiUrl } from "@/lib/api/client"
 
@@ -17,13 +18,17 @@ export function AuthCard({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function PlaceholderLogo() {
+export function AuthLogo() {
   return (
-    <div className="flex h-12 w-12 items-center justify-center">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="8" fill="currentColor" fillOpacity="0.1" />
-        <text x="16" y="22" textAnchor="middle" fill="currentColor" fontSize="16" fontWeight="600">H</text>
-      </svg>
+    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl">
+      <Image
+        src="/hivy-logo.svg"
+        alt="Hivy"
+        width={1254}
+        height={1254}
+        unoptimized
+        className="h-full w-full"
+      />
     </div>
   )
 }

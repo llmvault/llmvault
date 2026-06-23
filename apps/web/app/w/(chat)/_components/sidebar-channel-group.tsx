@@ -48,11 +48,15 @@ export function ChannelGroup({
   channel,
   agentsByID,
   autoExpanded,
+  onRenameSession,
+  onShareSession,
   slugAmbiguous,
 }: {
   channel: SidebarChannelResponse
   agentsByID: Map<string, SidebarAgentResponse>
   autoExpanded: boolean
+  onRenameSession: (sessionId: string, name: string) => void
+  onShareSession: (sessionId: string) => void
   slugAmbiguous: boolean
 }) {
   const { openChannel, openChat } = useWorkspace()
@@ -185,6 +189,12 @@ export function ChannelGroup({
                       agent={sessionAgent}
                       meta={sessionActivityLabel(session)}
                       active={chatActive(id)}
+                      onRename={
+                        id
+                          ? () => onRenameSession(id, sessionDisplayName(session))
+                          : undefined
+                      }
+                      onShare={id ? () => onShareSession(id) : undefined}
                       onSelect={() => {
                         openChat(
                           slug,

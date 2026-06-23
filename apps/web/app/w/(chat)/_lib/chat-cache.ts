@@ -17,6 +17,8 @@ export type SessionResponse = components["schemas"]["sessionResponse"]
 export type SessionEventResponse = components["schemas"]["sessionEventResponse"]
 export type PaginatedChannels =
   components["schemas"]["paginatedResponse-channelResponse"]
+export type SessionDetailResponse =
+  components["schemas"]["sessionDetailResponse"]
 export type PaginatedSessions =
   components["schemas"]["paginatedResponse-sessionResponse"]
 export type PaginatedSessionEvents =
@@ -68,6 +70,7 @@ export function clearPersistedChatQueries() {
 }
 
 export function invalidateSessionListQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ["get", "/v1/channels"] })
   queryClient.invalidateQueries({
     queryKey: ["get", "/v1/channels/{id}/sessions"],
   })
@@ -83,6 +86,32 @@ export function seedSessionDetail(
 ) {
   if (!session.id) return
   queryClient.setQueryData(chatQueryKeys.session(session.id), { session })
+}
+
+export function patchSessionInChatCaches(
+  queryClient: QueryClient,
+  session: SessionResponse
+) {
+  if (!session.id) return
+  queryClient.setQueryData<SessionDetailResponse>(
+    chatQueryKeys.session(session.id),
+    (current) => ({
+      ...current,
+      session: mergeSession(current?.session, session),
+    })
+  )
+  queryClient.setQueriesData<unknown>(
+    { queryKey: ["get", "/v1/channels/{id}/sessions"] },
+    (current: unknown) => patchSessionInfiniteData(current, session)
+  )
+  queryClient.setQueriesData<unknown>(
+    { queryKey: ["get", "/v1/sessions"] },
+    (current: unknown) => patchSessionInfiniteData(current, session)
+  )
+  queryClient.setQueriesData<unknown>(
+    { queryKey: ["get", "/v1/channels"] },
+    (current: unknown) => patchChannelInfiniteData(current, session)
+  )
 }
 
 export function insertSessionIntoChannelCache(
@@ -383,4 +412,78 @@ function payloadRecord(event: SessionEventResponse): Record<string, unknown> {
   return payload && typeof payload === "object" && !Array.isArray(payload)
     ? (payload as Record<string, unknown>)
     : {}
+}
+
+function patchSessionInfiniteData(
+  current: unknown,
+  session: SessionResponse
+): unknown {
+  if (!isInfiniteData<PaginatedSessions>(current)) return current
+  let changed = false
+  const pages = current.pages.map((page) => {
+    const next = patchSessionPage(page, session)
+    changed ||= next !== page
+    return next
+  })
+  return changed ? { ...current, pages } : current
+}
+
+function patchChannelInfiniteData(
+  current: unknown,
+  session: SessionResponse
+): unknown {
+  if (!isInfiniteData<PaginatedChannels>(current)) return current
+  let changed = false
+  const pages = current.pages.map((page) => {
+    const data = page.data
+    if (!data) return page
+    let pageChanged = false
+    const nextData = data.map((channel) => {
+      const recentSessions = patchSessionArray(channel.recent_sessions, session)
+      if (recentSessions === channel.recent_sessions) return channel
+      pageChanged = true
+      return { ...channel, recent_sessions: recentSessions }
+    })
+    if (!pageChanged) return page
+    changed = true
+    return { ...page, data: nextData }
+  })
+  return changed ? { ...current, pages } : current
+}
+
+function patchSessionPage(
+  page: PaginatedSessions,
+  session: SessionResponse
+): PaginatedSessions {
+  const data = patchSessionArray(page.data, session)
+  return data === page.data ? page : { ...page, data }
+}
+
+function patchSessionArray(
+  sessions: SessionResponse[] | undefined,
+  session: SessionResponse
+) {
+  if (!sessions) return sessions
+  let changed = false
+  const next = sessions.map((entry) => {
+    if (entry.id !== session.id) return entry
+    changed = true
+    return mergeSession(entry, session)
+  })
+  return changed ? next : sessions
+}
+
+function mergeSession(
+  current: SessionResponse | undefined,
+  incoming: SessionResponse
+): SessionResponse {
+  return { ...current, ...incoming }
+}
+
+function isInfiniteData<T>(value: unknown): value is InfiniteData<T> {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    Array.isArray((value as InfiniteData<T>).pages)
+  )
 }

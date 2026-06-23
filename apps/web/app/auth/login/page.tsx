@@ -13,9 +13,9 @@ import {
   AuthCard,
   AuthDivider,
   AuthFooter,
+  AuthLogo,
   AuthNavHome,
   OAuthButtons,
-  PlaceholderLogo,
 } from "../_components/shared"
 import { EmailConfirmationForm } from "../_components/email-confirmation-form"
 
@@ -50,7 +50,7 @@ function LoginPageContent() {
 
       <AuthCard>
         <div className="flex flex-col items-center gap-4">
-          <PlaceholderLogo />
+          <AuthLogo />
           <div className="text-center">
             <Typography.Heading level={2} className="text-center">
               {emailToConfirm ? "Confirm your email" : "Sign in to hivy"}
@@ -146,7 +146,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <AuthCard>
-          <PlaceholderLogo />
+          <AuthLogo />
         </AuthCard>
       }
     >

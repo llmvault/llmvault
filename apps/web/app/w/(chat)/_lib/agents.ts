@@ -3,19 +3,10 @@
 // of models it can run on. The agent is fixed for the lifetime of a session;
 // the model can be switched mid-session, but only within the agent's list.
 
-import type { ComponentType } from "react"
-import { ClaudeIcon } from "@/app/w/(chat)/_components/claude"
-import { DeepseekIcon } from "@/app/w/(chat)/_components/deepseek"
-import { GeminiIcon } from "@/app/w/(chat)/_components/gemini"
-import { GrokIcon } from "@/app/w/(chat)/_components/grok"
-import { MoonshotIcon } from "@/app/w/(chat)/_components/moonshot"
-import { QwenIcon } from "@/app/w/(chat)/_components/qwen"
-
 export interface AgentModel {
   id: string
   label: string
   provider: string
-  Icon: ComponentType<{ className?: string }>
 }
 
 export const MODELS: AgentModel[] = [
@@ -23,29 +14,25 @@ export const MODELS: AgentModel[] = [
     id: "claude-opus",
     label: "Claude Opus 4.8",
     provider: "Anthropic",
-    Icon: ClaudeIcon,
   },
   {
     id: "claude-sonnet",
     label: "Claude Sonnet 4.6",
     provider: "Anthropic",
-    Icon: ClaudeIcon,
   },
   {
     id: "gemini-pro",
     label: "Gemini 2.5 Pro",
     provider: "Google",
-    Icon: GeminiIcon,
   },
   {
     id: "deepseek-v3",
     label: "DeepSeek V3.2",
     provider: "DeepSeek",
-    Icon: DeepseekIcon,
   },
-  { id: "grok-4", label: "Grok 4", provider: "xAI", Icon: GrokIcon },
-  { id: "qwen-max", label: "Qwen3 Max", provider: "Alibaba", Icon: QwenIcon },
-  { id: "kimi-k2", label: "Kimi K2", provider: "Moonshot", Icon: MoonshotIcon },
+  { id: "grok-4", label: "Grok 4", provider: "xAI" },
+  { id: "qwen-max", label: "Qwen3 Max", provider: "Qwen" },
+  { id: "kimi-k2", label: "Kimi K2", provider: "MoonshotAI" },
 ]
 
 export function modelById(id: string): AgentModel {

@@ -1,13 +1,20 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
 import { ChatComposer } from "@/app/w/(chat)/_components/chat-composer"
 import type { ChatSession } from "@/app/w/(chat)/_components/shell"
 import { AGENTS } from "@/app/w/(chat)/_lib/agents"
-import { CHAT_QUERY_STALE_TIME_MS } from "@/app/w/(chat)/_lib/chat-cache"
+import {
+  CHAT_QUERY_STALE_TIME_MS,
+  insertSessionIntoChannelCache,
+  invalidateSessionListQueries,
+  seedSessionDetail,
+} from "@/app/w/(chat)/_lib/chat-cache"
+import { watchGeneratedSessionName } from "@/app/w/(chat)/_lib/session-name-updates"
 import {
   agentDisplayName,
   agentModel,
@@ -28,6 +35,7 @@ export function SessionView({
   channelSlug,
   onSessionCreated,
 }: SessionViewProps) {
+  const queryClient = useQueryClient()
   const channelsQuery = $api.useQuery(
     "get",
     "/v1/channels",
@@ -108,12 +116,14 @@ export function SessionView({
         return false
       }
 
-      onSessionCreated(
-        channelRouteSlug(activeChannel),
-        created.id,
-        undefined,
-        { replace: true }
-      )
+      seedSessionDetail(queryClient, created)
+      insertSessionIntoChannelCache(queryClient, created)
+      invalidateSessionListQueries(queryClient)
+      watchGeneratedSessionName(queryClient, created)
+
+      onSessionCreated(channelRouteSlug(activeChannel), created.id, undefined, {
+        replace: true,
+      })
       return true
     } catch (error) {
       toast.danger(extractErrorMessage(error, "Could not create session"))

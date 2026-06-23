@@ -405,6 +405,37 @@ Primary category: Product UI
     ])
   })
 
+  it("keeps active work after the user message that started it", () => {
+    const blocks = sessionEventsToConversationBlocks(
+      [
+        event(
+          "thinking",
+          {
+            text: "",
+            turn_id: "turn-live",
+            client_status: "pending",
+          },
+          "2026-06-15T12:00:00.000Z"
+        ),
+        event(
+          "user.message",
+          { text: "what about this one?" },
+          "2026-06-15T12:00:05.000Z"
+        ),
+      ],
+      { activeTurnID: "turn-live" }
+    )
+
+    expect(blocks).toMatchObject([
+      { type: "user", text: "what about this one?" },
+      {
+        type: "agent_work",
+        active: true,
+        blocks: [{ type: "thinking", label: "Thinking" }],
+      },
+    ])
+  })
+
   it("renders turn errors as the terminal section after work", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("thinking", {

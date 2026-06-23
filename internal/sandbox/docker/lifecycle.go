@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
 
 	"github.com/usehivy/hivy/internal/sandbox"
 )
@@ -24,35 +21,32 @@ func (d *Driver) CreateSandbox(ctx context.Context, opts sandbox.CreateSandboxOp
 		return nil, err
 	}
 
-	exposed, bindings := exposedPorts()
-	hostCfg := &container.HostConfig{
-		NetworkMode:  "bridge",
-		PortBindings: bindings,
-		Privileged:   true,
-		Resources:    resourceLimits(opts.CPU, opts.Memory),
-		StorageOpt:   storageOpt(opts.Disk),
-		ExtraHosts:   []string{"host.docker.internal:host-gateway"},
+	name := containerName(opts.Name)
+	workspaceVolume := workspaceVolumeName(name)
+	if err := d.ensureWorkspaceVolume(ctx, workspaceVolume, opts.Labels); err != nil {
+		return nil, err
 	}
-	cfg := &container.Config{
-		Image:        opts.TemplateRef,
-		Env:          envList(opts.EnvVars),
-		Labels:       d.labels(opts.Labels),
-		ExposedPorts: exposed,
-	}
-
-	created, err := d.cli.ContainerCreate(ctx, cfg, hostCfg, &network.NetworkingConfig{}, nil, containerName(opts.Name))
-	if err != nil && len(hostCfg.StorageOpt) > 0 && isUnsupportedStorageOptError(err) {
-		hostCfg.StorageOpt = nil
-		created, err = d.cli.ContainerCreate(ctx, cfg, hostCfg, &network.NetworkingConfig{}, nil, containerName(opts.Name))
-	}
+	created, err := d.createDockerContainer(ctx, dockerContainerSpec{
+		Name:                name,
+		ImageRef:            opts.TemplateRef,
+		EnvVars:             opts.EnvVars,
+		Labels:              opts.Labels,
+		CPU:                 opts.CPU,
+		Memory:              opts.Memory,
+		Disk:                opts.Disk,
+		WorkspaceVolume:     workspaceVolume,
+		PublishDefaultPorts: true,
+	})
 	if err != nil {
+		_ = d.removeWorkspaceVolume(context.WithoutCancel(ctx), workspaceVolume)
 		return nil, fmt.Errorf("creating docker container: %w", err)
 	}
 	if err := d.cli.ContainerStart(ctx, created.ID, container.StartOptions{}); err != nil {
 		_ = d.cli.ContainerRemove(context.WithoutCancel(ctx), created.ID, container.RemoveOptions{Force: true, RemoveVolumes: true})
+		_ = d.removeWorkspaceVolume(context.WithoutCancel(ctx), workspaceVolume)
 		return nil, fmt.Errorf("starting docker container: %w", err)
 	}
-	return &sandbox.SandboxInfo{ExternalID: created.ID, Status: sandbox.StatusRunning}, nil
+	return &sandbox.SandboxInfo{ExternalID: name, Status: sandbox.StatusRunning}, nil
 }
 
 func isUnsupportedStorageOptError(err error) bool {
@@ -92,9 +86,18 @@ func (d *Driver) ArchiveSandbox(ctx context.Context, externalID string) error {
 }
 
 func (d *Driver) DeleteSandbox(ctx context.Context, externalID string) error {
+	workspaceVolume := ""
+	if info, err := d.cli.ContainerInspect(ctx, externalID); err == nil {
+		workspaceVolume = workspaceVolumeFromInspect(info)
+	}
 	err := d.cli.ContainerRemove(ctx, externalID, container.RemoveOptions{Force: true, RemoveVolumes: true})
 	if cerrdefs.IsNotFound(err) {
 		return sandbox.ErrSandboxNotFound
+	}
+	if err == nil && workspaceVolume != "" {
+		if volumeErr := d.removeWorkspaceVolume(ctx, workspaceVolume); volumeErr != nil {
+			return volumeErr
+		}
 	}
 	return err
 }
@@ -135,15 +138,4 @@ func (d *Driver) ensureImage(ctx context.Context, ref string) error {
 		return fmt.Errorf("reading docker image pull stream %s: %w", ref, err)
 	}
 	return nil
-}
-
-func exposedPorts() (nat.PortSet, nat.PortMap) {
-	ports := nat.PortSet{}
-	bindings := nat.PortMap{}
-	for _, port := range []int{sandbox.RuntimePort, sandbox.AgentSandboxPort, 8080} {
-		key := nat.Port(strconv.Itoa(port) + "/tcp")
-		ports[key] = struct{}{}
-		bindings[key] = []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: ""}}
-	}
-	return ports, bindings
 }

@@ -248,8 +248,9 @@ func (p *agentSandboxUpgradeProvider) GetResourceUsage(context.Context, string) 
 
 type agentSandboxUpgradeInPlaceProvider struct {
 	*agentSandboxUpgradeProvider
-	runtime  *agentSandboxUpgradeRuntime
-	upgraded []agentSandboxUpgradeInPlaceCall
+	runtime          *agentSandboxUpgradeRuntime
+	returnExternalID string
+	upgraded         []agentSandboxUpgradeInPlaceCall
 }
 
 type agentSandboxUpgradeInPlaceCall struct {
@@ -270,5 +271,8 @@ func (p *agentSandboxUpgradeInPlaceProvider) UpgradeSandbox(_ context.Context, e
 		drainPOSTs: drainPOSTs,
 		drainGETs:  drainGETs,
 	})
+	if p.returnExternalID != "" {
+		externalID = p.returnExternalID
+	}
 	return &sandbox.SandboxInfo{ExternalID: externalID, Status: sandbox.StatusRunning}, nil
 }
