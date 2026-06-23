@@ -1,15 +1,20 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import {
-  sessionHistoryPagesToEvents,
   sessionEventsToConversationBlocks,
+  sessionHistoryPagesToEvents,
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history"
 
 let sequence = 0
 
+beforeEach(() => {
+  sequence = 0
+})
+
 function event(
   eventType: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  eventAt = "2026-06-15T12:00:00.000Z"
 ): SessionEventResponse {
   sequence += 1
   return {
@@ -18,11 +23,24 @@ function event(
     event_type: eventType,
     sequence_number: sequence,
     payload,
-    event_at: "2026-06-15T12:00:00.000Z",
+    event_at: eventAt,
   } as SessionEventResponse
 }
 
-describe("sessionEventsToConversationBlocks", () => {
+function tool(
+  id: string,
+  command: string,
+  turnID = "turn-tools"
+): SessionEventResponse {
+  return event("tool_result", {
+    id,
+    tool: "bash",
+    result: { command, output: "ok", exit_code: 0 },
+    turn_id: turnID,
+  })
+}
+
+describe("sessionHistoryPagesToEvents", () => {
   it("merges paginated history without duplicate boundary events", () => {
     const first = event("token", { text: "newest", turn_id: "turn-page" })
     const duplicate = event("thinking", {
@@ -60,7 +78,9 @@ describe("sessionEventsToConversationBlocks", () => {
 
     expect(events).toEqual([persisted])
   })
+})
 
+describe("sessionEventsToConversationBlocks", () => {
   it("keeps visible block keys stable when older history is prepended", () => {
     const current = event("final", {
       text: "Visible answer",
@@ -94,7 +114,7 @@ describe("sessionEventsToConversationBlocks", () => {
     expect(blocks).toEqual([])
   })
 
-  it("renders image attachments from user message metadata without XML tags", () => {
+  it("renders user attachments and removes attachment XML from text", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("user.message", {
         text: `Please use this screenshot
@@ -110,25 +130,25 @@ Primary category: Product UI
             asset_url: "https://api.test/v1/assets/preview?path=x",
             filename: "screen.png",
             content_type: "image/png",
-            rendered_description: "Primary category: Product UI",
           },
         ],
       }),
     ])
 
-    expect(blocks).toHaveLength(1)
-    expect(blocks[0]).toMatchObject({
-      type: "user",
-      text: "Please use this screenshot",
-      attachments: [
-        {
-          id: "asset-1",
-          filename: "screen.png",
-          kind: "image",
-          url: "https://api.test/v1/assets/preview?path=x",
-        },
-      ],
-    })
+    expect(blocks).toMatchObject([
+      {
+        type: "user",
+        text: "Please use this screenshot",
+        attachments: [
+          {
+            id: "asset-1",
+            filename: "screen.png",
+            kind: "image",
+            url: "https://api.test/v1/assets/preview?path=x",
+          },
+        ],
+      },
+    ])
   })
 
   it("renders code comments from user message metadata without requiring text", () => {
@@ -151,745 +171,188 @@ Primary category: Product UI
       }),
     ])
 
-    expect(blocks).toHaveLength(1)
-    expect(blocks[0]).toMatchObject({
-      type: "user",
-      text: "",
-      codeLineComments: [
-        {
-          id: "comment-1",
-          displayPath: "apps/web/lib/diffs-theme.ts",
-          lineNumber: 148,
-          side: "additions",
-          body: "Use the HeroUI token here.",
-        },
-      ],
-    })
-  })
-
-  it("treats command-bearing tool results as shell commands", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        id: "tool-1",
-        tool: "exec_command",
-        result: {
-          command: "pnpm -C apps/web typecheck",
-          output: "ok",
-          exit_code: 0,
-        },
-      }),
-    ])
-
-    expect(blocks).toHaveLength(1)
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Ran pnpm -C apps/web typecheck",
-          detail: {
-            kind: "Shell",
-            command: "pnpm -C apps/web typecheck",
-          },
-        },
-      ],
-    })
-  })
-
-  it("renders web search and fetch tools with parameter-aware labels", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        id: "tool-web-search",
-        tool: "hivy web search",
-        args_summary: JSON.stringify({
-          query: "test search query hivy agent tool",
-        }),
-        result_summary: JSON.stringify({ ok: true }),
-      }),
-      event("tool_result", {
-        id: "tool-web-fetch",
-        tool: "hivy_web_fetch",
-        args_summary: JSON.stringify({
-          url: "https://usehivy.com/docs",
-        }),
-        result_summary: JSON.stringify({ ok: true }),
-      }),
-    ])
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Searched test search query hivy agent tool",
-          detail: {
-            category: "web_search",
-            icon: "logos:chrome",
-            query: "test search query hivy agent tool",
-          },
-        },
-        {
-          type: "tool",
-          label: "Fetched https://usehivy.com/docs",
-          detail: {
-            category: "web_fetch",
-            icon: "logos:chrome",
-            url: "https://usehivy.com/docs",
-          },
-        },
-      ],
-    })
-  })
-
-  it("extracts web search result urls from JSON output", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        id: "tool-web-search-results",
-        tool: "hivy_web_search",
-        args_summary: JSON.stringify({
-          query: "junior.so company",
-        }),
-        result_summary: JSON.stringify({
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify([
-                {
-                  url: "https://junior.so/",
-                  title: "Junior - The AI Employees for Any Role",
-                },
-                {
-                  url: "https://junior.so/press",
-                  title: "Media & Press - Junior",
-                },
-              ]),
-            },
-          ],
-        }),
-      }),
-    ])
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Searched junior.so company",
-          detail: {
-            category: "web_search",
-            searchResults: [
-              {
-                url: "https://junior.so/",
-                title: "Junior - The AI Employees for Any Role",
-              },
-              {
-                url: "https://junior.so/press",
-                title: "Media & Press - Junior",
-              },
-            ],
-          },
-        },
-      ],
-    })
-  })
-
-  it("extracts persisted web search result urls from array summaries", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        id: "tool-web-search-array-results",
-        tool: "hivy_web_search",
-        args_summary: JSON.stringify({
-          query: "Lindy AI funding valuation employees 2026",
-        }),
-        result_summary: JSON.stringify([
-          {
-            url: "https://www.lindy.ai/",
-            title: "Lindy AI",
-          },
-          {
-            url: "https://www.lindy.ai/blog/ai-workforce",
-            title: "AI Workforce",
-          },
-        ]),
-      }),
-    ])
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Searched Lindy AI funding valuation employees 2026",
-          detail: {
-            category: "web_search",
-            icon: "logos:chrome",
-            searchResults: [
-              {
-                url: "https://www.lindy.ai/",
-                title: "Lindy AI",
-              },
-              {
-                url: "https://www.lindy.ai/blog/ai-workforce",
-                title: "AI Workforce",
-              },
-            ],
-          },
-        },
-      ],
-    })
-  })
-
-  it("extracts web search result urls from truncated persisted summaries", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        id: "tool-web-search-truncated-results",
-        tool: "hivy_web_search",
-        args_summary: JSON.stringify({
-          query: "Lindy AI company overview",
-        }),
-        result_summary:
-          '[{"url":"https://www.lindy.ai/","title":"Lindy AI"},{"url":"https://www.lindy.ai/blog/ai-workforce","title":"AI Workforce"},{"url":"https://aitoolscoop.com/ai-agents/lindy-ai/","title":"Lindy AI review"...',
-      }),
-    ])
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Searched Lindy AI company overview",
-          detail: {
-            category: "web_search",
-            icon: "logos:chrome",
-            searchResults: [
-              {
-                url: "https://www.lindy.ai/",
-              },
-              {
-                url: "https://www.lindy.ai/blog/ai-workforce",
-              },
-              {
-                url: "https://aitoolscoop.com/ai-agents/lindy-ai/",
-              },
-            ],
-          },
-        },
-      ],
-    })
-  })
-
-  it("recognizes live web search payloads that use display tool fields", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("tool_call", {
-          id: "tool-live-web-search",
-          tool_name: "Web search",
-          args: { query: "hivy agent ai tools" },
-          turn_id: "turn-live-web",
-        }),
-      ],
-      { mode: "live" }
-    )
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Searching hivy agent ai tools",
-          running: true,
-          detail: {
-            category: "web_search",
-            icon: "logos:chrome",
-            query: "hivy agent ai tools",
-          },
-        },
-      ],
-    })
-  })
-
-  it("keeps web search styling after the completed result merges into a live call", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("tool_call", {
-          id: "tool-live-web-search",
-          tool_name: "Web search",
-          args: { query: "junior.so company" },
-          turn_id: "turn-live-web",
-        }),
-        event("tool_result", {
-          id: "tool-live-web-search",
-          result: {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify([
-                  {
-                    url: "https://tracxn.com/d/companies/coworkerai",
-                    title: "Coworker Ai - 2026 Company Profile",
-                  },
-                  {
-                    url: "https://sourceforge.net/software/product/Coworker.ai/alternatives",
-                    title: "Best Coworker.ai Alternatives",
-                  },
-                ]),
-              },
-            ],
-          },
-          turn_id: "turn-live-web",
-        }),
-      ],
-      { mode: "live" }
-    )
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Searched junior.so company",
-          running: false,
-          detail: {
-            category: "web_search",
-            icon: "logos:chrome",
-            kind: "Web search",
-            query: "junior.so company",
-            searchResults: [
-              {
-                url: "https://tracxn.com/d/companies/coworkerai",
-                title: "Coworker Ai - 2026 Company Profile",
-              },
-              {
-                url: "https://sourceforge.net/software/product/Coworker.ai/alternatives",
-                title: "Best Coworker.ai Alternatives",
-              },
-            ],
-          },
-        },
-      ],
-    })
-  })
-
-  it("hides orphan generic tool results while an active turn continues", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("tool_result", {
-          id: "generic-orphan",
-          result: { content: [{ text: "{}", type: "text" }] },
-          turn_id: "turn-live-web",
-        }),
-        event("tool_call", {
-          id: "tool-live-web-search",
-          tool_name: "Web search",
-          args: { query: 'Artisan AI employee "artisan" slack coworker 2026' },
-          turn_id: "turn-live-web",
-        }),
-      ],
-      { mode: "live" }
-    )
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: 'Searching Artisan AI employee "artisan" slack coworker 2026',
-          detail: {
-            category: "web_search",
-            icon: "logos:chrome",
-          },
-        },
-      ],
-    })
-  })
-
-  it("classifies failed generic web fetch results from error output", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        id: "tool-failed-web-fetch",
-        result: {
-          content: [
-            {
-              type: "text",
-              text: "Error: web fetch failed: reading response body: context deadline exceeded",
-            },
-          ],
-        },
-        turn_id: "turn-failed-fetch",
-      }),
-    ])
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Failed fetching a webpage",
-          running: false,
-          detail: {
-            category: "web_fetch",
-            icon: "logos:chrome",
-            kind: "Web fetch",
-            status: "errored",
-            error:
-              "Error: web fetch failed: reading response body: context deadline exceeded",
-          },
-        },
-      ],
-    })
-  })
-
-  it("unwraps persisted agent_event web fetch payloads", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        agent_event: {
-          id: "tool-agent-event-fetch",
-          kind: "tool_call",
-          tool: "hivy_web_fetch",
-          args: { url: "https://junior.so/" },
-          result: { content: [{ text: "ok", type: "text" }] },
-        },
-        turn_id: "turn-agent-event",
-      }),
-    ])
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Fetched https://junior.so/",
-          detail: {
-            category: "web_fetch",
-            icon: "logos:chrome",
-            url: "https://junior.so/",
-          },
-        },
-      ],
-    })
-  })
-
-  it("renders read, edit, write, and skill tools with focused labels", () => {
-    const diff = [
-      "--- a/handler.rs",
-      "+++ b/handler.rs",
-      "@@ -1,1 +1,1 @@",
-      "-old",
-      "+new",
-      "",
-    ].join("\n")
-
-    const blocks = sessionEventsToConversationBlocks([
-      event("tool_result", {
-        id: "tool-read",
-        tool: "read_file",
-        args_summary: JSON.stringify({ path: "src/handler.rs" }),
-        result_summary: JSON.stringify({
-          path: "/workspace/src/handler.rs",
-          content: "hidden in UI",
-        }),
-      }),
-      event("tool_result", {
-        id: "tool-edit",
-        tool: "edit_file",
-        args_summary: JSON.stringify({ path: "src/handler.rs" }),
-        result_summary: JSON.stringify({
-          path: "/workspace/src/handler.rs",
-          edits_applied: 1,
-          diff,
-        }),
-      }),
-      event("tool_result", {
-        id: "tool-write",
-        tool: "write_file",
-        args_summary: JSON.stringify({ path: "src/new-file.ts" }),
-        result_summary: JSON.stringify({
-          path: "/workspace/src/new-file.ts",
-          bytes_written: 42,
-        }),
-      }),
-      event("tool_result", {
-        id: "tool-skills",
-        tool: "skill_list",
-        result_summary: JSON.stringify({ skills: [] }),
-      }),
-    ])
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Read handler.rs",
-          detail: {
-            category: "file_read",
-            icon: "lucide:file-text",
-            paths: ["src/handler.rs", "/workspace/src/handler.rs"],
-          },
-        },
-        {
-          type: "tool",
-          label: "Edited a file",
-          detail: {
-            category: "file_edit",
-            icon: "lucide:pencil",
-            diff,
-            editsApplied: 1,
-          },
-        },
-        {
-          type: "tool",
-          label: "Wrote a file",
-          detail: {
-            category: "file_write",
-            icon: "lucide:file-plus",
-            bytesWritten: 42,
-          },
-        },
-        {
-          type: "tool",
-          label: "Listed skills",
-          detail: {
-            category: "skill_list",
-            icon: "lucide:sparkles",
-          },
-        },
-      ],
-    })
-  })
-
-  it("renders session search with session-specific labels and icon", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("tool_call", {
-          id: "tool-search-sessions",
-          tool: "Search_sessions",
-          args: { query: "test" },
-          turn_id: "turn-session-search",
-        }),
-        event("tool_result", {
-          id: "tool-search-sessions",
-          tool: "Search_sessions",
-          args_summary: JSON.stringify({ query: "test" }),
-          result_summary: JSON.stringify({ ok: true }),
-          turn_id: "turn-session-search",
-        }),
-      ],
-      { mode: "live" }
-    )
-
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      blocks: [
-        {
-          type: "tool",
-          label: "Searched sessions: test",
-          detail: {
-            category: "session_search",
-            icon: "lucide:messages-square",
-            query: "test",
-          },
-        },
-      ],
-    })
-  })
-
-  it("marks only the trailing live thinking block as active", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("thinking", { text: "first thought", turn_id: "turn-1" }),
-        event("tool_result", {
-          id: "tool-1",
-          tool: "bash",
-          turn_id: "turn-1",
-          result: { command: "pwd", output: "/workspace" },
-        }),
-        event("thinking", { text: "second thought", turn_id: "turn-1" }),
-      ],
-      { mode: "live" }
-    )
-
-    expect(blocks).toHaveLength(1)
-    expect(blocks[0]).toMatchObject({
-      type: "worklog",
-      active: true,
-      defaultExpanded: true,
-    })
-    const worklog = blocks[0]
-    const thoughts =
-      worklog.type === "worklog"
-        ? worklog.blocks.filter((block) => block.type === "thinking")
-        : []
-    expect(thoughts).toMatchObject([
-      { label: "Thought", active: false },
-      { label: "Thinking", active: true },
-    ])
-  })
-
-  it("renders pending optimistic thinking without a worklog before tools", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("thinking", {
+    expect(blocks).toMatchObject([
+      {
+        type: "user",
         text: "",
-        turn_id: "turn-pending",
-        client_status: "pending",
-      }),
-    ])
-
-    expect(blocks).toMatchObject([
-      {
-        type: "thinking",
-        label: "Thinking",
-        active: true,
-        defaultExpanded: true,
-      },
-    ])
-  })
-
-  it("does not leave live thinking active after the stream moves to a tool", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("thinking", { text: "checking", turn_id: "turn-2" }),
-        event("tool_call", {
-          id: "tool-2",
-          tool: "bash",
-          turn_id: "turn-2",
-          args: { command: "make up" },
-        }),
-      ],
-      { mode: "live" }
-    )
-
-    const worklog = blocks[0]
-    const thoughts =
-      worklog.type === "worklog"
-        ? worklog.blocks.filter((block) => block.type === "thinking")
-        : []
-    expect(thoughts).toMatchObject([{ label: "Thought", active: false }])
-  })
-
-  it("renders live assistant tokens directly before tools", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [event("token", { text: "Still working", turn_id: "turn-3" })],
-      { mode: "live" }
-    )
-
-    expect(blocks).toEqual([
-      {
-        type: "assistant",
-        key: expect.any(String),
-        text: "Still working",
-        streaming: true,
-      },
-    ])
-  })
-
-  it("keeps active turn progress inside one worklog until a final signal", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("turn_started", { turn_id: "turn-active" }),
-        event("thinking", {
-          text: "Looking around",
-          turn_id: "turn-active",
-        }),
-        event("token", {
-          text: "Let me inspect the workspace first.",
-          turn_id: "turn-active",
-        }),
-        event("tool_result", {
-          id: "tool-active",
-          tool: "bash",
-          result: { command: "ls", output: "repos" },
-          turn_id: "turn-active",
-        }),
-        event("thinking", {
-          text: "Checking the result",
-          turn_id: "turn-active",
-        }),
-      ],
-      { activeTurnID: "turn-active" }
-    )
-
-    expect(blocks).toMatchObject([
-      {
-        type: "worklog",
-        active: true,
-        defaultExpanded: true,
-        blocks: [
-          { type: "thinking", text: "Looking around" },
+        codeLineComments: [
           {
-            type: "assistant",
-            text: "Let me inspect the workspace first.",
-            streaming: true,
+            id: "comment-1",
+            displayPath: "apps/web/lib/diffs-theme.ts",
+            lineNumber: 148,
+            side: "additions",
+            body: "Use the HeroUI token here.",
           },
-          { type: "tool" },
-          { type: "thinking", text: "Checking the result" },
         ],
       },
     ])
-    expect(blocks.some((block) => block.type === "actions")).toBe(false)
   })
 
-  it("shows actions only after the active turn emits a final answer", () => {
-    const blocks = sessionEventsToConversationBlocks(
-      [
-        event("turn_started", { turn_id: "turn-active-final" }),
-        event("thinking", {
-          text: "Looking around",
-          turn_id: "turn-active-final",
-        }),
-        event("token", {
-          text: "Let me inspect the workspace first.",
-          turn_id: "turn-active-final",
-        }),
-        event("tool_result", {
-          id: "tool-active-final",
-          tool: "bash",
-          result: { command: "ls", output: "repos" },
-          turn_id: "turn-active-final",
-        }),
-        event("final", {
-          text: "The workspace is ready.",
-          turn_id: "turn-active-final",
-        }),
-      ],
-      { activeTurnID: "turn-active-final" }
-    )
+  it("groups pre-final agent activity into a worked block", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event(
+        "turn_started",
+        { turn_id: "turn-flat" },
+        "2026-06-15T12:00:00.000Z"
+      ),
+      event("token", {
+        text: "I will inspect this first.",
+        turn_id: "turn-flat",
+      }),
+      tool("tool-1", "pwd", "turn-flat"),
+      tool("tool-2", "ls", "turn-flat"),
+      tool("tool-3", "rg session", "turn-flat"),
+      event("thinking", {
+        text: "The session UI owns the complexity.",
+        turn_id: "turn-flat",
+      }),
+      tool("tool-4", "sed -n '1,120p' session-history.ts", "turn-flat"),
+      tool("tool-5", "pnpm test session-history", "turn-flat"),
+      event("final", {
+        text: "The transcript is now flat.",
+        turn_id: "turn-flat",
+      }),
+      event(
+        "turn_completed",
+        { turn_id: "turn-flat" },
+        "2026-06-15T12:04:43.000Z"
+      ),
+    ])
 
     expect(blocks).toMatchObject([
       {
-        type: "worklog",
+        type: "agent_work",
+        duration: "4m 43s",
         active: false,
         defaultExpanded: false,
         blocks: [
-          { type: "thinking", text: "Looking around" },
+          { type: "assistant", text: "I will inspect this first." },
           {
-            type: "assistant",
-            text: "Let me inspect the workspace first.",
-            streaming: false,
+            type: "tool_chain",
+            tools: [
+              { type: "tool", label: "Ran pwd" },
+              { type: "tool", label: "Ran ls" },
+              { type: "tool", label: "Ran rg session" },
+            ],
           },
-          { type: "tool" },
+          { type: "thinking", text: "The session UI owns the complexity." },
+          { type: "tool", label: "Ran sed -n '1,120p' session-history.ts" },
+          { type: "tool", label: "Ran pnpm test session-history" },
         ],
       },
-      { type: "assistant", text: "The workspace is ready." },
-      { type: "actions" },
+      { type: "assistant", text: "The transcript is now flat." },
     ])
   })
 
-  it("keeps earlier progress tokens that match final text", () => {
+  it("only groups adjacent tool runs when there are more than two calls", () => {
+    const twoTools = sessionEventsToConversationBlocks([
+      tool("tool-1", "pwd"),
+      tool("tool-2", "ls"),
+    ])
+    const threeTools = sessionEventsToConversationBlocks([
+      tool("tool-1", "pwd"),
+      tool("tool-2", "ls"),
+      tool("tool-3", "rg session"),
+    ])
+
+    expect(twoTools).toMatchObject([
+      {
+        type: "agent_work",
+        blocks: [{ type: "tool" }, { type: "tool" }],
+      },
+    ])
+    expect(threeTools).toMatchObject([
+      {
+        type: "agent_work",
+        blocks: [
+          {
+            type: "tool_chain",
+            tools: [
+              { label: "Ran pwd" },
+              { label: "Ran ls" },
+              { label: "Ran rg session" },
+            ],
+          },
+        ],
+      },
+    ])
+  })
+
+  it("merges a tool call and result before deciding whether to group", () => {
     const blocks = sessionEventsToConversationBlocks([
-      event("turn_started", { turn_id: "turn-repeated-token" }),
+      event("tool_call", {
+        id: "tool-1",
+        tool: "bash",
+        args: { command: "ls" },
+        turn_id: "turn-tools",
+      }),
+      event("tool_result", {
+        id: "tool-1",
+        tool: "bash",
+        result: { command: "ls", output: "README.md", exit_code: 0 },
+        turn_id: "turn-tools",
+      }),
+    ])
+
+    expect(blocks).toMatchObject([
+      {
+        type: "agent_work",
+        blocks: [
+          {
+            type: "tool",
+            label: "Ran ls",
+            running: false,
+            detail: {
+              command: "ls",
+              output: "README.md",
+            },
+          },
+        ],
+      },
+    ])
+  })
+
+  it("uses browser command metadata for bash browser calls", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event("tool_result", {
+        id: "tool-browser",
+        tool: "bash",
+        result: {
+          command: "if ready; then browser screenshot --full /tmp/page.png; fi",
+          output: "/tmp/page.png",
+          exit_code: 0,
+        },
+        turn_id: "turn-browser-tool",
+      }),
+    ])
+
+    expect(blocks).toMatchObject([
+      {
+        type: "agent_work",
+        blocks: [
+          {
+            type: "tool",
+            label: "Took a screenshot",
+            detail: {
+              kind: "Chrome browser",
+              icon: "logos:chrome",
+              actionIcon: "lucide:camera",
+            },
+          },
+        ],
+      },
+    ])
+  })
+
+  it("skips the token immediately duplicated by a final answer", () => {
+    const blocks = sessionEventsToConversationBlocks([
       event("thinking", {
         text: "Checking",
         turn_id: "turn-repeated-token",
       }),
-      event("tool_result", {
-        id: "tool-repeated-token",
-        tool: "bash",
-        result: { command: "true", output: "" },
-        turn_id: "turn-repeated-token",
-      }),
+      tool("tool-1", "true", "turn-repeated-token"),
       event("token", {
-        text: "Done.",
+        text: "Done. ",
         turn_id: "turn-repeated-token",
       }),
       event("token", {
@@ -908,68 +371,66 @@ Primary category: Product UI
 
     expect(blocks).toMatchObject([
       {
-        type: "worklog",
+        type: "agent_work",
         blocks: [
           { type: "thinking", text: "Checking" },
-          { type: "tool" },
-          { type: "assistant", text: "Done." },
-          { type: "assistant", text: "More context." },
+          { type: "tool", label: "Ran true" },
+          { type: "assistant", text: "Done. More context." },
         ],
       },
       { type: "assistant", text: "Done." },
-      { type: "actions" },
     ])
   })
 
-  it("renders standalone thought, not a worklog, for completed turns without tool calls", () => {
+  it("keeps active pre-final work open while the turn is running", () => {
+    const blocks = sessionEventsToConversationBlocks(
+      [event("token", { text: "Still working", turn_id: "turn-live" })],
+      { activeTurnID: "turn-live" }
+    )
+
+    expect(blocks).toMatchObject([
+      {
+        type: "agent_work",
+        key: expect.any(String),
+        active: true,
+        defaultExpanded: true,
+        blocks: [
+          {
+            type: "assistant",
+            text: "Still working",
+            streaming: true,
+          },
+        ],
+      },
+    ])
+  })
+
+  it("renders turn errors as the terminal section after work", () => {
     const blocks = sessionEventsToConversationBlocks([
-      event("turn_started", { turn_id: "turn-no-tools" }),
       event("thinking", {
-        text: "I can answer this directly.",
-        turn_id: "turn-no-tools",
+        text: "Checking",
+        turn_id: "turn-error-after-work",
       }),
-      event("token", {
-        text: "hello",
-        turn_id: "turn-no-tools",
+      tool("tool-1", "false", "turn-error-after-work"),
+      event("error", {
+        message: "The agent turn failed.",
+        turn_id: "turn-error-after-work",
       }),
-      event("final", {
-        text: "hello",
-        turn_id: "turn-no-tools",
-      }),
-      event("turn_completed", { turn_id: "turn-no-tools" }),
     ])
 
-    expect(blocks).toEqual([
+    expect(blocks).toMatchObject([
       {
-        type: "thinking",
-        key: expect.any(String),
-        label: "Thought",
-        duration: undefined,
-        text: "I can answer this directly.",
+        type: "agent_work",
+        active: false,
+        blocks: [
+          { type: "thinking", text: "Checking" },
+          { type: "tool", label: "Ran false" },
+        ],
       },
       {
-        type: "assistant",
-        key: expect.any(String),
-        text: "hello",
-        streaming: false,
+        type: "error",
+        text: "The agent turn failed.",
       },
-      { type: "actions", key: expect.any(String) },
-    ])
-  })
-
-  it("keeps completed-message actions for persisted assistant history", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("final", { text: "Done", turn_id: "turn-4" }),
-    ])
-
-    expect(blocks).toEqual([
-      {
-        type: "assistant",
-        text: "Done",
-        key: expect.any(String),
-        streaming: false,
-      },
-      { type: "actions", key: expect.any(String) },
     ])
   })
 
@@ -987,47 +448,6 @@ Primary category: Product UI
         key: expect.any(String),
         text: "The live session stream failed.",
       },
-    ])
-  })
-
-  it("collapses completed turn work before the final answer", () => {
-    const blocks = sessionEventsToConversationBlocks([
-      event("turn_started", { turn_id: "turn-5" }),
-      event("thinking", { text: "checking", turn_id: "turn-5" }),
-      event("tool_result", {
-        id: "tool-5",
-        tool: "bash",
-        result: { command: "pwd", output: "/workspace" },
-        turn_id: "turn-5",
-      }),
-      event("token", {
-        text: "I found the repo.",
-        turn_id: "turn-5",
-      }),
-      event("token", {
-        text: "The repo is ready.",
-        turn_id: "turn-5",
-      }),
-      event("final", {
-        text: "The repo is ready.",
-        turn_id: "turn-5",
-      }),
-      event("turn_completed", { turn_id: "turn-5" }),
-    ])
-
-    expect(blocks).toMatchObject([
-      {
-        type: "worklog",
-        active: false,
-        defaultExpanded: false,
-        blocks: [
-          { type: "thinking" },
-          { type: "tool" },
-          { type: "assistant", text: "I found the repo." },
-        ],
-      },
-      { type: "assistant", text: "The repo is ready." },
-      { type: "actions" },
     ])
   })
 })

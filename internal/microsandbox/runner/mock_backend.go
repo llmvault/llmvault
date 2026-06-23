@@ -51,6 +51,23 @@ func (m *MockBackend) CreateSandbox(_ context.Context, req CreateSandboxRequest)
 	return resp, nil
 }
 
+func (m *MockBackend) UpgradeSandbox(_ context.Context, sandboxID string, req UpgradeSandboxRequest) (*UpgradeSandboxResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ports := append([]PortBinding(nil), req.PortBindings...)
+	if len(ports) == 0 {
+		if existing := m.sandboxes[sandboxID]; existing != nil {
+			ports = append(ports, existing.Ports...)
+		}
+	}
+	if len(ports) == 0 {
+		return nil, fmt.Errorf("sandbox %s has no existing port bindings", sandboxID)
+	}
+	resp := &CreateSandboxResponse{ID: sandboxID, Ports: ports}
+	m.sandboxes[sandboxID] = resp
+	return &UpgradeSandboxResponse{ID: sandboxID, Status: "running", Ports: ports}, nil
+}
+
 func (m *MockBackend) StartSandbox(context.Context, string) error { return nil }
 func (m *MockBackend) StopSandbox(context.Context, string) error  { return nil }
 func (m *MockBackend) EnsureReady(_ context.Context, sandboxID string, req EnsureReadyRequest) (*EnsureReadyResponse, error) {

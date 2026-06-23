@@ -2,6 +2,7 @@
 
 import { Icon } from "@iconify/react"
 import { useState } from "react"
+import { BashToolBlock } from "@/app/w/(chat)/_components/bash-tool-block"
 import { Collapse } from "@/app/w/(chat)/_components/conversation-collapse"
 import {
   hasExpandableDetail,
@@ -11,6 +12,7 @@ import { ToolDetail } from "@/app/w/(chat)/_components/tool-detail"
 import type {
   ConversationBlock,
   ToolCallDetail,
+  ToolConversationBlock,
 } from "@/app/w/(chat)/_lib/static-data"
 
 export function ToolBlock({
@@ -20,6 +22,10 @@ export function ToolBlock({
 }) {
   const [expanded, setExpanded] = useState(false)
   const expandable = block.detail ? hasExpandableDetail(block.detail) : false
+
+  if (block.detail?.category === "shell") {
+    return <BashToolBlock block={block} />
+  }
 
   if (!block.detail) {
     return (
@@ -67,8 +73,58 @@ export function ToolBlock({
 
       <Collapse open={expanded}>
         {expandable ? (
-          <ToolDetail detail={block.detail} running={block.running} />
+          <div className="max-h-64 overflow-y-auto overscroll-contain rounded-lg">
+            <ToolDetail detail={block.detail} running={block.running} />
+          </div>
         ) : null}
+      </Collapse>
+    </div>
+  )
+}
+
+export function ToolChainBlock({
+  block,
+}: {
+  block: Extract<ConversationBlock, { type: "tool_chain" }>
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const labels = block.tools.map(toolChainItemLabel)
+  const preview = labels.slice(0, 3).join(", ")
+  const overflow = labels.length > 3 ? `, +${labels.length - 3}` : ""
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+        className="focus-visible:outline-warning flex w-full min-w-0 items-center gap-2 text-left text-sm text-muted transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        aria-expanded={expanded}
+      >
+        <Icon icon="lucide:workflow" className="h-4 w-4 shrink-0 text-muted" />
+        <span className={`shrink-0 ${block.running ? "hivy-shimmer" : ""}`}>
+          {block.tools.length} tool calls
+        </span>
+        {preview ? (
+          <span className="min-w-0 flex-1 truncate text-xs text-muted">
+            {preview}
+            {overflow}
+          </span>
+        ) : null}
+        <Icon
+          icon="lucide:chevron-down"
+          className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      <Collapse open={expanded}>
+        <div className="flex max-h-64 flex-col gap-2 overflow-y-auto overscroll-contain border-l border-border pt-1 pl-4">
+          {block.tools.map((tool, index) => (
+            <ToolBlock
+              key={tool.key ?? `${tool.label}:${index}`}
+              block={tool}
+            />
+          ))}
+        </div>
       </Collapse>
     </div>
   )
@@ -84,4 +140,8 @@ function ToolIcon({ detail }: { detail: ToolCallDetail }) {
       }`}
     />
   )
+}
+
+function toolChainItemLabel(tool: ToolConversationBlock) {
+  return tool.label || tool.detail?.kind || tool.detail?.tool
 }

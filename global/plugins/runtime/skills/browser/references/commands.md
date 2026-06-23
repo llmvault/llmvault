@@ -306,7 +306,7 @@ browser auth login <name> --username-selector <s> --password-selector <s> [--sub
 browser auth list                  # List saved auth profiles
 browser auth show <name>           # Show profile metadata, no passwords
 browser auth delete <name>         # Delete a saved profile
-browser plugin add <ref>           # Add a plugin from npm or GitHub
+browser plugin add <ref>           # Add a configured plugin reference
 browser plugin list                # List configured plugins
 browser plugin show <name>         # Show one configured plugin
 browser plugin run <name> <type> --payload <json>
@@ -332,56 +332,6 @@ and protocol request types use their dedicated command paths.
 browser state save auth.json    # Save cookies, storage, auth state
 browser state load auth.json    # Restore saved state
 ```
-
-## MCP Server
-
-```bash
-browser mcp
-browser mcp --tools all
-browser mcp --tools core,network,react
-```
-
-Starts a stdio Model Context Protocol server. MCP clients should configure the
-server command as `browser` with args `["mcp"]`. The server defaults to
-MCP protocol 2025-11-25 and accepts older supported client protocol versions
-during initialization.
-
-The default tools profile is `core`, which keeps MCP context small for everyday
-browser automation. Use `--tools all` for the full typed CLI parity surface, or
-combine profiles with commas, such as `--tools core,network,react`.
-
-Profiles:
-
-- `core` - Default. Navigation, snapshots, interaction, waits, reads, screenshots, JavaScript eval, close, tab basics, and profile discovery
-- `network` - Network routes, request inspection, HAR, headers, credentials, offline
-- `state` - Cookies, storage, auth, saved state, sessions, profiles, skills
-- `debug` - Console/errors, tracing, profiling, recording, clipboard, plugins, doctor, dashboard, install, upgrade, chat, diff, batch, confirm/deny
-- `tabs` - Back/forward/reload, tabs, windows, frames, dialogs
-- `react` - React tree/inspect/renders/suspense, vitals, pushstate
-- `mobile` - Viewport/device/geolocation/media, touch, swipe, mouse, keyboard
-- `all` - Every MCP tool, including the full typed CLI parity surface
-
-Common tools include:
-
-- `agent_browser_tools_profiles`
-- `agent_browser_open`
-- `agent_browser_snapshot`
-- `agent_browser_click`
-- `agent_browser_fill`
-- `agent_browser_type`
-- `agent_browser_press`
-- `agent_browser_wait_for_selector`
-- `agent_browser_screenshot`
-- `agent_browser_get_url`
-- `agent_browser_eval`
-- `agent_browser_close`
-
-Tool calls use the same config files and environment variables as the CLI. Each
-tool accepts typed arguments plus `extraArgs` for advanced CLI flags and exact
-CLI parity. Tool discovery is paginated and includes read-only/open-world
-annotations so modern MCP clients can load the large typed surface
-incrementally. Use the `session` tool argument or `AGENT_BROWSER_SESSION` to
-isolate browser state.
 
 ## Global Options
 
@@ -427,7 +377,7 @@ Requires `--enable react-devtools` at launch for the `react ...` commands.
 `vitals` and `pushstate` are framework-agnostic.
 
 ```bash
-browser open --enable react-devtools <url>    # Launch with React hook installed
+browser open --enable react-devtools <url>    # Launch with React hook enabled
 browser react tree                            # Full component tree
 browser react inspect <fiberId>               # Props, hooks, state, source
 browser react renders start                   # Begin re-render recording

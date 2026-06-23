@@ -7,6 +7,7 @@ import (
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 func TestAgentSandboxUpgradeSkipsRuntimeDrainWhenAlwaysOnSessionsIdle(t *testing.T) {
@@ -41,6 +42,42 @@ func TestAgentSandboxUpgradeDrainsWhenAnyAlwaysOnSessionActive(t *testing.T) {
 
 	harness.runtime.assertDrainCalls(t, 1, 1)
 	assertAgentSandboxUpgradeSucceeded(t, harness.db, upgrade.ID)
+}
+
+func TestAgentSandboxUpgradeInPlacePreservesSandboxIdentityAfterDrain(t *testing.T) {
+	harness := newAgentSandboxUpgradeInPlaceHarness(t)
+	org, agent, channel := seedAgentSandboxUpgradeFixture(t, harness.db, "always_on")
+	oldSandbox := seedAgentSandboxUpgradeSandbox(t, harness, org.ID, agent.ID, "old-runtime")
+	seedAgentSandboxUpgradeSession(t, harness.db, org.ID, channel.ID, agent.ID, oldSandbox.ID, model.SessionAgentTurnActive)
+	upgrade := seedAgentSandboxUpgradeRow(t, harness.db, org.ID, agent.ID, oldSandbox.ID)
+
+	if err := harness.handler.Handle(t.Context(), agentSandboxUpgradeTask(t, upgrade.ID, agent.ID)); err != nil {
+		t.Fatalf("handle upgrade: %v", err)
+	}
+
+	harness.runtime.assertDrainCalls(t, 1, 1)
+	assertAgentSandboxUpgradeSucceeded(t, harness.db, upgrade.ID)
+	assertAgentSandboxUpgradeInPlaceSandbox(t, harness.db, org.ID, agent.ID, oldSandbox)
+	if len(harness.provider.created) != 0 {
+		t.Fatalf("created replacement sandboxes=%d, want 0", len(harness.provider.created))
+	}
+	if len(harness.provider.stopped) != 0 {
+		t.Fatalf("stopped sandboxes=%v, want none", harness.provider.stopped)
+	}
+	if len(harness.upgradeProvider.upgraded) != 1 {
+		t.Fatalf("upgrades=%d want 1", len(harness.upgradeProvider.upgraded))
+	}
+	call := harness.upgradeProvider.upgraded[0]
+	if call.externalID != oldSandbox.ExternalID {
+		t.Fatalf("upgrade external id=%q want %q", call.externalID, oldSandbox.ExternalID)
+	}
+	if call.drainPOSTs != 1 || call.drainGETs != 1 {
+		t.Fatalf("upgrade called before drain completed: post=%d get=%d", call.drainPOSTs, call.drainGETs)
+	}
+	wantImage := sandbox.AgentRuntimeImageRef(harness.handler.orchestrator.Config(), model.SandboxImageDefault)
+	if call.opts.TemplateRef != wantImage {
+		t.Fatalf("upgrade template ref=%q want %q", call.opts.TemplateRef, wantImage)
+	}
 }
 
 func TestAgentSandboxUpgradeContinuesWhenDrainSignalFailsTwice(t *testing.T) {

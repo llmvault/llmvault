@@ -25,6 +25,7 @@ type agentSandboxUpgradeResponse struct {
 	UpgradeID    string     `json:"upgrade_id"`
 	Status       string     `json:"status"`
 	Phase        string     `json:"phase"`
+	UpgradeMode  string     `json:"upgrade_mode"`
 	OldSandboxID *string    `json:"old_sandbox_id,omitempty"`
 	NewSandboxID *string    `json:"new_sandbox_id,omitempty"`
 	ErrorMessage *string    `json:"error_message,omitempty"`
@@ -247,6 +248,7 @@ func toAgentSandboxUpgradeResponse(upgrade *model.AgentSandboxUpgrade) agentSand
 		UpgradeID:    upgrade.ID.String(),
 		Status:       upgrade.Status,
 		Phase:        upgrade.Phase,
+		UpgradeMode:  agentSandboxUpgradeMode(upgrade),
 		ErrorMessage: upgrade.ErrorMessage,
 		CreatedAt:    upgrade.CreatedAt,
 		UpdatedAt:    upgrade.UpdatedAt,
@@ -261,4 +263,11 @@ func toAgentSandboxUpgradeResponse(upgrade *model.AgentSandboxUpgrade) agentSand
 		resp.NewSandboxID = &id
 	}
 	return resp
+}
+
+func agentSandboxUpgradeMode(upgrade *model.AgentSandboxUpgrade) string {
+	if upgrade != nil && upgrade.OldSandboxID != nil && upgrade.NewSandboxID != nil && *upgrade.OldSandboxID == *upgrade.NewSandboxID {
+		return "in_place"
+	}
+	return "replacement"
 }

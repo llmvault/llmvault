@@ -69,6 +69,9 @@ func (h *SessionHandler) applySessionUpdates(w http.ResponseWriter, r *http.Requ
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "status must be active, archived, or ended"})
 			return false
 		}
+		if status == "archived" && !h.requireSessionArchivePermission(w, r, *session, userID) {
+			return false
+		}
 		updates["status"] = status
 		session.Status = status
 		if status == "archived" || status == "ended" {

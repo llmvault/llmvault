@@ -207,6 +207,7 @@ WITH ranked_sessions AS (
     WHERE se.session_id = s.id
   ) AS session_activity ON TRUE
   WHERE s.channel_id IN ?
+    AND s.status <> ?
     AND (
       s.created_by = ?
       OR EXISTS (
@@ -220,7 +221,7 @@ SELECT *
 FROM ranked_sessions
 WHERE recent_rank <= ?
 ORDER BY channel_id ASC, recent_rank ASC`
-	if err := h.db.WithContext(ctx).Raw(query, channelIDs, *userID, *userID, limit+1).Scan(&sessions).Error; err != nil {
+	if err := h.db.WithContext(ctx).Raw(query, channelIDs, "archived", *userID, *userID, limit+1).Scan(&sessions).Error; err != nil {
 		return out
 	}
 

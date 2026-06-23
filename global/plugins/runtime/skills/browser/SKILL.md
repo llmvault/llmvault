@@ -1,7 +1,7 @@
 ---
 name: browser
 description: Use when opening websites, inspecting pages, clicking, filling forms, extracting content, taking screenshots, logging in, testing web apps, or automating browser tasks.
-allowed-tools: Bash(browser:*), Bash(npx browser:*)
+allowed-tools: Bash(browser:*)
 ---
 
 # browser core
@@ -32,9 +32,6 @@ next ref interaction.
 ## Quickstart
 
 ```bash
-# Install once
-npm i -g browser && browser install
-
 # Take a screenshot of a page
 browser open https://example.com
 browser screenshot home.png
@@ -53,29 +50,6 @@ browser screenshot result.png
 
 The browser stays running across commands so these feel like a single
 session. Use `browser close` (or `close --all`) when you're done.
-
-## MCP integration
-
-For tools that support Model Context Protocol servers, start the stdio server:
-
-```bash
-browser mcp
-browser mcp --tools all
-browser mcp --tools core,network,react
-```
-
-Configure the MCP client to launch `browser` with `["mcp"]`. The server
-defaults to MCP protocol 2025-11-25 and accepts older supported client protocol
-versions during initialization. The default tools profile is `core`, which
-keeps MCP context small for everyday browser automation. Use `--tools all` for
-the full typed CLI parity surface, or combine profiles with commas, such as
-`--tools core,network,react`. Profiles are `core`, `network`, `state`, `debug`,
-`tabs`, `react`, `mobile`, and `all`; the `debug` profile includes plugin
-registry and command.run tools. Each tool accepts typed arguments plus
-`extraArgs` for advanced CLI flags and exact CLI parity. Tool discovery is
-paginated and includes read-only/open-world annotations so modern MCP clients
-can load the large typed surface incrementally. Use the tool `session` argument
-or `AGENT_BROWSER_SESSION` to isolate browser sessions.
 
 ## Reading a page
 
@@ -376,23 +350,6 @@ browser dialog accept "text"    # accept with prompt input
 browser dialog dismiss          # cancel
 ```
 
-## Diagnosing install issues
-
-If a command fails unexpectedly (`Unknown command`, `Failed to connect`,
-stale daemons, version mismatches after `upgrade`, missing Chrome, etc.)
-run `doctor` before anything else:
-
-```bash
-browser doctor                     # full diagnosis (env, Chrome, daemons, config, providers, network, launch test)
-browser doctor --offline --quick   # fast, local-only
-browser doctor --fix               # also run destructive repairs (reinstall Chrome, purge old state, ...)
-browser doctor --json              # structured output for programmatic consumption
-```
-
-`doctor` auto-cleans stale socket/pid/version sidecar files on every run.
-Destructive actions require `--fix`. Exit code is `0` if all checks pass
-(warnings OK), `1` if any fail.
-
 ## Troubleshooting
 
 **"Ref not found" / "Element not found: @eN"**
@@ -476,7 +433,7 @@ and [references/authentication.md](references/authentication.md).
 browser ships with first-class React introspection. Works on any
 React app — Next.js, Remix, Vite+React, CRA, TanStack Start, React Native
 Web, etc. The `react …` commands require the React DevTools hook to be
-installed at launch via `--enable react-devtools`:
+enabled at launch via `--enable react-devtools`:
 
 ```bash
 browser open --enable react-devtools http://localhost:3000

@@ -34,6 +34,20 @@ func (s *Server) startSandbox(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "running"})
 }
 
+func (s *Server) upgradeSandbox(w http.ResponseWriter, r *http.Request) {
+	var req UpgradeSandboxRequest
+	if err := httpx.Decode(r, &req); err != nil || req.ImageRef == "" {
+		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	resp, err := s.backend.UpgradeSandbox(r.Context(), chi.URLParam(r, "sandboxID"), req)
+	if err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) stopSandbox(w http.ResponseWriter, r *http.Request) {
 	if err := s.backend.StopSandbox(r.Context(), chi.URLParam(r, "sandboxID")); err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

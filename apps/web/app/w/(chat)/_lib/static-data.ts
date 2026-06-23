@@ -25,62 +25,72 @@ export const currentCollaborator: Collaborator = {
   you: true,
 }
 
-export type ConversationBlock = (
-  | { type: "assistant"; text: string; streaming?: boolean }
-  | {
-      type: "activity"
-      label: string
-      detail?: { prefix: string; file: string; adds: number; dels: number }
-    }
-  | {
-      type: "user"
-      text: string
-      link?: string
-      attachments?: MediaAttachment[]
-      codeLineComments?: CodeLineCommentReference[]
-      author?: Collaborator
-      clientEventID?: string
-      clientStatus?: "pending" | "failed"
-      clientError?: string
-    }
-  | { type: "attachments"; items: MediaAttachment[] }
-  | { type: "system"; text: string }
-  | { type: "error"; text: string }
-  | { type: "queued"; author: Collaborator; text: string }
-  | { type: "worked"; duration: string; steps: string[] }
-  | {
-      type: "worklog"
-      duration?: string
-      startedAt?: number
-      blocks: ConversationBlock[]
-      active?: boolean
-      defaultExpanded?: boolean
-    }
-  | { type: "working"; duration?: string; by?: Collaborator }
-  | {
-      type: "tool"
-      label: string
-      running?: boolean
-      detail?: ToolCallDetail
-    }
-  | {
-      type: "thinking"
-      label?: string
-      duration?: string
-      text?: string
-      active?: boolean
-      defaultExpanded?: boolean
-    }
-  | {
-      type: "edits"
-      count: number
-      adds: number
-      dels: number
-      files: { path: string; adds: number; dels: number }[]
-      moreFiles?: { path: string; adds: number; dels: number }[]
-    }
-  | { type: "actions" }
-) & { key?: string }
+export type ConversationBlock =
+  | AssistantConversationBlock
+  | UserConversationBlock
+  | ErrorConversationBlock
+  | AgentWorkConversationBlock
+  | ThinkingConversationBlock
+  | ToolConversationBlock
+  | ToolChainConversationBlock
+
+export interface AssistantConversationBlock {
+  type: "assistant"
+  key?: string
+  text: string
+  streaming?: boolean
+}
+
+export interface UserConversationBlock {
+  type: "user"
+  key?: string
+  text: string
+  link?: string
+  attachments?: MediaAttachment[]
+  codeLineComments?: CodeLineCommentReference[]
+  author?: Collaborator
+  clientEventID?: string
+  clientStatus?: "pending" | "failed"
+  clientError?: string
+}
+
+export interface ErrorConversationBlock {
+  type: "error"
+  key?: string
+  text: string
+}
+
+export interface AgentWorkConversationBlock {
+  type: "agent_work"
+  key?: string
+  duration?: string
+  blocks: ConversationBlock[]
+  active?: boolean
+  defaultExpanded?: boolean
+}
+
+export interface ThinkingConversationBlock {
+  type: "thinking"
+  key?: string
+  label?: string
+  text?: string
+  active?: boolean
+}
+
+export interface ToolConversationBlock {
+  type: "tool"
+  key?: string
+  label: string
+  running?: boolean
+  detail?: ToolCallDetail
+}
+
+export interface ToolChainConversationBlock {
+  type: "tool_chain"
+  key?: string
+  tools: ToolConversationBlock[]
+  running?: boolean
+}
 
 export interface ToolCallDetail {
   tool?: string
@@ -99,6 +109,7 @@ export interface ToolCallDetail {
     | "tool"
   kind: string
   icon?: string
+  actionIcon?: string
   expandedLabel?: string
   preview?: string
   command?: string

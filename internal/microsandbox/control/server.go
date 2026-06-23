@@ -70,6 +70,7 @@ func (s *Server) Routes() http.Handler {
 		r.Get("/v1/sandboxes", s.listSandboxes)
 		r.Post("/v1/sandboxes", s.createSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}", s.getSandbox)
+		r.Post("/v1/sandboxes/{sandboxID}/upgrade", s.upgradeSandbox)
 		r.Get("/v1/sandboxes/{sandboxID}/route", s.getSandboxRoute)
 		r.Post("/v1/sandboxes/{sandboxID}/ensure-ready", s.ensureSandboxReady)
 		r.Patch("/v1/sandboxes/{sandboxID}/policy", s.updateSandboxPolicy)

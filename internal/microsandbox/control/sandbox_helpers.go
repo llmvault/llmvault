@@ -115,7 +115,7 @@ func runtimeReservationSize(sb model.Sandbox) api.Size {
 
 func runtimeReservationHeld(status string) bool {
 	switch status {
-	case model.SandboxStatusCreating, model.SandboxStatusRunning:
+	case model.SandboxStatusCreating, model.SandboxStatusRunning, model.SandboxStatusUpgrading:
 		return true
 	default:
 		return false
@@ -124,7 +124,7 @@ func runtimeReservationHeld(status string) bool {
 
 func diskReservationHeld(status string) bool {
 	switch status {
-	case model.SandboxStatusCreating, model.SandboxStatusRunning, model.SandboxStatusStopped:
+	case model.SandboxStatusCreating, model.SandboxStatusRunning, model.SandboxStatusStopped, model.SandboxStatusUpgrading:
 		return true
 	default:
 		return false

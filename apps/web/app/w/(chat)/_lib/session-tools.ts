@@ -4,6 +4,7 @@ import type {
   ToolSearchResult,
 } from "@/app/w/(chat)/_lib/static-data"
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
+import { detectBrowserBashCommand } from "@/app/w/(chat)/_lib/browser-bash-commands"
 
 type Payload = Record<string, unknown>
 type ToolCategory = NonNullable<ToolCallDetail["category"]>
@@ -114,6 +115,7 @@ function mergeToolDetails(
     category,
     tool: next.tool && next.tool !== "tool" ? next.tool : current.tool,
     icon: nextIsGeneric ? current.icon : next.icon || current.icon,
+    actionIcon: next.actionIcon || current.actionIcon,
     command: next.command || current.command,
     input: next.input || current.input,
     query: next.query || current.query,
@@ -170,6 +172,14 @@ function toolLabelFromDetail(detail?: ToolCallDetail): string {
   const running = detail.status === "running"
   const target =
     detail.command || detail.query || detail.url || detail.path || detail.input
+  const browserCommand =
+    detail.category === "shell" && detail.command
+      ? detectBrowserBashCommand(detail.command)
+      : undefined
+
+  if (browserCommand) {
+    return running ? browserCommand.runningLabel : browserCommand.label
+  }
 
   switch (detail.category) {
     case "shell":
@@ -259,8 +269,10 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
           : "")
   const durationMs = numberValue(payload, "duration_ms")
   const category = toolCategory(normalizedTool, command, error || output)
-  const kind = toolKind(category, normalizedTool)
-  const icon = toolIcon(category)
+  const browserCommand =
+    category === "shell" ? detectBrowserBashCommand(command) : undefined
+  const kind = browserCommand?.kind ?? toolKind(category, normalizedTool)
+  const icon = browserCommand?.icon ?? toolIcon(category)
   const bytesWritten = summaryNumber(result, "bytes_written")
   const editsApplied = summaryNumber(result, "edits_applied")
   const searchResults = collectSearchResults(result, output)
@@ -278,6 +290,7 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
     category,
     kind,
     icon,
+    actionIcon: browserCommand?.actionIcon,
     expandedLabel: preview
       ? toolLabelFromDetail({
           tool: normalizedTool,

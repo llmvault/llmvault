@@ -107,7 +107,7 @@ func (h *SessionHandler) listSessions(w http.ResponseWriter, r *http.Request, fo
 	userID, _ := currentSessionUserID(r)
 	query := h.db.WithContext(r.Context()).
 		Model(&model.Session{}).
-		Where("org_id = ?", org.ID)
+		Where("org_id = ? AND status <> ?", org.ID, "archived")
 	if forcedChannelID != uuid.Nil {
 		if !h.canListChannelSessions(w, r, org.ID, forcedChannelID, userID) {
 			return

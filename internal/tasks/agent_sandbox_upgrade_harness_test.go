@@ -20,14 +20,31 @@ import (
 )
 
 type agentSandboxUpgradeHarness struct {
-	db       *gorm.DB
-	encKey   *crypto.SymmetricKey
-	runtime  *agentSandboxUpgradeRuntime
-	provider *agentSandboxUpgradeProvider
-	handler  *AgentSandboxUpgradeHandler
+	db              *gorm.DB
+	encKey          *crypto.SymmetricKey
+	runtime         *agentSandboxUpgradeRuntime
+	provider        *agentSandboxUpgradeProvider
+	upgradeProvider *agentSandboxUpgradeInPlaceProvider
+	handler         *AgentSandboxUpgradeHandler
 }
 
 func newAgentSandboxUpgradeHarness(t *testing.T) *agentSandboxUpgradeHarness {
+	t.Helper()
+	provider := &agentSandboxUpgradeProvider{}
+	return newAgentSandboxUpgradeHarnessWithProvider(t, provider, provider)
+}
+
+func newAgentSandboxUpgradeInPlaceHarness(t *testing.T) *agentSandboxUpgradeHarness {
+	t.Helper()
+	base := &agentSandboxUpgradeProvider{}
+	provider := &agentSandboxUpgradeInPlaceProvider{agentSandboxUpgradeProvider: base}
+	h := newAgentSandboxUpgradeHarnessWithProvider(t, provider, base)
+	h.upgradeProvider = provider
+	provider.runtime = h.runtime
+	return h
+}
+
+func newAgentSandboxUpgradeHarnessWithProvider(t *testing.T, provider sandbox.Provider, baseProvider *agentSandboxUpgradeProvider) *agentSandboxUpgradeHarness {
 	t.Helper()
 	db := connectTestDB(t)
 	encKey, err := crypto.NewSymmetricKey("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
@@ -43,7 +60,7 @@ func newAgentSandboxUpgradeHarness(t *testing.T) *agentSandboxUpgradeHarness {
 		MCPBaseURL:               "https://mcp.example.test",
 		JWTSigningKey:            "upgrade-test-signing-key",
 	}
-	provider := &agentSandboxUpgradeProvider{endpoint: runtime.server.URL}
+	baseProvider.endpoint = runtime.server.URL
 	orchestrator := sandbox.NewOrchestrator(db, provider, encKey, cfg)
 	compileDeps := agentruntime.CompileDeps{
 		DB:         db,
@@ -55,7 +72,7 @@ func newAgentSandboxUpgradeHarness(t *testing.T) *agentSandboxUpgradeHarness {
 		db:       db,
 		encKey:   encKey,
 		runtime:  runtime,
-		provider: provider,
+		provider: baseProvider,
 		handler:  NewAgentSandboxUpgradeHandler(db, orchestrator, compileDeps, &enqueue.MockClient{}),
 	}
 }
@@ -145,6 +162,12 @@ func (rt *agentSandboxUpgradeRuntime) assertDrainCalls(t *testing.T, wantPOSTs, 
 	}
 }
 
+func (rt *agentSandboxUpgradeRuntime) drainCounts() (int, int) {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	return rt.drainPOSTs, rt.drainGETs
+}
+
 type agentSandboxUpgradeProvider struct {
 	endpoint string
 	created  []sandbox.CreateSandboxOpts
@@ -221,4 +244,31 @@ func (p *agentSandboxUpgradeProvider) ExecuteCommandWithTimeout(context.Context,
 
 func (p *agentSandboxUpgradeProvider) GetResourceUsage(context.Context, string) (*sandbox.ResourceUsage, error) {
 	return &sandbox.ResourceUsage{}, nil
+}
+
+type agentSandboxUpgradeInPlaceProvider struct {
+	*agentSandboxUpgradeProvider
+	runtime  *agentSandboxUpgradeRuntime
+	upgraded []agentSandboxUpgradeInPlaceCall
+}
+
+type agentSandboxUpgradeInPlaceCall struct {
+	externalID string
+	opts       sandbox.UpgradeSandboxOpts
+	drainPOSTs int
+	drainGETs  int
+}
+
+func (p *agentSandboxUpgradeInPlaceProvider) UpgradeSandbox(_ context.Context, externalID string, opts sandbox.UpgradeSandboxOpts) (*sandbox.SandboxInfo, error) {
+	drainPOSTs, drainGETs := 0, 0
+	if p.runtime != nil {
+		drainPOSTs, drainGETs = p.runtime.drainCounts()
+	}
+	p.upgraded = append(p.upgraded, agentSandboxUpgradeInPlaceCall{
+		externalID: externalID,
+		opts:       opts,
+		drainPOSTs: drainPOSTs,
+		drainGETs:  drainGETs,
+	})
+	return &sandbox.SandboxInfo{ExternalID: externalID, Status: sandbox.StatusRunning}, nil
 }
