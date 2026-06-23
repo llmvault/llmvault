@@ -3,6 +3,7 @@ package agentruntime
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -48,7 +49,7 @@ func TestBuildRuntimeEnvWithProxyTokenIncludesCanvasEnv(t *testing.T) {
 	}
 }
 
-func TestBuildRuntimeEnvWithProxyTokenSkipsCanvasEnvOnProviderError(t *testing.T) {
+func TestBuildRuntimeEnvWithProxyTokenReturnsCanvasProviderError(t *testing.T) {
 	orgID := uuid.New()
 	agent := &model.Agent{ID: uuid.New(), OrgID: &orgID, Model: DefaultAgentModel}
 	token := &ProxyTokenResult{Token: "ptok_test", JTI: "jti"}
@@ -56,16 +57,10 @@ func TestBuildRuntimeEnvWithProxyTokenSkipsCanvasEnvOnProviderError(t *testing.T
 		Cfg:    &config.Config{},
 		Canvas: failingCanvasRuntimeEnvProvider{},
 	}, agent, nil, "runtime-secret", token)
-	if err != nil {
-		t.Fatalf("BuildRuntimeEnvWithProxyToken: %v", err)
+	if err == nil {
+		t.Fatalf("BuildRuntimeEnvWithProxyToken unexpectedly succeeded with env %#v", env)
 	}
-	if env[AgentEnvAgentID] != agent.ID.String() {
-		t.Fatalf("agent id env = %q", env[AgentEnvAgentID])
-	}
-	if env[ProxyAPIKeyEnv] != "ptok_test" {
-		t.Fatalf("proxy api key env = %q", env[ProxyAPIKeyEnv])
-	}
-	if _, ok := env[AgentEnvPenpotCanvasURL]; ok {
-		t.Fatalf("canvas env should be omitted on provider error: %#v", env)
+	if !strings.Contains(err.Error(), "canvas duplicate team") {
+		t.Fatalf("BuildRuntimeEnvWithProxyToken error = %v", err)
 	}
 }
