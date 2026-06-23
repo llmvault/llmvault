@@ -2,6 +2,7 @@ mod apply_patch;
 mod bash;
 mod diff;
 mod edit;
+mod image_generation;
 mod lsp;
 mod mutation_queue;
 mod operations;
@@ -25,6 +26,7 @@ pub use truncate::*;
 pub use apply_patch::ApplyPatchTool;
 pub use bash::BashTool;
 pub use edit::EditTool;
+pub use image_generation::ImageGenerationTool;
 pub use lsp::{LspService, LspTool};
 pub use process_registry::ProcessRegistry;
 pub use read::ReadTool;
@@ -176,6 +178,32 @@ pub fn build_builtin_tools(
                         config.clone(),
                         context.workspace_root.clone(),
                         context.lsp.clone(),
+                    )
+                    .into_tool(),
+                );
+            }
+            ToolSpec::GenerateImage(config) => {
+                tools.push(
+                    ImageGenerationTool::new(
+                        "generate_image",
+                        "Generate or revise raster images and save results to the organization drive.",
+                        "raster",
+                        config.clone(),
+                        context.runtime_env.clone(),
+                        session_id.as_str(),
+                    )
+                    .into_tool(),
+                );
+            }
+            ToolSpec::GenerateVectorImage(config) => {
+                tools.push(
+                    ImageGenerationTool::new(
+                        "generate_vector_image",
+                        "Generate or revise vector images and save results to the organization drive.",
+                        "vector",
+                        config.clone(),
+                        context.runtime_env.clone(),
+                        session_id.as_str(),
                     )
                     .into_tool(),
                 );

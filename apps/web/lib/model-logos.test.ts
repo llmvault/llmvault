@@ -24,39 +24,36 @@ describe("model logos", () => {
     )
 
     for (const logoPath of Object.values(MODEL_LOGOS)) {
-      expect(logoPath).toMatch(/^\/logos\/.+\.(png|svg)$/)
+      expect(logoPath).toMatch(/^\/logos\/.+\.(jpe?g|png|svg|webp)$/)
+      expect(logoPath).not.toContain("/logos/openrouter-")
       expect(existsSync(join(process.cwd(), "public", logoPath))).toBe(true)
     }
   })
 
   it("does not synthesize paths for unknown models", () => {
-    expect(modelLogoURL("deepseek-v4-pro")).toBe(
-      "/logos/openrouter-deepseek.png"
-    )
-    expect(modelLogoURL("qwen3.7-plus")).toBe("/logos/openrouter-qwen.png")
+    expect(modelLogoURL("deepseek-v4-pro")).toBe("/logos/deepseek.png")
+    expect(modelLogoURL("qwen3.7-plus")).toBe("/logos/qwen.png")
     expect(modelLogoURL("unknown-model")).toBeUndefined()
   })
 
   it("uses OpenRouter author logos for routed model owners", () => {
-    expect(modelLogoURL("ling-2.6-1t")).toBe(
-      "/logos/openrouter-inclusionai.png"
-    )
-    expect(modelLogoURL("grok-4.3")).toBe("/logos/openrouter-x-ai.png")
-    expect(modelLogoURL("glm-5.2")).toBe("/logos/openrouter-z-ai.png")
-    expect(modelLogoURL("mistral-small-4")).toBe(
-      "/logos/openrouter-mistralai.png"
-    )
+    expect(modelLogoURL("ling-2.6-1t")).toBe("/logos/inclusionai.png")
+    expect(modelLogoURL("grok-4.3")).toBe("/logos/x-ai.png")
+    expect(modelLogoURL("glm-5.2")).toBe("/logos/z-ai.png")
+    expect(modelLogoURL("mistral-small-4")).toBe("/logos/mistralai.png")
   })
 
   it("resolves provider aliases used by settings and older chat surfaces", () => {
     for (const logoPath of Object.values(PROVIDER_LOGOS)) {
-      expect(logoPath).toMatch(/^\/logos\/.+\.(png|svg)$/)
+      expect(logoPath).toMatch(/^\/logos\/.+\.(jpe?g|png|svg|webp)$/)
+      expect(logoPath).not.toContain("/logos/openrouter-")
       expect(existsSync(join(process.cwd(), "public", logoPath))).toBe(true)
     }
 
-    expect(providerLogoURL("alibaba")).toBe("/logos/openrouter-qwen.png")
-    expect(providerLogoURL("xai")).toBe("/logos/openrouter-x-ai.png")
-    expect(providerLogoURL("zai")).toBe("/logos/openrouter-z-ai.png")
-    expect(modelLogoURL("qwen-max")).toBe("/logos/openrouter-qwen.png")
+    expect(providerLogoURL("alibaba")).toBe("/logos/alibaba.png")
+    expect(providerLogoURL("byte-plus")).toBe("/logos/byteplus.png")
+    expect(providerLogoURL("xai")).toBe("/logos/x-ai.png")
+    expect(providerLogoURL("zai")).toBe("/logos/z-ai.png")
+    expect(modelLogoURL("qwen-max")).toBe("/logos/qwen.png")
   })
 })

@@ -243,8 +243,8 @@ func assertAgentSessionsDockerContainer(t *testing.T, ctx context.Context, label
 	if sb.ProviderID != "docker" {
 		t.Fatalf("%s sandbox provider=%q want docker", label, sb.ProviderID)
 	}
-	if !looksLikeDockerContainerID(sb.ExternalID) {
-		t.Fatalf("%s sandbox external_id does not look like a Docker container id: %q", label, sb.ExternalID)
+	if strings.TrimSpace(sb.ExternalID) == "" {
+		t.Fatalf("%s sandbox external_id is empty", label)
 	}
 
 	inspectCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -258,8 +258,9 @@ func assertAgentSessionsDockerContainer(t *testing.T, ctx context.Context, label
 	if err != nil {
 		t.Fatalf("%s docker inspect failed for sandbox %s external_id=%s: %v", label, sb.ID, sb.ExternalID, err)
 	}
-	if info.ID != sb.ExternalID {
-		t.Fatalf("%s docker inspect id=%s want %s", label, info.ID, sb.ExternalID)
+	trimmedName := strings.TrimPrefix(info.Name, "/")
+	if info.ID != sb.ExternalID && trimmedName != sb.ExternalID {
+		t.Fatalf("%s docker inspect id=%s name=%s want external_id=%s", label, info.ID, trimmedName, sb.ExternalID)
 	}
 	if info.State == nil || !info.State.Running {
 		status := ""

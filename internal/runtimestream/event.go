@@ -170,7 +170,8 @@ func ShardForSession(sessionID string, shardCount int) int {
 	}
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(strings.TrimSpace(sessionID)))
-	return int(h.Sum32() % uint32(shardCount))
+	shards := uint32(shardCount) // #nosec G115 -- shardCount is positive after the guard above.
+	return int(h.Sum32() % shards)
 }
 
 func EventFromStreamValues(values map[string]any) (Event, error) {

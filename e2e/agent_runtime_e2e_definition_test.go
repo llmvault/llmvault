@@ -27,7 +27,6 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 	if modelID == "" {
 		modelID = "deepseek/deepseek-v4-flash"
 	}
-	canonicalModelID := "deepseek-v4-flash"
 	modelProfile := "deepseek"
 	if strings.Contains(modelID, "glm") || strings.Contains(modelID, "z-ai") {
 		modelProfile = "glm"
@@ -40,6 +39,7 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 	} else if strings.Contains(modelID, "qwen") {
 		modelProfile = "qwen"
 	}
+	var canonicalModelID string
 	if idx := strings.LastIndex(modelID, "/"); idx >= 0 && idx+1 < len(modelID) {
 		canonicalModelID = modelID[idx+1:]
 	} else {

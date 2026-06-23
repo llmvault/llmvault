@@ -37,8 +37,6 @@ export function ChatRow({
   onRename?: () => void
   onShare?: () => void
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
-
   return (
     <div
       onMouseEnter={onIntent}
@@ -59,38 +57,66 @@ export function ChatRow({
           <span className="min-w-0 flex-1 truncate">{title}</span>
         </span>
       </button>
-      <SessionRuntimeIndicator sessionId={sessionId} />
-      <span className="flex h-7 w-12 shrink-0 items-center justify-end">
-        {meta ? (
-          <span
-            className={cn(
-              "px-1 text-xs text-muted",
-              menuOpen
-                ? "hidden"
-                : "group-focus-within:hidden group-hover:hidden"
-            )}
-          >
-            {meta}
-          </span>
-        ) : null}
-        <SessionActionsMenu
-          ariaLabel="Chat options"
-          onOpenChange={setMenuOpen}
-          onRename={onRename}
-          onShare={onShare}
-          placement="bottom end"
-          triggerClassName="rounded-md p-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto data-[open=true]:opacity-100 data-[open=true]:pointer-events-auto hover:bg-surface"
-        />
-      </span>
+      <SessionRowAccessory
+        sessionId={sessionId}
+        meta={meta}
+        onRename={onRename}
+        onShare={onShare}
+      />
     </div>
   )
 }
 
-function SessionRuntimeIndicator({ sessionId }: { sessionId?: string }) {
+function SessionRowAccessory({
+  sessionId,
+  meta,
+  onRename,
+  onShare,
+}: {
+  sessionId?: string
+  meta?: string
+  onRename?: () => void
+  onShare?: () => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const status = useSessionRuntimeStatus(sessionId)
-  const indicator = runtimeIndicator(status)
-  if (!indicator) return null
+  const display = sessionRowAccessoryDisplay(status, meta)
 
+  return (
+    <span className="relative flex h-7 w-12 shrink-0 items-center justify-end">
+      <span
+        className={cn(
+          "flex min-w-0 items-center justify-end transition-opacity",
+          menuOpen
+            ? "pointer-events-none opacity-0"
+            : "group-focus-within:pointer-events-none group-focus-within:opacity-0 group-hover:pointer-events-none group-hover:opacity-0"
+        )}
+      >
+        {display.kind === "status" ? (
+          <SessionRuntimeIndicator indicator={display.indicator} />
+        ) : display.kind === "meta" ? (
+          <span className="truncate px-1 text-xs text-muted">
+            {display.meta}
+          </span>
+        ) : null}
+      </span>
+      <SessionActionsMenu
+        ariaLabel="Chat options"
+        onOpenChange={setMenuOpen}
+        onRename={onRename}
+        onShare={onShare}
+        placement="bottom end"
+        triggerClassName="absolute right-0 top-1/2 -translate-y-1/2 rounded-md p-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto data-[open=true]:opacity-100 data-[open=true]:pointer-events-auto hover:bg-surface"
+      />
+    </span>
+  )
+}
+
+function SessionRuntimeIndicator({
+  indicator,
+}: {
+  indicator: RuntimeIndicatorDisplay
+}) {
   return (
     <Tooltip delay={250} closeDelay={0}>
       <Tooltip.Trigger className="flex h-4 w-4 shrink-0 items-center justify-center">
@@ -106,7 +132,29 @@ function SessionRuntimeIndicator({ sessionId }: { sessionId?: string }) {
   )
 }
 
-function runtimeIndicator(status: SessionRuntimeStatus) {
+type RuntimeIndicatorDisplay = {
+  icon: string
+  label: string
+  className: string
+}
+
+type SessionRowAccessoryDisplay =
+  | { kind: "status"; indicator: RuntimeIndicatorDisplay }
+  | { kind: "meta"; meta: string }
+  | { kind: "empty" }
+
+export function sessionRowAccessoryDisplay(
+  status: SessionRuntimeStatus,
+  meta?: string
+): SessionRowAccessoryDisplay {
+  const indicator = runtimeIndicator(status)
+  if (indicator) return { kind: "status", indicator }
+  return meta ? { kind: "meta", meta } : { kind: "empty" }
+}
+
+function runtimeIndicator(
+  status: SessionRuntimeStatus
+): RuntimeIndicatorDisplay | null {
   switch (status) {
     case "queued":
       return {

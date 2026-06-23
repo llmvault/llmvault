@@ -63,8 +63,8 @@ func (h *UploadsHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var orgID *uuid.UUID
-	if assetType == storage.AssetTypeOrgLogo {
-		oid, err := resolveOrgLogoOrg(strPtr(r.FormValue("org_id")), org)
+	if uploadAssetTypeRequiresOrg(assetType) {
+		oid, err := resolveOrgScopedUploadOrg(assetType, strPtr(r.FormValue("org_id")), org)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return

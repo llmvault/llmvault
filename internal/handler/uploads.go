@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"net/http"
 	"strings"
 
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
+	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/storage"
 )
 
@@ -14,6 +16,9 @@ type UploadsHandler struct {
 	presigner           storage.Presigner
 	streamer            storage.Streamer
 	encKey              *crypto.SymmetricKey
+	imageKMS            *crypto.KeyWrapper
+	imageRegistry       *registry.Registry
+	imageHTTPClient     *http.Client
 	agentRuntimeImage   string
 	assetPreviewBaseURL string
 }

@@ -181,6 +181,8 @@ var migratedTables = []string{
 	"agent_catalog",
 	"agent_channels",
 	"audit_log",
+	"brand_assets",
+	"brands",
 	"channel_members",
 	"channels",
 	"connections",
@@ -191,6 +193,7 @@ var migratedTables = []string{
 	"database_connections",
 	"email_verifications",
 	"agent_assets",
+	"agent_memories",
 	"agent_plugin_installs",
 	"agent_sandbox_upgrades",
 	"agent_schedule_runs",
@@ -242,4 +245,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 37
+const latestMigrationVersion = 40

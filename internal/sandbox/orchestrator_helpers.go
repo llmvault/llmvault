@@ -42,23 +42,6 @@ func (o *Orchestrator) providerID() string {
 	return o.provider.ID()
 }
 
-func (o *Orchestrator) runtimeLayout() RuntimeLayout {
-	layout := RuntimeLayout{
-		AgentRepoDir:     "/work/repos",
-		WorkspaceRepoDir: "/workspace/repos",
-	}
-	if o != nil && o.provider != nil {
-		providerLayout := o.provider.RuntimeLayout()
-		if providerLayout.AgentRepoDir != "" {
-			layout.AgentRepoDir = providerLayout.AgentRepoDir
-		}
-		if providerLayout.WorkspaceRepoDir != "" {
-			layout.WorkspaceRepoDir = providerLayout.WorkspaceRepoDir
-		}
-	}
-	return layout
-}
-
 func (o *Orchestrator) ensureSandboxProvider(sb *model.Sandbox) error {
 	if sb == nil {
 		return fmt.Errorf("sandbox is nil")

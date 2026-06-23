@@ -108,6 +108,8 @@ func ReconcileAutoInstalled(ctx context.Context, tx *gorm.DB) error {
 					AND installs.plugin_id = ?
 					AND installs.revoked_at IS NULL
 			)
+			FOR KEY SHARE OF orgs
+			ON CONFLICT DO NOTHING
 		`, plugin.ID, plugin.ID).Error; err != nil {
 			return fmt.Errorf("backfill org auto-install plugin %q: %w", plugin.Slug, err)
 		}
@@ -115,8 +117,10 @@ func ReconcileAutoInstalled(ctx context.Context, tx *gorm.DB) error {
 			INSERT INTO agent_plugin_installs (org_id, agent_id, plugin_id, created_at)
 			SELECT agents.org_id, agents.id, ?, NOW()
 			FROM agents
+			JOIN orgs ON orgs.id = agents.org_id
 			WHERE agents.org_id IS NOT NULL
 				AND agents.status <> ?
+			FOR KEY SHARE OF agents, orgs
 			ON CONFLICT DO NOTHING
 		`, plugin.ID, "archived").Error; err != nil {
 			return fmt.Errorf("backfill agent auto-install plugin %q: %w", plugin.Slug, err)

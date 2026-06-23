@@ -111,6 +111,7 @@ func setupPublicRoutes(
 	r.Post("/incoming/webhooks/{provider}/{connectionID}", incomingWebhookHandler.Handle)
 
 	if uploadsHandler != nil {
+		r.Post("/internal/agents/{agentID}/images/generate", uploadsHandler.GenerateAgentImage)
 		r.Put("/internal/agents/{agentID}/drive/*", uploadsHandler.StreamAgentAsset)
 		r.Post("/internal/agents/{agentID}/drive/move", uploadsHandler.MoveAgentAsset)
 		r.Delete("/internal/agents/{agentID}/drive/*", uploadsHandler.DeleteAgentAsset)

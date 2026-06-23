@@ -27,6 +27,7 @@ type MCPHandler struct {
 	counter        *counter.Counter
 	webTools       mcpserver.WebToolsFunc
 	knowledgeTools mcpserver.KnowledgeToolsFunc
+	memoryTools    mcpserver.MemoryToolsFunc
 	ServerCache    *mcpserver.ServerCache
 }
 
@@ -51,6 +52,11 @@ func (h *MCPHandler) SetWebTools(fn mcpserver.WebToolsFunc) {
 // SetKnowledgeTools sets the callback for registering knowledge-base tools.
 func (h *MCPHandler) SetKnowledgeTools(fn mcpserver.KnowledgeToolsFunc) {
 	h.knowledgeTools = fn
+}
+
+// SetMemoryTools sets the callback for registering agent memory tools.
+func (h *MCPHandler) SetMemoryTools(fn mcpserver.MemoryToolsFunc) {
+	h.memoryTools = fn
 }
 
 // StreamableHTTPHandler returns an HTTP handler for the MCP Streamable HTTP transport.
@@ -83,7 +89,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 			return nil, time.Time{}, err
 		}
 
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools)
 		if err != nil {
 			return nil, time.Time{}, err
 		}

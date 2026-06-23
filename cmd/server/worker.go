@@ -63,6 +63,14 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 
 	preContextCache := precontext.NewRedisCache(deps.Redis)
 	ragDeps := buildRagDeps(ctx, cfg, deps.DB, deps.NangoClient, deps.SpiderClient, deps.KMS, preContextCache)
+	memorySearchService := buildMemorySearchService(cfg, deps.DB, deps.CacheManager)
+	var knowledgeSearcher precontext.KnowledgeSearcher
+	var knowledgeEmbedder precontext.Embedder
+	if ragDeps != nil {
+		knowledgeSearcher = ragDeps.Qdrant
+		knowledgeEmbedder = ragDeps.Embedder
+	}
+	preContextBuilder := buildPreContextService(cfg, deps.DB, preContextCache, memorySearchService, knowledgeSearcher, knowledgeEmbedder, nil)
 	canvasService := canvas.NewService(deps.DB, canvas.NewClient(cfg))
 	agentCompile := agentruntime.CompileDeps{
 		DB:         deps.DB,
@@ -101,19 +109,20 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 				IdempotencyKey: idempotencyKey,
 			})
 		},
-		SkillFetcher:    skills.NewGitFetcher(cfg.GitHubToken),
-		NangoClient:     deps.NangoClient,
-		CacheManager:    deps.CacheManager,
-		Credits:         deps.Credits,
-		Subscriptions:   deps.Subscriptions,
-		Enqueuer:        enqueuer,
-		PreContextCache: preContextCache,
-		OrgAgentSyncer:  orgAgentSyncer,
-		CanvasSyncer:    canvasService,
-		S3Client:        deps.S3Client,
-		AgentCompile:    agentCompile,
-		Rag:             ragDeps,
-		RagScheduler:    ragSched,
+		SkillFetcher:      skills.NewGitFetcher(cfg.GitHubToken),
+		NangoClient:       deps.NangoClient,
+		CacheManager:      deps.CacheManager,
+		Credits:           deps.Credits,
+		Subscriptions:     deps.Subscriptions,
+		Enqueuer:          enqueuer,
+		PreContextCache:   preContextCache,
+		PreContextBuilder: preContextBuilder,
+		OrgAgentSyncer:    orgAgentSyncer,
+		CanvasSyncer:      canvasService,
+		S3Client:          deps.S3Client,
+		AgentCompile:      agentCompile,
+		Rag:               ragDeps,
+		RagScheduler:      ragSched,
 	}
 	if deps.Orchestrator != nil && workerDeps.AgentCompile.EncKey != nil {
 		deps.Orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, proxyToken *agentruntime.ProxyTokenResult) error {

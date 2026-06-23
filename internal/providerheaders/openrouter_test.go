@@ -1,6 +1,7 @@
 package providerheaders
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -28,7 +29,7 @@ func TestIsOpenRouter(t *testing.T) {
 }
 
 func TestApplyOpenRouter(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

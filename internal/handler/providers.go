@@ -142,6 +142,9 @@ func (h *ProviderHandler) AllModels(w http.ResponseWriter, r *http.Request) {
 	out := make([]modelSummary, 0, len(canonical))
 	for _, routed := range canonical {
 		mdl := routed.Model
+		if !registry.ModelSupportsTextOutput(mdl) {
+			continue
+		}
 		out = append(out, modelSummary{
 			ID:               mdl.ID,
 			Name:             mdl.Name,

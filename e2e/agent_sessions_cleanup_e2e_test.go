@@ -13,10 +13,11 @@ func agentSessionsDeleteSandbox(t *testing.T, ctx context.Context, baseURL, toke
 	if sandboxID == "" {
 		return
 	}
-	cleanupBase := context.Background()
-	if ctx != nil {
-		cleanupBase = context.WithoutCancel(ctx)
+	if ctx == nil {
+		t.Logf("cleanup sandbox %s: missing parent context", sandboxID)
+		return
 	}
+	cleanupBase := context.WithoutCancel(ctx)
 	ctx, cancel := context.WithTimeout(cleanupBase, 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, baseURL+"/v1/sandboxes/"+sandboxID, nil)

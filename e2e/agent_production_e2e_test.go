@@ -27,9 +27,7 @@ func TestAgentProductionOpenWeightGauntletE2E(t *testing.T) {
 	}
 
 	for _, modelID := range models {
-		modelID := modelID
 		for run := 1; run <= runs; run++ {
-			run := run
 			t.Run(safeTestName(modelID)+"/run-"+strconv.Itoa(run), func(t *testing.T) {
 				t.Setenv("HIVY_AGENT_RUNTIME_E2E", "1")
 				t.Setenv("HIVY_AGENT_RUNTIME_E2E_MODEL", modelID)

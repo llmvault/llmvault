@@ -76,6 +76,8 @@ type agentResponse struct {
 	SandboxTemplateID *string                `json:"sandbox_template_id,omitempty"`
 	Model             string                 `json:"model"`
 	AvailableModels   []string               `json:"available_models"`
+	ImageModel        string                 `json:"image_model"`
+	VectorImageModel  string                 `json:"vector_image_model"`
 	Tools             model.JSON             `json:"tools"`
 	McpServers        json.RawMessage        `json:"mcp_servers"`
 	Skills            model.JSON             `json:"skills"`
@@ -114,27 +116,29 @@ func toAgentResponse(a model.Agent) agentResponse {
 		mcpServers = json.RawMessage("[]")
 	}
 	resp := agentResponse{
-		ID:              a.ID.String(),
-		Name:            fallbackAgentName(a),
-		Description:     &description,
-		Instructions:    instructions,
-		AvatarURL:       &avatarURL,
-		Icon:            a.Icon,
-		IsDefault:       a.IsDefault,
-		SandboxStrategy: strategy,
-		SandboxImage:    model.NormalizeSandboxImage(a.SandboxImage),
-		SandboxSize:     sandboxSize,
-		Model:           a.Model,
-		AvailableModels: append([]string(nil), a.AvailableModels...),
-		Tools:           nonNilJSON(a.Tools),
-		McpServers:      mcpServers,
-		Skills:          nonNilJSON(a.Skills),
-		Permissions:     nonNilJSON(a.Permissions),
-		SandboxTools:    append([]string(nil), a.SandboxTools...),
-		Status:          a.Status,
-		Resources:       nonNilJSON(a.Resources),
-		CreatedAt:       a.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:       a.UpdatedAt.Format(time.RFC3339),
+		ID:               a.ID.String(),
+		Name:             fallbackAgentName(a),
+		Description:      &description,
+		Instructions:     instructions,
+		AvatarURL:        &avatarURL,
+		Icon:             a.Icon,
+		IsDefault:        a.IsDefault,
+		SandboxStrategy:  strategy,
+		SandboxImage:     model.NormalizeSandboxImage(a.SandboxImage),
+		SandboxSize:      sandboxSize,
+		Model:            a.Model,
+		AvailableModels:  append([]string(nil), a.AvailableModels...),
+		ImageModel:       a.ImageModel,
+		VectorImageModel: a.VectorImageModel,
+		Tools:            nonNilJSON(a.Tools),
+		McpServers:       mcpServers,
+		Skills:           nonNilJSON(a.Skills),
+		Permissions:      nonNilJSON(a.Permissions),
+		SandboxTools:     append([]string(nil), a.SandboxTools...),
+		Status:           a.Status,
+		Resources:        nonNilJSON(a.Resources),
+		CreatedAt:        a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        a.UpdatedAt.Format(time.RFC3339),
 	}
 	if a.SandboxTemplateID != nil {
 		s := a.SandboxTemplateID.String()

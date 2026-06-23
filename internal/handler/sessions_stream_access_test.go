@@ -15,7 +15,7 @@ func TestIntegration_SandboxAccessAllowsVisibleReadOnlySessionAndMintsJWT(t *tes
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 	created := h.createSession(t, fx, fx.owner, "Inspect repo files")
-	runtimeSecret := "runtime-repo-secret"
+	runtimeSecret := "runtime-" + uuid.NewString()
 	encSecret, err := sessionTestEncKey(t).EncryptString(runtimeSecret)
 	if err != nil {
 		t.Fatalf("encrypt runtime secret: %v", err)

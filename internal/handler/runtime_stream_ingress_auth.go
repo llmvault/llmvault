@@ -92,6 +92,8 @@ func (h *RuntimeStreamIngressHandler) verifyRuntimeBearer(ctx context.Context, s
 }
 
 func writeRuntimeIngressJSON(conn *websocket.Conn, value any) error {
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	if err := conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return err
+	}
 	return conn.WriteJSON(value)
 }

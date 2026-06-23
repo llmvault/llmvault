@@ -107,11 +107,17 @@ func (r *Registry) CanonicalModelsForProviders(providerIDs []string) []RoutedMod
 
 	out := make([]RoutedModel, 0, len(byID))
 	for _, rm := range byID {
-		sort.Strings(rm.ProviderIDs)
 		out = append(out, rm)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	sortRoutedModels(out)
 	return out
+}
+
+func sortRoutedModels(models []RoutedModel) {
+	for i := range models {
+		sort.Strings(models[i].ProviderIDs)
+	}
+	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
 }
 
 func (r *Registry) ValidateCanonicalModel(canonicalID string) error {

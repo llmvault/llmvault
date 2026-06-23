@@ -19,6 +19,7 @@ const (
 	AgentEnvCloudControlPlaneURL       = "HIVY_CONTROL_PLANE_URL"
 	AgentEnvRuntimeEventWSURL          = "HIVY_RUNTIME_EVENT_WS_URL"
 	AgentEnvDriveUploadBearer          = "HIVY_DRIVE_UPLOAD_BEARER" // #nosec G101 -- environment variable name, not a credential value.
+	AgentEnvImageGenerationURL         = "HIVY_IMAGE_GENERATION_URL"
 	AgentEnvWorkspaceRoot              = "HIVY_WORKSPACE_ROOT"
 	AgentEnvDBPath                     = "HIVY_DB_PATH"
 	AgentEnvRuntimeBindAddr            = "HIVY_RUNTIME_BIND_ADDR"
@@ -113,6 +114,7 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvCloudControlPlaneURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvRuntimeEventWSURL, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true, Optional: true},
 	{Key: AgentEnvDriveUploadBearer, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
+	{Key: AgentEnvImageGenerationURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvWorkspaceRoot, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvDBPath, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvRuntimeBindAddr, Source: AgentEnvSourceControlPlaneInjected},

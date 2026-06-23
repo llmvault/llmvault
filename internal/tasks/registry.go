@@ -33,6 +33,7 @@ type WorkerDeps struct {
 	Subscriptions     *subscription.Service   // required for renewal worker
 	Enqueuer          enqueue.TaskEnqueuer    // required for enqueuing sub-tasks
 	PreContextCache   precontext.Cache        // nil disables agent pre-context cache invalidation
+	PreContextBuilder precontext.Builder      // nil disables runtime pre-context injection
 	AgentCompile      agentruntime.CompileDeps
 	OrgAgentSyncer    OrgHivyAgentSyncer
 	CanvasSyncer      CanvasOrgSyncer
@@ -103,6 +104,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 		if handler := NewSessionNameHandler(deps.DB, deps.CacheManager); handler != nil {
 			mux.HandleFunc(TypeSessionName, handler.Handle)
 		}
+		mux.HandleFunc(TypeMemoryEmbed, NewMemoryEmbedHandler(deps.DB, deps.CacheManager, memoryEmbeddingConfigFromDeps(deps)).Handle)
 	}
 
 	mux.HandleFunc(TypeCanvasOrgSync, NewCanvasOrgSyncHandler(deps.CanvasSyncer).Handle)
@@ -125,7 +127,8 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 				NewOrgHivyAgentProvisionHandler(deps.OrgAgentSyncer).Handle)
 		}
 		mux.HandleFunc(TypeSessionMessageDeliver,
-			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
+			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).
+				WithPreContextBuilder(deps.PreContextBuilder).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
 		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)

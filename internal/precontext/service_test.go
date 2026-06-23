@@ -9,6 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+
+	"github.com/usehivy/hivy/internal/memory"
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func TestBuildFetchesSourcesInParallel(t *testing.T) {
@@ -121,12 +125,61 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	}
 }
 
+func TestBuildIncludesMemorySource(t *testing.T) {
+	orgID := uuid.New()
+	agentID := uuid.New()
+	userID := uuid.New()
+	service := NewService(Config{
+		Memories: fakeMemorySearcher{turn: memory.TurnMemories{
+			Org: []memory.SearchHit{{
+				Memory: model.AgentMemory{
+					Scope:   model.AgentMemoryScopeOrg,
+					Content: "Organization memory marker: ORG_MEMORY_TEST. The launch codename is Helio.",
+					Tags:    pq.StringArray{"launch"},
+				},
+			}},
+			User: []memory.SearchHit{{
+				Memory: model.AgentMemory{
+					Scope:   model.AgentMemoryScopeUser,
+					Content: "User memory marker: USER_MEMORY_TEST. The preferred escalation word is Prism.",
+					Tags:    pq.StringArray{"escalation"},
+				},
+			}},
+		}},
+	})
+	service.sessions = func(context.Context, Request) (string, error) { return "", nil }
+	service.knowledge = func(context.Context, Request) (string, error) { return "", nil }
+
+	out, err := service.Build(context.Background(), Request{
+		OrgID:   orgID,
+		AgentID: agentID,
+		UserID:  userID.String(),
+		Text:    "What are the launch codename and escalation word?",
+	})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	if len(out) != 1 || !strings.Contains(out[0], "## Relevant memories") ||
+		!strings.Contains(out[0], "ORG_MEMORY_TEST") ||
+		!strings.Contains(out[0], "USER_MEMORY_TEST") {
+		t.Fatalf("memory context missing: %#v", out)
+	}
+}
+
 func TestFormatterEnforcesTotalBudget(t *testing.T) {
 	large := strings.Repeat("x", TotalBudgetBytes*2)
 	out := joinSections([]string{large, large, large}, TotalBudgetBytes)
 	if len(out) > TotalBudgetBytes {
 		t.Fatalf("context exceeded budget: %d > %d", len(out), TotalBudgetBytes)
 	}
+}
+
+type fakeMemorySearcher struct {
+	turn memory.TurnMemories
+}
+
+func (f fakeMemorySearcher) SearchForTurn(context.Context, memory.SearchRequest) (memory.TurnMemories, error) {
+	return f.turn, nil
 }
 
 type fakeCache struct {

@@ -93,7 +93,6 @@ func (p *Projector) Run(ctx context.Context) error {
 		WithFirstError().
 		WithMaxGoroutines(p.store.ShardCount())
 	for shard := range p.store.ShardCount() {
-		shard := shard
 		shards.Go(func(ctx context.Context) error {
 			return p.runShard(ctx, shard)
 		})
@@ -108,13 +107,13 @@ func (p *Projector) Run(ctx context.Context) error {
 func (p *Projector) runShard(ctx context.Context, shard int) error {
 	leaseKey := shardLeaseKey(shard)
 	for ctx.Err() == nil {
-		ok, err := p.store.Redis().SetNX(ctx, leaseKey, p.consumer, p.leaseTTL).Result()
-		if err != nil {
+		res, err := p.store.Redis().SetArgs(ctx, leaseKey, p.consumer, redis.SetArgs{Mode: "NX", TTL: p.leaseTTL}).Result()
+		if err != nil && !errors.Is(err, redis.Nil) {
 			p.logger.ErrorContext(ctx, "runtime stream projector: acquire shard lease", "shard", shard, "error", err)
 			sleepOrDone(ctx, time.Second)
 			continue
 		}
-		if !ok {
+		if res != "OK" {
 			sleepOrDone(ctx, 2*time.Second)
 			continue
 		}

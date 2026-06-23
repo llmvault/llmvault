@@ -105,9 +105,7 @@ export function BillingPlansPage() {
   const [paidReference, setPaidReference] = useState<string | null>(null)
   const [busySlug, setBusySlug] = useState<string | null>(null)
 
-  const subscription = subscriptionQuery.data as
-    | SubscriptionResponse
-    | undefined
+  const subscription = subscriptionQuery.data as SubscriptionResponse | undefined
   const currentPlanSlug =
     subscription?.plan_slug ?? activeOrg?.plan?.slug ?? "free"
 

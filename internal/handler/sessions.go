@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -14,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/registry"
 	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/sandbox"
@@ -28,47 +28,11 @@ type SessionHandler struct {
 	runtimeStreamStore       *runtimestream.Store
 	orchestrator             *sandbox.Orchestrator
 	compileDeps              agentruntime.CompileDeps
+	preContext               precontext.Builder
 	transcriptionKMS         *crypto.KeyWrapper
 	transcriptionReader      storage.Reader
 	transcriptionTranscriber transcription.Transcriber
 	transcriptionRegistry    *registry.Registry
-}
-
-func formatRuntimeTime(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.UTC().Format(time.RFC3339Nano)
-}
-
-func formatRuntimeTimePtr(t *time.Time) *string {
-	if t == nil || t.IsZero() {
-		return nil
-	}
-	formatted := formatRuntimeTime(*t)
-	return &formatted
-}
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func webSessionName(text string) string {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return "New session"
-	}
-	const max = 80
-	if len(text) <= max {
-		return text
-	}
-	return strings.TrimSpace(text[:max])
 }
 
 func NewSessionHandler(db *gorm.DB, enqueuers ...enqueue.TaskEnqueuer) *SessionHandler {
@@ -95,6 +59,11 @@ func (h *SessionHandler) WithRuntimeDelivery(orchestrator *sandbox.Orchestrator,
 	return h
 }
 
+func (h *SessionHandler) WithPreContextBuilder(builder precontext.Builder) *SessionHandler {
+	h.preContext = builder
+	return h
+}
+
 func (h *SessionHandler) WithTranscription(kms *crypto.KeyWrapper, reader storage.Reader, transcriber transcription.Transcriber, reg *registry.Registry) *SessionHandler {
 	h.transcriptionKMS = kms
 	h.transcriptionReader = reader
@@ -107,17 +76,19 @@ func (h *SessionHandler) WithTranscription(kms *crypto.KeyWrapper, reader storag
 }
 
 type createSessionRequest struct {
-	ChannelID       string                         `json:"channel_id"`
-	AgentID         string                         `json:"agent_id,omitempty"`
-	Text            string                         `json:"text,omitempty"`
-	Message         string                         `json:"message,omitempty"`
-	ClientEventID   string                         `json:"client_event_id,omitempty"`
-	Name            string                         `json:"name,omitempty"`
-	Model           string                         `json:"model,omitempty"`
-	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
-	AccessMode      string                         `json:"access_mode,omitempty"`
-	ReasoningEffort string                         `json:"reasoning_effort,omitempty"`
-	Raw             model.JSON                     `json:"raw,omitempty"`
+	ChannelID        string                         `json:"channel_id"`
+	AgentID          string                         `json:"agent_id,omitempty"`
+	Text             string                         `json:"text,omitempty"`
+	Message          string                         `json:"message,omitempty"`
+	ClientEventID    string                         `json:"client_event_id,omitempty"`
+	Name             string                         `json:"name,omitempty"`
+	Model            string                         `json:"model,omitempty"`
+	ModelDefinition  *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
+	ImageModel       string                         `json:"image_model,omitempty"`
+	VectorImageModel string                         `json:"vector_image_model,omitempty"`
+	AccessMode       string                         `json:"access_mode,omitempty"`
+	ReasoningEffort  string                         `json:"reasoning_effort,omitempty"`
+	Raw              model.JSON                     `json:"raw,omitempty"`
 }
 
 type sessionModelDefinitionRequest struct {
@@ -157,10 +128,12 @@ func rawArrayLen(raw model.JSON, key string) int {
 }
 
 type updateSessionRequest struct {
-	Name      *string `json:"name,omitempty"`
-	ChannelID *string `json:"channel_id,omitempty"`
-	AgentID   *string `json:"agent_id,omitempty"`
-	Status    *string `json:"status,omitempty"`
+	Name             *string `json:"name,omitempty"`
+	ChannelID        *string `json:"channel_id,omitempty"`
+	AgentID          *string `json:"agent_id,omitempty"`
+	ImageModel       *string `json:"image_model,omitempty"`
+	VectorImageModel *string `json:"vector_image_model,omitempty"`
+	Status           *string `json:"status,omitempty"`
 }
 
 type sessionMutationResponse struct {
@@ -188,6 +161,8 @@ type sessionResponse struct {
 	SandboxID          *string `json:"sandbox_id,omitempty"`
 	CreatedBy          *string `json:"created_by,omitempty"`
 	Model              string  `json:"model"`
+	ImageModel         string  `json:"image_model"`
+	VectorImageModel   string  `json:"vector_image_model"`
 	AccessMode         string  `json:"access_mode"`
 	ReasoningEffort    string  `json:"reasoning_effort"`
 	Source             string  `json:"source"`
@@ -262,36 +237,4 @@ func currentSessionUserID(r *http.Request) (*uuid.UUID, bool) {
 		return nil, false
 	}
 	return &id, true
-}
-
-func sessionToResponse(session model.Session, participantCount, eventCount int64, lastActivity *time.Time) sessionResponse {
-	last := session.UpdatedAt
-	if lastActivity != nil && !lastActivity.IsZero() {
-		last = *lastActivity
-	}
-	return sessionResponse{
-		ID:                 session.ID.String(),
-		ChannelID:          session.ChannelID.String(),
-		AgentID:            session.AgentID.String(),
-		SandboxID:          formatUUIDPtr(session.SandboxID),
-		CreatedBy:          formatUUIDPtr(session.CreatedBy),
-		Model:              session.Model,
-		AccessMode:         session.AccessMode,
-		ReasoningEffort:    session.ReasoningEffort,
-		Source:             session.Source,
-		SourceResourceKey:  session.SourceResourceKey,
-		Name:               session.Name,
-		Status:             session.Status,
-		AgentTurnStatus:    session.AgentTurnStatus,
-		AgentTurnID:        session.AgentTurnID,
-		AgentStreamID:      session.AgentStreamID,
-		AgentTurnStartedAt: formatRuntimeTimePtr(session.AgentTurnStartedAt),
-		LastTurnOutcome:    session.AgentTurnLastOutcome,
-		ParticipantCount:   participantCount,
-		EventCount:         eventCount,
-		LastActivityAt:     formatRuntimeTime(last),
-		CreatedAt:          formatRuntimeTime(session.CreatedAt),
-		UpdatedAt:          formatRuntimeTime(session.UpdatedAt),
-		EndedAt:            formatRuntimeTimePtr(session.EndedAt),
-	}
 }

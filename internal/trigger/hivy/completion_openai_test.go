@@ -1,6 +1,7 @@
 package hivy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -22,7 +23,7 @@ func (d *captureDoer) Do(req *http.Request) (*http.Response, error) {
 func TestOpenRouterHeaderDoerUsesHivyAppHeaders(t *testing.T) {
 	inner := &captureDoer{}
 	doer := openRouterHeaderDoer{inner: inner}
-	req, err := http.NewRequest(http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
