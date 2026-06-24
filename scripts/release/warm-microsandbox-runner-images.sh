@@ -95,7 +95,7 @@ for runner_url in "${runner_urls[@]}"; do
           env: {},
           labels: {purpose: "release-cache-warm", release: $release},
           preview_ports: [],
-          init: {cmd: "/bin/sh", args: ["-lc", "sleep 300"]}
+          init: {cmd: "/bin/sleep", args: ["300"]}
         }'
     )"
 
