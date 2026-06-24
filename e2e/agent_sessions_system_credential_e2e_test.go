@@ -34,17 +34,6 @@ func agentSessionsEnsureSystemOpenRouterCredential(t *testing.T) {
 	})
 }
 
-func agentSessionsEnsureSystemCrofCredential(t *testing.T) {
-	t.Helper()
-	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
-		env:        "HIVY_SYSTEM_CROF_API_KEY",
-		label:      "E2E System Crof",
-		providerID: "crof",
-		baseURL:    "https://crof.ai/v1",
-		authScheme: "bearer",
-	})
-}
-
 func agentSessionsEnsureSystemCredential(t *testing.T, cfg agentSessionsSystemCredentialConfig) {
 	t.Helper()
 	loadEnv(t)

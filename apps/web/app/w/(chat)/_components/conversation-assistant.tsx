@@ -1,5 +1,10 @@
 import { MarkdownProse } from "@/app/w/(chat)/_components/markdown-prose"
+import { CanvasDesignCards } from "@/app/w/(chat)/_components/conversation-canvas-card"
 import { assetPreviewAttachments } from "@/app/w/(chat)/_lib/asset-preview-links"
+import {
+  canvasDesignTargets,
+  type CanvasDesignTarget,
+} from "@/app/w/(chat)/_lib/canvas-design-links"
 import type {
   ConversationBlock,
   MediaAttachment,
@@ -8,23 +13,32 @@ import type {
 export function AssistantBlock({
   block,
   onOpenAttachment,
+  onOpenCanvasTarget,
 }: {
   block: Extract<ConversationBlock, { type: "assistant" }>
   onOpenAttachment: (attachment: MediaAttachment) => void
+  onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
 }) {
   const previews = assistantPreviewAttachments(block)
+  const canvasTargets = block.streaming ? [] : canvasDesignTargets(block.text)
 
-  if (!previews.length) {
+  if (!previews.length && !canvasTargets.length) {
     return <MarkdownProse text={block.text} streaming={block.streaming} />
   }
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <MarkdownProse text={block.text} streaming={block.streaming} />
-      <AssistantAssetPreviews
-        items={previews}
-        onOpenAttachment={onOpenAttachment}
+      <CanvasDesignCards
+        targets={canvasTargets}
+        onOpen={onOpenCanvasTarget}
       />
+      {previews.length ? (
+        <AssistantAssetPreviews
+          items={previews}
+          onOpenAttachment={onOpenAttachment}
+        />
+      ) : null}
     </div>
   )
 }

@@ -206,10 +206,10 @@ func TestRewriteModel_ReplacesTopLevelModel(t *testing.T) {
 }
 
 func TestRewriteModel_PreservesRawNonModelFields(t *testing.T) {
-	body := `{"model":"crof-deepseek-v4-flash","seed":9007199254740993,"temperature":0.2}`
+	body := `{"model":"glm-5.2","seed":9007199254740993,"temperature":0.2}`
 	req := makePostRequest(body)
 
-	if err := RewriteModel(req, "deepseek-v4-flash"); err != nil {
+	if err := RewriteModel(req, "z-ai/glm-5.2"); err != nil {
 		t.Fatalf("RewriteModel: %v", err)
 	}
 	raw, _ := io.ReadAll(req.Body)
@@ -234,17 +234,17 @@ func TestRewriteModel_LeavesMalformedJSONReadable(t *testing.T) {
 func TestRewriteRoutedModel_RewritesModelPastPeekWindow(t *testing.T) {
 	body := `{"messages":[{"role":"system","content":"` +
 		strings.Repeat("x", maxPeekBytes*2) +
-		`"}],"model":"crof-deepseek-v4-flash","stream":true}`
+		`"}],"model":"glm-5.2","stream":true}`
 	if got := ExtractModel(makePostRequest(body)); got != "" {
 		t.Fatalf("fixture should place model beyond peek window, got %q", got)
 	}
 
 	req := makePostRequest(body)
-	modelName, rewritten, err := RewriteRoutedModel(req, "crof")
+	modelName, rewritten, err := RewriteRoutedModel(req, "openrouter")
 	if err != nil {
 		t.Fatalf("RewriteRoutedModel: %v", err)
 	}
-	if modelName != "crof-deepseek-v4-flash" || !rewritten {
+	if modelName != "glm-5.2" || !rewritten {
 		t.Fatalf("modelName=%q rewritten=%v", modelName, rewritten)
 	}
 
@@ -253,8 +253,8 @@ func TestRewriteRoutedModel_RewritesModelPastPeekWindow(t *testing.T) {
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("decode rewritten body: %v", err)
 	}
-	if payload["model"] != "deepseek-v4-flash" {
-		t.Fatalf("model = %q, want deepseek-v4-flash", payload["model"])
+	if payload["model"] != "z-ai/glm-5.2" {
+		t.Fatalf("model = %q, want z-ai/glm-5.2", payload["model"])
 	}
 	if req.ContentLength != int64(len(raw)) {
 		t.Fatalf("content length = %d, want %d", req.ContentLength, len(raw))

@@ -38,6 +38,7 @@ import {
   imageAttachmentIDs,
   type ImageAttachmentMetadata,
 } from "@/app/w/(chat)/_lib/image-attachments"
+import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import {
   codeLineCommentReferenceToPayload,
   type CodeLineCommentPayload,
@@ -55,6 +56,7 @@ import {
   useSessionRuntimeStore,
   type SessionRuntimeStatus,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
+import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
 
 const ENABLE_DIRECT_SESSION_STREAM = true
 
@@ -67,7 +69,13 @@ export function SessionThreadView({
 }) {
   const queryClient = useQueryClient()
   const liveEvents = useSessionLiveEvents(sessionId)
-  const renderedLiveEvents = ENABLE_DIRECT_SESSION_STREAM ? liveEvents : []
+  const openCanvasTarget = useSessionWorkspaceStore(
+    (state) => state.openCanvasTarget
+  )
+  const renderedLiveEvents = useMemo(
+    () => (ENABLE_DIRECT_SESSION_STREAM ? liveEvents : []),
+    [liveEvents]
+  )
   const runtimeStatus = useSessionRuntimeStatus(sessionId)
   const turnActive = isTurnActive(runtimeStatus)
   const optimisticSession = sessionId?.startsWith("tmp_") ?? false
@@ -283,6 +291,13 @@ export function SessionThreadView({
     })
   }
 
+  const handleOpenCanvasTarget = useCallback(
+    (target: CanvasDesignTarget) => {
+      openCanvasTarget(sessionId ?? "new-chat", target)
+    },
+    [openCanvasTarget, sessionId]
+  )
+
   const isBusy =
     turnActive || hasPendingClientEvent || sendSessionMessage.isPending
   const showHistorySkeleton =
@@ -313,6 +328,7 @@ export function SessionThreadView({
             <Conversation
               blocks={visibleBlocks}
               onRetryMessage={optimisticSession ? undefined : retryMessage}
+              onOpenCanvasTarget={handleOpenCanvasTarget}
             />
           </>
         )}

@@ -16,7 +16,6 @@
     "model": "deepseek-v4-flash",
     "available_models": [
       "deepseek-v4-flash",
-      "crof-deepseek-v4-flash",
       "step-3.7-flash"
     ],
     "multimodal_model": "gemini-3-flash-preview"

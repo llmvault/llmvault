@@ -1,6 +1,7 @@
 "use client"
 
 import { BrowserView } from "@/app/w/(chat)/_components/views/browser"
+import { DesignView } from "@/app/w/(chat)/_components/views/design"
 import {
   FilesView,
   type FilesRepoSelectorProps,
@@ -42,6 +43,8 @@ export function ActiveView({
       return <TerminalView />
     case "browser":
       return <BrowserView sessionId={sessionId} />
+    case "design":
+      return <DesignView sessionId={sessionId} />
     case "files":
       return (
         <FilesView

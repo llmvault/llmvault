@@ -41,36 +41,6 @@ var latestHivyModels = []HivyModel{
 		},
 	},
 	{
-		ID: "crof-deepseek-v4-pro",
-		Routes: []ModelRoute{
-			{ProviderID: "crof", ModelID: "deepseek-v4-pro"},
-		},
-	},
-	{
-		ID: "crof-deepseek-v4-flash",
-		Routes: []ModelRoute{
-			{ProviderID: "crof", ModelID: "deepseek-v4-flash"},
-		},
-	},
-	{
-		ID: "crof-mimo-v2.5-pro",
-		Routes: []ModelRoute{
-			{ProviderID: "crof", ModelID: "mimo-v2.5-pro"},
-		},
-	},
-	{
-		ID: "crof-glm-5.2",
-		Routes: []ModelRoute{
-			{ProviderID: "crof", ModelID: "glm-5.2"},
-		},
-	},
-	{
-		ID: "crof-kimi-k2.7-code",
-		Routes: []ModelRoute{
-			{ProviderID: "crof", ModelID: "kimi-k2.7-code"},
-		},
-	},
-	{
 		ID: "kimi-k2.7-code",
 		Routes: []ModelRoute{
 			{ProviderID: "moonshotai", ModelID: "kimi-k2.7-code"},

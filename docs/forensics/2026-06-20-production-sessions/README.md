@@ -29,7 +29,6 @@ Latest user-visible web sessions:
 | Session | Name | Agent | Result | Primary Issue |
 | --- | --- | --- | --- | --- |
 | `6887bdb9-b683-4f12-85c5-145abaf1f2a2` | `summary-of-pr-191` | Hivy | failed before runtime turn | Old always-on runtime rejected new tool config |
-| `1964aad8-5cfa-4bb7-819c-6db15da7cdfc` | `summary-of-pr-191-hivy` | Hakaree | runtime turn failed | Crof `glm-5.2` route returned provider 404 |
 | `7b3367b3-d81d-431a-b4dc-1c2e1a2af105` | `codebase-locally-latest-commit` | Hakaree | completed, high cost | Large repeated context plus subagent follow-up turn reuse |
 
 The raw third latest session in the DB was `deba8afc-c8a4-57c7-b4ff-4068787cd405`, a runtime-created subagent session linked to `7b3367b3-d81d-431a-b4dc-1c2e1a2af105`, not a user-visible web session.
@@ -42,23 +41,17 @@ Assign these independently:
    - Session: `6887bdb9-b683-4f12-85c5-145abaf1f2a2`
    - Root cause: API pushed `builtin.file_search` to an older `v3.6.0` runtime whose schema did not support it.
 
-2. [Broken Crof GLM Route](./02-broken-crof-glm-route.md)
-   - Session: `1964aad8-5cfa-4bb7-819c-6db15da7cdfc`
-   - Root cause: `crof-glm-5.2` mapped to Crof `glm-5.2`, which returned `HTTP 404: Model Not Known`.
-
-3. [High LLM Spend And Subagent Turn Reuse](./03-llm-spend-subagent-turn-reuse.md)
+2. [High LLM Spend And Subagent Turn Reuse](./03-llm-spend-subagent-turn-reuse.md)
    - Session: `7b3367b3-d81d-431a-b4dc-1c2e1a2af105`
    - Root causes: high-volume real model usage, no hard spend cap, large uncached prompts, and synthetic subagent follow-up work reused a completed `turn_id`.
 
-4. [Sandbox Provisioning Latency](./04-sandbox-provisioning-latency.md)
+3. [Sandbox Provisioning Latency](./04-sandbox-provisioning-latency.md)
    - Sandboxes: `3fokz7r7`, `0fa6dq5f`, `0l3rn8sg`
    - Root cause: first large developer sandbox paid cold Microsandbox/runtime startup; later same-image sandbox was hot. Always-on delay was not provisioning, but config rejection.
 
 ## Cross-Cutting Themes
 
 - Runtime schema compatibility is not enforced before pushing config.
-- Model routes can be selected even when the upstream provider rejects the route.
 - Runtime/billing has no hard per-session or per-turn spend guardrail.
 - Session cost attribution misses linked subagent costs when joining only on canonical `sessions.id`.
 - Sandbox timing telemetry is too coarse to separate VM image startup, port registration, runtime health, config readiness, and repo clone phases.
-

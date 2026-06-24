@@ -75,6 +75,45 @@ describe("session workspace store", () => {
     })
   })
 
+  it("tracks multiple Canvas targets and cached session URLs", () => {
+    const store = useSessionWorkspaceStore.getState()
+    const first = {
+      key: "file-a",
+      fileId: "file-a",
+      sourceUrl: "https://canvas.usehivy.com/#/workspace?file-id=file-a",
+    }
+    const second = {
+      key: "file-b:page-b",
+      fileId: "file-b",
+      pageId: "page-b",
+      sourceUrl:
+        "https://canvas.usehivy.com/#/workspace?file-id=file-b&page-id=page-b",
+    }
+
+    store.openCanvasTarget("session-a", first)
+    store.openCanvasTarget("session-a", second)
+    store.setCanvasSessionURL("session-a", second.key, {
+      url: "https://canvas.usehivy.com/api/hivy/session?token=abc",
+      cachedAt: 1_000,
+      expiresAt: 2_000,
+    })
+
+    const workspace = selectSessionWorkspace(
+      useSessionWorkspaceStore.getState(),
+      "session-a"
+    )
+    expect(workspace.rightPanel).toMatchObject({
+      open: true,
+      openViews: ["design"],
+      activeView: "design",
+    })
+    expect(workspace.canvas.targets).toEqual([first, second])
+    expect(workspace.canvas.activeTargetKey).toBe(second.key)
+    expect(workspace.canvas.sessionURLs[second.key]?.url).toContain(
+      "/api/hivy/session"
+    )
+  })
+
   it("persists pending line comments in the session workspace", () => {
     useSessionWorkspaceStore.getState().addLineComment("session-a", {
       id: "comment-1",
