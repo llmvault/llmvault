@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-manifest="${1:?usage: warm-microsandbox-runner-images.sh <release-manifest.json>}"
+manifest="${1:?usage: warm-microsandbox-runner-images.sh <release-manifest.json> <runner-url>...}"
+shift
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-runner_urls_input="${HIVY_MICROSANDBOX_RUNNER_URLS:-}"
-
-if [[ -z "${runner_urls_input//[[:space:]]/}" ]]; then
-  echo "HIVY_MICROSANDBOX_RUNNER_URLS is empty; skipping runner image cache warm-up"
-  exit 0
-fi
 
 command -v curl >/dev/null || {
   echo "curl is required" >&2
@@ -35,21 +30,10 @@ images=(
   "${developers_repo}:${runtime_tag}"
 )
 
-runner_urls=()
-if jq -e 'type == "array"' >/dev/null 2>&1 <<<"${runner_urls_input}"; then
-  json_runner_urls="$(jq -r '.[]' <<<"${runner_urls_input}")"
-  while IFS= read -r runner_url; do
-    if [[ -n "${runner_url}" ]]; then
-      runner_urls+=("${runner_url}")
-    fi
-  done <<<"${json_runner_urls}"
-else
-  normalized_urls="$(printf '%s' "${runner_urls_input}" | tr ',\n' '  ')"
-  read -r -a runner_urls <<<"${normalized_urls}"
-fi
+runner_urls=("$@")
 
 if [[ "${#runner_urls[@]}" -eq 0 ]]; then
-  echo "HIVY_MICROSANDBOX_RUNNER_URLS did not contain any runner URLs; skipping runner image cache warm-up"
+  echo "no runner URLs provided; skipping runner image cache warm-up"
   exit 0
 fi
 
