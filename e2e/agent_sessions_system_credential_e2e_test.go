@@ -34,6 +34,17 @@ func agentSessionsEnsureSystemOpenRouterCredential(t *testing.T) {
 	})
 }
 
+func agentSessionsEnsureSystemElevenLabsCredential(t *testing.T) {
+	t.Helper()
+	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
+		env:        "HIVY_SYSTEM_ELEVENLABS_API_KEY",
+		label:      "E2E System ElevenLabs",
+		providerID: "elevenlabs",
+		baseURL:    "https://api.elevenlabs.io",
+		authScheme: "xi-api-key",
+	})
+}
+
 func agentSessionsEnsureSystemCredential(t *testing.T, cfg agentSessionsSystemCredentialConfig) {
 	t.Helper()
 	loadEnv(t)
