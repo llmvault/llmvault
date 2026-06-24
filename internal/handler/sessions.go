@@ -82,12 +82,10 @@ type createSessionRequest struct {
 	Message          string                         `json:"message,omitempty"`
 	ClientEventID    string                         `json:"client_event_id,omitempty"`
 	Name             string                         `json:"name,omitempty"`
-	Model            string                         `json:"model,omitempty"`
 	ModelDefinition  *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
 	ImageModel       string                         `json:"image_model,omitempty"`
 	VectorImageModel string                         `json:"vector_image_model,omitempty"`
 	AccessMode       string                         `json:"access_mode,omitempty"`
-	ReasoningEffort  string                         `json:"reasoning_effort,omitempty"`
 	Raw              model.JSON                     `json:"raw,omitempty"`
 }
 

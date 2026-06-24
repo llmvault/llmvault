@@ -15,13 +15,43 @@ import (
 
 const agentSessionsSystemCredentialSeedLockKey int64 = 2026061702
 
+type agentSessionsSystemCredentialConfig struct {
+	env        string
+	label      string
+	providerID string
+	baseURL    string
+	authScheme string
+}
+
 func agentSessionsEnsureSystemOpenRouterCredential(t *testing.T) {
+	t.Helper()
+	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
+		env:        "HIVY_SYSTEM_OPENROUTER_API_KEY",
+		label:      "E2E System OpenRouter",
+		providerID: "openrouter",
+		baseURL:    "https://openrouter.ai/api/v1",
+		authScheme: "bearer",
+	})
+}
+
+func agentSessionsEnsureSystemCrofCredential(t *testing.T) {
+	t.Helper()
+	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
+		env:        "HIVY_SYSTEM_CROF_API_KEY",
+		label:      "E2E System Crof",
+		providerID: "crof",
+		baseURL:    "https://crof.ai/v1",
+		authScheme: "bearer",
+	})
+}
+
+func agentSessionsEnsureSystemCredential(t *testing.T, cfg agentSessionsSystemCredentialConfig) {
 	t.Helper()
 	loadEnv(t)
 
-	apiKey := strings.TrimSpace(os.Getenv("HIVY_SYSTEM_OPENROUTER_API_KEY"))
+	apiKey := strings.TrimSpace(os.Getenv(cfg.env))
 	if apiKey == "" {
-		t.Fatalf("HIVY_SYSTEM_OPENROUTER_API_KEY is required for %s", t.Name())
+		t.Fatalf("%s is required for %s", cfg.env, t.Name())
 	}
 	kmsType := strings.TrimSpace(os.Getenv("HIVY_KMS_TYPE"))
 	if kmsType == "" {
@@ -46,25 +76,25 @@ func agentSessionsEnsureSystemOpenRouterCredential(t *testing.T) {
 		}
 		var existing int64
 		if err := tx.Model(&model.Credential{}).
-			Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", "openrouter").
+			Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", cfg.providerID).
 			Count(&existing).Error; err != nil {
 			return err
 		}
 		if existing > 0 {
 			return nil
 		}
-		cred, err := agentSessionsBuildSystemOpenRouterCredential(t, kms, apiKey)
+		cred, err := agentSessionsBuildSystemCredential(t, kms, cfg, apiKey)
 		if err != nil {
 			return err
 		}
 		return tx.Create(&cred).Error
 	})
 	if err != nil {
-		t.Fatalf("seed E2E system OpenRouter credential: %v", err)
+		t.Fatalf("seed E2E system %s credential: %v", cfg.providerID, err)
 	}
 }
 
-func agentSessionsBuildSystemOpenRouterCredential(t *testing.T, kms *crypto.KeyWrapper, apiKey string) (model.Credential, error) {
+func agentSessionsBuildSystemCredential(t *testing.T, kms *crypto.KeyWrapper, cfg agentSessionsSystemCredentialConfig, apiKey string) (model.Credential, error) {
 	t.Helper()
 	dek, err := crypto.GenerateDEK()
 	if err != nil {
@@ -82,15 +112,15 @@ func agentSessionsBuildSystemOpenRouterCredential(t *testing.T, kms *crypto.KeyW
 	}
 	return model.Credential{
 		ID:           uuid.New(),
-		Label:        "E2E System OpenRouter",
-		BaseURL:      "https://openrouter.ai/api/v1",
-		AuthScheme:   "bearer",
-		ProviderID:   "openrouter",
+		Label:        cfg.label,
+		BaseURL:      cfg.baseURL,
+		AuthScheme:   cfg.authScheme,
+		ProviderID:   cfg.providerID,
 		EncryptedKey: encryptedKey,
 		WrappedDEK:   wrappedDEK,
 		Meta: model.JSON{
 			"source": "e2e",
-			"env":    "HIVY_SYSTEM_OPENROUTER_API_KEY",
+			"env":    cfg.env,
 		},
 		CreatedAt: time.Now(),
 	}, nil

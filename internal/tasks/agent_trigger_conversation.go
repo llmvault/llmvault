@@ -11,11 +11,17 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Context, agent *model.Agent, sb *model.Sandbox, triggerID uuid.UUID, resourceKey string) (*model.Session, error) {
+const triggerSystemChannelName = "system"
+
+func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Context, agent *model.Agent, sb *model.Sandbox, trigger model.AgentTrigger, resourceKey string) (*model.Session, error) {
+	channelID, err := h.resolveTriggerChannel(ctx, agent, trigger.ChannelID)
+	if err != nil {
+		return nil, err
+	}
 	var session model.Session
-	err := h.db.WithContext(ctx).
-		Where("org_id = ? AND agent_id = ? AND source = ? AND source_resource_key = ? AND status = ?",
-			*agent.OrgID, agent.ID, triggerConversationSource, resourceKey, "active").
+	err = h.db.WithContext(ctx).
+		Where("org_id = ? AND agent_id = ? AND channel_id = ? AND source = ? AND source_resource_key = ? AND status = ?",
+			*agent.OrgID, agent.ID, channelID, triggerConversationSource, resourceKey, "active").
 		First(&session).Error
 	if err == nil {
 		return &session, nil
@@ -24,18 +30,14 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 		return nil, fmt.Errorf("load trigger session: %w", err)
 	}
 
-	channelID, err := h.ensureTriggerChannel(ctx, agent)
-	if err != nil {
-		return nil, err
-	}
 	session = model.Session{
-		ID:                stableTriggerSessionID(triggerID, resourceKey),
+		ID:                stableTriggerSessionID(trigger.ID, channelID, resourceKey),
 		OrgID:             *agent.OrgID,
 		ChannelID:         channelID,
 		AgentID:           agent.ID,
 		SandboxID:         &sb.ID,
 		Source:            triggerConversationSource,
-		SourceID:          &triggerID,
+		SourceID:          &trigger.ID,
 		SourceResourceKey: resourceKey,
 		Status:            "active",
 		Name:              "Trigger: " + resourceKey,
@@ -47,31 +49,43 @@ func (h *AgentTriggerDispatchHandler) findOrCreateTriggerSession(ctx context.Con
 	return &session, nil
 }
 
-func (h *AgentTriggerDispatchHandler) ensureTriggerChannel(ctx context.Context, agent *model.Agent) (uuid.UUID, error) {
-	name := "triggers-" + shortTaskUUID(agent.ID)
-	channel := model.Channel{}
-	scope := model.Channel{OrgID: *agent.OrgID, Origin: "native", Name: name}
-	attrs := model.Channel{
-		Description:      "Trigger-originated agent activity",
-		Kind:             "system",
-		Visibility:       "private",
-		DefaultAgentID:   agent.ID,
-		ExternalMetadata: model.JSON{"source": triggerConversationSource},
+func (h *AgentTriggerDispatchHandler) resolveTriggerChannel(ctx context.Context, agent *model.Agent, configured *uuid.UUID) (uuid.UUID, error) {
+	if configured == nil || *configured == uuid.Nil {
+		return h.ensureTriggerSystemChannel(ctx, agent)
 	}
-	if err := h.db.WithContext(ctx).Where(&scope).Attrs(attrs).FirstOrCreate(&channel).Error; err != nil {
-		return uuid.Nil, fmt.Errorf("ensure trigger channel: %w", err)
+	var channel model.Channel
+	err := h.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", *configured, *agent.OrgID).
+		First(&channel).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return uuid.Nil, fmt.Errorf("trigger channel not found")
+	}
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("load trigger channel: %w", err)
 	}
 	return channel.ID, nil
 }
 
-func stableTriggerSessionID(triggerID uuid.UUID, resourceKey string) uuid.UUID {
-	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("hivy:trigger-session:"+triggerID.String()+":"+resourceKey))
+func (h *AgentTriggerDispatchHandler) ensureTriggerSystemChannel(ctx context.Context, agent *model.Agent) (uuid.UUID, error) {
+	scope := model.Channel{OrgID: *agent.OrgID, Origin: "native", Name: triggerSystemChannelName}
+	attrs := model.Channel{
+		Description:      "System-managed jobs",
+		Kind:             "system",
+		Visibility:       "private",
+		DefaultAgentID:   agent.ID,
+		ExternalMetadata: model.JSON{"source": "system"},
+	}
+	var channel model.Channel
+	if err := h.db.WithContext(ctx).
+		Where(&scope).
+		Where("archived_at IS NULL").
+		Attrs(attrs).
+		FirstOrCreate(&channel).Error; err != nil {
+		return uuid.Nil, fmt.Errorf("ensure trigger system channel: %w", err)
+	}
+	return channel.ID, nil
 }
 
-func shortTaskUUID(id uuid.UUID) string {
-	value := id.String()
-	if len(value) < 8 {
-		return value
-	}
-	return value[:8]
+func stableTriggerSessionID(triggerID, channelID uuid.UUID, resourceKey string) uuid.UUID {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("hivy:trigger-session:"+triggerID.String()+":"+channelID.String()+":"+resourceKey))
 }

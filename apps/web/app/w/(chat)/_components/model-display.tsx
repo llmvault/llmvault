@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Icon } from "@iconify/react"
 import { modelById } from "@/app/w/(chat)/_lib/agents"
+import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
 import { modelLogoURL } from "@/lib/model-logos"
 import { cn } from "@/lib/utils"
 
@@ -10,7 +11,13 @@ export type DisplayModel = {
   provider: string
 }
 
-export function displayModel(id: string): DisplayModel {
+export function displayModel(
+  id: string,
+  summaries?: ModelSummary[] | Map<string, ModelSummary>
+): DisplayModel {
+  const summary = modelSummaryForId(id, summaries)
+  if (summary) return displayModelSummary(id, summary)
+
   try {
     return modelById(id)
   } catch {
@@ -22,9 +29,38 @@ export function displayModel(id: string): DisplayModel {
   }
 }
 
+export function displayModelSummary(
+  id: string,
+  summary: ModelSummary
+): DisplayModel {
+  return {
+    id,
+    label: summary.name?.trim() || id,
+    provider: modelProviderLabel(summary),
+  }
+}
+
+function modelSummaryForId(
+  id: string,
+  summaries?: ModelSummary[] | Map<string, ModelSummary>
+): ModelSummary | undefined {
+  if (!summaries) return undefined
+  if (summaries instanceof Map) return summaries.get(id)
+  return summaries.find((entry) => entry.id?.trim() === id)
+}
+
+function modelProviderLabel(summary: ModelSummary): string {
+  if (summary.provider_id?.trim()) return summary.provider_id.trim()
+  const providers = summary.provider_ids
+    ?.map((provider) => provider.trim())
+    .filter(Boolean)
+  if (providers?.length) return providers.join(", ")
+  return summary.family?.trim() || "Model"
+}
+
 export function ModelIcon({
   model,
-  className = "h-4 w-4 shrink-0",
+  className = "h-6 w-6 shrink-0",
 }: {
   model: DisplayModel
   className?: string
@@ -41,8 +77,8 @@ export function ModelIcon({
         <Image
           src={logoURL}
           alt=""
-          width={16}
-          height={16}
+          width={24}
+          height={24}
           className="size-full object-contain"
         />
       </span>

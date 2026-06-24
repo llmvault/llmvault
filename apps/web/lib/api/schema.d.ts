@@ -12385,6 +12385,7 @@ export interface components {
             source_type?: string;
         };
         agentTriggerResponse: {
+            channel_id?: string;
             conditions?: unknown;
             connection_id?: string;
             enabled?: boolean;
@@ -12713,11 +12714,9 @@ export interface components {
             client_event_id?: string;
             image_model?: string;
             message?: string;
-            model?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
             name?: string;
             raw?: components["schemas"]["JSON"];
-            reasoning_effort?: string;
             text?: string;
             vector_image_model?: string;
         };

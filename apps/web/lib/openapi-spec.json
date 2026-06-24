@@ -12784,9 +12784,6 @@
           "message": {
             "type": "string"
           },
-          "model": {
-            "type": "string"
-          },
           "model_definition": {
             "$ref": "#/components/schemas/sessionModelDefinitionRequest"
           },
@@ -12795,9 +12792,6 @@
           },
           "raw": {
             "$ref": "#/components/schemas/JSON"
-          },
-          "reasoning_effort": {
-            "type": "string"
           },
           "text": {
             "type": "string"

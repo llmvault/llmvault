@@ -11,11 +11,7 @@ import { Conversation } from "@/app/w/(chat)/_components/conversation"
 import { SessionHistorySkeleton } from "@/app/w/(chat)/_components/session-history-skeleton"
 import { SessionHistoryTopLoader } from "@/app/w/(chat)/_components/session-history-top-loader"
 import { SessionPlanCard } from "@/app/w/(chat)/_components/session-plan-card"
-import {
-  useWorkspace,
-  type ChatSession,
-} from "@/app/w/(chat)/_components/shell"
-import { AGENTS, agentById } from "@/app/w/(chat)/_lib/agents"
+import type { ChatSession } from "@/app/w/(chat)/_components/shell"
 import {
   CHAT_QUERY_STALE_TIME_MS,
   SESSION_EVENTS_INFINITE_KEY,
@@ -69,9 +65,7 @@ export function SessionThreadView({
   session: ChatSession
   sessionId?: string
 }) {
-  const { setModel } = useWorkspace()
   const queryClient = useQueryClient()
-  const agent = safeAgentById(session.agentId)
   const liveEvents = useSessionLiveEvents(sessionId)
   const renderedLiveEvents = ENABLE_DIRECT_SESSION_STREAM ? liveEvents : []
   const runtimeStatus = useSessionRuntimeStatus(sessionId)
@@ -330,10 +324,8 @@ export function SessionThreadView({
         ) : null}
         <Composer
           sessionId={sessionId ?? "new-chat"}
-          agent={agent}
           agentId={session.agentId}
           modelId={session.modelId}
-          onModelChange={setModel}
           onSend={(text, attachments, codeLineComments) =>
             send(text, { attachments, codeLineComments })
           }
@@ -373,12 +365,4 @@ function latestTurnID(events: SessionEventResponse[]) {
     }
   }
   return undefined
-}
-
-function safeAgentById(id: string) {
-  try {
-    return agentById(id)
-  } catch {
-    return agentById(AGENTS[0].id)
-  }
 }

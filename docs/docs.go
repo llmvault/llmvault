@@ -11163,6 +11163,9 @@ const docTemplate = `{
         "agentTriggerResponse": {
             "type": "object",
             "properties": {
+                "channel_id": {
+                    "type": "string"
+                },
                 "conditions": {},
                 "connection_id": {
                     "type": "string"
@@ -12156,9 +12159,6 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
-                "model": {
-                    "type": "string"
-                },
                 "model_definition": {
                     "$ref": "#/definitions/sessionModelDefinitionRequest"
                 },
@@ -12167,9 +12167,6 @@ const docTemplate = `{
                 },
                 "raw": {
                     "$ref": "#/definitions/JSON"
-                },
-                "reasoning_effort": {
-                    "type": "string"
                 },
                 "text": {
                     "type": "string"

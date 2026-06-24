@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -100,6 +101,11 @@ func createAgentTriggersWithExistingSecrets(tx *gorm.DB, orgID, agentID uuid.UUI
 		if existingID != uuid.Nil {
 			trigger.ID = existingID
 		}
+		channelID, channelErr := resolveAgentTriggerChannel(tx, orgID, agentID, input.ChannelID)
+		if channelErr != nil {
+			return channelErr
+		}
+		trigger.ChannelID = channelID
 
 		switch triggerType {
 		case "webhook":
@@ -144,4 +150,54 @@ func deleteAgentTriggers(db *gorm.DB, agentID uuid.UUID) error {
 		return fmt.Errorf("delete agent triggers: %w", err)
 	}
 	return nil
+}
+
+func resolveAgentTriggerChannel(db *gorm.DB, orgID, agentID uuid.UUID, raw string) (*uuid.UUID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	channelID, err := uuid.Parse(raw)
+	if err != nil || channelID == uuid.Nil {
+		return nil, fmt.Errorf("channel_id must be a uuid")
+	}
+	var channel model.Channel
+	err = db.
+		Where("id = ? AND org_id = ? AND archived_at IS NULL", channelID, orgID).
+		First(&channel).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("channel_id not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load channel: %w", err)
+	}
+	allowed, err := agentAllowedInTriggerChannel(db, orgID, agentID, channel.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, fmt.Errorf("agent is not available in this channel")
+	}
+	return &channelID, nil
+}
+
+func agentAllowedInTriggerChannel(db *gorm.DB, orgID, agentID, channelID uuid.UUID) (bool, error) {
+	var total int64
+	if err := db.
+		Model(&model.AgentChannel{}).
+		Where("org_id = ? AND agent_id = ?", orgID, agentID).
+		Count(&total).Error; err != nil {
+		return false, fmt.Errorf("validate agent channel access: %w", err)
+	}
+	if total == 0 {
+		return true, nil
+	}
+	var allowed int64
+	if err := db.
+		Model(&model.AgentChannel{}).
+		Where("org_id = ? AND agent_id = ? AND channel_id = ?", orgID, agentID, channelID).
+		Count(&allowed).Error; err != nil {
+		return false, fmt.Errorf("validate agent channel access: %w", err)
+	}
+	return allowed > 0, nil
 }

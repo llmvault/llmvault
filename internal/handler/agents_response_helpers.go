@@ -34,6 +34,7 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 		AgentID      uuid.UUID      `gorm:"column:agent_id"`
 		TriggerID    uuid.UUID      `gorm:"column:trigger_id"`
 		TriggerType  string         `gorm:"column:trigger_type"`
+		ChannelID    *uuid.UUID     `gorm:"column:channel_id"`
 		ConnID       *uuid.UUID     `gorm:"column:conn_id"`
 		Provider     *string        `gorm:"column:provider"`
 		TriggerKeys  pq.StringArray `gorm:"column:trigger_keys;type:text[]"`
@@ -50,6 +51,7 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 			at.agent_id,
 			at.id AS trigger_id,
 			at.trigger_type,
+			at.channel_id,
 			at.connection_id AS conn_id,
 			ii.provider,
 			at.trigger_keys,
@@ -87,6 +89,9 @@ func (h *AgentHandler) loadAgentTriggers(agentIDs ...uuid.UUID) map[uuid.UUID][]
 		}
 		if row.ConnID != nil {
 			response.ConnectionID = row.ConnID.String()
+		}
+		if row.ChannelID != nil {
+			response.ChannelID = row.ChannelID.String()
 		}
 		if row.Provider != nil {
 			response.Provider = *row.Provider

@@ -14,10 +14,13 @@ import {
   invalidateSessionListQueries,
   seedSessionDetail,
 } from "@/app/w/(chat)/_lib/chat-cache"
+import {
+  availableModelIds,
+  newSessionModelIds,
+} from "@/app/w/(chat)/_lib/model-options"
 import { watchGeneratedSessionName } from "@/app/w/(chat)/_lib/session-name-updates"
 import {
   agentDisplayName,
-  agentModel,
   channelRouteSlug,
 } from "@/app/w/(chat)/_lib/sidebar-data"
 
@@ -48,6 +51,18 @@ export function SessionView({
     { params: { query: { status: "active", limit: 100 } } },
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
+  const agentCatalogQuery = $api.useQuery(
+    "get",
+    "/v1/agents/catalog",
+    {},
+    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
+  )
+  const agentModelsQuery = $api.useQuery(
+    "get",
+    "/v1/agents/models",
+    {},
+    { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
+  )
   const createSession = $api.useMutation("post", "/v1/sessions")
   const channels = useMemo(
     () => channelsQuery.data?.data ?? [],
@@ -73,11 +88,25 @@ export function SessionView({
     agents.find((agent) => agent.id === selectedAgentID) ??
     agents.find((agent) => agent.is_default) ??
     agents[0]
+  const agentCatalog = useMemo(
+    () => agentCatalogQuery.data ?? [],
+    [agentCatalogQuery.data]
+  )
+  const modelSummaries = useMemo(
+    () => agentModelsQuery.data ?? [],
+    [agentModelsQuery.data]
+  )
+  const modelIds = useMemo(() => {
+    const ids = newSessionModelIds(selectedAgent, agentCatalog)
+    return ids.length ? ids : availableModelIds(modelSummaries)
+  }, [agentCatalog, modelSummaries, selectedAgent])
   const fallbackAgent = AGENTS[0]
-  const defaultModelId =
-    agentModel(selectedAgent) ?? fallbackAgent.defaultModelId
+  const defaultModelId = modelIds[0] ?? fallbackAgent.defaultModelId
   const [selectedModelID, setSelectedModelID] = useState<string | null>(null)
-  const modelId = selectedModelID ?? defaultModelId
+  const modelId =
+    selectedModelID && modelIds.includes(selectedModelID)
+      ? selectedModelID
+      : defaultModelId
   const [selectedChannelChoice, setSelectedChannelChoice] = useState<{
     routeSlug: string
     channelID: string
@@ -104,8 +133,10 @@ export function SessionView({
           channel_id: activeChannel.id,
           agent_id: selectedAgent?.id,
           text,
-          model: modelId,
-          reasoning_effort: effort.toLowerCase(),
+          model_definition: {
+            model_id: modelId,
+            reasoning_effort: effort.toLowerCase(),
+          },
           access_mode: "full",
         },
       })
@@ -144,6 +175,12 @@ export function SessionView({
           agentsLoading={agentsQuery.isLoading}
           agentsError={agentsQuery.isError}
           modelId={modelId}
+          modelIds={modelIds}
+          modelSummaries={modelSummaries}
+          modelsLoading={
+            agentCatalogQuery.isLoading || agentModelsQuery.isLoading
+          }
+          modelsError={agentCatalogQuery.isError || agentModelsQuery.isError}
           submitting={createSession.isPending}
           onChannelChange={(channel) =>
             setSelectedChannelChoice(

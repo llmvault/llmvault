@@ -30,6 +30,7 @@
   },
   "install": {
     "default_agent": "hivy",
+    "default_channel": "system",
     "enabled": true,
     "instructions": "./instructions.md"
   }
