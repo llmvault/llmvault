@@ -32,6 +32,17 @@ func agentSessionsStartSandboxStreamWithAccess(t *testing.T, ctx context.Context
 	return agentSessionsOpenSandboxStreamWithAccess(t, ctx, sessionID, access, false)
 }
 
+func agentSessionsStartSandboxStreamFromTurnFollowWithAccess(t *testing.T, ctx context.Context, sessionID string, access agentSessionsSandboxAccess, turnID string) *agentSessionsLiveSandboxStream {
+	t.Helper()
+	if turnID == "" {
+		t.Fatal("direct sandbox stream from turn follow requires turn id")
+	}
+	return agentSessionsOpenSandboxStreamWithAccessAndQuery(t, ctx, sessionID, access, false, url.Values{
+		"follow":       []string{"true"},
+		"from_turn_id": []string{turnID},
+	})
+}
+
 func agentSessionsOpenSandboxStream(t *testing.T, ctx context.Context, apiBase, token, orgID, sessionID string, stopOnTerminal bool) *agentSessionsLiveSandboxStream {
 	t.Helper()
 	access := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, token, orgID, sessionID)
@@ -40,8 +51,13 @@ func agentSessionsOpenSandboxStream(t *testing.T, ctx context.Context, apiBase, 
 
 func agentSessionsOpenSandboxStreamWithAccess(t *testing.T, ctx context.Context, sessionID string, access agentSessionsSandboxAccess, stopOnTerminal bool) *agentSessionsLiveSandboxStream {
 	t.Helper()
+	return agentSessionsOpenSandboxStreamWithAccessAndQuery(t, ctx, sessionID, access, stopOnTerminal, url.Values{"after_seq": []string{"0"}})
+}
+
+func agentSessionsOpenSandboxStreamWithAccessAndQuery(t *testing.T, ctx context.Context, sessionID string, access agentSessionsSandboxAccess, stopOnTerminal bool, values url.Values) *agentSessionsLiveSandboxStream {
+	t.Helper()
 	requireAgentSessionsSandboxStreamAccess(t, access, sessionID)
-	resp := openSandboxSessionStreamWithRetry(t, ctx, sessionID, access) //nolint:bodyclose // Closed by the stream reader goroutine.
+	resp := openSandboxSessionStreamWithRetry(t, ctx, sessionID, access, values) //nolint:bodyclose // Closed by the stream reader goroutine.
 
 	stream := &agentSessionsLiveSandboxStream{
 		events: make(chan runtimeSSEEvent, 256),
@@ -60,9 +76,9 @@ func agentSessionsOpenSandboxStreamWithAccess(t *testing.T, ctx context.Context,
 	return stream
 }
 
-func openSandboxSessionStreamWithRetry(t *testing.T, ctx context.Context, sessionID string, access agentSessionsSandboxAccess) *http.Response {
+func openSandboxSessionStreamWithRetry(t *testing.T, ctx context.Context, sessionID string, access agentSessionsSandboxAccess, values url.Values) *http.Response {
 	t.Helper()
-	resp, err := openSandboxSessionStreamClient(ctx, sessionID, access)
+	resp, err := openSandboxSessionStreamClientWithQuery(ctx, sessionID, access, values)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +86,11 @@ func openSandboxSessionStreamWithRetry(t *testing.T, ctx context.Context, sessio
 }
 
 func openSandboxSessionStreamClient(ctx context.Context, sessionID string, access agentSessionsSandboxAccess) (*http.Response, error) {
-	endpoint, err := agentSessionsSandboxStreamURL(access, sessionID, url.Values{"after_seq": []string{"0"}})
+	return openSandboxSessionStreamClientWithQuery(ctx, sessionID, access, url.Values{"after_seq": []string{"0"}})
+}
+
+func openSandboxSessionStreamClientWithQuery(ctx context.Context, sessionID string, access agentSessionsSandboxAccess, values url.Values) (*http.Response, error) {
+	endpoint, err := agentSessionsSandboxStreamURL(access, sessionID, values)
 	if err != nil {
 		return nil, err
 	}

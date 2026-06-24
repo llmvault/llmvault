@@ -17,11 +17,13 @@ use super::git::{
     changed_paths, default_branch_sha, git_output, git_status, snapshot_repo, RepoSnapshot,
 };
 use super::types::{
-    ContentResponse, DiffResponse, RepoInfo, RepoListResponse, TreeEntry, TreeResponse,
+    ContentResponse, DiffFileSummary, DiffResponse, RepoInfo, RepoListResponse, TreeEntry,
+    TreeResponse,
 };
 
 const REPOS_DIR: &str = "repos";
 const DEFAULT_DIFF_CONTEXT: u32 = 3;
+const MAX_DIFF_BYTES: usize = 512 * 1024;
 const MAX_CONTENT_BYTES: u64 = 512 * 1024;
 const MAX_LIST_DEPTH: usize = 4;
 const DEFAULT_REPO_SYNC_DEPTH: u32 = 1;
@@ -238,14 +240,28 @@ impl RepoService {
             args.push(path.clone());
         }
         let mut diff = git_output(&repo_path, &args).await.unwrap_or_default();
+        let mut files = diff_file_summaries(&repo_path, &repo.base_sha, rel.as_deref())
+            .await
+            .unwrap_or_default();
         let statuses = git_status(&repo_path).await.unwrap_or_default();
         for (changed_path, status) in statuses {
             if status != "untracked" {
                 continue;
             }
-            if rel.as_ref().is_some_and(|want| want != &changed_path) {
+            if rel
+                .as_deref()
+                .is_some_and(|want| !path_in_scope(want, &changed_path))
+            {
                 continue;
             }
+            files.insert(
+                changed_path.clone(),
+                DiffFileSummary {
+                    path: changed_path.clone(),
+                    status,
+                    previous_path: None,
+                },
+            );
             let file = self.safe_repo_path(&repo, &changed_path)?;
             if tokio::fs::metadata(&file)
                 .await
@@ -267,10 +283,25 @@ impl RepoService {
                 );
             }
         }
+        let total_bytes = diff.len();
+        let truncated = total_bytes > MAX_DIFF_BYTES;
+        let message = if truncated {
+            diff.clear();
+            Some(format!(
+                "Diff is too large to display ({total_bytes} bytes exceeds {MAX_DIFF_BYTES} byte limit); changed files are listed instead."
+            ))
+        } else {
+            None
+        };
         Ok(DiffResponse {
             repo_id: repo.id,
             path: rel,
             diff,
+            truncated,
+            total_bytes,
+            max_bytes: MAX_DIFF_BYTES,
+            files: files.into_values().collect(),
+            message,
         })
     }
 
@@ -622,6 +653,61 @@ fn slice_lines(text: &str, offset: Option<usize>, limit: Option<usize>) -> Resul
     Ok(lines[start..end].concat())
 }
 
+async fn diff_file_summaries(
+    repo_path: &Path,
+    base_sha: &str,
+    path: Option<&str>,
+) -> Result<BTreeMap<String, DiffFileSummary>> {
+    let mut args = vec![
+        "diff".to_string(),
+        "--name-status".to_string(),
+        base_sha.to_string(),
+        "--".to_string(),
+    ];
+    if let Some(path) = path {
+        args.push(path.to_string());
+    }
+    let output = git_output(repo_path, &args).await?;
+    Ok(output
+        .lines()
+        .filter_map(parse_diff_name_status)
+        .map(|file| (file.path.clone(), file))
+        .collect())
+}
+
+fn parse_diff_name_status(line: &str) -> Option<DiffFileSummary> {
+    let mut parts = line.split('\t');
+    let code = parts.next()?.trim();
+    let status_code = code.chars().next()?;
+    let status = match status_code {
+        'A' => "added",
+        'D' => "deleted",
+        'R' => "renamed",
+        'C' => "copied",
+        _ => "modified",
+    }
+    .to_string();
+    let first_path = parts.next()?.to_string();
+    let (path, previous_path) = if matches!(status_code, 'R' | 'C') {
+        (parts.next()?.to_string(), Some(first_path))
+    } else {
+        (first_path, None)
+    };
+    Some(DiffFileSummary {
+        path,
+        status,
+        previous_path,
+    })
+}
+
+fn path_in_scope(scope: &str, path: &str) -> bool {
+    scope.is_empty()
+        || scope == path
+        || path
+            .strip_prefix(scope.trim_end_matches('/'))
+            .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -667,8 +753,13 @@ mod tests {
             .diff(&repo.id, Some("README.md"), Some(3))
             .await
             .unwrap();
+        assert!(!diff.truncated);
         assert!(diff.diff.contains("diff --git"));
         assert!(diff.diff.contains("+changed"));
+        assert!(diff
+            .files
+            .iter()
+            .any(|file| file.path == "README.md" && file.status == "modified"));
 
         let stream_id = broker
             .stream_id_for_session("session-1")
@@ -811,6 +902,42 @@ mod tests {
             "diff should show feature branch changes relative to main, got: {}",
             diff.diff
         );
+
+        let _ = tokio::fs::remove_dir_all(workspace).await;
+    }
+
+    #[tokio::test]
+    async fn diff_omits_body_when_payload_is_too_large() {
+        let workspace = unique_workspace();
+        let repos = workspace.join("repos");
+        tokio::fs::create_dir_all(&repos).await.unwrap();
+        let repo_path = repos.join("large-repo");
+        init_repo(&repo_path, "models.json", "{}\n").await;
+
+        let large_json_line = format!("{{\"models\":\"{}\"}}\n", "x".repeat(MAX_DIFF_BYTES + 1024));
+        tokio::fs::write(repo_path.join("models.json"), large_json_line)
+            .await
+            .unwrap();
+
+        let broker = Arc::new(SessionStreamBroker::new());
+        let service = RepoService::new(workspace.clone(), broker);
+        let diff = service
+            .diff(&repo_id("repos/large-repo"), None, Some(3))
+            .await
+            .unwrap();
+
+        assert!(diff.truncated);
+        assert!(diff.diff.is_empty());
+        assert!(diff.total_bytes > diff.max_bytes);
+        assert_eq!(diff.max_bytes, MAX_DIFF_BYTES);
+        assert!(diff
+            .message
+            .as_deref()
+            .is_some_and(|message| message.contains("too large")));
+        assert!(diff
+            .files
+            .iter()
+            .any(|file| file.path == "models.json" && file.status == "modified"));
 
         let _ = tokio::fs::remove_dir_all(workspace).await;
     }

@@ -49,6 +49,17 @@ export interface RuntimeRepoDiff {
   repo_id: string
   path?: string | null
   diff: string
+  truncated?: boolean
+  total_bytes?: number
+  max_bytes?: number
+  files?: RuntimeRepoDiffFile[]
+  message?: string | null
+}
+
+export interface RuntimeRepoDiffFile {
+  path: string
+  status: RuntimeGitStatus | "copied" | "unknown"
+  previous_path?: string | null
 }
 
 export type RuntimeGitStatus =

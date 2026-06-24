@@ -52,8 +52,23 @@ pub struct ContentResponse {
 
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct DiffFileSummary {
+    pub path: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_path: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct DiffResponse {
     pub repo_id: String,
     pub path: Option<String>,
     pub diff: String,
+    pub truncated: bool,
+    pub total_bytes: usize,
+    pub max_bytes: usize,
+    pub files: Vec<DiffFileSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }

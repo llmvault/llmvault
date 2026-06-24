@@ -78,8 +78,12 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 
 	agentSessionsSendMessageStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, "I should be blocked before sharing", http.StatusForbidden)
 	agentSessionsSandboxAccessStatus(t, ctx, apiBase, memberToken, orgID, session.Session.ID, http.StatusForbidden)
+	if session.Session.AgentTurnID == "" {
+		t.Fatalf("session create response missing active agent_turn_id: %+v", session.Session)
+	}
 	ownerSandboxAccess := fetchAgentSessionsSandboxAccess(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
-	firstStream := agentSessionsStartSandboxStreamWithAccess(t, ctx, session.Session.ID, ownerSandboxAccess)
+	firstStream := agentSessionsStartSandboxStreamFromTurnFollowWithAccess(t, ctx, session.Session.ID, ownerSandboxAccess, session.Session.AgentTurnID)
+	t.Logf("opened durable direct sandbox stream from active turn id=%s", session.Session.AgentTurnID)
 	firstToolEvent := firstStream.waitForEvent(t, ctx, 2*time.Minute, func(event runtimeSSEEvent) bool {
 		return event.Name == "tool_call" && strings.Contains(event.RawData, "bash")
 	})
@@ -116,6 +120,10 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	t.Logf("first turn marker observed on direct sandbox stream event=%s", firstMarkerEvent.RawData)
 	firstResponse := waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, firstMarker)
 	t.Logf("first agent response observed event_id=%s type=%s", firstResponse.ID, firstResponse.EventType)
+	firstTerminalEvent := firstStream.waitForEvent(t, ctx, time.Minute, func(event runtimeSSEEvent) bool {
+		return event.Name == "turn_completed" || event.Name == "done"
+	})
+	t.Logf("first turn terminal observed on durable direct sandbox stream event=%s", firstTerminalEvent.RawData)
 	secondMarkerEvent := firstStream.waitForEvent(t, ctx, 3*time.Minute, func(event runtimeSSEEvent) bool {
 		return strings.Contains(event.RawData, secondMarker)
 	})

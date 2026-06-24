@@ -21,6 +21,7 @@ import {
   markOptimisticEventPending,
   optimisticThinkingEvent,
   optimisticUserEvent,
+  patchSessionInChatCaches,
   replaceOptimisticEvent,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
@@ -48,6 +49,7 @@ import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
 import {
   beginOptimisticSessionTurn,
   ensureSessionStream,
+  hydrateSessionRuntimeFromResponse,
   interruptSessionTurn,
 } from "@/app/w/(chat)/_stores/session-stream-manager"
 import {
@@ -161,6 +163,7 @@ export function SessionThreadView({
     [fetchNextHistoryPage]
   )
   const historyLoadedForStream = sessionHistoryQuery.isSuccess
+  const sessionReadyForStream = session.loaded !== false
 
   useEffect(() => {
     if (!sessionId || optimisticSession || historyEvents.length === 0) return
@@ -176,7 +179,15 @@ export function SessionThreadView({
 
   useEffect(() => {
     if (!ENABLE_DIRECT_SESSION_STREAM) return
-    if (!sessionId || optimisticSession || !historyLoadedForStream) return
+    if (
+      !sessionId ||
+      optimisticSession ||
+      !historyLoadedForStream ||
+      !sessionReadyForStream
+    ) {
+      return
+    }
+    if (turnActive && !activeBackendTurnID) return
     ensureSessionStream(sessionId, {
       queryClient,
       replay: replayModeForLoadedSession(activeBackendTurnID),
@@ -186,6 +197,7 @@ export function SessionThreadView({
     historyLoadedForStream,
     optimisticSession,
     queryClient,
+    sessionReadyForStream,
     sessionId,
     turnActive,
   ])
@@ -245,6 +257,16 @@ export function SessionThreadView({
           raw: Object.keys(raw).length ? raw : undefined,
         },
       })
+      if (response.session) {
+        patchSessionInChatCaches(queryClient, response.session)
+        hydrateSessionRuntimeFromResponse(response.session, queryClient)
+        ensureSessionStream(sessionId, {
+          queryClient,
+          replay: replayModeForLoadedSession(
+            normalizedTurnID(response.session.agent_turn_id)
+          ),
+        })
+      }
       if (response.event) {
         replaceOptimisticEvent(
           queryClient,
@@ -351,6 +373,10 @@ export function SessionThreadView({
       </div>
     </div>
   )
+}
+
+function normalizedTurnID(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined
 }
 
 function isPendingClientEvent(event: SessionEventResponse) {

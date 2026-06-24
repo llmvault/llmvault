@@ -31,7 +31,7 @@ const sandboxOwnedTurnEventTypes = new Set([
 export function replayModeForLoadedSession(activeTurnID?: string) {
   return activeTurnID
     ? ({
-        mode: "from_turn_id",
+        mode: "from_turn_id_follow",
         turnId: activeTurnID,
       } satisfies GoSessionStreamReplayMode)
     : ({ mode: "none" } satisfies GoSessionStreamReplayMode)
