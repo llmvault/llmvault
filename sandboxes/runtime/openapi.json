@@ -1245,15 +1245,56 @@
           }
         }
       },
+      "DiffFileSummary": {
+        "type": "object",
+        "required": [
+          "path",
+          "status"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "previous_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "DiffResponse": {
         "type": "object",
         "required": [
           "repo_id",
-          "diff"
+          "diff",
+          "truncated",
+          "total_bytes",
+          "max_bytes",
+          "files"
         ],
         "properties": {
           "diff": {
             "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiffFileSummary"
+            }
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "path": {
             "type": [
@@ -1263,6 +1304,13 @@
           },
           "repo_id": {
             "type": "string"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },

@@ -271,6 +271,7 @@ function chatSessionFromResponse(
     agentTurnID: session.agent_turn_id,
     agentTurnStartedAt: session.agent_turn_started_at,
     lastTurnOutcome: session.last_turn_outcome,
+    loaded: true,
   }
 }
 

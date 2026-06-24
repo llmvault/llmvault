@@ -100,9 +100,15 @@ describe("session stream manager", () => {
     )
   })
 
-  it("reopens the stream when the loaded replay mode changes to from_turn_id", async () => {
+  it("keeps one stream open when the loaded replay mode changes", async () => {
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
-    subscribeToGoSessionStreamMock.mockResolvedValue(undefined)
+    let firstSignal: AbortSignal | undefined
+    subscribeToGoSessionStreamMock.mockImplementationOnce(({ signal }) => {
+      firstSignal = signal
+      return new Promise<void>((resolve) => {
+        signal.addEventListener("abort", () => resolve(), { once: true })
+      })
+    })
 
     const queryClient = testQueryClient()
     ensureSessionStream("session-1", {
@@ -113,21 +119,14 @@ describe("session stream manager", () => {
 
     ensureSessionStream("session-1", {
       queryClient,
-      replay: { mode: "from_turn_id", turnId: "turn-1" },
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
     })
     await flushAsync()
 
-    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        replay: { mode: "none" },
-      })
-    )
-    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        replay: { mode: "from_turn_id", turnId: "turn-1" },
-      })
+    expect(firstSignal?.aborted).toBe(false)
+    expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
+    expect(subscribeToGoSessionStreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({ replay: { mode: "none" } })
     )
   })
 
@@ -152,6 +151,88 @@ describe("session stream manager", () => {
         replay: { mode: "from_turn_id", turnId: "turn-1" },
       })
     )
+  })
+
+  it("preserves durable from_turn_id follow across an early reconnect before a cursor exists", async () => {
+    vi.useFakeTimers()
+    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
+    subscribeToGoSessionStreamMock
+      .mockRejectedValueOnce(new Error("network closed"))
+      .mockResolvedValueOnce(undefined)
+
+    ensureSessionStream("session-1", {
+      queryClient: testQueryClient(),
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+    })
+    await flushAsync()
+    await vi.advanceTimersByTimeAsync(400)
+    await flushAsync()
+
+    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+      })
+    )
+  })
+
+  it("reconnects a durable stream that closes without an error", async () => {
+    vi.useFakeTimers()
+    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
+    subscribeToGoSessionStreamMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+
+    ensureSessionStream("session-1", {
+      queryClient: testQueryClient(),
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+    })
+    await flushAsync()
+    expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(400)
+    await flushAsync()
+
+    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+      })
+    )
+  })
+
+  it("keeps the durable stream connected when a turn completes", async () => {
+    getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
+    let signal: AbortSignal | undefined
+    subscribeToGoSessionStreamMock.mockImplementationOnce(
+      async ({ onEvent, signal: streamSignal }) => {
+        signal = streamSignal
+        onEvent?.(
+          frame("turn_completed", {
+            turn_id: "turn-1",
+          })
+        )
+        await new Promise<void>((resolve) => {
+          streamSignal.addEventListener("abort", () => resolve(), {
+            once: true,
+          })
+        })
+      }
+    )
+
+    ensureSessionStream("session-1", {
+      queryClient: testQueryClient(),
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+    })
+    await flushAsync()
+
+    expect(signal?.aborted).toBe(false)
+    expect(
+      useSessionRuntimeStore.getState().statusBySessionId["session-1"]
+    ).toMatchObject({
+      status: "idle",
+      lastOutcome: "completed",
+    })
   })
 
   it("reconnects with a full replay after resync_required", async () => {

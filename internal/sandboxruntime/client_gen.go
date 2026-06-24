@@ -721,11 +721,23 @@ type ControlCommandsResponse struct {
 	Results []ControlCommandResult `json:"results"`
 }
 
+// DiffFileSummary defines model for DiffFileSummary.
+type DiffFileSummary struct {
+	Path         string  `json:"path"`
+	PreviousPath *string `json:"previous_path,omitempty"`
+	Status       string  `json:"status"`
+}
+
 // DiffResponse defines model for DiffResponse.
 type DiffResponse struct {
-	Diff   string  `json:"diff"`
-	Path   *string `json:"path,omitempty"`
-	RepoId string  `json:"repo_id"`
+	Diff       string            `json:"diff"`
+	Files      []DiffFileSummary `json:"files"`
+	MaxBytes   int               `json:"max_bytes"`
+	Message    *string           `json:"message,omitempty"`
+	Path       *string           `json:"path,omitempty"`
+	RepoId     string            `json:"repo_id"`
+	TotalBytes int               `json:"total_bytes"`
+	Truncated  bool              `json:"truncated"`
 }
 
 // DrainStatusResponse defines model for DrainStatusResponse.

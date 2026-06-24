@@ -72,6 +72,7 @@ pub struct SessionStreamQuery {
     replay: Option<String>,
     after_seq: Option<String>,
     from_turn_id: Option<String>,
+    follow: Option<String>,
 }
 
 impl SessionStreamQuery {
@@ -81,6 +82,12 @@ impl SessionStreamQuery {
         if matches!(from_turn_id, Some("")) {
             return Err("from_turn_id is required".to_string());
         }
+        let follow = self
+            .follow
+            .as_deref()
+            .map(parse_bool_query)
+            .transpose()?
+            .unwrap_or(false);
         let after_seq = self
             .after_seq
             .as_deref()
@@ -95,7 +102,14 @@ impl SessionStreamQuery {
             if self.replay.is_some() || after_seq.is_some() {
                 return Err("from_turn_id cannot be combined with replay or after_seq".to_string());
             }
-            return Ok(StreamReplayMode::FromTurnId(turn_id.to_string()));
+            return Ok(if follow {
+                StreamReplayMode::FromTurnIdFollow(turn_id.to_string())
+            } else {
+                StreamReplayMode::FromTurnId(turn_id.to_string())
+            });
+        }
+        if follow {
+            return Err("follow=true requires from_turn_id".to_string());
         }
 
         match replay {
@@ -115,6 +129,14 @@ impl SessionStreamQuery {
             None if replay == "none" => StreamReplayMode::None,
             None => StreamReplayMode::All,
         })
+    }
+}
+
+fn parse_bool_query(value: &str) -> Result<bool, String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" => Ok(true),
+        "false" | "0" => Ok(false),
+        _ => Err("follow must be true or false".to_string()),
     }
 }
 
@@ -859,7 +881,8 @@ fn question_answer_error_response(error: QuestionAnswerError) -> (StatusCode, St
         ("session_id" = String, Path, description = "Session identifier"),
         ("replay" = Option<String>, Query, description = "Replay mode: `all` or `none`"),
         ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value"),
-        ("from_turn_id" = Option<String>, Query, description = "Replay retained events for one turn and continue live until that turn terminates")
+        ("from_turn_id" = Option<String>, Query, description = "Replay retained events beginning at one turn"),
+        ("follow" = Option<bool>, Query, description = "When combined with from_turn_id, continue streaming the full session after replay")
     ),
     responses(
         (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
@@ -904,7 +927,8 @@ pub async fn get_session_live_stream(
         ("stream_id" = String, Path, description = "Turn stream identifier"),
         ("replay" = Option<String>, Query, description = "Replay mode: `all` or `none`"),
         ("after_seq" = Option<u64>, Query, description = "Replay retained events with sequence greater than this value"),
-        ("from_turn_id" = Option<String>, Query, description = "Replay retained events for one turn and continue live until that turn terminates")
+        ("from_turn_id" = Option<String>, Query, description = "Replay retained events beginning at one turn"),
+        ("follow" = Option<bool>, Query, description = "When combined with from_turn_id, continue streaming the full session after replay")
     ),
     responses(
         (status = 200, description = "Server-sent event stream", content_type = "text/event-stream"),
@@ -1015,6 +1039,7 @@ mod tests {
             replay: Some("none".to_string()),
             after_seq: None,
             from_turn_id: None,
+            follow: None,
         };
         assert_eq!(none.replay_mode().unwrap(), StreamReplayMode::None);
 
@@ -1022,6 +1047,7 @@ mod tests {
             replay: None,
             after_seq: Some("42".to_string()),
             from_turn_id: None,
+            follow: None,
         };
         assert_eq!(
             after_seq.replay_mode().unwrap(),
@@ -1032,10 +1058,22 @@ mod tests {
             replay: None,
             after_seq: None,
             from_turn_id: Some("turn-123".to_string()),
+            follow: None,
         };
         assert_eq!(
             from_turn.replay_mode().unwrap(),
             StreamReplayMode::FromTurnId("turn-123".to_string())
+        );
+
+        let from_turn_follow = SessionStreamQuery {
+            replay: None,
+            after_seq: None,
+            from_turn_id: Some("turn-123".to_string()),
+            follow: Some("true".to_string()),
+        };
+        assert_eq!(
+            from_turn_follow.replay_mode().unwrap(),
+            StreamReplayMode::FromTurnIdFollow("turn-123".to_string())
         );
     }
 
@@ -1045,6 +1083,7 @@ mod tests {
             replay: Some("none".to_string()),
             after_seq: Some("42".to_string()),
             from_turn_id: None,
+            follow: None,
         };
         assert!(invalid_combo.replay_mode().is_err());
 
@@ -1052,6 +1091,7 @@ mod tests {
             replay: Some("latest".to_string()),
             after_seq: None,
             from_turn_id: None,
+            follow: None,
         };
         assert!(invalid_replay.replay_mode().is_err());
 
@@ -1059,6 +1099,7 @@ mod tests {
             replay: None,
             after_seq: Some("nope".to_string()),
             from_turn_id: None,
+            follow: None,
         };
         assert!(invalid_sequence.replay_mode().is_err());
 
@@ -1066,6 +1107,7 @@ mod tests {
             replay: Some("all".to_string()),
             after_seq: None,
             from_turn_id: Some("turn-123".to_string()),
+            follow: None,
         };
         assert!(invalid_turn_combo.replay_mode().is_err());
 
@@ -1073,8 +1115,25 @@ mod tests {
             replay: None,
             after_seq: None,
             from_turn_id: Some("  ".to_string()),
+            follow: None,
         };
         assert!(empty_turn.replay_mode().is_err());
+
+        let invalid_follow = SessionStreamQuery {
+            replay: None,
+            after_seq: None,
+            from_turn_id: None,
+            follow: Some("true".to_string()),
+        };
+        assert!(invalid_follow.replay_mode().is_err());
+
+        let invalid_follow_value = SessionStreamQuery {
+            replay: None,
+            after_seq: None,
+            from_turn_id: Some("turn-123".to_string()),
+            follow: Some("yes".to_string()),
+        };
+        assert!(invalid_follow_value.replay_mode().is_err());
     }
 
     fn test_definition() -> AgentDefinition {

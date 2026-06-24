@@ -85,11 +85,8 @@ export function ensureSessionStream(
   const existing = controllers.get(sessionId)
   if (existing && !existing.stopped && !existing.reconnect) {
     existing.queryClient = options.queryClient
-    if (existing.replayKey === nextReplayKey) {
-      resetWatchdog(sessionId, existing)
-      return
-    }
-    stopController(sessionId, { keepStatus: true })
+    resetWatchdog(sessionId, existing)
+    return
   }
   if (existing?.reconnect) {
     clearTimeout(existing.reconnect)
@@ -223,6 +220,17 @@ async function runSessionStream(
         handleSessionStreamFrame(sessionId, controller, frame)
       },
     })
+    if (controller.abort.signal.aborted || controller.stopped) return
+    clearControllerIfCurrent(sessionId, controller)
+    if (shouldReconnectAfterClose(attemptedReplay)) {
+      reconnectSessionStream(
+        sessionId,
+        controller.queryClient,
+        attemptedReplay
+          ? replayForStreamReconnect(sessionId, attemptedReplay)
+          : undefined
+      )
+    }
   } catch (error) {
     if (controller.abort.signal.aborted || controller.stopped) return
     const status = goSessionStreamHTTPStatus(error)
@@ -246,7 +254,7 @@ async function runSessionStream(
         sessionId,
         controller.queryClient,
         attemptedReplay
-          ? replayForFailedStreamReconnect(sessionId, attemptedReplay)
+          ? replayForStreamReconnect(sessionId, attemptedReplay)
           : undefined
       )
       return
@@ -281,12 +289,20 @@ function handleSessionStreamFrame(
   const subagentFrame = isSubagentFrame(frame)
   useSessionRuntimeStore.getState().applyStreamFrame(sessionId, frame)
   if (!subagentFrame && isTerminalFrame(frame.event)) {
-    stopController(sessionId)
     const message = terminalFrameErrorMessage(frame.data)
     useSessionRuntimeStore.getState().finishStream(sessionId, {
       preserveError: Boolean(message),
       outcome: message ? "failed" : "completed",
     })
+  }
+}
+
+function clearControllerIfCurrent(
+  sessionId: string,
+  controller: StreamControllerRecord
+) {
+  if (controllers.get(sessionId) === controller) {
+    controllers.delete(sessionId)
   }
 }
 
@@ -435,14 +451,28 @@ function replayKey(replay?: GoSessionStreamReplayMode) {
   if (!replay) return "auto"
   if (replay.mode === "after_seq") return `after_seq:${replay.afterSeq}`
   if (replay.mode === "from_turn_id") return `from_turn_id:${replay.turnId}`
+  if (replay.mode === "from_turn_id_follow") {
+    return `from_turn_id_follow:${replay.turnId}`
+  }
   return replay.mode
 }
 
-function replayForFailedStreamReconnect(
+function shouldReconnectAfterClose(replay?: GoSessionStreamReplayMode) {
+  return replay?.mode !== "from_turn_id"
+}
+
+function replayForStreamReconnect(
   sessionId: string,
   replay: GoSessionStreamReplayMode
 ): GoSessionStreamReplayMode | undefined {
-  if (replay.mode !== "from_turn_id") return undefined
   const cursor = useSessionRuntimeStore.getState().cursorBySessionId[sessionId]
-  return cursor ? undefined : replay
+  if (cursor) return undefined
+  if (
+    replay.mode === "from_turn_id" ||
+    replay.mode === "from_turn_id_follow" ||
+    replay.mode === "none"
+  ) {
+    return replay
+  }
+  return undefined
 }

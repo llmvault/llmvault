@@ -19,10 +19,7 @@ import { ReviewErrorState } from "./review-error-state"
 import { formatPatchCount } from "./review-format"
 import { RepoDiffSection } from "./review-repo-diff-section"
 import { ReviewEmptyState, ReviewLoadingState } from "./review-state"
-import type {
-  ReviewDiffOptions,
-  ReviewDiffsResult,
-} from "./review-types"
+import type { ReviewDiffOptions, ReviewDiffsResult } from "./review-types"
 import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
@@ -45,7 +42,8 @@ export function ReviewView({
 }: ReviewViewProps) {
   const workspaceSessionId = sessionId ?? "new-chat"
   const diffStyle = useSessionWorkspaceStore(
-    (state) => selectSessionWorkspace(state, workspaceSessionId).review.diffStyle
+    (state) =>
+      selectSessionWorkspace(state, workspaceSessionId).review.diffStyle
   )
   const setReviewDiffStyle = useSessionWorkspaceStore(
     (state) => state.setReviewDiffStyle
@@ -73,12 +71,14 @@ export function ReviewView({
   const changedRepoDiffs = useMemo(
     () =>
       reviewQuery.data?.repoDiffs.filter(
-        (repoDiff) => repoDiff.patches.length > 0
+        (repoDiff) => repoDiff.patches.length > 0 || repoDiff.truncated
       ) ?? [],
     [reviewQuery.data?.repoDiffs]
   )
   const patchCount = changedRepoDiffs.reduce(
-    (total, repoDiff) => total + repoDiff.patches.length,
+    (total, repoDiff) =>
+      total +
+      (repoDiff.truncated ? repoDiff.files.length : repoDiff.patches.length),
     0
   )
 
@@ -207,6 +207,11 @@ async function fetchReviewDiffs(
       return {
         repo,
         patches: splitPatches(diff.diff),
+        truncated: diff.truncated ?? false,
+        files: diff.files ?? [],
+        message: diff.message,
+        totalBytes: diff.total_bytes,
+        maxBytes: diff.max_bytes,
       }
     })
   )

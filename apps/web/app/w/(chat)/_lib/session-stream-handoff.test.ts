@@ -8,9 +8,9 @@ import {
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
 
 describe("session stream handoff", () => {
-  it("subscribes from the active turn when backend knows it", () => {
+  it("subscribes from the active turn and keeps following the session", () => {
     expect(replayModeForLoadedSession("turn-1")).toEqual({
-      mode: "from_turn_id",
+      mode: "from_turn_id_follow",
       turnId: "turn-1",
     })
   })

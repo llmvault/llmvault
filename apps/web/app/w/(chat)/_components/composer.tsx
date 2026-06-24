@@ -1,9 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Button } from "@heroui/react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import { useVoiceVisualizer } from "react-voice-visualizer"
 import { useDropzone } from "react-dropzone"
 import { cn } from "@/lib/utils"
 import {
@@ -30,8 +29,10 @@ import {
   useCodeLineComments,
 } from "@/app/w/(chat)/_components/line-comments"
 import type { CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
-import { useMicrophonePermission } from "@/hooks/use-microphone-permission"
-import { useSessionAudioTranscription } from "@/hooks/use-session-audio-transcription"
+import {
+  useComposerAudioRecording,
+  type RecordingTranscriptIntent,
+} from "@/hooks/use-composer-audio-recording"
 import { ComposerLineComments } from "./composer-line-comments"
 import { MicrophonePermissionModal } from "./microphone-permission-modal"
 import { RecordingWaveform } from "./recording-waveform"
@@ -68,44 +69,13 @@ export function Composer({
   )
   const lineComments = useCodeLineComments()
   const lineCommentActions = useCodeLineCommentActions()
-  const [micPromptOpen, setMicPromptOpen] = useState(false)
   const attachmentDescriptions = workspace.composer.attachmentDescriptions
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const describedUploadsRef = useRef<Set<string>>(new Set())
-  const recordingMimeTypeRef = useRef("")
-  const recordingInProgressRef = useRef(false)
-  const recordingDurationRef = useRef(0)
-  const lastLoggedRecordingRef = useRef<Blob | null>(null)
-  const recordingStartedAtRef = useRef<number | null>(null)
-  const stopRecordingRef = useRef<() => void>(() => {})
   const { uploads, addFiles, retryUpload, removeUpload, clearUploads } =
     useOrgDriveFileUploads({ agentId, sessionId })
-  const { hasGrantedMicrophonePermission, setMicPermissionGranted } =
-    useMicrophonePermission()
-  const recorderControls = useVoiceVisualizer({
-    onStartRecording: () => setMicPermissionGranted(true),
-    shouldHandleBeforeUnload: false,
-  })
-  const {
-    audioData,
-    clearCanvas,
-    error: recordingError,
-    formattedRecordingTime,
-    isProcessingStartRecording,
-    isRecordingInProgress,
-    mediaRecorder,
-    recordedBlob,
-    recordingTime,
-    startRecording,
-    stopRecording,
-  } = recorderControls
-  const {
-    mutateAsync: transcribeRecording,
-    isPending: isTranscribingRecording,
-  } = useSessionAudioTranscription({ agentId, sessionId })
 
   const selectedModel = displayModel(modelId)
-  const recordingActive = isRecordingInProgress || isProcessingStartRecording
   const attachments = useMemo(
     () =>
       uploads.map((upload): ComposerImageAttachment => {
@@ -159,7 +129,6 @@ export function Composer({
       Boolean(attachment)
     )
   const canSend =
-    !isTranscribingRecording &&
     !hasPendingAttachment &&
     !hasFailedAttachment &&
     (value.trim().length > 0 ||
@@ -251,11 +220,20 @@ export function Composer({
     })
   }
 
-  const resetAttachments = () => {
+  const resetAttachments = useCallback(() => {
     clearUploads()
     describedUploadsRef.current.clear()
     setAttachmentDescriptions(sessionId, () => ({}))
-  }
+  }, [clearUploads, sessionId, setAttachmentDescriptions])
+
+  const resizeTextarea = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const node = textareaRef.current
+      if (!node) return
+      node.style.height = "auto"
+      node.style.height = `${Math.min(node.scrollHeight, 64)}px`
+    })
+  }, [])
 
   const onDropAccepted = useCallback(
     (files: File[]) => {
@@ -273,160 +251,122 @@ export function Composer({
       onDropAccepted,
     })
 
-  useEffect(() => {
-    recordingInProgressRef.current = isRecordingInProgress
-    stopRecordingRef.current = stopRecording
-  }, [isRecordingInProgress, stopRecording])
-
-  useEffect(() => {
-    return () => {
-      if (recordingInProgressRef.current) {
-        stopRecordingRef.current()
+  const sendComposerDraft = useCallback(
+    async (text: string) => {
+      const promptText = text.trim()
+      const sendingAttachments = readyAttachments
+      const sendingLineComments = lineComments
+      if (
+        !promptText &&
+        sendingAttachments.length === 0 &&
+        sendingLineComments.length === 0
+      ) {
+        return false
       }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!mediaRecorder) return
-    recordingMimeTypeRef.current = mediaRecorder.mimeType
-  }, [mediaRecorder])
-
-  useEffect(() => {
-    if (isRecordingInProgress) {
-      recordingStartedAtRef.current = Date.now()
-    }
-  }, [isRecordingInProgress])
-
-  useEffect(() => {
-    if (recordingTime > 0) {
-      recordingDurationRef.current = recordingTime
-    }
-  }, [recordingTime])
-
-  useEffect(() => {
-    if (!recordedBlob || lastLoggedRecordingRef.current === recordedBlob) return
-
-    lastLoggedRecordingRef.current = recordedBlob
-    const url = URL.createObjectURL(recordedBlob)
-    const startedAt = recordingStartedAtRef.current
-    const elapsedMs = startedAt
-      ? Date.now() - startedAt
-      : recordingDurationRef.current
-    const mimeType =
-      recordedBlob.type || recordingMimeTypeRef.current || "audio/webm"
-    console.warn("Audio recording complete", {
-      blob: recordedBlob,
-      blobUrl: url,
-      durationMs: Math.max(recordingDurationRef.current, elapsedMs),
-      mimeType,
-      sessionId,
-      size: recordedBlob.size,
-      startedAt: startedAt ? new Date(startedAt).toISOString() : null,
-      stoppedAt: new Date().toISOString(),
-    })
-    void transcribeRecording({ blob: recordedBlob, mimeType })
-      .then(({ asset, text }) => {
-        console.warn("Audio transcription complete", {
-          driveAssetId: asset.id,
-          text,
-        })
-        if (!text.trim()) return
-        const currentText =
-          useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
-            .text ?? ""
-        setValue(sessionId, appendTranscriptToComposer(currentText, text))
-        window.requestAnimationFrame(() => {
-          const node = textareaRef.current
-          if (!node) return
+      const sendingLineCommentIds = sendingLineComments.map(
+        (comment) => comment.id
+      )
+      const sendingCodeLineComments =
+        codeLineCommentPayloads(sendingLineComments)
+      setValue(sessionId, "")
+      try {
+        const sent = await onSend(
+          promptText,
+          sendingAttachments,
+          sendingCodeLineComments
+        )
+        if (sent === false) {
+          if (
+            !useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
+              .text
+          ) {
+            setValue(sessionId, promptText)
+          }
+          return false
+        }
+        resetAttachments()
+        lineCommentActions.removeComments(sendingLineCommentIds)
+        const node = textareaRef.current
+        if (node) {
           node.style.height = "auto"
-          node.style.height = `${Math.min(node.scrollHeight, 64)}px`
-        })
-      })
-      .catch((error: unknown) =>
-        console.error("Audio transcription failed", error)
-      )
-
-    return () => URL.revokeObjectURL(url)
-  }, [recordedBlob, sessionId, setValue, transcribeRecording])
-
-  useEffect(() => {
-    if (!recordingError) return
-    console.error("Audio recording failed", recordingError)
-  }, [recordingError])
-
-  const startRecordingFromCurrentState = () => {
-    clearCanvas()
-    recordingDurationRef.current = 0
-    recordingMimeTypeRef.current = ""
-    lastLoggedRecordingRef.current = null
-    recordingStartedAtRef.current = Date.now()
-    startRecording()
-  }
-
-  const toggleRecording = async () => {
-    if (isRecordingInProgress) {
-      recordingMimeTypeRef.current =
-        mediaRecorder?.mimeType || recordingMimeTypeRef.current
-      stopRecording()
-      return
-    }
-    if (isProcessingStartRecording || isStreaming || isTranscribingRecording) {
-      return
-    }
-    if (await hasGrantedMicrophonePermission()) {
-      startRecordingFromCurrentState()
-      return
-    }
-    setMicPromptOpen(true)
-  }
-
-  const startRecordingFromPrompt = () => {
-    setMicPromptOpen(false)
-    startRecordingFromCurrentState()
-  }
-
-  const submit = async () => {
-    if (!canSend || isStreaming) {
-      return
-    }
-
-    const promptText = value.trim()
-    const sendingAttachments = readyAttachments
-    const sendingLineComments = lineComments
-    const sendingLineCommentIds = sendingLineComments.map(
-      (comment) => comment.id
-    )
-    const sendingCodeLineComments = codeLineCommentPayloads(sendingLineComments)
-    setValue(sessionId, "")
-    try {
-      const sent = await onSend(
-        promptText,
-        sendingAttachments,
-        sendingCodeLineComments
-      )
-      if (sent === false) {
+        }
+        return true
+      } catch {
         if (
           !useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
             .text
         ) {
           setValue(sessionId, promptText)
         }
-        return
+        return false
       }
-      resetAttachments()
-      lineCommentActions.removeComments(sendingLineCommentIds)
-      const node = textareaRef.current
-      if (node) {
-        node.style.height = "auto"
+    },
+    [
+      lineCommentActions,
+      lineComments,
+      onSend,
+      readyAttachments,
+      resetAttachments,
+      sessionId,
+      setValue,
+    ]
+  )
+
+  const handleRecordingTranscript = useCallback(
+    async (text: string, intent: RecordingTranscriptIntent) => {
+      const currentText =
+        useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
+          .text ?? ""
+      const nextText = appendTranscriptToComposer(currentText, text)
+      if (intent === "send" && !hasPendingAttachment && !hasFailedAttachment) {
+        if (await sendComposerDraft(nextText)) return
       }
-    } catch {
-      if (
-        !useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
-          .text
-      ) {
-        setValue(sessionId, promptText)
-      }
+      setValue(sessionId, nextText)
+      resizeTextarea()
+    },
+    [
+      hasFailedAttachment,
+      hasPendingAttachment,
+      resizeTextarea,
+      sendComposerDraft,
+      sessionId,
+      setValue,
+    ]
+  )
+
+  const {
+    audioData,
+    formattedRecordingTime,
+    isProcessingStartRecording,
+    isRecordingInProgress,
+    isTranscribingRecording,
+    micPromptOpen,
+    recordingActive,
+    sendRecordingAfterTranscription,
+    setMicPromptOpen,
+    startRecordingFromPrompt,
+    toggleRecording,
+  } = useComposerAudioRecording({
+    agentId,
+    isStreaming,
+    onTranscript: handleRecordingTranscript,
+    sessionId,
+  })
+
+  const submit = async () => {
+    if (isRecordingInProgress) {
+      sendRecordingAfterTranscription()
+      return
     }
+    if (
+      !canSend ||
+      isProcessingStartRecording ||
+      isStreaming ||
+      isTranscribingRecording
+    ) {
+      return
+    }
+    await sendComposerDraft(value)
   }
 
   return (
@@ -492,14 +432,13 @@ export function Composer({
               <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
             </Button>
 
-            {recordingActive || isTranscribingRecording ? (
+            {recordingActive ? (
               <div className="flex min-w-0 flex-1 items-center gap-3 pl-2">
                 <div className="h-9 min-w-0 flex-1 overflow-hidden">
-                  {isRecordingInProgress ? (
-                    <RecordingWaveform active audioData={audioData} />
-                  ) : (
-                    <div className="bg-surface-secondary h-full w-full animate-pulse rounded-full" />
-                  )}
+                  <RecordingWaveform
+                    active={isRecordingInProgress}
+                    audioData={audioData}
+                  />
                 </div>
                 <span className="shrink-0 text-sm font-medium text-muted tabular-nums">
                   {formattedRecordingTime || "00:00"}
@@ -521,25 +460,33 @@ export function Composer({
               </>
             )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              isIconOnly
-              aria-label={
-                isRecordingInProgress ? "Stop recording" : "Record audio"
-              }
-              isDisabled={
-                isProcessingStartRecording ||
-                isStreaming ||
-                isTranscribingRecording
-              }
-              onPress={() => void toggleRecording()}
-            >
-              <Icon
-                icon={isRecordingInProgress ? "lucide:square" : "lucide:mic"}
-                className={`h-4 w-4 ${isRecordingInProgress ? "text-danger" : "text-muted"}`}
-              />
-            </Button>
+            {isTranscribingRecording ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                isIconOnly
+                aria-label="Transcribing audio"
+                isDisabled
+              >
+                <Spinner color="current" size="sm" className="text-muted" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                isIconOnly
+                aria-label={
+                  isRecordingInProgress ? "Stop recording" : "Record audio"
+                }
+                isDisabled={isProcessingStartRecording || isStreaming}
+                onPress={() => void toggleRecording()}
+              >
+                <Icon
+                  icon={isRecordingInProgress ? "lucide:square" : "lucide:mic"}
+                  className={`h-4 w-4 ${isRecordingInProgress ? "text-danger" : "text-muted"}`}
+                />
+              </Button>
+            )}
             {isStreaming ? (
               <Button
                 variant="primary"
@@ -557,7 +504,11 @@ export function Composer({
                 size="sm"
                 isIconOnly
                 aria-label="Send"
-                isDisabled={!canSend || isStreaming}
+                isDisabled={
+                  isProcessingStartRecording ||
+                  isTranscribingRecording ||
+                  (!isRecordingInProgress && !canSend)
+                }
                 onPress={() => void submit()}
                 className="rounded-full"
               >

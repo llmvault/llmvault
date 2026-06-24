@@ -86,6 +86,7 @@ pub enum StreamReplayMode {
     None,
     AfterSeq(u64),
     FromTurnId(String),
+    FromTurnIdFollow(String),
 }
 
 pub struct StreamSubscription {
@@ -457,6 +458,40 @@ impl SessionStreamBroker {
                         item.seq >= turn_start_seq
                             && event_turn_id(&item.inner).as_deref() == Some(turn_id.as_str())
                     })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let last_seq = matching.last().map(|item| item.seq);
+                (matching, last_seq)
+            }
+            StreamReplayMode::FromTurnIdFollow(turn_id) => {
+                let turn_start_seq = state
+                    .history
+                    .iter()
+                    .find(|item| {
+                        item.inner.event == "turn_started"
+                            && event_turn_id(&item.inner).as_deref() == Some(turn_id.as_str())
+                    })
+                    .map(|item| item.seq);
+                let Some(turn_start_seq) = turn_start_seq else {
+                    resync_required = Some(StreamResyncRequired::Turn(TurnResyncRequired {
+                        turn_id,
+                        reason: "turn_not_retained",
+                        earliest_seq,
+                        latest_seq,
+                    }));
+                    return Some(StreamSubscription {
+                        history: Vec::new(),
+                        receiver: state.sender.subscribe(),
+                        initial_last_seq: latest_seq,
+                        next_seq: state.next_seq,
+                        resync_required,
+                        turn_filter,
+                    });
+                };
+                let matching = state
+                    .history
+                    .iter()
+                    .filter(|item| item.seq >= turn_start_seq)
                     .cloned()
                     .collect::<Vec<_>>();
                 let last_seq = matching.last().map(|item| item.seq);
@@ -1992,6 +2027,105 @@ mod tests {
             .await
             .expect("from_turn_id stream should stop promptly");
         assert!(stopped.is_none());
+    }
+
+    #[tokio::test]
+    async fn subscribe_from_turn_id_follow_replays_from_turn_and_keeps_session_streaming() {
+        let broker = Arc::new(SessionStreamBroker::new());
+        let stream_id = broker.create_stream().await;
+        broker
+            .publish(
+                &stream_id,
+                "turn_started",
+                json!({"turn_id": "turn-1", "text": "old"}),
+            )
+            .await;
+        broker
+            .publish(
+                &stream_id,
+                "token",
+                json!({"turn_id": "turn-1", "text": "old"}),
+            )
+            .await;
+        broker
+            .publish(
+                &stream_id,
+                "turn_started",
+                json!({"turn_id": "turn-2", "text": "start"}),
+            )
+            .await;
+        broker
+            .publish(
+                &stream_id,
+                "token",
+                json!({"turn_id": "turn-2", "text": "new"}),
+            )
+            .await;
+
+        let subscription = broker
+            .subscribe(
+                &stream_id,
+                StreamReplayMode::FromTurnIdFollow("turn-2".to_string()),
+            )
+            .await
+            .expect("stream exists");
+        let replayed = subscription
+            .history
+            .iter()
+            .map(|event| {
+                (
+                    event.event.as_str(),
+                    event.payload["turn_id"].as_str().unwrap(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replayed,
+            vec![("turn_started", "turn-2"), ("token", "turn-2")]
+        );
+        assert!(subscription.resync_required.is_none());
+        assert!(subscription.turn_filter.is_none());
+
+        let frames = replay_stream(broker.clone(), stream_id.clone(), false, subscription);
+        futures::pin_mut!(frames);
+
+        let Some(StreamFrame::Event(first)) = frames.next().await else {
+            panic!("expected replayed turn start");
+        };
+        assert_eq!(first.event, "turn_started");
+        let Some(StreamFrame::Event(second)) = frames.next().await else {
+            panic!("expected replayed turn token");
+        };
+        assert_eq!(second.payload["text"], "new");
+
+        broker
+            .publish(&stream_id, "turn_completed", json!({"turn_id": "turn-2"}))
+            .await;
+        let Some(StreamFrame::Event(turn_done)) =
+            tokio::time::timeout(Duration::from_secs(1), frames.next())
+                .await
+                .expect("turn terminal event")
+        else {
+            panic!("expected terminal turn event");
+        };
+        assert_eq!(turn_done.event, "turn_completed");
+
+        broker
+            .publish(
+                &stream_id,
+                "turn_started",
+                json!({"turn_id": "turn-3", "text": "follow-up"}),
+            )
+            .await;
+        let Some(StreamFrame::Event(next_turn)) =
+            tokio::time::timeout(Duration::from_secs(1), frames.next())
+                .await
+                .expect("follow-up turn event")
+        else {
+            panic!("expected follow-up turn event");
+        };
+        assert_eq!(next_turn.event, "turn_started");
+        assert_eq!(next_turn.payload["turn_id"], "turn-3");
     }
 
     #[tokio::test]

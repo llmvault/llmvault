@@ -95,6 +95,7 @@ export interface ChatSession {
   agentTurnID?: string
   agentTurnStartedAt?: string
   lastTurnOutcome?: string
+  loaded?: boolean
 }
 
 interface WorkspaceContextValue {
@@ -269,6 +270,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         title: routeSessionQuery.isError ? "Chat unavailable" : "Loading chat",
         agentId: DEFAULT_AGENT_ID,
         modelId: agentById(DEFAULT_AGENT_ID).defaultModelId,
+        loaded: false,
       }
     )
   }, [
@@ -947,6 +949,7 @@ function chatSessionFromResponse(
     agentTurnID: session.agent_turn_id,
     agentTurnStartedAt: session.agent_turn_started_at,
     lastTurnOutcome: session.last_turn_outcome,
+    loaded: true,
   }
 }
 

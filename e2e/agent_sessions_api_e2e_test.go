@@ -37,10 +37,11 @@ type agentSessionsMutation struct {
 }
 
 type agentSessionsSession struct {
-	ID        string  `json:"id"`
-	ChannelID string  `json:"channel_id"`
-	AgentID   string  `json:"agent_id"`
-	SandboxID *string `json:"sandbox_id"`
+	ID          string  `json:"id"`
+	ChannelID   string  `json:"channel_id"`
+	AgentID     string  `json:"agent_id"`
+	SandboxID   *string `json:"sandbox_id"`
+	AgentTurnID string  `json:"agent_turn_id"`
 }
 
 type agentSessionsAgentMutation struct {

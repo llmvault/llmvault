@@ -1,5 +1,8 @@
 import type { CommentablePatchDiffProps } from "@/app/w/(chat)/_components/diff-line-comments"
-import type { RuntimeRepoInfo } from "@/app/w/(chat)/_lib/runtime-repos"
+import type {
+  RuntimeRepoDiffFile,
+  RuntimeRepoInfo,
+} from "@/app/w/(chat)/_lib/runtime-repos"
 
 export type ReviewDiffStyle = "unified" | "split"
 export type ReviewDiffOptions = NonNullable<
@@ -9,6 +12,11 @@ export type ReviewDiffOptions = NonNullable<
 export interface ReviewRepoDiff {
   repo: RuntimeRepoInfo
   patches: string[]
+  truncated: boolean
+  files: RuntimeRepoDiffFile[]
+  message?: string | null
+  totalBytes?: number
+  maxBytes?: number
 }
 
 export interface ReviewDiffsResult {
