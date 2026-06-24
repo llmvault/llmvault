@@ -168,6 +168,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 			Timeout:   3 * time.Minute,
 		})
 	}
+	if uploadsHandler != nil {
+		mcpHandler.SetImageGenerationTools(uploadsHandler.RegisterImageGenerationMCPTools)
+	}
 	imageDescribeHandler := buildImageDescribeHandler(database, cfg, deps)
 	if imageDescribeHandler != nil && uploadsHandler != nil {
 		imageDescribeHandler.WithAssetReader(uploadsHandler.AssetReader())

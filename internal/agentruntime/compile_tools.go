@@ -38,8 +38,6 @@ var runtimeToolOrder = []string{
 	"skill_view",
 	"skill_manage",
 	"search_sessions",
-	"generate_image",
-	"generate_vector_image",
 	"request_user_input",
 	"update_plan",
 }
@@ -155,7 +153,7 @@ func runtimeToolSelectionEnabled(value any) bool {
 func expandRuntimeToolID(raw string) ([]string, bool) {
 	key := strings.TrimSpace(raw)
 	key = strings.TrimPrefix(key, "builtin.")
-	if key == "cron" || key == "wake" {
+	if key == "cron" || key == "wake" || key == "generate_image" || key == "generate_vector_image" {
 		return nil, true
 	}
 	if model.IsValidRuntimeBuiltInToolID(key) {

@@ -40,7 +40,6 @@ require (
 	github.com/openai/openai-go v1.8.2
 	github.com/pb33f/libopenapi v0.34.3
 	github.com/pkoukk/tiktoken-go v0.1.8
-	github.com/plexusone/elevenlabs-go v0.9.1
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/qdrant/go-client v1.17.1
 	github.com/redis/go-redis/v9 v9.18.0
@@ -68,18 +67,11 @@ require (
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
-	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/go-faster/errors v0.7.1 // indirect
-	github.com/go-faster/jx v1.2.0 // indirect
-	github.com/go-faster/yaml v0.4.6 // indirect
 	github.com/goccy/go-yaml v1.17.1 // indirect
 	github.com/google/dotprompt/go v0.0.0-20251014011017-8d056e027254 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mbleigh/raymond v0.0.0-20250414171441-6b3a58ab9e0a // indirect
-	github.com/ogen-go/ogen v1.20.1 // indirect
-	github.com/plexusone/ogen-tools v0.2.1 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.2.0 // indirect
@@ -88,8 +80,6 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
-	go.uber.org/zap v1.27.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
 require (

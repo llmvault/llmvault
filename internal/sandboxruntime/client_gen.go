@@ -572,41 +572,11 @@ func (e ToolSpec14Type) Valid() bool {
 
 // Defines values for ToolSpec15Type.
 const (
-	BuiltinGenerateImage ToolSpec15Type = "builtin.generate_image"
+	BuiltinRequestUserInput ToolSpec15Type = "builtin.request_user_input"
 )
 
 // Valid indicates whether the value is a known member of the ToolSpec15Type enum.
 func (e ToolSpec15Type) Valid() bool {
-	switch e {
-	case BuiltinGenerateImage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec16Type.
-const (
-	BuiltinGenerateVectorImage ToolSpec16Type = "builtin.generate_vector_image"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
-func (e ToolSpec16Type) Valid() bool {
-	switch e {
-	case BuiltinGenerateVectorImage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ToolSpec17Type.
-const (
-	BuiltinRequestUserInput ToolSpec17Type = "builtin.request_user_input"
-)
-
-// Valid indicates whether the value is a known member of the ToolSpec17Type enum.
-func (e ToolSpec17Type) Valid() bool {
 	switch e {
 	case BuiltinRequestUserInput:
 		return true
@@ -615,13 +585,13 @@ func (e ToolSpec17Type) Valid() bool {
 	}
 }
 
-// Defines values for ToolSpec18Type.
+// Defines values for ToolSpec16Type.
 const (
-	BuiltinUpdatePlan ToolSpec18Type = "builtin.update_plan"
+	BuiltinUpdatePlan ToolSpec16Type = "builtin.update_plan"
 )
 
-// Valid indicates whether the value is a known member of the ToolSpec18Type enum.
-func (e ToolSpec18Type) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolSpec16Type enum.
+func (e ToolSpec16Type) Valid() bool {
 	switch e {
 	case BuiltinUpdatePlan:
 		return true
@@ -795,15 +765,6 @@ type HealthResponse struct {
 	SentryDsnSet  bool   `json:"sentry_dsn_set"`
 	SentryEnabled bool   `json:"sentry_enabled"`
 	Status        string `json:"status"`
-}
-
-// ImageGenerationConfig defines model for ImageGenerationConfig.
-type ImageGenerationConfig struct {
-	AuthEnv            *string `json:"auth_env,omitempty"`
-	EndpointEnv        *string `json:"endpoint_env,omitempty"`
-	MaxCount           *int32  `json:"max_count,omitempty"`
-	MaxReferenceAssets *int32  `json:"max_reference_assets,omitempty"`
-	Mode               *string `json:"mode,omitempty"`
 }
 
 // Limits defines model for Limits.
@@ -1392,8 +1353,7 @@ type ToolSpec14Type string
 
 // ToolSpec15 defines model for .
 type ToolSpec15 struct {
-	Config ImageGenerationConfig `json:"config"`
-	Type   ToolSpec15Type        `json:"type"`
+	Type ToolSpec15Type `json:"type"`
 }
 
 // ToolSpec15Type defines model for ToolSpec.15.Type.
@@ -1401,28 +1361,11 @@ type ToolSpec15Type string
 
 // ToolSpec16 defines model for .
 type ToolSpec16 struct {
-	Config ImageGenerationConfig `json:"config"`
-	Type   ToolSpec16Type        `json:"type"`
+	Type ToolSpec16Type `json:"type"`
 }
 
 // ToolSpec16Type defines model for ToolSpec.16.Type.
 type ToolSpec16Type string
-
-// ToolSpec17 defines model for .
-type ToolSpec17 struct {
-	Type ToolSpec17Type `json:"type"`
-}
-
-// ToolSpec17Type defines model for ToolSpec.17.Type.
-type ToolSpec17Type string
-
-// ToolSpec18 defines model for .
-type ToolSpec18 struct {
-	Type ToolSpec18Type `json:"type"`
-}
-
-// ToolSpec18Type defines model for ToolSpec.18.Type.
-type ToolSpec18Type string
 
 // ToolUsage defines model for ToolUsage.
 type ToolUsage struct {
@@ -2431,58 +2374,6 @@ func (t *ToolSpec) FromToolSpec16(v ToolSpec16) error {
 
 // MergeToolSpec16 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec16
 func (t *ToolSpec) MergeToolSpec16(v ToolSpec16) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsToolSpec17 returns the union data inside the ToolSpec as a ToolSpec17
-func (t ToolSpec) AsToolSpec17() (ToolSpec17, error) {
-	var body ToolSpec17
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec17 overwrites any union data inside the ToolSpec as the provided ToolSpec17
-func (t *ToolSpec) FromToolSpec17(v ToolSpec17) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec17 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec17
-func (t *ToolSpec) MergeToolSpec17(v ToolSpec17) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsToolSpec18 returns the union data inside the ToolSpec as a ToolSpec18
-func (t ToolSpec) AsToolSpec18() (ToolSpec18, error) {
-	var body ToolSpec18
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromToolSpec18 overwrites any union data inside the ToolSpec as the provided ToolSpec18
-func (t *ToolSpec) FromToolSpec18(v ToolSpec18) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeToolSpec18 performs a merge with any union data inside the ToolSpec, using the provided ToolSpec18
-func (t *ToolSpec) MergeToolSpec18(v ToolSpec18) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

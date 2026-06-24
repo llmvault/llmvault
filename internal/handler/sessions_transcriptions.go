@@ -126,6 +126,8 @@ func (h *SessionHandler) TranscribeAudio(w http.ResponseWriter, r *http.Request)
 		BaseURL:      cred.BaseURL,
 		ModelID:      route.UpstreamID,
 		Audio:        audio,
+		Filename:     asset.Filename,
+		ContentType:  asset.ContentType,
 		LanguageCode: languageCode,
 	})
 	if err != nil {
