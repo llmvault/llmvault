@@ -18,7 +18,6 @@ test_env=(
   "HIVY_QDRANT_HOST=localhost"
   "HIVY_QDRANT_PORT=6334"
   "HIVY_QDRANT_USE_TLS=false"
-  "HIVY_PUBLIC_ASSETS_S3_ENDPOINT=http://localhost:9000"
   "HIVY_AWS_ENDPOINT_URL=http://localhost:9000"
 )
 

@@ -13,24 +13,21 @@ import (
 	"github.com/usehivy/hivy/internal/storage"
 )
 
-// buildUploadsHandler wires the public-assets uploads handler when a public
-// assets bucket is configured. It returns nil (with /v1/uploads/sign disabled)
-// when the bucket is unset or the presigner fails to initialise.
+// buildUploadsHandler wires upload endpoints when the shared S3 bucket is configured.
 func buildUploadsHandler(cfg *config.Config, database *gorm.DB, sandboxEncKey *crypto.SymmetricKey) *handler.UploadsHandler {
-	if cfg.PublicAssetsBucket == "" {
+	if cfg.S3Bucket == "" {
 		return nil
 	}
 	presigner, err := storage.NewS3Presigner(storage.PublicAssetsConfig{
-		Bucket:       cfg.PublicAssetsBucket,
-		Region:       cfg.PublicAssetsRegion,
-		Endpoint:     cfg.PublicAssetsEndpoint,
-		AccessKey:    cfg.PublicAssetsAccessKey,
-		SecretKey:    cfg.PublicAssetsSecretKey,
-		SignTTL:      cfg.PublicAssetsSignTTL,
-		UsePublicACL: cfg.PublicAssetsUseACL,
+		Bucket:          cfg.S3Bucket,
+		Region:          cfg.S3Region,
+		Endpoint:        cfg.S3Endpoint,
+		PresignEndpoint: cfg.S3PresignEndpoint,
+		AccessKey:       cfg.S3AccessKey,
+		SecretKey:       cfg.S3SecretKey,
 	})
 	if err != nil {
-		slog.Error("public assets presigner init failed; /v1/uploads/sign disabled", "error", err)
+		slog.Error("s3 uploads presigner init failed; uploads disabled", "error", err)
 		return nil
 	}
 	uploadsHandler := handler.NewUploadsHandler(database, presigner)
@@ -39,6 +36,6 @@ func buildUploadsHandler(cfg *config.Config, database *gorm.DB, sandboxEncKey *c
 	if sandboxEncKey != nil {
 		uploadsHandler.WithStreamer(presigner, sandboxEncKey)
 	}
-	slog.Info("public assets uploads ready", "bucket", cfg.PublicAssetsBucket)
+	slog.Info("s3-backed uploads ready", "bucket", cfg.S3Bucket)
 	return uploadsHandler
 }
