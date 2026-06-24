@@ -3,8 +3,11 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -44,8 +47,8 @@ func TestAgentSessionsImageGenerationToolsE2E(t *testing.T) {
 	channel := agentSessionsCreateChannel(t, ctx, apiBase, token, orgID, "image-generation-"+runID, agent.ID)
 	session := agentSessionsCreateSession(t, ctx, apiBase, token, orgID, channel.ID, strings.Join([]string{
 		"This is the flagship image generation tool E2E.",
-		"Call generate_image exactly once with prompt `minimal flat icon of a blue square on white background`, aspect_ratio `1:1`, type `icon`, and count 1.",
-		"Then call generate_vector_image exactly once with description `minimal vector logo of a green circle on transparent background`, aspect_ratio `1:1`, type `logo`, and count 1.",
+		"Call hivy_generate_image exactly once with prompt `minimal flat icon of a blue square on white background`, aspect_ratio `1:1`, type `icon`, and count 1.",
+		"Then call hivy_generate_vector_image exactly once with description `minimal vector logo of a green circle on transparent background`, aspect_ratio `1:1`, type `logo`, and count 1.",
 		"After both tool results, final reply exactly " + finalMarker + " and no other text.",
 	}, "\n"))
 	if session.Session.ID == "" {
@@ -53,12 +56,16 @@ func TestAgentSessionsImageGenerationToolsE2E(t *testing.T) {
 	}
 
 	stream := agentSessionsStartSandboxStream(t, ctx, apiBase, token, orgID, session.Session.ID)
-	waitForAgentSessionsImageToolCalls(t, ctx, stream, 4*time.Minute, "generate_image", "generate_vector_image")
-	imageResults := waitForAgentSessionsImageResult(t, ctx, apiBase, token, orgID, session.Session.ID, "generate_image", 8*time.Minute)
+	waitForAgentSessionsImageToolCalls(t, ctx, stream, 4*time.Minute, "hivy_generate_image", "hivy_generate_vector_image")
+	imageResults := waitForAgentSessionsImageResult(t, ctx, apiBase, token, orgID, session.Session.ID, "hivy_generate_image", 8*time.Minute)
 	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "raster", imageResults)
 
-	vectorResults := waitForAgentSessionsImageResult(t, ctx, apiBase, token, orgID, session.Session.ID, "generate_vector_image", 8*time.Minute)
+	vectorResults := waitForAgentSessionsImageResult(t, ctx, apiBase, token, orgID, session.Session.ID, "hivy_generate_vector_image", 8*time.Minute)
 	assertAgentSessionsGeneratedImageAssets(t, ctx, orgID, agent.ID, "vector", vectorResults)
+	artifactDir := filepath.Join(os.TempDir(), "hivy-agent-image-generation-e2e-"+runID)
+	imagePaths := saveAgentSessionsImageArtifacts(t, ctx, artifactDir, "raster", imageResults)
+	vectorPaths := saveAgentSessionsImageArtifacts(t, ctx, artifactDir, "vector", vectorResults)
+	t.Logf("image generation E2E artifacts: %s", strings.Join(append(imagePaths, vectorPaths...), ", "))
 	waitForAgentSessionsResponse(t, ctx, apiBase, token, orgID, session.Session.ID, finalMarker)
 }
 
@@ -81,10 +88,6 @@ func agentSessionsCreateImageGenerationAgent(t *testing.T, ctx context.Context, 
 		"sandbox_strategy":   "per_session",
 		"image_model":        registry.DefaultRasterImageGenerationModelID,
 		"vector_image_model": registry.DefaultVectorImageGenerationModelID,
-		"tools": map[string]any{
-			"generate_image":        true,
-			"generate_vector_image": true,
-		},
 	}
 	agentSessionsJSON(t, ctx, http.MethodPost, baseURL+"/v1/agents", token, orgID, payload, http.StatusCreated, &out)
 	if out.Agent.ID == "" {
@@ -93,27 +96,121 @@ func agentSessionsCreateImageGenerationAgent(t *testing.T, ctx context.Context, 
 	return out.Agent
 }
 
+func saveAgentSessionsImageArtifacts(t *testing.T, ctx context.Context, dir, mode string, results []agentSessionsImageGenerationResult) []string {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create image artifact dir: %v", err)
+	}
+	client := &http.Client{
+		Timeout: 2 * time.Minute,
+		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+			agentSessionsRewriteDockerHost(req)
+			return nil
+		},
+	}
+	paths := make([]string, 0, len(results))
+	for index, result := range results {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, agentSessionsHostAssetURL(result.PublicURL), nil)
+		if err != nil {
+			t.Fatalf("build %s artifact request: %v", mode, err)
+		}
+		agentSessionsRewriteDockerHost(req)
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("download %s artifact: %v", mode, err)
+		}
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 32*1024*1024))
+		closeErr := resp.Body.Close()
+		if readErr != nil {
+			t.Fatalf("read %s artifact: %v", mode, readErr)
+		}
+		if closeErr != nil {
+			t.Fatalf("close %s artifact: %v", mode, closeErr)
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			t.Fatalf("download %s artifact returned %d: %s", mode, resp.StatusCode, strings.TrimSpace(string(body)))
+		}
+		path := filepath.Join(dir, fmt.Sprintf("%s-%d%s", mode, index+1, agentSessionsImageArtifactExt(result.ContentType)))
+		if err := os.WriteFile(path, body, 0o644); err != nil {
+			t.Fatalf("write %s artifact: %v", mode, err)
+		}
+		paths = append(paths, path)
+	}
+	return paths
+}
+
+func agentSessionsHostAssetURL(raw string) string {
+	raw = strings.Replace(raw, "http://host.docker.internal:", "http://localhost:", 1)
+	return strings.Replace(raw, "https://host.docker.internal:", "https://localhost:", 1)
+}
+
+func agentSessionsRewriteDockerHost(req *http.Request) {
+	if req == nil || !strings.Contains(req.URL.Host, "host.docker.internal") {
+		return
+	}
+	req.Host = req.URL.Host
+	req.URL.Host = strings.Replace(req.URL.Host, "host.docker.internal", "localhost", 1)
+}
+
+func agentSessionsImageArtifactExt(contentType string) string {
+	switch strings.ToLower(strings.TrimSpace(contentType)) {
+	case "image/svg+xml":
+		return ".svg"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	default:
+		return ".png"
+	}
+}
+
 func agentSessionsImageGenerationResults(event runtimeSSEEvent) []agentSessionsImageGenerationResult {
-	var results []agentSessionsImageGenerationResult
 	if raw, ok := event.Payload["result"]; ok {
 		body, err := json.Marshal(raw)
 		if err == nil {
-			_ = json.Unmarshal(body, &results)
-		}
-		if len(results) > 0 {
-			return results
+			results := agentSessionsParseImageGenerationResults(body)
+			if len(results) > 0 {
+				return results
+			}
 		}
 	}
 	if summary, _ := event.Payload["result_summary"].(string); summary != "" {
-		_ = json.Unmarshal([]byte(summary), &results)
+		results := agentSessionsParseImageGenerationResults([]byte(summary))
 		if len(results) > 0 {
 			return results
 		}
 	}
 	if output := agentSessionsToolResultOutput(event); output != "" {
-		_ = json.Unmarshal([]byte(output), &results)
+		return agentSessionsParseImageGenerationResults([]byte(output))
 	}
-	return results
+	return nil
+}
+
+func agentSessionsParseImageGenerationResults(raw []byte) []agentSessionsImageGenerationResult {
+	var results []agentSessionsImageGenerationResult
+	if err := json.Unmarshal(raw, &results); err == nil && len(results) > 0 {
+		return results
+	}
+	var envelope struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil
+	}
+	for _, item := range envelope.Content {
+		if strings.TrimSpace(item.Text) == "" {
+			continue
+		}
+		if results := agentSessionsParseImageGenerationResults([]byte(item.Text)); len(results) > 0 {
+			return results
+		}
+	}
+	return nil
 }
 
 func waitForAgentSessionsImageToolCalls(t *testing.T, ctx context.Context, stream *agentSessionsLiveSandboxStream, timeout time.Duration, tools ...string) {

@@ -34,10 +34,6 @@ pub enum ToolSpec {
     SkillManage,
     #[serde(rename = "builtin.search_sessions")]
     SearchSessions,
-    #[serde(rename = "builtin.generate_image")]
-    GenerateImage(ImageGenerationConfig),
-    #[serde(rename = "builtin.generate_vector_image")]
-    GenerateVectorImage(ImageGenerationConfig),
     #[serde(rename = "builtin.request_user_input")]
     RequestUserInput,
     #[serde(rename = "builtin.update_plan")]
@@ -225,29 +221,6 @@ pub struct SubagentTaskConfig {
     /// Allowlist of sub-agent names. Empty = all sub-agents available.
     #[serde(default)]
     pub agents: Vec<String>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct ImageGenerationConfig {
-    #[serde(default)]
-    pub endpoint_env: String,
-    #[serde(default)]
-    pub auth_env: String,
-    #[serde(default)]
-    pub mode: String,
-    #[serde(default = "default_image_max_reference_assets")]
-    pub max_reference_assets: u32,
-    #[serde(default = "default_image_max_count")]
-    pub max_count: u32,
-}
-
-fn default_image_max_reference_assets() -> u32 {
-    10
-}
-
-fn default_image_max_count() -> u32 {
-    4
 }
 
 pub fn default_parent_builtin_tool_specs() -> Vec<ToolSpec> {

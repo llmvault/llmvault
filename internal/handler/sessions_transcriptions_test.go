@@ -83,6 +83,12 @@ func TestIntegration_SessionTranscribeAudio_ReturnsTranscript(t *testing.T) {
 	if string(transcriber.req.Audio) != string(reader.data) {
 		t.Fatalf("audio bytes = %q, want %q", string(transcriber.req.Audio), string(reader.data))
 	}
+	if transcriber.req.Filename != "voice.webm" {
+		t.Fatalf("filename = %q, want voice.webm", transcriber.req.Filename)
+	}
+	if transcriber.req.ContentType != "audio/webm" {
+		t.Fatalf("content_type = %q, want audio/webm", transcriber.req.ContentType)
+	}
 	if transcriber.req.LanguageCode != "en" {
 		t.Fatalf("language_code = %q, want en", transcriber.req.LanguageCode)
 	}

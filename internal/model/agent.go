@@ -121,9 +121,6 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "web_screenshot", Name: "Screenshot", Description: "Take a screenshot of a webpage as base64-encoded PNG.", Category: "web"},
 	{ID: "web_transform", Name: "Transform HTML", Description: "Convert HTML to markdown or plain text without HTTP requests.", Category: "web"},
 
-	{ID: "generate_image", Name: "Generate image", Description: "Generate or revise raster images and save the result to the organization drive.", Category: "media"},
-	{ID: "generate_vector_image", Name: "Generate vector image", Description: "Generate or revise SVG/vector images and save the result to the organization drive.", Category: "media"},
-
 	{ID: "batch", Name: "Batch", Description: "Execute multiple independent tool calls concurrently.", Category: "orchestration"},
 
 	{ID: "todowrite", Name: "Write tasks", Description: "Create and manage a structured task list for the current session.", Category: "tasks"},
@@ -191,8 +188,6 @@ var RuntimeBuiltInToolIDs = []string{
 	"skill_view",
 	"skill_manage",
 	"search_sessions",
-	"generate_image",
-	"generate_vector_image",
 	"request_user_input",
 	"update_plan",
 }

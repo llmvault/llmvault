@@ -1,7 +1,6 @@
 package transcription
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -15,14 +14,35 @@ import (
 func TestElevenLabsTranscriber_Transcribe(t *testing.T) {
 	var gotPath string
 	var gotAPIKey string
-	var gotBody []byte
+	var gotContentType string
+	var gotModelID string
+	var gotLanguageCode string
+	var gotFilename string
+	var gotFileContentType string
+	var gotFileBytes []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotAPIKey = r.Header.Get("xi-api-key")
-		var err error
-		gotBody, err = io.ReadAll(r.Body)
+		gotContentType = r.Header.Get("Content-Type")
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatalf("parse multipart body: %v", err)
+		}
+		gotModelID = r.FormValue("model_id")
+		gotLanguageCode = r.FormValue("language_code")
+		files := r.MultipartForm.File["file"]
+		if len(files) != 1 {
+			t.Fatalf("file parts = %d, want 1", len(files))
+		}
+		gotFilename = files[0].Filename
+		gotFileContentType = files[0].Header.Get("Content-Type")
+		file, err := files[0].Open()
 		if err != nil {
-			t.Fatalf("read body: %v", err)
+			t.Fatalf("open file part: %v", err)
+		}
+		defer file.Close()
+		gotFileBytes, err = io.ReadAll(file)
+		if err != nil {
+			t.Fatalf("read file part: %v", err)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]any{
@@ -41,6 +61,8 @@ func TestElevenLabsTranscriber_Transcribe(t *testing.T) {
 		BaseURL:      srv.URL,
 		ModelID:      "scribe_v2",
 		Audio:        []byte("fake audio"),
+		Filename:     "voice.webm",
+		ContentType:  "audio/webm",
 		LanguageCode: "en",
 	})
 	if err != nil {
@@ -55,10 +77,42 @@ func TestElevenLabsTranscriber_Transcribe(t *testing.T) {
 	if gotAPIKey != "sk-test" {
 		t.Fatalf("xi-api-key = %q, want sk-test", gotAPIKey)
 	}
-	if !bytes.Contains(gotBody, []byte("scribe_v2")) {
-		t.Fatalf("body did not include model id: %s", string(gotBody))
+	if !strings.HasPrefix(gotContentType, "multipart/form-data; boundary=") {
+		t.Fatalf("content-type = %q, want multipart form", gotContentType)
 	}
-	if !strings.Contains(string(gotBody), "ZmFrZSBhdWRpbw==") {
-		t.Fatalf("body did not include base64 audio: %s", string(gotBody))
+	if gotModelID != "scribe_v2" {
+		t.Fatalf("model_id = %q, want scribe_v2", gotModelID)
+	}
+	if gotLanguageCode != "en" {
+		t.Fatalf("language_code = %q, want en", gotLanguageCode)
+	}
+	if gotFilename != "voice.webm" {
+		t.Fatalf("filename = %q, want voice.webm", gotFilename)
+	}
+	if gotFileContentType != "audio/webm" {
+		t.Fatalf("file content-type = %q, want audio/webm", gotFileContentType)
+	}
+	if string(gotFileBytes) != "fake audio" {
+		t.Fatalf("file bytes = %q, want raw audio bytes", string(gotFileBytes))
+	}
+}
+
+func TestElevenLabsTranscriber_TranscribeIncludesUpstreamErrorBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"detail":"invalid file"}`)
+	}))
+	defer srv.Close()
+
+	_, err := NewElevenLabsTranscriber(srv.Client(), time.Second).Transcribe(context.Background(), Request{
+		APIKey:  []byte("sk-test"),
+		BaseURL: srv.URL,
+		Audio:   []byte("fake audio"),
+	})
+	if err == nil {
+		t.Fatal("Transcribe succeeded, want error")
+	}
+	if !strings.Contains(err.Error(), "status 400") || !strings.Contains(err.Error(), "invalid file") {
+		t.Fatalf("error = %q, want status and response body", err.Error())
 	}
 }

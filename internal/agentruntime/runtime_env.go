@@ -184,7 +184,6 @@ func ApplyControlPlaneRuntimeEnv(env map[string]string, cfg *config.Config, agen
 	if agent.ID != uuid.Nil {
 		env[AgentEnvGitCredentialsURL] = fmt.Sprintf("%s/internal/git-credentials/%s", controlPlaneBaseURL, agent.ID)
 		env[AgentEnvDriveUploadURL] = AgentDriveUploadURL(controlPlaneBaseURL, agent.ID)
-		env[AgentEnvImageGenerationURL] = AgentImageGenerationURL(controlPlaneBaseURL, agent.ID)
 		if runtimeSecret != "" {
 			ApplyServiceProxyEnv(env, controlPlaneBaseURL, agent.ID, runtimeSecret)
 		}
