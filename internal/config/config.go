@@ -128,23 +128,13 @@ type Config struct {
 	SpiderAPIKey  string `env:"HIVY_SPIDER_CLOUD_API_KEY"`                                  // empty = spider disabled
 	SpiderBaseURL string `env:"HIVY_SPIDER_BASE_URL" envDefault:"https://api.spider.cloud"` // Spider.cloud API endpoint
 
-	// S3 (agent drive storage — empty HIVY_AWS_S3_BUCKET_NAME disables the drive)
+	// S3 (agent drive storage and uploads; empty HIVY_AWS_S3_BUCKET_NAME disables storage-backed uploads)
 	S3Bucket          string `env:"HIVY_AWS_S3_BUCKET_NAME"`
 	S3Region          string `env:"HIVY_AWS_DEFAULT_REGION" envDefault:"us-east-1"`
 	S3Endpoint        string `env:"HIVY_AWS_ENDPOINT_URL"` // for MinIO / R2 / local dev
 	S3PresignEndpoint string `env:"HIVY_AWS_PRESIGN_ENDPOINT_URL"`
 	S3AccessKey       string `env:"HIVY_AWS_ACCESS_KEY_ID"`
 	S3SecretKey       string `env:"HIVY_AWS_SECRET_ACCESS_KEY"`
-
-	// Public assets (avatars, org logos, generic public uploads). Empty
-	// HIVY_PUBLIC_ASSETS_S3_BUCKET disables the /v1/uploads/sign endpoint.
-	PublicAssetsBucket    string        `env:"HIVY_PUBLIC_ASSETS_S3_BUCKET"`
-	PublicAssetsRegion    string        `env:"HIVY_PUBLIC_ASSETS_S3_REGION" envDefault:"auto"`
-	PublicAssetsEndpoint  string        `env:"HIVY_PUBLIC_ASSETS_S3_ENDPOINT"`
-	PublicAssetsAccessKey string        `env:"HIVY_PUBLIC_ASSETS_ACCESS_KEY_ID"`
-	PublicAssetsSecretKey string        `env:"HIVY_PUBLIC_ASSETS_SECRET_ACCESS_KEY"`
-	PublicAssetsSignTTL   time.Duration `env:"HIVY_PUBLIC_ASSETS_SIGN_TTL" envDefault:"15m"`
-	PublicAssetsUseACL    bool          `env:"HIVY_PUBLIC_ASSETS_USE_ACL" envDefault:"false"`
 
 	SandboxResourceCheckInterval time.Duration `env:"HIVY_SANDBOX_RESOURCE_CHECK_INTERVAL" envDefault:"30m"`
 	SandboxIdleTimeout           time.Duration `env:"HIVY_SANDBOX_IDLE_TIMEOUT" envDefault:"5m"`

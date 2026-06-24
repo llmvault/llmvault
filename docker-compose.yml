@@ -53,7 +53,6 @@ services:
       HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN: ${HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN:-http://127.0.0.1}
       HIVY_AWS_ENDPOINT_URL: http://minio:9000
       HIVY_AWS_PRESIGN_ENDPOINT_URL: ${HIVY_AWS_PRESIGN_ENDPOINT_URL:-http://host.docker.internal:${HIVY_COMPOSE_MINIO_API_PORT:-9000}}
-      HIVY_PUBLIC_ASSETS_S3_ENDPOINT: http://minio:9000
       HIVY_QDRANT_HOST: qdrant
       HIVY_QDRANT_PORT: ${HIVY_QDRANT_PORT:-6334}
     ports:
@@ -136,7 +135,6 @@ services:
       HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN: ${HIVY_SANDBOX_DOCKER_RUNTIME_ORIGIN:-http://127.0.0.1}
       HIVY_AWS_ENDPOINT_URL: http://minio:9000
       HIVY_AWS_PRESIGN_ENDPOINT_URL: ${HIVY_AWS_PRESIGN_ENDPOINT_URL:-http://host.docker.internal:${HIVY_COMPOSE_MINIO_API_PORT:-9000}}
-      HIVY_PUBLIC_ASSETS_S3_ENDPOINT: http://minio:9000
       HIVY_QDRANT_HOST: qdrant
       HIVY_QDRANT_PORT: ${HIVY_QDRANT_PORT:-6334}
       HIVY_WORKER_HEALTH_PORT: ${HIVY_WORKER_HEALTH_PORT:-8090}
@@ -341,8 +339,7 @@ services:
       retries: 15
 
   # --- One-shot bucket creator for MinIO ---
-  # Creates the hivy-rag-test bucket the Phase 0 LanceDB spike and later
-  # RAG integration tests use. Exits 0 once the bucket exists.
+  # Creates the shared local storage bucket. Exits 0 once the bucket exists.
   minio-setup:
     image: minio/mc:latest
     depends_on:
@@ -352,8 +349,6 @@ services:
       /bin/sh -c "
       mc alias set local http://minio:9000 minioadmin minioadmin &&
       mc mb --ignore-existing local/hivy-rag-test &&
-      mc mb --ignore-existing local/public-files-test &&
-      mc anonymous set download local/public-files-test &&
       echo 'buckets ready'
       "
     restart: "no"

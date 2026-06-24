@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 )
@@ -140,13 +139,14 @@ func defaultPolicies() map[AssetType]AssetPolicy {
 }
 
 type PublicAssetsConfig struct {
-	Bucket       string
-	Region       string
-	Endpoint     string
-	AccessKey    string
-	SecretKey    string
-	SignTTL      time.Duration
-	UsePublicACL bool
+	Bucket          string
+	Region          string
+	Endpoint        string
+	PresignEndpoint string
+	AccessKey       string
+	SecretKey       string
+	SignTTL         time.Duration
+	UsePublicACL    bool
 }
 
 type S3Presigner struct {
@@ -158,33 +158,25 @@ type S3Presigner struct {
 
 func NewS3Presigner(cfg PublicAssetsConfig) (*S3Presigner, error) {
 	if cfg.Bucket == "" {
-		return nil, fmt.Errorf("public assets bucket is required")
+		return nil, fmt.Errorf("S3 bucket name is required")
 	}
 	if cfg.SignTTL <= 0 {
 		cfg.SignTTL = 15 * time.Minute
 	}
-
-	opts := []func(*s3.Options){
-		func(o *s3.Options) {
-			o.Region = cfg.Region
-			if cfg.Region == "" {
-				o.Region = "auto"
-			}
-			o.Credentials = credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")
-		},
-	}
-	if cfg.Endpoint != "" {
-		opts = append(opts, func(o *s3.Options) {
-			o.BaseEndpoint = aws.String(cfg.Endpoint)
-			o.UsePathStyle = true
-		})
+	if cfg.Region == "" {
+		cfg.Region = "auto"
 	}
 
-	client := s3.New(s3.Options{}, opts...)
+	client := newS3APIClient(cfg.Region, cfg.Endpoint, cfg.AccessKey, cfg.SecretKey)
+	presignClient := client
+	if cfg.PresignEndpoint != "" && cfg.PresignEndpoint != cfg.Endpoint {
+		presignClient = newS3APIClient(cfg.Region, cfg.PresignEndpoint, cfg.AccessKey, cfg.SecretKey)
+	}
+
 	return &S3Presigner{
 		cfg:      cfg,
 		client:   client,
-		presign:  s3.NewPresignClient(client),
+		presign:  s3.NewPresignClient(presignClient),
 		policies: defaultPolicies(),
 	}, nil
 }

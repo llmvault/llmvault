@@ -24,12 +24,12 @@ const (
 	testMinioEndpoint = "http://localhost:9000"
 	testMinioAccess   = "minioadmin"
 	testMinioSecret   = "minioadmin"
-	testMinioBucket   = "public-files-test"
+	testMinioBucket   = "hivy-rag-test"
 )
 
 func newRealPresigner(t *testing.T) *storage.S3Presigner {
 	t.Helper()
-	endpoint := os.Getenv("HIVY_PUBLIC_ASSETS_S3_ENDPOINT")
+	endpoint := os.Getenv("HIVY_AWS_ENDPOINT_URL")
 	if endpoint == "" {
 		endpoint = testMinioEndpoint
 	}
