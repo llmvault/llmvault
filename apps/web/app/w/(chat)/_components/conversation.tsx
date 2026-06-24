@@ -15,6 +15,7 @@ import {
 import { ThinkingBlock } from "@/app/w/(chat)/_components/conversation-thinking"
 import { UserMessageBlock } from "@/app/w/(chat)/_components/conversation-user-message"
 import type { CodeLineCommentReference } from "@/app/w/(chat)/_lib/code-line-comments"
+import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import {
   type ConversationBlock,
   type MediaAttachment,
@@ -23,6 +24,7 @@ import {
 export function Conversation({
   blocks,
   onRetryMessage,
+  onOpenCanvasTarget,
 }: {
   blocks: ConversationBlock[]
   onRetryMessage?: (
@@ -30,6 +32,7 @@ export function Conversation({
     text: string,
     codeLineComments?: CodeLineCommentReference[]
   ) => void
+  onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
 }) {
   // All attachments across the conversation form one gallery so the
   // lightbox can navigate between every shared image and video.
@@ -51,6 +54,7 @@ export function Conversation({
           block={block}
           onOpenAttachment={openAttachment}
           onRetryMessage={onRetryMessage}
+          onOpenCanvasTarget={onOpenCanvasTarget}
         />
       ))}
       <Lightbox
@@ -67,6 +71,7 @@ function Block({
   block,
   onOpenAttachment,
   onRetryMessage,
+  onOpenCanvasTarget,
 }: {
   block: ConversationBlock
   onOpenAttachment: (attachment: MediaAttachment) => void
@@ -75,11 +80,16 @@ function Block({
     text: string,
     codeLineComments?: CodeLineCommentReference[]
   ) => void
+  onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
 }) {
   switch (block.type) {
     case "assistant":
       return (
-        <AssistantBlock block={block} onOpenAttachment={onOpenAttachment} />
+        <AssistantBlock
+          block={block}
+          onOpenAttachment={onOpenAttachment}
+          onOpenCanvasTarget={onOpenCanvasTarget}
+        />
       )
     case "user":
       return (
@@ -109,6 +119,7 @@ function Block({
               block={child}
               onOpenAttachment={onOpenAttachment}
               onRetryMessage={onRetryMessage}
+              onOpenCanvasTarget={onOpenCanvasTarget}
             />
           )}
         />

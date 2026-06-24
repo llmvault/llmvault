@@ -6,6 +6,10 @@ import { subscribeWithSelector } from "zustand/middleware"
 import type { GitStatusEntry } from "@pierre/trees"
 import type { UploadedDriveAsset } from "@/app/w/(chat)/_lib/image-attachments"
 import type {
+  CanvasDesignTarget,
+  CanvasSessionURLEntry,
+} from "@/app/w/(chat)/_lib/canvas-design-links"
+import type {
   AttachmentDescriptionState,
 } from "@/app/w/(chat)/_components/composer-attachments"
 import type { CodeLineComment } from "@/app/w/(chat)/_components/line-comments"
@@ -34,6 +38,7 @@ export type WorkspacePanelViewID =
   | "terminal"
   | "browser"
   | "files"
+  | "design"
   | "side-chat"
 
 export type WorkspaceUploadStatus = "uploading" | "uploaded" | "error"
@@ -87,6 +92,11 @@ export interface SessionWorkspace {
     url: string
     src: string
     reloadKey: number
+  }
+  canvas: {
+    targets: CanvasDesignTarget[]
+    activeTargetKey: string | null
+    sessionURLs: Record<string, CanvasSessionURLEntry>
   }
   review: {
     diffStyle: "unified" | "split"
@@ -153,6 +163,12 @@ interface SessionWorkspaceStoreState {
   setBrowserURL: (sessionId: string, url: string) => void
   navigateBrowser: (sessionId: string, src: string) => void
   reloadBrowser: (sessionId: string) => void
+  openCanvasTarget: (sessionId: string, target: CanvasDesignTarget) => void
+  setCanvasSessionURL: (
+    sessionId: string,
+    targetKey: string,
+    entry: CanvasSessionURLEntry
+  ) => void
   setReviewDiffStyle: (
     sessionId: string,
     diffStyle: SessionWorkspace["review"]["diffStyle"]
@@ -432,6 +448,40 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
         }))
       )
     },
+    openCanvasTarget(sessionId, target) {
+      setState((state) =>
+        updateWorkspaceState(state, sessionId, (workspace) => ({
+          ...workspace,
+          rightPanel: {
+            ...workspace.rightPanel,
+            open: true,
+            openViews: workspace.rightPanel.openViews.includes("design")
+              ? workspace.rightPanel.openViews
+              : [...workspace.rightPanel.openViews, "design"],
+            activeView: "design",
+          },
+          canvas: {
+            ...workspace.canvas,
+            targets: upsertCanvasTarget(workspace.canvas.targets, target),
+            activeTargetKey: target.key,
+          },
+        }))
+      )
+    },
+    setCanvasSessionURL(sessionId, targetKey, entry) {
+      setState((state) =>
+        updateWorkspaceState(state, sessionId, (workspace) => ({
+          ...workspace,
+          canvas: {
+            ...workspace.canvas,
+            sessionURLs: {
+              ...workspace.canvas.sessionURLs,
+              [targetKey]: entry,
+            },
+          },
+        }))
+      )
+    },
     setReviewDiffStyle(sessionId, diffStyle) {
       setState((state) =>
         updateWorkspaceState(state, sessionId, (workspace) => ({
@@ -483,6 +533,15 @@ export async function clearPersistedSessionWorkspaces() {
     workspaces: EMPTY_WORKSPACES,
   })
   await clearWorkspacePersistence()
+}
+
+function upsertCanvasTarget(
+  targets: CanvasDesignTarget[],
+  target: CanvasDesignTarget
+) {
+  const existing = targets.findIndex((entry) => entry.key === target.key)
+  if (existing < 0) return [...targets, target]
+  return targets.map((entry, index) => (index === existing ? target : entry))
 }
 
 function updateWorkspaceState(

@@ -16,6 +16,7 @@ export type PanelViewID =
   | "terminal"
   | "browser"
   | "files"
+  | "design"
   | "side-chat"
 
 const PANEL_VIEWS: {
@@ -33,6 +34,7 @@ const PANEL_VIEWS: {
   },
   { id: "browser", label: "Browser", icon: "lucide:globe", shortcut: "⌘T" },
   { id: "files", label: "Files", icon: "lucide:folder", shortcut: "⌘P" },
+  { id: "design", label: "Design", icon: "lucide:pen-tool", shortcut: "⌘D" },
   {
     id: "side-chat",
     label: "Side chat",

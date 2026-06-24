@@ -348,10 +348,10 @@ mod tests {
         assert_eq!(
             ModelProfile::detect(
                 None,
-                Some("crof"),
-                Some("crof-mimo-v2.5-pro"),
+                Some("openrouter"),
                 Some("mimo-v2.5-pro"),
-                "crof-mimo-v2.5-pro",
+                Some("xiaomi/mimo-v2.5-pro"),
+                "mimo-v2.5-pro",
                 None
             )
             .id,
