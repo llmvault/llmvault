@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/usehivy/hivy/internal/registry"
 )
 
 // maxPeekBytes is the maximum number of bytes to read from the request body
@@ -60,29 +62,99 @@ func RewriteModel(req *http.Request, modelID string) error {
 	if err != nil {
 		return err
 	}
-	payload := map[string]any{}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		req.Body = io.NopCloser(bytes.NewReader(body))
-		return nil
-	}
-	if _, ok := payload["model"].(string); !ok {
-		req.Body = io.NopCloser(bytes.NewReader(body))
-		return nil
-	}
-	payload["model"] = modelID
-
-	rewritten, err := json.Marshal(payload)
+	rewritten, ok, err := rewriteModelJSONBody(body, modelID)
 	if err != nil {
-		req.Body = io.NopCloser(bytes.NewReader(body))
+		rewindRequestBody(req, body)
 		return err
 	}
-	req.Body = io.NopCloser(bytes.NewReader(rewritten))
-	req.ContentLength = int64(len(rewritten))
-	req.GetBody = func() (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader(rewritten)), nil
+	if !ok {
+		rewindRequestBody(req, body)
+		return nil
 	}
-	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(rewritten)))
+	replaceRequestBody(req, rewritten)
 	return nil
+}
+
+func RewriteRoutedModel(req *http.Request, providerID string) (string, bool, error) {
+	if req.Method != http.MethodPost || req.Body == nil {
+		return "", false, nil
+	}
+	ct := req.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "application/json") {
+		return "", false, nil
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return "", false, err
+	}
+	rewindRequestBody(req, body)
+
+	payload, modelName, ok := parseModelJSONBody(body)
+	if !ok {
+		return "", false, nil
+	}
+	route, ok := registry.Global().ResolveModel(providerID, modelName)
+	if !ok || route.UpstreamID == modelName {
+		return modelName, false, nil
+	}
+
+	rewritten, err := rewriteParsedModelJSONBody(payload, route.UpstreamID)
+	if err != nil {
+		return modelName, false, err
+	}
+	replaceRequestBody(req, rewritten)
+	return modelName, true, nil
+}
+
+func parseModelJSONBody(body []byte) (map[string]json.RawMessage, string, bool) {
+	payload := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, "", false
+	}
+	rawModel, ok := payload["model"]
+	if !ok {
+		return nil, "", false
+	}
+	var modelName string
+	if err := json.Unmarshal(rawModel, &modelName); err != nil {
+		return nil, "", false
+	}
+	return payload, modelName, true
+}
+
+func rewriteModelJSONBody(body []byte, modelID string) ([]byte, bool, error) {
+	payload, _, ok := parseModelJSONBody(body)
+	if !ok {
+		return nil, false, nil
+	}
+	rewritten, err := rewriteParsedModelJSONBody(payload, modelID)
+	if err != nil {
+		return nil, false, err
+	}
+	return rewritten, true, nil
+}
+
+func rewriteParsedModelJSONBody(payload map[string]json.RawMessage, modelID string) ([]byte, error) {
+	rawModel, err := json.Marshal(modelID)
+	if err != nil {
+		return nil, err
+	}
+	payload["model"] = rawModel
+	return json.Marshal(payload)
+}
+
+func rewindRequestBody(req *http.Request, body []byte) {
+	req.Body = io.NopCloser(bytes.NewReader(body))
+}
+
+func replaceRequestBody(req *http.Request, body []byte) {
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	req.ContentLength = int64(len(body))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(body)), nil
+	}
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(body)))
 }
 
 // extractModelFromJSON extracts the top-level "model" string field from

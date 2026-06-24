@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Button, Popover } from "@heroui/react"
+import { Button } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useDropzone } from "react-dropzone"
 import { cn } from "@/lib/utils"
@@ -13,7 +13,6 @@ import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
-import type { Agent } from "@/app/w/(chat)/_lib/agents"
 import {
   attachmentMetadataFromDescription,
   describeDriveImage,
@@ -32,24 +31,18 @@ import type { CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comme
 import { ComposerLineComments } from "./composer-line-comments"
 import { displayModel, ModelIcon } from "./model-display"
 
-const EFFORTS = ["Low", "Medium", "High"]
-
 export function Composer({
   sessionId,
-  agent,
   agentId,
   modelId,
-  onModelChange,
   onSend,
   placeholder = "Ask for follow-up changes",
   isStreaming = false,
   onStop,
 }: {
   sessionId: string
-  agent: Agent
   agentId: string
   modelId: string
-  onModelChange: (modelId: string) => void
   onSend: (
     text: string,
     attachments: ImageAttachmentMetadata[],
@@ -63,15 +56,10 @@ export function Composer({
     selectSessionWorkspace(state, sessionId)
   )
   const value = workspace.composer.text
-  const effort = workspace.composer.effort
   const setValue = useSessionWorkspaceStore((state) => state.setComposerText)
-  const setEffortValue = useSessionWorkspaceStore(
-    (state) => state.setComposerEffort
-  )
   const setAttachmentDescriptions = useSessionWorkspaceStore(
     (state) => state.setAttachmentDescriptions
   )
-  const [modelOpen, setModelOpen] = useState(false)
   const [recording, setRecording] = useState(false)
   const lineComments = useCodeLineComments()
   const lineCommentActions = useCodeLineCommentActions()
@@ -141,31 +129,34 @@ export function Composer({
       readyAttachments.length > 0 ||
       lineComments.length > 0)
 
-  const describeUpload = useCallback(async (upload: OrgDriveUploadItem) => {
-    if (!upload.asset) return
-    setAttachmentDescriptions(sessionId, (current) => ({
-      ...current,
-      [upload.id]: { status: "describing" },
-    }))
-    try {
-      const description = await describeDriveImage(upload.asset.id)
-      const metadata = attachmentMetadataFromDescription(
-        upload.asset,
-        description
-      )
+  const describeUpload = useCallback(
+    async (upload: OrgDriveUploadItem) => {
+      if (!upload.asset) return
       setAttachmentDescriptions(sessionId, (current) => ({
         ...current,
-        [upload.id]: { status: "ready", metadata },
+        [upload.id]: { status: "describing" },
       }))
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Image processing failed"
-      setAttachmentDescriptions(sessionId, (current) => ({
-        ...current,
-        [upload.id]: { status: "error", error: message },
-      }))
-    }
-  }, [sessionId, setAttachmentDescriptions])
+      try {
+        const description = await describeDriveImage(upload.asset.id)
+        const metadata = attachmentMetadataFromDescription(
+          upload.asset,
+          description
+        )
+        setAttachmentDescriptions(sessionId, (current) => ({
+          ...current,
+          [upload.id]: { status: "ready", metadata },
+        }))
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Image processing failed"
+        setAttachmentDescriptions(sessionId, (current) => ({
+          ...current,
+          [upload.id]: { status: "error", error: message },
+        }))
+      }
+    },
+    [sessionId, setAttachmentDescriptions]
+  )
 
   useEffect(() => {
     for (const upload of uploads) {
@@ -189,7 +180,13 @@ export function Composer({
         void describeUpload(upload)
       })
     }
-  }, [attachmentDescriptions, describeUpload, sessionId, setAttachmentDescriptions, uploads])
+  }, [
+    attachmentDescriptions,
+    describeUpload,
+    sessionId,
+    setAttachmentDescriptions,
+    uploads,
+  ])
 
   const retryAttachment = (attachment: ComposerImageAttachment) => {
     const id = attachment.upload.id
@@ -259,7 +256,10 @@ export function Composer({
         sendingCodeLineComments
       )
       if (sent === false) {
-        if (!useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer.text) {
+        if (
+          !useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
+            .text
+        ) {
           setValue(sessionId, promptText)
         }
         return
@@ -271,7 +271,10 @@ export function Composer({
         node.style.height = "auto"
       }
     } catch {
-      if (!useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer.text) {
+      if (
+        !useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
+          .text
+      ) {
         setValue(sessionId, promptText)
       }
     }
@@ -341,65 +344,15 @@ export function Composer({
 
           <div className="flex-1" />
 
-          <Popover isOpen={modelOpen} onOpenChange={setModelOpen}>
-            <Popover.Trigger
-              aria-label="Model and effort"
-              className="hover:bg-default flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors"
-            >
-              <ModelIcon model={selectedModel} className="h-3.5 w-3.5" />
-              <span className="font-medium">{selectedModel.label}</span>
-              <span className="text-muted">{effort}</span>
-              <Icon
-                icon="lucide:chevron-down"
-                className="h-3.5 w-3.5 text-muted"
-              />
-            </Popover.Trigger>
-            <Popover.Content className="w-64 rounded-2xl border border-border p-1.5">
-              <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
-                <span className="px-2.5 pt-1.5 pb-1 text-xs text-muted">
-                  Models available to {agent.name}
-                </span>
-                {agent.modelIds.map(displayModel).map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    onClick={() => onModelChange(entry.id)}
-                    className="hover:bg-default flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
-                  >
-                    <ModelIcon model={entry} className="h-4 w-4 shrink-0" />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span>{entry.label}</span>
-                      <span className="text-xs text-muted">
-                        {entry.provider}
-                      </span>
-                    </span>
-                    {entry.id === modelId ? (
-                      <Icon icon="lucide:check" className="h-4 w-4 shrink-0" />
-                    ) : null}
-                  </button>
-                ))}
-                <span className="px-2.5 pt-2 pb-1 text-xs text-muted">
-                  Reasoning effort
-                </span>
-                {EFFORTS.map((entry) => (
-                  <button
-                    key={entry}
-                    type="button"
-                    onClick={() => {
-                      setEffortValue(sessionId, entry)
-                      setModelOpen(false)
-                    }}
-                    className="hover:bg-default flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
-                  >
-                    <span className="min-w-0 flex-1">{entry}</span>
-                    {entry === effort ? (
-                      <Icon icon="lucide:check" className="h-4 w-4 shrink-0" />
-                    ) : null}
-                  </button>
-                ))}
-              </Popover.Dialog>
-            </Popover.Content>
-          </Popover>
+          <div
+            aria-label={`Model: ${selectedModel.label}`}
+            className="flex min-w-0 items-center gap-1.5 px-2 py-1.5 text-sm text-muted"
+          >
+            <ModelIcon model={selectedModel} className="h-3.5 w-3.5" />
+            <span className="max-w-40 truncate font-medium text-foreground">
+              {selectedModel.label}
+            </span>
+          </div>
 
           <Button
             variant="ghost"

@@ -7,20 +7,16 @@ import (
 
 func createSessionModelID(req createSessionRequest) string {
 	if req.ModelDefinition != nil {
-		if modelID := strings.TrimSpace(req.ModelDefinition.ModelID); modelID != "" {
-			return modelID
-		}
+		return strings.TrimSpace(req.ModelDefinition.ModelID)
 	}
-	return strings.TrimSpace(req.Model)
+	return ""
 }
 
 func createSessionReasoningEffort(req createSessionRequest) string {
 	if req.ModelDefinition != nil {
-		if effort := strings.TrimSpace(req.ModelDefinition.ReasoningEffort); effort != "" {
-			return effort
-		}
+		return strings.TrimSpace(req.ModelDefinition.ReasoningEffort)
 	}
-	return strings.TrimSpace(req.ReasoningEffort)
+	return ""
 }
 
 func normalizeSessionReasoningEffort(value string) (string, error) {

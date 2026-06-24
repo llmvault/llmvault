@@ -42,7 +42,7 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 	}
 
 	compiled := h.compileMessage(payload, trigger, webhookPayload)
-	session, err := h.findOrCreateTriggerSession(ctx, &agent, sb, trigger.ID, compiled.ResourceKey)
+	session, err := h.findOrCreateTriggerSession(ctx, &agent, sb, trigger, compiled.ResourceKey)
 	if err != nil {
 		captureTriggerDispatchBoundary(ctx, "find_or_create_trigger_session", payload, trigger, compiled.ResourceKey, "", err)
 		return err

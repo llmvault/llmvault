@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import {
   agentDisplayName,
-  agentModel,
   channelDisplayName,
   type SidebarAgentResponse,
   type SidebarChannelResponse,
@@ -14,6 +13,7 @@ import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
+import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
 import { Picker, PickerButton } from "./chat-picker"
 import { PickerText } from "./chat-picker-text"
 import { displayModel } from "./model-display"
@@ -30,6 +30,10 @@ export interface ChatComposerProps {
   agentsLoading: boolean
   agentsError: boolean
   modelId: string
+  modelIds: string[]
+  modelSummaries: ModelSummary[]
+  modelsLoading: boolean
+  modelsError: boolean
   submitting: boolean
   onChannelChange: (channel: SidebarChannelResponse) => void
   onAgentChange: (agent: SidebarAgentResponse) => void
@@ -49,6 +53,10 @@ export function ChatComposer({
   agentsLoading,
   agentsError,
   modelId,
+  modelIds,
+  modelSummaries,
+  modelsLoading,
+  modelsError,
   submitting,
   onChannelChange,
   onAgentChange,
@@ -70,11 +78,11 @@ export function ChatComposer({
   const [channelOpen, setChannelOpen] = useState(false)
   const [agentOpen, setAgentOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
-  const selectedModel = displayModel(modelId)
-  const currentAgentModel = agentModel(agent)
-  const modelOptions = currentAgentModel
-    ? [displayModel(currentAgentModel)]
-    : [selectedModel]
+  const selectedModel = displayModel(modelId, modelSummaries)
+  const modelOptions = useMemo(
+    () => modelIds.map((id) => displayModel(id, modelSummaries)),
+    [modelIds, modelSummaries]
+  )
   const canSend = value.trim().length > 0 && Boolean(channel?.id)
 
   const submit = async () => {
@@ -89,11 +97,15 @@ export function ChatComposer({
       if (sent) {
         return
       }
-      if (!useSessionWorkspaceStore.getState().workspaces[draftKey]?.composer.text) {
+      if (
+        !useSessionWorkspaceStore.getState().workspaces[draftKey]?.composer.text
+      ) {
         setValue(draftKey, text)
       }
     } catch {
-      if (!useSessionWorkspaceStore.getState().workspaces[draftKey]?.composer.text) {
+      if (
+        !useSessionWorkspaceStore.getState().workspaces[draftKey]?.composer.text
+      ) {
         setValue(draftKey, text)
       }
     }
@@ -206,17 +218,24 @@ export function ChatComposer({
           <span className="px-2.5 pt-1.5 pb-1 text-xs text-muted">
             Models available to {agent ? agentDisplayName(agent) : "agent"}
           </span>
-          {modelOptions.map((entry) => (
-            <PickerButton
-              key={entry.id}
-              model={entry}
-              selected={entry.id === modelId}
-              onPress={() => onModelChange(entry.id)}
-              description={entry.provider}
-            >
-              {entry.label}
-            </PickerButton>
-          ))}
+          {modelsLoading && modelOptions.length === 0 ? (
+            <PickerText>Loading models</PickerText>
+          ) : modelsError && modelOptions.length === 0 ? (
+            <PickerText>Could not load models</PickerText>
+          ) : modelOptions.length ? (
+            modelOptions.map((entry) => (
+              <PickerButton
+                key={entry.id}
+                model={entry}
+                selected={entry.id === modelId}
+                onPress={() => onModelChange(entry.id)}
+              >
+                {entry.label}
+              </PickerButton>
+            ))
+          ) : (
+            <PickerText>No models</PickerText>
+          )}
           <span className="px-2.5 pt-2 pb-1 text-xs text-muted">
             Reasoning effort
           </span>

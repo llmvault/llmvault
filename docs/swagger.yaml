@@ -821,6 +821,8 @@ definitions:
     type: object
   agentTriggerResponse:
     properties:
+      channel_id:
+        type: string
       conditions: {}
       connection_id:
         type: string
@@ -1475,16 +1477,12 @@ definitions:
         type: string
       message:
         type: string
-      model:
-        type: string
       model_definition:
         $ref: '#/definitions/sessionModelDefinitionRequest'
       name:
         type: string
       raw:
         $ref: '#/definitions/JSON'
-      reasoning_effort:
-        type: string
       text:
         type: string
       vector_image_model:

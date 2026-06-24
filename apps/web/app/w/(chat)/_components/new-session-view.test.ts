@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   composerProps: null as null | {
+    modelId: string
+    modelIds: string[]
+    modelSummaries: Array<{ id?: string; name?: string; provider_id?: string }>
+    modelsError: boolean
+    modelsLoading: boolean
     onSend: (text: string, effort: string) => boolean | Promise<boolean>
   },
   mutateAsync: vi.fn(),
@@ -18,6 +23,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/app/w/(chat)/_components/chat-composer", () => ({
   ChatComposer: (props: {
+    modelId: string
+    modelIds: string[]
+    modelSummaries: Array<{ id?: string; name?: string; provider_id?: string }>
+    modelsError: boolean
+    modelsLoading: boolean
     onSend: (text: string, effort: string) => boolean | Promise<boolean>
   }) => {
     mocks.composerProps = props
@@ -75,9 +85,46 @@ describe("SessionView", () => {
                 name: "Hivy",
                 is_default: true,
                 model: "test-model",
+                available_models: ["agent-extra", "test-model"],
+                catalog: { id: "catalog-1", slug: "hivy" },
               },
             ],
           },
+          isError: false,
+          isLoading: false,
+        }
+      }
+      if (path === "/v1/agents/catalog") {
+        return {
+          data: [
+            {
+              id: "catalog-1",
+              slug: "hivy",
+              model: "catalog-default",
+              available_models: ["catalog-model", "test-model"],
+              installed_agent_id: "agent-1",
+            },
+          ],
+          isError: false,
+          isLoading: false,
+        }
+      }
+      if (path === "/v1/agents/models") {
+        return {
+          data: [
+            { id: "test-model", name: "Test Model", provider_id: "test" },
+            { id: "agent-extra", name: "Agent Extra", provider_id: "test" },
+            {
+              id: "catalog-default",
+              name: "Catalog Default",
+              provider_id: "test",
+            },
+            {
+              id: "catalog-model",
+              name: "Catalog Model",
+              provider_id: "test",
+            },
+          ],
           isError: false,
           isLoading: false,
         }
@@ -120,8 +167,10 @@ describe("SessionView", () => {
         access_mode: "full",
         agent_id: "agent-1",
         channel_id: "channel-1",
-        model: "test-model",
-        reasoning_effort: "high",
+        model_definition: {
+          model_id: "test-model",
+          reasoning_effort: "high",
+        },
         text: "Investigate this",
       },
     })
@@ -138,5 +187,24 @@ describe("SessionView", () => {
       mocks.queryClient,
       expect.objectContaining({ id: "session-1" })
     )
+  })
+
+  it("passes installed and catalog model ids to the composer", () => {
+    renderToString(
+      React.createElement(SessionView, { onSessionCreated: vi.fn() })
+    )
+
+    expect(mocks.composerProps?.modelId).toBe("test-model")
+    expect(mocks.composerProps?.modelIds).toEqual([
+      "test-model",
+      "agent-extra",
+      "catalog-default",
+      "catalog-model",
+    ])
+    expect(
+      mocks.composerProps?.modelSummaries.map((model) => model.id)
+    ).toEqual(["test-model", "agent-extra", "catalog-default", "catalog-model"])
+    expect(mocks.composerProps?.modelsLoading).toBe(false)
+    expect(mocks.composerProps?.modelsError).toBe(false)
   })
 })

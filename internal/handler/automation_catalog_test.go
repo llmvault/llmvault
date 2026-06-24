@@ -63,6 +63,10 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 						Cron     string `json:"cron"`
 						Timezone string `json:"timezone"`
 					} `json:"schedule,omitempty"`
+					Install struct {
+						DefaultAgent   string `json:"default_agent"`
+						DefaultChannel string `json:"default_channel"`
+					} `json:"install"`
 				} `json:"data"`
 			}
 			if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
@@ -80,6 +84,9 @@ func TestAutomationCatalogEndpointsServeGlobalFiles(t *testing.T) {
 				}
 				if !item.Enabled || item.Instructions == "" {
 					t.Fatalf("item %q should be enabled with instructions", item.Slug)
+				}
+				if item.Install.DefaultAgent == "" || item.Install.DefaultChannel == "" {
+					t.Fatalf("item %q missing install defaults", item.Slug)
 				}
 				if tc.kind == "trigger" && (item.Trigger == nil || len(item.Trigger.Keys) == 0) {
 					t.Fatalf("trigger item %q missing trigger keys", item.Slug)
