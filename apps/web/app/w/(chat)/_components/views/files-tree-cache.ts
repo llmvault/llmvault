@@ -1,12 +1,12 @@
 import type { GitStatusEntry } from "@pierre/trees"
 import {
-  RuntimeRepoAccessError,
   RuntimeRepoHTTPError,
   fetchRuntimeRepoFileContent,
   type RuntimeRepoTreeSnapshot,
   type RuntimeSandboxAccess,
 } from "@/app/w/(chat)/_lib/runtime-repos"
 import type { WorkspaceRepoTreeCache } from "@/app/w/(chat)/_stores/session-workspace-store"
+import { extractErrorMessage } from "@/lib/api/error"
 
 const FILE_PREVIEW_LARGE_FILE_LINE_LIMIT = 2000
 
@@ -87,9 +87,7 @@ export function isUnauthorizedRuntimeError(error: unknown) {
 }
 
 export function errorMessage(error: unknown, fallback: string) {
-  if (error instanceof RuntimeRepoAccessError) return error.message
-  if (error instanceof Error && error.message.trim()) return error.message
-  return fallback
+  return extractErrorMessage(error, fallback)
 }
 
 export function formatNumber(value: number) {

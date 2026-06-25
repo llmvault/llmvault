@@ -153,7 +153,7 @@ TOPICS = {
         "Hallucination rate measured on the support-bot corpus: 4.7% with citations, 12% without.",
         "MMLU scores for our rerank model, measured on CS subset, dropped after the last checkpoint merge.",
         "Retrieval augmentation: we're pulling top-50 chunks but the LLM context window is 128k — room to spare.",
-        "Vector DB cost projection at 10M chunks: $340/mo on LanceDB with IVF_PQ, $1200 on Pinecone.",
+        "Vector DB cost projection at 10M chunks: $340/mo on Qdrant with quantization, $1200 on Pinecone.",
         "Red-team findings: 3 prompt-injection patterns that bypass our system prompt. Mitigations in review.",
     ],
     "onboarding": [
@@ -205,7 +205,7 @@ TOPICS = {
         "Churn analysis: 3 enterprise customers churned this quarter, all cited lack of SCIM provisioning.",
     ],
     "marketing": [
-        "Blog post draft: 'How we cut RAG ingestion time by 10x with LanceDB'.",
+        "Blog post draft: 'How we cut RAG ingestion time by 10x with Qdrant'.",
         "Launch campaign for the search API: blog, Twitter thread, HN launch post, ProductHunt.",
         "Ad spend for this quarter: $40k across Google and LinkedIn, measured by signups not clicks.",
         "Webinar schedule: 3 per quarter, 45min each, demo + Q&A. Topics lined up through Q3.",
@@ -214,7 +214,7 @@ TOPICS = {
         "Podcast interview with the CTO scheduled for May 12; prep deck in progress.",
         "Conference sponsorships Q2: KubeCon, SRECon, AI Engineer Summit. Total spend $120k.",
         "SEO: we rank #3 for 'RAG ingestion pipeline' on Google; aim for top spot by end of Q3.",
-        "Competitor analysis: Onyx and Glean are the two closest; we differentiate on LanceDB + Rust.",
+        "Competitor analysis: Onyx and Glean are the two closest; we differentiate on Qdrant + Go.",
     ],
     "finance": [
         "Q1 actuals vs plan: revenue +8% ahead of plan, OpEx +3% ahead. Net burn within target.",

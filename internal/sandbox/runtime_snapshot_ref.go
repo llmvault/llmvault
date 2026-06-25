@@ -42,14 +42,6 @@ func AgentRuntimeImageRef(cfg *config.Config, sandboxImage string) string {
 	if tag := strings.TrimSpace(cfg.SandboxesRuntimeImageTag); tag != "" {
 		return runtimeImageRepository(profile) + ":" + tag
 	}
-
-	fallback := strings.TrimSpace(cfg.SandboxesRuntimeBaseImage)
-	if profile == model.SandboxImageDefault && fallback != "" {
-		return fallback
-	}
-	if tag := imageTag(fallback); tag != "" {
-		return runtimeImageRepository(profile) + ":" + tag
-	}
 	return runtimeImageRepository(profile) + ":latest"
 }
 
@@ -74,20 +66,6 @@ func runtimeImageRepository(sandboxImage string) string {
 	default:
 		return defaultRuntimeImageRepository
 	}
-}
-
-func imageTag(imageRef string) string {
-	ref := strings.SplitN(strings.TrimSpace(imageRef), "@", 2)[0]
-	if ref == "" {
-		return ""
-	}
-	if slash := strings.LastIndex(ref, "/"); slash >= 0 {
-		ref = ref[slash+1:]
-	}
-	if colon := strings.LastIndex(ref, ":"); colon >= 0 && colon < len(ref)-1 {
-		return ref[colon+1:]
-	}
-	return ""
 }
 
 func imageRepository(imageRef string) string {

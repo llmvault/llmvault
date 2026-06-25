@@ -38,7 +38,7 @@
 
 # Web — Next.js dashboard
 {$APP_DOMAIN} {
-	reverse_proxy web:3000
+	reverse_proxy web:8080
 
 	header {
 		X-Content-Type-Options "nosniff"

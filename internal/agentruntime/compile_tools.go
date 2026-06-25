@@ -153,7 +153,7 @@ func runtimeToolSelectionEnabled(value any) bool {
 func expandRuntimeToolID(raw string) ([]string, bool) {
 	key := strings.TrimSpace(raw)
 	key = strings.TrimPrefix(key, "builtin.")
-	if key == "cron" || key == "wake" || key == "generate_image" || key == "generate_vector_image" {
+	if key == "generate_image" || key == "generate_vector_image" {
 		return nil, true
 	}
 	if model.IsValidRuntimeBuiltInToolID(key) {

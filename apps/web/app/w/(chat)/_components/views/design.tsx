@@ -13,6 +13,7 @@ import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
+import { extractErrorMessage as errorMessage } from "@/lib/api/error"
 
 export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   const canvas = useSessionWorkspaceStore(
@@ -91,7 +92,7 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
           <Spinner size="sm" aria-label="Opening Canvas file" />
           Opening Canvas file
         </div>
-        <div className="bg-default h-full min-h-0 animate-pulse rounded-lg" />
+        <div className="h-full min-h-0 animate-pulse rounded-lg bg-default" />
       </div>
     )
   }
@@ -191,10 +192,4 @@ function numberValue(data: unknown, key: string) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return undefined
   const value = (data as Record<string, unknown>)[key]
   return typeof value === "number" ? value : undefined
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message.trim()
-    ? error.message
-    : fallback
 }

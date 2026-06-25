@@ -42,7 +42,7 @@ type RAGEmbeddingModel struct {
 	// embed call. Used by the chunker to size chunks safely.
 	MaxInputTokens int `gorm:"not null"`
 
-	// DatasetName is the LanceDB dataset name derived deterministically
+	// DatasetName is the Qdrant index name derived deterministically
 	// from (Provider, ModelName, Dimension). Derivation lives in
 	// embedder.deriveDatasetName; the column persists the derived value
 	// so operators can read it directly.

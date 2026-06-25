@@ -79,7 +79,7 @@ type RAGSearchSettings struct {
 	HybridAlpha float64 `gorm:"type:double precision;not null;default:0.7"`
 
 	// IndexName — port of Onyx models.py:2065. Names the underlying
-	// vector-store dataset (LanceDB dataset name). For Hivy this
+	// vector-store index (Qdrant collection/index name). For Hivy this
 	// is derived from `rag_embedding_models.DatasetName` at ingest
 	// time; persisted here so ops can pin an org to a specific index
 	// during ops work.

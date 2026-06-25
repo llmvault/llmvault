@@ -8,8 +8,8 @@ import (
 
 func TestAgentRuntimeTemplateRefUsesMicrosandboxRuntimeImage(t *testing.T) {
 	cfg := &config.Config{
-		SandboxProviderID:         ProviderMicrosandbox,
-		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.18-amd64",
+		SandboxProviderID:        ProviderMicrosandbox,
+		SandboxesRuntimeImageTag: "v3.1.18-amd64",
 	}
 	got := AgentRuntimeTemplateRef(cfg)
 	want := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.18-amd64"
@@ -20,8 +20,8 @@ func TestAgentRuntimeTemplateRefUsesMicrosandboxRuntimeImage(t *testing.T) {
 
 func TestAgentRuntimeTemplateRefForSizeStillUsesRuntimeImage(t *testing.T) {
 	cfg := &config.Config{
-		SandboxProviderID:         ProviderMicrosandbox,
-		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.18-amd64",
+		SandboxProviderID:        ProviderMicrosandbox,
+		SandboxesRuntimeImageTag: "v3.1.18-amd64",
 	}
 	got := AgentRuntimeTemplateRefForSize(cfg, "xlarge")
 	want := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.18-amd64"
@@ -32,11 +32,11 @@ func TestAgentRuntimeTemplateRefForSizeStillUsesRuntimeImage(t *testing.T) {
 
 func TestAgentRuntimeTemplateRefLeavesNonMicrosandboxImageRef(t *testing.T) {
 	cfg := &config.Config{
-		SandboxProviderID:         ProviderDocker,
-		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.18-amd64",
+		SandboxProviderID:        ProviderDocker,
+		SandboxesRuntimeImageTag: "v3.1.18-amd64",
 	}
 	got := AgentRuntimeTemplateRef(cfg)
-	want := cfg.SandboxesRuntimeBaseImage
+	want := "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.1.18-amd64"
 	if got != want {
 		t.Fatalf("runtime template ref = %q, want %q", got, want)
 	}

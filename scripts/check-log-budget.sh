@@ -15,8 +15,8 @@
 # logging.Capture / sentry.CaptureException are NOT counted — those are the
 # preferred home for non-critical errors and we want to encourage their use.
 #
-# Excluded: vendor, .ignored, *_test.go files, build-tagged spike binaries,
-# the cmd/* CLI tools whose stdout is user-facing.
+# Excluded: vendor, .ignored, *_test.go files, and the cmd/* CLI tools whose
+# stdout is user-facing.
 
 set -euo pipefail
 
@@ -30,7 +30,6 @@ EXCLUDE_DIRS=(
   -path './.ignored' -o
   -path './.claude' -o
   -path './apps/web/node_modules' -o
-  -path './internal/rag/vectorstore/spike' -o
   -path './cmd/sandbox-exec' -o
   -path './cmd/verify-devbox' -o
   -path './cmd/buildtemplates' -o

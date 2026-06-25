@@ -591,35 +591,6 @@ async fn update_plan_tool_rejects_empty_steps() {
 }
 
 #[tokio::test]
-async fn update_plan_tool_is_not_registered_for_cron_sessions() {
-    let updater = Arc::new(FakePlanUpdater::default());
-    let ctx = ToolContext {
-        subagent_task_repo: None,
-        event_repo: None,
-        process_registry: None,
-        question_requester: None,
-        plan_updater: Some(updater),
-        mcp_registry: None,
-        workspace_root: temp_workspace(),
-        outbound_emitter: None,
-        agent_registry: Arc::new(AgentDefinitionRegistry::from_definition(Arc::new(
-            test_agent_definition(),
-        ))),
-        session_stream_id: None,
-    };
-
-    let tools = build_agent_tools(
-        &[ToolSpec::UpdatePlan],
-        &SessionId::from("scheduled-cron-session"),
-        &ctx,
-    );
-
-    assert!(tools
-        .iter()
-        .all(|tool| tool.definition().name != "update_plan"));
-}
-
-#[tokio::test]
 async fn skill_manage_create_emits_complete_sync_snapshot() {
     let workspace = temp_workspace();
     let outbox = Arc::new(FakeOutbox::default());

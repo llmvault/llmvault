@@ -15,11 +15,9 @@ import {
   type GoSessionStreamReplayMode,
 } from "@/app/w/(chat)/_lib/go-session-stream"
 import { getSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
-import {
-  sessionRuntimeStatusFromResponse,
-  useSessionRuntimeStore,
-} from "@/app/w/(chat)/_stores/session-runtime-store"
+import { useSessionRuntimeStore } from "@/app/w/(chat)/_stores/session-runtime-store"
 import { isSubagentFrame } from "@/app/w/(chat)/_lib/session-subagents"
+import { extractErrorMessage as errorMessage } from "@/lib/api/error"
 
 const STREAM_WATCHDOG_MS = 0
 
@@ -439,12 +437,6 @@ function shouldReconnectStream(error: unknown) {
   }
   const message = errorMessage(error, "")
   return !/\bHTTP (400|401|403|404)\b/.test(message)
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message.trim()
-    ? error.message
-    : fallback
 }
 
 function replayKey(replay?: GoSessionStreamReplayMode) {

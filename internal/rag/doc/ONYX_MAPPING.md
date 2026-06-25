@@ -56,8 +56,8 @@ When reading Onyx source, assume the root is
 
 | Onyx concern | Onyx path | Hivy equivalent | Notes |
 |---|---|---|---|
-| Vector index | `backend/onyx/document_index/vespa/` (Vespa) | `internal/rag/vectorstore/` (LanceDB) | substitution per plan |
-| Filestore | `backend/onyx/file_store/` | `internal/rag/filestore/` | same S3 backend as LanceDB |
+| Vector index | `backend/onyx/document_index/vespa/` (Vespa) | `internal/rag/qdrant/` | substitution per plan |
+| Filestore | `backend/onyx/file_store/` | `internal/rag/filestore/` | S3-compatible raw payload/checkpoint storage |
 | Indexing pipeline | `backend/onyx/indexing/indexing_pipeline.py` | `internal/rag/pipeline/` | |
 | Embedder | `backend/onyx/indexing/embedder.py` | `internal/rag/embedder/` | only mockable component |
 | Chunker | `backend/onyx/indexing/chunking/` | `internal/rag/chunker/` | |

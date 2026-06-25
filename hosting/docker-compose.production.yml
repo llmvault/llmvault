@@ -218,7 +218,7 @@ services:
     networks:
       - hivy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/"]
       interval: 15s
       timeout: 5s
       retries: 5

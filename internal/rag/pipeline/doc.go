@@ -1,5 +1,5 @@
 // Package pipeline orchestrates the end-to-end indexing pipeline: fetch,
-// chunk, embed, write to LanceDB + Postgres.
+// chunk, embed, write to Qdrant + Postgres.
 //
 // Ports backend/onyx/indexing/indexing_pipeline.py — the build_indexing_pipeline
 // composition and its stage functions.

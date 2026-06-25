@@ -110,9 +110,7 @@ type Config struct {
 
 	RuntimeRedisStreamShardCount int `env:"HIVY_RUNTIME_REDIS_STREAM_SHARD_COUNT" envDefault:"64"`
 
-	// Agent sandbox runtime images. HIVY_SANDBOXES_RUNTIME_BASE_IMAGE is a deprecated fallback.
 	SandboxesRuntimeImageTag     string `env:"HIVY_SANDBOXES_RUNTIME_IMAGE_TAG"`
-	SandboxesRuntimeBaseImage    string `env:"HIVY_SANDBOXES_RUNTIME_BASE_IMAGE" envDefault:"ghcr.io/usehivy/hivy-sandboxes-runtime:latest"`
 	AgentSandboxAutoUpgrade      bool   `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE" envDefault:"true"`
 	AgentSandboxAutoUpgradeLimit int    `env:"HIVY_AGENT_SANDBOX_AUTO_UPGRADE_LIMIT" envDefault:"1000"`
 

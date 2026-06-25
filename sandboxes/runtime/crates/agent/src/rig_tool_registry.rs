@@ -75,7 +75,6 @@ pub fn build_agent_tools(
     ctx: &ToolContext,
 ) -> Vec<Arc<dyn JsonTool>> {
     let mut tools: Vec<Arc<dyn JsonTool>> = Vec::new();
-    let session_is_cron = session_id.as_str().contains("-cron-");
 
     for spec in specs {
         match spec {
@@ -104,32 +103,26 @@ pub fn build_agent_tools(
             }
             ToolSpec::SubagentTask(config) => {
                 if let Some(repo) = &ctx.subagent_task_repo {
-                    if !session_is_cron {
-                        tools.push(subagent_task_tool(
-                            repo.clone(),
-                            session_id.clone(),
-                            ctx.agent_registry.clone(),
-                            config.clone(),
-                            ctx.session_stream_id.clone(),
-                        ));
-                    }
+                    tools.push(subagent_task_tool(
+                        repo.clone(),
+                        session_id.clone(),
+                        ctx.agent_registry.clone(),
+                        config.clone(),
+                        ctx.session_stream_id.clone(),
+                    ));
                 }
             }
             ToolSpec::RequestUserInput => {
                 if let Some(requester) = &ctx.question_requester {
-                    if !session_is_cron {
-                        tools.push(request_user_input_tool(
-                            requester.clone(),
-                            session_id.clone(),
-                        ));
-                    }
+                    tools.push(request_user_input_tool(
+                        requester.clone(),
+                        session_id.clone(),
+                    ));
                 }
             }
             ToolSpec::UpdatePlan => {
                 if let Some(updater) = &ctx.plan_updater {
-                    if !session_is_cron {
-                        tools.push(update_plan_tool(updater.clone(), session_id.clone()));
-                    }
+                    tools.push(update_plan_tool(updater.clone(), session_id.clone()));
                 }
             }
             _ => {}
