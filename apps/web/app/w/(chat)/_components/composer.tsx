@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
+import { AnimatePresence, motion } from "motion/react"
 import { useDropzone } from "react-dropzone"
 import { cn } from "@/lib/utils"
 import {
@@ -564,34 +565,54 @@ export function Composer({
 function SessionSpendPill({ usage }: { usage?: SessionUsageSummary }) {
   const costUsd = usage?.costUsd ?? 0
   const credits = usage?.credits ?? 0
-  const previousCostRef = useRef(costUsd)
-  const [increased, setIncreased] = useState(false)
-
-  useEffect(() => {
-    if (costUsd > previousCostRef.current) {
-      setIncreased(true)
-      const timer = window.setTimeout(() => setIncreased(false), 420)
-      previousCostRef.current = costUsd
-      return () => window.clearTimeout(timer)
-    }
-    previousCostRef.current = costUsd
-    return undefined
-  }, [costUsd])
+  const formattedCredits = credits.toLocaleString("en-NG")
+  const formattedCost = formatSessionCostUSD(costUsd)
 
   return (
     <div
-      aria-label={`Session spend: ${credits.toLocaleString("en-NG")} credits, ${formatSessionCostUSD(costUsd)}`}
-      className={cn(
-        "flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2 text-xs text-muted transition-[background-color,border-color,color,transform] duration-200 ease-out",
-        increased && "border-primary/25 bg-primary/10 text-primary scale-[1.03]"
-      )}
+      aria-label={`Session spend: ${formattedCredits} credits, ${formattedCost}`}
+      className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2 text-xs text-muted"
     >
       <Icon icon="lucide:coins" className="h-3.5 w-3.5" />
-      <span className="tabular-nums">{credits.toLocaleString("en-NG")}</span>
-      <span className="hidden tabular-nums sm:inline">
-        {formatSessionCostUSD(costUsd)}
-      </span>
+      <AnimatedSpendNumber value={formattedCredits} />
+      <AnimatedSpendNumber
+        value={formattedCost}
+        className="hidden sm:inline-grid"
+      />
     </div>
+  )
+}
+
+function AnimatedSpendNumber({
+  value,
+  className,
+}: {
+  value: string
+  className?: string
+}) {
+  return (
+    <span
+      className={cn(
+        "relative inline-grid h-4 overflow-hidden tabular-nums",
+        className
+      )}
+    >
+      <span className="invisible col-start-1 row-start-1 whitespace-nowrap">
+        {value}
+      </span>
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={value}
+          initial={{ y: -10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 10, opacity: 0 }}
+          transition={{ duration: 0.16, ease: "easeOut" }}
+          className="col-start-1 row-start-1 whitespace-nowrap"
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </span>
   )
 }
 

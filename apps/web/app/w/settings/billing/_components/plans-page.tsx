@@ -399,20 +399,19 @@ export function BillingPlansPage() {
               />
             </div>
 
-            <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 gap-3 text-sm text-muted sm:grid-cols-3">
-              <div className="bg-surface rounded-xl border border-border px-4 py-3">
-                <span className="font-medium text-foreground">
-                  1,000 credits
-                </span>{" "}
-                = $1 of metered usage
-              </div>
-              <div className="bg-surface rounded-xl border border-border px-4 py-3">
-                AI calls spend credits at model cost.
-              </div>
-              <div className="bg-surface rounded-xl border border-border px-4 py-3">
-                Sandbox rates will be published before billing starts.
-              </div>
-            </div>
+           <div className="w-full max-w-3xl mx-auto mt-12">
+             <ul className="flex w-full justify-center gap-4">
+              <li className="text-xs">
+                1,000 credits = $1 of metered usage
+              </li>
+              <li className="text-xs">
+                Credits are charged at model cost
+              </li>
+              <li className="text-xs">
+                Sandbox costs included
+              </li>
+            </ul>
+           </div>
 
             <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
               <PlanCard
