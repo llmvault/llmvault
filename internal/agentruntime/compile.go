@@ -18,11 +18,10 @@ import (
 )
 
 const (
-	DefaultAgentModel           = "deepseek-v4-flash"
-	DefaultAgentMultimodalModel = "gemini-3-flash-preview"
-	proxyTokenTTL               = 24 * time.Hour
-	managedAgentName            = "Hivy"
-	managedAgentDescription     = "Hivy is the organization's managed AI agent."
+	DefaultAgentModel       = "deepseek-v4-flash"
+	proxyTokenTTL           = 24 * time.Hour
+	managedAgentName        = "Hivy"
+	managedAgentDescription = "Hivy is the organization's managed AI agent."
 )
 
 type CompileDeps struct {
@@ -56,7 +55,6 @@ type AgentDefinition struct {
 	Agent            AgentMeta                   `json:"agent"`
 	SystemPrompt     SystemPromptConfig          `json:"system_prompt"`
 	Model            ModelConfig                 `json:"model"`
-	MultimodalModel  *ModelConfig                `json:"multimodal_model,omitempty"`
 	Limits           map[string]any              `json:"limits,omitempty"`
 	Context          map[string]any              `json:"context,omitempty"`
 	Tools            []map[string]any            `json:"tools"`
@@ -252,7 +250,6 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 	}
 	fragments := buildPromptSections(ctx, deps.DB, agent, description, modelID)
 	modelRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, modelID)
-	multimodalRoute := resolveAgentModelRouteMetadata(ctx, deps, agent, DefaultAgentMultimodalModel)
 	tools, err := buildRuntimeTools(ctx, deps.DB, agent)
 	if err != nil {
 		return nil, err
@@ -268,7 +265,6 @@ func compile(ctx context.Context, deps CompileDeps, agent *model.Agent, proxyTok
 		},
 		SystemPrompt:     buildAgentSystemPrompt(ctx, fragments),
 		Model:            proxyModel(deps.Cfg, modelID, modelRoute),
-		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel, multimodalRoute)),
 		Limits:           defaultLimits(),
 		Tools:            tools,
 		McpServers:       mcpServers,

@@ -2,6 +2,7 @@ mod apply_patch;
 mod bash;
 mod diff;
 mod edit;
+mod image_description;
 mod lsp;
 mod mutation_queue;
 mod operations;
@@ -121,6 +122,7 @@ pub fn build_builtin_tools(
                         context.workspace_root.clone(),
                         context.fs.clone(),
                     )
+                    .with_runtime_env(context.runtime_env.clone())
                     .with_files_read(context.files_read.clone())
                     .with_search_service(context.search.clone())
                     .with_lsp_service(context.lsp.clone())

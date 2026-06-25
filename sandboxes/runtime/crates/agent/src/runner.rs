@@ -941,7 +941,6 @@ mod tests {
                 extra_headers: HashMap::new(),
                 fallback: None,
             },
-            multimodal_model: None,
             limits: Limits::default(),
             context: ContextConfig::default(),
             tools: Some(Vec::new()),
@@ -1528,11 +1527,6 @@ mod tests {
 fn pick_model_for_turn(snapshot: &domain::AgentDefinition, input: &TurnInput) -> ModelConfig {
     if let Some(model) = input.model_override.as_ref() {
         return model.clone();
-    }
-    if !input.images.is_empty() {
-        if let Some(model) = snapshot.multimodal_model.as_ref() {
-            return model.clone();
-        }
     }
     snapshot.model.clone()
 }

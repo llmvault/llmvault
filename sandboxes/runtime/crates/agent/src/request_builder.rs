@@ -106,9 +106,8 @@ fn message_text(message: &AgentMessage) -> String {
     message
         .parts
         .iter()
-        .filter_map(|part| match part {
-            MessagePart::Text { text } => Some(text.as_str()),
-            MessagePart::InlineData { .. } => None,
+        .map(|part| match part {
+            MessagePart::Text { text } => text.as_str(),
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -117,9 +116,8 @@ fn message_text(message: &AgentMessage) -> String {
 fn parts_to_tool_content(parts: &[MessagePart]) -> Value {
     let text = parts
         .iter()
-        .filter_map(|part| match part {
-            MessagePart::Text { text } => Some(text.as_str()),
-            MessagePart::InlineData { .. } => None,
+        .map(|part| match part {
+            MessagePart::Text { text } => text.as_str(),
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -178,14 +176,6 @@ fn parts_to_content(parts: &[MessagePart], cache_policy: CacheControlPolicy) -> 
                     }
                     value
                 }
-                MessagePart::InlineData { mime_type, data } => {
-                    json!({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": format!("data:{mime_type};base64,{}", base64_encode(data)),
-                        }
-                    })
-                }
             })
             .collect(),
     )
@@ -200,11 +190,6 @@ fn tool_call_to_json(call: &ToolCall) -> Value {
             "arguments": serde_json::to_string(&call.arguments).unwrap_or_else(|_| "{}".to_string()),
         }
     })
-}
-
-fn base64_encode(data: &[u8]) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::STANDARD.encode(data)
 }
 
 #[cfg(test)]

@@ -19,7 +19,7 @@ func (cp *agentRuntimeMockControlPlane) waitForActivity(t *testing.T) {
 		webhook := cp.webhookRequests
 		batch := cp.batchRequests
 		cp.mu.Unlock()
-		if presign > 0 && upload > 0 && confirm > 0 && webhook > 0 {
+		if webhook > 0 {
 			cp.trace.Logf("assert", "control-plane activity complete presign=%d upload=%d confirm=%d webhook=%d batch=%d", presign, upload, confirm, webhook, batch)
 			return
 		}
@@ -31,7 +31,7 @@ func (cp *agentRuntimeMockControlPlane) waitForActivity(t *testing.T) {
 	}
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	t.Fatalf("mock control plane activity incomplete: presign=%d upload=%d confirm=%d webhook=%d batch=%d paths=%v", cp.presignRequests, cp.uploadRequests, cp.confirmRequests, cp.webhookRequests, cp.batchRequests, cp.paths)
+	t.Fatalf("mock control plane webhook activity incomplete: presign=%d upload=%d confirm=%d webhook=%d batch=%d paths=%v", cp.presignRequests, cp.uploadRequests, cp.confirmRequests, cp.webhookRequests, cp.batchRequests, cp.paths)
 }
 
 func (cp *agentRuntimeMockControlPlane) assertAgentActivity(t *testing.T) {

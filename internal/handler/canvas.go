@@ -104,6 +104,10 @@ func (h *CanvasHandler) SessionURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CanvasHandler) CreateAgentProject(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.svc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
+		return
+	}
 	agentID, ok := h.authorizeRuntimeRequest(w, r)
 	if !ok {
 		return
@@ -122,6 +126,10 @@ func (h *CanvasHandler) CreateAgentProject(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *CanvasHandler) ListAgentProjects(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.svc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
+		return
+	}
 	agentID, ok := h.authorizeRuntimeRequest(w, r)
 	if !ok {
 		return
@@ -135,6 +143,10 @@ func (h *CanvasHandler) ListAgentProjects(w http.ResponseWriter, r *http.Request
 }
 
 func (h *CanvasHandler) CreateAgentFile(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.svc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
+		return
+	}
 	agentID, ok := h.authorizeRuntimeRequest(w, r)
 	if !ok {
 		return
@@ -158,6 +170,10 @@ func (h *CanvasHandler) CreateAgentFile(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *CanvasHandler) ListAgentFiles(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.svc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
+		return
+	}
 	agentID, ok := h.authorizeRuntimeRequest(w, r)
 	if !ok {
 		return
@@ -171,11 +187,7 @@ func (h *CanvasHandler) ListAgentFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CanvasHandler) authorizeRuntimeRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	if h == nil || h.svc == nil {
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
-		return uuid.Nil, false
-	}
-	if h.db == nil || h.encKey == nil {
+	if h == nil || h.db == nil || h.encKey == nil {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "runtime authentication is not configured"})
 		return uuid.Nil, false
 	}

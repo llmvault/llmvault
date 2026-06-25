@@ -447,7 +447,6 @@ fn fake_agent_definition() -> AgentDefinition {
             extra_headers: Default::default(),
             fallback: None,
         },
-        multimodal_model: None,
         limits: Default::default(),
         context: Default::default(),
         tools: Some(Vec::new()),

@@ -235,6 +235,34 @@ describe("session stream manager", () => {
     })
   })
 
+  it("finishes the session when a final frame arrives before turn_completed", async () => {
+    getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
+    subscribeToGoSessionStreamMock.mockImplementationOnce(
+      async ({ onEvent }) => {
+        onEvent?.(
+          frame("final", {
+            event_id: "final-1",
+            turn_id: "turn-1",
+            text: "Done.",
+          })
+        )
+      }
+    )
+
+    ensureSessionStream("session-1", {
+      queryClient: testQueryClient(),
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+    })
+    await flushAsync()
+
+    expect(
+      useSessionRuntimeStore.getState().statusBySessionId["session-1"]
+    ).toMatchObject({
+      status: "idle",
+      lastOutcome: "completed",
+    })
+  })
+
   it("reconnects with a full replay after resync_required", async () => {
     vi.useFakeTimers()
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())

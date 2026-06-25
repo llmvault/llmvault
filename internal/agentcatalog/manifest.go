@@ -29,7 +29,6 @@ type RuntimeManifest struct {
 	SandboxImage    string   `json:"sandbox_image"`
 	Model           string   `json:"model"`
 	AvailableModels []string `json:"available_models"`
-	MultimodalModel string   `json:"multimodal_model"`
 }
 
 type PromptManifest struct {

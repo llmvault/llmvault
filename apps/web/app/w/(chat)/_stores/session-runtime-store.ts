@@ -12,6 +12,14 @@ import {
   isTerminalStreamFrame,
 } from "@/app/w/(chat)/_lib/live-session-stream"
 import {
+  creditsForCostUSD,
+  modelUsageCost,
+  modelUsageEventKey,
+  sessionUsageSummaryFromSnapshot,
+  type SessionUsageSnapshot,
+  type SessionUsageSummary,
+} from "@/app/w/(chat)/_lib/session-usage"
+import {
   appendSubagentRunFrame,
   dispatchSubagentFrameDebugEvent,
   EMPTY_SUBAGENT_RUNS,
@@ -45,6 +53,7 @@ export interface SessionRuntimeSummary {
   lastOutcome?: SessionLastTurnOutcome
   error?: string
   pendingInput?: PendingInputRequest
+  serverUpdatedAt?: string
   updatedAt: number
 }
 
@@ -52,6 +61,8 @@ interface SessionRuntimeStoreState {
   statusBySessionId: Record<string, SessionRuntimeSummary>
   liveEventsBySessionId: Record<string, SessionEventResponse[]>
   subagentRunsBySessionId: Record<string, SessionSubagentRun[]>
+  usageBySessionId: Record<string, SessionUsageSummary | undefined>
+  usageEventKeysBySessionId: Record<string, Record<string, boolean> | undefined>
   cursorBySessionId: Record<string, GoSessionStreamCursor | undefined>
   reconnectAttemptsBySessionId: Record<string, number>
   hydrateSession: (session: SessionResponse | undefined) => void
@@ -66,6 +77,10 @@ interface SessionRuntimeStoreState {
     historyEvents: SessionEventResponse[]
   ) => void
   appendStreamError: (sessionId: string, message: string) => void
+  hydrateSessionUsage: (
+    sessionId: string,
+    snapshot: SessionUsageSnapshot
+  ) => void
   applyStreamFrame: (sessionId: string, frame: GoSessionStreamFrame) => void
   finishStream: (
     sessionId: string,
@@ -92,6 +107,8 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
     statusBySessionId: {},
     liveEventsBySessionId: {},
     subagentRunsBySessionId: {},
+    usageBySessionId: {},
+    usageEventKeysBySessionId: {},
     cursorBySessionId: {},
     reconnectAttemptsBySessionId: {},
     hydrateSession(session) {
@@ -99,12 +116,15 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
       if (!sessionId) return
       const status = sessionRuntimeStatusFromResponse(session)
       const lastOutcome = sessionLastOutcomeFromResponse(session)
+      const serverUpdatedAt = sessionServerUpdatedAt(session)
       const existing = getState().statusBySessionId[sessionId]
       if (
-        existing &&
-        existing.status !== "idle" &&
-        existing.status !== "stopped" &&
-        existing.status !== "failed"
+        !shouldHydrateSessionRuntime(
+          existing,
+          status,
+          lastOutcome,
+          serverUpdatedAt
+        )
       ) {
         return
       }
@@ -112,6 +132,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
         lastOutcome,
         error: existing?.error,
         pendingInput: existing?.pendingInput,
+        serverUpdatedAt,
       })
     },
     setStatus(sessionId, status, patch = {}) {
@@ -179,10 +200,25 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
         }
       })
     },
+    hydrateSessionUsage(sessionId, snapshot) {
+      const incoming = sessionUsageSummaryFromSnapshot(snapshot)
+      setState((state) => {
+        const existing = state.usageBySessionId[sessionId]
+        const usage =
+          existing && existing.costUsd > incoming.costUsd ? existing : incoming
+        return {
+          usageBySessionId: {
+            ...state.usageBySessionId,
+            [sessionId]: usage,
+          },
+        }
+      })
+    },
     applyStreamFrame(sessionId, frame) {
       const nextCursor = goSessionStreamCursor(frame)
       const subagentMetadata = subagentFrameMetadata(frame)
       setState((state) => {
+        const usagePatch = usagePatchForFrame(state, sessionId, frame)
         const cursorPatch =
           nextCursor &&
           shouldAdvanceCursor(state.cursorBySessionId[sessionId], nextCursor)
@@ -195,6 +231,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
             : {}
         if (subagentMetadata) {
           return {
+            ...usagePatch,
             ...cursorPatch,
             subagentRunsBySessionId: appendSubagentRunFrame(
               state.subagentRunsBySessionId,
@@ -213,6 +250,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
           state.liveEventsBySessionId[sessionId] ?? EMPTY_EVENTS
         const nextEvents = appendLiveSessionStreamFrame(currentEvents, frame)
         return {
+          ...usagePatch,
           ...cursorPatch,
           statusBySessionId: {
             ...state.statusBySessionId,
@@ -274,6 +312,10 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
           state.liveEventsBySessionId
         const { [sessionId]: _subagents, ...subagentRunsBySessionId } =
           state.subagentRunsBySessionId
+        const { [sessionId]: _usage, ...usageBySessionId } =
+          state.usageBySessionId
+        const { [sessionId]: _usageKeys, ...usageEventKeysBySessionId } =
+          state.usageEventKeysBySessionId
         const { [sessionId]: _cursor, ...cursorBySessionId } =
           state.cursorBySessionId
         const { [sessionId]: _attempts, ...reconnectAttemptsBySessionId } =
@@ -282,6 +324,8 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
           statusBySessionId,
           liveEventsBySessionId,
           subagentRunsBySessionId,
+          usageBySessionId,
+          usageEventKeysBySessionId,
           cursorBySessionId,
           reconnectAttemptsBySessionId,
         }
@@ -328,6 +372,12 @@ export function useSessionSubagentRuns(sessionId?: string) {
   )
 }
 
+export function useSessionUsageSummary(sessionId?: string) {
+  return useSessionRuntimeStore((state) =>
+    sessionId ? state.usageBySessionId[sessionId] : undefined
+  )
+}
+
 export function sessionRuntimeSummary(sessionId?: string) {
   if (!sessionId) return IDLE_RUNTIME_SUMMARY
   return (
@@ -358,16 +408,58 @@ function sessionLastOutcomeFromResponse(
     : undefined
 }
 
+function sessionServerUpdatedAt(session: SessionResponse) {
+  return (
+    stringValue(session, "updated_at") ||
+    stringValue(session, "last_activity_at")
+  )
+}
+
+function shouldHydrateSessionRuntime(
+  existing: SessionRuntimeSummary | undefined,
+  status: SessionRuntimeStatus,
+  lastOutcome: SessionLastTurnOutcome | undefined,
+  serverUpdatedAt: string
+) {
+  if (!existing) return true
+  if (serverSnapshotIsOlder(serverUpdatedAt, existing.serverUpdatedAt)) {
+    return false
+  }
+  if (isRuntimeActive(existing.status) && status === "idle") {
+    return Boolean(lastOutcome || serverUpdatedAt)
+  }
+  return true
+}
+
+function serverSnapshotIsOlder(incoming: string, current?: string) {
+  if (!incoming || !current) return false
+  const incomingTime = Date.parse(incoming)
+  const currentTime = Date.parse(current)
+  if (Number.isNaN(incomingTime) || Number.isNaN(currentTime)) return false
+  return incomingTime < currentTime
+}
+
+function isRuntimeActive(status: SessionRuntimeStatus) {
+  return (
+    status === "queued" ||
+    status === "streaming" ||
+    status === "waiting_for_user"
+  )
+}
+
 function summaryForFrame(
   current: SessionRuntimeSummary | undefined,
   frame: GoSessionStreamFrame
 ): SessionRuntimeSummary {
   const pendingInput = pendingInputFromFrame(frame)
+  const serverUpdatedAt =
+    frameServerUpdatedAt(frame) ?? current?.serverUpdatedAt
   if (pendingInput) {
     return {
       ...current,
       status: "waiting_for_user",
       pendingInput,
+      serverUpdatedAt,
       updatedAt: Date.now(),
     }
   }
@@ -376,6 +468,7 @@ function summaryForFrame(
       ...current,
       status: "streaming",
       pendingInput: undefined,
+      serverUpdatedAt,
       updatedAt: Date.now(),
     }
   }
@@ -388,6 +481,7 @@ function summaryForFrame(
         lastOutcome: "failed",
         error: message,
         pendingInput: undefined,
+        serverUpdatedAt,
         updatedAt: Date.now(),
       }
     }
@@ -396,6 +490,7 @@ function summaryForFrame(
       status: "idle",
       lastOutcome: "completed",
       pendingInput: undefined,
+      serverUpdatedAt,
       updatedAt: Date.now(),
     }
   }
@@ -404,6 +499,7 @@ function summaryForFrame(
       ...current,
       status: "streaming",
       error: undefined,
+      serverUpdatedAt,
       updatedAt: Date.now(),
     }
   }
@@ -441,6 +537,49 @@ function pendingInputFromFrame(
   }
 }
 
+function usagePatchForFrame(
+  state: SessionRuntimeStoreState,
+  sessionId: string,
+  frame: GoSessionStreamFrame
+) {
+  if (frame.event !== "model_usage") return {}
+  const payload = payloadRecord(frame.data)
+  const eventKey = modelUsageEventKey(payload)
+  const seen = state.usageEventKeysBySessionId[sessionId] ?? {}
+  if (seen[eventKey]) return {}
+  const cost = modelUsageCost(payload)
+  if (cost <= 0) {
+    return {
+      usageEventKeysBySessionId: {
+        ...state.usageEventKeysBySessionId,
+        [sessionId]: {
+          ...seen,
+          [eventKey]: true,
+        },
+      },
+    }
+  }
+  const current = state.usageBySessionId[sessionId]
+  const costUsd = (current?.costUsd ?? 0) + cost
+  return {
+    usageBySessionId: {
+      ...state.usageBySessionId,
+      [sessionId]: {
+        costUsd,
+        credits: creditsForCostUSD(costUsd),
+        updatedAt: Date.now(),
+      },
+    },
+    usageEventKeysBySessionId: {
+      ...state.usageEventKeysBySessionId,
+      [sessionId]: {
+        ...seen,
+        [eventKey]: true,
+      },
+    },
+  }
+}
+
 function shouldAdvanceCursor(
   current: GoSessionStreamCursor | undefined,
   next: GoSessionStreamCursor
@@ -452,6 +591,10 @@ function shouldAdvanceCursor(
   )
 }
 
+function frameServerUpdatedAt(frame: GoSessionStreamFrame) {
+  return stringValue(payloadRecord(frame.data), "occurred_at") || undefined
+}
+
 function isActiveStreamFrame(event: string) {
   return (
     event === "turn_started" ||
@@ -460,8 +603,7 @@ function isActiveStreamFrame(event: string) {
     event === "token" ||
     event === "tool_call" ||
     event === "tool_result" ||
-    event === "plan_updated" ||
-    event === "final"
+    event === "plan_updated"
   )
 }
 

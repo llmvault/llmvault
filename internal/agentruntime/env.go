@@ -12,9 +12,6 @@ const (
 	AgentEnvAgentModel                 = "HIVY_AGENT_MODEL"
 	AgentEnvAgentBaseURL               = "HIVY_AGENT_BASE_URL"
 	AgentEnvAgentAPIKeyEnv             = "HIVY_AGENT_API_KEY_ENV" // #nosec G101 -- environment variable name, not a credential value.
-	AgentEnvAgentMultimodalModel       = "HIVY_AGENT_MULTIMODAL_MODEL"
-	AgentEnvAgentMultimodalBaseURL     = "HIVY_AGENT_MULTIMODAL_BASE_URL"
-	AgentEnvAgentMultimodalAPIKeyEnv   = "HIVY_AGENT_MULTIMODAL_API_KEY_ENV" // #nosec G101 -- environment variable name, not a credential value.
 	AgentEnvAgentID                    = "HIVY_AGENT_ID"
 	AgentEnvCloudControlPlaneURL       = "HIVY_CONTROL_PLANE_URL"
 	AgentEnvRuntimeEventWSURL          = "HIVY_RUNTIME_EVENT_WS_URL"
@@ -106,9 +103,6 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvAgentModel, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvAgentBaseURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvAgentAPIKeyEnv, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvAgentMultimodalModel, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvAgentMultimodalBaseURL, Source: AgentEnvSourceControlPlaneInjected},
-	{Key: AgentEnvAgentMultimodalAPIKeyEnv, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvAgentID, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvCloudControlPlaneURL, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvRuntimeEventWSURL, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true, Optional: true},

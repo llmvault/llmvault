@@ -44,8 +44,7 @@ func agentRuntimeFeatureDefinition(t *testing.T, proxyURL, controlPlaneURL, sand
 				map[string]any{"type": "mcp_tools", "config": map[string]any{"title": "Configured project tools", "preamble": "Use configured MCP tools when the user names them.", "item_template": "- {name}"}},
 			},
 		},
-		"model":            model,
-		"multimodal_model": nil,
+		"model": model,
 		"limits": map[string]any{
 			"max_turns_per_session":     120,
 			"input_token_budget":        100000,

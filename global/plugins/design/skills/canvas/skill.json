@@ -10,5 +10,15 @@
     "mcp",
     "wireframes"
   ],
-  "files": []
+  "files": [
+    {
+      "path": "references/prototyping-workflows.md"
+    },
+    {
+      "path": "references/design-system-workflows.md"
+    },
+    {
+      "path": "references/design-to-code-workflows.md"
+    }
+  ]
 }

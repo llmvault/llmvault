@@ -110,6 +110,10 @@ describe("live session stream", () => {
     ).toBe(true)
   })
 
+  it("treats final frames as terminal", () => {
+    expect(isTerminalStreamFrame(frame("final", { text: "Done." }))).toBe(true)
+  })
+
   it("passes plan updates through as live session events", () => {
     const events = appendLiveSessionStreamFrame(
       [],

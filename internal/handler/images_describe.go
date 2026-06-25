@@ -30,6 +30,7 @@ const (
 type ImageDescribeHandler struct {
 	db                  *gorm.DB
 	kms                 *crypto.KeyWrapper
+	runtimeSecrets      *crypto.SymmetricKey
 	registry            *registry.Registry
 	gateway             system.Gateway
 	assetReader         storage.Reader
@@ -51,6 +52,11 @@ func NewImageDescribeHandler(db *gorm.DB, kms *crypto.KeyWrapper, reg *registry.
 
 func (h *ImageDescribeHandler) WithAssetReader(reader storage.Reader) *ImageDescribeHandler {
 	h.assetReader = reader
+	return h
+}
+
+func (h *ImageDescribeHandler) WithRuntimeSecretKey(key *crypto.SymmetricKey) *ImageDescribeHandler {
+	h.runtimeSecrets = key
 	return h
 }
 
@@ -194,7 +200,25 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 	}
 
 	assetURL := h.assetURL(asset)
-	if assetURL == "" {
+	assetInput, err := h.assetModelInput(r.Context(), asset, assetURL)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe asset read failed",
+			appendLogAttrs(baseLogAttrs(),
+				"error_code", "asset_read_failed",
+				"http_status", http.StatusServiceUnavailable,
+				"provider_id", imageDescribeProviderID,
+				"canonical_model", imageDescribeCanonicalModel,
+				"upstream_model", route.UpstreamID,
+				"credential_id", cred.ID,
+				"credential_base_url_host", urlHost(cred.BaseURL),
+				"asset_preview_base_url_host", urlHost(h.assetPreviewBaseURL),
+				"error", err,
+			)...,
+		)
+		writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "asset unavailable", ErrorCode: "asset_unavailable"})
+		return
+	}
+	if assetInput == "" {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe asset preview unavailable",
 			appendLogAttrs(baseLogAttrs(),
 				"error_code", "asset_preview_unavailable",
@@ -231,7 +255,7 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), imageDescribeTimeout)
 	defer cancel()
 
-	llmReq := buildImageDescribeLLMRequest(route.UpstreamID, asset, assetURL, detailLevel, imageMetadata)
+	llmReq := buildImageDescribeLLMRequest(route.UpstreamID, asset, assetInput, detailLevel, imageMetadata)
 	res, err := h.gateway.Complete(ctx, system.ForwardCall{
 		ProviderID: imageDescribeProviderID,
 		BaseURL:    cred.BaseURL,

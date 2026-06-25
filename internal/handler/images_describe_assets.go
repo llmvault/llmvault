@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -12,6 +15,8 @@ import (
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+const imageDescribeInlineMaxBytes = 12 * 1024 * 1024
 
 func (h *ImageDescribeHandler) openRouterSystemCredential(ctx context.Context) (*model.Credential, error) {
 	var cred model.Credential
@@ -29,6 +34,32 @@ func (h *ImageDescribeHandler) assetURL(asset model.AgentAsset) string {
 		return buildAssetPreviewURL(h.assetPreviewBaseURL, asset.Key)
 	}
 	return asset.PublicURL
+}
+
+func (h *ImageDescribeHandler) assetModelInput(ctx context.Context, asset model.AgentAsset, fallbackURL string) (string, error) {
+	if h.assetReader != nil && strings.TrimSpace(asset.Key) != "" {
+		rc, err := h.assetReader.Open(ctx, asset.Key)
+		if err == nil {
+			defer rc.Close()
+			data, err := io.ReadAll(io.LimitReader(rc, imageDescribeInlineMaxBytes+1))
+			if err != nil {
+				return "", fmt.Errorf("read image asset for describe: %w", err)
+			}
+			if len(data) > imageDescribeInlineMaxBytes {
+				return "", fmt.Errorf("image asset exceeds inline describe limit")
+			}
+			if len(data) > 0 {
+				contentType := strings.TrimSpace(asset.ContentType)
+				if contentType == "" {
+					contentType = "application/octet-stream"
+				}
+				return "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(data), nil
+			}
+		} else if strings.TrimSpace(fallbackURL) == "" {
+			return "", fmt.Errorf("open image asset for describe: %w", err)
+		}
+	}
+	return strings.TrimSpace(fallbackURL), nil
 }
 
 func (h *ImageDescribeHandler) loadImageMetadata(ctx context.Context, asset model.AgentAsset) map[string]any {

@@ -188,7 +188,6 @@ fn build_entry(msg: &AgentMessage) -> Option<SummaryEntry> {
                 .iter()
                 .map(|p| match p {
                     MessagePart::Text { text } => text.as_str(),
-                    MessagePart::InlineData { .. } => "[inline]",
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
@@ -216,7 +215,6 @@ fn build_entry(msg: &AgentMessage) -> Option<SummaryEntry> {
                 .iter()
                 .map(|p| match p {
                     MessagePart::Text { text } => text.as_str(),
-                    MessagePart::InlineData { .. } => "[inline]",
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
@@ -234,7 +232,6 @@ fn build_entry(msg: &AgentMessage) -> Option<SummaryEntry> {
                 .iter()
                 .map(|p| match p {
                     MessagePart::Text { text } => text.as_str(),
-                    MessagePart::InlineData { .. } => "[inline]",
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
@@ -252,7 +249,6 @@ fn build_entry(msg: &AgentMessage) -> Option<SummaryEntry> {
                 .iter()
                 .map(|p| match p {
                     MessagePart::Text { text } => text.as_str(),
-                    MessagePart::InlineData { .. } => "[inline]",
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
@@ -371,7 +367,6 @@ pub fn estimate_tokens_static(messages: &[AgentMessage]) -> u64 {
         .flat_map(|msg| msg.parts.iter())
         .map(|part| match part {
             MessagePart::Text { text } => text.len(),
-            MessagePart::InlineData { data, .. } => data.len(),
         })
         .sum();
     (chars as u64 / 4).max(1)

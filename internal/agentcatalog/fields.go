@@ -30,7 +30,6 @@ func catalogUpdates(manifest Manifest, raw model.RawJSON, hash, status string) m
 		"is_default":          boolValue(manifest.Default),
 		"model":               strings.TrimSpace(manifest.Runtime.Model),
 		"available_models":    pq.StringArray(normalizeCatalogAvailableModels(manifest.Runtime.Model, manifest.Runtime.AvailableModels)),
-		"multimodal_model":    strings.TrimSpace(manifest.Runtime.MultimodalModel),
 		"sandbox_strategy":    strategy,
 		"sandbox_image":       sandboxImage,
 		"instructions":        strings.TrimSpace(manifest.instructions),
@@ -54,7 +53,6 @@ func applyCatalogUpdates(row *model.AgentCatalog, updates map[string]any) {
 	row.IsDefault = updates["is_default"].(bool)
 	row.Model = updates["model"].(string)
 	row.AvailableModels = updates["available_models"].(pq.StringArray)
-	row.MultimodalModel = updates["multimodal_model"].(string)
 	row.SandboxStrategy = updates["sandbox_strategy"].(string)
 	row.SandboxImage = updates["sandbox_image"].(string)
 	row.Instructions = updates["instructions"].(string)

@@ -28,6 +28,7 @@ import {
   replayModeForLoadedSession,
   suppressBackendEventsForLiveTurn,
   suppressBackendEventsForLiveTurns,
+  terminalOutcomeForTurnEvents,
 } from "@/app/w/(chat)/_lib/session-stream-handoff"
 import {
   imageAttachmentIDs,
@@ -36,6 +37,7 @@ import {
 import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import { type CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
+import { fetchSessionUsage } from "@/app/w/(chat)/_lib/session-usage"
 import {
   ensureSessionStream,
   hydrateSessionRuntimeFromResponse,
@@ -119,6 +121,10 @@ export function SessionThreadView({
     () => suppressBackendEventsForLiveTurn(historyEvents, activeBackendTurnID),
     [activeBackendTurnID, historyEvents]
   )
+  const durableActiveTurnOutcome = useMemo(
+    () => terminalOutcomeForTurnEvents(historyEvents, activeBackendTurnID),
+    [activeBackendTurnID, historyEvents]
+  )
   const combinedEvents = useMemo(
     () =>
       sessionHistoryPagesToEvents([
@@ -151,6 +157,21 @@ export function SessionThreadView({
   const sessionReadyForStream = session.loaded !== false
 
   useEffect(() => {
+    if (!sessionId || temporarySession) return
+    const controller = new AbortController()
+    void fetchSessionUsage(sessionId, controller.signal)
+      .then((usage) => {
+        useSessionRuntimeStore.getState().hydrateSessionUsage(sessionId, usage)
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return
+        }
+      })
+    return () => controller.abort()
+  }, [sessionId, temporarySession])
+
+  useEffect(() => {
     if (!sessionId || temporarySession || historyEvents.length === 0) return
     useSessionRuntimeStore
       .getState()
@@ -161,6 +182,13 @@ export function SessionThreadView({
     reconcileHistoryEvents,
     sessionId,
   ])
+
+  useEffect(() => {
+    if (!sessionId || !turnActive || !durableActiveTurnOutcome) return
+    useSessionRuntimeStore.getState().finishStream(sessionId, {
+      outcome: durableActiveTurnOutcome,
+    })
+  }, [durableActiveTurnOutcome, sessionId, turnActive])
 
   useEffect(() => {
     if (!ENABLE_DIRECT_SESSION_STREAM) return

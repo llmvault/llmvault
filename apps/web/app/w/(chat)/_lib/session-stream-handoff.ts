@@ -68,3 +68,32 @@ export function eventTurnIDs(events: SessionEventResponse[]) {
   }
   return [...turnIDs]
 }
+
+export type TerminalTurnOutcome = "completed" | "stopped" | "failed"
+
+export function terminalOutcomeForTurnEvents(
+  events: SessionEventResponse[],
+  turnID?: string
+): TerminalTurnOutcome | undefined {
+  const targetTurnID = turnID?.trim()
+  if (!targetTurnID) return undefined
+  let outcome: TerminalTurnOutcome | undefined
+  for (const event of events) {
+    if (eventTurnID(event).trim() !== targetTurnID) continue
+    switch (event.event_type) {
+      case "turn_failed":
+      case "error":
+        outcome = "failed"
+        break
+      case "turn_interrupted":
+        outcome = "stopped"
+        break
+      case "final":
+      case "turn_completed":
+      case "done":
+        outcome ??= "completed"
+        break
+    }
+  }
+  return outcome
+}

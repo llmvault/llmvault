@@ -6,6 +6,7 @@ import {
   chatQueryKeys,
   type SessionResponse,
 } from "@/app/w/(chat)/_lib/chat-cache"
+import { isTerminalStreamFrame } from "@/app/w/(chat)/_lib/live-session-stream"
 import {
   goSessionStreamHTTPStatus,
   isRuntimeRepoChangeFrame,
@@ -268,8 +269,8 @@ function handleSessionStreamFrame(
   }
   const subagentFrame = isSubagentFrame(frame)
   useSessionRuntimeStore.getState().applyStreamFrame(sessionId, frame)
-  if (!subagentFrame && isTerminalFrame(frame.event)) {
-    const message = terminalFrameErrorMessage(frame.data)
+  if (!subagentFrame && isTerminalStreamFrame(frame)) {
+    const message = terminalFrameErrorMessage(frame)
     useSessionRuntimeStore.getState().finishStream(sessionId, {
       preserveError: Boolean(message),
       outcome: message ? "failed" : "completed",
@@ -381,16 +382,9 @@ async function refreshSessionQueries(
   ])
 }
 
-function isTerminalFrame(event: string) {
-  return (
-    event === "done" ||
-    event === "turn_completed" ||
-    event === "turn_failed" ||
-    event === "error"
-  )
-}
-
-function terminalFrameErrorMessage(data: unknown) {
+function terminalFrameErrorMessage(frame: GoSessionStreamFrame) {
+  if (frame.event !== "error" && frame.event !== "turn_failed") return ""
+  const data = frame.data
   if (!data || typeof data !== "object" || Array.isArray(data)) return ""
   const record = data as Record<string, unknown>
   if (record.interrupted === true) return ""

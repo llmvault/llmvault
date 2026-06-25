@@ -97,7 +97,6 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		return nil, fmt.Errorf("compile subagent %q tools: %w", key, err)
 	}
 	modelRoute := resolveAgentModelRouteMetadata(ctx, deps, subAgent, modelID)
-	multimodalRoute := resolveAgentModelRouteMetadata(ctx, deps, subAgent, DefaultAgentMultimodalModel)
 	return &AgentDefinition{
 		Agent: AgentMeta{
 			Name:        name,
@@ -105,7 +104,6 @@ func compileSubAgent(ctx context.Context, deps CompileDeps, parent *model.Agent,
 		},
 		SystemPrompt:     buildAgentSystemPrompt(ctx, buildPromptSections(ctx, deps.DB, subAgent, description, modelID)),
 		Model:            proxyModel(deps.Cfg, modelID, modelRoute),
-		MultimodalModel:  ptrModel(proxyModel(deps.Cfg, DefaultAgentMultimodalModel, multimodalRoute)),
 		Limits:           defaultLimits(),
 		Tools:            tools,
 		McpServers:       []any{},

@@ -607,7 +607,6 @@ type AgentDefinition struct {
 	Limits           *Limits                     `json:"limits,omitempty"`
 	McpServers       *[]McpSpec                  `json:"mcp_servers,omitempty"`
 	Model            ModelConfig                 `json:"model"`
-	MultimodalModel  *ModelConfig                `json:"multimodal_model,omitempty"`
 	OutboundChannels *[]OutboundChannelSpec      `json:"outbound_channels,omitempty"`
 	Safety           *SafetyConfig               `json:"safety,omitempty"`
 	Skills           *[]SkillSpec                `json:"skills,omitempty"`

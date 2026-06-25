@@ -77,6 +77,8 @@ func run(args []string) error {
 		return projectCommand(args[1:])
 	case "file":
 		return fileCommand(args[1:])
+	case "brands", "brand":
+		return brandsCommand(args[1:])
 	case "mcp":
 		return mcpCommand(args[1:])
 	default:
@@ -97,6 +99,10 @@ Usage:
   %[1]s file create --name "File" --project-id <canvas-project-id>
   %[1]s file switch <canvas-file-id> [--page-id <page-id>]
   %[1]s file current
+  %[1]s brands list
+  %[1]s brands view <brand-id>
+  %[1]s brands create --name "Brand" [--json '{"colors":{...}}']
+  %[1]s brands update <brand-id> --json '{"description":"..."}'
   %[1]s mcp <tool> --json '{"key":"value"}'
 `, name))
 }

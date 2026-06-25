@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useDropzone } from "react-dropzone"
@@ -39,6 +39,11 @@ import { ComposerLineComments } from "./composer-line-comments"
 import { MicrophonePermissionModal } from "./microphone-permission-modal"
 import { RecordingWaveform } from "./recording-waveform"
 import { displayModel, ModelIcon } from "./model-display"
+import { useSessionUsageSummary } from "@/app/w/(chat)/_stores/session-runtime-store"
+import {
+  formatSessionCostUSD,
+  type SessionUsageSummary,
+} from "@/app/w/(chat)/_lib/session-usage"
 
 export function Composer({
   sessionId,
@@ -83,6 +88,7 @@ export function Composer({
   const attachmentDescriptions = workspace.composer.attachmentDescriptions
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const describedUploadsRef = useRef<Set<string>>(new Set())
+  const usage = useSessionUsageSummary(sessionId)
   const { uploads, addFiles, retryUpload, removeUpload } =
     useOrgDriveFileUploads({ agentId, sessionId })
 
@@ -457,6 +463,7 @@ export function Composer({
             >
               <Icon icon="lucide:plus" className="h-4 w-4 text-muted" />
             </Button>
+            <SessionSpendPill usage={usage} />
 
             {recordingActive ? (
               <div className="flex min-w-0 flex-1 items-center gap-3 pl-2">
@@ -551,6 +558,40 @@ export function Composer({
         onConfirm={startRecordingFromPrompt}
       />
     </>
+  )
+}
+
+function SessionSpendPill({ usage }: { usage?: SessionUsageSummary }) {
+  const costUsd = usage?.costUsd ?? 0
+  const credits = usage?.credits ?? 0
+  const previousCostRef = useRef(costUsd)
+  const [increased, setIncreased] = useState(false)
+
+  useEffect(() => {
+    if (costUsd > previousCostRef.current) {
+      setIncreased(true)
+      const timer = window.setTimeout(() => setIncreased(false), 420)
+      previousCostRef.current = costUsd
+      return () => window.clearTimeout(timer)
+    }
+    previousCostRef.current = costUsd
+    return undefined
+  }, [costUsd])
+
+  return (
+    <div
+      aria-label={`Session spend: ${credits.toLocaleString("en-NG")} credits, ${formatSessionCostUSD(costUsd)}`}
+      className={cn(
+        "flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2 text-xs text-muted transition-[background-color,border-color,color,transform] duration-200 ease-out",
+        increased && "border-primary/25 bg-primary/10 text-primary scale-[1.03]"
+      )}
+    >
+      <Icon icon="lucide:coins" className="h-3.5 w-3.5" />
+      <span className="tabular-nums">{credits.toLocaleString("en-NG")}</span>
+      <span className="hidden tabular-nums sm:inline">
+        {formatSessionCostUSD(costUsd)}
+      </span>
+    </div>
   )
 }
 

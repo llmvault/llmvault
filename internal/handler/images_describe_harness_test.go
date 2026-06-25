@@ -50,12 +50,15 @@ func (g *fakeImageGateway) Stream(context.Context, system.ForwardCall, http.Resp
 }
 
 type imageDescribeHarness struct {
-	db      *gorm.DB
-	router  *chi.Mux
-	gateway *fakeImageGateway
-	org     *model.Org
-	user    *model.User
-	asset   *model.AgentAsset
+	db            *gorm.DB
+	router        *chi.Mux
+	gateway       *fakeImageGateway
+	org           *model.Org
+	user          *model.User
+	agent         *model.Agent
+	sandbox       *model.Sandbox
+	asset         *model.AgentAsset
+	runtimeSecret string
 }
 
 type fakeImageAssetReader struct {
@@ -84,6 +87,7 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 
 	db := connectTestDB(t)
 	kms := newSystemTaskKMS(t)
+	runtimeKey := testSymmetricKey(t)
 	upstreamBase := "https://openrouter.test/api/v1"
 	var cred *model.Credential
 	if cfg.seedCred {
@@ -117,6 +121,11 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
+	runtimeSecret := "image-runtime-" + uuid.NewString()
+	encryptedRuntimeSecret, err := runtimeKey.EncryptString(runtimeSecret)
+	if err != nil {
+		t.Fatalf("encrypt runtime secret: %v", err)
+	}
 	sandbox := &model.Sandbox{
 		ID:                     uuid.New(),
 		OrgID:                  &org.ID,
@@ -124,7 +133,7 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 		Status:                 "running",
 		ExternalID:             "external",
 		RuntimeURL:             "http://runtime.local",
-		EncryptedRuntimeSecret: []byte("encrypted"),
+		EncryptedRuntimeSecret: encryptedRuntimeSecret,
 	}
 	if err := db.Create(sandbox).Error; err != nil {
 		t.Fatalf("create sandbox: %v", err)
@@ -149,6 +158,7 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 
 	gateway := &fakeImageGateway{text: cfg.modelText, err: cfg.gatewayErr}
 	h := handler.NewImageDescribeHandler(db, kms, cfg.registry, gateway, "https://api.usehivy.test")
+	h.WithRuntimeSecretKey(runtimeKey)
 	if cfg.assetReader != nil {
 		h.WithAssetReader(cfg.assetReader)
 	}
@@ -166,14 +176,18 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 		})
 	})
 	r.Post("/v1/images/describe", h.Describe)
+	r.Post("/internal/agents/{agentID}/images/describe", h.DescribeForRuntime)
 
 	out := &imageDescribeHarness{
-		db:      db,
-		router:  r,
-		gateway: gateway,
-		org:     org,
-		user:    user,
-		asset:   asset,
+		db:            db,
+		router:        r,
+		gateway:       gateway,
+		org:           org,
+		user:          user,
+		agent:         agent,
+		sandbox:       sandbox,
+		asset:         asset,
+		runtimeSecret: runtimeSecret,
 	}
 	t.Cleanup(func() {
 		if cred != nil {
@@ -227,6 +241,19 @@ func (h *imageDescribeHarness) describe(t *testing.T, assetID uuid.UUID) *httpte
 	body := `{"drive_asset_id":"` + assetID.String() + `","detail_level":"high"}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/describe", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.router.ServeHTTP(rr, req)
+	return rr
+}
+
+func (h *imageDescribeHarness) runtimeDescribe(t *testing.T, assetID uuid.UUID, bearer string) *httptest.ResponseRecorder {
+	t.Helper()
+	body := `{"drive_asset_id":"` + assetID.String() + `","detail_level":"high"}`
+	req := httptest.NewRequest(http.MethodPost, "/internal/agents/"+h.agent.ID.String()+"/images/describe", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
 	rr := httptest.NewRecorder()
 	h.router.ServeHTTP(rr, req)
 	return rr

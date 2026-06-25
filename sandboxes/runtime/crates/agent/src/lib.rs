@@ -22,19 +22,12 @@ pub use runner::RigAgentRunner;
 #[derive(Debug, Clone)]
 pub struct TurnInput {
     pub text: String,
-    pub images: Vec<ImageInput>,
     pub prior_history: Vec<HistoryEntry>,
     pub session_context: Vec<String>,
     pub model_override: Option<ModelConfig>,
     pub session_stream_id: Option<String>,
     pub trace_id: Option<String>,
     pub turn_id: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ImageInput {
-    pub mime_type: String,
-    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +48,6 @@ impl TurnInput {
     pub fn text(input: impl Into<String>) -> Self {
         Self {
             text: input.into(),
-            images: Vec::new(),
             prior_history: Vec::new(),
             session_context: Vec::new(),
             model_override: None,
@@ -63,14 +55,6 @@ impl TurnInput {
             trace_id: None,
             turn_id: None,
         }
-    }
-
-    pub fn with_image(mut self, mime_type: impl Into<String>, data: Vec<u8>) -> Self {
-        self.images.push(ImageInput {
-            mime_type: mime_type.into(),
-            data,
-        });
-        self
     }
 
     pub fn with_history(mut self, history: Vec<HistoryEntry>) -> Self {

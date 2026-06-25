@@ -2,11 +2,8 @@ use async_trait::async_trait;
 use domain::Attachment;
 use tracing::{info, warn};
 
-const MAX_IMAGE_BYTES: usize = 10 * 1024 * 1024;
-
 #[derive(Default)]
 pub struct DownloadResults {
-    pub images: Vec<(String, Vec<u8>)>,
     pub text_files: Vec<InlinedTextFile>,
     pub audio_summaries: Vec<String>,
     pub document_summaries: Vec<String>,
@@ -79,9 +76,7 @@ impl AttachmentDownloader for HttpAttachmentDownloader {
 pub async fn collect_media_for_turn(
     downloader: &dyn AttachmentDownloader,
     attachments: &[Attachment],
-    multimodal_available: bool,
 ) -> DownloadResults {
-    let mut images = Vec::new();
     let mut text_files = Vec::new();
     let mut audio_summaries = Vec::new();
     let mut document_summaries = Vec::new();
@@ -89,15 +84,7 @@ pub async fn collect_media_for_turn(
 
     for attachment in attachments {
         if attachment.mime_type.starts_with("image/") {
-            if multimodal_available {
-                handle_image_download(downloader, attachment, &mut images, &mut failure_notices)
-                    .await;
-            } else {
-                tracing::info!(
-                    name = %attachment.name,
-                    "no multimodal model configured; skipping image download (annotation only)"
-                );
-            }
+            document_summaries.push(format_document_summary(attachment));
         } else if attachment.mime_type.starts_with("audio/") {
             handle_audio(
                 downloader,
@@ -125,36 +112,10 @@ pub async fn collect_media_for_turn(
     }
 
     DownloadResults {
-        images,
         text_files,
         audio_summaries,
         document_summaries,
         failure_notices,
-    }
-}
-
-async fn handle_image_download(
-    downloader: &dyn AttachmentDownloader,
-    attachment: &Attachment,
-    images: &mut Vec<(String, Vec<u8>)>,
-    failure_notices: &mut Vec<String>,
-) {
-    match downloader.download_attachment(attachment).await {
-        Ok(bytes) if bytes.len() <= MAX_IMAGE_BYTES => {
-            info!(name = %attachment.name, size = bytes.len(), "downloaded image for vision");
-            images.push((attachment.mime_type.clone(), bytes));
-        }
-        Ok(bytes) => {
-            warn!(name = %attachment.name, size = bytes.len(), limit = MAX_IMAGE_BYTES, "image too large");
-            failure_notices.push(format!(
-                "{} skipped: image exceeds {} byte limit",
-                attachment.name, MAX_IMAGE_BYTES
-            ));
-        }
-        Err(e) => {
-            warn!(name = %attachment.name, error = %e, "image download failed");
-            failure_notices.push(format!("{} could not be downloaded ({e})", attachment.name));
-        }
     }
 }
 

@@ -4,6 +4,7 @@ import {
   replayModeForLoadedSession,
   suppressBackendEventsForLiveTurn,
   suppressBackendEventsForLiveTurns,
+  terminalOutcomeForTurnEvents,
 } from "@/app/w/(chat)/_lib/session-stream-handoff"
 import type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history"
 
@@ -44,6 +45,24 @@ describe("session stream handoff", () => {
         eventTurnIDs([turnOneToken, turnTwoToken])
       )
     ).toEqual([oldFinal])
+  })
+
+  it("treats durable final events as completed turn outcomes", () => {
+    expect(
+      terminalOutcomeForTurnEvents(
+        [event("token", "turn-1"), event("final", "turn-1")],
+        "turn-1"
+      )
+    ).toBe("completed")
+  })
+
+  it("lets later durable failures override earlier final events", () => {
+    expect(
+      terminalOutcomeForTurnEvents(
+        [event("final", "turn-1"), event("turn_failed", "turn-1")],
+        "turn-1"
+      )
+    ).toBe("failed")
   })
 })
 
