@@ -4,7 +4,6 @@ import type { QueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api/client"
 import {
   chatQueryKeys,
-  type SessionEventResponse,
   type SessionResponse,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
@@ -56,23 +55,6 @@ export function hydrateSessionListRuntime(
   for (const session of sessions) {
     hydrateSessionRuntimeFromResponse(session, queryClient)
   }
-}
-
-export function beginOptimisticSessionTurn(
-  sessionId: string,
-  events: SessionEventResponse[]
-) {
-  const runtime = useSessionRuntimeStore.getState()
-  const current = runtime.liveEventsBySessionId[sessionId] ?? []
-  runtime.setLiveEvents(sessionId, [
-    ...current.filter((event) => !isPendingClientEvent(event)),
-    ...events,
-  ])
-  runtime.setStatus(sessionId, "streaming", {
-    error: undefined,
-    lastOutcome: undefined,
-    pendingInput: undefined,
-  })
 }
 
 export function ensureSessionStream(
@@ -420,14 +402,6 @@ function terminalFrameErrorMessage(data: unknown) {
     return ""
   }
   return typeof value === "string" && value.trim() ? value : ""
-}
-
-function isPendingClientEvent(event: SessionEventResponse) {
-  const payload = event.payload
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return false
-  }
-  return (payload as Record<string, unknown>).client_status === "pending"
 }
 
 function shouldReconnectStream(error: unknown) {

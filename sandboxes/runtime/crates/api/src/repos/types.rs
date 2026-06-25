@@ -57,6 +57,12 @@ pub struct DiffFileSummary {
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_path: Option<String>,
+    pub patch: String,
+    pub truncated: bool,
+    pub total_bytes: usize,
+    pub max_bytes: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

@@ -723,9 +723,14 @@ type ControlCommandsResponse struct {
 
 // DiffFileSummary defines model for DiffFileSummary.
 type DiffFileSummary struct {
+	MaxBytes     int     `json:"max_bytes"`
+	Message      *string `json:"message,omitempty"`
+	Patch        string  `json:"patch"`
 	Path         string  `json:"path"`
 	PreviousPath *string `json:"previous_path,omitempty"`
 	Status       string  `json:"status"`
+	TotalBytes   int     `json:"total_bytes"`
+	Truncated    bool    `json:"truncated"`
 }
 
 // DiffResponse defines model for DiffResponse.

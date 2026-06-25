@@ -116,7 +116,7 @@ export function sessionEventsToConversationBlocks(
 
     if (type === "thinking") {
       appendItem(items, {
-        block: thinkingBlock(event),
+        block: thinkingBlock(event, options.activeTurnID),
         mergeKind: "thinking",
         turnID: eventTurnID(event),
         at: eventTime(event),
@@ -471,21 +471,20 @@ function userBlock(
     ...(attachments.length ? { attachments } : {}),
     ...(codeLineComments.length ? { codeLineComments } : {}),
     author: currentCollaborator,
-    clientEventID: event.id ?? event.event_id ?? undefined,
-    clientStatus: clientStatus(event),
-    clientError: clientError(event),
   }
 }
 
 function thinkingBlock(
-  event: SessionEventResponse
+  event: SessionEventResponse,
+  activeTurnID?: string
 ): Extract<ConversationBlock, { type: "thinking" }> {
-  const active = clientStatus(event) === "pending"
+  const active = Boolean(activeTurnID && eventTurnID(event) === activeTurnID)
+  const label = stringValue(payloadRecord(event), "label")
 
   return {
     type: "thinking",
     key: eventBlockKey(event, "thinking"),
-    label: active ? "Thinking" : "Thought",
+    label: label || (active ? "Thinking" : "Thought"),
     text: eventText(event).trim() || undefined,
     active,
   }
@@ -576,17 +575,6 @@ function eventCodeLineComments(event: SessionEventResponse) {
     )
     return comment ? [comment] : []
   })
-}
-
-function clientStatus(
-  event: SessionEventResponse
-): "pending" | "failed" | undefined {
-  const status = stringValue(payloadRecord(event), "client_status")
-  return status === "pending" || status === "failed" ? status : undefined
-}
-
-function clientError(event: SessionEventResponse): string | undefined {
-  return stringValue(payloadRecord(event), "client_error") || undefined
 }
 
 function eventErrorText(event: SessionEventResponse): string {

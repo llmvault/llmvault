@@ -1,8 +1,6 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query"
 import { createStore, clear } from "idb-keyval"
 import type { components } from "@/lib/api/schema"
-import type { ImageAttachmentMetadata } from "@/app/w/(chat)/_lib/image-attachments"
-import type { CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 
 export const CHAT_QUERY_STALE_TIME_MS = 5 * 60 * 1000
 export const SESSION_HISTORY_PAGE_LIMIT = 100
@@ -228,159 +226,6 @@ export function appendSessionEvents(
   )
 }
 
-export function replaceOptimisticSessionID(
-  queryClient: QueryClient,
-  optimisticID: string,
-  session: SessionResponse
-) {
-  if (!session.id || optimisticID === session.id) return
-  const optimisticEvents = queryClient.getQueryData<
-    InfiniteData<PaginatedSessionEvents>
-  >(chatQueryKeys.sessionEvents(optimisticID))
-  queryClient.removeQueries({
-    queryKey: chatQueryKeys.sessionEvents(optimisticID),
-    exact: true,
-  })
-  queryClient.removeQueries({
-    queryKey: chatQueryKeys.session(optimisticID),
-    exact: true,
-  })
-  if (optimisticEvents) {
-    queryClient.setQueryData(chatQueryKeys.sessionEvents(session.id), {
-      ...optimisticEvents,
-      pages: optimisticEvents.pages.map((page) => ({
-        ...page,
-        data: (page.data ?? []).map((event) => ({
-          ...event,
-          session_id: session.id,
-        })),
-      })),
-    })
-  }
-}
-
-export function markOptimisticEventFailed(
-  queryClient: QueryClient,
-  sessionID: string,
-  eventID: string,
-  message: string
-) {
-  updateOptimisticEventPayload(queryClient, sessionID, eventID, (event) => ({
-    ...payloadRecord(event),
-    client_status: "failed",
-    client_error: message,
-  }))
-}
-
-export function markOptimisticEventPending(
-  queryClient: QueryClient,
-  sessionID: string,
-  eventID: string
-) {
-  updateOptimisticEventPayload(queryClient, sessionID, eventID, (event) => {
-    const payload: Record<string, unknown> = {
-      ...payloadRecord(event),
-      client_status: "pending",
-    }
-    delete payload.client_error
-    return payload
-  })
-}
-
-export function removeSessionEvent(
-  queryClient: QueryClient,
-  sessionID: string,
-  eventID: string
-) {
-  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
-    chatQueryKeys.sessionEvents(sessionID),
-    (current) => {
-      if (!current) return current
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          data: (page.data ?? []).filter(
-            (event) => event.event_id !== eventID && event.id !== eventID
-          ),
-        })),
-      }
-    }
-  )
-}
-
-export function replaceOptimisticEvent(
-  queryClient: QueryClient,
-  sessionID: string,
-  optimisticEventID: string,
-  event: SessionEventResponse
-) {
-  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
-    chatQueryKeys.sessionEvents(sessionID),
-    (current) => {
-      if (!current) return current
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          data: (page.data ?? []).map((entry) =>
-            entry.id === optimisticEventID ||
-            entry.event_id === optimisticEventID
-              ? event
-              : entry
-          ),
-        })),
-      }
-    }
-  )
-}
-
-export function optimisticUserEvent(
-  sessionID: string,
-  text: string,
-  eventID = `optimistic_msg_${crypto.randomUUID()}`,
-  attachments: ImageAttachmentMetadata[] = [],
-  codeLineComments: CodeLineCommentPayload[] = []
-): SessionEventResponse {
-  const now = new Date().toISOString()
-  return {
-    id: eventID,
-    event_id: eventID,
-    event_type: "user.message",
-    event_at: now,
-    session_id: sessionID,
-    source: "web",
-    payload: {
-      text,
-      ...(attachments.length ? { attachments } : {}),
-      ...(codeLineComments.length
-        ? { code_line_comments: codeLineComments }
-        : {}),
-      client_status: "pending",
-    },
-  }
-}
-
-export function optimisticThinkingEvent(
-  sessionID: string,
-  turnID = `optimistic_turn_${crypto.randomUUID()}`
-): SessionEventResponse {
-  const now = new Date().toISOString()
-  return {
-    id: `optimistic_thinking_${turnID}`,
-    event_id: `optimistic_thinking_${turnID}`,
-    event_type: "thinking",
-    event_at: now,
-    session_id: sessionID,
-    source: "web",
-    payload: {
-      text: "",
-      turn_id: turnID,
-      client_status: "pending",
-    },
-  }
-}
-
 function mergeEventsIntoPage(
   page: PaginatedSessionEvents | undefined,
   incoming: SessionEventResponse[]
@@ -409,38 +254,6 @@ function eventTime(event: SessionEventResponse) {
 
 function eventKey(event: SessionEventResponse) {
   return event.id ?? event.event_id ?? `${event.event_type}:${event.event_at}`
-}
-
-function updateOptimisticEventPayload(
-  queryClient: QueryClient,
-  sessionID: string,
-  eventID: string,
-  update: (event: SessionEventResponse) => Record<string, unknown>
-) {
-  queryClient.setQueryData<InfiniteData<PaginatedSessionEvents>>(
-    chatQueryKeys.sessionEvents(sessionID),
-    (current) => {
-      if (!current) return current
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          data: (page.data ?? []).map((event) =>
-            event.event_id === eventID || event.id === eventID
-              ? { ...event, payload: update(event) }
-              : event
-          ),
-        })),
-      }
-    }
-  )
-}
-
-function payloadRecord(event: SessionEventResponse): Record<string, unknown> {
-  const payload = event.payload
-  return payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : {}
 }
 
 function patchSessionInfiniteData(

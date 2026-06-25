@@ -49,9 +49,6 @@ export interface UserConversationBlock {
   attachments?: MediaAttachment[]
   codeLineComments?: CodeLineCommentReference[]
   author?: Collaborator
-  clientEventID?: string
-  clientStatus?: "pending" | "failed"
-  clientError?: string
 }
 
 export interface ErrorConversationBlock {

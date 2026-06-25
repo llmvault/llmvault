@@ -71,14 +71,12 @@ export function ReviewView({
   const changedRepoDiffs = useMemo(
     () =>
       reviewQuery.data?.repoDiffs.filter(
-        (repoDiff) => repoDiff.patches.length > 0 || repoDiff.truncated
+        (repoDiff) => repoDiff.files.length > 0
       ) ?? [],
     [reviewQuery.data?.repoDiffs]
   )
   const patchCount = changedRepoDiffs.reduce(
-    (total, repoDiff) =>
-      total +
-      (repoDiff.truncated ? repoDiff.files.length : repoDiff.patches.length),
+    (total, repoDiff) => total + repoDiff.files.length,
     0
   )
 
@@ -206,7 +204,6 @@ async function fetchReviewDiffs(
       const diff = await fetchRuntimeRepoDiff(access, repo.id, signal)
       return {
         repo,
-        patches: splitPatches(diff.diff),
         truncated: diff.truncated ?? false,
         files: diff.files ?? [],
         message: diff.message,
@@ -216,15 +213,6 @@ async function fetchReviewDiffs(
     })
   )
   return { repos, repoDiffs }
-}
-
-function splitPatches(diff: string) {
-  const clean = diff.trim()
-  if (!clean) return []
-  const patches = clean.includes("\ndiff --git ")
-    ? clean.split(/(?=^diff --git )/m)
-    : [clean]
-  return patches.map((patch) => `${patch.trimEnd()}\n`).filter(Boolean)
 }
 
 function isUnauthorizedRuntimeError(error: unknown) {

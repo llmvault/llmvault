@@ -56,12 +56,39 @@ pub(super) async fn git_status(repo_path: &Path) -> Result<BTreeMap<String, Stri
     Ok(statuses)
 }
 
-/// Returns the SHA of the remote default branch (e.g. `origin/main`).
+/// Returns the review base SHA for the current checkout.
+///
+/// For repos with an origin default branch, this is the merge-base of HEAD and
+/// the remote default branch. That keeps feature branches and detached older
+/// commits diffed against the point where they diverged instead of against the
+/// latest remote tip. Returns `None` if no default branch can be determined.
+pub(super) async fn review_base_sha(repo_path: &Path) -> Option<String> {
+    let remote_head = remote_default_branch(repo_path).await?;
+    let merge_base = git_output(
+        repo_path,
+        &["merge-base".into(), "HEAD".into(), remote_head.clone()],
+    )
+    .await
+    .ok()
+    .map(|value| value.trim().to_string())
+    .filter(|value| !value.is_empty());
+    if merge_base.is_some() {
+        return merge_base;
+    }
+    git_output(repo_path, &["rev-parse".into(), remote_head])
+        .await
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// Returns the local remote-tracking ref for the remote default branch
+/// (e.g. `origin/main`).
 /// Tries `git symbolic-ref refs/remotes/origin/HEAD` first (set during
 /// clone, no network needed). Returns `None` if no default branch can be
 /// determined (e.g. a fresh local repo with no remote, or a remote without
 /// an `origin/HEAD` symbolic ref).
-pub(super) async fn default_branch_sha(repo_path: &Path) -> Option<String> {
+async fn remote_default_branch(repo_path: &Path) -> Option<String> {
     // Try the remote HEAD symbolic ref first; this is set automatically
     // when cloning and doesn't require network access.
     let remote_head = git_output(
@@ -81,18 +108,7 @@ pub(super) async fn default_branch_sha(repo_path: &Path) -> Option<String> {
         return None;
     }
 
-    // Resolve the remote-tracking ref, even when no local main branch exists.
-    let sha = git_output(repo_path, &["rev-parse".into(), remote_head])
-        .await
-        .ok()?
-        .trim()
-        .to_string();
-
-    if sha.is_empty() {
-        None
-    } else {
-        Some(sha)
-    }
+    Some(remote_head)
 }
 
 pub(super) async fn git_output(repo_path: &Path, args: &[String]) -> Result<String> {

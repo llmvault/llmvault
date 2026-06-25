@@ -60,6 +60,11 @@ export interface RuntimeRepoDiffFile {
   path: string
   status: RuntimeGitStatus | "copied" | "unknown"
   previous_path?: string | null
+  patch: string
+  truncated: boolean
+  total_bytes: number
+  max_bytes: number
+  message?: string | null
 }
 
 export type RuntimeGitStatus =

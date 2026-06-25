@@ -36,60 +36,47 @@ export const RepoDiffSection = memo(function RepoDiffSection({
           {repoDiff.repo.relative_path}
         </span>
         <span className="ml-auto shrink-0 text-xs text-muted">
-          {formatPatchCount(
-            repoDiff.truncated ? repoDiff.files.length : repoDiff.patches.length
-          )}
+          {formatPatchCount(repoDiff.files.length)}
         </span>
       </div>
       <div className="flex min-w-0 flex-col">
-        {repoDiff.truncated ? (
-          <div className="flex min-w-0 flex-col gap-2 px-3 py-3 text-sm">
-            <div className="flex min-w-0 items-center gap-2 text-muted">
+        {repoDiff.files.map((file, index) =>
+          file.truncated ? (
+            <div
+              key={`${file.status}:${file.path}`}
+              className={`flex min-w-0 items-center gap-2 px-3 py-3 text-sm text-muted ${
+                index > 0 ? "border-t border-border" : ""
+              }`}
+            >
               <Icon
                 icon="lucide:triangle-alert"
-                className="text-warning h-4 w-4 shrink-0"
+                className="h-4 w-4 shrink-0 text-warning"
               />
-              <span className="min-w-0 truncate">
-                {repoDiff.message ?? "Diff is too large to display."}
+              <span className="w-20 shrink-0 text-xs tracking-normal uppercase">
+                {file.status}
               </span>
-              {typeof repoDiff.totalBytes === "number" &&
-              typeof repoDiff.maxBytes === "number" ? (
-                <span className="shrink-0 font-mono text-xs">
-                  {formatBytes(repoDiff.totalBytes)} /{" "}
-                  {formatBytes(repoDiff.maxBytes)}
-                </span>
-              ) : null}
+              <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                {file.path}
+              </span>
+              <span className="min-w-0 truncate text-xs">
+                {file.message ?? "File diff is too large to display."}
+              </span>
+              <span className="shrink-0 font-mono text-xs">
+                {formatBytes(file.total_bytes)} / {formatBytes(file.max_bytes)}
+              </span>
             </div>
-            {repoDiff.files.length > 0 ? (
-              <div className="flex min-w-0 flex-col gap-1">
-                {repoDiff.files.map((file) => (
-                  <div
-                    key={`${file.status}:${file.path}`}
-                    className="bg-surface-secondary flex min-w-0 items-center gap-2 rounded px-2 py-1.5"
-                  >
-                    <span className="w-20 shrink-0 text-xs tracking-normal text-muted uppercase">
-                      {file.status}
-                    </span>
-                    <span className="min-w-0 truncate font-mono text-xs">
-                      {file.path}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {repoDiff.patches.map((patch, index) => (
-          <CommentablePatchDiff
-            key={`${repoDiff.repo.id}:${index}:${patch.slice(0, 48)}`}
-            patch={patch}
-            options={options}
-            source={source}
-            className={index > 0 ? "border-t border-border" : undefined}
-            style={REVIEW_DIFF_STYLE}
-            disableWorkerPool
-          />
-        ))}
+          ) : file.patch.trim() ? (
+            <CommentablePatchDiff
+              key={`${file.status}:${file.path}`}
+              patch={file.patch}
+              options={options}
+              source={source}
+              className={index > 0 ? "border-t border-border" : undefined}
+              style={REVIEW_DIFF_STYLE}
+              disableWorkerPool
+            />
+          ) : null
+        )}
       </div>
     </section>
   )

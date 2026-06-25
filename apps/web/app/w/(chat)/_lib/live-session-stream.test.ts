@@ -131,4 +131,61 @@ describe("live session stream", () => {
       },
     } satisfies Partial<SessionEventResponse>)
   })
+
+  it("shows model request starts as temporary thinking events", () => {
+    const started = appendLiveSessionStreamFrame(
+      [],
+      frame("model_request_started", {
+        event_id: "event-model-started",
+        sequence: 4,
+        turn_id: "turn_1",
+        occurred_at: "2026-06-19T07:04:17.000Z",
+      })
+    )
+
+    expect(started).toMatchObject([
+      {
+        event_type: "thinking",
+        payload: {
+          label: "Thinking...",
+          model_request_pending: true,
+          turn_id: "turn_1",
+        },
+      },
+    ] satisfies Partial<SessionEventResponse>[])
+
+    const completed = appendLiveSessionStreamFrame(
+      started,
+      frame("model_request_completed", {
+        event_id: "event-model-completed",
+        sequence: 5,
+        turn_id: "turn_1",
+        occurred_at: "2026-06-19T07:04:18.000Z",
+      })
+    )
+
+    expect(completed).toEqual([])
+  })
+
+  it("clears temporary model request thinking when another frame arrives", () => {
+    const started = appendLiveSessionStreamFrame(
+      [],
+      frame("model_request_started", {
+        event_id: "event-model-started",
+        sequence: 4,
+        turn_id: "turn_1",
+      })
+    )
+    const next = appendLiveSessionStreamFrame(
+      started,
+      frame("token", {
+        event_id: "event-token",
+        sequence: 5,
+        text: "Done",
+        turn_id: "turn_1",
+      })
+    )
+
+    expect(next.map((event) => event.event_type)).toEqual(["token"])
+  })
 })
