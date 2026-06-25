@@ -115,7 +115,6 @@ CREATE TABLE sessions (
 	channel_id text NOT NULL,
 	agent_id text NOT NULL,
 	model text,
-	access_mode text,
 	reasoning_effort text,
 	source text,
 	name text,
@@ -152,7 +151,6 @@ func seedRuntimeStreamSession(t *testing.T, db *gorm.DB) model.Session {
 		ChannelID:            uuid.New(),
 		AgentID:              uuid.New(),
 		Model:                "test-model",
-		AccessMode:           "full",
 		ReasoningEffort:      "high",
 		Source:               "web",
 		Name:                 "runtime stream test",
@@ -164,11 +162,11 @@ func seedRuntimeStreamSession(t *testing.T, db *gorm.DB) model.Session {
 		IntegrationScopes:    model.JSON{},
 	}
 	if err := db.Exec(`
-INSERT INTO sessions (
-	id, org_id, channel_id, agent_id, model, access_mode, reasoning_effort, source,
-	name, status, agent_turn_status, agent_turn_id, agent_stream_id, agent_turn_last_outcome
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		session.ID, session.OrgID, session.ChannelID, session.AgentID, session.Model, session.AccessMode,
+	INSERT INTO sessions (
+		id, org_id, channel_id, agent_id, model, reasoning_effort, source,
+		name, status, agent_turn_status, agent_turn_id, agent_stream_id, agent_turn_last_outcome
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		session.ID, session.OrgID, session.ChannelID, session.AgentID, session.Model,
 		session.ReasoningEffort, session.Source, session.Name, session.Status, session.AgentTurnStatus,
 		session.AgentTurnID, session.AgentStreamID, session.AgentTurnLastOutcome,
 	).Error; err != nil {

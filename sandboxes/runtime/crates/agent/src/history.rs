@@ -18,7 +18,6 @@ pub struct ModelHistoryPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SessionContextPayload {
     version: u32,
-    #[serde(alias = "dynamic_context")]
     session_context: Vec<String>,
 }
 

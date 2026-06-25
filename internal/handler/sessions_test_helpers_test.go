@@ -74,7 +74,6 @@ func seedActivitySession(t *testing.T, h *sessionHarness, fx sessionFixture, cre
 		AgentID:         fx.agent.ID,
 		CreatedBy:       &createdBy,
 		Model:           "deepseek-v4-flash",
-		AccessMode:      "full",
 		ReasoningEffort: "high",
 		Source:          "web",
 		Name:            "activity-" + uuid.NewString()[:8],

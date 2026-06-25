@@ -37,66 +37,24 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req sendSessionMessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-	text := strings.TrimSpace(firstNonEmptyString(req.Text, req.Message))
-	payload := normalizeJSONPtr(&req.Raw)
+	text := strings.TrimSpace(req.Text)
+	payload := sessionMessageRequestPayload(req)
 	if !sessionMessageHasContent(text, payload) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text or message payload is required"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text is required"})
 		return
-	}
-	var selectedModel string
-	var selectedReasoningEffort string
-	if req.ModelDefinition != nil {
-		selectedModel = strings.TrimSpace(req.ModelDefinition.ModelID)
-		if selectedModel == "" {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "model_definition.model_id is required"})
-			return
-		}
-		var agent model.Agent
-		loadErr := h.db.WithContext(r.Context()).
-			Where("id = ? AND org_id = ? AND status <> ?", session.AgentID, session.OrgID, "archived").
-			First(&agent).Error
-		if loadErr != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load agent"})
-			return
-		}
-		if ok := h.validateSessionModel(w, r, session.OrgID, &agent, selectedModel); !ok {
-			return
-		}
-		selectedReasoningEffort = strings.TrimSpace(req.ModelDefinition.ReasoningEffort)
-		var err error
-		selectedReasoningEffort, err = normalizeSessionReasoningEffort(selectedReasoningEffort)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-			return
-		}
-	}
-	if req.User != "" {
-		payload["user"] = strings.TrimSpace(req.User)
-	}
-	if req.UserDisplayName != "" {
-		payload["user_display_name"] = strings.TrimSpace(req.UserDisplayName)
-	}
-	if selectedModel != "" {
-		modelDefinition := map[string]any{"model_id": selectedModel}
-		if selectedReasoningEffort != "" {
-			modelDefinition["reasoning_effort"] = selectedReasoningEffort
-		}
-		payload["model_definition"] = modelDefinition
 	}
 	var hydrated bool
 	payload, hydrated = h.hydrateSessionMessageAttachmentsForRequest(w, r, session, payload)
 	if !hydrated {
 		return
 	}
-	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, text, payload, sessionMessageDeliveryOptions{
-		Model:           selectedModel,
-		ReasoningEffort: selectedReasoningEffort,
-		ClientEventID:   strings.TrimSpace(req.ClientEventID),
-	})
+	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, text, payload, sessionMessageDeliveryOptions{})
 	if err != nil {
 		if errors.Is(err, errSessionSandboxDraining) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})

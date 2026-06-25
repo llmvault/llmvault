@@ -725,13 +725,9 @@ pub struct SessionMessageRequest {
     #[serde(default)]
     pub attachments: Vec<Attachment>,
     #[serde(default)]
-    #[serde(alias = "dynamic_context")]
     pub session_context: Vec<String>,
     #[serde(default)]
     pub model_definition: Option<ModelConfig>,
-    #[serde(default)]
-    #[cfg_attr(feature = "openapi", schema(value_type = Object))]
-    pub raw: Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -771,36 +767,17 @@ impl SessionMessageState {
                 }),
             )
             .await;
-        let source = request
-            .raw
-            .get("source")
-            .and_then(Value::as_str)
-            .filter(|value| matches!(*value, "session" | "web"))
-            .unwrap_or("session");
-        let mut raw = json!({
+        let source = if request.user == "hivy-trigger" {
+            "trigger"
+        } else {
+            "session"
+        };
+        let raw = json!({
             "source": source,
             "session_stream_id": stream_id,
             "trace_id": trace_id,
             "turn_id": turn_id,
-            "raw": request.raw.clone(),
         });
-        if let Some(raw_obj) = request.raw.as_object() {
-            if let Some(out) = raw.as_object_mut() {
-                for key in [
-                    "job_id",
-                    "schedule_id",
-                    "schedule_run_id",
-                    "schedule_run_key",
-                    "schedule_scheduled_at",
-                    "schedule_started_at",
-                    "schedule_is_one_shot",
-                ] {
-                    if let Some(value) = raw_obj.get(key) {
-                        out.insert(key.to_string(), value.clone());
-                    }
-                }
-            }
-        }
         let model_definition = match request.model_definition {
             Some(model) => {
                 self.broker
@@ -1154,7 +1131,6 @@ mod tests {
                     attachments: Vec::new(),
                     session_context: vec!["## Recent sessions\n- prior context".to_string()],
                     model_definition: None,
-                    raw: json!({"source": "session", "provider": "test-provider"}),
                 },
             )
             .await
@@ -1186,7 +1162,6 @@ mod tests {
         assert_eq!(inbound.raw["trace_id"], response.trace_id);
         assert_eq!(inbound.raw["turn_id"], response.turn_id);
         assert_eq!(inbound.raw["source"], "session");
-        assert_eq!(inbound.raw["raw"]["provider"], "test-provider");
         assert!(inbound.is_direct_message);
         assert!(inbound.is_directly_addressed);
 
@@ -1203,7 +1178,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn inject_message_preserves_web_source() {
+    async fn inject_message_marks_trigger_source_from_user() {
         let (tx, mut rx) = mpsc::channel(1);
         let sessions = SessionMessageState {
             inbound_sink: tx,
@@ -1215,13 +1190,12 @@ mod tests {
             .inject_message(
                 SessionId::from("web-session"),
                 SessionMessageRequest {
-                    text: "hello from web".to_string(),
-                    user: "user-1".to_string(),
-                    user_display_name: Some("Ada".to_string()),
+                    text: "hello from trigger".to_string(),
+                    user: "hivy-trigger".to_string(),
+                    user_display_name: Some("Hivy Trigger".to_string()),
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
-                    raw: json!({"source": "web"}),
                 },
             )
             .await
@@ -1229,7 +1203,7 @@ mod tests {
 
         let inbound = rx.recv().await.expect("inbound event");
         assert_eq!(inbound.session_id.as_str(), "web-session");
-        assert_eq!(inbound.raw["source"], "web");
+        assert_eq!(inbound.raw["source"], "trigger");
     }
 
     #[tokio::test]
@@ -1251,7 +1225,6 @@ mod tests {
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: Some(test_model("qwen-3.7-plus")),
-                    raw: json!({"source": "session"}),
                 },
             )
             .await
@@ -1266,7 +1239,6 @@ mod tests {
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
-                    raw: json!({"source": "session"}),
                 },
             )
             .await
@@ -1303,7 +1275,6 @@ mod tests {
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
-                    raw: json!({"source": "session"}),
                 },
             )
             .await
@@ -1318,7 +1289,6 @@ mod tests {
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
-                    raw: json!({"source": "session"}),
                 },
             )
             .await
@@ -1414,7 +1384,6 @@ mod tests {
                     attachments: Vec::new(),
                     session_context: Vec::new(),
                     model_definition: None,
-                    raw: json!({"source": "external"}),
                 },
             )
             .await

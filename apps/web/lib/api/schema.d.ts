@@ -12708,17 +12708,10 @@ export interface components {
             vcpu?: number;
         };
         createSessionRequest: {
-            access_mode?: string;
             agent_id?: string;
             channel_id?: string;
-            client_event_id?: string;
-            image_model?: string;
-            message?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
-            name?: string;
-            raw?: components["schemas"]["JSON"];
             text?: string;
-            vector_image_model?: string;
         };
         createSkillRequest: {
             bundle?: components["schemas"]["Bundle"];
@@ -13462,13 +13455,9 @@ export interface components {
             };
         };
         sendSessionMessageRequest: {
-            client_event_id?: string;
-            message?: string;
-            model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
-            raw?: components["schemas"]["JSON"];
+            attachment_ids?: string[];
+            code_line_comments?: components["schemas"]["JSON"][];
             text?: string;
-            user?: string;
-            user_display_name?: string;
         };
         sessionDetailResponse: {
             participants?: components["schemas"]["sessionParticipantResponse"][];
@@ -13493,7 +13482,6 @@ export interface components {
             turn_id?: string;
         };
         sessionInputResponseRequest: {
-            client_event_id?: string;
             option_id?: string;
             request_id?: string;
             text?: string;
@@ -13523,7 +13511,6 @@ export interface components {
             user_ids?: string[];
         };
         sessionResponse: {
-            access_mode?: string;
             agent_id?: string;
             agent_stream_id?: string;
             agent_turn_id?: string;

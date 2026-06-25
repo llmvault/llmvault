@@ -9,11 +9,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
-
-	"github.com/usehivy/hivy/internal/logging"
 )
 
 type Client struct {
@@ -43,15 +40,13 @@ type ConfigUpdateRequest struct {
 }
 
 type HTTPMessageRequest struct {
-	Text            string         `json:"text"`
-	SessionID       string         `json:"-"`
-	SessionContext  []string       `json:"session_context,omitempty"`
-	User            string         `json:"user,omitempty"`
-	UserDisplayName string         `json:"user_display_name,omitempty"`
-	ModelDefinition *ModelConfig   `json:"model_definition,omitempty"`
-	Attachments     []any          `json:"attachments,omitempty"`
-	DynamicContext  []string       `json:"dynamic_context,omitempty"`
-	Raw             map[string]any `json:"raw,omitempty"`
+	Text            string       `json:"text"`
+	SessionID       string       `json:"-"`
+	SessionContext  []string     `json:"session_context,omitempty"`
+	User            string       `json:"user,omitempty"`
+	UserDisplayName string       `json:"user_display_name,omitempty"`
+	ModelDefinition *ModelConfig `json:"model_definition,omitempty"`
+	Attachments     []any        `json:"attachments,omitempty"`
 }
 
 type HTTPMessageResponse struct {
@@ -170,27 +165,6 @@ func (c *Client) GetConfig(ctx context.Context) (*AgentDefinition, error) {
 func (c *Client) PutRuntimeConfig(ctx context.Context, body ConfigUpdateRequest) (*SyncResponse, error) {
 	if body.RuntimeEnv == nil {
 		body.RuntimeEnv = map[string]string{}
-	}
-	if os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD") == "true" {
-		logger := logging.FromContext(ctx)
-		// Redact secrets before logging so a debug flag can't exfiltrate credentials.
-		payload, err := json.Marshal(redactConfigUpdateRequest(body))
-		if err != nil {
-			logger.WarnContext(ctx, "runtime config debug payload marshal failed", "error", err)
-		} else {
-			logger.InfoContext(ctx, "runtime config debug payload", "base_url", c.baseURL, "payload", string(payload))
-		}
-	}
-	if path := strings.TrimSpace(os.Getenv("HIVY_DEBUG_RUNTIME_CONFIG_PAYLOAD_FILE")); path != "" {
-		logger := logging.FromContext(ctx)
-		payload, err := json.MarshalIndent(redactConfigUpdateRequest(body), "", "  ")
-		if err != nil {
-			logger.WarnContext(ctx, "runtime config debug payload file marshal failed", "error", err)
-		} else if err := os.WriteFile(path, payload, 0o600); err != nil {
-			logger.WarnContext(ctx, "runtime config debug payload file write failed", "path", path, "error", err)
-		} else {
-			logger.InfoContext(ctx, "runtime config debug payload written", "path", path, "bytes", len(payload), "base_url", c.baseURL)
-		}
 	}
 	resp, err := c.do(ctx, http.MethodPut, "/config", body)
 	if err != nil {

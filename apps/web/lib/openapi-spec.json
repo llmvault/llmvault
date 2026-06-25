@@ -12772,26 +12772,14 @@
       "createSessionRequest": {
         "type": "object",
         "properties": {
-          "access_mode": {
-            "type": "string"
-          },
           "agent_id": {
             "type": "string"
           },
           "channel_id": {
             "type": "string"
           },
-          "message": {
-            "type": "string"
-          },
           "model_definition": {
             "$ref": "#/components/schemas/sessionModelDefinitionRequest"
-          },
-          "name": {
-            "type": "string"
-          },
-          "raw": {
-            "$ref": "#/components/schemas/JSON"
           },
           "text": {
             "type": "string"
@@ -15005,25 +14993,19 @@
       "sendSessionMessageRequest": {
         "type": "object",
         "properties": {
-          "client_event_id": {
-            "type": "string"
+          "attachment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "message": {
-            "type": "string"
-          },
-          "model_definition": {
-            "$ref": "#/components/schemas/sessionModelDefinitionRequest"
-          },
-          "raw": {
-            "$ref": "#/components/schemas/JSON"
+          "code_line_comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JSON"
+            }
           },
           "text": {
-            "type": "string"
-          },
-          "user": {
-            "type": "string"
-          },
-          "user_display_name": {
             "type": "string"
           }
         }
@@ -15171,9 +15153,6 @@
       "sessionResponse": {
         "type": "object",
         "properties": {
-          "access_mode": {
-            "type": "string"
-          },
           "agent_id": {
             "type": "string"
           },

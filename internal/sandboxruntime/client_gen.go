@@ -1105,13 +1105,12 @@ type SessionInterruptResponse struct {
 
 // SessionMessageRequest defines model for SessionMessageRequest.
 type SessionMessageRequest struct {
-	Attachments     *[]Attachment           `json:"attachments,omitempty"`
-	DynamicContext  *[]string               `json:"dynamic_context,omitempty"`
-	ModelDefinition *ModelConfig            `json:"model_definition,omitempty"`
-	Raw             *map[string]interface{} `json:"raw,omitempty"`
-	Text            string                  `json:"text"`
-	User            *string                 `json:"user,omitempty"`
-	UserDisplayName *string                 `json:"user_display_name,omitempty"`
+	Attachments     *[]Attachment `json:"attachments,omitempty"`
+	ModelDefinition *ModelConfig  `json:"model_definition,omitempty"`
+	SessionContext  *[]string     `json:"session_context,omitempty"`
+	Text            string        `json:"text"`
+	User            *string       `json:"user,omitempty"`
+	UserDisplayName *string       `json:"user_display_name,omitempty"`
 }
 
 // SessionMessageResponse defines model for SessionMessageResponse.
@@ -1467,8 +1466,11 @@ type GetSessionLiveStreamParams struct {
 	// AfterSeq Replay retained events with sequence greater than this value
 	AfterSeq *int64 `form:"after_seq,omitempty" json:"after_seq,omitempty"`
 
-	// FromTurnId Replay retained events for one turn and continue live until that turn terminates
+	// FromTurnId Replay retained events beginning at one turn
 	FromTurnId *string `form:"from_turn_id,omitempty" json:"from_turn_id,omitempty"`
+
+	// Follow When combined with from_turn_id, continue streaming the full session after replay
+	Follow *bool `form:"follow,omitempty" json:"follow,omitempty"`
 }
 
 // PutConfigJSONRequestBody defines body for PutConfig for application/json ContentType.
@@ -3608,6 +3610,18 @@ func NewGetSessionLiveStreamRequest(server string, sessionId string, params *Get
 		if params.FromTurnId != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from_turn_id", *params.FromTurnId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Follow != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "follow", *params.Follow, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

@@ -55,10 +55,9 @@ func (rt *sessionSyncRuntime) handleMessage(w http.ResponseWriter, r *http.Reque
 		rt.lastSessionID = parts[1]
 	}
 	var body struct {
-		Text            string         `json:"text"`
-		SessionContext  []string       `json:"session_context"`
-		Attachments     []any          `json:"attachments"`
-		Raw             map[string]any `json:"raw"`
+		Text            string   `json:"text"`
+		SessionContext  []string `json:"session_context"`
+		Attachments     []any    `json:"attachments"`
 		ModelDefinition *struct {
 			ModelID   string `json:"model_id"`
 			APIKeyEnv string `json:"api_key_env"`

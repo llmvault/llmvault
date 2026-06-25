@@ -21,10 +21,8 @@ func TestIntegration_SessionsSend_AttachmentIDsHydrateAndSendTextContextOnly(t *
 	releaseSessionForNextUserTurn(t, h, created.Session.ID)
 
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
-		"text": "can you see this image?",
-		"raw": map[string]any{
-			"attachment_ids": []string{asset.ID.String()},
-		},
+		"text":           "can you see this image?",
+		"attachment_ids": []string{asset.ID.String()},
 	})
 	if msg.Code != http.StatusAccepted {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
@@ -69,10 +67,8 @@ func TestIntegration_SessionsSend_AttachmentIDWithoutDescriptionFailsClearly(t *
 	releaseSessionForNextUserTurn(t, h, created.Session.ID)
 
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
-		"text": "can you see this image?",
-		"raw": map[string]any{
-			"attachment_ids": []string{asset.ID.String()},
-		},
+		"text":           "can you see this image?",
+		"attachment_ids": []string{asset.ID.String()},
 	})
 	if msg.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())

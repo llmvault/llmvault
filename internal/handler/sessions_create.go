@@ -37,13 +37,15 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req createSessionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-	text := strings.TrimSpace(firstNonEmptyString(req.Text, req.Message))
-	raw := normalizeJSONPtr(&req.Raw)
-	hasInitialMessage := sessionMessageHasContent(text, raw)
+	text := strings.TrimSpace(req.Text)
+	payload := model.JSON{}
+	hasInitialMessage := text != ""
 	channel, ok := h.loadUsableChannel(w, r, org.ID, req.ChannelID)
 	if !ok {
 		return
@@ -64,22 +66,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
-	if err := validateImageModelPreference(req.ImageModel, false); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-		return
-	}
-	if err := validateImageModelPreference(req.VectorImageModel, true); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-		return
-	}
 	session := h.newSessionRecord(r, org.ID, channel.ID, agent, req, userID)
-	if hasInitialMessage {
-		var hydrated bool
-		raw, hydrated = h.hydrateSessionMessageAttachmentsForRequest(w, r, session, raw)
-		if !hydrated {
-			return
-		}
-	}
 	var perSessionSandbox *model.Sandbox
 	if agent.SandboxStrategy == agentStrategyPerSession {
 		sb, err := h.provisionPerSessionSandbox(r.Context(), &agent)
@@ -95,9 +82,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	queued := false
 	var event *model.SessionEvent
 	if hasInitialMessage {
-		intent, err := h.createInitialSessionMessageIntentWithOptions(r.Context(), &session, userID, text, raw, sessionMessageDeliveryOptions{
-			ClientEventID: strings.TrimSpace(req.ClientEventID),
-		})
+		intent, err := h.createInitialSessionMessageIntentWithOptions(r.Context(), &session, userID, text, payload, sessionMessageDeliveryOptions{})
 		if err != nil {
 			if perSessionSandbox != nil {
 				h.cleanupFailedPerSessionCreate(r.Context(), session.ID, perSessionSandbox)
@@ -143,7 +128,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create session"})
 		return
 	}
-	if hasInitialMessage && strings.TrimSpace(req.Name) == "" {
+	if hasInitialMessage {
 		if err := h.enqueueSessionName(r.Context(), session.ID); err != nil {
 			logging.FromContext(r.Context()).WarnContext(r.Context(), "enqueue session name task failed", "session_id", session.ID, "error", err)
 		}
@@ -243,13 +228,10 @@ func (h *SessionHandler) newSessionRecord(r *http.Request, orgID, channelID uuid
 		SandboxID:         h.bestEffortSandboxID(r, orgID, agent),
 		CreatedBy:         userID,
 		Model:             modelID,
-		ImageModel:        strings.TrimSpace(req.ImageModel),
-		VectorImageModel:  strings.TrimSpace(req.VectorImageModel),
-		AccessMode:        defaultString(strings.TrimSpace(req.AccessMode), "full"),
 		ReasoningEffort:   reasoningEffort,
 		Source:            "web",
 		SourceResourceKey: sessionID.String(),
-		Name:              defaultString(strings.TrimSpace(req.Name), webSessionName(firstNonEmptyString(req.Text, req.Message))),
+		Name:              webSessionName(req.Text),
 		Status:            "active",
 		AgentTurnStatus:   model.SessionAgentTurnIdle,
 		IntegrationScopes: model.JSON{},

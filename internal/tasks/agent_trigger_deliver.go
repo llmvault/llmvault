@@ -70,7 +70,6 @@ func (h *AgentTriggerDispatchHandler) deliver(ctx context.Context, payload Agent
 		SessionID:       session.ID.String(),
 		User:            "hivy-trigger",
 		UserDisplayName: "Hivy Trigger",
-		Raw:             compiled.Raw,
 	})
 	if err != nil {
 		// The post never reached the runtime, so release the claim for the asynq

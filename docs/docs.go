@@ -12141,37 +12141,16 @@ const docTemplate = `{
         "createSessionRequest": {
             "type": "object",
             "properties": {
-                "access_mode": {
-                    "type": "string"
-                },
                 "agent_id": {
                     "type": "string"
                 },
                 "channel_id": {
                     "type": "string"
                 },
-                "client_event_id": {
-                    "type": "string"
-                },
-                "image_model": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
                 "model_definition": {
                     "$ref": "#/definitions/sessionModelDefinitionRequest"
                 },
-                "name": {
-                    "type": "string"
-                },
-                "raw": {
-                    "$ref": "#/definitions/JSON"
-                },
                 "text": {
-                    "type": "string"
-                },
-                "vector_image_model": {
                     "type": "string"
                 }
             }
@@ -14440,25 +14419,19 @@ const docTemplate = `{
         "sendSessionMessageRequest": {
             "type": "object",
             "properties": {
-                "client_event_id": {
-                    "type": "string"
+                "attachment_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
-                "message": {
-                    "type": "string"
-                },
-                "model_definition": {
-                    "$ref": "#/definitions/sessionModelDefinitionRequest"
-                },
-                "raw": {
-                    "$ref": "#/definitions/JSON"
+                "code_line_comments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/JSON"
+                    }
                 },
                 "text": {
-                    "type": "string"
-                },
-                "user": {
-                    "type": "string"
-                },
-                "user_display_name": {
                     "type": "string"
                 }
             }
@@ -14533,9 +14506,6 @@ const docTemplate = `{
         "sessionInputResponseRequest": {
             "type": "object",
             "properties": {
-                "client_event_id": {
-                    "type": "string"
-                },
                 "option_id": {
                     "type": "string"
                 },
@@ -14620,9 +14590,6 @@ const docTemplate = `{
         "sessionResponse": {
             "type": "object",
             "properties": {
-                "access_mode": {
-                    "type": "string"
-                },
                 "agent_id": {
                     "type": "string"
                 },

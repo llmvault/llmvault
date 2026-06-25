@@ -995,12 +995,6 @@ async fn render_dynamic_system_prompt(
         append_rendered_segment(&mut prompt, rendered);
     }
 
-    tracing::info!(
-        mcp_tool_count = mcp_tools.len(),
-        skill_count = skill_summaries.len(),
-        prompt_len = prompt.len(),
-        "system prompt augmented with skill and MCP tool catalog"
-    );
     prompt
 }
 

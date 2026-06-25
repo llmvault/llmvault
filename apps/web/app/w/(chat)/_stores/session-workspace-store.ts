@@ -68,10 +68,9 @@ export interface WorkspaceRepoTreeCache {
 
 export interface SessionWorkspace {
   lastTouchedAt: number
-  composer: {
-    text: string
-    accessMode: string
-    effort: string
+	  composer: {
+	    text: string
+	    effort: string
     uploads: WorkspaceUploadItem[]
     attachmentDescriptions: Record<string, AttachmentDescriptionState>
   }
@@ -120,10 +119,9 @@ interface SessionWorkspaceStoreState {
   status: SessionWorkspaceStatus
   workspaces: Record<string, SessionWorkspace>
   setScope: (scope: WorkspaceScope) => void
-  touchWorkspace: (sessionId: string) => void
-  setComposerText: (sessionId: string, text: string) => void
-  setComposerAccessMode: (sessionId: string, accessMode: string) => void
-  setComposerEffort: (sessionId: string, effort: string) => void
+	  touchWorkspace: (sessionId: string) => void
+	  setComposerText: (sessionId: string, text: string) => void
+	  setComposerEffort: (sessionId: string, effort: string) => void
   setComposerUploads: (
     sessionId: string,
     update: (uploads: WorkspaceUploadItem[]) => WorkspaceUploadItem[]
@@ -212,15 +210,7 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
         }))
       )
     },
-    setComposerAccessMode(sessionId, accessMode) {
-      setState((state) =>
-        updateWorkspaceState(state, sessionId, (workspace) => ({
-          ...workspace,
-          composer: { ...workspace.composer, accessMode },
-        }))
-      )
-    },
-    setComposerEffort(sessionId, effort) {
+	    setComposerEffort(sessionId, effort) {
       setState((state) =>
         updateWorkspaceState(state, sessionId, (workspace) => ({
           ...workspace,

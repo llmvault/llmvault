@@ -168,7 +168,6 @@ CREATE TABLE sessions (
     sandbox_id uuid REFERENCES sandboxes(id),      -- per-session sandbox for per_session agents
     created_by uuid REFERENCES users(id),          -- NULL for slack/webhook-originated
     model text,                                    -- per-session model override
-    access_mode text NOT NULL DEFAULT 'full',      -- full|edits|read  (composer)
     reasoning_effort text NOT NULL DEFAULT 'high', -- low|medium|high  (composer)
     source text NOT NULL DEFAULT 'web',            -- web|slack|email|webhook|schedule|api
     source_id uuid,                                -- e.g. Connection.ID for slack
@@ -348,7 +347,7 @@ Authz: channel content is visible to channel members + org owners/admins; public
 
 ```
 POST   /v1/sessions                        create (channel_id, agent_id?, first message,
-                                           model?, access_mode?, effort?)
+                                           model?, effort?)
                                            agent_id defaults to channel.default_agent_id
 GET    /v1/sessions?channel_id=&agent_id=  list (participant- or channel-scoped)
 GET    /v1/sessions/{id}                   get (participants, agent, channel, presence)
@@ -410,7 +409,7 @@ Two distinct things ship under "artifacts":
 
 | View | Backing | New backend work |
 |---|---|---|
-| Terminal | sandbox exec | Runtime endpoint proxy: `POST /v1/sessions/{id}/terminal/exec` + streamed output over the session SSE topic (or a dedicated short-lived stream). Read-only command allowlist honors session `access_mode`. |
+| Terminal | sandbox exec | Runtime endpoint proxy: `POST /v1/sessions/{id}/terminal/exec` + streamed output over the session SSE topic (or a dedicated short-lived stream). |
 | Files | sandbox FS | `GET /v1/sessions/{id}/fs?path=` (list) and `GET …/fs/content?path=` via runtime client; reuse drive `FilesView` rendering. |
 | Browser | sandbox preview | `GET /v1/sessions/{id}/preview` → provider `GetEndpoint(externalID, port)` signed URL; iframe it (replaces the static same-origin iframe). |
 | Review | turn edits | Runtime already reports edits; ingestion (W5) persists `agent.edits` events with unified diffs in payload; Review view renders the latest accumulated diff set. "Undo" = runtime revert endpoint (stretch). |
@@ -510,7 +509,7 @@ Testing: keep the `*.test` harness (renamed); new e2e suites for channel authz, 
 
 1. **Server-side turn ingestion (W5.1)** changes who owns the runtime stream. Failure modes: instance dies mid-turn (mitigate: resumable runtime streams + event-cursor replay), double-ingestion on retry (mitigate: `event_id` idempotency index, already in schema).
 2. **Queued multi-user messages** need a per-session FIFO with exactly-once delivery into the runtime — keep the user-visible transcript in `session_events`, and keep mutable delivery state in `session_message_queue` with leases, retries, and `session_event_id` idempotency. Do not hold the queue in memory.
-3. **Terminal/FS/preview endpoints** widen the sandbox attack surface — every one must enforce session participation + `access_mode`, and the preview URL must be signed/expiring (provider `GetEndpoint` URLs may be long-lived; wrap them).
+3. **Terminal/FS/preview endpoints** widen the sandbox attack surface — every one must enforce session participation, and the preview URL must be signed/expiring (provider `GetEndpoint` URLs may be long-lived; wrap them).
 4. **Sandbox concurrency:** per-session isolation (W9) solves this for workspace agents. For `always_on` agents (Hivy), N sessions still share one sandbox — add a per-agent turn concurrency limit (config) before launch.
 4b. **Snapshot pipeline reliability (W9):** session start now depends on a prior successful build; a failed/stale snapshot blocks the agent. Mitigate: clear build-status UX, retry/rebuild affordances, and fall back to cold-boot (clone + setup at session start, slow but functional) when no ready snapshot exists.
 4c. **Handoff mis-routing (W10):** a wrong handoff answers confidently in front of a team. Mitigations: static bindings take precedence (handoff only fires from Hivy-defaulted contexts), visible system events, one-click human reassignment, and the description-quality nudge in the agent creation UI. Track handoff accuracy in the evals suite from day one.

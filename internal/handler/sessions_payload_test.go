@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -16,18 +14,16 @@ func TestIntegration_SessionsSend_AllowsStructuredPayloadOnlyMessage(t *testing.
 
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
 		"text": "",
-		"raw": map[string]any{
-			"code_line_comments": []any{
-				map[string]any{
-					"id":           "comment-1",
-					"source_kind":  "review",
-					"path":         "apps/web/lib/diffs-theme.ts",
-					"display_path": "apps/web/lib/diffs-theme.ts",
-					"line_number":  148,
-					"side":         "additions",
-					"body":         "Use the HeroUI token here.",
-					"created_at":   float64(1781900000000),
-				},
+		"code_line_comments": []any{
+			map[string]any{
+				"id":           "comment-1",
+				"source_kind":  "review",
+				"path":         "apps/web/lib/diffs-theme.ts",
+				"display_path": "apps/web/lib/diffs-theme.ts",
+				"line_number":  148,
+				"side":         "additions",
+				"body":         "Use the HeroUI token here.",
+				"created_at":   float64(1781900000000),
 			},
 		},
 	})
@@ -53,7 +49,7 @@ func TestIntegration_SessionsSend_AllowsStructuredPayloadOnlyMessage(t *testing.
 	}
 }
 
-func TestIntegration_SessionsSend_AllowsAttachmentOnlyMessage(t *testing.T) {
+func TestIntegration_SessionsSend_RejectsRawEnvelope(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 	created := h.createSession(t, fx, fx.owner, "Kick off the review")
@@ -61,38 +57,28 @@ func TestIntegration_SessionsSend_AllowsAttachmentOnlyMessage(t *testing.T) {
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
 		"text": "",
 		"raw": map[string]any{
-			"attachments": []any{
-				map[string]any{
-					"drive_asset_id":        uuid.NewString(),
-					"filename":              "screen.png",
-					"asset_url":             "https://api.example.test/assets/screen.png",
-					"content_type":          "image/png",
-					"rendered_description":  "Primary category: Product UI",
-					"analysis_model":        "test-model",
-					"analysis_generated_at": "2026-06-20T00:00:00Z",
-				},
+			"code_line_comments": []any{
+				map[string]any{"body": "old shape"},
 			},
 		},
 	})
-	if msg.Code != http.StatusAccepted {
+	if msg.Code != http.StatusBadRequest {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
-	out := decodeSessionMutation(t, msg)
-	if out.Event == nil {
-		t.Fatalf("event=nil, want backend-owned user event")
-	}
-	if out.Event.Payload["text"] != "" {
-		t.Fatalf("event text=%#v, want empty string", out.Event.Payload["text"])
-	}
-	if attachments, ok := out.Event.Payload["attachments"].([]any); !ok || len(attachments) != 1 {
-		t.Fatalf("event attachments=%#v", out.Event.Payload["attachments"])
-	}
-	row := latestSessionMessageQueueRow(t, h, created.Session.ID)
-	if row.MessagePayload["text"] != "" {
-		t.Fatalf("stored text=%#v, want empty string", row.MessagePayload["text"])
-	}
-	if attachments, ok := row.MessagePayload["attachments"].([]any); !ok || len(attachments) != 1 {
-		t.Fatalf("stored attachments=%#v", row.MessagePayload["attachments"])
+}
+
+func TestIntegration_SessionsRespondToInput_RejectsLegacyClientEventID(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+	created := h.createSession(t, fx, fx.owner, "Ask me later")
+
+	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/input-responses", fx, fx.owner, map[string]any{
+		"request_id":      "question-1",
+		"text":            "Use option A",
+		"client_event_id": "legacy-input-id",
+	})
+	if msg.Code != http.StatusBadRequest {
+		t.Fatalf("input response status=%d body=%s", msg.Code, msg.Body.String())
 	}
 }
 

@@ -128,7 +128,6 @@ func seedChannelRecentSession(t *testing.T, h *channelHarness, fx channelFixture
 		AgentID:         fx.agent.ID,
 		CreatedBy:       &createdBy,
 		Model:           "deepseek-v4-flash",
-		AccessMode:      "full",
 		ReasoningEffort: "high",
 		Source:          "web",
 		Name:            "session-" + uuid.NewString()[:8],

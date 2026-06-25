@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
 func TestIntegration_SessionsChannelVisibilityDoesNotGrantReadOrSend(t *testing.T) {
@@ -73,7 +71,7 @@ func TestIntegration_ChannelSessionsActivitySortIsScopedToCurrentUser(t *testing
 	}
 }
 
-func TestIntegration_SessionsCreate_WithExplicitName_DoesNotEnqueueAutoNaming(t *testing.T) {
+func TestIntegration_SessionsCreate_RejectsExplicitName(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 
@@ -82,13 +80,7 @@ func TestIntegration_SessionsCreate_WithExplicitName_DoesNotEnqueueAutoNaming(t 
 		"text":       "Investigate the deploy failure",
 		"name":       "manual-name",
 	})
-	if rr.Code != http.StatusCreated {
+	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("create session status=%d body=%s", rr.Code, rr.Body.String())
-	}
-
-	for _, task := range h.enqueuer.Tasks() {
-		if task.TypeName == tasks.TypeSessionName {
-			t.Fatalf("unexpected %s task enqueued", tasks.TypeSessionName)
-		}
 	}
 }

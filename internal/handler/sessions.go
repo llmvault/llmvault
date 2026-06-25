@@ -76,17 +76,10 @@ func (h *SessionHandler) WithTranscription(kms *crypto.KeyWrapper, reader storag
 }
 
 type createSessionRequest struct {
-	ChannelID        string                         `json:"channel_id"`
-	AgentID          string                         `json:"agent_id,omitempty"`
-	Text             string                         `json:"text,omitempty"`
-	Message          string                         `json:"message,omitempty"`
-	ClientEventID    string                         `json:"client_event_id,omitempty"`
-	Name             string                         `json:"name,omitempty"`
-	ModelDefinition  *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
-	ImageModel       string                         `json:"image_model,omitempty"`
-	VectorImageModel string                         `json:"vector_image_model,omitempty"`
-	AccessMode       string                         `json:"access_mode,omitempty"`
-	Raw              model.JSON                     `json:"raw,omitempty"`
+	ChannelID       string                         `json:"channel_id"`
+	AgentID         string                         `json:"agent_id,omitempty"`
+	Text            string                         `json:"text,omitempty"`
+	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
 }
 
 type sessionModelDefinitionRequest struct {
@@ -95,29 +88,25 @@ type sessionModelDefinitionRequest struct {
 }
 
 type sendSessionMessageRequest struct {
-	Text            string                         `json:"text"`
-	Message         string                         `json:"message,omitempty"`
-	ClientEventID   string                         `json:"client_event_id,omitempty"`
-	User            string                         `json:"user,omitempty"`
-	UserDisplayName string                         `json:"user_display_name,omitempty"`
-	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
-	Raw             model.JSON                     `json:"raw,omitempty"`
+	Text             string       `json:"text"`
+	AttachmentIDs    []string     `json:"attachment_ids,omitempty"`
+	CodeLineComments []model.JSON `json:"code_line_comments,omitempty"`
 }
 
-func sessionMessageHasContent(text string, raw model.JSON) bool {
+func sessionMessageHasContent(text string, payload model.JSON) bool {
 	if strings.TrimSpace(text) != "" {
 		return true
 	}
-	return rawArrayLen(raw, "attachments") > 0 ||
-		rawArrayLen(raw, "attachment_ids") > 0 ||
-		rawArrayLen(raw, "code_line_comments") > 0
+	return payloadArrayLen(payload, "attachments") > 0 ||
+		payloadArrayLen(payload, "attachment_ids") > 0 ||
+		payloadArrayLen(payload, "code_line_comments") > 0
 }
 
-func rawArrayLen(raw model.JSON, key string) int {
-	if raw == nil {
+func payloadArrayLen(payload model.JSON, key string) int {
+	if payload == nil {
 		return 0
 	}
-	items, ok := raw[key].([]any)
+	items, ok := payload[key].([]any)
 	if !ok {
 		return 0
 	}
@@ -140,10 +129,9 @@ type sessionMutationResponse struct {
 }
 
 type sessionInputResponseRequest struct {
-	RequestID     string `json:"request_id"`
-	Text          string `json:"text,omitempty"`
-	OptionID      string `json:"option_id,omitempty"`
-	ClientEventID string `json:"client_event_id,omitempty"`
+	RequestID string `json:"request_id"`
+	Text      string `json:"text,omitempty"`
+	OptionID  string `json:"option_id,omitempty"`
 }
 
 type sessionDetailResponse struct {
@@ -160,7 +148,6 @@ type sessionResponse struct {
 	Model              string  `json:"model"`
 	ImageModel         string  `json:"image_model"`
 	VectorImageModel   string  `json:"vector_image_model"`
-	AccessMode         string  `json:"access_mode"`
 	ReasoningEffort    string  `json:"reasoning_effort"`
 	Source             string  `json:"source"`
 	SourceResourceKey  string  `json:"source_resource_key"`

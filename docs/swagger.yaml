@@ -1465,27 +1465,13 @@ definitions:
     type: object
   createSessionRequest:
     properties:
-      access_mode:
-        type: string
       agent_id:
         type: string
       channel_id:
         type: string
-      client_event_id:
-        type: string
-      image_model:
-        type: string
-      message:
-        type: string
       model_definition:
         $ref: '#/definitions/sessionModelDefinitionRequest'
-      name:
-        type: string
-      raw:
-        $ref: '#/definitions/JSON'
       text:
-        type: string
-      vector_image_model:
         type: string
     type: object
   createSkillRequest:
@@ -2966,19 +2952,15 @@ definitions:
     type: object
   sendSessionMessageRequest:
     properties:
-      client_event_id:
-        type: string
-      message:
-        type: string
-      model_definition:
-        $ref: '#/definitions/sessionModelDefinitionRequest'
-      raw:
-        $ref: '#/definitions/JSON'
+      attachment_ids:
+        items:
+          type: string
+        type: array
+      code_line_comments:
+        items:
+          $ref: '#/definitions/JSON'
+        type: array
       text:
-        type: string
-      user:
-        type: string
-      user_display_name:
         type: string
     type: object
   sessionDetailResponse:
@@ -3027,8 +3009,6 @@ definitions:
     type: object
   sessionInputResponseRequest:
     properties:
-      client_event_id:
-        type: string
       option_id:
         type: string
       request_id:
@@ -3083,8 +3063,6 @@ definitions:
     type: object
   sessionResponse:
     properties:
-      access_mode:
-        type: string
       agent_id:
         type: string
       agent_stream_id:

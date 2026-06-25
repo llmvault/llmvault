@@ -162,10 +162,9 @@ describe("SessionView", () => {
     const sent = await mocks.composerProps.onSend("Investigate this", "High")
 
     expect(sent).toBe(true)
-    expect(mocks.mutateAsync).toHaveBeenCalledWith({
-      body: {
-        access_mode: "full",
-        agent_id: "agent-1",
+	    expect(mocks.mutateAsync).toHaveBeenCalledWith({
+	      body: {
+	        agent_id: "agent-1",
         channel_id: "channel-1",
         model_definition: {
           model_id: "test-model",

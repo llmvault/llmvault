@@ -223,12 +223,16 @@ export function SessionThreadView({
       return false
     }
 
-    const raw = {
+    const messagePayload = {
       ...(attachments.length
         ? { attachment_ids: imageAttachmentIDs(attachments) }
         : {}),
       ...(codeLineComments.length
-        ? { code_line_comments: codeLineComments }
+        ? {
+            code_line_comments: codeLineComments.map(
+              (comment): Record<string, unknown> => ({ ...comment })
+            ),
+          }
         : {}),
     }
     const optimisticMessage = retryEventID
@@ -254,7 +258,8 @@ export function SessionThreadView({
         params: { path: { id: sessionId } },
         body: {
           text,
-          raw: Object.keys(raw).length ? raw : undefined,
+          attachment_ids: messagePayload.attachment_ids,
+          code_line_comments: messagePayload.code_line_comments,
         },
       })
       if (response.session) {

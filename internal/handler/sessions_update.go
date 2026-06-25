@@ -33,7 +33,9 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req updateSessionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
