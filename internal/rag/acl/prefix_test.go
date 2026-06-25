@@ -8,7 +8,7 @@ import (
 )
 
 // Business value: every string emitted by these helpers ends up in
-// LanceDB at index time and in the query filter at read time. A
+// Qdrant at index time and in the query filter at read time. A
 // one-byte drift = 0 results (if lucky) or wrong results across users
 // (if unlucky). The Onyx reference strings are pinned byte-exactly.
 

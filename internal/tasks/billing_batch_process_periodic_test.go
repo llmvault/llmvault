@@ -30,7 +30,7 @@ func TestPeriodicTaskConfigs_SkipsSandboxTasksWhenProviderIncomplete(t *testing.
 
 	for _, c := range configs {
 		switch c.Task.Type() {
-		case tasks.TypeSandboxHealthCheck, tasks.TypeSandboxResourceCheck, tasks.TypeSandboxLifecycle, tasks.TypeSandboxReap, tasks.TypeAgentScheduleScan:
+		case tasks.TypeSandboxResourceCheck, tasks.TypeSandboxReap, tasks.TypeAgentScheduleScan:
 			t.Fatalf("sandbox task %q should not be registered without complete provider config", c.Task.Type())
 		}
 	}
@@ -42,7 +42,6 @@ func TestPeriodicTaskConfigs_RegistersSandboxTasksWhenProviderComplete(t *testin
 		SandboxEncryptionKey:              "present",
 		SandboxDockerRuntimeOrigin:        "http://192.0.2.10",
 		SandboxResourceCheckInterval:      30 * time.Minute,
-		SandboxesRuntimeBaseImage:         "ghcr.io/usehivy/hivy-sandboxes-runtime:test",
 		SandboxDockerContainerLabelPrefix: "hivy",
 	}, nil)
 
@@ -52,8 +51,5 @@ func TestPeriodicTaskConfigs_RegistersSandboxTasksWhenProviderComplete(t *testin
 	}
 	if !seen[tasks.TypeSandboxResourceCheck] || !seen[tasks.TypeSandboxReap] || !seen[tasks.TypeAgentScheduleScan] {
 		t.Fatalf("sandbox maintenance tasks missing: %#v", seen)
-	}
-	if seen[tasks.TypeSandboxHealthCheck] || seen[tasks.TypeSandboxLifecycle] {
-		t.Fatalf("provider status reconciliation tasks should not be registered: %#v", seen)
 	}
 }

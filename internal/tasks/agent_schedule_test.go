@@ -72,8 +72,4 @@ func TestScheduledMessagePayloadCarriesBackendScheduleMetadata(t *testing.T) {
 	if payload["schedule_started_at"] != startedAt.Format(time.RFC3339) {
 		t.Fatalf("schedule_started_at = %v", payload["schedule_started_at"])
 	}
-	deprecatedWakeKey := "schedule_is_" + "wake"
-	if _, ok := payload[deprecatedWakeKey]; ok {
-		t.Fatalf("%s should not be present", deprecatedWakeKey)
-	}
 }

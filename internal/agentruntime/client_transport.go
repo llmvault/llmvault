@@ -6,10 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"net/url"
-	"strings"
 )
 
 func (c *Client) doVoid(ctx context.Context, method, path string, body any) error {
@@ -43,22 +40,7 @@ func (c *Client) doRuntimeRequest(ctx context.Context, method, path string, body
 		return nil, err
 	}
 	resp, err := c.http.Do(req)
-	if err == nil {
-		return resp, nil
-	}
-	fallbackBase, ok := localDockerHostBaseURL(c.baseURL)
-	if !ok {
-		return nil, err
-	}
-	fallbackReq, fallbackReqErr := c.newRequest(ctx, method, fallbackBase+path, data, auth)
-	if fallbackReqErr != nil {
-		return nil, err
-	}
-	fallbackResp, fallbackErr := c.http.Do(fallbackReq)
-	if fallbackErr != nil {
-		return nil, err
-	}
-	return fallbackResp, nil
+	return resp, err
 }
 
 func (c *Client) newRequest(ctx context.Context, method, rawURL string, data []byte, auth bool) (*http.Request, error) {
@@ -77,37 +59,4 @@ func (c *Client) newRequest(ctx context.Context, method, rawURL string, data []b
 		req.Header.Set("Content-Type", "application/json")
 	}
 	return req, nil
-}
-
-func localDockerHostBaseURL(raw string) (string, bool) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", false
-	}
-	host := parsed.Hostname()
-	switch {
-	case host == "host.docker.internal":
-		if port := parsed.Port(); port != "" {
-			parsed.Host = net.JoinHostPort("localhost", port)
-		} else {
-			parsed.Host = "localhost"
-		}
-	case isLocalDockerHost(host):
-		if port := parsed.Port(); port != "" {
-			parsed.Host = net.JoinHostPort("host.docker.internal", port)
-		} else {
-			parsed.Host = "host.docker.internal"
-		}
-	default:
-		return "", false
-	}
-	return strings.TrimRight(parsed.String(), "/"), true
-}
-
-func isLocalDockerHost(host string) bool {
-	if host == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }

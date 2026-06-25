@@ -74,10 +74,10 @@ func TestCreateAgentSandboxUsesReadySandboxTemplateExternalID(t *testing.T) {
 
 	provider := &agentCreateProvider{endpoint: runtime.URL}
 	orch := NewOrchestrator(db, provider, sandboxTestSymmetricKey(t), &config.Config{
-		SandboxProviderID:         ProviderMicrosandbox,
-		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:v3.3.0-amd64",
-		APIWebhookBaseURL:         "https://api.example",
-		ProxyHost:                 "https://proxy.example",
+		SandboxProviderID:        ProviderMicrosandbox,
+		SandboxesRuntimeImageTag: "v3.3.0-amd64",
+		APIWebhookBaseURL:        "https://api.example",
+		ProxyHost:                "https://proxy.example",
 	})
 
 	created, err := orch.CreateAgentSandbox(context.Background(), &agent, testStartupSecrets())

@@ -13,10 +13,10 @@ use.
 1. **Mocking is permitted ONLY for the embedder and reranker.** Both make
    paid external API calls; the embedder package ships their interfaces with an
    in-memory deterministic fake. Nothing else gets mocked — not Postgres,
-   not Redis, not MinIO, not LanceDB, not Nango, not HTTP handlers.
+   not Redis, not MinIO, not Qdrant, not Nango, not HTTP handlers.
 2. **Integration-first.** Anything touching infrastructure is tested
    against a real instance of that infrastructure, via
-   `docker-compose.test.yml` (Postgres + Redis + MinIO + LanceDB).
+   `docker-compose.test.yml` (Postgres + Redis + MinIO + Qdrant).
 3. **Every test verifies business behavior, not framework behavior.** If
    the test could only fail because gorm/chi/asynq broke, do not write
    it. Concrete bans:

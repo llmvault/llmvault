@@ -49,18 +49,6 @@ func (h *TokenCleanupHandler) Handle(ctx context.Context, _ *asynq.Task) error {
 	return nil
 }
 
-// SandboxHealthCheckHandler is retained as a no-op so old queued tasks drain
-// after provider status reconciliation was removed from the control plane.
-type SandboxHealthCheckHandler struct{}
-
-func NewSandboxHealthCheckHandler(orchestrator *sandbox.Orchestrator) *SandboxHealthCheckHandler {
-	return &SandboxHealthCheckHandler{}
-}
-
-func (h *SandboxHealthCheckHandler) Handle(ctx context.Context, _ *asynq.Task) error {
-	return nil
-}
-
 // SandboxResourceCheckHandler collects cgroup resource stats from running sandboxes.
 type SandboxResourceCheckHandler struct {
 	orchestrator *sandbox.Orchestrator
@@ -88,18 +76,6 @@ func NewCreditsExpireHandler(credits *billing.CreditsService) *CreditsExpireHand
 
 func (h *CreditsExpireHandler) Handle(ctx context.Context, _ *asynq.Task) error {
 	return h.credits.SweepAllExpiredGrants(ctx)
-}
-
-// SandboxLifecycleHandler is retained as a no-op so old queued tasks drain.
-// Sandbox sleep is provider/infra-managed, not control-plane reconciled.
-type SandboxLifecycleHandler struct{}
-
-func NewSandboxLifecycleHandler(orchestrator *sandbox.Orchestrator) *SandboxLifecycleHandler {
-	return &SandboxLifecycleHandler{}
-}
-
-func (h *SandboxLifecycleHandler) Handle(ctx context.Context, _ *asynq.Task) error {
-	return nil
 }
 
 // SandboxReapHandler releases leaked paid compute the inline cleanup missed

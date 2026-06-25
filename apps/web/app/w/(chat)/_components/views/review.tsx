@@ -6,12 +6,12 @@ import { Icon } from "@iconify/react"
 import { useQuery } from "@tanstack/react-query"
 import { Virtualizer } from "@pierre/diffs/react"
 import {
-  RuntimeRepoAccessError,
   RuntimeRepoHTTPError,
   fetchRuntimeRepoDiff,
   fetchRuntimeRepos,
   type RuntimeSandboxAccess,
 } from "@/app/w/(chat)/_lib/runtime-repos"
+import { extractErrorMessage as errorMessage } from "@/lib/api/error"
 import { reviewDiffsQueryKey } from "@/app/w/(chat)/_lib/review-diffs-query"
 import { REVIEW_DIFF_BASE_OPTIONS } from "./review-diff-config"
 import { DiffStyleToggle } from "./review-diff-style-toggle"
@@ -172,7 +172,7 @@ export function ReviewView({
 
       {changedRepoDiffs.length > 0 ? (
         <Virtualizer
-          className="bg-surface min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface"
           contentClassName="flex min-h-full min-w-0 flex-col gap-3"
         >
           {changedRepoDiffs.map((repoDiff) => (
@@ -184,7 +184,7 @@ export function ReviewView({
           ))}
         </Virtualizer>
       ) : (
-        <div className="bg-surface min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface">
           <ReviewEmptyState
             icon="lucide:check-circle-2"
             title="No changes to review"
@@ -229,10 +229,4 @@ function splitPatches(diff: string) {
 
 function isUnauthorizedRuntimeError(error: unknown) {
   return error instanceof RuntimeRepoHTTPError && error.status === 401
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error instanceof RuntimeRepoAccessError) return error.message
-  if (error instanceof Error && error.message.trim()) return error.message
-  return fallback
 }

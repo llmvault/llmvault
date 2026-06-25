@@ -83,10 +83,10 @@ func TestUpgradeAgentSandboxInPlacePushesRuntimeConfig(t *testing.T) {
 
 	provider := &upgradeAgentProvider{agentCreateProvider: agentCreateProvider{endpoint: runtime.URL}}
 	orch := NewOrchestrator(db, provider, encKey, &config.Config{
-		SandboxProviderID:         ProviderMicrosandbox,
-		SandboxesRuntimeBaseImage: "ghcr.io/usehivy/hivy-sandboxes-runtime:v2",
-		APIWebhookBaseURL:         "https://api.example",
-		ProxyHost:                 "https://proxy.example",
+		SandboxProviderID:        ProviderMicrosandbox,
+		SandboxesRuntimeImageTag: "v2",
+		APIWebhookBaseURL:        "https://api.example",
+		ProxyHost:                "https://proxy.example",
 	})
 	secrets := &agentruntime.StartupSecrets{
 		ProxyToken:    "proxy-token",

@@ -32,9 +32,7 @@ const (
 
 	// Periodic tasks (scheduled by the worker)
 	TypeTokenCleanup         = "periodic:token_cleanup"
-	TypeSandboxHealthCheck   = "periodic:sandbox_health_check"
 	TypeSandboxResourceCheck = "periodic:sandbox_resource_check"
-	TypeSandboxLifecycle     = "periodic:sandbox_lifecycle"
 	TypeSandboxReap          = "periodic:sandbox_reap"
 	TypeCreditsExpire        = "periodic:credits_expire"
 	TypeBillingBatchProcess  = "periodic:billing_batch_process"

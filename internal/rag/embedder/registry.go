@@ -6,7 +6,7 @@ import (
 )
 
 // The `Provider` column on each entry is a human-readable label used
-// for surfacing in the admin UI and for deriving a stable LanceDB
+// for surfacing in the admin UI and for deriving a stable Qdrant
 // dataset name — it is NOT consulted at runtime to pick which embedder
 // implementation to invoke. Runtime selection is driven entirely by
 // the Rust rag-engine's `LLM_API_URL` / `LLM_API_KEY` / `LLM_MODEL`
@@ -114,7 +114,7 @@ func Registry() []RegistryEntry {
 	}
 }
 
-// deriveDatasetName builds a deterministic LanceDB dataset name from the
+// deriveDatasetName builds a deterministic Qdrant index name from the
 // model's (provider, modelName, dim) triple. The format is:
 //
 //	rag_chunks__<provider>_<model-basename>__<dim>
@@ -128,14 +128,14 @@ func Registry() []RegistryEntry {
 //  2. Lowercase.
 //  3. Replace `-` with `_`.
 //
-// Dots and other characters are left alone because LanceDB tolerates
-// them and collisions are bounded by the provider prefix.
+// Dots and other characters are left alone; collisions are bounded by the
+// provider prefix.
 //
 // Example: ("siliconflow", "Qwen/Qwen3-Embedding-4B", 2560) →
 // "rag_chunks__siliconflow_qwen3_embedding_4b__2560".
 //
 // Dim is part of the name to prevent a dimension-change silently reusing
-// an existing dataset — LanceDB schemas are not automatically migrated.
+// an existing index with an incompatible vector dimension.
 func deriveDatasetName(provider, modelName string, dim int) string {
 	// Basename: everything after the last `/`. If no `/`, the whole
 	// string is the basename.

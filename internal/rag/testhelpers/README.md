@@ -84,6 +84,6 @@ server-internal state.
 
 Every `StartRagEngineInTestMode` call allocates a UUID-based S3 prefix
 under `hivy-rag-test/`. Cleanup deletes the prefix contents via
-`DeleteObjects`. Override `RagEngineConfig.LancePrefix` to reuse an
-existing prefix when that's desired (e.g. the cleanup-integration test
-that seeds data before the helper runs).
+`DeleteObjects`. Override the helper's storage prefix to reuse an existing
+prefix when that's desired (e.g. the cleanup-integration test that seeds
+data before the helper runs).

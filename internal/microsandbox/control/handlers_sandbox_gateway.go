@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
-	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/api"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
@@ -26,7 +24,6 @@ type sandboxRouteResponse struct {
 
 type ensureReadyRequest struct {
 	GuestPort      int    `json:"guest_port"`
-	Readiness      string `json:"readiness"`
 	TimeoutSeconds int    `json:"timeout_seconds"`
 	RequestID      string `json:"request_id"`
 }
@@ -65,11 +62,6 @@ func (s *Server) ensureSandboxReady(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "valid guest_port is required"})
 		return
 	}
-	if strings.TrimSpace(req.Readiness) != "" {
-		logging.FromContext(r.Context()).WarnContext(r.Context(), "deprecated ensure-ready readiness ignored",
-			"sandbox_id", chi.URLParam(r, "sandboxID"), "readiness", req.Readiness)
-	}
-
 	timeout := defaultEnsureTimeout
 	if req.TimeoutSeconds > 0 {
 		timeout = time.Duration(req.TimeoutSeconds) * time.Second

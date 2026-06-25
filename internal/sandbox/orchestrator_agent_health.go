@@ -3,9 +3,7 @@ package sandbox
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -28,9 +26,6 @@ func (o *Orchestrator) waitForAgentRuntimeLive(ctx context.Context, sb *model.Sa
 		}
 		resp, doErr := client.Do(req)
 		if doErr != nil {
-			resp, doErr = retryLocalDockerHostHealth(ctx, client, healthURL, doErr)
-		}
-		if doErr != nil {
 			logging.FromContext(ctx).DebugContext(ctx, "agent runtime probe transport error",
 				"sandbox_id", sb.ID, "attempt", attempt, "error", doErr)
 		} else {
@@ -51,53 +46,4 @@ func (o *Orchestrator) waitForAgentRuntimeLive(ctx context.Context, sb *model.Sa
 		}
 	}
 	return fmt.Errorf("agent runtime not live within %s (%d attempts)", agentHealthTimeout, attempt)
-}
-
-func retryLocalDockerHostHealth(ctx context.Context, client *http.Client, healthURL string, originalErr error) (*http.Response, error) {
-	fallback, ok := localDockerHostURL(healthURL)
-	if !ok {
-		return nil, originalErr
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fallback, nil)
-	if err != nil {
-		return nil, originalErr
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, originalErr
-	}
-	return resp, nil
-}
-
-func localDockerHostURL(raw string) (string, bool) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", false
-	}
-	host := parsed.Hostname()
-	switch {
-	case host == "host.docker.internal":
-		if port := parsed.Port(); port != "" {
-			parsed.Host = net.JoinHostPort("localhost", port)
-		} else {
-			parsed.Host = "localhost"
-		}
-	case isLocalDockerHost(host):
-		if port := parsed.Port(); port != "" {
-			parsed.Host = net.JoinHostPort("host.docker.internal", port)
-		} else {
-			parsed.Host = "host.docker.internal"
-		}
-	default:
-		return "", false
-	}
-	return parsed.String(), true
-}
-
-func isLocalDockerHost(host string) bool {
-	if host == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }

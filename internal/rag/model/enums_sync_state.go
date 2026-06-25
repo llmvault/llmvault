@@ -74,7 +74,7 @@ const (
 
 // EmbeddingPrecision — port of Onyx `EmbeddingPrecision` at
 // backend/onyx/db/enums.py:213-241. Vespa tensor-type echo; retained
-// verbatim because downstream LanceDB columnar precision maps 1:1.
+// verbatim for compatibility with the ported Onyx settings model.
 type EmbeddingPrecision string
 
 const (

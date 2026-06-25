@@ -1,35 +1,23 @@
 # RAG Architecture — Decision Log
 
-**Scope:** decisions made up to and during Phase 0. Further decisions are
+**Scope:** RAG backend decisions. Further decisions are
 appended as they land. Every decision cites the Onyx source it ports from
 (or calls out the deviation explicitly).
 
 ---
 
-## 1. Vector store: LanceDB with Rust-sidecar fallback
+## 1. Vector store: Qdrant
 
-**Decision.** Use LanceDB via the official Go bindings
-`github.com/lancedb/lancedb-go` (v0.1.2, last commit 2026-04-13). The
-bindings are CGO wrappers around the Rust core and require downloading a
-platform-specific `liblancedb_go.a` + `lancedb.h` before building. See
-`SPIKE_RESEARCH.md` for the full evaluation and `SPIKE_RESULT.md` for the
-gating verification outcome.
+**Decision.** Use Qdrant via `github.com/qdrant/go-client` for vector
+storage and search. Qdrant runs as a normal service in Compose/dev and as
+the production vector database; Go code talks to it through
+`internal/rag/qdrant`.
 
-**Why LanceDB over Qdrant / Weaviate / pgvector:**
-- Storage is a plain object bucket (R2 in prod, MinIO in dev). No
-  long-lived stateful server to run, scale, back up, or patch.
-- Per-tenant datasets are a directory in S3 — we can wipe an org's index
-  by deleting a prefix.
-- Columnar layout (Arrow + Parquet) means metadata-only updates (our
-  Phase-3 perm-sync hot path) are cheap — no vector rewrite.
-- Hybrid search (vector + BM25 FTS) is native, matching our day-one
-  requirement.
-
-**Rust-sidecar fallback.** If the Go bindings regress — stale releases,
-unfixed critical bugs, unsupported operations — we fall back to a thin
-Rust binary that links the LanceDB crate directly and exposes the seven
-primitives over gRPC or HTTP. The Phase 0 spike is designed so the seven
-primitives map 1:1 to a sidecar API surface if we need to switch.
+**Why Qdrant over Weaviate / pgvector:**
+- Mature Go client and operationally simple single-purpose vector service.
+- Payload filtering supports the document ACL and source-scoped prune paths.
+- Collection-level vector configuration gives explicit dimensionality checks.
+- Qdrant is already part of the local and CI RAG service stack.
 
 **Onyx reference.** Onyx uses Vespa
 (`backend/onyx/document_index/vespa/index.py`). We are deliberately not
@@ -78,8 +66,8 @@ partial index on `last_progress_time` to recover stuck runs.
 
 **Why three loops instead of one.** Permissions on a 100k-doc corpus
 change more often than the docs themselves. Coupling the two loops means
-every perm change triggers a re-embed. LanceDB's cheap metadata-only
-`Update` (op 6 of the Phase 0 spike) is what makes the split cheap.
+every perm change triggers a re-embed. Qdrant payload updates make the
+permission-sync path metadata-only.
 
 ---
 
@@ -97,7 +85,7 @@ Tokens on a chunk look like:
 
 The `PUBLIC` literal is `PUBLIC_DOC_PAT` from
 `backend/onyx/configs/constants.py:27`. A query ACL set is built in Go,
-sorted deterministically, and passed into LanceDB's SQL-filter engine.
+sorted deterministically, and passed into Qdrant's payload filter.
 
 **Invariant.** If the write-side prefix and read-side prefix drift by
 even one character, the filter matches zero rows and queries silently
@@ -106,27 +94,25 @@ prefix function's output exactly equals the Onyx reference strings.
 
 ---
 
-## 5. R2 + MinIO back both the vector store and the filestore
+## 5. R2 + MinIO back the filestore
 
 **Decision.** One bucket per environment. Prefix-isolated:
 
     <bucket>/
-      lancedb/        # LanceDB datasets (per-org subdirectories)
-        <org-id>/
-          rag_chunks/
       filestore/      # raw payloads, checkpoints, CSV exports
         <org-id>/
           raw/
           checkpoints/
 
-**Why one bucket.** Simpler IAM, simpler lifecycle policies, simpler
-backup. Per-org isolation is logical (prefix) not physical (bucket).
+**Why one bucket.** Simpler IAM, simpler lifecycle policies, and simpler
+backup for object artifacts. Per-org isolation is logical (prefix) not
+physical (bucket).
 Onyx uses a similar single-backend approach — see
 `backend/onyx/file_store/file_store.py` where it reads/writes to S3 under
 configurable prefixes.
 
 **Dev/test.** MinIO runs in docker-compose with a pre-created
-`hivy-rag-test` bucket. The Phase 0 spike hits it directly.
+`hivy-rag-test` bucket.
 
 ---
 
@@ -138,8 +124,7 @@ existing pattern — shared Postgres, `org_id uuid` column on every row,
 row-level `WHERE org_id = ?` filtering everywhere. Rationale:
 
 - Hivy already has this pattern (`internal/model/`).
-- LanceDB's per-org dataset already provides physical isolation for the
-  large data (vectors).
+- Qdrant payload filters carry `org_id`/source scoping for vector rows.
 - Schema-per-tenant would force a parallel migration runner.
 
 The cost — every query must carry `org_id` — is paid up-front in the

@@ -16,14 +16,7 @@ func (c *Client) StreamHTTP(ctx context.Context, path string) (*http.Response, e
 		path = "/" + path
 	}
 	resp, err := c.openStream(ctx, c.baseURL+path)
-	if err == nil {
-		return resp, nil
-	}
-	fallbackBase, ok := localDockerHostBaseURL(c.baseURL)
-	if !ok {
-		return nil, err
-	}
-	return c.openStream(ctx, fallbackBase+path)
+	return resp, err
 }
 
 // streamClient returns the untimed SSE client, falling back to the general one.

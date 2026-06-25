@@ -4,6 +4,7 @@ import type {
   PageResponse,
   SystemCredential,
 } from "./types"
+import { extractErrorMessage } from "@/lib/api/error"
 
 export type AdminData = {
   integrations: AdminIntegrationDefinition[]
@@ -89,7 +90,7 @@ export async function adminFetch<T = unknown>(
 }
 
 export function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback
+  return extractErrorMessage(error, fallback)
 }
 
 function parseJSON(text: string): unknown {

@@ -249,7 +249,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 		}
 	})
 
-	mcpSrv := setupMCPServer(ctx, cfg, deps, signingKey, database, mcpHandler)
+	mcpSrv := setupMCPServer(ctx, cfg, signingKey, database, mcpHandler)
 
 	<-ctx.Done()
 	slog.Info("shutting down")

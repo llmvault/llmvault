@@ -1,5 +1,5 @@
 // Package acl builds and applies the document-level access-control strings
-// that LanceDB stores alongside each chunk and filters by at query time.
+// that Qdrant stores alongside each chunk and filters by at query time.
 //
 // Ports backend/onyx/access/ — specifically utils.py (prefix_user_email,
 // prefix_user_group, prefix_external_group, build_ext_group_name_for_onyx)

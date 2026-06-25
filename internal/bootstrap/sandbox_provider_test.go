@@ -42,7 +42,6 @@ func TestNewSandboxProviderCreatesMicrosandboxWhenConfigured(t *testing.T) {
 		SandboxProviderID:           sandbox.ProviderMicrosandbox,
 		MicrosandboxControlURL:      "http://127.0.0.1:8080",
 		MicrosandboxControlAPIToken: "test-token",
-		SandboxesRuntimeBaseImage:   "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
 	})
 	if err != nil {
 		t.Fatalf("newSandboxProvider: %v", err)

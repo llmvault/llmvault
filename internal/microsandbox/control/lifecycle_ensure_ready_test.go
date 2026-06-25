@@ -54,7 +54,6 @@ func TestEnsureReadyCallsRunnerAndReturnsRoute(t *testing.T) {
 	s := &Server{db: db, cfg: cfg, client: NewRunnerClient(cfg.RunnerAPIToken)}
 	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sbx_ready/ensure-ready", strings.NewReader(`{
 		"guest_port":7080,
-		"readiness":"runtime_ready",
 		"timeout_seconds":5
 	}`))
 	req.Header.Set("Authorization", "Bearer api-token")

@@ -320,7 +320,7 @@ services:
     volumes:
       - qdrantdata:/qdrant/storage
 
-  # --- MinIO (S3-compatible object storage for LanceDB + filestore in dev/test) ---
+  # --- MinIO (S3-compatible object storage for RAG filestore in dev/test) ---
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"

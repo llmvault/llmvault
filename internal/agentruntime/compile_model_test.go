@@ -167,31 +167,6 @@ func TestCompile_EmitsConfiguredRuntimeTools(t *testing.T) {
 	}
 }
 
-func TestCompile_IgnoresDeprecatedCronAndWakeRuntimeTools(t *testing.T) {
-	orgID := uuid.New()
-	agent := &model.Agent{
-		ID:    uuid.New(),
-		OrgID: &orgID,
-		Name:  "Hakaree",
-		Model: DefaultAgentModel,
-		Tools: model.JSON{
-			"read_file":    true,
-			"cron":         true,
-			"builtin.cron": map[string]any{"enabled": true},
-			"wake":         true,
-			"builtin.wake": map[string]any{"enabled": true},
-		},
-	}
-
-	def, err := Compile(context.Background(), CompileDeps{Cfg: &config.Config{}}, agent)
-	if err != nil {
-		t.Fatalf("compile: %v", err)
-	}
-	if got, want := runtimeToolTypes(def.Tools), []string{"builtin.read_file"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("runtime tool types = %#v, want %#v", got, want)
-	}
-}
-
 func TestCompile_EmitsCatalogAndSubAgentRuntimeTools(t *testing.T) {
 	orgID := uuid.New()
 	rawSubAgents, err := json.Marshal(map[string]model.AgentCatalogSubAgent{
