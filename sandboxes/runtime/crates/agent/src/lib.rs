@@ -24,7 +24,7 @@ pub struct TurnInput {
     pub text: String,
     pub images: Vec<ImageInput>,
     pub prior_history: Vec<HistoryEntry>,
-    pub dynamic_context: Vec<String>,
+    pub session_context: Vec<String>,
     pub model_override: Option<ModelConfig>,
     pub session_stream_id: Option<String>,
     pub trace_id: Option<String>,
@@ -57,7 +57,7 @@ impl TurnInput {
             text: input.into(),
             images: Vec::new(),
             prior_history: Vec::new(),
-            dynamic_context: Vec::new(),
+            session_context: Vec::new(),
             model_override: None,
             session_stream_id: None,
             trace_id: None,
@@ -78,10 +78,10 @@ impl TurnInput {
         self
     }
 
-    pub fn with_dynamic_context(mut self, context: impl Into<String>) -> Self {
+    pub fn with_session_context(mut self, context: impl Into<String>) -> Self {
         let context = context.into();
         if !context.trim().is_empty() {
-            self.dynamic_context.push(context);
+            self.session_context.push(context);
         }
         self
     }

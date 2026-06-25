@@ -15,7 +15,6 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -44,6 +43,7 @@ type SessionMessageCommand struct {
 	ActorUserID     *uuid.UUID
 	Text            string
 	Payload         model.JSON
+	SessionContext  []string
 	Model           string
 	ReasoningEffort string
 }
@@ -83,7 +83,6 @@ type SessionMessageDeliverHandler struct {
 	orchestrator      *sandbox.Orchestrator
 	compileDeps       agentruntime.CompileDeps
 	enqueuer          enqueue.TaskEnqueuer
-	preContext        precontext.Builder
 	allowProvisioning bool
 	leaseOwner        string
 }
@@ -151,11 +150,18 @@ func (h *SessionMessageDeliverHandler) deliverClaim(ctx context.Context, queue *
 	if session.ID == uuid.Nil {
 		return nil, fmt.Errorf("session message delivery: queue row missing session")
 	}
+	messagePayload := model.JSON{}
+	for key, value := range queue.MessagePayload {
+		messagePayload[key] = value
+	}
+	sessionContext := stringSlice(messagePayload["_session_context"])
+	delete(messagePayload, "_session_context")
 	command := SessionMessageCommand{
 		EventID:         queue.SessionEventID,
 		ActorUserID:     queue.ActorUserID,
 		Text:            queue.MessageText,
-		Payload:         queue.MessagePayload,
+		Payload:         messagePayload,
+		SessionContext:  sessionContext,
 		Model:           queue.Model,
 		ReasoningEffort: queue.ReasoningEffort,
 	}
@@ -198,14 +204,7 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 		}
 		session.SandboxID = &sb.ID
 	}
-	modelName := firstNonEmpty(command.Model, session.Model)
-	reasoningEffort := firstNonEmpty(command.ReasoningEffort, session.ReasoningEffort)
-	modelDef, err := agentruntime.SessionModelDefinition(ctx, h.compileDeps, &agent, modelName, reasoningEffort)
-	if err != nil {
-		return nil, fmt.Errorf("build session model definition: %w", err)
-	}
-	command = h.commandWithPreContext(ctx, session, command)
-	msg := runtimeMessageFromCommand(session, command, modelDef)
+	msg := runtimeMessageFromCommand(session, command)
 	resp, err := client.PostHTTPMessage(ctx, msg)
 	if err != nil {
 		if agentruntime.IsRuntimeDrainingError(err) {
@@ -214,13 +213,4 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 		return nil, fmt.Errorf("post session message to runtime: %w", err)
 	}
 	return resp, nil
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }

@@ -30,14 +30,6 @@
       ],
       "dynamic_segments": [
         {
-          "type": "dynamic_context",
-          "config": {
-            "title": "Runtime Context",
-            "preamble": "",
-            "item_template": "{content}"
-          }
-        },
-        {
           "type": "skill_catalog",
           "config": {
             "title": "Available skills",

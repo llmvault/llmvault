@@ -182,7 +182,7 @@ func (h *SessionHandler) deleteCreatedSessionEvent(ctx context.Context, intent s
 	return h.db.WithContext(ctx).Delete(&model.SessionEvent{}, "id = ?", intent.Event.ID).Error
 }
 
-func (h *SessionHandler) enqueueSessionMessageCommand(tx *gorm.DB, session *model.Session, actor *uuid.UUID, text string, payload model.JSON, opts sessionMessageDeliveryOptions, sessionEventID *uuid.UUID) error {
+func (h *SessionHandler) enqueueSessionMessageCommand(tx *gorm.DB, session *model.Session, actor *uuid.UUID, text string, payload model.JSON, opts sessionMessageDeliveryOptions, sessionEventID *uuid.UUID, sessionContext []string) error {
 	if session == nil || session.ID == uuid.Nil {
 		return fmt.Errorf("session message queue: session is required")
 	}
@@ -190,13 +190,17 @@ func (h *SessionHandler) enqueueSessionMessageCommand(tx *gorm.DB, session *mode
 	if err != nil {
 		return err
 	}
+	messagePayload := sessionMessageCommandPayload(text, payload)
+	if len(sessionContext) > 0 {
+		messagePayload["_session_context"] = append([]string(nil), sessionContext...)
+	}
 	queue := model.SessionMessageQueue{
 		OrgID:           session.OrgID,
 		SessionID:       session.ID,
 		SessionEventID:  sessionEventID,
 		ActorUserID:     actor,
 		MessageText:     text,
-		MessagePayload:  sessionMessageCommandPayload(text, payload),
+		MessagePayload:  messagePayload,
 		Model:           strings.TrimSpace(opts.Model),
 		ReasoningEffort: strings.TrimSpace(opts.ReasoningEffort),
 		SequenceNumber:  seq,

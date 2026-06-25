@@ -21,7 +21,7 @@ use tracing::warn;
 
 use crate::compaction;
 use crate::history::{
-    append_model_message, load_model_history, load_preloaded_context, persist_preloaded_context,
+    append_model_message, load_model_history, load_session_context, persist_session_context,
     seed_model_history_from_session_history,
 };
 use crate::model_client::{ChatModelClient, ModelClientConfig};
@@ -910,8 +910,8 @@ async fn build_initial_messages(
     event_repo: Option<&dyn storage::EventRepo>,
     mcp_registry: Option<&McpRegistry>,
 ) -> Result<Vec<AgentMessage>> {
-    let dynamic_context = if input.dynamic_context.is_empty() {
-        match load_preloaded_context(event_repo, session_id).await {
+    let session_context = if input.session_context.is_empty() {
+        match load_session_context(event_repo, session_id).await {
             Ok(context) => context,
             Err(error) => {
                 capture_preloaded_context_error(session_id, "load", &error.to_string());
@@ -920,16 +920,16 @@ async fn build_initial_messages(
         }
     } else {
         if let Err(error) =
-            persist_preloaded_context(event_repo, session_id, &input.dynamic_context).await
+            persist_session_context(event_repo, session_id, &input.session_context).await
         {
             capture_preloaded_context_error(session_id, "persist", &error.to_string());
         }
-        input.dynamic_context.clone()
+        input.session_context.clone()
     };
     let mut messages = vec![
         AgentMessage::system(render_cacheable_system_prompt(snapshot)),
         AgentMessage::system(
-            render_dynamic_system_prompt(snapshot, workspace_root, mcp_registry, &dynamic_context)
+            render_dynamic_system_prompt(snapshot, workspace_root, mcp_registry, &session_context)
                 .await,
         ),
     ];
@@ -964,7 +964,7 @@ async fn render_dynamic_system_prompt(
     snapshot: &AgentDefinition,
     workspace_root: &std::path::Path,
     mcp_registry: Option<&McpRegistry>,
-    dynamic_context: &[String],
+    session_context: &[String],
 ) -> String {
     let mut prompt = String::new();
     let skill_store = skills::SkillStore::new(workspace_root);
@@ -973,11 +973,19 @@ async fn render_dynamic_system_prompt(
         Some(registry) => registry.available_tool_names(),
         None => Vec::new(),
     };
+    let renders_legacy_context_segment = snapshot
+        .system_prompt
+        .dynamic_segments
+        .iter()
+        .any(|segment| matches!(segment, SystemPromptSegment::DynamicContext(_)));
+    if !renders_legacy_context_segment {
+        append_rendered_segment(&mut prompt, render_session_context(session_context));
+    }
     for segment in &snapshot.system_prompt.dynamic_segments {
         let rendered = match segment {
             SystemPromptSegment::StaticText(_) => render_static_segment(segment),
             SystemPromptSegment::DynamicContext(config) => {
-                render_dynamic_context_segment(config, dynamic_context)
+                render_dynamic_context_segment(config, session_context)
             }
             SystemPromptSegment::SkillCatalog(config) => {
                 render_skill_catalog_segment(config, &skill_summaries)
@@ -994,6 +1002,19 @@ async fn render_dynamic_system_prompt(
         "system prompt augmented with skill and MCP tool catalog"
     );
     prompt
+}
+
+fn render_session_context(session_context: &[String]) -> Option<String> {
+    let sections = session_context
+        .iter()
+        .map(|context| context.trim())
+        .filter(|context| !context.is_empty())
+        .collect::<Vec<_>>();
+    if sections.is_empty() {
+        None
+    } else {
+        Some(sections.join("\n\n"))
+    }
 }
 
 fn append_rendered_segment(prompt: &mut String, rendered: Option<String>) {
@@ -1131,8 +1152,8 @@ mod tests {
 
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use domain::{
-        AgentMeta, ContextConfig, DynamicContextPromptSegment, Limits, ListPromptSegment,
-        ModelConfig, StaticPromptSegment, SystemPromptConfig,
+        AgentMeta, ContextConfig, Limits, ListPromptSegment, ModelConfig, StaticPromptSegment,
+        SystemPromptConfig,
     };
     use futures::StreamExt;
     use tokio::net::TcpListener;
@@ -1443,7 +1464,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dynamic_prompt_contains_control_plane_runtime_context_not_deprecated_fragments() {
+    async fn dynamic_prompt_contains_session_context_without_placeholder() {
         let definition = test_definition();
         let prompt = render_dynamic_system_prompt(
             &definition,
@@ -1453,8 +1474,8 @@ mod tests {
         )
         .await;
 
-        assert!(prompt.contains("## Runtime Context"));
         assert!(prompt.contains("Keep replies short."));
+        assert!(!prompt.contains("## Runtime Context"));
         assert!(!prompt.contains("Company name: ExampleCo"));
     }
 
@@ -1733,11 +1754,6 @@ mod tests {
                 }),
             ],
             dynamic_segments: vec![
-                SystemPromptSegment::DynamicContext(DynamicContextPromptSegment {
-                    title: "Runtime Context".to_string(),
-                    preamble: String::new(),
-                    item_template: "{content}".to_string(),
-                }),
                 SystemPromptSegment::SkillCatalog(ListPromptSegment {
                     title: "Available skills (load when relevant)".to_string(),
                     preamble: "Before using tools for a task, check this list and call skill_view(name) when a skill matches the user's request. Do not load unrelated skills.".to_string(),

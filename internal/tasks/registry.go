@@ -127,8 +127,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 				NewOrgHivyAgentProvisionHandler(deps.OrgAgentSyncer).Handle)
 		}
 		mux.HandleFunc(TypeSessionMessageDeliver,
-			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).
-				WithPreContextBuilder(deps.PreContextBuilder).Handle)
+			NewSessionMessageDeliverHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer).Handle)
 		triggerHandler := NewAgentTriggerDispatchHandler(deps.DB, deps.Orchestrator, deps.AgentCompile, deps.Enqueuer)
 		triggerHandler.nangoClient = deps.NangoClient
 		mux.HandleFunc(TypeAgentTriggerDispatch, triggerHandler.Handle)

@@ -8,7 +8,7 @@ fn make_event(session_id: &str, user: &str) -> InboundEvent {
         user_display_name: None,
         text: "test".into(),
         attachments: vec![],
-        dynamic_context: vec![],
+        session_context: vec![],
         model_definition: None,
         raw: serde_json::json!({}),
         is_direct_message: false,

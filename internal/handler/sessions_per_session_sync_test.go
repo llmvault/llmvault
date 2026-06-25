@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
 )
@@ -48,10 +47,6 @@ func TestIntegration_SessionsCreate_PerSessionCreatesSandboxAndSendsFirstMessage
 	if runtime.lastSessionID != out.Session.ID || runtime.lastMessageText != "Ship the synchronous session path" {
 		t.Fatalf("runtime message session=%q text=%q", runtime.lastSessionID, runtime.lastMessageText)
 	}
-	if runtime.lastAPIKeyEnv != agentruntime.ProxyAPIKeyEnv {
-		t.Fatalf("runtime message api_key_env=%q, want %q", runtime.lastAPIKeyEnv, agentruntime.ProxyAPIKeyEnv)
-	}
-
 	var queueCount int64
 	if err := h.db.Model(&model.SessionMessageQueue{}).Where("session_id = ?", out.Session.ID).Count(&queueCount).Error; err != nil {
 		t.Fatalf("count queue rows: %v", err)

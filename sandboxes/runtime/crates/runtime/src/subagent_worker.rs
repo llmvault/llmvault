@@ -115,7 +115,7 @@ impl SubagentWorker {
             user_display_name: Some(task.agent_name.clone()),
             text: task.goal.clone(),
             attachments: Vec::new(),
-            dynamic_context: Vec::new(),
+            session_context: Vec::new(),
             model_definition: None,
             raw: serde_json::json!({
                 "source": "subagent_task",

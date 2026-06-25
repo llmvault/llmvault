@@ -27,7 +27,7 @@ func TestAgentRuntimeSessionContextE2E(t *testing.T) {
 		func(proxyURL, controlPlaneURL, sandboxID string) map[string]any {
 			return agentRuntimeFeatureDefinition(t, proxyURL, controlPlaneURL, sandboxID, "Runtime E2E Session Agent", strings.Join([]string{
 				"You are executing the Hivy runtime session context E2E.",
-				"Use the user-visible message, dynamic context, and attached text file content.",
+				"Use the user-visible message, session context, and attached text file content.",
 				"Final answers must include every requested marker.",
 			}, "\n"), agentRuntimeFileTools(), []any{}, []any{})
 		},
@@ -45,8 +45,8 @@ func sessionContextE2ERequest(attachmentURL string) map[string]any {
 	return map[string]any{
 		"session_id":      "agent-runtime-session-context-e2e",
 		"user":            "agent-runtime-e2e",
-		"text":            "Reply with SESSION_CONTEXT_E2E_PASS plus the dynamic context marker and attached file marker.",
-		"dynamic_context": []string{"Runtime session dynamic context marker: DYNAMIC_CONTEXT_OK"},
+		"text":            "Reply with SESSION_CONTEXT_E2E_PASS plus the session context marker and attached file marker.",
+		"session_context": []string{"Runtime session context marker: DYNAMIC_CONTEXT_OK"},
 		"attachments": []map[string]any{{
 			"url":        attachmentURL,
 			"mime_type":  "text/plain",

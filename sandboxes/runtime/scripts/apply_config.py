@@ -9,13 +9,6 @@ dynamic_segments = system_prompt.setdefault('dynamic_segments', [])
 existing_dynamic = {segment.get('type') for segment in dynamic_segments}
 for segment in [
     {
-        'type': 'dynamic_context',
-        'config': {
-            'title': 'Runtime Context',
-            'item_template': '{content}',
-        },
-    },
-    {
         'type': 'skill_catalog',
         'config': {
             'title': 'Available skills (load when relevant)',

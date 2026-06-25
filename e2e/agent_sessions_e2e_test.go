@@ -136,6 +136,7 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
 	assertAgentSessionsEventOrder(t, events)
 	assertAgentSessionsBackendOwnedUserMessages(t, events, ownerAuth.User.ID, memberAuth.User.ID)
+	assertAgentSessionsUserEventsDoNotStoreDynamicContext(t, events)
 	assertAgentSessionsCanonicalIngestion(t, events, session.Session.ID, "", thinkingMarker, firstMarker, secondMarker)
 	assertAgentSessionsHistoryMatchesLiveMarkers(t, events, firstMarker, secondMarker)
 

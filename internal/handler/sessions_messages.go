@@ -80,9 +80,6 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	if req.UserDisplayName != "" {
 		payload["user_display_name"] = strings.TrimSpace(req.UserDisplayName)
 	}
-	if len(req.DynamicContext) > 0 {
-		payload["dynamic_context"] = req.DynamicContext
-	}
 	if selectedModel != "" {
 		modelDefinition := map[string]any{"model_id": selectedModel}
 		if selectedReasoningEffort != "" {

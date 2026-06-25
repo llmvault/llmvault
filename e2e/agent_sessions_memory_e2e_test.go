@@ -84,7 +84,7 @@ func TestAgentSessionsMemoryE2E(t *testing.T) {
 	})
 	waitForAgentSessionsResponse(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, finalMarker)
 	events := agentSessionsListAllEvents(t, ctx, apiBase, ownerToken, orgID, session.Session.ID)
-	assertAgentSessionsMemoryDynamicContext(t, events, orgMarker, userMarker)
+	assertAgentSessionsUserEventsDoNotStoreDynamicContext(t, events)
 
 	toolMarker := "TOOL_MEMORY_" + runID
 	toolFinalMarker := "MEMORY_TOOL_E2E_PASS_" + runID
@@ -129,27 +129,6 @@ func assertAgentSessionsMemorySearchHits(t *testing.T, hits []agentSessionsMemor
 			t.Fatalf("memory search did not include marker=%s hits=%s", marker, raw)
 		}
 	}
-}
-
-func assertAgentSessionsMemoryDynamicContext(t *testing.T, events []agentSessionsEvent, markers ...string) {
-	t.Helper()
-	for _, event := range events {
-		if event.EventType != "user.message.received" || strings.EqualFold(event.Source, "runtime") {
-			continue
-		}
-		raw, _ := json.Marshal(event.Payload["dynamic_context"])
-		matches := 0
-		for _, marker := range markers {
-			if strings.Contains(string(raw), marker) {
-				matches++
-			}
-		}
-		if matches == len(markers) {
-			return
-		}
-	}
-	all, _ := json.Marshal(events)
-	t.Fatalf("backend user event dynamic_context missing memory markers=%v events=%s", markers, all)
 }
 
 type agentSessionsMemoryRow struct {

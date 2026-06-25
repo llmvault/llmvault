@@ -101,7 +101,6 @@ type sendSessionMessageRequest struct {
 	User            string                         `json:"user,omitempty"`
 	UserDisplayName string                         `json:"user_display_name,omitempty"`
 	ModelDefinition *sessionModelDefinitionRequest `json:"model_definition,omitempty"`
-	DynamicContext  model.JSON                     `json:"dynamic_context,omitempty"`
 	Raw             model.JSON                     `json:"raw,omitempty"`
 }
 

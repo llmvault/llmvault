@@ -11,7 +11,7 @@ pub struct InboundEvent {
     pub user_display_name: Option<String>,
     pub text: String,
     pub attachments: Vec<Attachment>,
-    pub dynamic_context: Vec<String>,
+    pub session_context: Vec<String>,
     pub model_definition: Option<ModelConfig>,
     pub raw: serde_json::Value,
     pub is_direct_message: bool,

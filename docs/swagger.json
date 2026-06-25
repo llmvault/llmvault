@@ -14440,9 +14440,6 @@
                 "client_event_id": {
                     "type": "string"
                 },
-                "dynamic_context": {
-                    "$ref": "#/definitions/JSON"
-                },
                 "message": {
                     "type": "string"
                 },
