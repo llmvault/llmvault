@@ -39,6 +39,7 @@ export interface AssistantConversationBlock {
   key?: string
   text: string
   streaming?: boolean
+  completedAt?: string
 }
 
 export interface UserConversationBlock {
