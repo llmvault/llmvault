@@ -19,9 +19,9 @@ use anyhow::{Context, Result};
 use api::{ApiState, OutboundConfigReloader};
 use async_trait::async_trait;
 use domain::{
-    AgentDefinition, AgentMeta, ConfigStore, DynamicContextPromptSegment, InboundEvent,
-    ListPromptSegment, ModelConfig, OutboundChannelSpec, ReasoningEffort, StaticPromptSegment,
-    SystemPromptConfig, SystemPromptSegment,
+    AgentDefinition, AgentMeta, ConfigStore, InboundEvent, ListPromptSegment, ModelConfig,
+    OutboundChannelSpec, ReasoningEffort, StaticPromptSegment, SystemPromptConfig,
+    SystemPromptSegment,
 };
 use mcp::McpRegistry;
 use outbound::{
@@ -469,11 +469,6 @@ fn bootstrap_system_prompt() -> SystemPromptConfig {
             content: "You are Aria, a friendly AI agent. Reply concisely. Use search_sessions for recent local conversation context and search_knowledge_base for indexed company knowledge when past context would materially improve the answer. Never invent features. If you do not know something, say so.".into(),
         })],
         dynamic_segments: vec![
-            SystemPromptSegment::DynamicContext(DynamicContextPromptSegment {
-                title: "Runtime Context".into(),
-                preamble: String::new(),
-                item_template: "{content}".into(),
-            }),
             SystemPromptSegment::SkillCatalog(ListPromptSegment {
                 title: "Available skills (load when relevant)".into(),
                 preamble: "Before using tools for a task, check this list and call skill_view(name) when a skill matches the user's request. Do not load unrelated skills.".into(),

@@ -6,8 +6,8 @@ use crate::primitives::{AgentMessage, AgentMessageRole};
 use crate::{HistoryEntry, HistoryRole, Result};
 
 const HISTORY_PAYLOAD_VERSION: u32 = 1;
-const PRELOADED_CONTEXT_PAYLOAD_VERSION: u32 = 1;
-const PRELOADED_CONTEXT_IDEMPOTENCY_KEY: &str = "session-preloaded-context";
+const SESSION_CONTEXT_PAYLOAD_VERSION: u32 = 1;
+const SESSION_CONTEXT_IDEMPOTENCY_KEY_PREFIX: &str = "session-context";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelHistoryPayload {
@@ -16,9 +16,10 @@ pub struct ModelHistoryPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PreloadedContextPayload {
+struct SessionContextPayload {
     version: u32,
-    dynamic_context: Vec<String>,
+    #[serde(alias = "dynamic_context")]
+    session_context: Vec<String>,
 }
 
 pub async fn load_model_history(
@@ -55,40 +56,40 @@ pub async fn append_model_message(
     Ok(())
 }
 
-pub async fn persist_preloaded_context(
+pub async fn persist_session_context(
     repo: Option<&dyn EventRepo>,
     session_id: &SessionId,
-    dynamic_context: &[String],
+    session_context: &[String],
 ) -> Result<()> {
     let Some(repo) = repo else {
         return Ok(());
     };
-    let dynamic_context: Vec<String> = dynamic_context
+    let session_context: Vec<String> = session_context
         .iter()
         .map(|item| item.trim())
         .filter(|item| !item.is_empty())
         .map(ToString::to_string)
         .collect();
-    if dynamic_context.is_empty() {
+    if session_context.is_empty() {
         return Ok(());
     }
-    let payload = serde_json::to_value(PreloadedContextPayload {
-        version: PRELOADED_CONTEXT_PAYLOAD_VERSION,
-        dynamic_context,
+    let payload = serde_json::to_value(SessionContextPayload {
+        version: SESSION_CONTEXT_PAYLOAD_VERSION,
+        session_context,
     })
     .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     repo.append_idempotent(
         session_id,
         EventKind::RunEvent,
         payload,
-        PRELOADED_CONTEXT_IDEMPOTENCY_KEY,
+        &session_context_idempotency_key(session_id),
     )
     .await
     .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     Ok(())
 }
 
-pub async fn load_preloaded_context(
+pub async fn load_session_context(
     repo: Option<&dyn EventRepo>,
     session_id: &SessionId,
 ) -> Result<Vec<String>> {
@@ -101,9 +102,16 @@ pub async fn load_preloaded_context(
         .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     Ok(events
         .into_iter()
-        .filter_map(preloaded_context_from_event)
+        .filter_map(session_context_from_event)
         .next_back()
         .unwrap_or_default())
+}
+
+fn session_context_idempotency_key(session_id: &SessionId) -> String {
+    format!(
+        "{SESSION_CONTEXT_IDEMPOTENCY_KEY_PREFIX}:{}",
+        session_id.as_str()
+    )
 }
 
 pub async fn seed_model_history_from_session_history(
@@ -149,24 +157,24 @@ fn message_from_event(event: SessionEvent) -> Option<AgentMessage> {
     Some(payload.message)
 }
 
-fn preloaded_context_from_event(event: SessionEvent) -> Option<Vec<String>> {
+fn session_context_from_event(event: SessionEvent) -> Option<Vec<String>> {
     if event.kind != EventKind::RunEvent {
         return None;
     }
-    let payload: PreloadedContextPayload = serde_json::from_value(event.payload).ok()?;
-    if payload.version != PRELOADED_CONTEXT_PAYLOAD_VERSION {
+    let payload: SessionContextPayload = serde_json::from_value(event.payload).ok()?;
+    if payload.version != SESSION_CONTEXT_PAYLOAD_VERSION {
         return None;
     }
-    let dynamic_context: Vec<String> = payload
-        .dynamic_context
+    let session_context: Vec<String> = payload
+        .session_context
         .into_iter()
         .map(|item| item.trim().to_string())
         .filter(|item| !item.is_empty())
         .collect();
-    if dynamic_context.is_empty() {
+    if session_context.is_empty() {
         None
     } else {
-        Some(dynamic_context)
+        Some(session_context)
     }
 }
 
@@ -323,10 +331,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn preloaded_context_persists_per_session_without_becoming_model_history() {
+    async fn session_context_persists_per_session_without_becoming_model_history() {
         let repo = Arc::new(MemoryEventRepo::default());
-        let session_id = SessionId::from("s-preloaded");
-        persist_preloaded_context(
+        let session_id = SessionId::from("s-context");
+        persist_session_context(
             Some(repo.as_ref()),
             &session_id,
             &[
@@ -336,7 +344,7 @@ mod tests {
         )
         .await
         .unwrap();
-        persist_preloaded_context(
+        persist_session_context(
             Some(repo.as_ref()),
             &session_id,
             &["## Recent sessions\n- Duplicate should be ignored".to_string()],
@@ -344,7 +352,7 @@ mod tests {
         .await
         .unwrap();
 
-        let loaded = load_preloaded_context(Some(repo.as_ref()), &session_id)
+        let loaded = load_session_context(Some(repo.as_ref()), &session_id)
             .await
             .unwrap();
         assert_eq!(loaded, vec!["## Recent sessions\n- Previous Slack thread"]);
@@ -352,6 +360,41 @@ mod tests {
             .await
             .unwrap()
             .is_empty());
+    }
+
+    #[tokio::test]
+    async fn session_context_idempotency_is_scoped_by_session() {
+        let repo = Arc::new(MemoryEventRepo::default());
+        let first = SessionId::from("s-context-one");
+        let second = SessionId::from("s-context-two");
+
+        persist_session_context(
+            Some(repo.as_ref()),
+            &first,
+            &["## Recent sessions\n- First session".to_string()],
+        )
+        .await
+        .unwrap();
+        persist_session_context(
+            Some(repo.as_ref()),
+            &second,
+            &["## Recent sessions\n- Second session".to_string()],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            load_session_context(Some(repo.as_ref()), &first)
+                .await
+                .unwrap(),
+            vec!["## Recent sessions\n- First session"]
+        );
+        assert_eq!(
+            load_session_context(Some(repo.as_ref()), &second)
+                .await
+                .unwrap(),
+            vec!["## Recent sessions\n- Second session"]
+        );
     }
 
     #[tokio::test]

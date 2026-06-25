@@ -15005,8 +15005,8 @@
       "sendSessionMessageRequest": {
         "type": "object",
         "properties": {
-          "dynamic_context": {
-            "$ref": "#/components/schemas/JSON"
+          "client_event_id": {
+            "type": "string"
           },
           "message": {
             "type": "string"

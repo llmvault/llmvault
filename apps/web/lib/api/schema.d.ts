@@ -13463,7 +13463,6 @@ export interface components {
         };
         sendSessionMessageRequest: {
             client_event_id?: string;
-            dynamic_context?: components["schemas"]["JSON"];
             message?: string;
             model_definition?: components["schemas"]["sessionModelDefinitionRequest"];
             raw?: components["schemas"]["JSON"];

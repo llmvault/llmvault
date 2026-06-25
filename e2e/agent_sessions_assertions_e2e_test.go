@@ -93,6 +93,18 @@ func assertAgentSessionsBackendOwnedUserMessages(t *testing.T, events []agentSes
 	}
 }
 
+func assertAgentSessionsUserEventsDoNotStoreDynamicContext(t *testing.T, events []agentSessionsEvent) {
+	t.Helper()
+	for _, event := range events {
+		if event.EventType != "user.message.received" || strings.EqualFold(event.Source, "runtime") {
+			continue
+		}
+		if _, ok := event.Payload["dynamic_context"]; ok {
+			t.Fatalf("backend user event should not store dynamic_context: %+v", event.Payload)
+		}
+	}
+}
+
 func assertAgentSessionsBackendOwnedMutationEvent(t *testing.T, event *agentSessionsEvent) {
 	t.Helper()
 	if err := validateAgentSessionsBackendOwnedMutationEvent(event); err != nil {

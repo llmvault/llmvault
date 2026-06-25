@@ -1,18 +1,20 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
-	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/runtimeevents"
 	"github.com/usehivy/hivy/internal/tasks"
 )
 
 func TestIntegration_SessionsCreate_AlwaysOnSendsFirstMessageDirectWithoutQueueOrConfig(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
-	h, _ := newSessionRuntimeHarness(t, runtime, nil)
+	contextBuilder := &recordingPreContextBuilder{sections: []string{"## Relevant memories\n- Initial context"}}
+	h, _ := newSessionRuntimeHarness(t, runtime, nil, contextBuilder)
 	fx := h.seed(t)
 	sb := seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
 
@@ -32,14 +34,21 @@ func TestIntegration_SessionsCreate_AlwaysOnSendsFirstMessageDirectWithoutQueueO
 	if runtime.messageCalls != 1 || runtime.lastMessageText != "Ship the always-on hot path" {
 		t.Fatalf("runtime message calls=%d text=%q", runtime.messageCalls, runtime.lastMessageText)
 	}
+	if contextBuilder.calls != 1 {
+		t.Fatalf("precontext calls=%d, want 1 for initial session", contextBuilder.calls)
+	}
+	if got := runtime.lastSessionContext; len(got) != 1 || got[0] != "## Relevant memories\n- Initial context" {
+		t.Fatalf("runtime session_context=%#v", got)
+	}
+	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text", "session_context")
+	if _, ok := out.Event.Payload["dynamic_context"]; ok {
+		t.Fatalf("backend event payload should not include dynamic_context: %#v", out.Event.Payload)
+	}
 	if runtime.configCalls != 0 {
 		t.Fatalf("runtime config calls=%d, want 0 for hot first message", runtime.configCalls)
 	}
 	if runtime.readyzCalls != 0 {
 		t.Fatalf("runtime readyz calls=%d, want 0 for hot first message", runtime.readyzCalls)
-	}
-	if runtime.lastAPIKeyEnv != agentruntime.ProxyAPIKeyEnv {
-		t.Fatalf("runtime message api_key_env=%q, want %q", runtime.lastAPIKeyEnv, agentruntime.ProxyAPIKeyEnv)
 	}
 	assertSessionQueueCount(t, h, out.Session.ID, 0)
 	assertNoSessionMessageDeliverTask(t, h)
@@ -81,7 +90,8 @@ func TestIntegration_SessionsCreate_AlwaysOnMissingSandboxProvisionsAndSendsFirs
 
 func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *testing.T) {
 	runtime := newSessionSyncRuntime(t, http.StatusOK)
-	h, _ := newSessionRuntimeHarness(t, runtime, nil)
+	contextBuilder := &recordingPreContextBuilder{sections: []string{"## Recent sessions\n- Existing context"}}
+	h, _ := newSessionRuntimeHarness(t, runtime, nil, contextBuilder)
 	fx := h.seed(t)
 	seedAlwaysOnRuntimeSandbox(t, h, fx, runtime.server.URL, "running")
 	created := h.createSession(t, fx, fx.owner, "First direct turn")
@@ -106,10 +116,46 @@ func TestIntegration_SessionsSend_IdleSessionDirectSendsWithoutQueueOrConfig(t *
 	if runtime.messageCalls != 2 || runtime.lastMessageText != "Second direct turn" {
 		t.Fatalf("runtime message calls=%d text=%q", runtime.messageCalls, runtime.lastMessageText)
 	}
+	if contextBuilder.calls != 1 {
+		t.Fatalf("precontext calls=%d, want only initial session build", contextBuilder.calls)
+	}
+	assertRuntimeMessageKeys(t, runtime.lastMessageBody, "text")
 	if runtime.configCalls != 0 {
 		t.Fatalf("runtime config calls=%d, want 0 for idle direct send", runtime.configCalls)
 	}
 	assertSessionQueueCount(t, h, created.Session.ID, 0)
+}
+
+type recordingPreContextBuilder struct {
+	calls    int
+	requests []precontext.Request
+	sections []string
+}
+
+func (b *recordingPreContextBuilder) Build(_ context.Context, req precontext.Request) ([]string, error) {
+	b.calls++
+	b.requests = append(b.requests, req)
+	return append([]string(nil), b.sections...), nil
+}
+
+func assertRuntimeMessageKeys(t *testing.T, body map[string]any, want ...string) {
+	t.Helper()
+	if len(body) != len(want) {
+		t.Fatalf("runtime body keys=%v, want %v body=%#v", mapKeys(body), want, body)
+	}
+	for _, key := range want {
+		if _, ok := body[key]; !ok {
+			t.Fatalf("runtime body missing key %q: %#v", key, body)
+		}
+	}
+}
+
+func mapKeys(values map[string]any) []string {
+	out := make([]string, 0, len(values))
+	for key := range values {
+		out = append(out, key)
+	}
+	return out
 }
 
 func TestIntegration_SessionsSend_ActiveSessionQueuesWithoutRuntimeCallOrConfig(t *testing.T) {

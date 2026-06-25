@@ -84,11 +84,14 @@ func TestCompile_EmitsControlPlaneSystemPromptWithoutRawAgentPrompt(t *testing.T
 	if !strings.Contains(requirePromptString(t, company.Content), "<company>") {
 		t.Fatalf("company content is not XML wrapped: %q", requirePromptString(t, company.Content))
 	}
-	if len(dynamic) != 3 {
+	if len(dynamic) != 2 {
 		t.Fatalf("dynamic segment count = %d", len(dynamic))
 	}
-	if got := requireDynamicContextSegmentType(t, dynamic[0]); got != "dynamic_context" {
+	if got := requireListSegment2Type(t, dynamic[0]); got != "skill_catalog" {
 		t.Fatalf("first dynamic segment type = %q", got)
+	}
+	if got := requireListSegment3Type(t, dynamic[1]); got != "mcp_tools" {
+		t.Fatalf("second dynamic segment type = %q", got)
 	}
 }
 
@@ -115,12 +118,16 @@ func assertRuntimeSystemPromptPayloadShape(t *testing.T, body []byte) {
 		t.Fatalf("first cacheable segment type = %#v", firstCacheable["type"])
 	}
 	dynamic, _ := systemPrompt["dynamic_segments"].([]any)
-	if len(dynamic) != 3 {
+	if len(dynamic) != 2 {
 		t.Fatalf("dynamic_segments count = %d", len(dynamic))
 	}
 	firstDynamic, _ := dynamic[0].(map[string]any)
-	if firstDynamic["type"] != "dynamic_context" {
+	if firstDynamic["type"] != "skill_catalog" {
 		t.Fatalf("first dynamic segment type = %#v", firstDynamic["type"])
+	}
+	secondDynamic, _ := dynamic[1].(map[string]any)
+	if secondDynamic["type"] != "mcp_tools" {
+		t.Fatalf("second dynamic segment type = %#v", secondDynamic["type"])
 	}
 }
 

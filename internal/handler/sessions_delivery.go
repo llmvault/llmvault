@@ -57,6 +57,7 @@ func (h *SessionHandler) createInitialSessionMessageIntentWithOptions(ctx contex
 	if direct {
 		markSessionTurnStarting(session, time.Now())
 	}
+	sessionContext := h.buildInitialSessionContext(ctx, *session, userID, text, payload)
 	var event model.SessionEvent
 	var eventCreated bool
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -80,7 +81,7 @@ func (h *SessionHandler) createInitialSessionMessageIntentWithOptions(ctx contex
 			return err
 		}
 		if !direct {
-			return h.enqueueSessionMessageCommand(tx, session, userID, text, event.Payload, opts, &event.ID)
+			return h.enqueueSessionMessageCommand(tx, session, userID, text, event.Payload, opts, &event.ID, sessionContext)
 		}
 		return nil
 	})
@@ -90,7 +91,7 @@ func (h *SessionHandler) createInitialSessionMessageIntentWithOptions(ctx contex
 	return sessionMessageDeliveryIntent{
 		Session:       *session,
 		Event:         &event,
-		Command:       tasks.SessionMessageCommand{EventID: &event.ID, ActorUserID: userID, Text: text, Payload: event.Payload},
+		Command:       tasks.SessionMessageCommand{EventID: &event.ID, ActorUserID: userID, Text: text, Payload: event.Payload, SessionContext: sessionContext},
 		Queued:        !direct,
 		DispatchQueue: !direct,
 		EventCreated:  eventCreated,
@@ -168,7 +169,7 @@ func (h *SessionHandler) createSessionMessageIntent(ctx context.Context, base mo
 
 		queued := session.AgentTurnStatus == model.SessionAgentTurnActive || !h.runtimeDeliveryConfigured()
 		if queued {
-			if err := h.enqueueSessionMessageCommand(tx, &session, actor, text, event.Payload, opts, &event.ID); err != nil {
+			if err := h.enqueueSessionMessageCommand(tx, &session, actor, text, event.Payload, opts, &event.ID, nil); err != nil {
 				return err
 			}
 		} else {
@@ -215,8 +216,7 @@ func (h *SessionHandler) dispatchSessionMessageIntent(ctx context.Context, inten
 		}
 		return true, nil
 	}
-	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer).
-		WithPreContextBuilder(h.preContext)
+	dispatcher := tasks.NewSessionMessageDeliverHandler(h.db, h.orchestrator, h.compileDeps, h.enqueuer)
 	delivery, err := dispatcher.DeliverCommand(ctx, intent.Session, intent.Command)
 	if err != nil {
 		_ = h.deleteCreatedSessionEvent(context.WithoutCancel(ctx), intent)

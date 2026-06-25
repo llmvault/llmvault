@@ -2,11 +2,7 @@ package handler_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -19,10 +15,11 @@ import (
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/precontext"
 	sandboxpkg "github.com/usehivy/hivy/internal/sandbox"
 )
 
-func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createErr error) (*sessionHarness, *sessionSyncSandboxProvider) {
+func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createErr error, builders ...precontext.Builder) (*sessionHarness, *sessionSyncSandboxProvider) {
 	t.Helper()
 	db := connectTestDB(t)
 	enq := &enqueue.MockClient{}
@@ -48,6 +45,9 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 	h := handler.NewSessionHandler(db, enq).
 		WithRuntimeStreamKey(encKey).
 		WithRuntimeDelivery(orchestrator, compileDeps)
+	if len(builders) > 0 {
+		h.WithPreContextBuilder(builders[0])
+	}
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(middleware.ResolveOrgFromHeader(db))
@@ -66,78 +66,6 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)
 	})
 	return &sessionHarness{db: db, router: r, enqueuer: enq}, provider
-}
-
-type sessionSyncRuntime struct {
-	server                         *httptest.Server
-	messageStatus                  int
-	configCalls                    int
-	readyzCalls                    int
-	messageCalls                   int
-	lastSessionID, lastMessageText string
-	lastAttachments                []any
-	lastModelID, lastAPIKeyEnv     string
-}
-
-func newSessionSyncRuntime(t *testing.T, messageStatus int) *sessionSyncRuntime {
-	t.Helper()
-	runtime := &sessionSyncRuntime{messageStatus: messageStatus}
-	runtime.server = httptest.NewServer(http.HandlerFunc(runtime.handle))
-	t.Cleanup(runtime.server.Close)
-	return runtime
-}
-
-func (rt *sessionSyncRuntime) handle(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case r.Method == http.MethodGet && r.URL.Path == "/healthz":
-		w.WriteHeader(http.StatusOK)
-	case r.Method == http.MethodGet && r.URL.Path == "/readyz":
-		rt.readyzCalls++
-		w.WriteHeader(http.StatusOK)
-	case r.Method == http.MethodPut && r.URL.Path == "/config":
-		rt.configCalls++
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"env_key_count": 1})
-	case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/sessions/") && strings.HasSuffix(r.URL.Path, "/messages"):
-		rt.handleMessage(w, r)
-	default:
-		http.NotFound(w, r)
-	}
-}
-
-func (rt *sessionSyncRuntime) handleMessage(w http.ResponseWriter, r *http.Request) {
-	rt.messageCalls++
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) >= 3 {
-		rt.lastSessionID = parts[1]
-	}
-	var body struct {
-		Text            string `json:"text"`
-		Attachments     []any  `json:"attachments"`
-		ModelDefinition *struct {
-			ModelID   string `json:"model_id"`
-			APIKeyEnv string `json:"api_key_env"`
-		} `json:"model_definition"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	rt.lastMessageText = body.Text
-	rt.lastAttachments = body.Attachments
-	if body.ModelDefinition != nil {
-		rt.lastModelID = body.ModelDefinition.ModelID
-		rt.lastAPIKeyEnv = body.ModelDefinition.APIKeyEnv
-	}
-	if rt.messageStatus >= http.StatusBadRequest {
-		http.Error(w, "runtime rejected message", rt.messageStatus)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"session_id": rt.lastSessionID,
-		"stream_id":  "stream-" + shortTestID(rt.lastSessionID),
-		"stream_url": "/sessions/" + rt.lastSessionID + "/stream",
-		"trace_id":   "trace-" + shortTestID(rt.lastSessionID),
-		"turn_id":    "turn-" + shortTestID(rt.lastSessionID),
-	})
 }
 
 type sessionSyncSandboxProvider struct {
@@ -289,11 +217,4 @@ func countActiveSessionAgentProxyTokens(t *testing.T, h *sessionHarness, orgID, 
 		t.Fatalf("count active agent proxy tokens: %v", err)
 	}
 	return count
-}
-
-func shortTestID(value string) string {
-	if len(value) < 8 {
-		return value
-	}
-	return value[:8]
 }

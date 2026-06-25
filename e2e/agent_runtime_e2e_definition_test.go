@@ -92,14 +92,6 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 			},
 			"dynamic_segments": []any{
 				map[string]any{
-					"type": "dynamic_context",
-					"config": map[string]any{
-						"title":         "Runtime Context",
-						"preamble":      "",
-						"item_template": "{content}",
-					},
-				},
-				map[string]any{
 					"type": "mcp_tools",
 					"config": map[string]any{
 						"title":         "Configured project tools",

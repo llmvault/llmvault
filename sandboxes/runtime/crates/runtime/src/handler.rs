@@ -841,7 +841,7 @@ mod queue_tests {
                 name: "evidence.txt".to_string(),
                 size_bytes: Some(128),
             }],
-            dynamic_context: Vec::new(),
+            session_context: Vec::new(),
             model_definition: None,
             raw,
             is_direct_message: false,
@@ -1240,8 +1240,8 @@ async fn process_single_turn(
     if let (Some(trace_id), Some(turn_id)) = (trace_id(inbound), turn_id(inbound)) {
         turn_input = turn_input.with_turn_context(trace_id, turn_id);
     }
-    for context in &inbound.dynamic_context {
-        turn_input = turn_input.with_dynamic_context(context.clone());
+    for context in &inbound.session_context {
+        turn_input = turn_input.with_session_context(context.clone());
     }
     for (mime, bytes) in images {
         turn_input = turn_input.with_image(mime, bytes);
@@ -2826,7 +2826,7 @@ mod scheduled_run_tests {
             user_display_name: Some("Scheduler".to_string()),
             text: "do work".to_string(),
             attachments: Vec::new(),
-            dynamic_context: Vec::new(),
+            session_context: Vec::new(),
             model_definition: None,
             raw: json!({
                 "source": "cron",

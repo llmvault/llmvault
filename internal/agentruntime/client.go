@@ -45,6 +45,7 @@ type ConfigUpdateRequest struct {
 type HTTPMessageRequest struct {
 	Text            string         `json:"text"`
 	SessionID       string         `json:"-"`
+	SessionContext  []string       `json:"session_context,omitempty"`
 	User            string         `json:"user,omitempty"`
 	UserDisplayName string         `json:"user_display_name,omitempty"`
 	ModelDefinition *ModelConfig   `json:"model_definition,omitempty"`

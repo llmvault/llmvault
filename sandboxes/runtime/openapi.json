@@ -754,10 +754,19 @@
           {
             "name": "from_turn_id",
             "in": "query",
-            "description": "Replay retained events for one turn and continue live until that turn terminates",
+            "description": "Replay retained events beginning at one turn",
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "follow",
+            "in": "query",
+            "description": "When combined with from_turn_id, continue streaming the full session after replay",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -2713,12 +2722,6 @@
               "$ref": "#/components/schemas/Attachment"
             }
           },
-          "dynamic_context": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "model_definition": {
             "oneOf": [
               {
@@ -2731,6 +2734,12 @@
           },
           "raw": {
             "type": "object"
+          },
+          "session_context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "text": {
             "type": "string"

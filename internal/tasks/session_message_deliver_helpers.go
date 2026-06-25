@@ -14,8 +14,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func runtimeMessageFromEvent(session model.Session, event model.SessionEvent, modelDef *agentruntime.ModelConfig) agentruntime.HTTPMessageRequest {
-	return runtimeMessageFromCommand(session, commandFromLegacyEvent(event), modelDef)
+func runtimeMessageFromEvent(session model.Session, event model.SessionEvent) agentruntime.HTTPMessageRequest {
+	return runtimeMessageFromCommand(session, commandFromLegacyEvent(event))
 }
 
 func commandFromLegacyEvent(event model.SessionEvent) SessionMessageCommand {
@@ -29,7 +29,7 @@ func commandFromLegacyEvent(event model.SessionEvent) SessionMessageCommand {
 	}
 }
 
-func runtimeMessageFromCommand(session model.Session, command SessionMessageCommand, modelDef *agentruntime.ModelConfig) agentruntime.HTTPMessageRequest {
+func runtimeMessageFromCommand(session model.Session, command SessionMessageCommand) agentruntime.HTTPMessageRequest {
 	payload := map[string]any{}
 	for key, value := range command.Payload {
 		payload[key] = value
@@ -39,19 +39,10 @@ func runtimeMessageFromCommand(session model.Session, command SessionMessageComm
 		text, _ = payload["text"].(string)
 	}
 	payload["text"] = text
-	user, _ := payload["user"].(string)
-	display, _ := payload["user_display_name"].(string)
-	if user == "" && command.ActorUserID != nil {
-		user = command.ActorUserID.String()
-	}
 	return agentruntime.HTTPMessageRequest{
-		Text:            runtimeTextFromPayload(text, payload),
-		SessionID:       session.ID.String(),
-		User:            strings.TrimSpace(user),
-		UserDisplayName: strings.TrimSpace(display),
-		ModelDefinition: modelDef,
-		DynamicContext:  stringSlice(payload["dynamic_context"]),
-		Raw:             payload,
+		Text:           runtimeTextFromPayload(text, payload),
+		SessionID:      session.ID.String(),
+		SessionContext: append([]string(nil), command.SessionContext...),
 	}
 }
 

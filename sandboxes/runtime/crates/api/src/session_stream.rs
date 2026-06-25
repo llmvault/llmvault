@@ -725,7 +725,8 @@ pub struct SessionMessageRequest {
     #[serde(default)]
     pub attachments: Vec<Attachment>,
     #[serde(default)]
-    pub dynamic_context: Vec<String>,
+    #[serde(alias = "dynamic_context")]
+    pub session_context: Vec<String>,
     #[serde(default)]
     pub model_definition: Option<ModelConfig>,
     #[serde(default)]
@@ -820,7 +821,7 @@ impl SessionMessageState {
             user_display_name: request.user_display_name,
             text: request.text,
             attachments: request.attachments,
-            dynamic_context: request.dynamic_context,
+            session_context: request.session_context,
             model_definition,
             raw,
             is_direct_message: true,
@@ -1151,7 +1152,7 @@ mod tests {
                     user: "user-1".to_string(),
                     user_display_name: Some("User One".to_string()),
                     attachments: Vec::new(),
-                    dynamic_context: vec!["## Recent sessions\n- prior context".to_string()],
+                    session_context: vec!["## Recent sessions\n- prior context".to_string()],
                     model_definition: None,
                     raw: json!({"source": "session", "provider": "test-provider"}),
                 },
@@ -1178,7 +1179,7 @@ mod tests {
         assert_eq!(inbound.user, "user-1");
         assert_eq!(inbound.text, "hello");
         assert_eq!(
-            inbound.dynamic_context,
+            inbound.session_context,
             vec!["## Recent sessions\n- prior context"]
         );
         assert_eq!(inbound.raw["session_stream_id"], response.stream_id);
@@ -1218,7 +1219,7 @@ mod tests {
                     user: "user-1".to_string(),
                     user_display_name: Some("Ada".to_string()),
                     attachments: Vec::new(),
-                    dynamic_context: Vec::new(),
+                    session_context: Vec::new(),
                     model_definition: None,
                     raw: json!({"source": "web"}),
                 },
@@ -1248,7 +1249,7 @@ mod tests {
                     user: "user-1".to_string(),
                     user_display_name: None,
                     attachments: Vec::new(),
-                    dynamic_context: Vec::new(),
+                    session_context: Vec::new(),
                     model_definition: Some(test_model("qwen-3.7-plus")),
                     raw: json!({"source": "session"}),
                 },
@@ -1263,7 +1264,7 @@ mod tests {
                     user: "user-1".to_string(),
                     user_display_name: None,
                     attachments: Vec::new(),
-                    dynamic_context: Vec::new(),
+                    session_context: Vec::new(),
                     model_definition: None,
                     raw: json!({"source": "session"}),
                 },
@@ -1300,7 +1301,7 @@ mod tests {
                     user: "user-1".to_string(),
                     user_display_name: None,
                     attachments: Vec::new(),
-                    dynamic_context: Vec::new(),
+                    session_context: Vec::new(),
                     model_definition: None,
                     raw: json!({"source": "session"}),
                 },
@@ -1315,7 +1316,7 @@ mod tests {
                     user: "user-1".to_string(),
                     user_display_name: None,
                     attachments: Vec::new(),
-                    dynamic_context: Vec::new(),
+                    session_context: Vec::new(),
                     model_definition: None,
                     raw: json!({"source": "session"}),
                 },
@@ -1411,7 +1412,7 @@ mod tests {
                     user: "user-1".to_string(),
                     user_display_name: None,
                     attachments: Vec::new(),
-                    dynamic_context: Vec::new(),
+                    session_context: Vec::new(),
                     model_definition: None,
                     raw: json!({"source": "external"}),
                 },

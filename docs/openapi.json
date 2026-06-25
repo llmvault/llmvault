@@ -16896,9 +16896,6 @@
           "client_event_id": {
             "type": "string"
           },
-          "dynamic_context": {
-            "$ref": "#/components/schemas/JSON"
-          },
           "message": {
             "type": "string"
           },

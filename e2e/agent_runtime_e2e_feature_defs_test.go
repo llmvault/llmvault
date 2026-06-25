@@ -41,7 +41,6 @@ func agentRuntimeFeatureDefinition(t *testing.T, proxyURL, controlPlaneURL, sand
 				"content": prompt,
 			}}},
 			"dynamic_segments": []any{
-				map[string]any{"type": "dynamic_context", "config": map[string]any{"title": "Runtime Context", "preamble": "", "item_template": "{content}"}},
 				map[string]any{"type": "mcp_tools", "config": map[string]any{"title": "Configured project tools", "preamble": "Use configured MCP tools when the user names them.", "item_template": "- {name}"}},
 			},
 		},

@@ -39,7 +39,6 @@ func TestRuntimeMessageFromEventRendersStructuredAttachmentsAndComments(t *testi
 				},
 			},
 		},
-		nil,
 	)
 
 	want := `Please review this
@@ -63,11 +62,11 @@ Code comments to address:
 	if msg.Text != want {
 		t.Fatalf("runtime text mismatch\nwant:\n%s\n\ngot:\n%s", want, msg.Text)
 	}
-	if msg.Raw["text"] != "Please review this" {
-		t.Fatalf("raw text was not preserved: %#v", msg.Raw["text"])
+	if msg.Raw != nil {
+		t.Fatalf("raw=%#v, want nil for session message runtime request", msg.Raw)
 	}
 	if len(msg.Attachments) != 0 {
-		t.Fatalf("attachments len=%d, want 0 for described images", len(msg.Attachments))
+		t.Fatalf("attachments len=%d, want 0 because attachments are compiled into text", len(msg.Attachments))
 	}
 }
 

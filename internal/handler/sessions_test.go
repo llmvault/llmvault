@@ -8,12 +8,16 @@ import (
 
 	"github.com/lib/pq"
 
+	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
 func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
-	h := newSessionHarness(t)
+	contextBuilder := &recordingPreContextBuilder{sections: []string{"## Relevant memories\n- Queued initial context"}}
+	h := newSessionHarnessWith(t, func(hdl *handler.SessionHandler) {
+		hdl.WithPreContextBuilder(contextBuilder)
+	})
 	fx := h.seed(t)
 
 	out := h.createSession(t, fx, fx.owner, "Investigate the deploy failure")
@@ -29,6 +33,9 @@ func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
 	if out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Source != "web" || out.Event.Payload["text"] != "Investigate the deploy failure" {
 		t.Fatalf("bad backend event: %+v", out.Event)
 	}
+	if _, ok := out.Event.Payload["dynamic_context"]; ok {
+		t.Fatalf("backend event should not store dynamic_context: %+v", out.Event.Payload)
+	}
 
 	var queueRows []model.SessionMessageQueue
 	if err := h.db.Model(&model.SessionMessageQueue{}).
@@ -42,6 +49,12 @@ func TestIntegration_SessionsCreate_QueuesFirstMessage(t *testing.T) {
 	}
 	if queueRows[0].SessionEventID == nil || queueRows[0].SessionEventID.String() != out.Event.ID {
 		t.Fatalf("queue session_event_id=%v, want response event %s", queueRows[0].SessionEventID, out.Event.ID)
+	}
+	if got := contextBuilder.calls; got != 1 {
+		t.Fatalf("precontext calls=%d, want 1", got)
+	}
+	if got, ok := queueRows[0].MessagePayload["_session_context"].([]any); !ok || len(got) != 1 || got[0] != "## Relevant memories\n- Queued initial context" {
+		t.Fatalf("queue session_context=%#v", queueRows[0].MessagePayload["_session_context"])
 	}
 
 	assertSessionNameTaskEnqueued(t, h, out.Session.ID)
