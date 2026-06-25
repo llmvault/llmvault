@@ -101,8 +101,7 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 				},
 			},
 		},
-		"model":            model,
-		"multimodal_model": nil,
+		"model": model,
 		"limits": map[string]any{
 			"max_turns_per_session":     120,
 			"input_token_budget":        100000,
@@ -189,10 +188,10 @@ func agentRuntimeE2ESubagent(model map[string]any, key, name, description string
 	return map[string]any{
 		"agent":         map[string]any{"name": name, "description": description + " E2E test mode."},
 		"system_prompt": map[string]any{"cacheable_segments": []any{map[string]any{"type": "static_text", "config": map[string]any{"title": "Contract", "content": prompt}}}, "dynamic_segments": []any{}},
-		"model":         model, "multimodal_model": nil,
-		"limits":  map[string]any{"max_turns_per_session": 8, "input_token_budget": 12000, "output_token_budget": 500, "tool_call_timeout_seconds": 30},
-		"context": map[string]any{},
-		"tools":   agentRuntimeE2ESubagentTools(), "mcp_servers": []any{}, "skills": []any{}, "outbound_channels": []any{}, "sub_agents": map[string]any{}, "safety": map[string]any{},
+		"model":         model,
+		"limits":        map[string]any{"max_turns_per_session": 8, "input_token_budget": 12000, "output_token_budget": 500, "tool_call_timeout_seconds": 30},
+		"context":       map[string]any{},
+		"tools":         agentRuntimeE2ESubagentTools(), "mcp_servers": []any{}, "skills": []any{}, "outbound_channels": []any{}, "sub_agents": map[string]any{}, "safety": map[string]any{},
 	}
 }
 

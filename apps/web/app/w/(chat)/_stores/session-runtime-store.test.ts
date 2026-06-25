@@ -12,6 +12,8 @@ describe("session runtime store", () => {
       statusBySessionId: {},
       liveEventsBySessionId: {},
       subagentRunsBySessionId: {},
+      usageBySessionId: {},
+      usageEventKeysBySessionId: {},
       cursorBySessionId: {},
       reconnectAttemptsBySessionId: {},
     })
@@ -22,6 +24,46 @@ describe("session runtime store", () => {
     useSessionRuntimeStore.getState().hydrateSession({
       id: "session-1",
       agent_turn_status: "active",
+      updated_at: "2026-06-25T10:00:00Z",
+    })
+
+    expect(sessionRuntimeSummary("session-1").status).toBe("streaming")
+  })
+
+  it("hydrates fresh completed session responses over stale streaming status", () => {
+    useSessionRuntimeStore.getState().hydrateSession({
+      id: "session-1",
+      agent_turn_status: "active",
+      agent_turn_id: "turn-1",
+      updated_at: "2026-06-25T10:00:00Z",
+    })
+
+    useSessionRuntimeStore.getState().hydrateSession({
+      id: "session-1",
+      agent_turn_status: "idle",
+      last_turn_outcome: "completed",
+      updated_at: "2026-06-25T10:00:30Z",
+    })
+
+    expect(sessionRuntimeSummary("session-1")).toMatchObject({
+      status: "idle",
+      lastOutcome: "completed",
+    })
+  })
+
+  it("ignores older idle session responses while a newer turn is active", () => {
+    useSessionRuntimeStore.getState().hydrateSession({
+      id: "session-1",
+      agent_turn_status: "active",
+      agent_turn_id: "turn-1",
+      updated_at: "2026-06-25T10:00:30Z",
+    })
+
+    useSessionRuntimeStore.getState().hydrateSession({
+      id: "session-1",
+      agent_turn_status: "idle",
+      last_turn_outcome: "completed",
+      updated_at: "2026-06-25T10:00:00Z",
     })
 
     expect(sessionRuntimeSummary("session-1").status).toBe("streaming")
@@ -65,6 +107,28 @@ describe("session runtime store", () => {
     ).toHaveLength(1)
   })
 
+  it("marks final stream frames as completed turns", () => {
+    useSessionRuntimeStore.getState().setStatus("session-1", "streaming")
+    useSessionRuntimeStore.getState().applyStreamFrame(
+      "session-1",
+      frame("final", {
+        event_id: "final-1",
+        sequence: 2,
+        stream_id: "stream-1",
+        turn_id: "turn-1",
+        text: "Done.",
+      })
+    )
+
+    expect(sessionRuntimeSummary("session-1")).toMatchObject({
+      status: "idle",
+      lastOutcome: "completed",
+    })
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toMatchObject([{ event_type: "final" }])
+  })
+
   it("marks model request starts as temporary streaming thinking", () => {
     useSessionRuntimeStore.getState().applyStreamFrame(
       "session-1",
@@ -96,6 +160,52 @@ describe("session runtime store", () => {
     expect(
       useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
     ).toEqual([])
+  })
+
+  it("hydrates session usage totals and increments model usage frames once", () => {
+    useSessionRuntimeStore.getState().hydrateSessionUsage("session-1", {
+      cost_usd: 0.0012,
+      credits: 2,
+    })
+
+    const usageFrame = frame("model_usage", {
+      event_id: "usage-1",
+      turn_id: "turn-1",
+      model: "deepseek-v4-flash",
+      usage: {
+        prompt_tokens: 10,
+        completion_tokens: 5,
+        total_tokens: 15,
+        cached_tokens: 2,
+        cache_write_tokens: 0,
+        reasoning_tokens: 0,
+        cost: 0.0023,
+      },
+    })
+    useSessionRuntimeStore.getState().applyStreamFrame("session-1", usageFrame)
+    useSessionRuntimeStore.getState().applyStreamFrame("session-1", usageFrame)
+
+    const usage =
+      useSessionRuntimeStore.getState().usageBySessionId["session-1"]
+    expect(usage?.costUsd).toBeCloseTo(0.0035)
+    expect(usage?.credits).toBe(4)
+  })
+
+  it("does not let a late usage snapshot decrease live usage totals", () => {
+    useSessionRuntimeStore.getState().hydrateSessionUsage("session-1", {
+      cost_usd: 0.0035,
+      credits: 4,
+    })
+
+    useSessionRuntimeStore.getState().hydrateSessionUsage("session-1", {
+      cost_usd: 0.0012,
+      credits: 2,
+    })
+
+    const usage =
+      useSessionRuntimeStore.getState().usageBySessionId["session-1"]
+    expect(usage?.costUsd).toBeCloseTo(0.0035)
+    expect(usage?.credits).toBe(4)
   })
 
   it("preserves live final and tool events when the stream finishes before history catches up", () => {

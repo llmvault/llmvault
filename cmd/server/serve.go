@@ -175,6 +175,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	if imageDescribeHandler != nil && uploadsHandler != nil {
 		imageDescribeHandler.WithAssetReader(uploadsHandler.AssetReader())
 	}
+	if imageDescribeHandler != nil && sandboxEncKey != nil {
+		imageDescribeHandler.WithRuntimeSecretKey(sandboxEncKey)
+	}
 
 	billingHandler := handler.NewBillingHandler(database, deps.BillingRegistry, deps.Credits)
 	subscriptionHandler := handler.NewSubscriptionHandler(database, deps.BillingRegistry, deps.Credits)
@@ -217,7 +220,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	// missing and /readyz must report unavailable.
 	orchestratorMissing := cfg.SandboxProviderID != "" && orchestrator == nil
 
-	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, canvasHandler, orchestrator, orchestratorMissing)
+	setupPublicRoutes(r, cfg, database, redisClient, providerHandler, integrationHandler, actionsCatalog, orgInviteHandler, plansHandler, nangoWebhookHandler, incomingWebhookHandler, nangoClient, sandboxEncKey, deps.KMS, uploadsHandler, imageDescribeHandler, canvasHandler, orchestrator, orchestratorMissing)
 	runtimeIngressHandler := handler.NewRuntimeStreamIngressHandler(database, sandboxEncKey, runtimeStreamStore)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/sessions/{sessionID}/ws", runtimeIngressHandler.HandleSessionWS)
 	r.Get("/internal/runtime-events/sandboxes/{sandboxID}/ws", runtimeIngressHandler.HandleWS)

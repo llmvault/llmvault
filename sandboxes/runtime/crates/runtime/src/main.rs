@@ -431,7 +431,6 @@ fn bootstrap_agent_definition() -> AgentDefinition {
         },
         system_prompt: bootstrap_system_prompt(),
         model: placeholder_model(),
-        multimodal_model: None,
         limits: Default::default(),
         context: Default::default(),
         tools: None,

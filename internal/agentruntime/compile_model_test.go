@@ -84,9 +84,6 @@ func TestCompile_ReferencesProxyEnvInsteadOfRawProviderKeys(t *testing.T) {
 	if def.Model.BaseURL != "https://proxy.hivy.test/v1" {
 		t.Fatalf("model.base_url = %q", def.Model.BaseURL)
 	}
-	if def.MultimodalModel == nil || def.MultimodalModel.APIKeyEnv != ProxyAPIKeyEnv {
-		t.Fatalf("multimodal_model.api_key_env = %#v, want %q", def.MultimodalModel, ProxyAPIKeyEnv)
-	}
 	if agentMCPAuthorizationHeader() != "Bearer ${"+ProxyAPIKeyEnv+"}" {
 		t.Fatalf("MCP auth header references wrong env: %q", agentMCPAuthorizationHeader())
 	}

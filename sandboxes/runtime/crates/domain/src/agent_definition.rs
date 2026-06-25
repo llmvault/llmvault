@@ -15,8 +15,6 @@ pub struct AgentDefinition {
     pub system_prompt: SystemPromptConfig,
     pub model: ModelConfig,
     #[serde(default)]
-    pub multimodal_model: Option<ModelConfig>,
-    #[serde(default)]
     pub limits: Limits,
     #[serde(default)]
     pub context: ContextConfig,

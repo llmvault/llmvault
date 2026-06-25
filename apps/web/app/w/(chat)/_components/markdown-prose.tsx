@@ -68,7 +68,7 @@ export function MarkdownProse({
       controls={false}
       linkSafety={{ enabled: false }}
       lineNumbers={false}
-      className={`hivy-markdown text-[14px] leading-6 ${
+      className={`hivy-markdown w-full max-w-full min-w-0 text-[14px] leading-6 ${
         muted ? "text-muted" : "text-foreground"
       }`}
     >

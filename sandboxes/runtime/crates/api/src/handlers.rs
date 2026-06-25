@@ -1167,7 +1167,6 @@ mod tests {
                 extra_headers: HashMap::new(),
                 fallback: None,
             },
-            multimodal_model: None,
             limits: Default::default(),
             context: Default::default(),
             tools: Some(Vec::new()),

@@ -13,6 +13,7 @@ func mountSessionRoutes(r chi.Router, sessionHandler *handler.SessionHandler) {
 		r.Get("/sessions", sessionHandler.List)
 		r.Post("/sessions", sessionHandler.Create)
 		r.Get("/sessions/{id}", sessionHandler.Get)
+		r.Get("/sessions/{id}/usage", sessionHandler.GetUsage)
 		r.Get("/sessions/{id}/name-updates", sessionHandler.StreamNameUpdates)
 		r.Patch("/sessions/{id}", sessionHandler.Update)
 		r.Delete("/sessions/{id}", sessionHandler.Archive)

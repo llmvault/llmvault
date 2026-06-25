@@ -30,8 +30,6 @@ func proxyModel(cfg *config.Config, modelID string, route modelRouteMetadata) Mo
 	}
 }
 
-func ptrModel(m ModelConfig) *ModelConfig { return &m }
-
 func defaultModelRequestHeaders() map[string]string {
 	return map[string]string{
 		"HTTP-Referer": modelRequestHTTPReferer,

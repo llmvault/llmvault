@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
@@ -8,6 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::image_description::describe_image_file;
 use crate::lsp::LspService;
 use crate::operations::ReadOperations;
 use crate::path::{build_glob_set, enforce_deny_globs, resolve_read_path, PathPolicyError};
@@ -18,10 +20,13 @@ use crate::{file_read_snapshot, schema_for, FileReadRegistry, JsonTool, ToolDefi
 const TOOL_NAME: &str = "read_file";
 const TOOL_DESCRIPTION: &str =
     "Read the contents of a file. Supports relative workspace paths and \
-     absolute process-readable paths, including /tmp. Supports text files. \
-     Output is truncated to 2000 lines or 50KB, whichever comes first. Use \
-     `offset` and `limit` for partial reads of large files. Returns an error \
-     if the path matches a denied pattern.";
+     absolute process-readable paths, including /tmp. Supports text files and \
+     common image files. Text output is truncated to 2000 lines or 50KB, \
+     whichever comes first. Image files are uploaded to the agent drive, \
+     described through the control plane image description endpoint, and \
+     returned as text description content. Use `offset` and `limit` for \
+     partial reads of large text files. Returns an error if the path matches a \
+     denied pattern.";
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ReadArgs {
@@ -39,6 +44,7 @@ pub struct ReadTool {
     config: ReadFileConfig,
     workspace_root: PathBuf,
     operations: Arc<dyn ReadOperations>,
+    runtime_env: Arc<HashMap<String, String>>,
     files_read: Option<FileReadRegistry>,
     search: Option<SearchService>,
     lsp: Option<LspService>,
@@ -54,6 +60,7 @@ impl ReadTool {
             config,
             workspace_root,
             operations,
+            runtime_env: Arc::new(HashMap::new()),
             files_read: None,
             search: None,
             lsp: None,
@@ -62,6 +69,11 @@ impl ReadTool {
 
     pub fn with_files_read(mut self, files_read: FileReadRegistry) -> Self {
         self.files_read = Some(files_read);
+        self
+    }
+
+    pub fn with_runtime_env(mut self, runtime_env: Arc<HashMap<String, String>>) -> Self {
+        self.runtime_env = runtime_env;
         self
     }
 
@@ -93,32 +105,13 @@ impl ReadTool {
             .await
             .map_err(|e| anyhow!("{}: {e}", parsed.path))?;
 
-        if let Some(mime) = self.operations.detect_image_mime(&resolved).await {
-            return Ok(json!({
-                "path": resolved.display().to_string(),
-                "mime_type": mime,
-                "note": "image files are not inlined here; the runtime forwards image attachments through the multimodal model when applicable",
-            }));
-        }
-
         let bytes = self
             .operations
             .read_file(&resolved)
             .await
             .map_err(|e| anyhow!("read failed for {}: {e}", parsed.path))?;
 
-        // Track that this file was read, for read-before-edit enforcement
-        if let Some(ref files_read) = self.files_read {
-            if let Ok(mut guard) = files_read.lock() {
-                guard.insert(resolved.clone(), file_read_snapshot(&bytes));
-            }
-        }
-        if let Some(search) = &self.search {
-            search.track_access(&resolved);
-        }
-        if let Some(lsp) = &self.lsp {
-            lsp.touch_file(&resolved).await;
-        }
+        self.track_read(&resolved, &bytes).await;
         let max_bytes = self.config.max_file_size_bytes as usize;
         if bytes.len() > max_bytes {
             return Err(anyhow!(
@@ -127,6 +120,9 @@ impl ReadTool {
                 bytes.len(),
                 max_bytes
             ));
+        }
+        if let Some(mime) = self.operations.detect_image_mime(&resolved).await {
+            return describe_image_file(&self.runtime_env, &resolved, &mime, &bytes).await;
         }
         let text = match String::from_utf8(bytes) {
             Ok(text) => text,
@@ -154,6 +150,20 @@ impl ReadTool {
             "offset": parsed.offset,
             "limit": parsed.limit,
         }))
+    }
+
+    async fn track_read(&self, resolved: &Path, bytes: &[u8]) {
+        if let Some(ref files_read) = self.files_read {
+            if let Ok(mut guard) = files_read.lock() {
+                guard.insert(resolved.to_path_buf(), file_read_snapshot(bytes));
+            }
+        }
+        if let Some(search) = &self.search {
+            search.track_access(resolved);
+        }
+        if let Some(lsp) = &self.lsp {
+            lsp.touch_file(resolved).await;
+        }
     }
 }
 

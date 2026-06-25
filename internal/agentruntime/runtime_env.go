@@ -94,7 +94,6 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	}
 	if deps.Cfg != nil {
 		env[AgentEnvAgentBaseURL] = deps.Cfg.ProxyOpenAIBaseURL()
-		env[AgentEnvAgentMultimodalBaseURL] = deps.Cfg.ProxyOpenAIBaseURL()
 		env[AgentEnvWorkspaceRoot] = runtimeWorkspaceRoot
 		env[AgentEnvDBPath] = runtimeDBPath
 		env[AgentEnvRuntimeBindAddr] = fmt.Sprintf("0.0.0.0:%d", runtimePort)
@@ -105,8 +104,6 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	}
 	env[AgentEnvAgentModel] = modelID
 	env[AgentEnvAgentAPIKeyEnv] = ProxyAPIKeyEnv
-	env[AgentEnvAgentMultimodalModel] = DefaultAgentMultimodalModel
-	env[AgentEnvAgentMultimodalAPIKeyEnv] = ProxyAPIKeyEnv
 	// Provision a tunnel password so the tunnel proxy fails closed (it is an open
 	// proxy to every sandbox localhost port when unset).
 	env[AgentEnvTunnelPassword] = runtimeSecret

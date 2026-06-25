@@ -422,10 +422,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(seeded.len(), 2);
-        let seeded_text = match &seeded[0].parts[0] {
-            crate::primitives::MessagePart::Text { text } => text,
-            _ => panic!("expected text"),
-        };
+        let crate::primitives::MessagePart::Text { text: seeded_text } = &seeded[0].parts[0];
         assert_eq!(seeded_text, "Kim (U123): hi");
         assert_eq!(
             load_model_history(Some(repo.as_ref()), &session_id, 100)
@@ -475,10 +472,7 @@ mod tests {
             speaker_display_name: Some("Nora".into()),
             text: "Loop me in on invoice failures.".into(),
         }]);
-        let text = match &messages[0].parts[0] {
-            crate::primitives::MessagePart::Text { text } => text,
-            _ => panic!("expected text"),
-        };
+        let crate::primitives::MessagePart::Text { text } = &messages[0].parts[0];
         assert_eq!(text, "Nora (U08P1G9EDNG): Loop me in on invoice failures.");
     }
 }

@@ -104,6 +104,8 @@ func agentRuntimeConfigPayload(runtimeSecret, controlPlaneURL, agentID, sandboxI
 		"runtime_env": map[string]string{
 			"HIVY_RUNTIME_SECRET":           runtimeSecret,
 			"HIVY_CONTROL_PLANE_URL":        controlPlaneURL,
+			"HIVY_DRIVE_UPLOAD_URL":         controlPlaneURL + "/internal/agents/" + agentID + "/drive",
+			"HIVY_DRIVE_UPLOAD_BEARER":      runtimeSecret,
 			"HIVY_AGENT_ID":                 agentID,
 			"HIVY_ORG_ID":                   uuid.NewString(),
 			"HIVY_SANDBOX_ID":               sandboxID,

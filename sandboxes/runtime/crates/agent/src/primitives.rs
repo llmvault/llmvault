@@ -18,7 +18,6 @@ pub enum AgentMessageRole {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MessagePart {
     Text { text: String },
-    InlineData { mime_type: String, data: Vec<u8> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -34,6 +34,7 @@ func setupPublicRoutes(
 	sandboxEncKey *crypto.SymmetricKey,
 	kms *crypto.KeyWrapper,
 	uploadsHandler *handler.UploadsHandler,
+	imageDescribeHandler *handler.ImageDescribeHandler,
 	canvasHandler *handler.CanvasHandler,
 	orchestrator *sandbox.Orchestrator,
 	orchestratorMissing bool,
@@ -118,12 +119,19 @@ func setupPublicRoutes(
 		r.Post("/internal/agents/{agentID}/drive/move", uploadsHandler.MoveAgentAsset)
 		r.Delete("/internal/agents/{agentID}/drive/*", uploadsHandler.DeleteAgentAsset)
 	}
+	if imageDescribeHandler != nil {
+		r.Post("/internal/agents/{agentID}/images/describe", imageDescribeHandler.DescribeForRuntime)
+	}
 
 	if canvasHandler != nil {
 		r.Get("/internal/agents/{agentID}/canvas/projects", canvasHandler.ListAgentProjects)
 		r.Post("/internal/agents/{agentID}/canvas/projects", canvasHandler.CreateAgentProject)
 		r.Get("/internal/agents/{agentID}/canvas/files", canvasHandler.ListAgentFiles)
 		r.Post("/internal/agents/{agentID}/canvas/files", canvasHandler.CreateAgentFile)
+		r.Get("/internal/agents/{agentID}/canvas/brands", canvasHandler.ListAgentBrands)
+		r.Post("/internal/agents/{agentID}/canvas/brands", canvasHandler.CreateAgentBrand)
+		r.Get("/internal/agents/{agentID}/canvas/brands/{id}", canvasHandler.GetAgentBrand)
+		r.Patch("/internal/agents/{agentID}/canvas/brands/{id}", canvasHandler.UpdateAgentBrand)
 	}
 
 }

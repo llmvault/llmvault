@@ -7,7 +7,7 @@ use crate::history::{
     append_model_message, load_model_history, load_session_context, persist_session_context,
     seed_model_history_from_session_history,
 };
-use crate::primitives::{AgentMessage, MessagePart};
+use crate::primitives::AgentMessage;
 use crate::{Result, TurnInput};
 
 use super::capture_preloaded_context_error;
@@ -50,13 +50,7 @@ pub(super) async fn build_initial_messages(
                 .await?;
     }
     messages.extend(history);
-    let mut user = AgentMessage::user(input.text);
-    for image in input.images {
-        user.push_part(MessagePart::InlineData {
-            mime_type: image.mime_type,
-            data: image.data,
-        });
-    }
+    let user = AgentMessage::user(input.text);
     append_model_message(event_repo, session_id, &user).await?;
     messages.push(user);
     Ok(messages)

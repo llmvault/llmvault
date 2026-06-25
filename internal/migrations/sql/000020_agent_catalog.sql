@@ -12,7 +12,6 @@ CREATE TABLE agent_catalog (
     official boolean DEFAULT false NOT NULL,
     is_default boolean DEFAULT false NOT NULL,
     model text DEFAULT ''::text NOT NULL,
-    multimodal_model text DEFAULT ''::text NOT NULL,
     sandbox_strategy text DEFAULT 'per_session'::text NOT NULL,
     instructions text DEFAULT ''::text NOT NULL,
     required_plugins text[] DEFAULT '{}'::text[] NOT NULL,

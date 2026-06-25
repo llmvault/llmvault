@@ -819,16 +819,6 @@
           "model": {
             "$ref": "#/components/schemas/ModelConfig"
           },
-          "multimodal_model": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ModelConfig"
-              }
-            ]
-          },
           "outbound_channels": {
             "type": "array",
             "items": {

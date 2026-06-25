@@ -264,7 +264,7 @@ browser screenshot --annotate map.png     # numbered labels + legend keyed to sn
 Headless Chromium screenshots hide native scrollbars for consistent image output.
 Pass `--hide-scrollbars false` when launching to keep native scrollbars visible.
 
-`--annotate` is designed for multimodal models: each label `[N]` maps to ref `@eN`.
+`--annotate` labels each element `[N]` and maps it to ref `@eN`.
 
 ### Handle multiple pages via tabs
 

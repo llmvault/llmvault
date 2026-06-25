@@ -75,6 +75,59 @@ func TestImageDescribe_OwnedImageReturnsStructuredAnalysis(t *testing.T) {
 	}
 }
 
+func TestImageDescribe_RuntimeSecretCanDescribeAgentAsset(t *testing.T) {
+	h := newImageDescribeHarness(t)
+	rr := h.runtimeDescribe(t, h.asset.ID, h.runtimeSecret)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		DriveAssetID        string `json:"drive_asset_id"`
+		RenderedDescription string `json:"rendered_description"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.DriveAssetID != h.asset.ID.String() {
+		t.Fatalf("drive_asset_id = %q, want %s", resp.DriveAssetID, h.asset.ID)
+	}
+	if !strings.Contains(resp.RenderedDescription, "Primary category: Product Ui") {
+		t.Fatalf("rendered description missing category:\n%s", resp.RenderedDescription)
+	}
+}
+
+func TestImageDescribe_UsesInlineAssetBytesWhenReaderAvailable(t *testing.T) {
+	h := newImageDescribeHarness(t, withImageAssetReader(fakeImageAssetReader{data: transparentPNG(t)}))
+	rr := h.runtimeDescribe(t, h.asset.ID, h.runtimeSecret)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	userMsg := h.gateway.call.Request.Messages[1]
+	if len(userMsg.Parts) != 2 || userMsg.Parts[1].Kind != system.LLMPartMedia {
+		t.Fatalf("expected text+media message parts: %+v", userMsg.Parts)
+	}
+	if got := userMsg.Parts[1].Text; !strings.HasPrefix(got, "data:image/png;base64,") {
+		t.Fatalf("media input = %q, want inline data URL", got)
+	}
+	var resp struct {
+		AssetURL string `json:"asset_url"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !strings.Contains(resp.AssetURL, "/v1/assets/preview") {
+		t.Fatalf("response asset_url = %q, want preview URL", resp.AssetURL)
+	}
+}
+
+func TestImageDescribe_RuntimeSecretRejectsWrongBearer(t *testing.T) {
+	h := newImageDescribeHarness(t)
+	rr := h.runtimeDescribe(t, h.asset.ID, "wrong-secret")
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestImageDescribe_IncludesAutoExtractedMetadata(t *testing.T) {
 	h := newImageDescribeHarness(t, withImageAssetReader(fakeImageAssetReader{data: transparentPNG(t)}))
 	rr := h.describe(t, h.asset.ID)

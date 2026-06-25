@@ -24,7 +24,7 @@ use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use composition::compose_annotated_text;
-use media::{collect_media_for_turn, DownloadResults};
+use media::collect_media_for_turn;
 pub use media::{AttachmentDownloader, HttpAttachmentDownloader};
 use queue::{next_queued_inbound, QueuedInboundBacklog};
 use session::ensure_session_persisted;
@@ -697,7 +697,7 @@ async fn force_fail_active_subagent_tasks(repo: &dyn SubagentTaskRepo, session_i
 async fn process_single_turn(
     runner: Arc<dyn AgentRunner>,
     attachment_downloader: Arc<dyn AttachmentDownloader>,
-    config: ConfigStore,
+    _config: ConfigStore,
     emitter: Arc<OutboundEmitter>,
     session_repo: Arc<dyn SessionRepo>,
     inbound: &InboundEvent,
@@ -723,7 +723,6 @@ async fn process_single_turn(
         "inbound message"
     );
 
-    let snapshot = config.snapshot();
     let session_id = inbound.session_id.clone();
 
     let was_new_session = ensure_session_persisted(session_repo.as_ref(), inbound, &emitter).await;
@@ -733,16 +732,9 @@ async fn process_single_turn(
     let event_source = inbound_event_source(inbound);
     emit_user_message_received(&emitter, inbound, event_source, false).await;
 
-    let multimodal_available = snapshot.multimodal_model.is_some();
-    let media = collect_media_for_turn(
-        attachment_downloader.as_ref(),
-        &inbound.attachments,
-        multimodal_available,
-    )
-    .await;
+    let media = collect_media_for_turn(attachment_downloader.as_ref(), &inbound.attachments).await;
     let annotated_text = compose_annotated_text(inbound, &media);
 
-    let DownloadResults { images, .. } = media;
     let mut turn_input = TurnInput::text(annotated_text);
     if let Some(model) = inbound.model_definition.clone() {
         turn_input = turn_input.with_model_override(model);
@@ -755,9 +747,6 @@ async fn process_single_turn(
     }
     for context in &inbound.session_context {
         turn_input = turn_input.with_session_context(context.clone());
-    }
-    for (mime, bytes) in images {
-        turn_input = turn_input.with_image(mime, bytes);
     }
 
     let session_stream_id = session_stream_id(inbound);
