@@ -86,6 +86,20 @@ func TestIntegration_SessionsCreate_AllowsEmptySessionBeforeFirstMessage(t *test
 	}
 }
 
+func TestIntegration_SessionsCreate_RejectsLegacyPayloadFields(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+
+	rr := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
+		"channel_id":      fx.channel.ID.String(),
+		"text":            "Start clean",
+		"client_event_id": "old-client-id",
+	})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("create session status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestIntegration_SessionsGet_ExposesAgentTurnState(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
@@ -138,6 +152,9 @@ func TestIntegration_SessionsRespondToInput_QueuesAnswerAndRecordsMarker(t *test
 	}
 	if out.Event.EventType != runtimeevents.EventUserMessageReceived || out.Event.Payload["text"] != "Use option A" {
 		t.Fatalf("bad input response event: %+v", out.Event)
+	}
+	if _, ok := out.Event.Payload["client_event_id"]; ok {
+		t.Fatalf("input response event still includes client_event_id: %+v", out.Event.Payload)
 	}
 	var queueRows []model.SessionMessageQueue
 	if err := h.db.
@@ -213,8 +230,7 @@ func TestIntegration_SessionsParticipantsAndQueuedMessages(t *testing.T) {
 	}
 
 	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.member, map[string]any{
-		"text":              "I can reproduce it",
-		"user_display_name": "Member User",
+		"text": "I can reproduce it",
 	})
 	if msg.Code != http.StatusAccepted {
 		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
@@ -243,7 +259,7 @@ func TestIntegration_SessionsParticipantsAndQueuedMessages(t *testing.T) {
 	}
 }
 
-func TestIntegration_SessionsSend_ClientEventIDIsIdempotent(t *testing.T) {
+func TestIntegration_SessionsSend_RejectsLegacyClientEventID(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)
 	created := h.doJSON(t, http.MethodPost, "/v1/sessions", fx, fx.owner, map[string]any{
@@ -257,34 +273,8 @@ func TestIntegration_SessionsSend_ClientEventIDIsIdempotent(t *testing.T) {
 		"text":            "Retry this only once",
 		"client_event_id": "client-msg-1",
 	}
-	first := h.doJSON(t, http.MethodPost, "/v1/sessions/"+session.Session.ID+"/messages", fx, fx.owner, body)
-	if first.Code != http.StatusAccepted {
-		t.Fatalf("first message status=%d body=%s", first.Code, first.Body.String())
-	}
-	firstOut := decodeSessionMutation(t, first)
-	if firstOut.Event == nil || firstOut.Event.EventID != "client:client-msg-1" || !firstOut.Queued {
-		t.Fatalf("bad first idempotent response: %+v", firstOut)
-	}
-	second := h.doJSON(t, http.MethodPost, "/v1/sessions/"+session.Session.ID+"/messages", fx, fx.owner, body)
-	if second.Code != http.StatusAccepted {
-		t.Fatalf("second message status=%d body=%s", second.Code, second.Body.String())
-	}
-	secondOut := decodeSessionMutation(t, second)
-	if secondOut.Event == nil || secondOut.Event.ID != firstOut.Event.ID || secondOut.Event.EventID != firstOut.Event.EventID || !secondOut.Queued {
-		t.Fatalf("duplicate response=%+v, want original queued event %s", secondOut, firstOut.Event.ID)
-	}
-	var eventCount int64
-	if err := h.db.Model(&model.SessionEvent{}).Where("session_id = ?", session.Session.ID).Count(&eventCount).Error; err != nil {
-		t.Fatalf("count events: %v", err)
-	}
-	if eventCount != 1 {
-		t.Fatalf("event count=%d, want 1", eventCount)
-	}
-	var queueRows []model.SessionMessageQueue
-	if err := h.db.Where("session_id = ?", session.Session.ID).Find(&queueRows).Error; err != nil {
-		t.Fatalf("load queue rows: %v", err)
-	}
-	if len(queueRows) != 1 || queueRows[0].SessionEventID == nil || queueRows[0].SessionEventID.String() != firstOut.Event.ID {
-		t.Fatalf("queue rows=%+v, want one row linked to first event", queueRows)
+	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+session.Session.ID+"/messages", fx, fx.owner, body)
+	if msg.Code != http.StatusBadRequest {
+		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
 	}
 }

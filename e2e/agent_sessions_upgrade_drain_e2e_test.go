@@ -62,9 +62,8 @@ func TestAgentSessionsSandboxUpgradeDrainE2E(t *testing.T) {
 
 	session := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, ownerToken, orgID, map[string]any{
 		"channel_id":       general.ID,
-		"reasoning_effort": "low",
+		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text":             agentSessionsDrainPrompt(stepMarkerPrefix, finalMarker),
-		"access_mode":      "full",
 	})
 	if session.Session.ID == "" {
 		t.Fatalf("drain session was not created correctly: %+v", session)

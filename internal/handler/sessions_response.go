@@ -20,7 +20,6 @@ func sessionToResponse(session model.Session, participantCount, eventCount int64
 		Model:              session.Model,
 		ImageModel:         session.ImageModel,
 		VectorImageModel:   session.VectorImageModel,
-		AccessMode:         session.AccessMode,
 		ReasoningEffort:    session.ReasoningEffort,
 		Source:             session.Source,
 		SourceResourceKey:  session.SourceResourceKey,

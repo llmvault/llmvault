@@ -29,7 +29,6 @@ type Session struct {
 	Model                      string     `gorm:"type:text"`
 	ImageModel                 string     `gorm:"type:text;not null;default:''"`
 	VectorImageModel           string     `gorm:"type:text;not null;default:''"`
-	AccessMode                 string     `gorm:"type:text;not null;default:'full'"`
 	ReasoningEffort            string     `gorm:"type:text;not null;default:'high'"`
 	Source                     string     `gorm:"type:text;not null;default:'web'"`
 	SourceID                   *uuid.UUID `gorm:"type:uuid"`

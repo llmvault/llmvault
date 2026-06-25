@@ -177,7 +177,6 @@ func seedSessionNameFixture(t *testing.T, db *gorm.DB, firstMessage string) mode
 		ChannelID:         channel.ID,
 		AgentID:           agent.ID,
 		Model:             agent.Model,
-		AccessMode:        "full",
 		ReasoningEffort:   "high",
 		Source:            "web",
 		SourceResourceKey: uuid.NewString(),

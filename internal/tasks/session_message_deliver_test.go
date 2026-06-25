@@ -62,9 +62,6 @@ Code comments to address:
 	if msg.Text != want {
 		t.Fatalf("runtime text mismatch\nwant:\n%s\n\ngot:\n%s", want, msg.Text)
 	}
-	if msg.Raw != nil {
-		t.Fatalf("raw=%#v, want nil for session message runtime request", msg.Raw)
-	}
 	if len(msg.Attachments) != 0 {
 		t.Fatalf("attachments len=%d, want 0 because attachments are compiled into text", len(msg.Attachments))
 	}
@@ -224,7 +221,6 @@ func seedSessionRuntimeSelectionSession(t *testing.T, db *gorm.DB, orgID, channe
 		AgentID:           agentID,
 		SandboxID:         sandboxID,
 		Model:             "test-model",
-		AccessMode:        "full",
 		ReasoningEffort:   "high",
 		Source:            "web",
 		SourceResourceKey: uuid.NewString(),

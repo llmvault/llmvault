@@ -51,10 +51,9 @@ export function createDefaultSessionWorkspace(
 ): SessionWorkspace {
   return {
     lastTouchedAt,
-    composer: {
-      text: "",
-      accessMode: "full",
-      effort: "High",
+	    composer: {
+	      text: "",
+	      effort: "High",
       uploads: [],
       attachmentDescriptions: {},
     },

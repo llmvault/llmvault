@@ -17,7 +17,7 @@ func runAgentSessionsSameSandboxDirectStreamsE2E(t *testing.T, ctx context.Conte
 
 	slowSession := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, ownerToken, orgID, map[string]any{
 		"channel_id":       channelID,
-		"reasoning_effort": "low",
+		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": strings.Join([]string{
 			"This is the same-sandbox direct stream E2E slow session.",
 			"Before replying, call bash exactly once with this command: python3 -c 'import time; time.sleep(45); print(\"" + slowToolMarker + "\")'.",
@@ -38,7 +38,7 @@ func runAgentSessionsSameSandboxDirectStreamsE2E(t *testing.T, ctx context.Conte
 
 	fastSession := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, ownerToken, orgID, map[string]any{
 		"channel_id":       channelID,
-		"reasoning_effort": "low",
+		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": strings.Join([]string{
 			"This is the same-sandbox direct stream E2E fast session.",
 			"Before replying, call bash exactly once with this command: python3 -c 'print(\"" + fastToolMarker + "\")'.",

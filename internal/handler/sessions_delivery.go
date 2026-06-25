@@ -29,7 +29,6 @@ type sessionMessageDeliveryOptions struct {
 	Model            string
 	ReasoningEffort  string
 	ClearLastOutcome bool
-	ClientEventID    string
 }
 
 func (h *SessionHandler) runtimeDeliveryConfigured() bool {

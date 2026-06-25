@@ -133,13 +133,12 @@ export function SessionView({
           channel_id: activeChannel.id,
           agent_id: selectedAgent?.id,
           text,
-          model_definition: {
-            model_id: modelId,
-            reasoning_effort: effort.toLowerCase(),
-          },
-          access_mode: "full",
-        },
-      })
+	          model_definition: {
+	            model_id: modelId,
+	            reasoning_effort: effort.toLowerCase(),
+	          },
+	        },
+	      })
 
       const created = response.session
       if (!created?.id) {

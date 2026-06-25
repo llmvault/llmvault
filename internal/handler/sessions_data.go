@@ -115,18 +115,8 @@ func (h *SessionHandler) createBackendUserMessageEvent(tx *gorm.DB, session *mod
 	if session == nil || session.ID == uuid.Nil {
 		return model.SessionEvent{}, false, fmt.Errorf("session event: session is required")
 	}
-	clientEventID := strings.TrimSpace(opts.ClientEventID)
-	if clientEventID == "" {
-		if raw, ok := payload["client_event_id"].(string); ok {
-			clientEventID = strings.TrimSpace(raw)
-		}
-	}
-	eventID := backendSessionEventID(clientEventID)
+	eventID := backendSessionEventID()
 	eventPayload := sessionMessageCommandPayload(text, payload)
-	eventPayload["client_event_id"] = clientEventID
-	if clientEventID == "" {
-		eventPayload["client_event_id"] = strings.TrimPrefix(eventID, "backend:")
-	}
 	now := time.Now().UTC()
 	event := model.SessionEvent{
 		OrgID:            session.OrgID,
@@ -157,11 +147,7 @@ func (h *SessionHandler) createBackendUserMessageEvent(tx *gorm.DB, session *mod
 	return existing, false, nil
 }
 
-func backendSessionEventID(clientEventID string) string {
-	clientEventID = strings.TrimSpace(clientEventID)
-	if clientEventID != "" {
-		return "client:" + clientEventID
-	}
+func backendSessionEventID() string {
 	return "backend:" + uuid.NewString()
 }
 

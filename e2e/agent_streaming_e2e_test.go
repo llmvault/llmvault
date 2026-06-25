@@ -64,7 +64,6 @@ func TestAgentRuntimeRedisSequencingE2E(t *testing.T) {
 			prompt := streamingE2EPrompt(runID, agentIndex+1, sessionIndex+1, marker)
 			session := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, token, orgID, map[string]any{
 				"channel_id": channel.ID,
-				"name":       fmt.Sprintf("Streaming %s A%d S%d", runID, agentIndex+1, sessionIndex+1),
 			})
 			if session.Session.ID == "" {
 				t.Fatalf("session create returned empty id: %+v", session)

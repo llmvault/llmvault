@@ -37,7 +37,9 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req sessionInputResponseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
@@ -65,7 +67,6 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 	}
 	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, messageText, payload, sessionMessageDeliveryOptions{
 		ClearLastOutcome: true,
-		ClientEventID:    strings.TrimSpace(req.ClientEventID),
 	})
 	if err != nil {
 		if errors.Is(err, errSessionSandboxDraining) {

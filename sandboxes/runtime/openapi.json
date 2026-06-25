@@ -2732,9 +2732,6 @@
               }
             ]
           },
-          "raw": {
-            "type": "object"
-          },
           "session_context": {
             "type": "array",
             "items": {

@@ -72,7 +72,6 @@ func (h *SessionHandler) createSystemSession(ctx context.Context, req systemSess
 		AgentID:           req.Agent.ID,
 		SandboxID:         h.bestEffortSandboxIDForContext(ctx, req.OrgID, req.Agent),
 		Model:             defaultString(strings.TrimSpace(req.Agent.Model), ""),
-		AccessMode:        "full",
 		ReasoningEffort:   reasoningEffort,
 		Source:            source,
 		SourceID:          req.SourceID,

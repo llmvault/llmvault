@@ -52,7 +52,7 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 
 	sessionA := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, ownerToken, orgID, map[string]any{
 		"channel_id":       channel.ID,
-		"reasoning_effort": "low",
+		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": agentSessionsPerSessionFirstPrompt(
 			"session A", pathA, firstMarkerA,
 			"python3 -c 'import pathlib,time; time.sleep(10); pathlib.Path(\""+pathA+"\").write_text(\"session-a\"); print(\""+stateMarkerA+"\")'",
@@ -60,7 +60,7 @@ func runAgentSessionsPerSessionCatalogAgentE2E(t *testing.T, ctx context.Context
 	})
 	sessionB := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, ownerToken, orgID, map[string]any{
 		"channel_id":       channel.ID,
-		"reasoning_effort": "low",
+		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": agentSessionsPerSessionFirstPrompt(
 			"session B", pathB, firstMarkerB,
 			"python3 -c 'import pathlib,time; time.sleep(10); pathlib.Path(\""+pathB+"\").write_text(\"session-b\"); print(\""+stateMarkerB+"\")'",

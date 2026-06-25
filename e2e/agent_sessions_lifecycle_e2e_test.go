@@ -55,7 +55,7 @@ func runAgentSessionsAlwaysOnCronSleepWakeE2E(t *testing.T, ctx context.Context,
 	scheduledMarker := "LIFECYCLE_ALWAYS_SCHEDULED_" + runID
 	session := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, token, orgID, map[string]any{
 		"channel_id":       channelID,
-		"reasoning_effort": "low",
+		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": strings.Join([]string{
 			"This is the always-on sleep/wake lifecycle E2E.",
 			"Reply exactly " + initialMarker + " and no other text.",
@@ -108,7 +108,7 @@ func runAgentSessionsPerSessionCronSleepWakeE2E(t *testing.T, ctx context.Contex
 	scheduledMarker := "LIFECYCLE_PER_SESSION_SCHEDULED_" + runID
 	session := agentSessionsCreateSessionWithPayload(t, ctx, apiBase, token, orgID, map[string]any{
 		"channel_id":       channel.ID,
-		"reasoning_effort": "low",
+		"model_definition": map[string]any{"reasoning_effort": "low"},
 		"text": strings.Join([]string{
 			"This is the per-session sleep/wake lifecycle E2E.",
 			"Reply exactly " + initialMarker + " and no other text.",

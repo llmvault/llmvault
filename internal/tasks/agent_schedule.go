@@ -145,7 +145,6 @@ func (h *AgentScheduleDeliverHandler) ensureRunSession(ctx context.Context, runI
 			AgentID:           run.AgentID,
 			SandboxID:         sandboxID,
 			Model:             agent.Model,
-			AccessMode:        "full",
 			ReasoningEffort:   "high",
 			Source:            "schedule",
 			SourceID:          &run.ScheduleID,
