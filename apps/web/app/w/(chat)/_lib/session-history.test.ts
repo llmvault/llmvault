@@ -104,6 +104,21 @@ describe("sessionEventsToConversationBlocks", () => {
     expect(prependedAnswer?.key).toBe(currentAnswer?.key)
   })
 
+  it("keeps final assistant completion time for the message footer", () => {
+    const completedAt = "2026-06-15T16:11:00.000Z"
+    const blocks = sessionEventsToConversationBlocks([
+      event("final", { text: "Done." }, completedAt),
+    ])
+
+    expect(blocks).toMatchObject([
+      {
+        type: "assistant",
+        text: "Done.",
+        completedAt,
+      },
+    ])
+  })
+
   it("does not render plan updates in the transcript", () => {
     const blocks = sessionEventsToConversationBlocks([
       event("plan_updated", {

@@ -182,6 +182,7 @@ function appendAssistantItem(
       key: eventBlockKey(event, options.mergeKind ? "token" : "final"),
       text,
       streaming: options.streaming,
+      completedAt: options.terminal ? event.event_at : undefined,
     },
     mergeKind: options.mergeKind,
     terminal: options.terminal,
@@ -250,6 +251,7 @@ function mergeTimelineBlocks(
       ...left,
       text: left.text + right.text,
       streaming: left.streaming || right.streaming,
+      completedAt: right.completedAt ?? left.completedAt,
     }
   }
 
