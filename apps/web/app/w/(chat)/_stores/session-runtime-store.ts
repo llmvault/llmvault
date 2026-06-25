@@ -142,7 +142,9 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
         if (current.length === 0) return state
         const historyByKey = historyEventMap(historyEvents)
         const next = current.filter(
-          (event) => !historyContainsLiveEvent(historyByKey, event)
+          (event) =>
+            !historyContainsLiveEvent(historyByKey, event) &&
+            !historyContainsClientUserMessage(historyEvents, event)
         )
         if (next.length === current.length) return state
         return {
@@ -209,10 +211,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
         )
         const currentEvents =
           state.liveEventsBySessionId[sessionId] ?? EMPTY_EVENTS
-        const sourceEvents = shouldReplaceOptimisticWork(frame.event)
-          ? currentEvents.filter((event) => !isPendingClientEvent(event))
-          : currentEvents
-        const nextEvents = appendLiveSessionStreamFrame(sourceEvents, frame)
+        const nextEvents = appendLiveSessionStreamFrame(currentEvents, frame)
         return {
           ...cursorPatch,
           statusBySessionId: {
@@ -239,7 +238,7 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
           ? EMPTY_EVENTS
           : options.preserveError
             ? current.filter((event) => event.event_type === "error")
-            : current
+            : current.filter((event) => !isModelRequestMarker(event))
         return {
           statusBySessionId: {
             ...state.statusBySessionId,
@@ -453,20 +452,10 @@ function shouldAdvanceCursor(
   )
 }
 
-function shouldReplaceOptimisticWork(event: string) {
-  return (
-    event === "thinking" ||
-    event === "token" ||
-    event === "tool_call" ||
-    event === "tool_result" ||
-    event === "final" ||
-    event === "error"
-  )
-}
-
 function isActiveStreamFrame(event: string) {
   return (
     event === "turn_started" ||
+    event === "model_request_started" ||
     event === "thinking" ||
     event === "token" ||
     event === "tool_call" ||
@@ -476,9 +465,8 @@ function isActiveStreamFrame(event: string) {
   )
 }
 
-function isPendingClientEvent(event: SessionEventResponse) {
-  const payload = payloadRecord(event.payload)
-  return payload.client_status === "pending"
+function isModelRequestMarker(event: SessionEventResponse) {
+  return payloadRecord(event.payload).model_request_pending === true
 }
 
 function historyEventMap(events: SessionEventResponse[]) {
@@ -509,8 +497,37 @@ function historyContainsLiveEvent(
   return false
 }
 
+function historyContainsClientUserMessage(
+  historyEvents: SessionEventResponse[],
+  live: SessionEventResponse
+) {
+  if (!isClientUserMessage(live)) return false
+  const text = eventText(live).trim()
+  if (!text) return false
+  return historyEvents.some(
+    (event) =>
+      isUserMessage(event) &&
+      event.session_id === live.session_id &&
+      eventText(event).trim() === text
+  )
+}
+
 function eventKeys(event: SessionEventResponse) {
   return [event.id, event.event_id].filter((key): key is string => Boolean(key))
+}
+
+function isClientUserMessage(event: SessionEventResponse) {
+  return (
+    isUserMessage(event) &&
+    (event.id?.startsWith("client:") || event.event_id?.startsWith("client:"))
+  )
+}
+
+function isUserMessage(event: SessionEventResponse) {
+  return (
+    event.event_type === "user.message" ||
+    event.event_type === "user.message.received"
+  )
 }
 
 function isMergedTextEvent(event: SessionEventResponse) {

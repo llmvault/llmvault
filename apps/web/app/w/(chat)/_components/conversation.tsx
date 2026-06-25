@@ -14,7 +14,6 @@ import {
 } from "@/app/w/(chat)/_components/conversation-assistant"
 import { ThinkingBlock } from "@/app/w/(chat)/_components/conversation-thinking"
 import { UserMessageBlock } from "@/app/w/(chat)/_components/conversation-user-message"
-import type { CodeLineCommentReference } from "@/app/w/(chat)/_lib/code-line-comments"
 import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import {
   type ConversationBlock,
@@ -23,15 +22,9 @@ import {
 
 export function Conversation({
   blocks,
-  onRetryMessage,
   onOpenCanvasTarget,
 }: {
   blocks: ConversationBlock[]
-  onRetryMessage?: (
-    eventID: string,
-    text: string,
-    codeLineComments?: CodeLineCommentReference[]
-  ) => void
   onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
 }) {
   // All attachments across the conversation form one gallery so the
@@ -53,7 +46,6 @@ export function Conversation({
           key={conversationBlockKey(block, index)}
           block={block}
           onOpenAttachment={openAttachment}
-          onRetryMessage={onRetryMessage}
           onOpenCanvasTarget={onOpenCanvasTarget}
         />
       ))}
@@ -70,16 +62,10 @@ export function Conversation({
 function Block({
   block,
   onOpenAttachment,
-  onRetryMessage,
   onOpenCanvasTarget,
 }: {
   block: ConversationBlock
   onOpenAttachment: (attachment: MediaAttachment) => void
-  onRetryMessage?: (
-    eventID: string,
-    text: string,
-    codeLineComments?: CodeLineCommentReference[]
-  ) => void
   onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
 }) {
   switch (block.type) {
@@ -93,15 +79,11 @@ function Block({
       )
     case "user":
       return (
-        <UserMessageBlock
-          block={block}
-          onOpenAttachment={onOpenAttachment}
-          onRetryMessage={onRetryMessage}
-        />
+        <UserMessageBlock block={block} onOpenAttachment={onOpenAttachment} />
       )
     case "error":
       return (
-        <div className="border-danger/20 bg-danger/10 text-danger flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+        <div className="flex items-start gap-2 rounded-lg border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
           <Icon
             icon="lucide:circle-alert"
             className="mt-0.5 h-4 w-4 shrink-0"
@@ -118,7 +100,6 @@ function Block({
               key={conversationBlockKey(child, index)}
               block={child}
               onOpenAttachment={onOpenAttachment}
-              onRetryMessage={onRetryMessage}
               onOpenCanvasTarget={onOpenCanvasTarget}
             />
           )}

@@ -167,7 +167,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     [pathname]
   )
   const routeSessionID = routeParams?.sessionId
-  const routeIsOptimistic = routeSessionID?.startsWith("tmp_") ?? false
+  const routeIsTemporarySession = routeSessionID?.startsWith("tmp_") ?? false
   const workspaceSessionKey = routeSessionID ?? "new-chat"
   useSessionWorkspaceHydration({
     orgId: activeOrg?.id,
@@ -223,7 +223,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       },
     },
     {
-      enabled: Boolean(routeSessionID) && !routeIsOptimistic,
+      enabled: Boolean(routeSessionID) && !routeIsTemporarySession,
       retry: false,
       staleTime: CHAT_QUERY_STALE_TIME_MS,
     }
@@ -645,7 +645,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
   const runtimeAccessNeeded =
     Boolean(routeSessionID) &&
-    !routeIsOptimistic &&
+    !routeIsTemporarySession &&
     rightPanelOpen &&
     panelViewNeedsRuntimeAccess(activeView)
   const sandboxRuntimeStateMatches =
@@ -662,66 +662,67 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     ? sandboxRuntimeState?.error
     : null
   const sandboxRuntimePending =
-    runtimeAccessNeeded &&
-    !sandboxRuntimeReady &&
-    !sandboxRuntimeError
+    runtimeAccessNeeded && !sandboxRuntimeReady && !sandboxRuntimeError
   const sandboxAccessPendingForSession = sandboxRuntimePending
 
-  const loadSandboxAccess = useCallback((options: { force?: boolean } = {}) => {
-    if (!routeSessionID || routeIsOptimistic) return
-    const requestID = sandboxRuntimeRequestRef.current + 1
-    sandboxRuntimeRequestRef.current = requestID
-    const cached = options.force
-      ? null
-      : getCachedSessionSandboxAccess(routeSessionID, {
-          expectedSandboxId: routeSandboxID,
-        })
-    if (cached) {
-      setSandboxRuntimeState({
-        sessionId: routeSessionID,
-        access: cached,
-        pending: false,
-        error: null,
-      })
-      return
-    }
-    setSandboxRuntimeState({
-      sessionId: routeSessionID,
-      pending: true,
-      error: null,
-    })
-    void (async () => {
-      try {
-        const access = await getSessionSandboxAccess(routeSessionID, {
-          expectedSandboxId: routeSandboxID,
-          force: options.force,
-        })
-        if (sandboxRuntimeRequestRef.current !== requestID) return
+  const loadSandboxAccess = useCallback(
+    (options: { force?: boolean } = {}) => {
+      if (!routeSessionID || routeIsTemporarySession) return
+      const requestID = sandboxRuntimeRequestRef.current + 1
+      sandboxRuntimeRequestRef.current = requestID
+      const cached = options.force
+        ? null
+        : getCachedSessionSandboxAccess(routeSessionID, {
+            expectedSandboxId: routeSandboxID,
+          })
+      if (cached) {
         setSandboxRuntimeState({
           sessionId: routeSessionID,
-          access,
+          access: cached,
           pending: false,
           error: null,
         })
-      } catch (error) {
-        if (sandboxRuntimeRequestRef.current !== requestID) return
-        setSandboxRuntimeState({
-          sessionId: routeSessionID,
-          pending: false,
-          error,
-        })
+        return
       }
-    })()
-  }, [routeIsOptimistic, routeSandboxID, routeSessionID])
+      setSandboxRuntimeState({
+        sessionId: routeSessionID,
+        pending: true,
+        error: null,
+      })
+      void (async () => {
+        try {
+          const access = await getSessionSandboxAccess(routeSessionID, {
+            expectedSandboxId: routeSandboxID,
+            force: options.force,
+          })
+          if (sandboxRuntimeRequestRef.current !== requestID) return
+          setSandboxRuntimeState({
+            sessionId: routeSessionID,
+            access,
+            pending: false,
+            error: null,
+          })
+        } catch (error) {
+          if (sandboxRuntimeRequestRef.current !== requestID) return
+          setSandboxRuntimeState({
+            sessionId: routeSessionID,
+            pending: false,
+            error,
+          })
+        }
+      })()
+    },
+    [routeIsTemporarySession, routeSandboxID, routeSessionID]
+  )
 
   const refreshSandboxAccess = useCallback(() => {
     loadSandboxAccess({ force: true })
   }, [loadSandboxAccess])
 
   useEffect(() => {
-    if (!routeSessionID || routeIsOptimistic || !runtimeAccessNeeded) {
+    if (!routeSessionID || routeIsTemporarySession || !runtimeAccessNeeded) {
       sandboxRuntimeRequestRef.current += 1
-      if (!routeSessionID || routeIsOptimistic) {
+      if (!routeSessionID || routeIsTemporarySession) {
         window.queueMicrotask(() => setSandboxRuntimeState(null))
       } else {
         window.queueMicrotask(() =>
@@ -737,13 +738,16 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     window.queueMicrotask(() => loadSandboxAccess())
   }, [
     loadSandboxAccess,
-    routeIsOptimistic,
+    routeIsTemporarySession,
     routeSessionID,
     runtimeAccessNeeded,
   ])
 
   useEffect(() => {
-    hydrateSessionRuntimeFromResponse(routeSessionQuery.data?.session, queryClient)
+    hydrateSessionRuntimeFromResponse(
+      routeSessionQuery.data?.session,
+      queryClient
+    )
   }, [queryClient, routeSessionQuery.data?.session])
 
   useEffect(() => {
@@ -757,12 +761,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         : rightPanelSizePercentRef.current
       : 0
     setRightSize(nextSize)
-  }, [
-    rightMaximized,
-    rightPanelOpen,
-    setRightSize,
-    workspaceSessionKey,
-  ])
+  }, [rightMaximized, rightPanelOpen, setRightSize, workspaceSessionKey])
 
   const workspace = useMemo(
     () => ({
@@ -808,7 +807,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceContext.Provider value={workspace}>
       <LineCommentsProvider scopeKey={routeSessionID ?? "new-chat"}>
-        <div className="bg-surface h-screen w-screen overflow-hidden text-foreground">
+        <div className="h-screen w-screen overflow-hidden bg-surface text-foreground">
           <Group
             orientation="horizontal"
             className="h-full w-full"
@@ -845,21 +844,19 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
                   sidebarOpen={sidebarOpen}
                   onExpandSidebar={toggleSidebar}
                   onRename={
-                    routeSessionID && !routeIsOptimistic && session
+                    routeSessionID && !routeIsTemporarySession && session
                       ? () => openRenameSession(routeSessionID, session.title)
                       : undefined
                   }
                   onShare={
-                    routeSessionID && !routeIsOptimistic
+                    routeSessionID && !routeIsTemporarySession
                       ? () => openShareSession(routeSessionID)
                       : undefined
                   }
                   rightOpen={rightPanelOpen || rightOpen}
                   onToggleRight={toggleRight}
                 />
-                <div className="relative min-h-0 flex-1">
-                  {children}
-                </div>
+                <div className="relative min-h-0 flex-1">{children}</div>
               </div>
             </Panel>
 
@@ -877,8 +874,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               minSize={0}
               className="min-w-0 overflow-hidden"
               onResize={(size) => {
-                const open =
-                  size.inPixels > RIGHT_PANEL_COLLAPSED_THRESHOLD_PX
+                const open = size.inPixels > RIGHT_PANEL_COLLAPSED_THRESHOLD_PX
                 updateRightOpen(open)
               }}
             >

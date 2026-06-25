@@ -14,7 +14,7 @@ use tracing::{info, warn};
 use crate::session_stream::SessionStreamBroker;
 
 use super::git::{
-    changed_paths, default_branch_sha, git_output, git_status, snapshot_repo, RepoSnapshot,
+    changed_paths, git_output, git_status, review_base_sha, snapshot_repo, RepoSnapshot,
 };
 use super::types::{
     ContentResponse, DiffFileSummary, DiffResponse, RepoInfo, RepoListResponse, TreeEntry,
@@ -230,16 +230,6 @@ impl RepoService {
             let _ = self.safe_repo_path(&repo, path)?;
         }
         let context = context.unwrap_or(DEFAULT_DIFF_CONTEXT).min(200);
-        let mut args = vec![
-            "diff".to_string(),
-            format!("--unified={context}"),
-            repo.base_sha.clone(),
-            "--".to_string(),
-        ];
-        if let Some(path) = &rel {
-            args.push(path.clone());
-        }
-        let mut diff = git_output(&repo_path, &args).await.unwrap_or_default();
         let mut files = diff_file_summaries(&repo_path, &repo.base_sha, rel.as_deref())
             .await
             .unwrap_or_default();
@@ -256,40 +246,37 @@ impl RepoService {
             }
             files.insert(
                 changed_path.clone(),
-                DiffFileSummary {
-                    path: changed_path.clone(),
-                    status,
-                    previous_path: None,
-                },
+                DiffFileSummary::new(changed_path.clone(), status, None),
             );
-            let file = self.safe_repo_path(&repo, &changed_path)?;
-            if tokio::fs::metadata(&file)
-                .await
-                .is_ok_and(|meta| meta.is_file())
-            {
-                diff.push_str(
-                    &git_output(
-                        &repo_path,
-                        &[
-                            "diff".to_string(),
-                            "--no-index".to_string(),
-                            format!("--unified={context}"),
-                            "/dev/null".to_string(),
-                            changed_path,
-                        ],
-                    )
-                    .await
-                    .unwrap_or_default(),
-                );
-            }
         }
-        let total_bytes = diff.len();
-        let truncated = total_bytes > MAX_DIFF_BYTES;
+        let mut total_bytes = 0usize;
+        let mut truncated = false;
+        let mut diff = String::new();
+        let mut files = files.into_values().collect::<Vec<_>>();
+        for file in &mut files {
+            let patch = if file.status == "untracked" {
+                untracked_file_diff(&repo_path, &file.path, context).await
+            } else {
+                tracked_file_diff(&repo_path, &repo.base_sha, &file.path, context).await
+            }
+            .unwrap_or_default();
+            file.total_bytes = patch.len();
+            total_bytes += file.total_bytes;
+            if file.total_bytes > MAX_DIFF_BYTES {
+                file.truncated = true;
+                file.patch.clear();
+                file.message = Some(format!(
+                    "File diff is too large to display ({} bytes exceeds {} byte limit).",
+                    file.total_bytes, MAX_DIFF_BYTES
+                ));
+                truncated = true;
+                continue;
+            }
+            file.patch = patch;
+            diff.push_str(&file.patch);
+        }
         let message = if truncated {
-            diff.clear();
-            Some(format!(
-                "Diff is too large to display ({total_bytes} bytes exceeds {MAX_DIFF_BYTES} byte limit); changed files are listed instead."
-            ))
+            Some("One or more file diffs are too large to display.".to_string())
         } else {
             None
         };
@@ -300,7 +287,7 @@ impl RepoService {
             truncated,
             total_bytes,
             max_bytes: MAX_DIFF_BYTES,
-            files: files.into_values().collect(),
+            files,
             message,
         })
     }
@@ -396,9 +383,7 @@ impl RepoService {
             .unwrap_or_default()
             .trim()
             .to_string();
-        let base_sha = default_branch_sha(path)
-            .await
-            .unwrap_or_else(|| head.clone());
+        let base_sha = review_base_sha(path).await.unwrap_or_else(|| head.clone());
         let relative = path
             .strip_prefix(&self.root)
             .context("repo outside workspace")?
@@ -661,6 +646,7 @@ async fn diff_file_summaries(
     let mut args = vec![
         "diff".to_string(),
         "--name-status".to_string(),
+        "--find-renames".to_string(),
         base_sha.to_string(),
         "--".to_string(),
     ];
@@ -697,7 +683,61 @@ fn parse_diff_name_status(line: &str) -> Option<DiffFileSummary> {
         path,
         status,
         previous_path,
+        patch: String::new(),
+        truncated: false,
+        total_bytes: 0,
+        max_bytes: MAX_DIFF_BYTES,
+        message: None,
     })
+}
+
+async fn tracked_file_diff(
+    repo_path: &Path,
+    base_sha: &str,
+    path: &str,
+    context: u32,
+) -> Result<String> {
+    git_output(
+        repo_path,
+        &[
+            "diff".to_string(),
+            "--find-renames".to_string(),
+            format!("--unified={context}"),
+            base_sha.to_string(),
+            "--".to_string(),
+            path.to_string(),
+        ],
+    )
+    .await
+}
+
+async fn untracked_file_diff(repo_path: &Path, path: &str, context: u32) -> Result<String> {
+    git_output(
+        repo_path,
+        &[
+            "diff".to_string(),
+            "--no-index".to_string(),
+            format!("--unified={context}"),
+            "/dev/null".to_string(),
+            path.to_string(),
+        ],
+    )
+    .await
+}
+
+impl DiffFileSummary {
+    fn new(path: String, status: String, previous_path: Option<String>) -> Self {
+        Self {
+            path,
+            status,
+            previous_path,
+            patch: String::new(),
+            truncated: false,
+            total_bytes: 0,
+            max_bytes: MAX_DIFF_BYTES,
+            message: None,
+        }
+    }
 }
 
 fn path_in_scope(scope: &str, path: &str) -> bool {
@@ -756,10 +796,14 @@ mod tests {
         assert!(!diff.truncated);
         assert!(diff.diff.contains("diff --git"));
         assert!(diff.diff.contains("+changed"));
-        assert!(diff
+        let readme_diff = diff
             .files
             .iter()
-            .any(|file| file.path == "README.md" && file.status == "modified"));
+            .find(|file| file.path == "README.md")
+            .expect("README.md diff should be present");
+        assert_eq!(readme_diff.status, "modified");
+        assert!(!readme_diff.truncated);
+        assert!(readme_diff.patch.contains("+changed"));
 
         let stream_id = broker
             .stream_id_for_session("session-1")
@@ -907,7 +951,72 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn diff_omits_body_when_payload_is_too_large() {
+    async fn diff_uses_merge_base_when_head_is_behind_remote_default() {
+        let workspace = unique_workspace();
+        let repos = workspace.join("repos");
+        tokio::fs::create_dir_all(&repos).await.unwrap();
+        let repo_path = repos.join("older-repo");
+
+        init_repo(&repo_path, "README.md", "hello\n").await;
+        git(&repo_path, &["branch", "-M", "main"]).await;
+        let base_commit = git_stdout(&repo_path, &["rev-parse", "HEAD"]).await;
+        let bare = repos.join("older-repo-remote.git");
+        git(&repo_path, &["init", "--bare", bare.to_str().unwrap()]).await;
+        git(
+            &repo_path,
+            &["remote", "add", "origin", bare.to_str().unwrap()],
+        )
+        .await;
+        git(&repo_path, &["push", "-u", "origin", "main"]).await;
+        git(
+            &repo_path,
+            &[
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
+                "refs/remotes/origin/main",
+            ],
+        )
+        .await;
+
+        tokio::fs::write(repo_path.join("README.md"), "hello\nupstream\n")
+            .await
+            .unwrap();
+        git(&repo_path, &["add", "."]).await;
+        git(&repo_path, &["commit", "-m", "upstream change"]).await;
+        git(&repo_path, &["push", "origin", "main"]).await;
+        git(&repo_path, &["fetch", "origin"]).await;
+
+        git(&repo_path, &["checkout", base_commit.trim()]).await;
+        tokio::fs::write(repo_path.join("README.md"), "hello\nlocal\n")
+            .await
+            .unwrap();
+
+        let broker = Arc::new(SessionStreamBroker::new());
+        let service = RepoService::new(workspace.clone(), broker);
+        let listed = service.list_repos().await.unwrap();
+        let repo = listed
+            .repos
+            .iter()
+            .find(|repo| repo.name == "older-repo")
+            .expect("older-repo should be listed");
+        assert_eq!(repo.base_sha, base_commit.trim());
+
+        let diff = service
+            .diff(&repo.id, Some("README.md"), Some(3))
+            .await
+            .unwrap();
+        assert!(diff.diff.contains("+local"));
+        assert!(
+            !diff.diff.contains("upstream"),
+            "diff should be from merge-base, got: {}",
+            diff.diff
+        );
+
+        let _ = tokio::fs::remove_dir_all(workspace).await;
+    }
+
+    #[tokio::test]
+    async fn diff_truncates_large_files_without_hiding_small_file_diffs() {
         let workspace = unique_workspace();
         let repos = workspace.join("repos");
         tokio::fs::create_dir_all(&repos).await.unwrap();
@@ -916,6 +1025,9 @@ mod tests {
 
         let large_json_line = format!("{{\"models\":\"{}\"}}\n", "x".repeat(MAX_DIFF_BYTES + 1024));
         tokio::fs::write(repo_path.join("models.json"), large_json_line)
+            .await
+            .unwrap();
+        tokio::fs::write(repo_path.join("small.txt"), "small change\n")
             .await
             .unwrap();
 
@@ -927,17 +1039,33 @@ mod tests {
             .unwrap();
 
         assert!(diff.truncated);
-        assert!(diff.diff.is_empty());
         assert!(diff.total_bytes > diff.max_bytes);
         assert_eq!(diff.max_bytes, MAX_DIFF_BYTES);
         assert!(diff
             .message
             .as_deref()
-            .is_some_and(|message| message.contains("too large")));
-        assert!(diff
+            .is_some_and(|message| message.contains("file diffs")));
+        let large = diff
             .files
             .iter()
-            .any(|file| file.path == "models.json" && file.status == "modified"));
+            .find(|file| file.path == "models.json")
+            .expect("large file should be listed");
+        assert_eq!(large.status, "modified");
+        assert!(large.truncated);
+        assert!(large.patch.is_empty());
+        assert!(large
+            .message
+            .as_deref()
+            .is_some_and(|message| message.contains("too large")));
+        let small = diff
+            .files
+            .iter()
+            .find(|file| file.path == "small.txt")
+            .expect("small file should be listed");
+        assert_eq!(small.status, "untracked");
+        assert!(!small.truncated);
+        assert!(small.patch.contains("+small change"));
+        assert!(diff.diff.contains("+small change"));
 
         let _ = tokio::fs::remove_dir_all(workspace).await;
     }
@@ -976,6 +1104,22 @@ mod tests {
             args,
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    async fn git_stdout(path: &Path, args: &[&str]) -> String {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(path)
+            .output()
+            .await
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
     }
 
     async fn wait_for_path(path: &Path) {

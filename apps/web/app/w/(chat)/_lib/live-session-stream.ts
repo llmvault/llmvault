@@ -7,6 +7,8 @@ const displayableEvents = new Set([
   "tool_call",
   "tool_result",
   "plan_updated",
+  "model_request_started",
+  "model_request_completed",
   "final",
   "error",
 ])
@@ -15,21 +17,28 @@ export function appendLiveSessionStreamFrame(
   events: SessionEventResponse[],
   frame: GoSessionStreamFrame
 ): SessionEventResponse[] {
-  if (!displayableEvents.has(frame.event)) return events
+  const sourceEvents = clearModelRequestThinking(events)
+  if (!displayableEvents.has(frame.event)) return sourceEvents
+  if (frame.event === "model_request_completed") return sourceEvents
+
   const next = streamFrameToSessionEvent(frame)
-  if (!next) return events
+  if (!next) return sourceEvents
+
+  if (next.event_type === "model_request_started") {
+    return [...sourceEvents, modelRequestThinkingEvent(next)]
+  }
 
   if (next.event_type === "thinking" || next.event_type === "token") {
-    const last = events.at(-1)
+    const last = sourceEvents.at(-1)
     if (last?.event_type === next.event_type && sameTurn(last, next)) {
       if ((next.sequence_number ?? 0) <= (last.sequence_number ?? 0)) {
-        return events
+        return sourceEvents
       }
-      return [...events.slice(0, -1), mergeTextEvent(last, next)]
+      return [...sourceEvents.slice(0, -1), mergeTextEvent(last, next)]
     }
   }
 
-  return [...events, next]
+  return [...sourceEvents, next]
 }
 
 export function isTerminalStreamFrame(frame: GoSessionStreamFrame) {
@@ -87,6 +96,28 @@ function sameTurn(left: SessionEventResponse, right: SessionEventResponse) {
   const leftTurn = stringValue(payloadRecord(left), "turn_id")
   const rightTurn = stringValue(payloadRecord(right), "turn_id")
   return leftTurn === rightTurn
+}
+
+function modelRequestThinkingEvent(
+  event: SessionEventResponse
+): SessionEventResponse {
+  return {
+    ...event,
+    event_type: "thinking",
+    payload: {
+      ...payloadRecord(event),
+      text: "",
+      label: "Thinking...",
+      model_request_pending: true,
+    },
+  }
+}
+
+function clearModelRequestThinking(events: SessionEventResponse[]) {
+  const last = events.at(-1)
+  return last && payloadRecord(last).model_request_pending === true
+    ? events.slice(0, -1)
+    : events
 }
 
 function payloadRecord(event: SessionEventResponse): Record<string, unknown> {

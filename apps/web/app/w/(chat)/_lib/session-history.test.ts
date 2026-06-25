@@ -405,6 +405,31 @@ Primary category: Product UI
     ])
   })
 
+  it("uses custom labels for active thinking events", () => {
+    const thinking = event("thinking", {
+      label: "Thinking...",
+      turn_id: "turn-model",
+    })
+
+    const blocks = sessionEventsToConversationBlocks([thinking], {
+      activeTurnID: "turn-model",
+    })
+
+    expect(blocks).toMatchObject([
+      {
+        type: "agent_work",
+        active: true,
+        blocks: [
+          {
+            type: "thinking",
+            label: "Thinking...",
+            active: true,
+          },
+        ],
+      },
+    ])
+  })
+
   it("keeps active work after the user message that started it", () => {
     const blocks = sessionEventsToConversationBlocks(
       [
@@ -413,7 +438,6 @@ Primary category: Product UI
           {
             text: "",
             turn_id: "turn-live",
-            client_status: "pending",
           },
           "2026-06-15T12:00:00.000Z"
         ),

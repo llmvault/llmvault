@@ -1258,9 +1258,26 @@
         "type": "object",
         "required": [
           "path",
-          "status"
+          "status",
+          "patch",
+          "truncated",
+          "total_bytes",
+          "max_bytes"
         ],
         "properties": {
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patch": {
+            "type": "string"
+          },
           "path": {
             "type": "string"
           },
@@ -1272,6 +1289,13 @@
           },
           "status": {
             "type": "string"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },

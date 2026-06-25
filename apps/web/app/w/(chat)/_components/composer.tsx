@@ -10,8 +10,10 @@ import {
   type OrgDriveUploadItem,
 } from "@/hooks/use-org-drive-file-uploads"
 import {
+  deleteDraftAttachmentBlob,
   selectSessionWorkspace,
   useSessionWorkspaceStore,
+  type WorkspaceUploadItem,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
 import {
   attachmentMetadataFromDescription,
@@ -64,15 +66,24 @@ export function Composer({
   )
   const value = workspace.composer.text
   const setValue = useSessionWorkspaceStore((state) => state.setComposerText)
+  const clearComposerAfterSend = useSessionWorkspaceStore(
+    (state) => state.clearComposerAfterSend
+  )
+  const setComposerUploads = useSessionWorkspaceStore(
+    (state) => state.setComposerUploads
+  )
   const setAttachmentDescriptions = useSessionWorkspaceStore(
     (state) => state.setAttachmentDescriptions
+  )
+  const setLineComments = useSessionWorkspaceStore(
+    (state) => state.setLineComments
   )
   const lineComments = useCodeLineComments()
   const lineCommentActions = useCodeLineCommentActions()
   const attachmentDescriptions = workspace.composer.attachmentDescriptions
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const describedUploadsRef = useRef<Set<string>>(new Set())
-  const { uploads, addFiles, retryUpload, removeUpload, clearUploads } =
+  const { uploads, addFiles, retryUpload, removeUpload } =
     useOrgDriveFileUploads({ agentId, sessionId })
 
   const selectedModel = displayModel(modelId)
@@ -220,12 +231,6 @@ export function Composer({
     })
   }
 
-  const resetAttachments = useCallback(() => {
-    clearUploads()
-    describedUploadsRef.current.clear()
-    setAttachmentDescriptions(sessionId, () => ({}))
-  }, [clearUploads, sessionId, setAttachmentDescriptions])
-
   const resizeTextarea = useCallback(() => {
     window.requestAnimationFrame(() => {
       const node = textareaRef.current
@@ -255,6 +260,8 @@ export function Composer({
     async (text: string) => {
       const promptText = text.trim()
       const sendingAttachments = readyAttachments
+      const sendingUploads = workspace.composer.uploads
+      const sendingAttachmentDescriptions = attachmentDescriptions
       const sendingLineComments = lineComments
       if (
         !promptText &&
@@ -268,7 +275,32 @@ export function Composer({
       )
       const sendingCodeLineComments =
         codeLineCommentPayloads(sendingLineComments)
-      setValue(sessionId, "")
+      const restoreDraft = () => {
+        const current =
+          useSessionWorkspaceStore.getState().workspaces[sessionId]
+        const currentComposer = current?.composer
+        if (!currentComposer?.text) {
+          setValue(sessionId, promptText)
+        }
+        if (!currentComposer?.uploads.length) {
+          setComposerUploads(sessionId, () => sendingUploads)
+        }
+        if (
+          !Object.keys(currentComposer?.attachmentDescriptions ?? {}).length
+        ) {
+          setAttachmentDescriptions(
+            sessionId,
+            () => sendingAttachmentDescriptions
+          )
+        }
+        if (!current?.lineComments.length) {
+          setLineComments(sessionId, sendingLineComments)
+        }
+      }
+
+      clearComposerAfterSend(sessionId)
+      lineCommentActions.removeComments(sendingLineCommentIds)
+      describedUploadsRef.current.clear()
       try {
         const sent = await onSend(
           promptText,
@@ -276,39 +308,33 @@ export function Composer({
           sendingCodeLineComments
         )
         if (sent === false) {
-          if (
-            !useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
-              .text
-          ) {
-            setValue(sessionId, promptText)
-          }
+          restoreDraft()
           return false
         }
-        resetAttachments()
-        lineCommentActions.removeComments(sendingLineCommentIds)
+        discardDraftUploads(sendingUploads)
         const node = textareaRef.current
         if (node) {
           node.style.height = "auto"
         }
         return true
       } catch {
-        if (
-          !useSessionWorkspaceStore.getState().workspaces[sessionId]?.composer
-            .text
-        ) {
-          setValue(sessionId, promptText)
-        }
+        restoreDraft()
         return false
       }
     },
     [
+      attachmentDescriptions,
+      clearComposerAfterSend,
       lineCommentActions,
       lineComments,
       onSend,
       readyAttachments,
-      resetAttachments,
       sessionId,
+      setAttachmentDescriptions,
+      setComposerUploads,
+      setLineComments,
       setValue,
+      workspace.composer.uploads,
     ]
   )
 
@@ -375,7 +401,7 @@ export function Composer({
         <div
           {...getRootProps({
             className: cn(
-              "bg-surface flex flex-col gap-2 rounded-3xl border px-3 pt-3 pb-2 shadow-sm transition-colors",
+              "flex flex-col gap-2 rounded-3xl border bg-surface px-3 pt-3 pb-2 shadow-sm transition-colors",
               isDragActive && !isDragReject
                 ? "border-primary bg-primary/5"
                 : "border-border",
@@ -526,4 +552,13 @@ export function Composer({
       />
     </>
   )
+}
+
+function discardDraftUploads(uploads: WorkspaceUploadItem[]) {
+  for (const upload of uploads) {
+    if (upload.previewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(upload.previewUrl)
+    }
+    void deleteDraftAttachmentBlob(upload.blobKey)
+  }
 }

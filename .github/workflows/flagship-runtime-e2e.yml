@@ -72,7 +72,7 @@ jobs:
             export HIVY_AGENT_RUNTIME_E2E_TRACE_COMPACT=1
           fi
 
-          go test -count=1 -v ./e2e -run '^TestAgentRuntimeCodingTaskE2E$' -timeout 45m
+          go test -count=1 -v ./e2e -run '^TestAgentRuntime(CodingTask|RepositoryStreaming)E2E$' -timeout 45m
 
       - name: cleanup docker
         if: always()

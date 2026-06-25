@@ -65,6 +65,39 @@ describe("session runtime store", () => {
     ).toHaveLength(1)
   })
 
+  it("marks model request starts as temporary streaming thinking", () => {
+    useSessionRuntimeStore.getState().applyStreamFrame(
+      "session-1",
+      frame("model_request_started", {
+        event_id: "model-start-1",
+        sequence: 1,
+        stream_id: "stream-1",
+        turn_id: "turn-1",
+      })
+    )
+
+    expect(sessionRuntimeSummary("session-1").status).toBe("streaming")
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toMatchObject([
+      {
+        event_type: "thinking",
+        payload: {
+          label: "Thinking...",
+          model_request_pending: true,
+        },
+      },
+    ])
+
+    useSessionRuntimeStore
+      .getState()
+      .finishStream("session-1", { outcome: "completed" })
+
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toEqual([])
+  })
+
   it("preserves live final and tool events when the stream finishes before history catches up", () => {
     const liveEvents = [
       sessionEvent("tool-call-1", "tool_call", 4, {
@@ -98,6 +131,30 @@ describe("session runtime store", () => {
     useSessionRuntimeStore.getState().setLiveEvents("session-1", [final])
 
     useSessionRuntimeStore.getState().reconcileLiveEvents("session-1", [final])
+
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toEqual([])
+  })
+
+  it("reconciles optimistic live user messages after durable history arrives", () => {
+    const optimistic = {
+      ...sessionEvent("client:message-1", "user.message.received", 0, {
+        text: "Ship it",
+      }),
+      session_id: "session-1",
+    }
+    const durable = {
+      ...sessionEvent("backend:message-1", "user.message.received", 1, {
+        text: "Ship it",
+      }),
+      session_id: "session-1",
+    }
+    useSessionRuntimeStore.getState().setLiveEvents("session-1", [optimistic])
+
+    useSessionRuntimeStore
+      .getState()
+      .reconcileLiveEvents("session-1", [durable])
 
     expect(
       useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]

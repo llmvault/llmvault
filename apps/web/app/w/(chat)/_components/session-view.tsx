@@ -16,13 +16,7 @@ import {
   CHAT_QUERY_STALE_TIME_MS,
   SESSION_EVENTS_INFINITE_KEY,
   SESSION_HISTORY_PAGE_LIMIT,
-  appendSessionEvents,
-  markOptimisticEventFailed,
-  markOptimisticEventPending,
-  optimisticThinkingEvent,
-  optimisticUserEvent,
   patchSessionInChatCaches,
-  replaceOptimisticEvent,
 } from "@/app/w/(chat)/_lib/chat-cache"
 import {
   sessionHistoryPagesToEvents,
@@ -40,14 +34,9 @@ import {
   type ImageAttachmentMetadata,
 } from "@/app/w/(chat)/_lib/image-attachments"
 import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
-import {
-  codeLineCommentReferenceToPayload,
-  type CodeLineCommentPayload,
-  type CodeLineCommentReference,
-} from "@/app/w/(chat)/_lib/code-line-comments"
+import { type CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
 import {
-  beginOptimisticSessionTurn,
   ensureSessionStream,
   hydrateSessionRuntimeFromResponse,
   interruptSessionTurn,
@@ -80,7 +69,7 @@ export function SessionThreadView({
   )
   const runtimeStatus = useSessionRuntimeStatus(sessionId)
   const turnActive = isTurnActive(runtimeStatus)
-  const optimisticSession = sessionId?.startsWith("tmp_") ?? false
+  const temporarySession = sessionId?.startsWith("tmp_") ?? false
   const sendSessionMessage = $api.useMutation(
     "post",
     "/v1/sessions/{id}/messages"
@@ -96,7 +85,7 @@ export function SessionThreadView({
       },
     },
     {
-      enabled: Boolean(sessionId) && !optimisticSession,
+      enabled: Boolean(sessionId) && !temporarySession,
       initialPageParam: "0",
       pageParamName: "cursor",
       getNextPageParam: (lastPage) =>
@@ -130,10 +119,6 @@ export function SessionThreadView({
     () => suppressBackendEventsForLiveTurn(historyEvents, activeBackendTurnID),
     [activeBackendTurnID, historyEvents]
   )
-  const hasPendingClientEvent = useMemo(
-    () => historyEvents.some(isPendingClientEvent),
-    [historyEvents]
-  )
   const combinedEvents = useMemo(
     () =>
       sessionHistoryPagesToEvents([
@@ -166,13 +151,13 @@ export function SessionThreadView({
   const sessionReadyForStream = session.loaded !== false
 
   useEffect(() => {
-    if (!sessionId || optimisticSession || historyEvents.length === 0) return
+    if (!sessionId || temporarySession || historyEvents.length === 0) return
     useSessionRuntimeStore
       .getState()
       .reconcileLiveEvents(sessionId, reconcileHistoryEvents)
   }, [
     historyEvents.length,
-    optimisticSession,
+    temporarySession,
     reconcileHistoryEvents,
     sessionId,
   ])
@@ -181,7 +166,7 @@ export function SessionThreadView({
     if (!ENABLE_DIRECT_SESSION_STREAM) return
     if (
       !sessionId ||
-      optimisticSession ||
+      temporarySession ||
       !historyLoadedForStream ||
       !sessionReadyForStream
     ) {
@@ -195,7 +180,7 @@ export function SessionThreadView({
   }, [
     activeBackendTurnID,
     historyLoadedForStream,
-    optimisticSession,
+    temporarySession,
     queryClient,
     sessionReadyForStream,
     sessionId,
@@ -205,16 +190,14 @@ export function SessionThreadView({
   const send = async (
     text: string,
     options: {
-      retryEventID?: string
       attachments?: ImageAttachmentMetadata[]
       codeLineComments?: CodeLineCommentPayload[]
     } = {}
   ) => {
-    const retryEventID = options.retryEventID
     const attachments = options.attachments ?? []
     const codeLineComments = options.codeLineComments ?? []
     if (turnActive) return false
-    if (optimisticSession) {
+    if (temporarySession) {
       toast.danger("This chat was not created. Start a new chat to try again.")
       return false
     }
@@ -235,24 +218,15 @@ export function SessionThreadView({
           }
         : {}),
     }
-    const optimisticMessage = retryEventID
-      ? null
-      : optimisticUserEvent(
-          sessionId,
-          text,
-          undefined,
-          attachments,
-          codeLineComments
-        )
+    const optimisticEvent = optimisticUserMessageEvent(
+      sessionId,
+      text,
+      attachments,
+      codeLineComments
+    )
     const optimisticEventID =
-      retryEventID ?? optimisticMessage?.event_id ?? optimisticMessage?.id ?? ""
-    const optimisticThinking = optimisticThinkingEvent(sessionId)
-    if (retryEventID) {
-      markOptimisticEventPending(queryClient, sessionId, retryEventID)
-    } else if (optimisticMessage) {
-      appendSessionEvents(queryClient, sessionId, [optimisticMessage])
-    }
-    beginOptimisticSessionTurn(sessionId, [optimisticThinking])
+      optimisticEvent.event_id ?? optimisticEvent.id ?? ""
+    appendLiveSessionEvent(sessionId, optimisticEvent)
     try {
       const response = await sendSessionMessage.mutateAsync({
         params: { path: { id: sessionId } },
@@ -272,49 +246,19 @@ export function SessionThreadView({
           ),
         })
       }
-      if (response.event) {
-        replaceOptimisticEvent(
-          queryClient,
-          sessionId,
-          optimisticEventID,
-          response.event
-        )
-      }
       return true
     } catch (error) {
+      removeLiveSessionEvent(sessionId, optimisticEventID)
       const message = extractErrorMessage(error, "Could not send message")
-      markOptimisticEventFailed(
-        queryClient,
-        sessionId,
-        optimisticEventID,
-        message
-      )
-      useSessionRuntimeStore.getState().finishStream(sessionId, {
-        outcome: "failed",
-        clearLiveEvents: true,
-      })
       toast.danger(message)
       return false
     }
   }
 
   const stop = () => {
-    if (!sessionId || optimisticSession) return
+    if (!sessionId || temporarySession) return
     void interruptSessionTurn(sessionId, queryClient).catch((error) => {
       toast.danger(extractErrorMessage(error, "Could not stop session"))
-    })
-  }
-
-  const retryMessage = (
-    eventID: string,
-    text: string,
-    codeLineComments?: CodeLineCommentReference[]
-  ) => {
-    void send(text, {
-      retryEventID: eventID,
-      codeLineComments: codeLineComments?.map(
-        codeLineCommentReferenceToPayload
-      ),
     })
   }
 
@@ -325,10 +269,9 @@ export function SessionThreadView({
     [openCanvasTarget, sessionId]
   )
 
-  const isBusy =
-    turnActive || hasPendingClientEvent || sendSessionMessage.isPending
+  const isBusy = turnActive || sendSessionMessage.isPending
   const showHistorySkeleton =
-    !optimisticSession && sessionHistoryQuery.isPending && !historyPages?.length
+    !temporarySession && sessionHistoryQuery.isPending && !historyPages?.length
   const followButtonClassName = `!absolute ${
     latestPlan ? "!bottom-20" : "!bottom-6"
   } !left-1/2 !right-auto !flex !h-9 !w-9 !-translate-x-1/2 !items-center !justify-center !rounded-full !border !border-border !bg-surface !p-0 !text-muted !shadow-sm !transition-colors after:content-['↓'] hover:!bg-default hover:!text-foreground`
@@ -354,7 +297,6 @@ export function SessionThreadView({
             />
             <Conversation
               blocks={visibleBlocks}
-              onRetryMessage={optimisticSession ? undefined : retryMessage}
               onOpenCanvasTarget={handleOpenCanvasTarget}
             />
           </>
@@ -384,12 +326,58 @@ function normalizedTurnID(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined
 }
 
-function isPendingClientEvent(event: SessionEventResponse) {
-  const payload = event.payload
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return false
+function appendLiveSessionEvent(
+  sessionId: string,
+  event: SessionEventResponse
+) {
+  const store = useSessionRuntimeStore.getState()
+  store.setLiveEvents(sessionId, [
+    ...(store.liveEventsBySessionId[sessionId] ?? []),
+    event,
+  ])
+}
+
+function removeLiveSessionEvent(sessionId: string, eventID: string) {
+  const store = useSessionRuntimeStore.getState()
+  store.setLiveEvents(
+    sessionId,
+    (store.liveEventsBySessionId[sessionId] ?? []).filter(
+      (event) => event.id !== eventID && event.event_id !== eventID
+    )
+  )
+}
+
+function optimisticUserMessageEvent(
+  sessionId: string,
+  text: string,
+  attachments: ImageAttachmentMetadata[],
+  codeLineComments: CodeLineCommentPayload[]
+): SessionEventResponse {
+  const eventID = `client:${clientID()}`
+  return {
+    id: eventID,
+    event_id: eventID,
+    event_type: "user.message.received",
+    event_at: new Date().toISOString(),
+    session_id: sessionId,
+    source: "web",
+    durability: "durable",
+    sequence_number: 0,
+    payload: {
+      text,
+      ...(attachments.length ? { attachments } : {}),
+      ...(codeLineComments.length
+        ? { code_line_comments: codeLineComments }
+        : {}),
+    },
   }
-  return (payload as Record<string, unknown>).client_status === "pending"
+}
+
+function clientID() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function isTurnActive(status: SessionRuntimeStatus) {

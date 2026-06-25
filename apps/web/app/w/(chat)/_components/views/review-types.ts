@@ -11,7 +11,6 @@ export type ReviewDiffOptions = NonNullable<
 
 export interface ReviewRepoDiff {
   repo: RuntimeRepoInfo
-  patches: string[]
   truncated: boolean
   files: RuntimeRepoDiffFile[]
   message?: string | null
