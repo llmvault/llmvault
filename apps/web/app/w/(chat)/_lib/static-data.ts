@@ -31,6 +31,7 @@ export type ConversationBlock =
   | ErrorConversationBlock
   | AgentWorkConversationBlock
   | ThinkingConversationBlock
+  | SubagentConversationBlock
   | ToolConversationBlock
   | ToolChainConversationBlock
 
@@ -103,6 +104,19 @@ export interface ThinkingConversationBlock {
   active?: boolean
 }
 
+export interface SubagentConversationBlock {
+  type: "subagent"
+  key?: string
+  jobId?: string
+  agentName: string
+  goal?: string
+  childSessionId?: string
+  status: "running" | "completed" | "failed"
+  preview?: string
+  error?: string
+  selected?: boolean
+}
+
 export interface ToolConversationBlock {
   type: "tool"
   key?: string
@@ -141,6 +155,10 @@ export interface ToolCallDetail {
   command?: string
   input?: string
   query?: string
+  jobId?: string
+  agentName?: string
+  goal?: string
+  childSessionId?: string
   url?: string
   path?: string
   paths?: string[]

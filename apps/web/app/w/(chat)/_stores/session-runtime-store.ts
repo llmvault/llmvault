@@ -36,6 +36,7 @@ import {
   appendSubagentRunFrame,
   dispatchSubagentFrameDebugEvent,
   EMPTY_SUBAGENT_RUNS,
+  mergeSubagentRuns as mergeSubagentRunLists,
   type SessionSubagentRun,
 } from "@/app/w/(chat)/_lib/session-subagent-runs"
 import { subagentFrameMetadata } from "@/app/w/(chat)/_lib/session-subagents"
@@ -74,6 +75,7 @@ interface SessionRuntimeStoreState {
     snapshot: SessionUsageSnapshot
   ) => void
   applyStreamFrame: (sessionId: string, frame: GoSessionStreamFrame) => void
+  mergeSubagentRuns: (sessionId: string, runs: SessionSubagentRun[]) => void
   finishStream: (
     sessionId: string,
     options?: {
@@ -249,6 +251,18 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
       if (subagentMetadata) {
         dispatchSubagentFrameDebugEvent(sessionId, subagentMetadata, frame)
       }
+    },
+    mergeSubagentRuns(sessionId, runs) {
+      if (runs.length === 0) return
+      setState((state) => ({
+        subagentRunsBySessionId: {
+          ...state.subagentRunsBySessionId,
+          [sessionId]: mergeSubagentRunLists(
+            state.subagentRunsBySessionId[sessionId] ?? EMPTY_SUBAGENT_RUNS,
+            runs
+          ),
+        },
+      }))
     },
     finishStream(sessionId, options = {}) {
       setState((state) => {

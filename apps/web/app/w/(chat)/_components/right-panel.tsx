@@ -37,8 +37,8 @@ const PANEL_VIEWS: {
   { id: "design", label: "Design", icon: "lucide:pen-tool", shortcut: "⌘D" },
   {
     id: "side-chat",
-    label: "Side chat",
-    icon: "lucide:message-square-plus",
+    label: "Subagents",
+    icon: "lucide:bot",
     shortcut: "⌥⌘S",
   },
 ]
@@ -82,7 +82,7 @@ export const RightPanel = memo(function RightPanel({
   )
 
   return (
-    <div className="bg-surface flex h-full min-w-0 flex-col">
+    <div className="flex h-full min-w-0 flex-col bg-surface">
       <div className="flex h-12 shrink-0 items-center gap-1 px-2">
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {openViews.map((id) => {
@@ -94,8 +94,8 @@ export const RightPanel = memo(function RightPanel({
                 key={id}
                 className={`group flex min-w-0 items-center gap-1.5 rounded-lg border py-1 pr-1.5 pl-2.5 text-sm transition-colors ${
                   isActive
-                    ? "bg-surface border-border"
-                    : "hover:bg-default border-transparent text-muted"
+                    ? "border-border bg-surface"
+                    : "border-transparent text-muted hover:bg-default"
                 }`}
               >
                 <button
@@ -112,7 +112,7 @@ export const RightPanel = memo(function RightPanel({
                 <button
                   type="button"
                   aria-label={`Close ${view.label}`}
-                  className="hover:bg-default rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-default"
                   onClick={() => onCloseView(id)}
                 >
                   <Icon icon="lucide:x" className="h-3 w-3" />
@@ -125,7 +125,7 @@ export const RightPanel = memo(function RightPanel({
             <Popover isOpen={addMenuOpen} onOpenChange={setAddMenuOpen}>
               <Popover.Trigger
                 aria-label="Open view"
-                className="hover:bg-default flex items-center rounded-lg p-1.5 text-muted transition-colors"
+                className="flex items-center rounded-lg p-1.5 text-muted transition-colors hover:bg-default"
               >
                 <Icon icon="lucide:plus" className="h-4 w-4" />
               </Popover.Trigger>

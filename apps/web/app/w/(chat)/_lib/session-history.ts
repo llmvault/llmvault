@@ -5,6 +5,12 @@ import {
   type ToolConversationBlock,
 } from "@/app/w/(chat)/_lib/static-data"
 import {
+  isSubagentToolBlock,
+  mergeSubagentBlocks,
+  subagentBlockFromTool,
+  type SessionSubagentBlockOptions,
+} from "@/app/w/(chat)/_lib/session-subagent-blocks"
+import {
   mergeToolBlocks,
   shouldRenderToolBlock,
   toolBlock,
@@ -27,10 +33,7 @@ import {
 } from "@/app/w/(chat)/_lib/session-history-event-utils"
 
 export type { SessionEventResponse } from "@/app/w/(chat)/_lib/session-history-event-utils"
-
-type SessionHistoryPage = {
-  data?: SessionEventResponse[]
-}
+export { sessionHistoryPagesToEvents } from "@/app/w/(chat)/_lib/session-history-pages"
 
 type SessionBlocksMode = "history" | "live"
 
@@ -38,7 +41,7 @@ type SessionBlocksOptions = {
   mode?: SessionBlocksMode
   activeTurnID?: string
   activeTurnStartedAt?: string
-}
+} & SessionSubagentBlockOptions
 
 type TimelineItem = {
   block: ConversationBlock
@@ -58,26 +61,6 @@ const hiddenEventTypes = new Set(
     " "
   )
 )
-
-export function sessionHistoryPagesToEvents(
-  pages: SessionHistoryPage[]
-): SessionEventResponse[] {
-  const seen = new Set<string>()
-  const events: SessionEventResponse[] = []
-
-  for (const page of pages) {
-    for (const event of page.data ?? []) {
-      const keys = [event.id, event.event_id].filter((key): key is string =>
-        Boolean(key)
-      )
-      if (keys.some((key) => seen.has(key))) continue
-      for (const key of keys) seen.add(key)
-      events.push(event)
-    }
-  }
-
-  return events
-}
 
 export function sessionEventsToConversationBlocks(
   events: SessionEventResponse[],
@@ -139,7 +122,7 @@ export function sessionEventsToConversationBlocks(
     }
 
     if (type === "tool_call" || type === "tool_result") {
-      appendToolItem(items, toolItemIndexByID, event)
+      appendToolItem(items, toolItemIndexByID, event, options)
       continue
     }
 
@@ -194,35 +177,47 @@ function appendAssistantItem(
 function appendToolItem(
   items: TimelineItem[],
   toolItemIndexByID: Map<string, number>,
-  event: SessionEventResponse
+  event: SessionEventResponse,
+  options: SessionBlocksOptions
 ) {
   const toolID = toolEventID(event)
-  const next: ToolConversationBlock = {
+  const nextTool: ToolConversationBlock = {
     ...toolBlock(event),
     key: toolID ? `tool:${toolID}` : eventBlockKey(event, "tool"),
   }
+  const next = isSubagentToolBlock(nextTool)
+    ? subagentBlockFromTool(nextTool, options)
+    : nextTool
 
   if (toolID && toolItemIndexByID.has(toolID)) {
     const index = toolItemIndexByID.get(toolID)
     if (index === undefined) return
     const current = items[index]
     if (!current) return
-    current.block = mergeToolBlocks(
-      current.block,
-      next
-    ) as ToolConversationBlock
+    current.block = mergeToolTimelineBlocks(current.block, next, options)
     current.turnID ||= eventTurnID(event)
     current.at = eventTime(event)
     return
   }
 
-  if (!shouldRenderToolBlock(next)) return
+  if (next.type === "tool" && !shouldRenderToolBlock(next)) return
   appendItem(items, {
     block: next,
     turnID: eventTurnID(event),
     at: eventTime(event),
   })
   if (toolID) toolItemIndexByID.set(toolID, items.length - 1)
+}
+
+function mergeToolTimelineBlocks(
+  current: ConversationBlock,
+  next: ConversationBlock,
+  options: SessionBlocksOptions
+): ConversationBlock {
+  if (next.type === "subagent") {
+    return mergeSubagentBlocks(current, next, options)
+  }
+  return next.type === "tool" ? mergeToolBlocks(current, next) : next
 }
 
 function appendItem(items: TimelineItem[], item: TimelineItem) {
@@ -358,6 +353,7 @@ function isAgentWorkBlock(block: ConversationBlock) {
   return (
     block.type === "assistant" ||
     block.type === "thinking" ||
+    block.type === "subagent" ||
     block.type === "tool"
   )
 }
@@ -373,6 +369,7 @@ function isActiveWork(
     blocks.some((block) => {
       if (block.type === "assistant") return Boolean(block.streaming)
       if (block.type === "thinking") return Boolean(block.active)
+      if (block.type === "subagent") return block.status === "running"
       if (block.type === "tool") return Boolean(block.running)
       if (block.type === "tool_chain") return Boolean(block.running)
       return false

@@ -3,14 +3,16 @@
 import { useEffect } from "react"
 import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
-import type { GitStatusEntry } from "@pierre/trees"
-import type { UploadedDriveAsset } from "@/app/w/(chat)/_lib/image-attachments"
 import type {
   CanvasDesignTarget,
   CanvasSessionURLEntry,
 } from "@/app/w/(chat)/_lib/canvas-design-links"
 import type { AttachmentDescriptionState } from "@/app/w/(chat)/_components/composer-attachments"
 import type { CodeLineComment } from "@/app/w/(chat)/_components/line-comments"
+import type {
+  WorkspaceRepoTreeCache,
+  WorkspaceUploadItem,
+} from "./session-workspace-types"
 import {
   DEFAULT_SESSION_WORKSPACE,
   EMPTY_WORKSPACES,
@@ -29,6 +31,12 @@ export {
   storeDraftAttachmentBlob,
 } from "./session-workspace-persistence"
 
+export type {
+  WorkspaceRepoTreeCache,
+  WorkspaceUploadItem,
+  WorkspaceUploadStatus,
+} from "./session-workspace-types"
+
 export type SessionWorkspaceStatus = "idle" | "hydrating" | "ready"
 
 export type WorkspacePanelViewID =
@@ -38,31 +46,6 @@ export type WorkspacePanelViewID =
   | "files"
   | "design"
   | "side-chat"
-
-export type WorkspaceUploadStatus = "uploading" | "uploaded" | "error"
-
-export interface WorkspaceUploadItem {
-  id: string
-  fileName: string
-  contentType: string
-  bytes: number
-  lastModified: number
-  blobKey?: string
-  file?: File
-  previewUrl?: string
-  status: WorkspaceUploadStatus
-  asset?: UploadedDriveAsset
-  error?: string
-}
-
-export interface WorkspaceRepoTreeCache {
-  directoryPaths: string[]
-  failedDirectories: Record<string, string>
-  gitStatus: GitStatusEntry[]
-  loadedDirectories: string[]
-  loadingDirectories: string[]
-  paths: string[]
-}
 
 export interface SessionWorkspace {
   lastTouchedAt: number
@@ -100,6 +83,9 @@ export interface SessionWorkspace {
   }
   terminal: {
     cwd?: string
+  }
+  subagents: {
+    activeJobId: string | null
   }
   scroll: {
     anchor?: string
@@ -166,6 +152,7 @@ interface SessionWorkspaceStoreState {
     targetKey: string,
     entry: CanvasSessionURLEntry
   ) => void
+  openSubagentRun: (sessionId: string, jobId: string) => void
   setReviewDiffStyle: (
     sessionId: string,
     diffStyle: SessionWorkspace["review"]["diffStyle"]
@@ -490,6 +477,25 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
               ...workspace.canvas.sessionURLs,
               [targetKey]: entry,
             },
+          },
+        }))
+      )
+    },
+    openSubagentRun(sessionId, jobId) {
+      setState((state) =>
+        updateWorkspaceState(state, sessionId, (workspace) => ({
+          ...workspace,
+          rightPanel: {
+            ...workspace.rightPanel,
+            open: true,
+            openViews: workspace.rightPanel.openViews.includes("side-chat")
+              ? workspace.rightPanel.openViews
+              : [...workspace.rightPanel.openViews, "side-chat"],
+            activeView: "side-chat",
+          },
+          subagents: {
+            ...workspace.subagents,
+            activeJobId: jobId,
           },
         }))
       )

@@ -137,6 +137,24 @@ describe("session workspace store", () => {
     })
   })
 
+  it("opens selected subagent runs in the subagents panel", () => {
+    const store = useSessionWorkspaceStore.getState()
+
+    store.openPanelView("session-a", "terminal")
+    store.openSubagentRun("session-a", "job-1")
+
+    const workspace = selectSessionWorkspace(
+      useSessionWorkspaceStore.getState(),
+      "session-a"
+    )
+    expect(workspace.rightPanel).toMatchObject({
+      open: true,
+      openViews: ["terminal", "side-chat"],
+      activeView: "side-chat",
+    })
+    expect(workspace.subagents.activeJobId).toBe("job-1")
+  })
+
   it("persists pending line comments in the session workspace", () => {
     useSessionWorkspaceStore.getState().addLineComment("session-a", {
       id: "comment-1",
