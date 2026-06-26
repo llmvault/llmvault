@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -39,6 +40,9 @@ func SyncLocal(ctx context.Context, db *gorm.DB, dir string) (*SyncResult, error
 	if err := validateManifests(manifests); err != nil {
 		return nil, err
 	}
+	if err := validatePluginReferences(ctx, db, manifests); err != nil {
+		return nil, err
+	}
 
 	result := &SyncResult{}
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -58,6 +62,42 @@ func SyncLocal(ctx context.Context, db *gorm.DB, dir string) (*SyncResult, error
 		return nil, err
 	}
 	return result, nil
+}
+
+func validatePluginReferences(ctx context.Context, db *gorm.DB, manifests []Manifest) error {
+	referenced := map[string]string{}
+	for _, manifest := range manifests {
+		for _, slug := range normalizeStrings(manifest.Plugins.Required) {
+			referenced[slug] = manifest.Slug
+		}
+		for _, slug := range normalizeStrings(manifest.Plugins.Recommended) {
+			referenced[slug] = manifest.Slug
+		}
+	}
+	if len(referenced) == 0 {
+		return nil
+	}
+	slugs := make([]string, 0, len(referenced))
+	for slug := range referenced {
+		slugs = append(slugs, slug)
+	}
+	sort.Strings(slugs)
+	var active []string
+	if err := db.WithContext(ctx).Model(&model.Plugin{}).
+		Where("slug IN ? AND status = ?", slugs, model.PluginStatusActive).
+		Pluck("slug", &active).Error; err != nil {
+		return fmt.Errorf("validate agent catalog plugin references: %w", err)
+	}
+	found := map[string]bool{}
+	for _, slug := range active {
+		found[slug] = true
+	}
+	for _, slug := range slugs {
+		if !found[slug] {
+			return fmt.Errorf("agent %q references unknown or inactive plugin %q", referenced[slug], slug)
+		}
+	}
+	return nil
 }
 
 func syncOne(ctx context.Context, tx *gorm.DB, manifest Manifest, result *SyncResult) error {

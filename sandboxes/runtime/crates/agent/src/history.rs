@@ -6,8 +6,10 @@ use crate::primitives::{AgentMessage, AgentMessageRole};
 use crate::{HistoryEntry, HistoryRole, Result};
 
 const HISTORY_PAYLOAD_VERSION: u32 = 1;
+const MODEL_HISTORY_REDACTION_VERSION: u32 = 1;
 const SESSION_CONTEXT_PAYLOAD_VERSION: u32 = 1;
 const SESSION_CONTEXT_IDEMPOTENCY_KEY_PREFIX: &str = "session-context";
+const MODEL_HISTORY_CONTROL_REDACTION: &str = "redaction";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelHistoryPayload {
@@ -19,6 +21,14 @@ pub struct ModelHistoryPayload {
 struct SessionContextPayload {
     version: u32,
     session_context: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ModelHistoryRedactionPayload {
+    model_history_control: String,
+    version: u32,
+    start_tool_call_id: String,
+    reason: String,
 }
 
 pub async fn load_model_history(
@@ -33,7 +43,17 @@ pub async fn load_model_history(
         .list_chronological(session_id, limit)
         .await
         .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
-    Ok(events.into_iter().filter_map(message_from_event).collect())
+    let mut messages = Vec::new();
+    for event in events {
+        if let Some(redaction) = redaction_from_event(&event) {
+            apply_redaction(&mut messages, &redaction.start_tool_call_id);
+            continue;
+        }
+        if let Some(message) = message_from_event(&event) {
+            messages.push(message);
+        }
+    }
+    Ok(messages)
 }
 
 pub async fn append_model_message(
@@ -50,6 +70,28 @@ pub async fn append_model_message(
     })
     .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     repo.append(session_id, event_kind_for_message(message), payload)
+        .await
+        .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    Ok(())
+}
+
+pub async fn append_model_history_redaction(
+    repo: Option<&dyn EventRepo>,
+    session_id: &SessionId,
+    start_tool_call_id: &str,
+    reason: &str,
+) -> Result<()> {
+    let Some(repo) = repo else {
+        return Ok(());
+    };
+    let payload = serde_json::to_value(ModelHistoryRedactionPayload {
+        model_history_control: MODEL_HISTORY_CONTROL_REDACTION.to_string(),
+        version: MODEL_HISTORY_REDACTION_VERSION,
+        start_tool_call_id: start_tool_call_id.to_string(),
+        reason: reason.to_string(),
+    })
+    .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    repo.append(session_id, EventKind::RunEvent, payload)
         .await
         .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     Ok(())
@@ -148,12 +190,40 @@ pub fn visible_messages_from_session_history(history: Vec<HistoryEntry>) -> Vec<
         .collect()
 }
 
-fn message_from_event(event: SessionEvent) -> Option<AgentMessage> {
-    let payload: ModelHistoryPayload = serde_json::from_value(event.payload).ok()?;
+fn message_from_event(event: &SessionEvent) -> Option<AgentMessage> {
+    let payload: ModelHistoryPayload = serde_json::from_value(event.payload.clone()).ok()?;
     if payload.version != HISTORY_PAYLOAD_VERSION {
         return None;
     }
     Some(payload.message)
+}
+
+fn redaction_from_event(event: &SessionEvent) -> Option<ModelHistoryRedactionPayload> {
+    if event.kind != EventKind::RunEvent {
+        return None;
+    }
+    let payload: ModelHistoryRedactionPayload =
+        serde_json::from_value(event.payload.clone()).ok()?;
+    if payload.version != MODEL_HISTORY_REDACTION_VERSION
+        || payload.model_history_control != MODEL_HISTORY_CONTROL_REDACTION
+        || payload.start_tool_call_id.trim().is_empty()
+    {
+        return None;
+    }
+    Some(payload)
+}
+
+fn apply_redaction(messages: &mut Vec<AgentMessage>, start_tool_call_id: &str) {
+    let Some(index) = messages.iter().position(|message| {
+        message.role == AgentMessageRole::Assistant
+            && message
+                .tool_calls
+                .iter()
+                .any(|call| call.id == start_tool_call_id)
+    }) else {
+        return;
+    };
+    messages.truncate(index);
 }
 
 fn session_context_from_event(event: SessionEvent) -> Option<Vec<String>> {
@@ -359,6 +429,55 @@ mod tests {
             .await
             .unwrap()
             .is_empty());
+    }
+
+    #[tokio::test]
+    async fn model_history_redaction_removes_loop_segment_from_projection() {
+        let repo = Arc::new(MemoryEventRepo::default());
+        let session_id = SessionId::from("s-redaction");
+        let user = AgentMessage::user("check the repo");
+        let first_call = AgentMessage::assistant_tool_calls(vec![ToolCall {
+            id: "call_1".into(),
+            name: "bash".into(),
+            arguments: serde_json::json!({"command":"pwd"}),
+        }]);
+        let first_result = AgentMessage::tool_result("call_1", "{\"ok\":true}");
+        let second_call = AgentMessage::assistant_tool_calls(vec![ToolCall {
+            id: "call_2".into(),
+            name: "bash".into(),
+            arguments: serde_json::json!({"command":"pwd"}),
+        }]);
+        let second_result = AgentMessage::tool_result("call_2", "{\"ok\":true}");
+        let instruction = AgentMessage::user(
+            "[system instruction] I removed a repeated tool-call loop from the context.",
+        );
+
+        for message in [
+            &user,
+            &first_call,
+            &first_result,
+            &second_call,
+            &second_result,
+        ] {
+            append_model_message(Some(repo.as_ref()), &session_id, message)
+                .await
+                .unwrap();
+        }
+        append_model_history_redaction(Some(repo.as_ref()), &session_id, "call_1", "repeat")
+            .await
+            .unwrap();
+        append_model_message(Some(repo.as_ref()), &session_id, &instruction)
+            .await
+            .unwrap();
+
+        let loaded = load_model_history(Some(repo.as_ref()), &session_id, 100)
+            .await
+            .unwrap();
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].role, AgentMessageRole::User);
+        assert!(loaded[1].tool_calls.is_empty());
+        let crate::primitives::MessagePart::Text { text } = &loaded[1].parts[0];
+        assert!(text.contains("repeated tool-call loop"));
     }
 
     #[tokio::test]
