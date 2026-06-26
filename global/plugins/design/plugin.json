@@ -2,7 +2,7 @@
   "version": 1,
   "slug": "design",
   "name": "Design",
-  "description": "Create, edit, inspect, and export Canvas design files, including tasteful web app, website, logo, visual identity, landing page copy, and business slide deck explorations, from Hivy sandboxes.",
+  "description": "Canvas design workflows for brands, logos, sites, decks.",
   "category": "Design",
   "icon": "lucide:palette",
   "icon_color": "#14B8A6",

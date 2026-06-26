@@ -36,6 +36,7 @@ import {
   ResourceSelectionModal,
   type ResourceModalState,
 } from "@/app/w/(chat)/plugins/[slug]/resource-requirements-section"
+import { PluginInstallAction } from "@/app/w/(chat)/plugins/[slug]/plugin-install-action"
 import {
   type ApiPlugin,
   PLUGINS_QUERY_KEY,
@@ -117,7 +118,8 @@ export default function PluginDetailPage({
   }
 
   function handleUninstall() {
-    if (!plugin) return
+    if (!plugin || plugin.auto_install === true || plugin.locked === true)
+      return
     uninstallPlugin.mutate(
       { params: { path: { slug } } },
       {
@@ -268,16 +270,13 @@ export default function PluginDetailPage({
                   </p>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="primary"
-                className="shrink-0"
-                isDisabled={busy || (!plugin.installed && !canInstall)}
-                onPress={plugin.installed ? handleUninstall : handleInstall}
-              >
-                {busy ? <Spinner color="current" size="sm" /> : null}
-                {plugin.installed ? "Remove" : "Add"}
-              </Button>
+              <PluginInstallAction
+                plugin={plugin}
+                busy={busy}
+                canInstall={canInstall}
+                onInstall={handleInstall}
+                onUninstall={handleUninstall}
+              />
             </header>
 
             {shownRequiredConnections.length > 0 ? (

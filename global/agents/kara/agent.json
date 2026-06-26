@@ -42,6 +42,27 @@
     "request_user_input": true
   },
   "sub_agents": {
+    "codebase-brand-extractor": {
+      "name": "Codebase Brand Extractor",
+      "description": "Read-only codebase brand extraction specialist for Kara. Use when Kara needs to derive a full brand system from an existing repository, app, website, design system, marketing copy, stylesheets, assets, or docs and return it in the Hivy brand database structure before creating or updating a Canvas brand.",
+      "model": "kimi-k2.7-code",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "search_sessions": true,
+        "update_plan": true,
+        "skills_list": true,
+        "skill_view": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/codebase-brand-extractor/instructions.md"
+      }
+    },
     "design-worker": {
       "name": "Design Worker",
       "description": "Canvas implementation specialist for Kara. Use when a design task has clear enough direction and needs concrete Canvas file creation, editing, board construction, visual verification, or export work while Kara keeps the parent conversation and final user-facing judgment.",

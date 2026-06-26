@@ -107,11 +107,11 @@ func TestAgentCatalogInstallAutoInstallsRuntimePlugin(t *testing.T) {
 	assertOrgPluginInstalled(t, db, org.ID, plugin.ID)
 }
 
-func TestPluginHandlerRejectsRemovingLockedRuntimePlugin(t *testing.T) {
+func TestPluginHandlerRejectsRemovingAutoInstallPlugin(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
 	agent := createAutoInstallHandlerTestAgent(t, db, org.ID)
-	plugin := seedAutoInstallPlugin(t, db, "runtime-locked")
+	plugin := seedAutoInstallPlugin(t, db, "runtime-auto-install")
 	if err := db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: org.ID, PluginID: plugin.ID}).Error; err != nil {
 		t.Fatalf("create org install: %v", err)
 	}
@@ -205,7 +205,7 @@ func seedAutoInstallPlugin(t *testing.T, db *gorm.DB, slugPrefix string) model.P
 		Slug:     slugPrefix + "-" + uuid.NewString()[:8],
 		Name:     "Runtime",
 		Status:   model.PluginStatusActive,
-		Manifest: model.RawJSON(`{"auto_install":true,"locked":true}`),
+		Manifest: model.RawJSON(`{"auto_install":true}`),
 	}
 	if err := db.Create(&plugin).Error; err != nil {
 		t.Fatalf("create auto-install plugin: %v", err)
