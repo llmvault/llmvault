@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "slug": "kara",
+  "name": "Kara",
+  "description": "Design, prototyping, visual systems, and Canvas collaboration specialist.",
+  "category": "Design",
+  "avatar_url": "/assets/kara.png",
+  "developer": "Hivy",
+  "official": true,
+  "agent_version": "1",
+  "enabled": true,
+  "default": true,
+  "runtime": {
+    "sandbox_strategy": "per_session",
+    "sandbox_image": "developer",
+    "model": "qwen3.7-plus",
+    "available_models": [
+      "qwen3.7-plus",
+      "gemini-3-flash-preview",
+      "deepseek-v4-flash",
+      "step-3.7-flash"
+    ]
+  },
+  "prompt": {
+    "instructions": "./prompts/instructions.md"
+  },
+  "tools": {
+    "bash": true,
+    "read_file": true,
+    "write_file": true,
+    "file_search": true,
+    "glob": true,
+    "grep": true,
+    "multi_grep": true,
+    "check_bash_status": true,
+    "search_sessions": true,
+    "update_plan": true,
+    "skills_list": true,
+    "skill_view": true,
+    "skill_manage": true,
+    "request_user_input": true
+  },
+  "plugins": {
+    "required": [
+      "design"
+    ],
+    "recommended": []
+  }
+}

@@ -104,7 +104,7 @@ func TestCreateUserDefaultOrg_CreatesHivyAgent(t *testing.T) {
 	}
 }
 
-func TestCreateUserDefaultOrg_AutoInstallsRuntimePlugin(t *testing.T) {
+func TestCreateUserDefaultOrg_AutoInstallsGlobalRuntimePluginOnHivy(t *testing.T) {
 	db := connectInternalTestDB(t)
 	user := seedSignupUser(t, db)
 	plugin := model.Plugin{

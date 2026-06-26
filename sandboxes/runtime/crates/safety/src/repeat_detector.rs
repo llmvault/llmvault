@@ -6,6 +6,18 @@ pub struct RepeatToolCallDetector {
     config: RepeatDetectionConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RepeatRejectionKind {
+    Consecutive,
+    Total,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepeatToolCallRejection {
+    pub kind: RepeatRejectionKind,
+    pub message: String,
+}
+
 impl RepeatToolCallDetector {
     pub fn new(config: RepeatDetectionConfig) -> Self {
         Self {
@@ -14,7 +26,11 @@ impl RepeatToolCallDetector {
         }
     }
 
-    pub fn check(&mut self, tool_name: &str, args: &serde_json::Value) -> Option<String> {
+    pub fn check(
+        &mut self,
+        tool_name: &str,
+        args: &serde_json::Value,
+    ) -> Option<RepeatToolCallRejection> {
         let args_hash = hash_json_value(args);
 
         let consecutive = self
@@ -25,13 +41,16 @@ impl RepeatToolCallDetector {
             .count();
 
         if consecutive + 1 > self.config.max_consecutive {
-            return Some(format!(
-                "You have called '{tool_name}' {times} times consecutively with identical arguments. \
-                 This is not productive. Re-examine the tool results and try a different approach. \
-                 If you need help understanding how to use '{tool_name}' correctly, re-read its \
-                 description and use different arguments.",
-                times = consecutive + 1
-            ));
+            return Some(RepeatToolCallRejection {
+                kind: RepeatRejectionKind::Consecutive,
+                message: format!(
+                    "You have called '{tool_name}' {times} times consecutively with identical arguments. \
+                     This is not productive. Re-examine the tool results and try a different approach. \
+                     If you need help understanding how to use '{tool_name}' correctly, re-read its \
+                     description and use different arguments.",
+                    times = consecutive + 1
+                ),
+            });
         }
 
         let total = self
@@ -41,12 +60,15 @@ impl RepeatToolCallDetector {
             .count();
 
         if total + 1 > self.config.max_total {
-            return Some(format!(
-                "You have called '{tool_name}' {times} times total with identical arguments. \
-                 The results will not change. Use different arguments, try a different tool, \
-                 or explain to the user why the task cannot be completed with the available tools.",
-                times = total + 1
-            ));
+            return Some(RepeatToolCallRejection {
+                kind: RepeatRejectionKind::Total,
+                message: format!(
+                    "You have called '{tool_name}' {times} times total with identical arguments. \
+                     The results will not change. Use different arguments, try a different tool, \
+                     or explain to the user why the task cannot be completed with the available tools.",
+                    times = total + 1
+                ),
+            });
         }
 
         self.history.push((tool_name.to_string(), args_hash));
@@ -55,6 +77,10 @@ impl RepeatToolCallDetector {
 
     pub fn len(&self) -> usize {
         self.history.len()
+    }
+
+    pub fn truncate(&mut self, len: usize) {
+        self.history.truncate(len);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -83,8 +109,9 @@ mod tests {
         assert!(detector.check("bash", &args).is_none());
 
         let result = detector.check("bash", &args);
-        assert!(result.is_some());
-        assert!(result.unwrap().contains("4 times consecutively"));
+        let result = result.expect("repeat should be rejected");
+        assert_eq!(result.kind, RepeatRejectionKind::Consecutive);
+        assert!(result.message.contains("4 times consecutively"));
     }
 
     #[test]
@@ -113,8 +140,9 @@ mod tests {
         detector.check("bash", &args);
 
         let result = detector.check("bash", &args);
-        assert!(result.is_some());
-        assert!(result.unwrap().contains("3 times total"));
+        let result = result.expect("repeat should be rejected");
+        assert_eq!(result.kind, RepeatRejectionKind::Total);
+        assert!(result.message.contains("3 times total"));
     }
 
     #[test]

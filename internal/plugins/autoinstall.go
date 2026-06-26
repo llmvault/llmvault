@@ -64,8 +64,8 @@ func autoInstallPlugins(ctx context.Context, tx *gorm.DB) ([]model.Plugin, error
 	return out, nil
 }
 
-// EnsureAutoInstalledForAgent attaches every active auto-install plugin to the
-// org and the agent. It is safe to call from any agent creation transaction.
+// EnsureAutoInstalledForAgent attaches every active global auto-install plugin
+// to the org and the agent.
 func EnsureAutoInstalledForAgent(ctx context.Context, tx *gorm.DB, orgID, agentID uuid.UUID) error {
 	if orgID == uuid.Nil || agentID == uuid.Nil {
 		return nil
@@ -88,9 +88,28 @@ func EnsureAutoInstalledForAgent(ctx context.Context, tx *gorm.DB, orgID, agentI
 	return nil
 }
 
-// ReconcileAutoInstalled backfills active auto-install plugins into all orgs
-// and active agents. Plugin sync calls this so adding a new required runtime
-// plugin applies to existing data automatically.
+// EnsureInstalledPluginForEligibleAgents enables an org-installed plugin on
+// agents that should automatically receive it: global auto-install plugins go
+// to every active agent, and catalog-required plugins go to installed catalog
+// agents whose catalog marks the plugin as required.
+func EnsureInstalledPluginForEligibleAgents(ctx context.Context, tx *gorm.DB, orgID uuid.UUID, plugin model.Plugin) error {
+	if orgID == uuid.Nil || plugin.ID == uuid.Nil {
+		return nil
+	}
+	if PluginAutoInstall(plugin) {
+		if err := enableAutoInstallPluginForOrgAgents(ctx, tx, orgID, plugin.ID); err != nil {
+			return err
+		}
+	}
+	if err := enableCatalogRequiredPluginForOrgAgents(ctx, tx, orgID, plugin.ID, plugin.Slug); err != nil {
+		return err
+	}
+	return refreshPluginSkillInstallCounts(ctx, tx, plugin.ID)
+}
+
+// ReconcileAutoInstalled backfills active global auto-install plugins into all
+// orgs and active agents. It also restores agent-level installs for
+// catalog-required plugins when the org already has the required plugin.
 func ReconcileAutoInstalled(ctx context.Context, tx *gorm.DB) error {
 	plugins, err := autoInstallPlugins(ctx, tx)
 	if err != nil {
@@ -126,6 +145,71 @@ func ReconcileAutoInstalled(ctx context.Context, tx *gorm.DB) error {
 			return fmt.Errorf("backfill agent auto-install plugin %q: %w", plugin.Slug, err)
 		}
 		if err := refreshPluginSkillInstallCounts(ctx, tx, plugin.ID); err != nil {
+			return err
+		}
+	}
+	return reconcileCatalogRequiredPlugins(ctx, tx)
+}
+
+func enableAutoInstallPluginForOrgAgents(ctx context.Context, tx *gorm.DB, orgID, pluginID uuid.UUID) error {
+	return tx.WithContext(ctx).Exec(`
+		INSERT INTO agent_plugin_installs (org_id, agent_id, plugin_id, created_at)
+		SELECT agents.org_id, agents.id, ?, NOW()
+		FROM agents
+		WHERE agents.org_id = ?
+			AND agents.status <> ?
+		FOR KEY SHARE OF agents
+		ON CONFLICT DO NOTHING
+	`, pluginID, orgID, "archived").Error
+}
+
+func enableCatalogRequiredPluginForOrgAgents(ctx context.Context, tx *gorm.DB, orgID, pluginID uuid.UUID, slug string) error {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return nil
+	}
+	return tx.WithContext(ctx).Exec(`
+		INSERT INTO agent_plugin_installs (org_id, agent_id, plugin_id, created_at)
+		SELECT agents.org_id, agents.id, ?, NOW()
+		FROM agents
+		JOIN agent_catalog catalog ON catalog.id = agents.agent_catalog_id
+		WHERE agents.org_id = ?
+			AND agents.status <> ?
+			AND ? = ANY(catalog.required_plugins)
+		FOR KEY SHARE OF agents
+		ON CONFLICT DO NOTHING
+	`, pluginID, orgID, "archived", slug).Error
+}
+
+func reconcileCatalogRequiredPlugins(ctx context.Context, tx *gorm.DB) error {
+	if err := tx.WithContext(ctx).Exec(`
+		INSERT INTO agent_plugin_installs (org_id, agent_id, plugin_id, created_at)
+		SELECT agents.org_id, agents.id, plugins.id, NOW()
+		FROM agents
+		JOIN agent_catalog catalog ON catalog.id = agents.agent_catalog_id
+		JOIN plugins ON plugins.status = ? AND plugins.slug = ANY(catalog.required_plugins)
+		JOIN org_plugin_installs installs
+			ON installs.org_id = agents.org_id
+			AND installs.plugin_id = plugins.id
+			AND installs.revoked_at IS NULL
+		WHERE agents.org_id IS NOT NULL
+			AND agents.status <> ?
+		FOR KEY SHARE OF agents
+		ON CONFLICT DO NOTHING
+	`, model.PluginStatusActive, "archived").Error; err != nil {
+		return fmt.Errorf("backfill catalog-required agent plugins: %w", err)
+	}
+
+	var pluginIDs []uuid.UUID
+	if err := tx.WithContext(ctx).Table("plugins").
+		Joins("JOIN agent_catalog catalog ON plugins.slug = ANY(catalog.required_plugins)").
+		Where("plugins.status = ?", model.PluginStatusActive).
+		Distinct("plugins.id").
+		Pluck("plugins.id", &pluginIDs).Error; err != nil {
+		return fmt.Errorf("list catalog-required plugins for count refresh: %w", err)
+	}
+	for _, pluginID := range pluginIDs {
+		if err := refreshPluginSkillInstallCounts(ctx, tx, pluginID); err != nil {
 			return err
 		}
 	}

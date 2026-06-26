@@ -93,7 +93,7 @@ func (h *PluginHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Install plugin
-// @Description Installs a plugin for the current organization and enables it for the default Hivy agent when requirements are satisfied.
+// @Description Installs a plugin for the current organization and enables it for eligible non-default agents when requirements are satisfied.
 // @Tags plugins
 // @Produce json
 // @Param slug path string true "Plugin slug"
@@ -151,11 +151,7 @@ func (h *PluginHandler) Install(w http.ResponseWriter, r *http.Request) {
 		} else {
 			return fmt.Errorf("load org plugin install: %w", err)
 		}
-		agent, err := ensureHivyAgent(ctx, tx, org.ID)
-		if err != nil {
-			return err
-		}
-		return enablePluginForAgent(ctx, tx, org.ID, agent.ID, plugin.ID)
+		return pluginstore.EnsureInstalledPluginForEligibleAgents(ctx, tx, org.ID, plugin)
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to install plugin"})

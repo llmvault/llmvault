@@ -86,9 +86,23 @@ func TestPluginHandler_InstallEnqueuesPluginInstallSync(t *testing.T) {
 	if payload.OrgID != org.ID || payload.PluginID != plugin.ID || payload.InstallID == uuid.Nil {
 		t.Fatalf("bad plugin sync payload: %+v", payload)
 	}
-	var agentInstall model.AgentPluginInstall
-	if err := db.Where("org_id = ? AND plugin_id = ?", org.ID, plugin.ID).First(&agentInstall).Error; err != nil {
-		t.Fatalf("agent plugin install missing: %v", err)
+	var orgInstallCount int64
+	if err := db.Model(&model.OrgPluginInstall{}).
+		Where("org_id = ? AND plugin_id = ? AND revoked_at IS NULL", org.ID, plugin.ID).
+		Count(&orgInstallCount).Error; err != nil {
+		t.Fatalf("count org plugin install: %v", err)
+	}
+	if orgInstallCount != 1 {
+		t.Fatalf("org plugin install count = %d, want 1", orgInstallCount)
+	}
+	var agentInstallCount int64
+	if err := db.Model(&model.AgentPluginInstall{}).
+		Where("org_id = ? AND plugin_id = ?", org.ID, plugin.ID).
+		Count(&agentInstallCount).Error; err != nil {
+		t.Fatalf("count agent plugin installs: %v", err)
+	}
+	if agentInstallCount != 0 {
+		t.Fatalf("agent plugin install count = %d, want 0", agentInstallCount)
 	}
 }
 

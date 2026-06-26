@@ -15,6 +15,7 @@ use futures::{stream::BoxStream, StreamExt};
 use mcp::McpRegistry;
 use outbound::OutboundEmitter;
 use safety::error_tracker::ToolErrorTracker;
+use safety::repeat_detector::{RepeatRejectionKind, RepeatToolCallRejection};
 use safety::thinking_guard::ThinkingStreamFilter;
 use safety::{overthinking_feedback, xml_repair_reminder, SafetyHarness, TurnSafety};
 use storage::SubagentTaskRepo;
@@ -22,7 +23,7 @@ use tools::{JsonTool, ToolBuildContext};
 use tracing::warn;
 
 use crate::compaction;
-use crate::history::append_model_message;
+use crate::history::{append_model_history_redaction, append_model_message};
 use crate::model_client::{ChatModelClient, ModelClientConfig};
 use crate::primitives::{AgentMessage, FinishReason, ModelRequest, ModelStreamEvent, ToolCall};
 use crate::rig_tool_registry::{
@@ -46,11 +47,22 @@ const MAX_CONSECUTIVE_MODEL_FAILURES: u32 = 3;
 
 #[derive(Clone)]
 enum ToolSettlement {
-    Immediate {
-        call: ToolCall,
-        result: serde_json::Value,
-    },
     Execute(ToolCall),
+}
+
+#[derive(Clone)]
+struct VisibleToolCall {
+    tool: String,
+    args_fingerprint: String,
+    assistant_message_index: usize,
+    start_tool_call_id: String,
+}
+
+struct RepeatBatchRejection {
+    call: ToolCall,
+    rejection: RepeatToolCallRejection,
+    redaction_start_index: Option<usize>,
+    redaction_start_tool_call_id: String,
 }
 
 pub struct RigAgentRunner {
@@ -220,6 +232,7 @@ impl AgentRunner for RigAgentRunner {
             let mut consecutive_model_failures = 0u32;
             let mut cumulative_completion_tokens: u64 = 0;
             let mut turn_safety = TurnSafety::new(&safety);
+            let mut visible_tool_calls: Vec<VisibleToolCall> = Vec::new();
             let mut error_tracker = ToolErrorTracker::new(profile.max_consecutive_tool_errors);
             let mut consecutive_repeat_rejections = 0u32;
             let mut total_tool_calls = 0u32;
@@ -236,6 +249,7 @@ impl AgentRunner for RigAgentRunner {
                         if current_tokens >= threshold {
                             let tokens_before = current_tokens;
                             compaction::compact(&mut messages, config);
+                            refresh_visible_tool_call_indexes(&mut visible_tool_calls, &messages);
                             let tokens_after = compaction::estimate_tokens_static(&messages);
                             yield AgentEvent::RunEvent {
                                 event: "compaction_applied".to_string(),
@@ -653,19 +667,14 @@ impl AgentRunner for RigAgentRunner {
                     continue;
                 }
 
-                let assistant_tool_calls = AgentMessage::assistant_tool_calls(tool_calls.clone());
-                if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &assistant_tool_calls).await {
-                    yield AgentEvent::Error { message: error.to_string() };
-                    return;
-                }
-                messages.push(assistant_tool_calls);
                 consecutive_empty_responses = 0;
                 consecutive_model_failures = 0;
                 had_thinking = false;
                 let mut stop_after_tool_calls: Option<String> = None;
-                let mut stop_after_immediate_tool_result: Option<String> = None;
                 let mut settlements: Vec<ToolSettlement> = Vec::new();
-                for call in tool_calls {
+                let mut emitted_tool_calls: Vec<ToolCall> = Vec::new();
+                let detector_len_before_batch = turn_safety.repeat_detector.len();
+                for call in &tool_calls {
                     total_tool_calls = total_tool_calls.saturating_add(1);
                     if total_tool_calls > profile.max_tool_calls_per_turn {
                         stop_after_tool_calls = Some(format!(
@@ -686,54 +695,129 @@ impl AgentRunner for RigAgentRunner {
                         break;
                     }
                     yield AgentEvent::ToolCall { id: call.id.clone(), tool: call.name.clone(), args: call.arguments.clone() };
+                    emitted_tool_calls.push(call.clone());
+                }
 
+                if stop_after_tool_calls.is_some() {
+                    for call in &emitted_tool_calls {
+                        yield AgentEvent::ToolResult {
+                            id: call.id.clone(),
+                            result: json_safe_error("Skipped because the model exceeded the tool-call limit."),
+                        };
+                    }
+                } else {
+                    let mut repeat_rejection: Option<RepeatBatchRejection> = None;
                     if safety.config().repeat_detection.enabled {
-                        if let Some(error_msg) = turn_safety.repeat_detector.check(&call.name, &call.arguments) {
-                            consecutive_repeat_rejections += 1;
-                            yield AgentEvent::RunEvent {
-                                event: "repeat_tool_call_rejected".to_string(),
-                                payload: serde_json::json!({
-                                    "session_id": session_id.as_str(),
-                                    "turn_id": turn_id,
-                                    "tool": call.name.clone(),
-                                    "reason": error_msg,
-                                }),
-                            };
-                            let result = json_safe_error(&error_msg);
-                            settlements.push(ToolSettlement::Immediate { call: call.clone(), result });
-                            if consecutive_repeat_rejections >= profile.max_consecutive_tool_errors {
-                                stop_after_immediate_tool_result = Some(call.id.clone());
-                                stop_after_tool_calls = Some(format!(
-                                    "I stopped because the model repeatedly issued the same invalid `{}` tool call. Please retry with a different model or request.",
-                                    call.name
-                                ));
+                        for call in &emitted_tool_calls {
+                            if let Some(rejection) = turn_safety.repeat_detector.check(&call.name, &call.arguments) {
+                                let fingerprint = tool_call_fingerprint(&call.name, &call.arguments);
+                                let redaction_start = find_repeat_redaction_start(
+                                    &visible_tool_calls,
+                                    &call.name,
+                                    &fingerprint,
+                                    &rejection,
+                                );
+                                repeat_rejection = Some(RepeatBatchRejection {
+                                    call: call.clone(),
+                                    rejection,
+                                    redaction_start_index: redaction_start.map(|call| call.assistant_message_index),
+                                    redaction_start_tool_call_id: redaction_start
+                                        .map(|call| call.start_tool_call_id.clone())
+                                        .unwrap_or_else(|| call.id.clone()),
+                                });
                                 break;
                             }
-                            continue;
                         }
                     }
-                    consecutive_repeat_rejections = 0;
 
-                    settlements.push(ToolSettlement::Execute(call));
+                    if let Some(repeat) = repeat_rejection {
+                        turn_safety.repeat_detector.truncate(detector_len_before_batch);
+                        consecutive_repeat_rejections += 1;
+                        yield AgentEvent::RunEvent {
+                            event: "repeat_tool_call_rejected".to_string(),
+                            payload: serde_json::json!({
+                                "session_id": session_id.as_str(),
+                                "turn_id": turn_id,
+                                "tool": repeat.call.name.clone(),
+                                "reason": repeat.rejection.message.clone(),
+                            }),
+                        };
+                        for call in &emitted_tool_calls {
+                            let result = if call.id == repeat.call.id {
+                                json_safe_error(&repeat.rejection.message)
+                            } else {
+                                json_safe_error(&format!(
+                                    "Skipped because another tool call in the same model response repeated `{}` with identical arguments. The model-visible history was pruned; retry with a different approach.",
+                                    repeat.call.name
+                                ))
+                            };
+                            yield AgentEvent::ToolResult { id: call.id.clone(), result };
+                        }
+                        if let Some(start_index) = repeat.redaction_start_index {
+                            messages.truncate(start_index);
+                            visible_tool_calls
+                                .retain(|call| call.assistant_message_index < start_index);
+                        }
+                        if let Err(error) = append_model_history_redaction(
+                            event_repo.as_deref(),
+                            &session_id,
+                            &repeat.redaction_start_tool_call_id,
+                            &repeat.rejection.message,
+                        )
+                        .await
+                        {
+                            yield AgentEvent::Error { message: error.to_string() };
+                            return;
+                        }
+                        let instruction = AgentMessage::user(repeat_loop_instruction(
+                            &repeat.call.name,
+                            &repeat.call.arguments,
+                        ));
+                        if let Err(error) =
+                            append_model_message(event_repo.as_deref(), &session_id, &instruction).await
+                        {
+                            yield AgentEvent::Error { message: error.to_string() };
+                            return;
+                        }
+                        messages.push(instruction);
+                        if consecutive_repeat_rejections >= profile.max_consecutive_tool_errors {
+                            stop_after_tool_calls = Some(format!(
+                                "I stopped because the model repeatedly issued the same invalid `{}` tool call. Please retry with a different model or request.",
+                                repeat.call.name
+                            ));
+                        } else {
+                            effective_turn += 1;
+                            continue;
+                        }
+                    } else {
+                        consecutive_repeat_rejections = 0;
+                        let assistant_tool_calls =
+                            AgentMessage::assistant_tool_calls(emitted_tool_calls.clone());
+                        let assistant_message_index = messages.len();
+                        let start_tool_call_id = emitted_tool_calls
+                            .first()
+                            .map(|call| call.id.clone())
+                            .unwrap_or_default();
+                        if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &assistant_tool_calls).await {
+                            yield AgentEvent::Error { message: error.to_string() };
+                            return;
+                        }
+                        messages.push(assistant_tool_calls);
+                        for call in &emitted_tool_calls {
+                            visible_tool_calls.push(VisibleToolCall {
+                                tool: call.name.clone(),
+                                args_fingerprint: tool_call_fingerprint(&call.name, &call.arguments),
+                                assistant_message_index,
+                                start_tool_call_id: start_tool_call_id.clone(),
+                            });
+                        }
+                        settlements.extend(emitted_tool_calls.into_iter().map(ToolSettlement::Execute));
+                    }
                 }
 
                 let mut settlement_index = 0usize;
                 while settlement_index < settlements.len() {
                     let executions = match &settlements[settlement_index] {
-                        ToolSettlement::Immediate { call, result } => {
-                            yield AgentEvent::ToolResult { id: call.id.clone(), result: result.clone() };
-                            let message = AgentMessage::tool_result(call.id.clone(), result.to_string());
-                            if let Err(error) = append_model_message(event_repo.as_deref(), &session_id, &message).await {
-                                yield AgentEvent::Error { message: error.to_string() };
-                                return;
-                            }
-                            messages.push(message);
-                            if stop_after_immediate_tool_result.as_deref() == Some(call.id.as_str()) {
-                                break;
-                            }
-                            settlement_index += 1;
-                            continue;
-                        }
                         ToolSettlement::Execute(call) => {
                             if call.name == "subagent_task" {
                                 let start = settlement_index;
@@ -748,9 +832,8 @@ impl AgentRunner for RigAgentRunner {
                                 }
                                 let calls: Vec<ToolCall> = settlements[start..end]
                                     .iter()
-                                    .filter_map(|settlement| match settlement {
-                                        ToolSettlement::Execute(call) => Some(call.clone()),
-                                        ToolSettlement::Immediate { .. } => None,
+                                    .map(|settlement| match settlement {
+                                        ToolSettlement::Execute(call) => call.clone(),
                                     })
                                     .collect();
                                 settlement_index = end;
@@ -900,6 +983,77 @@ fn is_billing_model_error(error: &crate::AgentError) -> bool {
         || message.contains("insufficient credit")
         || message.contains("insufficient balance")
         || message.contains("payment required")
+}
+
+fn tool_call_fingerprint(tool_name: &str, args: &serde_json::Value) -> String {
+    format!("{tool_name}\n{}", args)
+}
+
+fn find_repeat_redaction_start<'a>(
+    visible_tool_calls: &'a [VisibleToolCall],
+    tool_name: &str,
+    args_fingerprint: &str,
+    rejection: &RepeatToolCallRejection,
+) -> Option<&'a VisibleToolCall> {
+    match rejection.kind {
+        RepeatRejectionKind::Consecutive => {
+            let mut start = None;
+            for call in visible_tool_calls.iter().rev() {
+                if call.tool == tool_name && call.args_fingerprint == args_fingerprint {
+                    start = Some(call);
+                    continue;
+                }
+                break;
+            }
+            start
+        }
+        RepeatRejectionKind::Total => visible_tool_calls
+            .iter()
+            .find(|call| call.tool == tool_name && call.args_fingerprint == args_fingerprint),
+    }
+}
+
+fn refresh_visible_tool_call_indexes(
+    visible_tool_calls: &mut Vec<VisibleToolCall>,
+    messages: &[AgentMessage],
+) {
+    for call in visible_tool_calls.iter_mut() {
+        if let Some(index) = find_tool_call_message_index(messages, &call.start_tool_call_id) {
+            call.assistant_message_index = index;
+        } else {
+            call.assistant_message_index = usize::MAX;
+        }
+    }
+    visible_tool_calls.retain(|call| call.assistant_message_index != usize::MAX);
+}
+
+fn find_tool_call_message_index(messages: &[AgentMessage], tool_call_id: &str) -> Option<usize> {
+    messages.iter().position(|message| {
+        message
+            .tool_calls
+            .iter()
+            .any(|call| call.id == tool_call_id)
+    })
+}
+
+fn repeat_loop_instruction(tool_name: &str, args: &serde_json::Value) -> String {
+    format!(
+        "[system instruction] I removed a repeated tool-call loop from the context. \
+         The repeated tool was `{tool_name}` with arguments `{}`. Do not call that \
+         tool with the same arguments again; choose a different command/tool or explain the blocker.",
+        truncate_for_prompt(&args.to_string(), 500)
+    )
+}
+
+fn truncate_for_prompt(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut end = max_bytes;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}...", &text[..end])
 }
 
 #[cfg(test)]
@@ -1423,6 +1577,140 @@ mod tests {
                 .any(|event| matches!(event, AgentEvent::Error { .. })),
             "expected an Error event after the request-failure cap, got: {events:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn repeat_tool_call_prunes_model_visible_history_before_retry() {
+        let requests: Arc<tokio::sync::Mutex<Vec<serde_json::Value>>> =
+            Arc::new(tokio::sync::Mutex::new(Vec::new()));
+        let handler_requests = requests.clone();
+        async fn repeated_bash_handler(
+            axum::extract::State(requests): axum::extract::State<
+                Arc<tokio::sync::Mutex<Vec<serde_json::Value>>>,
+            >,
+            Json(body): Json<serde_json::Value>,
+        ) -> impl IntoResponse {
+            let request_number = {
+                let mut requests = requests.lock().await;
+                let request_number = requests.len() + 1;
+                requests.push(body);
+                request_number
+            };
+
+            if request_number <= 4 {
+                let arguments = serde_json::json!({"command":"printf loop-prune"}).to_string();
+                let chunk = serde_json::json!({
+                    "choices": [{
+                        "delta": {
+                            "tool_calls": [{
+                                "index": 0,
+                                "id": format!("call_{request_number}"),
+                                "function": {
+                                    "name": "bash",
+                                    "arguments": arguments,
+                                }
+                            }]
+                        }
+                    }]
+                });
+                let done = serde_json::json!({
+                    "choices": [{
+                        "delta": {},
+                        "finish_reason": "tool_calls",
+                    }]
+                });
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    format!("data: {chunk}\n\ndata: {done}\n\ndata: [DONE]\n\n"),
+                )
+            } else {
+                let chunk = serde_json::json!({
+                    "choices": [{
+                        "delta": {
+                            "content": "done after prune",
+                        },
+                        "finish_reason": "stop",
+                    }]
+                });
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    format!("data: {chunk}\n\ndata: [DONE]\n\n"),
+                )
+            }
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new()
+            .route("/chat/completions", post(repeated_bash_handler))
+            .with_state(handler_requests);
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        definition.tools = None;
+        definition.limits.max_turns_per_session = 10;
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir());
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("repeat-prune-session"),
+                TurnInput::text("run the command"),
+                None,
+            )
+            .await
+            .expect("run turn");
+        let events = tokio::time::timeout(std::time::Duration::from_secs(20), async {
+            let mut events = Vec::new();
+            while let Some(event) = stream.next().await {
+                events.push(event);
+            }
+            events
+        })
+        .await
+        .expect("turn must terminate");
+
+        let tool_calls = events
+            .iter()
+            .filter(|event| matches!(event, AgentEvent::ToolCall { tool, .. } if tool == "bash"))
+            .count();
+        assert_eq!(tool_calls, 4);
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::RunEvent { event, .. } if event == "repeat_tool_call_rejected"
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::ToolResult { id, result } if id == "call_4" && result["safe_error"] == true
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::FinalMessage { text } if text == "done after prune"
+        )));
+
+        let requests = requests.lock().await;
+        assert!(
+            requests.len() >= 5,
+            "expected retry after repeat pruning, got {} requests",
+            requests.len()
+        );
+        let retry_messages = requests
+            .last()
+            .and_then(|request| request.get("messages"))
+            .expect("retry request messages");
+        let retry_messages_text = retry_messages.to_string();
+        assert!(retry_messages_text.contains("repeated tool-call loop"));
+        assert!(!retry_messages_text.contains("call_1"));
+        assert!(!retry_messages_text.contains("call_2"));
+        assert!(!retry_messages_text.contains("call_3"));
+        assert!(!retry_messages_text.contains("\"tool_calls\""));
     }
 
     #[tokio::test]
