@@ -30,8 +30,7 @@ func (m *MicrosandboxBackend) validateTemplateImage(ctx context.Context, req Cre
 		Env:          templateValidationEnv(req, validationID),
 		PreviewPorts: []int{templateValidationPort},
 		Init: &SandboxInitConfig{
-			Cmd:  "/usr/local/bin/hivy-runtime-entrypoint",
-			Args: []string{"/usr/local/bin/hivy-sandboxes-runtime"},
+			Cmd: "auto",
 		},
 		Labels: map[string]string{
 			"org_id":      req.OrgID,

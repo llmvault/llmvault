@@ -89,10 +89,10 @@ func TestAgentSessionsDefaultGeneralChannelE2E(t *testing.T) {
 	})
 	t.Logf("first turn entered tool execution event=%s", firstToolEvent.RawData)
 	pluginInstall := agentSessionsInstallPlugin(t, ctx, apiBase, ownerToken, orgID, pluginFixture.PluginSlug)
-	if len(pluginInstall.EnabledAgentIDs) == 0 {
-		t.Fatalf("plugin install did not enable any agent: %+v", pluginInstall)
+	if len(pluginInstall.EnabledAgentIDs) != 0 {
+		t.Fatalf("plain plugin install enabled agents=%v, want none", pluginInstall.EnabledAgentIDs)
 	}
-	t.Logf("installed plugin slug=%s enabled_agents=%v while first turn was active", pluginInstall.Slug, pluginInstall.EnabledAgentIDs)
+	t.Logf("installed org plugin slug=%s while first turn was active", pluginInstall.Slug)
 
 	detail := agentSessionsPutParticipant(t, ctx, apiBase, ownerToken, orgID, session.Session.ID, memberAuth.User.ID)
 	assertAgentSessionsParticipant(t, detail, memberAuth.User.ID)

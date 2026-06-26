@@ -50,6 +50,7 @@ Use the built-in `canvas` CLI to work in Hivy-managed Canvas files from the sand
 
 - Start Canvas work with `canvas doctor`, then `canvas init`.
 - Before modifying a design with MCP, ensure a Canvas file is open in the `canvas` browser session.
+- Before choosing or changing colors, typography, logo usage, voice, or any brand-sensitive visual direction, run `canvas brands list` and inspect the relevant org brand with `canvas brands view <brand-id>`. If the org has no brands and a palette is needed, choose one from the brief or product context, persist it with `canvas brands create`, and tell the user what you saved.
 - Call `canvas mcp high_level_overview --json '{}'` once before using `execute_code`.
 - Follow the safety-first workflow: READ, PLAN, WRITE, VERIFY. Do not skip steps.
 - Use `canvas file current` before destructive or large edits to confirm the active file/page.
@@ -76,6 +77,7 @@ Before changing a file:
 
 - Run `canvas file current` to confirm the active file and page.
 - Run `canvas mcp high_level_overview --json '{}'` once per task.
+- Run `canvas brands list` before brand-sensitive design work. If a default brand exists, inspect it with `canvas brands view <brand-id>` and use its `logos`, `colors`, `typography`, and `voice` as the source of truth. If there are multiple brands and no default, use `request_user_input` to choose one. If no brand exists and the design needs a palette, choose a defensible starting palette from the brief, audience, product category, or existing file context, create a brand with `canvas brands create`, and tell the user what was created. If context is too thin to choose responsibly, use `request_user_input` for one focused direction question.
 - Use `execute_code` to list the relevant pages, boards, components, colors, typographies, token sets, and existing interactions.
 - Prefer structured JSON returns over prose when reading file state.
 - Store large discovered structures in `storage` only when they are needed across calls, and always read them with a fallback because `storage` can reset.
@@ -98,7 +100,7 @@ Before writing:
 - State the batch plan, including the maximum number of shape operations per `execute_code` call.
 - State the verification plan: structural read after each batch plus `export_shape` -> `/tmp` decode -> `read_file` for visual QA.
 - For destructive, broad, or ambiguous changes, ask for approval before writing.
-- Do not invent colors, tokens, components, copy, font weights, or product decisions when the file or user brief does not provide them. Mark missing values as TODO or ask a focused question.
+- Do not invent colors, tokens, components, copy, font weights, or product decisions when the file, user brief, or selected org brand does not provide enough context. When no org brand exists, a self-selected palette is allowed only if it is persisted with `canvas brands create`; otherwise ask a focused question or mark missing values as TODO.
 
 ### WRITE
 
@@ -151,7 +153,7 @@ VISUAL_VERIFY: export_shape -> /tmp decode -> read_file
 
 ### Negative constraints
 
-- Do not invent colors that are not in the brand brief, existing file, or approved token plan.
+- Do not override colors, typography, logo usage, or brand voice from an existing org brand. Always check `canvas brands list` before deciding these values. If the brand list is empty, any self-selected palette must be saved with `canvas brands create` instead of remaining an untracked one-off file choice.
 - Do not use font weights unless they are confirmed available for that font family.
 - Do not switch page and write in the same `execute_code` call.
 - Do not create duplicate colors, typographies, token sets, components, or boards. Always check first.
@@ -202,6 +204,10 @@ Usage:
   canvas file create --name "File" --project-id <canvas-project-id>
   canvas file switch <canvas-file-id> [--page-id <page-id>]
   canvas file current
+  canvas brands list
+  canvas brands view <brand-id>
+  canvas brands create --name "Brand" [--json '{"colors":{...}}']
+  canvas brands update <brand-id> --json '{"description":"..."}'
   canvas mcp <tool> --json '{"key":"value"}'
 ```
 
@@ -359,6 +365,79 @@ Example output:
 ```
 
 If the file was created through `canvas file create`, pass the returned `file_id`.
+
+### `canvas brands list`
+
+Use before any brand-sensitive design choice. This calls Hivy's runtime brand endpoint for the current agent org and returns active org brands.
+
+```bash
+canvas brands list
+```
+
+Example output:
+
+```json
+{
+  "data": [
+    {
+      "id": "4f87ff34-9bf0-4273-8614-c00f8d973937",
+      "name": "Hivy",
+      "slug": "hivy",
+      "is_default": true,
+      "colors": {"tokens": [{"id": "brand-blue", "value": "#2463eb"}]},
+      "typography": {},
+      "voice": {},
+      "logos": {}
+    }
+  ],
+  "has_more": false
+}
+```
+
+Use the `is_default` brand when present. If multiple brands exist and no default is present, use `request_user_input` to choose the brand before applying colors, typography, logo usage, or voice. If the list is empty and the work needs a palette, choose a defensible starter palette from the brief or file context, create it with `canvas brands create`, and mention the new brand in the user-facing summary.
+
+### `canvas brands view <brand-id>`
+
+Use after `canvas brands list` to inspect the selected brand in full before applying its values.
+
+```bash
+canvas brands view 4f87ff34-9bf0-4273-8614-c00f8d973937
+```
+
+Example output:
+
+```json
+{
+  "brand": {
+    "id": "4f87ff34-9bf0-4273-8614-c00f8d973937",
+    "name": "Hivy",
+    "is_default": true,
+    "logos": {},
+    "colors": {},
+    "typography": {},
+    "voice": {},
+    "source": {"version": 1, "origin": "manual"}
+  }
+}
+```
+
+When a brand exists, treat its `logos`, `colors`, `typography`, and `voice` as the source of truth. Do not randomly choose a palette or type style. If required values are missing from the selected brand, ask with `request_user_input` or mark the specific missing values as TODO in Canvas notes.
+
+### `canvas brands create --name "..."`
+
+Use when the org has no brands and you choose a starter palette for the design, or when the user asks to create a brand record. Name the brand from the product, project, or organization when available; if this is the first brand, mark it as default. Include chosen color tokens when you selected a palette, and include typography or voice values only when you selected them intentionally. Tell the user that you created the brand and summarize the saved palette.
+
+```bash
+canvas brands create --name "Hivy" --default --json '{"colors":{"tokens":[{"id":"brand-blue","value":"#2463eb"}]}}'
+```
+
+### `canvas brands update <brand-id> --json "..."`
+
+Use only when the user asks to update the org brand or explicitly approves updating it. Do not silently overwrite brand values while working on a design file.
+
+```bash
+canvas brands update 4f87ff34-9bf0-4273-8614-c00f8d973937 --json '{"description":"Updated brand notes"}'
+```
 
 ### `canvas file current`
 

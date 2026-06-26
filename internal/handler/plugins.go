@@ -195,6 +195,10 @@ func (h *PluginHandler) Uninstall(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if pluginstore.PluginAutoInstall(plugin) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is installed for all agents and cannot be uninstalled"})
+		return
+	}
 	if pluginstore.PluginLocked(plugin) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "plugin is required and cannot be uninstalled"})
 		return

@@ -1,0 +1,16 @@
+{
+  "name": "design-taste",
+  "description": "Use this skill when the user asks a design agent to design, redesign, critique, polish, or improve the taste of a website, web app, landing page, homepage, portfolio, product page, pricing page, onboarding flow, settings surface, or high-polish web interface. It teaches anti-generic design judgment, brief inference, visual direction, layout discipline, typography, color, motion, asset, and preflight review rules, then directs the agent to apply the work inside Hivy Canvas when creating or editing design artifacts.",
+  "human_description": "Teach agents tasteful website and web app design direction in Canvas.",
+  "category": "Design",
+  "root": "./SKILL.md",
+  "tags": [
+    "taste",
+    "web-design",
+    "web-app",
+    "website",
+    "canvas",
+    "critique"
+  ],
+  "files": []
+}

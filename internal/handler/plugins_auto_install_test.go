@@ -144,6 +144,60 @@ func TestPluginHandlerRejectsRemovingLockedRuntimePlugin(t *testing.T) {
 	assertOrgPluginInstalled(t, db, org.ID, plugin.ID)
 }
 
+func TestPluginHandlerRejectsDisablingCatalogRequiredPlugin(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	plugin := model.Plugin{
+		ID:     uuid.New(),
+		Slug:   "catalog-required-" + uuid.NewString()[:8],
+		Name:   "Catalog Required",
+		Status: model.PluginStatusActive,
+	}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("create plugin: %v", err)
+	}
+	catalog := model.AgentCatalog{
+		ID:              uuid.New(),
+		Slug:            "catalog-required-agent-" + uuid.NewString()[:8],
+		Name:            "Catalog Required Agent " + uuid.NewString()[:8],
+		Model:           agentruntime.DefaultAgentModel,
+		AvailableModels: pq.StringArray{agentruntime.DefaultAgentModel},
+		SandboxStrategy: "per_session",
+		SandboxImage:    model.SandboxImageDefault,
+		RequiredPlugins: pq.StringArray{plugin.Slug},
+		Manifest:        model.RawJSON(`{}`),
+		Status:          model.AgentCatalogStatusActive,
+	}
+	if err := db.Create(&catalog).Error; err != nil {
+		t.Fatalf("create catalog agent: %v", err)
+	}
+	agent := createAutoInstallHandlerTestAgent(t, db, org.ID)
+	if err := db.Model(&agent).Update("agent_catalog_id", catalog.ID).Error; err != nil {
+		t.Fatalf("attach catalog to agent: %v", err)
+	}
+	if err := db.Create(&model.OrgPluginInstall{ID: uuid.New(), OrgID: org.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("create org install: %v", err)
+	}
+	if err := db.Create(&model.AgentPluginInstall{OrgID: org.ID, AgentID: agent.ID, PluginID: plugin.ID}).Error; err != nil {
+		t.Fatalf("create agent install: %v", err)
+	}
+
+	h := handler.NewPluginHandler(db, &recordingEnqueuer{})
+	r := chi.NewRouter()
+	r.Delete("/v1/agents/{id}/plugins/{slug}", h.DisableForAgent)
+
+	req := httptest.NewRequest(http.MethodDelete, "/v1/agents/"+agent.ID.String()+"/plugins/"+plugin.Slug, nil)
+	req = middleware.WithOrg(req, &org)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("agent disable status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+
+	assertAgentPluginInstalled(t, db, org.ID, agent.ID, plugin.ID)
+	assertOrgPluginInstalled(t, db, org.ID, plugin.ID)
+}
+
 func seedAutoInstallPlugin(t *testing.T, db *gorm.DB, slugPrefix string) model.Plugin {
 	t.Helper()
 	plugin := model.Plugin{

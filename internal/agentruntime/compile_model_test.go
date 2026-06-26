@@ -200,7 +200,7 @@ func TestCompile_EmitsCatalogAndSubAgentRuntimeTools(t *testing.T) {
 	if subAgent == nil {
 		t.Fatalf("missing codebase-explorer subagent: %#v", def.SubAgents)
 	}
-	if got, want := runtimeToolTypes(subAgent.Tools), []string{"builtin.read_file", "builtin.multi_grep", "builtin.lsp"}; !reflect.DeepEqual(got, want) {
+	if got, want := runtimeToolTypes(subAgent.Tools), []string{"builtin.read_file", "builtin.multi_grep", "builtin.lsp", "builtin.skills_list", "builtin.skill_view"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("subagent runtime tools = %#v, want %#v", got, want)
 	}
 }
@@ -303,8 +303,8 @@ func TestCompile_IncludesCatalogSubAgents(t *testing.T) {
 	if def.Tools == nil || len(def.Tools) != 0 {
 		t.Fatalf("parent tools should be explicit empty tools: %#v", def.Tools)
 	}
-	if subAgent.Tools == nil || len(subAgent.Tools) != 0 {
-		t.Fatalf("subagent tools should be explicit empty tools: %#v", subAgent.Tools)
+	if got, want := runtimeToolTypes(subAgent.Tools), []string{"builtin.skills_list", "builtin.skill_view"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("subagent skill-loading tools = %#v, want %#v", got, want)
 	}
 }
 

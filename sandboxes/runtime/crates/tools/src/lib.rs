@@ -126,6 +126,7 @@ pub fn build_builtin_tools(
                     .with_files_read(context.files_read.clone())
                     .with_search_service(context.search.clone())
                     .with_lsp_service(context.lsp.clone())
+                    .with_session_id(session_id.as_str())
                     .into_tool(),
                 );
             }

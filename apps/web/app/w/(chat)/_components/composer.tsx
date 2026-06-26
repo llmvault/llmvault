@@ -157,7 +157,7 @@ export function Composer({
         [upload.id]: { status: "describing" },
       }))
       try {
-        const description = await describeDriveImage(upload.asset.id)
+        const description = await describeDriveImage(upload.asset.id, sessionId)
         const metadata = attachmentMetadataFromDescription(
           upload.asset,
           description

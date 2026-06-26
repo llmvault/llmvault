@@ -35,17 +35,27 @@ type openRouterImageResponse struct {
 		Base64  string `json:"base64,omitempty"`
 		URL     string `json:"url,omitempty"`
 	} `json:"data"`
+	Usage openRouterImageUsage `json:"usage,omitempty"`
 	Error *struct {
 		Message string `json:"message"`
 		Code    any    `json:"code,omitempty"`
 	} `json:"error,omitempty"`
 }
 
+type openRouterImageUsage struct {
+	PromptTokens     int     `json:"prompt_tokens"`
+	CompletionTokens int     `json:"completion_tokens"`
+	TotalTokens      int     `json:"total_tokens"`
+	CachedTokens     int     `json:"cached_tokens,omitempty"`
+	ReasoningTokens  int     `json:"reasoning_tokens,omitempty"`
+	Cost             float64 `json:"cost"`
+}
+
 type generatedImageBytes struct {
 	Data []byte
 }
 
-func (h *UploadsHandler) callOpenRouterImages(ctx context.Context, cred *model.Credential, apiKey, upstreamModel, prompt, aspectRatio string, count int, references []imageReferenceInput) ([]generatedImageBytes, error) {
+func (h *UploadsHandler) callOpenRouterImages(ctx context.Context, cred *model.Credential, apiKey, upstreamModel, prompt, aspectRatio string, count int, references []imageReferenceInput) ([]generatedImageBytes, openRouterImageUsage, error) {
 	payload := openRouterImageRequest{
 		Model:           upstreamModel,
 		Prompt:          prompt,
@@ -55,16 +65,16 @@ func (h *UploadsHandler) callOpenRouterImages(ctx context.Context, cred *model.C
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
+		return nil, openRouterImageUsage{}, fmt.Errorf("marshal request: %w", err)
 	}
 
 	endpoint, err := openRouterImagesEndpoint(cred.BaseURL)
 	if err != nil {
-		return nil, err
+		return nil, openRouterImageUsage{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(raw))
 	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
+		return nil, openRouterImageUsage{}, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authHeaderValue(cred.AuthScheme, apiKey))
@@ -75,24 +85,24 @@ func (h *UploadsHandler) callOpenRouterImages(ctx context.Context, cred *model.C
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("post OpenRouter images: %w", err)
+		return nil, openRouterImageUsage{}, fmt.Errorf("post OpenRouter images: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 32*1024*1024))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("OpenRouter images status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, openRouterImageUsage{}, fmt.Errorf("OpenRouter images status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var decoded openRouterImageResponse
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		return nil, fmt.Errorf("decode OpenRouter image response: %w", err)
+		return nil, openRouterImageUsage{}, fmt.Errorf("decode OpenRouter image response: %w", err)
 	}
 	if decoded.Error != nil {
-		return nil, fmt.Errorf("OpenRouter image error: %s", decoded.Error.Message)
+		return nil, openRouterImageUsage{}, fmt.Errorf("OpenRouter image error: %s", decoded.Error.Message)
 	}
 	if len(decoded.Data) == 0 {
-		return nil, fmt.Errorf("OpenRouter returned no images")
+		return nil, openRouterImageUsage{}, fmt.Errorf("OpenRouter returned no images")
 	}
 
 	out := make([]generatedImageBytes, 0, len(decoded.Data))
@@ -104,7 +114,7 @@ func (h *UploadsHandler) callOpenRouterImages(ctx context.Context, cred *model.C
 		if value != "" {
 			data, err := decodeImageBase64(value)
 			if err != nil {
-				return nil, err
+				return nil, openRouterImageUsage{}, err
 			}
 			out = append(out, generatedImageBytes{Data: data})
 			continue
@@ -112,15 +122,15 @@ func (h *UploadsHandler) callOpenRouterImages(ctx context.Context, cred *model.C
 		if strings.TrimSpace(item.URL) != "" {
 			data, err := h.downloadGeneratedImage(ctx, item.URL)
 			if err != nil {
-				return nil, err
+				return nil, openRouterImageUsage{}, err
 			}
 			out = append(out, generatedImageBytes{Data: data})
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("OpenRouter returned no decodable images")
+		return nil, openRouterImageUsage{}, fmt.Errorf("OpenRouter returned no decodable images")
 	}
-	return out, nil
+	return out, decoded.Usage, nil
 }
 
 func openRouterImagesEndpoint(baseURL string) (string, error) {

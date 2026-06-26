@@ -4916,6 +4916,126 @@ paths:
       summary: Update an agent model
       tags:
       - agents
+  /v1/agents/{id}/plugins:
+    get:
+      description: Returns plugins installed in the current organization and their
+        enablement state for one installed agent.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/pluginResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List agent plugins
+      tags:
+      - plugins
+  /v1/agents/{id}/plugins/{slug}:
+    delete:
+      description: Disables a plugin for one installed agent unless the plugin is
+        required for that agent.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Plugin slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Disable plugin for agent
+      tags:
+      - plugins
+    post:
+      description: Enables an organization-installed plugin for one installed agent.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Plugin slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pluginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Enable plugin for agent
+      tags:
+      - plugins
   /v1/agents/{id}/sandbox/reboot:
     post:
       description: Restarts the agent sandbox, pushes fresh runtime config, mints
@@ -8273,7 +8393,7 @@ paths:
       - plugins
     post:
       description: Installs a plugin for the current organization and enables it for
-        the default Hivy agent when requirements are satisfied.
+        eligible non-default agents when requirements are satisfied.
       parameters:
       - description: Plugin slug
         in: path

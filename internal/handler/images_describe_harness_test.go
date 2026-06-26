@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/auth"
+	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
@@ -52,6 +53,7 @@ func (g *fakeImageGateway) Stream(context.Context, system.ForwardCall, http.Resp
 type imageDescribeHarness struct {
 	db            *gorm.DB
 	router        *chi.Mux
+	enqueuer      *enqueue.MockClient
 	gateway       *fakeImageGateway
 	org           *model.Org
 	user          *model.User
@@ -157,8 +159,10 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 	}
 
 	gateway := &fakeImageGateway{text: cfg.modelText, err: cfg.gatewayErr}
+	enq := &enqueue.MockClient{}
 	h := handler.NewImageDescribeHandler(db, kms, cfg.registry, gateway, "https://api.usehivy.test")
 	h.WithRuntimeSecretKey(runtimeKey)
+	h.WithUsageEnqueuer(enq)
 	if cfg.assetReader != nil {
 		h.WithAssetReader(cfg.assetReader)
 	}
@@ -181,6 +185,7 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 	out := &imageDescribeHarness{
 		db:            db,
 		router:        r,
+		enqueuer:      enq,
 		gateway:       gateway,
 		org:           org,
 		user:          user,

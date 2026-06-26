@@ -14,6 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/registry"
+	"github.com/usehivy/hivy/internal/tasks"
 	"github.com/usehivy/hivy/internal/transcription"
 )
 
@@ -28,21 +29,22 @@ func (r *fakeSessionAssetReader) Open(_ context.Context, key string) (io.ReadClo
 }
 
 type fakeSessionTranscriber struct {
-	text string
-	req  transcription.Request
+	text            string
+	durationSeconds float64
+	req             transcription.Request
 }
 
 func (t *fakeSessionTranscriber) Transcribe(_ context.Context, req transcription.Request) (transcription.Result, error) {
 	t.req = req
 	t.req.APIKey = append([]byte(nil), req.APIKey...)
 	t.req.Audio = append([]byte(nil), req.Audio...)
-	return transcription.Result{Text: t.text}, nil
+	return transcription.Result{Text: t.text, DurationSeconds: t.durationSeconds, LanguageCode: "en"}, nil
 }
 
 func TestIntegration_SessionTranscribeAudio_ReturnsTranscript(t *testing.T) {
 	kms := newSystemTaskKMS(t)
 	reader := &fakeSessionAssetReader{data: []byte("fake webm audio")}
-	transcriber := &fakeSessionTranscriber{text: "Please summarize the launch plan."}
+	transcriber := &fakeSessionTranscriber{text: "Please summarize the launch plan.", durationSeconds: 90}
 	h := newSessionHarnessWith(t, func(sh *handler.SessionHandler) {
 		sh.WithTranscription(kms, reader, transcriber, registry.Global())
 	})
@@ -91,6 +93,35 @@ func TestIntegration_SessionTranscribeAudio_ReturnsTranscript(t *testing.T) {
 	}
 	if transcriber.req.LanguageCode != "en" {
 		t.Fatalf("language_code = %q, want en", transcriber.req.LanguageCode)
+	}
+	var usageTask *tasks.ModelUsageWritePayload
+	for _, task := range h.enqueuer.Tasks() {
+		if task.TypeName != tasks.TypeModelUsageWrite {
+			continue
+		}
+		var payload tasks.ModelUsageWritePayload
+		if err := json.Unmarshal(task.Payload, &payload); err != nil {
+			t.Fatalf("decode model usage payload: %v", err)
+		}
+		usageTask = &payload
+	}
+	if usageTask == nil {
+		t.Fatalf("expected model usage task")
+	}
+	if usageTask.Generation.ProviderID != "elevenlabs" || usageTask.Generation.Model != "scribe-v2" {
+		t.Fatalf("unexpected generation provider/model: %+v", usageTask.Generation)
+	}
+	if !usageTask.Generation.IsSystem {
+		t.Fatalf("generation IsSystem = false, want true")
+	}
+	if usageTask.Generation.Cost <= 0 {
+		t.Fatalf("generation cost = %v, want positive", usageTask.Generation.Cost)
+	}
+	if usageTask.SessionEvent == nil || usageTask.SessionEvent.EventType != "model_usage" {
+		t.Fatalf("missing model_usage session event: %+v", usageTask.SessionEvent)
+	}
+	if usageTask.SessionEvent.SessionID.String() != created.Session.ID {
+		t.Fatalf("session event session = %s, want %s", usageTask.SessionEvent.SessionID, created.Session.ID)
 	}
 }
 

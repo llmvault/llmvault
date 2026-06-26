@@ -202,10 +202,6 @@ func Generation(gw *GenerationWriter, db *gorm.DB) func(http.Handler) http.Handl
 				next.ServeHTTP(w, r)
 				return
 			}
-			if !shouldCaptureProxyGeneration(claims) {
-				next.ServeHTTP(w, r)
-				return
-			}
 
 			providerID := lookupProviderID(db, claims.CredentialID)
 
@@ -218,13 +214,6 @@ func Generation(gw *GenerationWriter, db *gorm.DB) func(http.Handler) http.Handl
 			gw.Write(ctx, gen)
 		})
 	}
-}
-
-func shouldCaptureProxyGeneration(claims *TokenClaims) bool {
-	if claims == nil {
-		return false
-	}
-	return claims.TokenType != "agent_proxy"
 }
 
 func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.CapturedData, providerID string, reg *registry.Registry, db *gorm.DB) model.Generation {

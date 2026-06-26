@@ -24,6 +24,7 @@ const (
 	sessionTranscriptionProviderID     = "elevenlabs"
 	sessionTranscriptionTimeout        = 60 * time.Second
 	sessionTranscriptionMaxAudioBytes  = 25 * 1024 * 1024
+	sessionTranscriptionCostPerHourUSD = 0.40
 )
 
 type transcribeSessionAudioRequest struct {
@@ -135,6 +136,7 @@ func (h *SessionHandler) TranscribeAudio(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "audio transcription failed"})
 		return
 	}
+	h.trackSessionTranscriptionUsage(r.Context(), session, asset, cred, route.UpstreamID, currentUserID(r), languageCode, result)
 	writeJSON(w, http.StatusOK, transcribeSessionAudioResponse{Text: result.Text})
 }
 

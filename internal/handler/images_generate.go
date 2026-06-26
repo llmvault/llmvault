@@ -104,7 +104,7 @@ func (h *UploadsHandler) runImageGeneration(ctx context.Context, agent *model.Ag
 	callCtx, cancel := context.WithTimeout(ctx, imageGenerationTimeout)
 	defer cancel()
 
-	images, err := h.callOpenRouterImages(callCtx, cred, string(apiKey), route.UpstreamID, prompt, req.aspectRatio(), req.count(), references)
+	images, usage, err := h.callOpenRouterImages(callCtx, cred, string(apiKey), route.UpstreamID, prompt, req.aspectRatio(), req.count(), references)
 	if err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "image generation upstream failed", "agent_id", agent.ID, "model", modelID, "upstream_model", route.UpstreamID, "credential_id", cred.ID, "error", err)
 		return nil, http.StatusBadGateway, &imageGenerationError{Error: "image generation failed", ErrorCode: "upstream_failed"}
@@ -114,6 +114,7 @@ func (h *UploadsHandler) runImageGeneration(ctx context.Context, agent *model.Ag
 		logging.FromContext(ctx).ErrorContext(ctx, "image generation asset storage failed", "agent_id", agent.ID, "model", modelID, "error", err)
 		return nil, http.StatusInternalServerError, &imageGenerationError{Error: "failed to store generated image", ErrorCode: "asset_storage_failed"}
 	}
+	h.trackImageGenerationUsage(ctx, agent, sandbox, req, h.imageGenerationUsageSession(ctx, agent, req.sessionUUID()), cred, modelID, route.UpstreamID, usage, results)
 	return results, http.StatusOK, nil
 }
 

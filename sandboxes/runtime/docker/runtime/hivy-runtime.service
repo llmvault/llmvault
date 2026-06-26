@@ -1,0 +1,12 @@
+[Unit]
+Description=Hivy sandbox runtime
+After=network.target
+
+[Service]
+WorkingDirectory=/app
+ExecStart=/usr/local/bin/hivy-runtime-entrypoint /usr/local/bin/hivy-sandboxes-runtime
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

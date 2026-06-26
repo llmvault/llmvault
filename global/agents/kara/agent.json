@@ -12,13 +12,13 @@
   "default": true,
   "runtime": {
     "sandbox_strategy": "per_session",
-    "sandbox_image": "developer",
-    "model": "qwen3.7-plus",
+    "sandbox_image": "default",
+    "model": "mimo-v2.5-pro",
     "available_models": [
-      "qwen3.7-plus",
-      "gemini-3-flash-preview",
-      "deepseek-v4-flash",
-      "step-3.7-flash"
+      "kimi-k2.7-code",
+      "mimo-v2.5-pro",
+      "glm-5.1",
+      "glm-5.2"
     ]
   },
   "prompt": {
@@ -38,7 +38,31 @@
     "skills_list": true,
     "skill_view": true,
     "skill_manage": true,
+    "subagent_task": true,
     "request_user_input": true
+  },
+  "sub_agents": {
+    "design-worker": {
+      "name": "Design Worker",
+      "description": "Canvas implementation specialist for Kara. Use when a design task has clear enough direction and needs concrete Canvas file creation, editing, board construction, visual verification, or export work while Kara keeps the parent conversation and final user-facing judgment.",
+      "model": "kimi-k2.7-code",
+      "tools": {
+        "bash": true,
+        "check_bash_status": true,
+        "read_file": true,
+        "write_file": true,
+        "file_search": true,
+        "glob": true,
+        "grep": true,
+        "multi_grep": true,
+        "update_plan": true,
+        "skills_list": true,
+        "skill_view": true
+      },
+      "prompt": {
+        "instructions": "./sub_agents/design-worker/instructions.md"
+      }
+    }
   },
   "plugins": {
     "required": [
