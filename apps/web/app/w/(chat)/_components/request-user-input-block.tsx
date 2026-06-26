@@ -19,11 +19,13 @@ export function RequestUserInputBlock({
   sessionId,
   agentName,
   onSubmitted,
+  inline = false,
 }: {
   block: InputRequestConversationBlock
   sessionId?: string
   agentName?: string
   onSubmitted?: (questionRequestId: string) => void
+  inline?: boolean
 }) {
   const initialAnswers = useMemo(
     () => initialAnswerDraft(block.questions, block.answers),
@@ -118,122 +120,129 @@ export function RequestUserInputBlock({
     await submitPayload(payload, "submit")
   }
 
-  return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-full z-30 pb-2">
-      <section
-        className="pointer-events-auto mx-auto w-full max-w-3xl px-4"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") void dismiss()
-        }}
-      >
-        <div className="rounded-2xl border border-border bg-surface px-3 py-3 shadow-lg">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              {block.questions.length > 1 ? (
-                <div className="mb-1 text-xs font-medium text-muted">
-                  Question {step + 1} / {block.questions.length}
-                </div>
-              ) : null}
-              <h3 className="text-sm leading-5 font-medium text-foreground">
-                {question.question}
-              </h3>
-            </div>
+  const content = (
+    <section
+      className={
+        inline
+          ? "pointer-events-auto w-full"
+          : "pointer-events-auto mx-auto w-full max-w-3xl px-4"
+      }
+      onKeyDown={(event) => {
+        if (event.key === "Escape") void dismiss()
+      }}
+    >
+      <div className="rounded-2xl border border-border bg-surface px-3 py-3 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            {block.questions.length > 1 ? (
+              <div className="mb-1 text-xs font-medium text-muted">
+                Question {step + 1} / {block.questions.length}
+              </div>
+            ) : null}
+            <h3 className="text-sm leading-5 font-medium text-foreground">
+              {question.question}
+            </h3>
           </div>
+        </div>
 
-          <div className="mt-2 flex flex-col gap-1">
-            {question.options.map((option, index) => (
-              <OptionRow
-                key={option.label}
-                index={index + 1}
-                label={option.label}
-                description={option.description}
-                selected={answers[question.id]?.label === option.label}
-                disabled={submitInputResponse.isPending}
-                onClick={() => select(question.id, option.label)}
-              />
-            ))}
-            <OtherRow
-              index={question.options.length + 1}
-              agentName={agentLabel}
-              value={
-                answers[question.id]?.label === OTHER_LABEL
-                  ? (answers[question.id]?.other ?? "")
-                  : ""
-              }
-              selected={answers[question.id]?.label === OTHER_LABEL}
+        <div className="mt-2 flex flex-col gap-1">
+          {question.options.map((option, index) => (
+            <OptionRow
+              key={option.label}
+              index={index + 1}
+              label={option.label}
+              description={option.description}
+              selected={answers[question.id]?.label === option.label}
               disabled={submitInputResponse.isPending}
-              onChange={(value) => select(question.id, OTHER_LABEL, value)}
+              onClick={() => select(question.id, option.label)}
             />
-          </div>
+          ))}
+          <OtherRow
+            index={question.options.length + 1}
+            agentName={agentLabel}
+            value={
+              answers[question.id]?.label === OTHER_LABEL
+                ? (answers[question.id]?.other ?? "")
+                : ""
+            }
+            selected={answers[question.id]?.label === OTHER_LABEL}
+            disabled={submitInputResponse.isPending}
+            onChange={(value) => select(question.id, OTHER_LABEL, value)}
+          />
+        </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="min-w-0 flex-1 text-xs text-danger">{error}</p>
-            <div className="flex shrink-0 items-center gap-2">
-              {step > 0 ? (
-                <button
-                  type="button"
-                  disabled={submitInputResponse.isPending}
-                  onClick={() => {
-                    setError("")
-                    setStep((current) => Math.max(0, current - 1))
-                  }}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Icon icon="lucide:arrow-left" className="h-3.5 w-3.5" />
-                  Back
-                </button>
-              ) : null}
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="min-w-0 flex-1 text-xs text-danger">{error}</p>
+          <div className="flex shrink-0 items-center gap-2">
+            {step > 0 ? (
               <button
                 type="button"
                 disabled={submitInputResponse.isPending}
-                onClick={() => void dismiss()}
+                onClick={() => {
+                  setError("")
+                  setStep((current) => Math.max(0, current - 1))
+                }}
                 className="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {pendingAction === "dismiss" ? (
+                <Icon icon="lucide:arrow-left" className="h-3.5 w-3.5" />
+                Back
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={submitInputResponse.isPending}
+              onClick={() => void dismiss()}
+              className="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pendingAction === "dismiss" ? (
+                <Icon
+                  icon="lucide:loader-circle"
+                  className="h-3.5 w-3.5 animate-spin"
+                />
+              ) : null}
+              Dismiss
+              <kbd className="rounded bg-default px-1.5 py-0.5 text-[11px] text-foreground">
+                ESC
+              </kbd>
+            </button>
+            {isLastStep ? (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => void submit()}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pendingAction === "submit" ? (
                   <Icon
                     icon="lucide:loader-circle"
                     className="h-3.5 w-3.5 animate-spin"
                   />
                 ) : null}
-                Dismiss
-                <kbd className="rounded bg-default px-1.5 py-0.5 text-[11px] text-foreground">
-                  ESC
-                </kbd>
+                Submit
+                <Icon icon="lucide:corner-down-left" className="h-3.5 w-3.5" />
               </button>
-              {isLastStep ? (
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => void submit()}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {pendingAction === "submit" ? (
-                    <Icon
-                      icon="lucide:loader-circle"
-                      className="h-3.5 w-3.5 animate-spin"
-                    />
-                  ) : null}
-                  Submit
-                  <Icon
-                    icon="lucide:corner-down-left"
-                    className="h-3.5 w-3.5"
-                  />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={next}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-xs font-medium text-background transition-colors hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Next
-                  <Icon icon="lucide:arrow-right" className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+            ) : (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={next}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-xs font-medium text-background transition-colors hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+                <Icon icon="lucide:arrow-right" className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  )
+
+  if (inline) return content
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-full z-30 pb-2">
+      {content}
     </div>
   )
 }

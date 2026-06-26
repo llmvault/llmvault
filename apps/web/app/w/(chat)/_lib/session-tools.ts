@@ -170,6 +170,11 @@ function toolLabel(
 function toolLabelFromDetail(detail?: ToolCallDetail): string {
   if (!detail) return "Ran unknown tool"
   const running = detail.status === "running"
+  if (detail.tool === "subagent_task") {
+    const agent = detail.input || "subagent"
+    if (detail.status === "errored") return `${agent} failed`
+    return running ? `Delegating to ${agent}` : `${agent} completed`
+  }
   const target =
     detail.command || detail.query || detail.url || detail.path || detail.input
   const browserCommand =
@@ -221,6 +226,7 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
   const payload = payloadRecord(event)
   const tool = toolName(payload) || "tool"
   const normalizedTool = normalizeToolName(tool)
+  const subagentTask = normalizedTool === "subagent_task"
   const args =
     payloadValueAsSummary(payload.args) ??
     parseSummary(stringValue(payload, "args_summary"))
@@ -234,6 +240,7 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
     firstSummaryString(args, [
       "query",
       "q",
+      "goal",
       "term",
       "search",
       "prompt",
@@ -271,8 +278,22 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
   const category = toolCategory(normalizedTool, command, error || output)
   const browserCommand =
     category === "shell" ? detectBrowserBashCommand(command) : undefined
-  const kind = browserCommand?.kind ?? toolKind(category, normalizedTool)
-  const icon = browserCommand?.icon ?? toolIcon(category)
+  const kind =
+    browserCommand?.kind ??
+    (subagentTask ? "Subagent" : toolKind(category, normalizedTool))
+  const icon =
+    browserCommand?.icon ?? (subagentTask ? "lucide:bot" : toolIcon(category))
+  const subagentAgent = subagentTask
+    ? firstSummaryString(args, ["agent"]) ||
+      firstSummaryString(result, ["agent"])
+    : ""
+  const subagentGoal = subagentTask ? query : ""
+  const subagentJobId = subagentTask
+    ? firstSummaryString(result, ["job_id"])
+    : ""
+  const subagentChildSessionId = subagentTask
+    ? firstSummaryString(result, ["child_session_id", "session_id"])
+    : ""
   const bytesWritten = summaryNumber(result, "bytes_written")
   const editsApplied = summaryNumber(result, "edits_applied")
   const searchResults = collectSearchResults(result, output)
@@ -300,14 +321,18 @@ function toolDetail(event: SessionEventResponse): ToolCallDetail | undefined {
           query,
           url,
           path,
-          input: query,
+          input: subagentAgent || query,
           status,
         })
       : undefined,
     preview,
     command,
-    input: query,
+    input: subagentAgent || query,
     query,
+    jobId: subagentJobId || undefined,
+    agentName: subagentAgent || undefined,
+    goal: subagentGoal || undefined,
+    childSessionId: subagentChildSessionId || undefined,
     url,
     path,
     paths,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, Chip, Input, Modal, Spinner, toast } from "@heroui/react"
@@ -34,20 +34,43 @@ export function ChannelDetailsModal({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  if (!open) return null
+
+  return (
+    <ChannelDetailsModalContent
+      key={`${channel?.id ?? "channel"}:${initialNameEdit ? "edit" : "view"}`}
+      channel={channel}
+      initialNameEdit={initialNameEdit}
+      onOpenChange={onOpenChange}
+    />
+  )
+}
+
+function ChannelDetailsModalContent({
+  channel,
+  initialNameEdit = false,
+  onOpenChange,
+}: {
+  channel: ChannelResponse | null
+  initialNameEdit?: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<DetailTab>("about")
   const [copied, setCopied] = useState(false)
-  const [editingName, setEditingName] = useState(false)
-  const [nameDraft, setNameDraft] = useState("")
+  const [editingName, setEditingName] = useState(initialNameEdit)
+  const [nameDraft, setNameDraft] = useState(
+    channel ? channelDisplayName(channel) : ""
+  )
   const channelID = channel?.id ?? ""
   const channelQuery = $api.useQuery(
     "get",
     "/v1/channels/{id}",
     { params: { path: { id: channelID } } },
     {
-      enabled: open && Boolean(channelID),
+      enabled: Boolean(channelID),
       retry: false,
       staleTime: CHAT_QUERY_STALE_TIME_MS,
     }
@@ -57,7 +80,6 @@ export function ChannelDetailsModal({
     "/v1/orgs/current/members",
     {},
     {
-      enabled: open,
       retry: false,
       staleTime: CHAT_QUERY_STALE_TIME_MS,
     }
@@ -81,17 +103,6 @@ export function ChannelDetailsModal({
   const trimmedName = nameDraft.trim()
   const nameInvalid = editingName && trimmedName.length === 0
   const nameUnchanged = trimmedName === channelName
-
-  useEffect(() => {
-    if (!open) return
-    setEditingName(initialNameEdit)
-    setNameDraft(channel ? channelDisplayName(channel) : "")
-  }, [channel, channelID, initialNameEdit, open])
-
-  useEffect(() => {
-    if (!open || editingName) return
-    setNameDraft(channelName)
-  }, [channelName, editingName, open])
 
   async function copyChannelID() {
     if (!channelID) return
@@ -151,7 +162,7 @@ export function ChannelDetailsModal({
   }
 
   return (
-    <Modal isOpen={open} onOpenChange={close}>
+    <Modal isOpen onOpenChange={close}>
       <Modal.Backdrop className="bg-background/80 backdrop-blur-sm">
         <Modal.Container placement="center" className="p-4">
           <Modal.Dialog className="flex h-[min(640px,calc(100vh-2rem))] w-full max-w-lg overflow-hidden p-0">
@@ -159,7 +170,7 @@ export function ChannelDetailsModal({
             <div className="flex h-full min-h-0 flex-col">
               <div className="px-6 pt-6 pb-4">
                 <div className="flex min-w-0 items-start gap-3 pr-10">
-                  <div className="bg-default flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-foreground">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-default text-foreground">
                     <Icon icon="lucide:hash" className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -209,9 +220,9 @@ export function ChannelDetailsModal({
                 />
               </div>
 
-              <div className="bg-surface-secondary/40 min-h-0 flex-1 overflow-y-auto px-6 py-6">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-surface-secondary/40 px-6 py-6">
                 {channelQuery.isError ? (
-                  <div className="border-danger/30 bg-danger/10 text-danger mb-4 rounded-lg border px-3 py-2 text-sm">
+                  <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
                     Could not refresh channel details.
                   </div>
                 ) : null}
@@ -226,7 +237,10 @@ export function ChannelDetailsModal({
                     renamePending={renameChannel.isPending}
                     onCancelName={cancelNameEdit}
                     onCopyID={copyChannelID}
-                    onEditName={() => setEditingName(true)}
+                    onEditName={() => {
+                      setNameDraft(channelName)
+                      setEditingName(true)
+                    }}
                     onNameChange={setNameDraft}
                     onSaveName={saveName}
                     copied={copied}
@@ -304,7 +318,7 @@ function AboutPanel({
   onSaveName: () => void
 }) {
   return (
-    <div className="bg-surface rounded-xl border border-border">
+    <div className="rounded-xl border border-border bg-surface">
       <ChannelNameRow
         channel={channel}
         editing={editingName}
@@ -389,7 +403,7 @@ function ChannelNameRow({
               }}
             />
             {invalid ? (
-              <p id="channel-name-error" className="text-danger text-sm">
+              <p id="channel-name-error" className="text-sm text-danger">
                 Enter a channel name.
               </p>
             ) : null}
@@ -465,7 +479,7 @@ function MembersPanel({
 }) {
   if (loading) {
     return (
-      <div className="bg-surface flex min-h-32 items-center justify-center rounded-xl border border-border">
+      <div className="flex min-h-32 items-center justify-center rounded-xl border border-border bg-surface">
         <Spinner size="sm" />
       </div>
     )
@@ -473,14 +487,14 @@ function MembersPanel({
 
   if (!members.length) {
     return (
-      <div className="bg-surface rounded-xl border border-border px-5 py-6 text-sm text-muted">
+      <div className="rounded-xl border border-border bg-surface px-5 py-6 text-sm text-muted">
         No channel members returned.
       </div>
     )
   }
 
   return (
-    <div className="bg-surface rounded-xl border border-border">
+    <div className="rounded-xl border border-border bg-surface">
       {members.map((member, index) => {
         const orgMember = member.user_id
           ? membersByID.get(member.user_id)
@@ -491,7 +505,7 @@ function MembersPanel({
             key={member.user_id ?? index}
             className="flex items-center gap-3 border-t border-border px-5 py-3 first:border-t-0"
           >
-            <div className="bg-default flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-default text-sm font-medium">
               {label.slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">

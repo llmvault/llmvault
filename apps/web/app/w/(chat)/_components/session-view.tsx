@@ -25,6 +25,13 @@ import {
   type SessionEventResponse,
 } from "@/app/w/(chat)/_lib/session-history"
 import {
+  isSubagentSessionEvent,
+  mergeSubagentRuns,
+  sessionSubagentRunsFromEvents,
+  type SessionSubagentRun,
+} from "@/app/w/(chat)/_lib/session-subagent-runs"
+import { hydrateCompletedSubagentRun } from "@/app/w/(chat)/_lib/session-subagent-events"
+import {
   eventTurnIDs,
   replayModeForLoadedSession,
   suppressBackendEventsForLiveTurn,
@@ -38,6 +45,7 @@ import {
 import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
 import { type CodeLineCommentPayload } from "@/app/w/(chat)/_lib/code-line-comments"
+import type { SubagentConversationBlock } from "@/app/w/(chat)/_lib/static-data"
 import { latestSessionPlan } from "@/app/w/(chat)/_lib/session-plan"
 import {
   eventMatchesInputRequest,
@@ -52,10 +60,14 @@ import {
 import {
   useSessionLiveEvents,
   useSessionRuntimeSummary,
+  useSessionSubagentRuns,
   useSessionRuntimeStore,
   type SessionRuntimeStatus,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
-import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
+import {
+  selectSessionWorkspace,
+  useSessionWorkspaceStore,
+} from "@/app/w/(chat)/_stores/session-workspace-store"
 
 const ENABLE_DIRECT_SESSION_STREAM = true
 
@@ -68,11 +80,20 @@ export function SessionThreadView({
 }) {
   const queryClient = useQueryClient()
   const liveEvents = useSessionLiveEvents(sessionId)
+  const liveSubagentRuns = useSessionSubagentRuns(sessionId)
   const openCanvasTarget = useSessionWorkspaceStore(
     (state) => state.openCanvasTarget
   )
   const openBrowserURL = useSessionWorkspaceStore(
     (state) => state.openBrowserURL
+  )
+  const openSubagentRun = useSessionWorkspaceStore(
+    (state) => state.openSubagentRun
+  )
+  const workspaceSessionId = sessionId ?? "new-chat"
+  const activeSubagentJobId = useSessionWorkspaceStore(
+    (state) =>
+      selectSessionWorkspace(state, workspaceSessionId).subagents.activeJobId
   )
   const renderedLiveEvents = useMemo(
     () => (ENABLE_DIRECT_SESSION_STREAM ? liveEvents : []),
@@ -111,6 +132,18 @@ export function SessionThreadView({
     () => sessionHistoryPagesToEvents(historyPages ?? []),
     [historyPages]
   )
+  const parentHistoryEvents = useMemo(
+    () => historyEvents.filter((event) => !isSubagentSessionEvent(event)),
+    [historyEvents]
+  )
+  const historySubagentRuns = useMemo(
+    () => sessionSubagentRunsFromEvents(historyEvents),
+    [historyEvents]
+  )
+  const subagentRuns = useMemo(
+    () => mergeSubagentRuns(historySubagentRuns, liveSubagentRuns),
+    [historySubagentRuns, liveSubagentRuns]
+  )
   const activeBackendTurnID =
     turnActive && session.agentTurnID?.trim()
       ? session.agentTurnID.trim()
@@ -121,19 +154,24 @@ export function SessionThreadView({
   )
   const renderedHistoryEvents = useMemo(
     () =>
-      suppressBackendEventsForLiveTurns(historyEvents, [
+      suppressBackendEventsForLiveTurns(parentHistoryEvents, [
         activeBackendTurnID,
         ...liveTurnIDs,
       ]),
-    [activeBackendTurnID, historyEvents, liveTurnIDs]
+    [activeBackendTurnID, parentHistoryEvents, liveTurnIDs]
   )
   const reconcileHistoryEvents = useMemo(
-    () => suppressBackendEventsForLiveTurn(historyEvents, activeBackendTurnID),
-    [activeBackendTurnID, historyEvents]
+    () =>
+      suppressBackendEventsForLiveTurn(
+        parentHistoryEvents,
+        activeBackendTurnID
+      ),
+    [activeBackendTurnID, parentHistoryEvents]
   )
   const durableActiveTurnOutcome = useMemo(
-    () => terminalOutcomeForTurnEvents(historyEvents, activeBackendTurnID),
-    [activeBackendTurnID, historyEvents]
+    () =>
+      terminalOutcomeForTurnEvents(parentHistoryEvents, activeBackendTurnID),
+    [activeBackendTurnID, parentHistoryEvents]
   )
   const combinedEvents = useMemo(
     () =>
@@ -171,8 +209,16 @@ export function SessionThreadView({
       sessionEventsToConversationBlocks(visibleConversationEvents, {
         activeTurnID,
         activeTurnStartedAt: session.agentTurnStartedAt,
+        subagentRuns,
+        activeSubagentJobId,
       }),
-    [activeTurnID, session.agentTurnStartedAt, visibleConversationEvents]
+    [
+      activeSubagentJobId,
+      activeTurnID,
+      session.agentTurnStartedAt,
+      subagentRuns,
+      visibleConversationEvents,
+    ]
   )
   const latestPlan = useMemo(
     () => latestSessionPlan(combinedEvents),
@@ -212,6 +258,15 @@ export function SessionThreadView({
     reconcileHistoryEvents,
     sessionId,
   ])
+
+  useEffect(() => {
+    if (!sessionId || temporarySession || historySubagentRuns.length === 0) {
+      return
+    }
+    useSessionRuntimeStore
+      .getState()
+      .mergeSubagentRuns(sessionId, historySubagentRuns)
+  }, [historySubagentRuns, sessionId, temporarySession])
 
   useEffect(() => {
     if (!sessionId || !turnActive || !durableActiveTurnOutcome) return
@@ -332,6 +387,29 @@ export function SessionThreadView({
     },
     [openBrowserURL, sessionId]
   )
+  const handleOpenSubagentRun = useCallback(
+    (block: SubagentConversationBlock) => {
+      const run = subagentRunForBlock(block, subagentRuns)
+      const resolvedRun = run ?? subagentRunFromBlock(block)
+      const activeJobId =
+        resolvedRun?.jobId || block.jobId || block.childSessionId || block.key
+      if (!activeJobId) return
+
+      openSubagentRun(workspaceSessionId, activeJobId)
+      if (!sessionId || !resolvedRun || resolvedRun.status !== "completed") {
+        return
+      }
+      void hydrateCompletedSubagentRun({
+        parentSessionId: sessionId,
+        run: resolvedRun,
+      }).catch((error) => {
+        toast.danger(
+          extractErrorMessage(error, "Could not load subagent events")
+        )
+      })
+    },
+    [openSubagentRun, sessionId, subagentRuns, workspaceSessionId]
+  )
   const handleInputRequestSubmitted = useCallback(
     (_questionRequestId: string) => {
       if (!sessionId) return
@@ -344,8 +422,9 @@ export function SessionThreadView({
   const isBusy = turnActive || sendSessionMessage.isPending
   const showHistorySkeleton =
     !temporarySession && sessionHistoryQuery.isPending && !historyPages?.length
+  const showBottomDock = Boolean(activeInputRequest || latestPlan)
   const followButtonClassName = `!absolute ${
-    activeInputRequest || latestPlan ? "!bottom-20" : "!bottom-6"
+    showBottomDock ? "!bottom-20" : "!bottom-6"
   } !left-1/2 !right-auto !flex !h-9 !w-9 !-translate-x-1/2 !items-center !justify-center !rounded-full !border !border-border !bg-surface !p-0 !text-muted !shadow-sm !transition-colors after:content-['↓'] hover:!bg-default hover:!text-foreground`
 
   return (
@@ -371,21 +450,33 @@ export function SessionThreadView({
               blocks={visibleBlocks}
               onOpenCanvasTarget={handleOpenCanvasTarget}
               onOpenPreviewTarget={handleOpenPreviewTarget}
+              onOpenSubagentRun={handleOpenSubagentRun}
             />
           </>
         )}
       </ScrollToBottom>
 
       <div className="relative z-20 shrink-0">
-        {activeInputRequest ? (
-          <RequestUserInputBlock
-            block={activeInputRequest}
-            sessionId={sessionId}
-            agentName={session.agentName}
-            onSubmitted={handleInputRequestSubmitted}
-          />
-        ) : latestPlan ? (
-          <SessionPlanCard plan={latestPlan} turnActive={turnActive} />
+        {showBottomDock ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-full z-30 pb-2">
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4">
+              {activeInputRequest ? (
+                <RequestUserInputBlock
+                  block={activeInputRequest}
+                  sessionId={sessionId}
+                  agentName={session.agentName}
+                  onSubmitted={handleInputRequestSubmitted}
+                  inline
+                />
+              ) : latestPlan ? (
+                <SessionPlanCard
+                  plan={latestPlan}
+                  turnActive={turnActive}
+                  inline
+                />
+              ) : null}
+            </div>
+          </div>
         ) : null}
         <Composer
           sessionId={sessionId ?? "new-chat"}
@@ -400,6 +491,44 @@ export function SessionThreadView({
       </div>
     </div>
   )
+}
+
+function subagentRunForBlock(
+  block: SubagentConversationBlock,
+  runs: SessionSubagentRun[]
+) {
+  if (block.jobId) {
+    const match = runs.find((run) => run.jobId === block.jobId)
+    if (match) return match
+  }
+  if (block.childSessionId) {
+    const match = runs.find(
+      (run) => run.childSessionId === block.childSessionId
+    )
+    if (match) return match
+  }
+  const agentName = block.agentName.trim()
+  if (!agentName) return undefined
+  const matches = runs.filter((run) => run.agentName === agentName)
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+function subagentRunFromBlock(
+  block: SubagentConversationBlock
+): SessionSubagentRun | undefined {
+  const jobId = block.jobId || block.childSessionId || block.key
+  if (!jobId) return undefined
+  return {
+    jobId,
+    agentName: block.agentName,
+    childSessionId: block.childSessionId,
+    status: block.status,
+    frames: [],
+    events: [],
+    latestText: block.preview,
+    error: block.error,
+    updatedAt: Date.now(),
+  }
 }
 
 function normalizedTurnID(value: unknown) {

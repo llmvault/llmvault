@@ -14,6 +14,7 @@ import {
 } from "@/app/w/(chat)/_components/conversation-assistant"
 import { ThinkingBlock } from "@/app/w/(chat)/_components/conversation-thinking"
 import { UserMessageBlock } from "@/app/w/(chat)/_components/conversation-user-message"
+import { SubagentBlock } from "@/app/w/(chat)/_components/conversation-subagent"
 import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
 import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
 import {
@@ -21,14 +22,21 @@ import {
   type MediaAttachment,
 } from "@/app/w/(chat)/_lib/static-data"
 
+type SubagentConversationBlock = Extract<
+  ConversationBlock,
+  { type: "subagent" }
+>
+
 export function Conversation({
   blocks,
   onOpenCanvasTarget,
   onOpenPreviewTarget,
+  onOpenSubagentRun,
 }: {
   blocks: ConversationBlock[]
   onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
   onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
+  onOpenSubagentRun?: (block: SubagentConversationBlock) => void
 }) {
   // All attachments across the conversation form one gallery so the
   // lightbox can navigate between every shared image and video.
@@ -51,6 +59,7 @@ export function Conversation({
           onOpenAttachment={openAttachment}
           onOpenCanvasTarget={onOpenCanvasTarget}
           onOpenPreviewTarget={onOpenPreviewTarget}
+          onOpenSubagentRun={onOpenSubagentRun}
         />
       ))}
       <Lightbox
@@ -68,11 +77,13 @@ function Block({
   onOpenAttachment,
   onOpenCanvasTarget,
   onOpenPreviewTarget,
+  onOpenSubagentRun,
 }: {
   block: ConversationBlock
   onOpenAttachment: (attachment: MediaAttachment) => void
   onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
   onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
+  onOpenSubagentRun?: (block: SubagentConversationBlock) => void
 }) {
   switch (block.type) {
     case "assistant":
@@ -109,10 +120,13 @@ function Block({
               onOpenAttachment={onOpenAttachment}
               onOpenCanvasTarget={onOpenCanvasTarget}
               onOpenPreviewTarget={onOpenPreviewTarget}
+              onOpenSubagentRun={onOpenSubagentRun}
             />
           )}
         />
       )
+    case "subagent":
+      return <SubagentBlock block={block} onOpenRun={onOpenSubagentRun} />
     case "tool":
       return <ToolBlock block={block} />
     case "tool_chain":

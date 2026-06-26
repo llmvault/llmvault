@@ -7,7 +7,7 @@ import {
   type FilesRepoSelectorProps,
 } from "@/app/w/(chat)/_components/views/files"
 import { ReviewView } from "@/app/w/(chat)/_components/views/review"
-import { SideChatView } from "@/app/w/(chat)/_components/views/side-chat"
+import { SubagentView } from "@/app/w/(chat)/_components/views/side-chat"
 import { TerminalView } from "@/app/w/(chat)/_components/views/terminal"
 import type { PanelViewID, SessionSandboxAccessResponse } from "./right-panel"
 
@@ -57,6 +57,6 @@ export function ActiveView({
         />
       )
     case "side-chat":
-      return <SideChatView />
+      return <SubagentView sessionId={sessionId} />
   }
 }

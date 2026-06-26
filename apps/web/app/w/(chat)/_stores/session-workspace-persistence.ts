@@ -11,7 +11,10 @@ interface PersistedSessionWorkspaces {
   workspaces: Record<string, PersistedSessionWorkspace>
 }
 
-type PersistedSessionWorkspace = Omit<SessionWorkspace, "composer" | "files"> & {
+type PersistedSessionWorkspace = Omit<
+  SessionWorkspace,
+  "composer" | "files"
+> & {
   composer: Omit<SessionWorkspace["composer"], "uploads"> & {
     uploads: PersistedWorkspaceUploadItem[]
   }
@@ -51,9 +54,9 @@ export function createDefaultSessionWorkspace(
 ): SessionWorkspace {
   return {
     lastTouchedAt,
-	    composer: {
-	      text: "",
-	      effort: "High",
+    composer: {
+      text: "",
+      effort: "High",
       uploads: [],
       attachmentDescriptions: {},
     },
@@ -84,6 +87,9 @@ export function createDefaultSessionWorkspace(
       diffStyle: "unified",
     },
     terminal: {},
+    subagents: {
+      activeJobId: null,
+    },
     scroll: {},
   }
 }
@@ -135,7 +141,10 @@ export async function deleteDraftAttachmentBlob(key?: string) {
 }
 
 export async function clearWorkspacePersistence() {
-  await Promise.allSettled([clear(WORKSPACE_STORE), clear(WORKSPACE_BLOB_STORE)])
+  await Promise.allSettled([
+    clear(WORKSPACE_STORE),
+    clear(WORKSPACE_BLOB_STORE),
+  ])
 }
 
 export async function pruneStoredBlobs(
@@ -212,33 +221,39 @@ function persistableWorkspaces(
   workspaces: Record<string, SessionWorkspace>
 ): Record<string, PersistedSessionWorkspace> {
   return Object.fromEntries(
-    Object.entries(pruneWorkspaces(workspaces)).map(([sessionId, workspace]) => [
-      sessionId,
-      {
-        ...workspace,
-        composer: {
-          ...workspace.composer,
-          uploads: workspace.composer.uploads.map((upload) => {
-            const { file: _file, previewUrl: _previewUrl, ...persisted } = upload
-            return persisted
-          }),
+    Object.entries(pruneWorkspaces(workspaces)).map(
+      ([sessionId, workspace]) => [
+        sessionId,
+        {
+          ...workspace,
+          composer: {
+            ...workspace.composer,
+            uploads: workspace.composer.uploads.map((upload) => {
+              const {
+                file: _file,
+                previewUrl: _previewUrl,
+                ...persisted
+              } = upload
+              return persisted
+            }),
+          },
+          files: {
+            ...workspace.files,
+            repoTreeCaches: Object.fromEntries(
+              Object.entries(workspace.files.repoTreeCaches).map(
+                ([repoId, cache]) => [
+                  repoId,
+                  {
+                    ...cache,
+                    loadingDirectories: [],
+                  },
+                ]
+              )
+            ),
+          },
         },
-        files: {
-          ...workspace.files,
-          repoTreeCaches: Object.fromEntries(
-            Object.entries(workspace.files.repoTreeCaches).map(
-              ([repoId, cache]) => [
-                repoId,
-                {
-                  ...cache,
-                  loadingDirectories: [],
-                },
-              ]
-            )
-          ),
-        },
-      },
-    ])
+      ]
+    )
   )
 }
 
