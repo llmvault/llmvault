@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react"
 import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import { useDropzone } from "react-dropzone"
+import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
 import {
   useOrgDriveFileUploads,
@@ -17,7 +18,7 @@ import {
 } from "@/app/w/(chat)/_stores/session-workspace-store"
 import {
   attachmentMetadataFromDescription,
-  describeDriveImage,
+  requireImageDescriptionResult,
   type ImageAttachmentMetadata,
 } from "@/app/w/(chat)/_lib/image-attachments"
 import { appendTranscriptToComposer } from "@/app/w/(chat)/_lib/audio-transcriptions"
@@ -86,6 +87,10 @@ export function Composer({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const describedUploadsRef = useRef<Set<string>>(new Set())
   const usage = useSessionUsageSummary(sessionId)
+  const { mutateAsync: describeDriveImage } = $api.useMutation(
+    "post",
+    "/v1/images/describe"
+  )
   const { uploads, addFiles, retryUpload, removeUpload } =
     useOrgDriveFileUploads({ agentId, sessionId })
 
@@ -157,7 +162,15 @@ export function Composer({
         [upload.id]: { status: "describing" },
       }))
       try {
-        const description = await describeDriveImage(upload.asset.id, sessionId)
+        const description = requireImageDescriptionResult(
+          await describeDriveImage({
+            body: {
+              drive_asset_id: upload.asset.id,
+              detail_level: "high",
+              session_id: sessionId,
+            },
+          })
+        )
         const metadata = attachmentMetadataFromDescription(
           upload.asset,
           description
@@ -175,7 +188,7 @@ export function Composer({
         }))
       }
     },
-    [sessionId, setAttachmentDescriptions]
+    [describeDriveImage, sessionId, setAttachmentDescriptions]
   )
 
   useEffect(() => {

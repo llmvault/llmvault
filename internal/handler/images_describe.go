@@ -25,6 +25,22 @@ const (
 )
 
 // Describe handles POST /v1/images/describe.
+// @Summary Describe an uploaded image
+// @Description Runs image analysis for an uploaded agent drive image and returns structured attachment metadata.
+// @Tags images
+// @Accept json
+// @Produce json
+// @Param body body imageDescribeRequest true "Image description payload"
+// @Success 200 {object} imageDescribeResponse
+// @Failure 400 {object} imageDescribeError
+// @Failure 401 {object} imageDescribeError
+// @Failure 404 {object} imageDescribeError
+// @Failure 422 {object} imageDescribeError
+// @Failure 500 {object} imageDescribeError
+// @Failure 502 {object} imageDescribeError
+// @Failure 503 {object} imageDescribeError
+// @Security BearerAuth
+// @Router /v1/images/describe [post]
 func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) {
 	startedAt := time.Now()
 	userID := currentUserID(r)

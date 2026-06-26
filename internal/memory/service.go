@@ -166,8 +166,18 @@ func (s *Service) List(ctx context.Context, req ListRequest) ([]model.AgentMemor
 		Where("org_id = ? AND archived_at IS NULL", req.OrgID).
 		Order("created_at DESC")
 	q = applyAccessibleScope(q, req.UserID)
-	if req.AgentID != nil {
-		q = q.Where("(agent_id IS NULL OR agent_id = ?)", *req.AgentID)
+	switch strings.TrimSpace(req.AgentVisibility) {
+	case AgentVisibilityAllAgents:
+		q = q.Where("agent_id IS NULL")
+	case AgentVisibilityThisAgent:
+		if req.AgentID == nil || *req.AgentID == uuid.Nil {
+			return nil, nil
+		}
+		q = q.Where("agent_id = ?", *req.AgentID)
+	default:
+		if req.AgentID != nil {
+			q = q.Where("(agent_id IS NULL OR agent_id = ?)", *req.AgentID)
+		}
 	}
 	if strings.TrimSpace(req.Scope) != "" {
 		q = q.Where("scope = ?", strings.TrimSpace(req.Scope))
@@ -175,12 +185,17 @@ func (s *Service) List(ctx context.Context, req ListRequest) ([]model.AgentMemor
 	if tags := NormalizeTags(req.Tags); len(tags) > 0 {
 		q = q.Where("tags && ?", pq.StringArray(tags))
 	}
-	limit := req.Limit
-	if limit <= 0 || limit > 100 {
-		limit = 50
+	if !req.NoLimit {
+		limit := req.Limit
+		if limit <= 0 {
+			limit = 50
+		} else if limit > 500 {
+			limit = 500
+		}
+		q = q.Limit(limit)
 	}
 	var rows []model.AgentMemory
-	if err := q.Limit(limit).Find(&rows).Error; err != nil {
+	if err := q.Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("list memories: %w", err)
 	}
 	return rows, nil

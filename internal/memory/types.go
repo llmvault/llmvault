@@ -42,12 +42,14 @@ type ArchiveRequest struct {
 }
 
 type ListRequest struct {
-	OrgID   uuid.UUID
-	UserID  *uuid.UUID
-	AgentID *uuid.UUID
-	Scope   string
-	Tags    []string
-	Limit   int
+	OrgID           uuid.UUID
+	UserID          *uuid.UUID
+	AgentID         *uuid.UUID
+	Scope           string
+	AgentVisibility string
+	Tags            []string
+	Limit           int
+	NoLimit         bool
 }
 
 type SearchRequest struct {

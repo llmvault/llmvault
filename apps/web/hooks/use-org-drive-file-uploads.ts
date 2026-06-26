@@ -1,8 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useRef } from "react"
+import { $api } from "@/lib/api/hooks"
 import {
-  uploadDriveAsset,
+  driveAssetUploadFormData,
+  requireUploadedDriveAsset,
   type UploadedDriveAsset,
 } from "@/app/w/(chat)/_lib/image-attachments"
 import {
@@ -42,13 +44,17 @@ export function useOrgDriveFileUploads({
   sessionId,
   path = "uploads",
 }: UseOrgDriveFileUploadsOptions) {
-  const uploads = useSessionWorkspaceStore((state) =>
-    selectSessionWorkspace(state, sessionId).composer.uploads
+  const uploads = useSessionWorkspaceStore(
+    (state) => selectSessionWorkspace(state, sessionId).composer.uploads
   )
   const uploadsRef = useRef<WorkspaceUploadItem[]>([])
   const restoredUploadsRef = useRef<Set<string>>(new Set())
   const setComposerUploads = useSessionWorkspaceStore(
     (state) => state.setComposerUploads
+  )
+  const { mutateAsync: uploadDriveAsset } = $api.useMutation(
+    "post",
+    "/v1/assets/upload"
   )
 
   useEffect(() => {
@@ -58,7 +64,11 @@ export function useOrgDriveFileUploads({
   const uploadFile = useCallback(
     async (id: string, file: File) => {
       try {
-        const asset = await uploadDriveAsset({ agentId, file, path })
+        const asset = requireUploadedDriveAsset(
+          await uploadDriveAsset({
+            body: driveAssetUploadFormData({ agentId, file, path }),
+          })
+        )
         setComposerUploads(sessionId, (current) =>
           current.map((upload) =>
             upload.id === id
@@ -78,7 +88,7 @@ export function useOrgDriveFileUploads({
         )
       }
     },
-    [agentId, path, sessionId, setComposerUploads]
+    [agentId, path, sessionId, setComposerUploads, uploadDriveAsset]
   )
 
   useEffect(() => {
@@ -212,20 +222,23 @@ export function useOrgDriveFileUploads({
     [sessionId, setComposerUploads, uploadFile]
   )
 
-  const removeUpload = useCallback((id: string) => {
-    setComposerUploads(sessionId, (current) =>
-      current.filter((upload) => {
-        if (upload.id === id) {
-          if (upload.previewUrl?.startsWith("blob:")) {
-            URL.revokeObjectURL(upload.previewUrl)
+  const removeUpload = useCallback(
+    (id: string) => {
+      setComposerUploads(sessionId, (current) =>
+        current.filter((upload) => {
+          if (upload.id === id) {
+            if (upload.previewUrl?.startsWith("blob:")) {
+              URL.revokeObjectURL(upload.previewUrl)
+            }
+            void deleteDraftAttachmentBlob(upload.blobKey)
+            return false
           }
-          void deleteDraftAttachmentBlob(upload.blobKey)
-          return false
-        }
-        return true
-      })
-    )
-  }, [sessionId, setComposerUploads])
+          return true
+        })
+      )
+    },
+    [sessionId, setComposerUploads]
+  )
 
   const clearUploads = useCallback(() => {
     setComposerUploads(sessionId, (current) => {
@@ -240,8 +253,8 @@ export function useOrgDriveFileUploads({
   }, [sessionId, setComposerUploads])
 
   return {
-    uploads: uploads.filter(
-      (upload): upload is OrgDriveUploadItem => Boolean(upload.previewUrl)
+    uploads: uploads.filter((upload): upload is OrgDriveUploadItem =>
+      Boolean(upload.previewUrl)
     ),
     addFiles,
     retryUpload,

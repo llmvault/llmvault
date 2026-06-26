@@ -27,7 +27,7 @@ func TestBuildFetchesSourcesInParallel(t *testing.T) {
 		}
 	}
 	service.sessions = fetch("## Recent sessions\n- session")
-	service.knowledge = fetch("## Relevant knowledge\n- knowledge")
+	service.memories = fetch("## Memories\n- memory")
 
 	done := make(chan []string, 1)
 	go func() {
@@ -44,7 +44,7 @@ func TestBuildFetchesSourcesInParallel(t *testing.T) {
 	}
 	close(release)
 	out := <-done
-	if len(out) != 1 || !strings.Contains(out[0], "## Recent sessions") || !strings.Contains(out[0], "## Relevant knowledge") {
+	if len(out) != 1 || !strings.Contains(out[0], "## Recent sessions") || !strings.Contains(out[0], "## Memories") {
 		t.Fatalf("unexpected precontext: %#v", out)
 	}
 }
@@ -54,8 +54,8 @@ func TestBuildOmitsFailedSource(t *testing.T) {
 	service.sessions = func(context.Context, Request) (string, error) {
 		return "## Recent sessions\n- session", nil
 	}
-	service.knowledge = func(context.Context, Request) (string, error) {
-		return "", errors.New("knowledge down")
+	service.memories = func(context.Context, Request) (string, error) {
+		return "", errors.New("memories down")
 	}
 
 	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
@@ -65,7 +65,7 @@ func TestBuildOmitsFailedSource(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("expected one context string, got %#v", out)
 	}
-	if strings.Contains(out[0], "Relevant knowledge") {
+	if strings.Contains(out[0], "Memories") {
 		t.Fatalf("failed source was included: %s", out[0])
 	}
 	if !strings.Contains(out[0], "Recent sessions") {
@@ -78,8 +78,8 @@ func TestBuildOmitsPanickingSource(t *testing.T) {
 	service.sessions = func(context.Context, Request) (string, error) {
 		return "## Recent sessions\n- session", nil
 	}
-	service.knowledge = func(context.Context, Request) (string, error) {
-		panic("knowledge dependency misconfigured")
+	service.memories = func(context.Context, Request) (string, error) {
+		panic("memory dependency misconfigured")
 	}
 
 	out, err := service.Build(context.Background(), Request{OrgID: uuid.New(), AgentID: uuid.New(), Text: "hello"})
@@ -89,7 +89,7 @@ func TestBuildOmitsPanickingSource(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("expected one context string, got %#v", out)
 	}
-	if strings.Contains(out[0], "Relevant knowledge") {
+	if strings.Contains(out[0], "Memories") {
 		t.Fatalf("panicking source was included: %s", out[0])
 	}
 	if !strings.Contains(out[0], "Recent sessions") {
@@ -102,67 +102,90 @@ func TestBuildCacheHitAvoidsSources(t *testing.T) {
 	agentID := uuid.New()
 	cache := newFakeCache()
 	cache.values[SessionsCacheKey(orgID, agentID)] = "## Recent sessions\n- cached"
-	cache.values[KnowledgeCacheKey(orgID, agentID, "hello")] = "## Relevant knowledge\n- cached"
 
 	service := NewService(Config{Cache: cache})
-	calls := 0
-	source := func(context.Context, Request) (string, error) {
-		calls++
+	sessionCalls := 0
+	service.sessions = func(context.Context, Request) (string, error) {
+		sessionCalls++
 		return "", nil
 	}
-	service.sessions = source
-	service.knowledge = source
+	service.memories = func(context.Context, Request) (string, error) {
+		return "", nil
+	}
 
 	out, err := service.Build(context.Background(), Request{OrgID: orgID, AgentID: agentID, Text: "hello"})
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
-	if calls != 0 {
-		t.Fatalf("expected cache hit to avoid source calls, got %d", calls)
+	if sessionCalls != 0 {
+		t.Fatalf("expected cache hit to avoid session source calls, got %d", sessionCalls)
 	}
-	if len(out) != 1 || strings.Count(out[0], "cached") != 2 {
+	if len(out) != 1 || strings.Count(out[0], "cached") != 1 {
 		t.Fatalf("unexpected cached context: %#v", out)
 	}
 }
 
-func TestBuildIncludesMemorySource(t *testing.T) {
+func TestBuildIncludesLatestOrgMemories(t *testing.T) {
 	orgID := uuid.New()
 	agentID := uuid.New()
-	userID := uuid.New()
+	lister := &fakeMemoryLister{list: func(req memory.ListRequest) []model.AgentMemory {
+		switch req.AgentVisibility {
+		case memory.AgentVisibilityAllAgents:
+			return []model.AgentMemory{{
+				Scope:   model.AgentMemoryScopeOrg,
+				Content: "Organization memory marker: ORG_MEMORY_TEST. The launch codename is Helio.",
+				Tags:    pq.StringArray{"launch"},
+			}}
+		case memory.AgentVisibilityThisAgent:
+			return []model.AgentMemory{{
+				AgentID: &agentID,
+				Scope:   model.AgentMemoryScopeOrg,
+				Content: "Agent memory marker: AGENT_MEMORY_TEST. Use the runtime harness first.",
+				Tags:    pq.StringArray{"runtime"},
+			}}
+		default:
+			return nil
+		}
+	}}
 	service := NewService(Config{
-		Memories: fakeMemorySearcher{turn: memory.TurnMemories{
-			Org: []memory.SearchHit{{
-				Memory: model.AgentMemory{
-					Scope:   model.AgentMemoryScopeOrg,
-					Content: "Organization memory marker: ORG_MEMORY_TEST. The launch codename is Helio.",
-					Tags:    pq.StringArray{"launch"},
-				},
-			}},
-			User: []memory.SearchHit{{
-				Memory: model.AgentMemory{
-					Scope:   model.AgentMemoryScopeUser,
-					Content: "User memory marker: USER_MEMORY_TEST. The preferred escalation word is Prism.",
-					Tags:    pq.StringArray{"escalation"},
-				},
-			}},
-		}},
+		Memories: lister,
 	})
 	service.sessions = func(context.Context, Request) (string, error) { return "", nil }
-	service.knowledge = func(context.Context, Request) (string, error) { return "", nil }
 
 	out, err := service.Build(context.Background(), Request{
 		OrgID:   orgID,
 		AgentID: agentID,
-		UserID:  userID.String(),
 		Text:    "What are the launch codename and escalation word?",
 	})
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
-	if len(out) != 1 || !strings.Contains(out[0], "## Relevant memories") ||
+	if len(out) != 1 ||
+		!strings.Contains(out[0], "## Memories") ||
 		!strings.Contains(out[0], "ORG_MEMORY_TEST") ||
-		!strings.Contains(out[0], "USER_MEMORY_TEST") {
+		!strings.Contains(out[0], "AGENT_MEMORY_TEST") {
 		t.Fatalf("memory context missing: %#v", out)
+	}
+	if len(lister.requests) != 2 {
+		t.Fatalf("memory list calls=%d, want 2", len(lister.requests))
+	}
+	orgReq := lister.requests[0]
+	if orgReq.OrgID != orgID ||
+		orgReq.Scope != model.AgentMemoryScopeOrg ||
+		orgReq.AgentVisibility != memory.AgentVisibilityAllAgents ||
+		orgReq.Limit != latestOrgMemoryLimit ||
+		orgReq.NoLimit ||
+		orgReq.AgentID != nil {
+		t.Fatalf("unexpected org memory list request: %#v", orgReq)
+	}
+	agentReq := lister.requests[1]
+	if agentReq.OrgID != orgID ||
+		agentReq.Scope != model.AgentMemoryScopeOrg ||
+		agentReq.AgentVisibility != memory.AgentVisibilityThisAgent ||
+		!agentReq.NoLimit ||
+		agentReq.AgentID == nil ||
+		*agentReq.AgentID != agentID {
+		t.Fatalf("unexpected agent memory list request: %#v", agentReq)
 	}
 }
 
@@ -174,12 +197,17 @@ func TestFormatterEnforcesTotalBudget(t *testing.T) {
 	}
 }
 
-type fakeMemorySearcher struct {
-	turn memory.TurnMemories
+type fakeMemoryLister struct {
+	requests []memory.ListRequest
+	list     func(memory.ListRequest) []model.AgentMemory
 }
 
-func (f fakeMemorySearcher) SearchForTurn(context.Context, memory.SearchRequest) (memory.TurnMemories, error) {
-	return f.turn, nil
+func (f *fakeMemoryLister) List(_ context.Context, req memory.ListRequest) ([]model.AgentMemory, error) {
+	f.requests = append(f.requests, req)
+	if f.list != nil {
+		return f.list(req), nil
+	}
+	return nil, nil
 }
 
 type fakeCache struct {

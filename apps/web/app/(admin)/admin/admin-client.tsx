@@ -1,15 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState, type FormEvent } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import type { QueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@heroui/react"
-import {
-  adminDataQueryKey,
-  createSystemCredential,
-  errorMessage,
-  loadAdminData,
-  revokeSystemCredential,
-} from "./admin-api"
+import { $api } from "@/lib/api/hooks"
+import { ADMIN_QUERY_KEYS, adminSecretHeader, errorMessage } from "./admin-api"
 import { AdminContentHeader } from "./admin-content-header"
 import { SecretGate } from "./admin-secret-gate"
 import { AdminSidebar } from "./admin-sidebar"
@@ -33,7 +29,6 @@ export function AdminClient() {
   const queryClient = useQueryClient()
   const [secretDraft, setSecretDraft] = useState("")
   const [adminSecret, setAdminSecret] = useState("")
-  const [adminSecretVersion, setAdminSecretVersion] = useState(0)
   const [activeTab, setActiveTab] = useState<AdminTab>("integrations")
   const [search, setSearch] = useState("")
   const [selectedIntegration, setSelectedIntegration] =
@@ -42,50 +37,83 @@ export function AdminClient() {
     useState<CredentialForm>(emptyCredentialForm)
 
   const hasSecret = adminSecret.trim().length > 0
-  const adminQuery = useQuery({
-    queryKey: adminDataQueryKey(adminSecretVersion),
-    queryFn: () => loadAdminData(adminSecret),
-    enabled: hasSecret,
-    retry: false,
-  })
+  const adminHeaders = useMemo(
+    () => adminSecretHeader(adminSecret),
+    [adminSecret]
+  )
+  const integrationsQuery = $api.useQuery(
+    "get",
+    "/v1/admin/integrations",
+    { params: { header: adminHeaders } },
+    { enabled: hasSecret, retry: false }
+  )
+  const credentialsQuery = $api.useQuery(
+    "get",
+    "/v1/admin/system-credentials",
+    {
+      params: {
+        header: adminHeaders,
+        query: { limit: 100 },
+      },
+    },
+    { enabled: hasSecret, retry: false }
+  )
+  const providersQuery = $api.useQuery(
+    "get",
+    "/v1/admin/llm-providers",
+    { params: { header: adminHeaders } },
+    { enabled: hasSecret, retry: false }
+  )
 
   useEffect(() => {
-    if (adminQuery.error) {
-      toast.danger(errorMessage(adminQuery.error, "Failed to load admin data"))
+    const error =
+      integrationsQuery.error ?? credentialsQuery.error ?? providersQuery.error
+    if (error) {
+      toast.danger(errorMessage(error, "Failed to load admin data"))
     }
-  }, [adminQuery.error])
+  }, [credentialsQuery.error, integrationsQuery.error, providersQuery.error])
 
-  const createCredentialMutation = useMutation({
-    mutationFn: (body: CredentialForm) =>
-      createSystemCredential(adminSecret, body),
-    onSuccess: async () => {
-      toast.success("System credential saved")
-      setCredentialForm(emptyCredentialForm)
-      await queryClient.invalidateQueries({
-        queryKey: adminDataQueryKey(adminSecretVersion),
-      })
-    },
-    onError: (error) => {
-      toast.danger(errorMessage(error, "Failed to save credential"))
-    },
-  })
+  const createCredentialMutation = $api.useMutation(
+    "post",
+    "/v1/admin/system-credentials",
+    {
+      onSuccess: async () => {
+        toast.success("System credential saved")
+        setCredentialForm(emptyCredentialForm)
+        await invalidateAdminQueries(queryClient)
+      },
+      onError: (error) => {
+        toast.danger(errorMessage(error, "Failed to save credential"))
+      },
+    }
+  )
 
-  const revokeCredentialMutation = useMutation({
-    mutationFn: (id: string) => revokeSystemCredential(adminSecret, id),
-    onSuccess: async () => {
-      toast.success("System credential revoked")
-      await queryClient.invalidateQueries({
-        queryKey: adminDataQueryKey(adminSecretVersion),
-      })
-    },
-    onError: (error) => {
-      toast.danger(errorMessage(error, "Failed to revoke credential"))
-    },
-  })
+  const revokeCredentialMutation = $api.useMutation(
+    "delete",
+    "/v1/admin/system-credentials/{id}",
+    {
+      onSuccess: async () => {
+        toast.success("System credential revoked")
+        await invalidateAdminQueries(queryClient)
+      },
+      onError: (error) => {
+        toast.danger(errorMessage(error, "Failed to revoke credential"))
+      },
+    }
+  )
 
-  const integrations = adminQuery.data?.integrations ?? EMPTY_INTEGRATIONS
-  const credentials = adminQuery.data?.credentials ?? EMPTY_CREDENTIALS
-  const providers = adminQuery.data?.providers ?? EMPTY_PROVIDERS
+  const integrations = integrationsQuery.data ?? EMPTY_INTEGRATIONS
+  const credentials = (credentialsQuery.data?.data ??
+    EMPTY_CREDENTIALS) as SystemCredential[]
+  const providers = (providersQuery.data ?? EMPTY_PROVIDERS) as LLMProvider[]
+  const adminFetching =
+    integrationsQuery.isFetching ||
+    credentialsQuery.isFetching ||
+    providersQuery.isFetching
+  const adminLoading =
+    integrationsQuery.isLoading ||
+    credentialsQuery.isLoading ||
+    providersQuery.isLoading
 
   const filteredIntegrations = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -122,19 +150,21 @@ export function AdminClient() {
     const nextSecret = secretDraft.trim()
     if (!nextSecret) return
     setAdminSecret(nextSecret)
-    setAdminSecretVersion((version) => version + 1)
   }
 
   function submitCredential(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    createCredentialMutation.mutate(credentialForm)
+    createCredentialMutation.mutate({
+      params: { header: adminHeaders },
+      body: credentialForm,
+    })
   }
 
   function clearSecret() {
     setAdminSecret("")
     setSecretDraft("")
     setSelectedIntegration(null)
-    queryClient.removeQueries({ queryKey: ["admin", "setup"] })
+    removeAdminQueries(queryClient)
   }
 
   return (
@@ -142,8 +172,12 @@ export function AdminClient() {
       <AdminSidebar
         hasSecret={hasSecret}
         activeTab={activeTab}
-        fetching={adminQuery.isFetching}
-        onRefresh={() => void adminQuery.refetch()}
+        fetching={adminFetching}
+        onRefresh={() => {
+          void integrationsQuery.refetch()
+          void credentialsQuery.refetch()
+          void providersQuery.refetch()
+        }}
         onClearSecret={clearSecret}
         onTabChange={setActiveTab}
       />
@@ -165,7 +199,7 @@ export function AdminClient() {
 
             {activeTab === "integrations" ? (
               <IntegrationList
-                loading={adminQuery.isLoading}
+                loading={adminLoading}
                 integrations={filteredIntegrations}
                 onSelect={setSelectedIntegration}
               />
@@ -177,12 +211,17 @@ export function AdminClient() {
                 saving={createCredentialMutation.isPending}
                 revokingID={
                   revokeCredentialMutation.isPending
-                    ? (revokeCredentialMutation.variables ?? null)
+                    ? (revokeCredentialMutation.variables?.params.path.id ??
+                      null)
                     : null
                 }
                 onFormChange={setCredentialForm}
                 onSubmit={submitCredential}
-                onRevoke={(id) => revokeCredentialMutation.mutate(id)}
+                onRevoke={(id) =>
+                  revokeCredentialMutation.mutate({
+                    params: { header: adminHeaders, path: { id } },
+                  })
+                }
               />
             )}
           </div>
@@ -192,7 +231,6 @@ export function AdminClient() {
       <IntegrationDialog
         key={selectedIntegration?.id ?? "closed"}
         adminSecret={adminSecret}
-        adminSecretVersion={adminSecretVersion}
         definition={selectedIntegration}
         onOpenChange={(open) => {
           if (!open) setSelectedIntegration(null)
@@ -200,4 +238,18 @@ export function AdminClient() {
       />
     </main>
   )
+}
+
+async function invalidateAdminQueries(queryClient: QueryClient) {
+  await Promise.all(
+    Object.values(ADMIN_QUERY_KEYS).map((queryKey) =>
+      queryClient.invalidateQueries({ queryKey })
+    )
+  )
+}
+
+function removeAdminQueries(queryClient: QueryClient) {
+  for (const queryKey of Object.values(ADMIN_QUERY_KEYS)) {
+    queryClient.removeQueries({ queryKey })
+  }
 }

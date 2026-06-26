@@ -11,7 +11,6 @@ import {
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
-import { api } from "@/lib/api/client"
 import type { components } from "@/lib/api/schema"
 import { clearPersistedChatQueries } from "@/app/w/(chat)/_lib/chat-cache"
 import { clearSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
@@ -60,6 +59,7 @@ export function AuthProvider({
   const queryClient = useQueryClient()
   const meQuery = $api.useQuery("get", "/auth/me", {}, { retry: false })
   const plansQuery = $api.useQuery("get", "/v1/plans", {}, { retry: false })
+  const logoutMutation = $api.useMutation("post", "/auth/logout")
   const hasRedirected = useRef(false)
 
   const data = meQuery.data
@@ -115,14 +115,14 @@ export function AuthProvider({
   )
 
   const logout = useCallback(async () => {
-    await api.POST("/auth/logout", { body: {} })
+    await logoutMutation.mutateAsync({ body: {} })
     stopAllSessionStreams()
     clearSessionSandboxAccess()
     queryClient.clear()
     await clearPersistedChatQueries()
     await clearPersistedSessionWorkspaces()
     router.replace(signInPath)
-  }, [queryClient, router, signInPath])
+  }, [logoutMutation, queryClient, router, signInPath])
 
   return (
     <AuthContext.Provider

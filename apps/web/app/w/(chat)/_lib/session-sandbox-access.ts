@@ -1,6 +1,7 @@
 "use client"
 
-import { api } from "@/lib/api/client"
+import type { QueryClient } from "@tanstack/react-query"
+import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
 
 const ACCESS_EXPIRY_BUFFER_MS = 5 * 60 * 1000
@@ -47,6 +48,7 @@ export function getCachedSessionSandboxAccess(
 
 export async function getSessionSandboxAccess(
   sessionId: string,
+  queryClient: QueryClient,
   options: SandboxAccessOptions = {}
 ) {
   if (!options.force) {
@@ -57,7 +59,7 @@ export async function getSessionSandboxAccess(
   const pending = pendingBySessionId.get(sessionId)
   if (pending) return pending
 
-  const request = requestFreshSandboxAccess(sessionId)
+  const request = requestFreshSandboxAccess(sessionId, queryClient)
   pendingBySessionId.set(sessionId, request)
   try {
     const access = await request
@@ -98,13 +100,15 @@ function accessMatchesExpectedSandbox(
   return !expectedSandboxId || access.sandbox_id === expectedSandboxId
 }
 
-async function requestFreshSandboxAccess(sessionId: string) {
-  const { data, error } = await api.POST("/v1/sessions/{id}/sandbox-access", {
-    params: { path: { id: sessionId } },
-  })
-  if (error || !data) {
-    throw new Error(sandboxAccessErrorMessage(error))
-  }
+async function requestFreshSandboxAccess(
+  sessionId: string,
+  queryClient: QueryClient
+) {
+  const data = await queryClient.fetchQuery(
+    $api.queryOptions("post", "/v1/sessions/{id}/sandbox-access", {
+      params: { path: { id: sessionId } },
+    })
+  )
   return requireSandboxAccess(data)
 }
 
@@ -124,13 +128,4 @@ function requireSandboxAccess(
     throw new Error("Sandbox access is not available.")
   }
   return data as SessionSandboxAccess
-}
-
-function sandboxAccessErrorMessage(error: unknown) {
-  return typeof error === "object" &&
-    error &&
-    "error" in error &&
-    typeof error.error === "string"
-    ? error.error
-    : "Sandbox access is not available."
 }

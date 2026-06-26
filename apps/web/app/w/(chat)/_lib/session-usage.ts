@@ -11,23 +11,6 @@ export interface SessionUsageSummary {
   updatedAt: number
 }
 
-export async function fetchSessionUsage(
-  sessionId: string,
-  signal?: AbortSignal
-): Promise<SessionUsageSnapshot> {
-  const response = await fetch(
-    `/api/proxy/v1/sessions/${encodeURIComponent(sessionId)}/usage`,
-    { headers: { Accept: "application/json" }, signal }
-  )
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "")
-    throw new Error(
-      detail || `Session usage failed with HTTP ${response.status}`
-    )
-  }
-  return (await response.json()) as SessionUsageSnapshot
-}
-
 export function sessionUsageSummaryFromSnapshot(
   snapshot: SessionUsageSnapshot
 ): SessionUsageSummary {

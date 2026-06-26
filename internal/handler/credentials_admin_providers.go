@@ -14,6 +14,17 @@ type adminLLMProviderResponse struct {
 	ModelIDs          []string `json:"model_ids"`
 }
 
+// ListLLMProviders handles GET /v1/admin/llm-providers.
+// @Summary List LLM providers
+// @Description Returns available LLM provider definitions for system credential setup.
+// @Tags admin
+// @Produce json
+// @Param X-Hivy-Admin-Secret header string true "Admin secret"
+// @Success 200 {array} adminLLMProviderResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/admin/llm-providers [get]
 func (h *CredentialHandler) ListLLMProviders(w http.ResponseWriter, r *http.Request) {
 	providers := registry.Global().AllProviders()
 	resp := make([]adminLLMProviderResponse, 0, len(providers))

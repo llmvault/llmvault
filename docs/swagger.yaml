@@ -455,6 +455,21 @@ definitions:
       response_schema:
         type: string
     type: object
+  adminLLMProviderResponse:
+    properties:
+      base_url:
+        type: string
+      default_auth_scheme:
+        type: string
+      id:
+        type: string
+      model_ids:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
   agentCatalogInstallConflictResponse:
     properties:
       error:
@@ -1101,6 +1116,26 @@ definitions:
           $ref: '#/definitions/canvasProjectCatalogProjectResponse'
         type: array
     type: object
+  canvasSessionURLRequest:
+    properties:
+      file_id:
+        type: string
+      page_id:
+        type: string
+    type: object
+  canvasSessionURLResponse:
+    properties:
+      expires_in:
+        type: integer
+      file_id:
+        type: string
+      page_id:
+        type: string
+      team_id:
+        type: string
+      url:
+        type: string
+    type: object
   changePasswordRequest:
     properties:
       current_password:
@@ -1740,6 +1775,44 @@ definitions:
       upstream_status:
         type: integer
       user_id:
+        type: string
+    type: object
+  imageDescribeError:
+    properties:
+      error:
+        type: string
+      error_code:
+        type: string
+    type: object
+  imageDescribeRequest:
+    properties:
+      _hivy_session_id:
+        type: string
+      detail_level:
+        type: string
+      drive_asset_id:
+        type: string
+      session_id:
+        type: string
+    type: object
+  imageDescribeResponse:
+    properties:
+      analysis:
+        additionalProperties: {}
+        type: object
+      asset_url:
+        type: string
+      category:
+        type: string
+      confidence:
+        type: number
+      content_type:
+        type: string
+      drive_asset_id:
+        type: string
+      filename:
+        type: string
+      rendered_description:
         type: string
     type: object
   initUpgradeRequest:
@@ -3377,6 +3450,23 @@ definitions:
       status:
         type: string
     type: object
+  streamAssetResponse:
+    properties:
+      asset_url:
+        type: string
+      bytes:
+        type: integer
+      content_type:
+        type: string
+      filename:
+        type: string
+      id:
+        type: string
+      key:
+        type: string
+      path:
+        type: string
+    type: object
   subscriptionResponse:
     properties:
       cancel_at_period_end:
@@ -4565,6 +4655,47 @@ paths:
       tags:
       - admin
   /v1/admin/integrations/{id}:
+    delete:
+      description: Removes a supported global integration when it has no active connections.
+      parameters:
+      - description: Admin secret
+        in: header
+        name: X-Hivy-Admin-Secret
+        required: true
+        type: string
+      - description: Integration definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AdminDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete an admin integration
+      tags:
+      - admin
     put:
       consumes:
       - application/json
@@ -4613,6 +4744,177 @@ paths:
       security:
       - BearerAuth: []
       summary: Sync an admin integration
+      tags:
+      - admin
+  /v1/admin/llm-providers:
+    get:
+      description: Returns available LLM provider definitions for system credential
+        setup.
+      parameters:
+      - description: Admin secret
+        in: header
+        name: X-Hivy-Admin-Secret
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/adminLLMProviderResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List LLM providers
+      tags:
+      - admin
+  /v1/admin/system-credentials:
+    get:
+      description: Returns globally scoped system credentials with cursor-based pagination.
+      parameters:
+      - description: Admin secret
+        in: header
+        name: X-Hivy-Admin-Secret
+        required: true
+        type: string
+      - description: Filter by provider ID
+        in: query
+        name: provider_id
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/paginatedResponse-credentialResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List system credentials
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Stores an encrypted globally scoped credential.
+      parameters:
+      - description: Admin secret
+        in: header
+        name: X-Hivy-Admin-Secret
+        required: true
+        type: string
+      - description: Credential details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createCredentialRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/credentialResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create system credential
+      tags:
+      - admin
+  /v1/admin/system-credentials/{id}:
+    delete:
+      description: Revokes a globally scoped system credential.
+      parameters:
+      - description: Admin secret
+        in: header
+        name: X-Hivy-Admin-Secret
+        required: true
+        type: string
+      - description: Credential ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke system credential
       tags:
       - admin
   /v1/agents:
@@ -5624,6 +5926,63 @@ paths:
       summary: Preview public asset
       tags:
       - assets
+  /v1/assets/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads an image, audio, or supported video file into an agent
+        drive folder.
+      parameters:
+      - description: Destination agent ID
+        in: formData
+        name: agent_id
+        required: true
+        type: string
+      - description: Drive folder
+        in: formData
+        name: path
+        type: string
+      - description: Asset file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/streamAssetResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Upload agent drive asset
+      tags:
+      - assets
   /v1/audit:
     get:
       description: Returns audit log entries for the current organization with cursor
@@ -5941,6 +6300,51 @@ paths:
       security:
       - BearerAuth: []
       summary: List Canvas projects
+      tags:
+      - canvas
+  /v1/canvas/session-url:
+    post:
+      consumes:
+      - application/json
+      description: Returns a short-lived Canvas iframe session URL for a file visible
+        to the current user.
+      parameters:
+      - description: Canvas file target
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/canvasSessionURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/canvasSessionURLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create Canvas session URL
       tags:
       - canvas
   /v1/catalog/automations:
@@ -7189,6 +7593,59 @@ paths:
       summary: Get a generation
       tags:
       - generations
+  /v1/images/describe:
+    post:
+      consumes:
+      - application/json
+      description: Runs image analysis for an uploaded agent drive image and returns
+        structured attachment metadata.
+      parameters:
+      - description: Image description payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/imageDescribeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/imageDescribeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/imageDescribeError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/imageDescribeError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/imageDescribeError'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/imageDescribeError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/imageDescribeError'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/imageDescribeError'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/imageDescribeError'
+      security:
+      - BearerAuth: []
+      summary: Describe an uploaded image
+      tags:
+      - images
   /v1/integrations/{id}/connect-session:
     post:
       description: Creates a Nango connect session for the authenticated user to initiate

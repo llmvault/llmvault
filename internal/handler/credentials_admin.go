@@ -27,6 +27,22 @@ type updateSystemCredentialRequest struct {
 	Meta           model.JSON `json:"meta,omitempty"`
 }
 
+// ListSystem handles GET /v1/admin/system-credentials.
+// @Summary List system credentials
+// @Description Returns globally scoped system credentials with cursor-based pagination.
+// @Tags admin
+// @Produce json
+// @Param X-Hivy-Admin-Secret header string true "Admin secret"
+// @Param provider_id query string false "Filter by provider ID"
+// @Param limit query int false "Page size"
+// @Param cursor query string false "Pagination cursor"
+// @Success 200 {object} paginatedResponse[credentialResponse]
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/admin/system-credentials [get]
 func (h *CredentialHandler) ListSystem(w http.ResponseWriter, r *http.Request) {
 	limit, cursor, err := parsePagination(r)
 	if err != nil {
@@ -61,6 +77,21 @@ func (h *CredentialHandler) ListSystem(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// CreateSystem handles POST /v1/admin/system-credentials.
+// @Summary Create system credential
+// @Description Stores an encrypted globally scoped credential.
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param X-Hivy-Admin-Secret header string true "Admin secret"
+// @Param body body createCredentialRequest true "Credential details"
+// @Success 201 {object} credentialResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/admin/system-credentials [post]
 func (h *CredentialHandler) CreateSystem(w http.ResponseWriter, r *http.Request) {
 	var req createCredentialRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -173,6 +204,21 @@ func (h *CredentialHandler) UpdateSystem(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, toCredentialResponse(cred))
 }
 
+// RevokeSystem handles DELETE /v1/admin/system-credentials/{id}.
+// @Summary Revoke system credential
+// @Description Revokes a globally scoped system credential.
+// @Tags admin
+// @Produce json
+// @Param X-Hivy-Admin-Secret header string true "Admin secret"
+// @Param id path string true "Credential ID"
+// @Success 200 {object} statusResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/admin/system-credentials/{id} [delete]
 func (h *CredentialHandler) RevokeSystem(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {

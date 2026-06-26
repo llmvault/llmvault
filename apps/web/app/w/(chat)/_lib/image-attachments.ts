@@ -1,25 +1,15 @@
-export interface UploadedDriveAsset {
-  id: string
-  asset_url: string
-  key: string
-  path: string
-  filename: string
-  content_type: string
-  bytes: number
-}
+import type { components, paths } from "@/lib/api/schema"
+
+type DriveAssetUploadBody =
+  paths["/v1/assets/upload"]["post"]["requestBody"]["content"]["multipart/form-data"]
+type UploadedDriveAssetResponse = components["schemas"]["streamAssetResponse"]
+type ImageDescriptionResponse = components["schemas"]["imageDescribeResponse"]
+
+export type UploadedDriveAsset = Required<UploadedDriveAssetResponse>
 
 export type UploadedDriveImageAsset = UploadedDriveAsset
 
-export interface ImageDescriptionResult {
-  drive_asset_id: string
-  asset_url: string
-  filename: string
-  content_type: string
-  category: string
-  confidence: number
-  analysis: Record<string, unknown>
-  rendered_description: string
-}
+export type ImageDescriptionResult = Required<ImageDescriptionResponse>
 
 export interface ImageAttachmentMetadata {
   drive_asset_id: string
@@ -33,7 +23,7 @@ export interface ImageAttachmentMetadata {
   analysis?: Record<string, unknown>
 }
 
-export async function uploadDriveAsset({
+export function driveAssetUploadFormData({
   agentId,
   file,
   path = "uploads",
@@ -41,48 +31,47 @@ export async function uploadDriveAsset({
   agentId: string
   file: File
   path?: string
-}): Promise<UploadedDriveAsset> {
+}): DriveAssetUploadBody {
   const form = new FormData()
   form.set("agent_id", agentId)
   form.set("path", path)
   form.set("file", file, file.name)
-
-  const response = await fetch("/api/proxy/v1/assets/upload", {
-    method: "POST",
-    body: form,
-  })
-  if (!response.ok) {
-    throw new Error(await responseError(response, "Drive upload failed"))
-  }
-  return (await response.json()) as UploadedDriveAsset
+  return form as unknown as DriveAssetUploadBody
 }
 
-export async function uploadDriveImageAsset(options: {
-  agentId: string
-  file: File
-  path?: string
-}): Promise<UploadedDriveImageAsset> {
-  return uploadDriveAsset(options)
+export function requireUploadedDriveAsset(
+  asset: UploadedDriveAssetResponse | undefined
+): UploadedDriveAsset {
+  if (
+    !asset?.id ||
+    !asset.asset_url ||
+    !asset.key ||
+    asset.path === undefined ||
+    !asset.filename ||
+    !asset.content_type ||
+    asset.bytes === undefined
+  ) {
+    throw new Error("Drive upload response was incomplete")
+  }
+  return asset as UploadedDriveAsset
 }
 
-export async function describeDriveImage(
-  driveAssetId: string,
-  sessionId?: string,
-  detailLevel = "high"
-): Promise<ImageDescriptionResult> {
-  const response = await fetch("/api/proxy/v1/images/describe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      drive_asset_id: driveAssetId,
-      detail_level: detailLevel,
-      session_id: sessionId,
-    }),
-  })
-  if (!response.ok) {
-    throw new Error(await responseError(response, "Image description failed"))
+export function requireImageDescriptionResult(
+  description: ImageDescriptionResponse | undefined
+): ImageDescriptionResult {
+  if (
+    !description?.drive_asset_id ||
+    !description.asset_url ||
+    !description.filename ||
+    !description.content_type ||
+    !description.category ||
+    description.confidence === undefined ||
+    !description.analysis ||
+    !description.rendered_description
+  ) {
+    throw new Error("Image description response was incomplete")
   }
-  return (await response.json()) as ImageDescriptionResult
+  return description as ImageDescriptionResult
 }
 
 export function attachmentMetadataFromDescription(
@@ -112,22 +101,4 @@ export function imageAttachmentIDs(
   attachments: Pick<ImageAttachmentMetadata, "drive_asset_id">[]
 ) {
   return attachments.map((attachment) => attachment.drive_asset_id)
-}
-
-async function responseError(response: Response, fallback: string) {
-  try {
-    const data = (await response.json()) as {
-      error?: unknown
-      message?: unknown
-    }
-    if (typeof data.error === "string" && data.error.trim()) {
-      return data.error
-    }
-    if (typeof data.message === "string" && data.message.trim()) {
-      return data.message
-    }
-  } catch {
-    // Ignore body parse failures and use the stable fallback below.
-  }
-  return fallback
 }

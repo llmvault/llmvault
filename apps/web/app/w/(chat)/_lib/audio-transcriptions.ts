@@ -1,16 +1,9 @@
-import { api } from "@/lib/api/client"
 import type { UploadedDriveAsset } from "./image-attachments"
 
 export interface RecordedAudioFileOptions {
   filename?: string
   mimeType?: string
   timestamp?: number
-}
-
-export interface TranscribeDriveAudioAssetOptions {
-  sessionId: string
-  driveAssetId: string
-  languageCode?: string
 }
 
 export interface TranscribedSessionAudio {
@@ -40,24 +33,6 @@ export function appendTranscriptToComposer(
 
   const existing = current.trimEnd()
   return existing ? `${existing}\n${next}` : next
-}
-
-export async function transcribeDriveAudioAsset({
-  sessionId,
-  driveAssetId,
-  languageCode,
-}: TranscribeDriveAudioAssetOptions) {
-  const response = await api.POST("/v1/sessions/{id}/transcriptions", {
-    params: { path: { id: sessionId } },
-    body: {
-      drive_asset_id: driveAssetId,
-      language_code: languageCode,
-    },
-  })
-  if (response.error) {
-    throw response.error
-  }
-  return response.data?.text ?? ""
 }
 
 function audioExtension(mimeType: string) {

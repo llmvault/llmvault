@@ -40,6 +40,14 @@ type canvasSessionURLRequest struct {
 	PageID *string `json:"page_id,omitempty"`
 }
 
+type canvasSessionURLResponse struct {
+	URL       string     `json:"url"`
+	ExpiresIn int64      `json:"expires_in"`
+	FileID    uuid.UUID  `json:"file_id"`
+	PageID    *uuid.UUID `json:"page_id,omitempty"`
+	TeamID    uuid.UUID  `json:"team_id"`
+}
+
 type canvasProjectCreateRequest struct {
 	Name string `json:"name"`
 }
@@ -53,6 +61,21 @@ func NewCanvasHandler(db *gorm.DB, encKey *crypto.SymmetricKey, svc CanvasServic
 	return &CanvasHandler{db: db, encKey: encKey, svc: svc}
 }
 
+// SessionURL handles POST /v1/canvas/session-url.
+// @Summary Create Canvas session URL
+// @Description Returns a short-lived Canvas iframe session URL for a file visible to the current user.
+// @Tags canvas
+// @Accept json
+// @Produce json
+// @Param body body canvasSessionURLRequest true "Canvas file target"
+// @Success 200 {object} canvasSessionURLResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 502 {object} errorResponse
+// @Failure 503 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/canvas/session-url [post]
 func (h *CanvasHandler) SessionURL(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.svc == nil {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
