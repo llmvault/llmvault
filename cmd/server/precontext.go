@@ -39,7 +39,7 @@ func buildPreContextService(
 	cfg *config.Config,
 	db *gorm.DB,
 	cache precontext.Cache,
-	memories precontext.MemorySearcher,
+	memories precontext.MemoryLister,
 	searcher precontext.KnowledgeSearcher,
 	embedder precontext.Embedder,
 	reranker precontext.Reranker,
