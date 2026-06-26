@@ -15,12 +15,11 @@ import {
 } from "@/app/w/(chat)/_stores/session-workspace-store"
 import {
   canvasCatalogFileTarget,
-  fetchCanvasProjectCatalog,
   type CanvasProject,
-  type CanvasProjectCatalog,
   type CanvasProjectFile,
 } from "@/app/w/(chat)/_lib/canvas-projects"
 import { extractErrorMessage as errorMessage } from "@/lib/api/error"
+import { $api } from "@/lib/api/hooks"
 
 export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
   const canvas = useSessionWorkspaceStore(
@@ -166,42 +165,29 @@ function CanvasProjectPicker({
   onClose: () => void
   onSelectFile: (project: CanvasProject, file: CanvasProjectFile) => void
 }) {
-  const [catalog, setCatalog] = useState<CanvasProjectCatalog | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshNonce, setRefreshNonce] = useState(0)
+  const catalogQuery = $api.useQuery(
+    "get",
+    "/v1/canvas/projects",
+    {},
+    { retry: false }
+  )
 
-  useEffect(() => {
-    const controller = new AbortController()
-    setLoading(true)
-    setError(null)
-    void fetchCanvasProjectCatalog(controller.signal)
-      .then((nextCatalog) => {
-        setCatalog(nextCatalog)
-      })
-      .catch((fetchError) => {
-        if (controller.signal.aborted) return
-        setError(errorMessage(fetchError, "Could not load Canvas files."))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
-    return () => controller.abort()
-  }, [refreshNonce])
+  if (catalogQuery.isPending) return <CanvasCatalogSkeleton />
 
-  if (loading) return <CanvasCatalogSkeleton />
-
-  if (error) {
+  if (catalogQuery.isError) {
     return (
       <DesignState
         icon="lucide:circle-alert"
         title="Canvas files are not available"
-        message={error}
+        message={errorMessage(
+          catalogQuery.error,
+          "Could not load Canvas files."
+        )}
         action={
           <Button
             size="sm"
             variant="secondary"
-            onPress={() => setRefreshNonce((n) => n + 1)}
+            onPress={() => void catalogQuery.refetch()}
           >
             Retry
           </Button>
@@ -210,9 +196,9 @@ function CanvasProjectPicker({
     )
   }
 
-  const projects = catalog?.projects ?? []
+  const projects = catalogQuery.data?.projects ?? []
   const fileCount = projects.reduce(
-    (sum, project) => sum + project.files.length,
+    (sum, project) => sum + (project.files?.length ?? 0),
     0
   )
   if (fileCount === 0) {
@@ -224,7 +210,7 @@ function CanvasProjectPicker({
           <Button
             size="sm"
             variant="secondary"
-            onPress={() => setRefreshNonce((n) => n + 1)}
+            onPress={() => void catalogQuery.refetch()}
           >
             Refresh
           </Button>
@@ -249,7 +235,7 @@ function CanvasProjectPicker({
             variant="ghost"
             isIconOnly
             aria-label="Refresh Canvas files"
-            onPress={() => setRefreshNonce((n) => n + 1)}
+            onPress={() => void catalogQuery.refetch()}
           >
             <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
           </Button>
@@ -262,21 +248,27 @@ function CanvasProjectPicker({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <div className="flex flex-col gap-4">
-          {projects.map((project) => (
-            <div key={project.projectId} className="flex flex-col gap-1.5">
+          {projects.map((project, projectIndex) => (
+            <div
+              key={project.project_id ?? `project-${projectIndex}`}
+              className="flex flex-col gap-1.5"
+            >
               <div className="flex items-center justify-between px-1">
                 <div className="truncate text-xs font-medium tracking-normal text-muted uppercase">
-                  {project.name}
+                  {project.name || "Untitled project"}
                 </div>
-                <div className="text-xs text-muted">{project.files.length}</div>
+                <div className="text-xs text-muted">
+                  {project.files?.length ?? 0}
+                </div>
               </div>
               <div className="flex flex-col gap-1">
-                {project.files.map((file) => {
+                {(project.files ?? []).map((file, fileIndex) => {
+                  if (!file.file_id) return null
                   const target = canvasCatalogFileTarget(file, project)
                   const active = target.key === activeTargetKey
                   return (
                     <button
-                      key={target.key}
+                      key={target.key || `file-${fileIndex}`}
                       type="button"
                       className={`group flex min-h-12 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
                         active
@@ -291,11 +283,11 @@ function CanvasProjectPicker({
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">
-                          {file.name}
+                          {file.name || "Untitled file"}
                         </span>
-                        {file.pageId ? (
+                        {file.page_id ? (
                           <span className="block truncate text-xs text-muted">
-                            {file.pageId}
+                            {file.page_id}
                           </span>
                         ) : null}
                       </span>
