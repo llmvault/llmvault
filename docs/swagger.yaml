@@ -1070,6 +1070,37 @@ definitions:
       status:
         type: string
     type: object
+  canvasProjectCatalogFileResponse:
+    properties:
+      file_id:
+        type: string
+      name:
+        type: string
+      page_id:
+        type: string
+      project_id:
+        type: string
+      workspace_url:
+        type: string
+    type: object
+  canvasProjectCatalogProjectResponse:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/canvasProjectCatalogFileResponse'
+        type: array
+      name:
+        type: string
+      project_id:
+        type: string
+    type: object
+  canvasProjectCatalogResponse:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/canvasProjectCatalogProjectResponse'
+        type: array
+    type: object
   changePasswordRequest:
     properties:
       current_password:
@@ -5885,6 +5916,33 @@ paths:
       summary: Verify checkout completed
       tags:
       - billing
+  /v1/canvas/projects:
+    get:
+      description: Returns Canvas projects and their files for the current organization.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/canvasProjectCatalogResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List Canvas projects
+      tags:
+      - canvas
   /v1/catalog/automations:
     get:
       description: Returns enabled one-click installable schedule templates from the

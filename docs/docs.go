@@ -3079,6 +3079,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/canvas/projects": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns Canvas projects and their files for the current organization.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "canvas"
+                ],
+                "summary": "List Canvas projects",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/canvasProjectCatalogResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/catalog/automations": {
             "get": {
                 "description": "Returns enabled one-click installable schedule templates from the file-backed global catalog.",
@@ -11782,6 +11825,54 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "canvasProjectCatalogFileResponse": {
+            "type": "object",
+            "properties": {
+                "file_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "page_id": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "workspace_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "canvasProjectCatalogProjectResponse": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/canvasProjectCatalogFileResponse"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "canvasProjectCatalogResponse": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/canvasProjectCatalogProjectResponse"
+                    }
                 }
             }
         },

@@ -3869,6 +3869,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/canvas/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Canvas projects
+         * @description Returns Canvas projects and their files for the current organization.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["canvasProjectCatalogResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/automations": {
         parameters: {
             query?: never;
@@ -12809,6 +12875,21 @@ export interface components {
             cancel_at_period_end?: boolean;
             canceled_at?: string;
             status?: string;
+        };
+        canvasProjectCatalogFileResponse: {
+            file_id?: string;
+            name?: string;
+            page_id?: string;
+            project_id?: string;
+            workspace_url?: string;
+        };
+        canvasProjectCatalogProjectResponse: {
+            files?: components["schemas"]["canvasProjectCatalogFileResponse"][];
+            name?: string;
+            project_id?: string;
+        };
+        canvasProjectCatalogResponse: {
+            projects?: components["schemas"]["canvasProjectCatalogProjectResponse"][];
         };
         changePasswordRequest: {
             current_password?: string;
