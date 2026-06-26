@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -41,13 +42,33 @@ type canvasProjectCatalogFileResponse struct {
 // @Security BearerAuth
 // @Router /v1/canvas/projects [get]
 func (h *CanvasHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.svc == nil {
+	if h == nil || (h.svc == nil && h.artifactSvc == nil) {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
 		return
 	}
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
+		return
+	}
+	if h.artifactSvc != nil {
+		var sessionID *uuid.UUID
+		rawSessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
+		if rawSessionID != "" {
+			parsed, err := uuid.Parse(rawSessionID)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "session_id must be a uuid"})
+				return
+			}
+			sessionID = &parsed
+		}
+		result, err := h.artifactSvc.ListProjectsForOrg(r.Context(), org.ID, sessionID)
+		if err != nil {
+			logging.Capture(r.Context(), err)
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list canvas projects"})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 		return
 	}
 	result, err := h.svc.ListProjectCatalogForOrg(r.Context(), org.ID)

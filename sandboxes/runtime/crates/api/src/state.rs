@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -34,6 +34,7 @@ pub struct ApiState {
     pub session_stream: Option<SessionMessageState>,
     pub question_manager: Option<Arc<QuestionManager>>,
     pub repo_service: Option<Arc<RepoService>>,
+    pub canvas_sessions: Arc<RwLock<BTreeSet<String>>>,
     pub mcp_registry: Option<Arc<McpRegistry>>,
     pub outbound_reloader: Option<Arc<dyn OutboundConfigReloader>>,
     pub drain_controller: Option<Arc<dyn DrainController>>,
@@ -111,6 +112,7 @@ impl ApiState {
             session_stream,
             question_manager,
             repo_service,
+            canvas_sessions: Arc::new(RwLock::new(BTreeSet::new())),
             mcp_registry,
             outbound_reloader,
             drain_controller,

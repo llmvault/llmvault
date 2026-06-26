@@ -2,22 +2,19 @@ package handler
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	canvaspkg "github.com/usehivy/hivy/internal/canvas"
+	"github.com/usehivy/hivy/internal/canvasartifact"
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
-	"github.com/usehivy/hivy/internal/model"
 )
 
 type CanvasService interface {
@@ -29,10 +26,22 @@ type CanvasService interface {
 	ListFilesForAgent(ctx context.Context, agentID uuid.UUID) (*canvaspkg.FileListResult, error)
 }
 
+type CanvasArtifactService interface {
+	CreateProjectForAgent(ctx context.Context, agentID uuid.UUID, req canvasartifact.ProjectCreateRequest) (*canvasartifact.ProjectResponse, error)
+	ListProjectsForAgent(ctx context.Context, agentID uuid.UUID) (*canvasartifact.ProjectListResponse, error)
+	ListProjectsForOrg(ctx context.Context, orgID uuid.UUID, sessionID *uuid.UUID) (*canvasartifact.ProjectListResponse, error)
+	ListArtifactsForAgent(ctx context.Context, agentID uuid.UUID, filter canvasartifact.ArtifactFilter) (*canvasartifact.ArtifactListResponse, error)
+	ListArtifactsForOrg(ctx context.Context, orgID uuid.UUID, filter canvasartifact.ArtifactFilter) (*canvasartifact.ArtifactListResponse, error)
+	GetArtifactForOrg(ctx context.Context, orgID, artifactID uuid.UUID) (*canvasartifact.ArtifactResponse, error)
+	SyncArtifactForAgent(ctx context.Context, agentID uuid.UUID, req canvasartifact.SyncRequest) (*canvasartifact.SyncResponse, error)
+	SnapshotForAgent(ctx context.Context, agentID uuid.UUID) (*canvasartifact.SnapshotResponse, error)
+}
+
 type CanvasHandler struct {
-	db     *gorm.DB
-	encKey *crypto.SymmetricKey
-	svc    CanvasService
+	db          *gorm.DB
+	encKey      *crypto.SymmetricKey
+	svc         CanvasService
+	artifactSvc CanvasArtifactService
 }
 
 type canvasSessionURLRequest struct {
@@ -59,6 +68,11 @@ type canvasFileCreateRequest struct {
 
 func NewCanvasHandler(db *gorm.DB, encKey *crypto.SymmetricKey, svc CanvasService) *CanvasHandler {
 	return &CanvasHandler{db: db, encKey: encKey, svc: svc}
+}
+
+func (h *CanvasHandler) WithArtifactService(svc CanvasArtifactService) *CanvasHandler {
+	h.artifactSvc = svc
+	return h
 }
 
 // SessionURL handles POST /v1/canvas/session-url.
@@ -128,7 +142,7 @@ func (h *CanvasHandler) SessionURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CanvasHandler) CreateAgentProject(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.svc == nil {
+	if h == nil || (h.svc == nil && h.artifactSvc == nil) {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
 		return
 	}
@@ -141,6 +155,15 @@ func (h *CanvasHandler) CreateAgentProject(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
+	if h.artifactSvc != nil {
+		result, err := h.artifactSvc.CreateProjectForAgent(r.Context(), agentID, canvasartifact.ProjectCreateRequest{Name: req.Name})
+		if err != nil {
+			h.writeRuntimeCanvasError(w, r, err, "create canvas project", agentID)
+			return
+		}
+		writeJSON(w, http.StatusCreated, result)
+		return
+	}
 	result, err := h.svc.CreateProjectForAgent(r.Context(), agentID, req.Name)
 	if err != nil {
 		h.writeRuntimeCanvasError(w, r, err, "create canvas project", agentID)
@@ -150,12 +173,21 @@ func (h *CanvasHandler) CreateAgentProject(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *CanvasHandler) ListAgentProjects(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.svc == nil {
+	if h == nil || (h.svc == nil && h.artifactSvc == nil) {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
 		return
 	}
 	agentID, ok := h.authorizeRuntimeRequest(w, r)
 	if !ok {
+		return
+	}
+	if h.artifactSvc != nil {
+		result, err := h.artifactSvc.ListProjectsForAgent(r.Context(), agentID)
+		if err != nil {
+			h.writeRuntimeCanvasError(w, r, err, "list canvas projects", agentID)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 		return
 	}
 	result, err := h.svc.ListProjectsForAgent(r.Context(), agentID)
@@ -208,73 +240,6 @@ func (h *CanvasHandler) ListAgentFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
-}
-
-func (h *CanvasHandler) authorizeRuntimeRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	if h == nil || h.db == nil || h.encKey == nil {
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "runtime authentication is not configured"})
-		return uuid.Nil, false
-	}
-	agentID, err := uuid.Parse(chi.URLParam(r, "agentID"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid agent_id"})
-		return uuid.Nil, false
-	}
-	token := extractBearerToken(r)
-	if token == "" {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing authorization"})
-		return uuid.Nil, false
-	}
-	if err := h.verifyRuntimeSecret(r.Context(), agentID, token); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeJSON(w, http.StatusNotFound, errorResponse{Error: "agent not found"})
-			return uuid.Nil, false
-		}
-		if errors.Is(err, errInvalidRuntimeSecret) {
-			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
-			return uuid.Nil, false
-		}
-		logging.FromContext(r.Context()).ErrorContext(r.Context(), "canvas runtime auth", "error", err, "agent_id", agentID)
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to verify credentials"})
-		return uuid.Nil, false
-	}
-	return agentID, true
-}
-
-var errInvalidRuntimeSecret = errors.New("invalid runtime secret")
-
-func (h *CanvasHandler) verifyRuntimeSecret(ctx context.Context, agentID uuid.UUID, bearerToken string) error {
-	var agent model.Agent
-	if err := h.db.WithContext(ctx).Where("id = ?", agentID).First(&agent).Error; err != nil {
-		return err
-	}
-	var sandboxes []model.Sandbox
-	if err := h.db.WithContext(ctx).Where("agent_id = ?", agentID).Find(&sandboxes).Error; err != nil {
-		return fmt.Errorf("load sandboxes: %w", err)
-	}
-	for _, sb := range sandboxes {
-		decrypted, err := h.encKey.DecryptString(sb.EncryptedRuntimeSecret)
-		if err != nil {
-			continue
-		}
-		if subtle.ConstantTimeCompare([]byte(bearerToken), []byte(decrypted)) == 1 {
-			return nil
-		}
-	}
-	return errInvalidRuntimeSecret
-}
-
-func (h *CanvasHandler) writeRuntimeCanvasError(w http.ResponseWriter, r *http.Request, err error, op string, agentID uuid.UUID) {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "canvas resource not found"})
-		return
-	}
-	if errors.Is(err, canvaspkg.ErrNotConfigured) {
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "canvas is not configured"})
-		return
-	}
-	logging.FromContext(r.Context()).ErrorContext(r.Context(), "canvas runtime request failed", "operation", op, "error", err, "agent_id", agentID)
-	writeJSON(w, http.StatusBadGateway, errorResponse{Error: "canvas request failed"})
 }
 
 func parseOptionalCanvasUUID(w http.ResponseWriter, value *string, field string) (*uuid.UUID, bool) {

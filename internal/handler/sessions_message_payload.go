@@ -31,5 +31,16 @@ func sessionMessageRequestPayload(req sendSessionMessageRequest) model.JSON {
 			payload["code_line_comments"] = comments
 		}
 	}
+	if len(req.ArtifactComments) > 0 {
+		comments := make([]any, 0, len(req.ArtifactComments))
+		for _, comment := range req.ArtifactComments {
+			if len(comment) > 0 {
+				comments = append(comments, comment)
+			}
+		}
+		if len(comments) > 0 {
+			payload["artifact_comments"] = comments
+		}
+	}
 	return payload
 }

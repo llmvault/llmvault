@@ -96,6 +96,16 @@ func TestDoctorDoesNotExposeRuntimeVariableNames(t *testing.T) {
 	}
 }
 
+func TestDoctorUsesFirstPartyRuntimeEnv(t *testing.T) {
+	t.Setenv(envControlPlaneURL, "http://control-plane")
+	t.Setenv(envAgentID, "agent-1")
+	t.Setenv(envRuntimeSecret, "runtime-secret")
+	t.Setenv("PATH", t.TempDir())
+	if err := doctor(); err != nil {
+		t.Fatalf("doctor: %v", err)
+	}
+}
+
 func TestGetControlPlaneUsesRuntimeAuth(t *testing.T) {
 	const runtimeSecret = "runtime-secret"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

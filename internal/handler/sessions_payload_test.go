@@ -49,6 +49,35 @@ func TestIntegration_SessionsSend_AllowsStructuredPayloadOnlyMessage(t *testing.
 	}
 }
 
+func TestIntegration_SessionsSend_AllowsArtifactCommentsOnlyMessage(t *testing.T) {
+	h := newSessionHarness(t)
+	fx := h.seed(t)
+	created := h.createSession(t, fx, fx.owner, "Review the canvas")
+
+	msg := h.doJSON(t, http.MethodPost, "/v1/sessions/"+created.Session.ID+"/messages", fx, fx.owner, map[string]any{
+		"text": "",
+		"artifact_comments": []any{
+			map[string]any{
+				"artifact_id":   "artifact-1",
+				"artifact_name": "Homepage",
+				"selector":      "hero",
+				"body":          "Make the headline more direct.",
+			},
+		},
+	})
+	if msg.Code != http.StatusAccepted {
+		t.Fatalf("message status=%d body=%s", msg.Code, msg.Body.String())
+	}
+	out := decodeSessionMutation(t, msg)
+	if comments, ok := out.Event.Payload["artifact_comments"].([]any); !ok || len(comments) != 1 {
+		t.Fatalf("event artifact_comments=%#v", out.Event.Payload["artifact_comments"])
+	}
+	row := latestSessionMessageQueueRow(t, h, created.Session.ID)
+	if comments, ok := row.MessagePayload["artifact_comments"].([]any); !ok || len(comments) != 1 {
+		t.Fatalf("stored artifact_comments=%#v", row.MessagePayload["artifact_comments"])
+	}
+}
+
 func TestIntegration_SessionsSend_RejectsRawEnvelope(t *testing.T) {
 	h := newSessionHarness(t)
 	fx := h.seed(t)

@@ -91,6 +91,7 @@ type sendSessionMessageRequest struct {
 	Text             string       `json:"text"`
 	AttachmentIDs    []string     `json:"attachment_ids,omitempty"`
 	CodeLineComments []model.JSON `json:"code_line_comments,omitempty"`
+	ArtifactComments []model.JSON `json:"artifact_comments,omitempty"`
 }
 
 func sessionMessageHasContent(text string, payload model.JSON) bool {
@@ -99,7 +100,8 @@ func sessionMessageHasContent(text string, payload model.JSON) bool {
 	}
 	return payloadArrayLen(payload, "attachments") > 0 ||
 		payloadArrayLen(payload, "attachment_ids") > 0 ||
-		payloadArrayLen(payload, "code_line_comments") > 0
+		payloadArrayLen(payload, "code_line_comments") > 0 ||
+		payloadArrayLen(payload, "artifact_comments") > 0
 }
 
 func payloadArrayLen(payload model.JSON, key string) int {

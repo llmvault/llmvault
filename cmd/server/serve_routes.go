@@ -126,6 +126,9 @@ func setupPublicRoutes(
 	if canvasHandler != nil {
 		r.Get("/internal/agents/{agentID}/canvas/projects", canvasHandler.ListAgentProjects)
 		r.Post("/internal/agents/{agentID}/canvas/projects", canvasHandler.CreateAgentProject)
+		r.Get("/internal/agents/{agentID}/canvas/artifacts", canvasHandler.ListAgentArtifacts)
+		r.Get("/internal/agents/{agentID}/canvas/snapshot", canvasHandler.SnapshotAgentCanvas)
+		r.Post("/internal/agents/{agentID}/canvas/artifacts/sync", canvasHandler.SyncAgentArtifact)
 		r.Get("/internal/agents/{agentID}/canvas/files", canvasHandler.ListAgentFiles)
 		r.Post("/internal/agents/{agentID}/canvas/files", canvasHandler.CreateAgentFile)
 		r.Get("/internal/agents/{agentID}/canvas/brands", canvasHandler.ListAgentBrands)

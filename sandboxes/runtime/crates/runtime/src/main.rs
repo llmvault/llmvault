@@ -1,4 +1,5 @@
 mod activity;
+mod canvas;
 mod drain;
 mod handler;
 mod sentry_support;
@@ -248,6 +249,14 @@ async fn main() -> Result<()> {
         "database event queue enabled"
     );
     let _database_event_queue_handle = database_event_queue.clone().spawn();
+    let canvas_runtime_env = config.runtime_env();
+    let canvas_service = Arc::new(canvas::CanvasRuntimeService::new(
+        workspace_root.clone(),
+        canvas_runtime_env.as_ref(),
+        session_stream_broker.clone(),
+        api_state.canvas_sessions.clone(),
+    ));
+    canvas_service.start();
     let rig_runner = RigAgentRunner::new(config.clone(), workspace_root.clone())
         .with_outbound_emitter(emitter.clone())
         .with_subagent_task_repo(subagent_task_repo.clone())

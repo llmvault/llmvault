@@ -1,5 +1,6 @@
 mod auth;
 mod browser_auth;
+mod canvas_preview;
 mod handlers;
 mod observability_handlers;
 mod plan_manager;
@@ -51,6 +52,7 @@ mod openapi {
             crate::handlers::post_session_message,
             crate::handlers::post_session_interrupt,
             crate::handlers::post_question_answer,
+            crate::canvas_preview::preview_canvas_file,
             crate::handlers::get_session_live_stream,
             crate::repos::list_repos,
             crate::repos::get_repo_tree,
@@ -169,7 +171,7 @@ mod openapi {
 pub use openapi::ApiDoc;
 
 pub fn build_router(state: ApiState) -> Router {
-    Router::new()
+    let protected = Router::new()
         .route(
             "/config",
             put(handlers::put_config).get(handlers::get_config),
@@ -222,7 +224,14 @@ pub fn build_router(state: ApiState) -> Router {
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             auth::bearer_auth,
-        ))
+        ));
+    let iframe_preview = Router::new().route(
+        "/canvas/preview/*path",
+        get(canvas_preview::preview_canvas_file),
+    );
+    Router::new()
+        .merge(iframe_preview)
+        .merge(protected)
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -274,6 +283,7 @@ mod openapi_tests {
             "/control/commands".to_string(),
             "/control/drain".to_string(),
             "/control/drain/cancel".to_string(),
+            "/canvas/preview/{path}".to_string(),
             "/healthz".to_string(),
             "/observability/traces/{trace_id}/events".to_string(),
             "/observability/traces/{trace_id}/summary".to_string(),
