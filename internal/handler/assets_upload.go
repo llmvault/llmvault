@@ -44,6 +44,24 @@ var driveAssetTypes = map[string]bool{
 //   - file: image or audio file
 //   - agent_id: destination agent
 //   - path: optional drive folder, default "uploads"
+//
+// @Summary Upload agent drive asset
+// @Description Uploads an image, audio, or supported video file into an agent drive folder.
+// @Tags assets
+// @Accept mpfd
+// @Produce json
+// @Param agent_id formData string true "Destination agent ID"
+// @Param path formData string false "Drive folder"
+// @Param file formData file true "Asset file"
+// @Success 201 {object} streamAssetResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 422 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Failure 503 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/assets/upload [post]
 func (h *UploadsHandler) UploadAgentAsset(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok || org == nil {

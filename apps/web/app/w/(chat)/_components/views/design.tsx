@@ -6,7 +6,6 @@ import { Button, Spinner } from "@heroui/react"
 import { Icon } from "@iconify/react"
 import {
   isFreshCanvasSessionURL,
-  type CanvasDesignTarget,
   type CanvasSessionURLEntry,
 } from "@/app/w/(chat)/_lib/canvas-design-links"
 import {
@@ -37,6 +36,10 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
     message: string
   } | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
+  const { mutateAsync: createCanvasSessionURL } = $api.useMutation(
+    "post",
+    "/v1/canvas/session-url"
+  )
 
   const target = useMemo(
     () =>
@@ -55,20 +58,36 @@ export function DesignView({ sessionId = "new-chat" }: { sessionId?: string }) {
 
   useEffect(() => {
     if (!target || freshCached) return
-    const controller = new AbortController()
-    void fetchCanvasSessionURL(target, controller.signal)
+    let cancelled = false
+    void createCanvasSessionURL({
+      body: {
+        file_id: target.fileId,
+        ...(target.pageId ? { page_id: target.pageId } : {}),
+      },
+    })
+      .then((data) => canvasSessionURLEntryFromResponse(data))
       .then((entry) => {
+        if (cancelled) return
         setCanvasSessionURL(sessionId, target.key, entry)
       })
       .catch((fetchError) => {
-        if (controller.signal.aborted) return
+        if (cancelled) return
         setFailedRequest({
           key: requestKey,
           message: errorMessage(fetchError, "Could not open Canvas file."),
         })
       })
-    return () => controller.abort()
-  }, [freshCached, requestKey, sessionId, setCanvasSessionURL, target])
+    return () => {
+      cancelled = true
+    }
+  }, [
+    createCanvasSessionURL,
+    freshCached,
+    requestKey,
+    sessionId,
+    setCanvasSessionURL,
+    target,
+  ])
 
   const selectCatalogFile = useCallback(
     (project: CanvasProject, file: CanvasProjectFile) => {
@@ -357,61 +376,17 @@ function DesignState({
   )
 }
 
-async function fetchCanvasSessionURL(
-  target: CanvasDesignTarget,
-  signal: AbortSignal
-): Promise<CanvasSessionURLEntry> {
-  const response = await fetch("/api/proxy/v1/canvas/session-url", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      file_id: target.fileId,
-      ...(target.pageId ? { page_id: target.pageId } : {}),
-    }),
-    signal,
-  })
-  const data = await responseJSON(response)
-  if (!response.ok) {
-    throw new Error(errorResponseMessage(data, "Could not open Canvas file."))
-  }
-  const url = stringValue(data, "url")
-  const expiresIn = numberValue(data, "expires_in")
-  if (!url || expiresIn === undefined) {
+function canvasSessionURLEntryFromResponse(data: {
+  url?: string
+  expires_in?: number
+}): CanvasSessionURLEntry {
+  if (!data.url || data.expires_in === undefined) {
     throw new Error("Canvas session response was incomplete.")
   }
   const cachedAt = Date.now()
   return {
-    url,
+    url: data.url,
     cachedAt,
-    expiresAt: cachedAt + expiresIn * 1000,
+    expiresAt: cachedAt + data.expires_in * 1000,
   }
-}
-
-async function responseJSON(response: Response) {
-  try {
-    return (await response.json()) as unknown
-  } catch {
-    return null
-  }
-}
-
-function errorResponseMessage(data: unknown, fallback: string) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return fallback
-  const value = (data as Record<string, unknown>).error
-  return typeof value === "string" && value.trim() ? value : fallback
-}
-
-function stringValue(data: unknown, key: string) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return ""
-  const value = (data as Record<string, unknown>)[key]
-  return typeof value === "string" ? value : ""
-}
-
-function numberValue(data: unknown, key: string) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return undefined
-  const value = (data as Record<string, unknown>)[key]
-  return typeof value === "number" ? value : undefined
 }

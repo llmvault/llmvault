@@ -1,7 +1,6 @@
 "use client"
 
 import type { QueryClient } from "@tanstack/react-query"
-import { api } from "@/lib/api/client"
 import {
   chatQueryKeys,
   type SessionResponse,
@@ -89,64 +88,22 @@ export function ensureSessionStream(
 
 export async function interruptSessionTurn(
   sessionId: string,
-  queryClient: QueryClient
+  queryClient: QueryClient,
+  interruptSession: () => Promise<unknown>
 ) {
   stopController(sessionId)
   useSessionRuntimeStore.getState().finishStream(sessionId, {
     outcome: "stopped",
   })
-  const { error } = await api.POST("/v1/sessions/{id}/interrupt", {
-    params: { path: { id: sessionId } },
-  })
-  await refreshSessionQueries(queryClient, sessionId)
-  if (error) {
-    const message =
-      typeof error === "object" &&
-      error &&
-      "error" in error &&
-      typeof error.error === "string"
-        ? error.error
-        : "Could not stop session"
+  try {
+    await interruptSession()
+  } catch (error) {
+    await refreshSessionQueries(queryClient, sessionId)
+    const message = errorMessage(error, "Could not stop session")
     useSessionRuntimeStore.getState().appendStreamError(sessionId, message)
     throw new Error(message)
   }
-}
-
-export async function respondToPendingInput({
-  sessionId,
-  requestId,
-  text,
-  optionId,
-  queryClient,
-}: {
-  sessionId: string
-  requestId: string
-  text?: string
-  optionId?: string
-  queryClient: QueryClient
-}) {
-  const { error } = await api.POST("/v1/sessions/{id}/input-responses", {
-    params: { path: { id: sessionId } },
-    body: {
-      request_id: requestId,
-      text,
-      option_id: optionId,
-    },
-  })
-  if (error) {
-    const message =
-      typeof error === "object" &&
-      error &&
-      "error" in error &&
-      typeof error.error === "string"
-        ? error.error
-        : "Could not send response"
-    throw new Error(message)
-  }
-  useSessionRuntimeStore.getState().setStatus(sessionId, "streaming", {
-    pendingInput: undefined,
-  })
-  ensureSessionStream(sessionId, { queryClient })
+  await refreshSessionQueries(queryClient, sessionId)
 }
 
 export function stopAllSessionStreams() {
@@ -160,9 +117,13 @@ async function runSessionStream(
 ) {
   let attemptedReplay: GoSessionStreamReplayMode | undefined = replayOverride
   try {
-    const access = await getSessionSandboxAccess(sessionId, {
-      force: controller.forceAccessRefresh,
-    })
+    const access = await getSessionSandboxAccess(
+      sessionId,
+      controller.queryClient,
+      {
+        force: controller.forceAccessRefresh,
+      }
+    )
     const cursor =
       useSessionRuntimeStore.getState().cursorBySessionId[sessionId]
     const replay: GoSessionStreamReplayMode =

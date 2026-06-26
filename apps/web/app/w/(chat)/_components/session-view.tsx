@@ -50,7 +50,6 @@ import {
   eventMatchesInputRequest,
   latestInputRequestBlock,
 } from "@/app/w/(chat)/_lib/session-input-requests"
-import { fetchSessionUsage } from "@/app/w/(chat)/_lib/session-usage"
 import {
   ensureSessionStream,
   hydrateSessionRuntimeFromResponse,
@@ -105,6 +104,19 @@ export function SessionThreadView({
   const sendSessionMessage = $api.useMutation(
     "post",
     "/v1/sessions/{id}/messages"
+  )
+  const interruptSession = $api.useMutation(
+    "post",
+    "/v1/sessions/{id}/interrupt"
+  )
+  const sessionUsageQuery = $api.useQuery(
+    "get",
+    "/v1/sessions/{id}/usage",
+    { params: { path: { id: sessionId ?? "" } } },
+    {
+      enabled: Boolean(sessionId) && !temporarySession,
+      retry: false,
+    }
   )
   const sessionHistoryQuery = $api.useInfiniteQuery(
     "get",
@@ -232,19 +244,11 @@ export function SessionThreadView({
   const sessionReadyForStream = session.loaded !== false
 
   useEffect(() => {
-    if (!sessionId || temporarySession) return
-    const controller = new AbortController()
-    void fetchSessionUsage(sessionId, controller.signal)
-      .then((usage) => {
-        useSessionRuntimeStore.getState().hydrateSessionUsage(sessionId, usage)
-      })
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return
-        }
-      })
-    return () => controller.abort()
-  }, [sessionId, temporarySession])
+    if (!sessionId || temporarySession || !sessionUsageQuery.data) return
+    useSessionRuntimeStore
+      .getState()
+      .hydrateSessionUsage(sessionId, sessionUsageQuery.data)
+  }, [sessionId, sessionUsageQuery.data, temporarySession])
 
   useEffect(() => {
     if (!sessionId || temporarySession || historyEvents.length === 0) return
@@ -369,7 +373,11 @@ export function SessionThreadView({
 
   const stop = () => {
     if (!sessionId || temporarySession) return
-    void interruptSessionTurn(sessionId, queryClient).catch((error) => {
+    void interruptSessionTurn(sessionId, queryClient, () =>
+      interruptSession.mutateAsync({
+        params: { path: { id: sessionId } },
+      })
+    ).catch((error) => {
       toast.danger(extractErrorMessage(error, "Could not stop session"))
     })
   }

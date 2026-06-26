@@ -1,12 +1,5 @@
-import { afterEach, describe, expect, it, vi, type Mock } from "vitest"
-
-vi.mock("@/lib/api/client", () => ({
-  api: {
-    POST: vi.fn(),
-  },
-}))
-
-import { api } from "@/lib/api/client"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import type { QueryClient } from "@tanstack/react-query"
 import {
   clearSessionSandboxAccess,
   getCachedSessionSandboxAccess,
@@ -14,82 +7,79 @@ import {
   isSessionSandboxAccessFresh,
 } from "@/app/w/(chat)/_lib/session-sandbox-access"
 
-const postMock = api.POST as unknown as Mock
-
 describe("session sandbox access cache", () => {
   afterEach(() => {
     clearSessionSandboxAccess()
-    postMock.mockReset()
     vi.useRealTimers()
   })
 
   it("dedupes access requests and reuses fresh cached access", async () => {
-    postMock.mockResolvedValueOnce({
-      data: sandboxAccess({ sessionId: "session-a" }),
-      error: undefined,
-    })
+    const queryClient = testQueryClient()
+    queryClient.fetchQueryMock.mockResolvedValueOnce(
+      sandboxAccess({ sessionId: "session-a" })
+    )
 
     const [first, second] = await Promise.all([
-      getSessionSandboxAccess("session-a"),
-      getSessionSandboxAccess("session-a"),
+      getSessionSandboxAccess("session-a", queryClient.client),
+      getSessionSandboxAccess("session-a", queryClient.client),
     ])
-    const third = await getSessionSandboxAccess("session-a")
+    const third = await getSessionSandboxAccess("session-a", queryClient.client)
 
     expect(first).toBe(second)
     expect(third).toBe(first)
     expect(first.scopes).toContain("stream:read")
-    expect(postMock).toHaveBeenCalledTimes(1)
-    expect(postMock.mock.calls[0]?.[0]).toBe("/v1/sessions/{id}/sandbox-access")
+    expect(queryClient.fetchQueryMock).toHaveBeenCalledTimes(1)
   })
 
   it("refreshes access when the cached token is inside the expiry buffer", async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-06-20T10:00:00Z"))
-    postMock
-      .mockResolvedValueOnce({
-        data: sandboxAccess({
+    const queryClient = testQueryClient()
+    queryClient.fetchQueryMock
+      .mockResolvedValueOnce(
+        sandboxAccess({
           sessionId: "session-a",
           token: "token-1",
           expiresAt: "2026-06-20T10:10:00Z",
-        }),
-        error: undefined,
-      })
-      .mockResolvedValueOnce({
-        data: sandboxAccess({
+        })
+      )
+      .mockResolvedValueOnce(
+        sandboxAccess({
           sessionId: "session-a",
           token: "token-2",
           expiresAt: "2026-06-20T11:00:00Z",
-        }),
-        error: undefined,
-      })
+        })
+      )
 
-    const first = await getSessionSandboxAccess("session-a")
+    const first = await getSessionSandboxAccess("session-a", queryClient.client)
     vi.setSystemTime(new Date("2026-06-20T10:06:00Z"))
-    const second = await getSessionSandboxAccess("session-a")
+    const second = await getSessionSandboxAccess(
+      "session-a",
+      queryClient.client
+    )
 
     expect(first.token).toBe("token-1")
     expect(second.token).toBe("token-2")
-    expect(postMock).toHaveBeenCalledTimes(2)
+    expect(queryClient.fetchQueryMock).toHaveBeenCalledTimes(2)
   })
 
   it("ignores cached access when the expected sandbox changes", async () => {
-    postMock
-      .mockResolvedValueOnce({
-        data: sandboxAccess({
+    const queryClient = testQueryClient()
+    queryClient.fetchQueryMock
+      .mockResolvedValueOnce(
+        sandboxAccess({
           sessionId: "session-a",
           sandboxId: "sandbox-old",
-        }),
-        error: undefined,
-      })
-      .mockResolvedValueOnce({
-        data: sandboxAccess({
+        })
+      )
+      .mockResolvedValueOnce(
+        sandboxAccess({
           sessionId: "session-a",
           sandboxId: "sandbox-new",
-        }),
-        error: undefined,
-      })
+        })
+      )
 
-    await getSessionSandboxAccess("session-a", {
+    await getSessionSandboxAccess("session-a", queryClient.client, {
       expectedSandboxId: "sandbox-old",
     })
     expect(
@@ -97,12 +87,16 @@ describe("session sandbox access cache", () => {
         expectedSandboxId: "sandbox-new",
       })
     ).toBeNull()
-    const fresh = await getSessionSandboxAccess("session-a", {
-      expectedSandboxId: "sandbox-new",
-    })
+    const fresh = await getSessionSandboxAccess(
+      "session-a",
+      queryClient.client,
+      {
+        expectedSandboxId: "sandbox-new",
+      }
+    )
 
     expect(fresh.sandbox_id).toBe("sandbox-new")
-    expect(postMock).toHaveBeenCalledTimes(2)
+    expect(queryClient.fetchQueryMock).toHaveBeenCalledTimes(2)
   })
 
   it("treats near-expiry access as stale", () => {
@@ -114,6 +108,14 @@ describe("session sandbox access cache", () => {
     ).toBe(false)
   })
 })
+
+function testQueryClient() {
+  const fetchQueryMock = vi.fn()
+  return {
+    client: { fetchQuery: fetchQueryMock } as unknown as QueryClient,
+    fetchQueryMock,
+  }
+}
 
 function sandboxAccess({
   sessionId,

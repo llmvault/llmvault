@@ -1,67 +1,65 @@
 "use client"
 
 import { useState, type FormEvent } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import type { QueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Button, Modal, toast } from "@heroui/react"
 import { Icon } from "@iconify/react"
-import {
-  adminDataQueryKey,
-  deleteAdminIntegration,
-  errorMessage,
-  upsertAdminIntegration,
-} from "./admin-api"
+import { $api } from "@/lib/api/hooks"
+import { ADMIN_QUERY_KEYS, adminSecretHeader, errorMessage } from "./admin-api"
 import { Field, Meta } from "./admin-field"
-import type { AdminIntegrationDefinition } from "./types"
+import type { AdminCredentialField, AdminIntegrationDefinition } from "./types"
+
+type RawAdminCredentialField = NonNullable<
+  AdminIntegrationDefinition["credential_fields"]
+>[number]
 
 export function IntegrationDialog({
   adminSecret,
-  adminSecretVersion,
   definition,
   onOpenChange,
 }: {
   adminSecret: string
-  adminSecretVersion: number
   definition: AdminIntegrationDefinition | null
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
   const [values, setValues] = useState<Record<string, string>>({})
+  const adminHeaders = adminSecretHeader(adminSecret)
 
-  const upsertMutation = useMutation({
-    mutationFn: ({
-      id,
-      credentials,
-    }: {
-      id: string
-      credentials?: Record<string, string>
-    }) => upsertAdminIntegration(adminSecret, id, credentials),
-    onSuccess: async () => {
-      toast.success("Integration saved")
-      onOpenChange(false)
-      await queryClient.invalidateQueries({
-        queryKey: adminDataQueryKey(adminSecretVersion),
-      })
-    },
-    onError: (error) => {
-      toast.danger(errorMessage(error, "Failed to save integration"))
-    },
-  })
+  const upsertMutation = $api.useMutation(
+    "put",
+    "/v1/admin/integrations/{id}",
+    {
+      onSuccess: async () => {
+        toast.success("Integration saved")
+        onOpenChange(false)
+        await invalidateAdminQueries(queryClient)
+      },
+      onError: (error) => {
+        toast.danger(errorMessage(error, "Failed to save integration"))
+      },
+    }
+  )
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteAdminIntegration(adminSecret, id),
-    onSuccess: async () => {
-      toast.success("Integration removed")
-      onOpenChange(false)
-      await queryClient.invalidateQueries({
-        queryKey: adminDataQueryKey(adminSecretVersion),
-      })
-    },
-    onError: (error) => {
-      toast.danger(errorMessage(error, "Failed to remove integration"))
-    },
-  })
+  const deleteMutation = $api.useMutation(
+    "delete",
+    "/v1/admin/integrations/{id}",
+    {
+      onSuccess: async () => {
+        toast.success("Integration removed")
+        onOpenChange(false)
+        await invalidateAdminQueries(queryClient)
+      },
+      onError: (error) => {
+        toast.danger(errorMessage(error, "Failed to remove integration"))
+      },
+    }
+  )
 
-  const fields = definition?.credential_fields ?? []
+  const fields = (definition?.credential_fields ?? []).filter(
+    isAdminCredentialField
+  )
   const activeConnections = definition?.existing?.active_connections ?? 0
   const canDelete = Boolean(definition?.existing) && activeConnections === 0
 
@@ -69,8 +67,13 @@ export function IntegrationDialog({
     event.preventDefault()
     if (!definition?.id) return
     upsertMutation.mutate({
-      id: definition.id,
-      credentials: fields.length > 0 ? values : undefined,
+      params: {
+        header: adminHeaders,
+        path: { id: definition.id },
+      },
+      body: {
+        credentials: fields.length > 0 ? values : undefined,
+      },
     })
   }
 
@@ -104,7 +107,7 @@ export function IntegrationDialog({
                   </Button>
                 </div>
 
-                <div className="bg-surface grid grid-cols-2 gap-3 rounded-2xl border border-border p-3 text-xs">
+                <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-surface p-3 text-xs">
                   <Meta
                     label="Provider"
                     value={definition.provider ?? "unknown"}
@@ -139,7 +142,7 @@ export function IntegrationDialog({
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-surface rounded-2xl border border-border p-4 text-sm text-muted">
+                  <div className="rounded-2xl border border-border bg-surface p-4 text-sm text-muted">
                     This integration does not require editable credentials.
                   </div>
                 )}
@@ -161,7 +164,12 @@ export function IntegrationDialog({
                         isPending={deleteMutation.isPending}
                         onPress={() => {
                           if (definition.id) {
-                            deleteMutation.mutate(definition.id)
+                            deleteMutation.mutate({
+                              params: {
+                                header: adminHeaders,
+                                path: { id: definition.id },
+                              },
+                            })
                           }
                         }}
                       >
@@ -184,4 +192,18 @@ export function IntegrationDialog({
       </Modal.Backdrop>
     </Modal>
   )
+}
+
+async function invalidateAdminQueries(queryClient: QueryClient) {
+  await Promise.all(
+    Object.values(ADMIN_QUERY_KEYS).map((queryKey) =>
+      queryClient.invalidateQueries({ queryKey })
+    )
+  )
+}
+
+function isAdminCredentialField(
+  field: RawAdminCredentialField
+): field is AdminCredentialField {
+  return Boolean(field.name && field.label)
 }

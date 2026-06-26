@@ -52,12 +52,17 @@ describe("session stream manager", () => {
     getSessionSandboxAccessMock.mockResolvedValueOnce(access)
     subscribeToGoSessionStreamMock.mockResolvedValueOnce(undefined)
 
-    ensureSessionStream("session-1", { queryClient: testQueryClient() })
+    const queryClient = testQueryClient()
+    ensureSessionStream("session-1", { queryClient })
     await flushAsync()
 
-    expect(getSessionSandboxAccessMock).toHaveBeenCalledWith("session-1", {
-      force: undefined,
-    })
+    expect(getSessionSandboxAccessMock).toHaveBeenCalledWith(
+      "session-1",
+      queryClient,
+      {
+        force: undefined,
+      }
+    )
     expect(subscribeToGoSessionStreamMock).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: "session-1",
@@ -78,7 +83,8 @@ describe("session stream manager", () => {
       .mockRejectedValueOnce(new GoSessionStreamHTTPError(401, "expired"))
       .mockResolvedValueOnce(undefined)
 
-    ensureSessionStream("session-1", { queryClient: testQueryClient() })
+    const queryClient = testQueryClient()
+    ensureSessionStream("session-1", { queryClient })
     await flushAsync()
     expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
 
@@ -88,6 +94,7 @@ describe("session stream manager", () => {
     expect(getSessionSandboxAccessMock).toHaveBeenNthCalledWith(
       2,
       "session-1",
+      queryClient,
       {
         force: true,
       }

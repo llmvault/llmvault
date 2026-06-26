@@ -87,6 +87,20 @@ func (h *IntegrationHandler) UpsertAdmin(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// DeleteAdmin handles DELETE /v1/admin/integrations/{id}.
+// @Summary Delete an admin integration
+// @Description Removes a supported global integration when it has no active connections.
+// @Tags admin
+// @Produce json
+// @Param X-Hivy-Admin-Secret header string true "Admin secret"
+// @Param id path string true "Integration definition ID"
+// @Success 200 {object} integrations.AdminDefinition
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 409 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/admin/integrations/{id} [delete]
 func (h *IntegrationHandler) DeleteAdmin(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {

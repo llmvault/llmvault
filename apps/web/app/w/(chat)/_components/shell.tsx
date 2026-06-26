@@ -691,10 +691,14 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       })
       void (async () => {
         try {
-          const access = await getSessionSandboxAccess(routeSessionID, {
-            expectedSandboxId: routeSandboxID,
-            force: options.force,
-          })
+          const access = await getSessionSandboxAccess(
+            routeSessionID,
+            queryClient,
+            {
+              expectedSandboxId: routeSandboxID,
+              force: options.force,
+            }
+          )
           if (sandboxRuntimeRequestRef.current !== requestID) return
           setSandboxRuntimeState({
             sessionId: routeSessionID,
@@ -712,7 +716,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         }
       })()
     },
-    [routeIsTemporarySession, routeSandboxID, routeSessionID]
+    [queryClient, routeIsTemporarySession, routeSandboxID, routeSessionID]
   )
 
   const refreshSandboxAccess = useCallback(() => {
