@@ -17,9 +17,12 @@ type sessionSyncRuntime struct {
 	messageCalls                   int
 	lastSessionID, lastMessageText string
 	lastMessageBody                map[string]any
+	lastConfigBody                 map[string]any
 	lastSessionContext             []string
 	lastAttachments                []any
 	lastModelID, lastAPIKeyEnv     string
+	lastConfigModelID              string
+	lastConfigReasoningEffort      string
 }
 
 func newSessionSyncRuntime(t *testing.T, messageStatus int) *sessionSyncRuntime {
@@ -38,14 +41,34 @@ func (rt *sessionSyncRuntime) handle(w http.ResponseWriter, r *http.Request) {
 		rt.readyzCalls++
 		w.WriteHeader(http.StatusOK)
 	case r.Method == http.MethodPut && r.URL.Path == "/config":
-		rt.configCalls++
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"env_key_count": 1})
+		rt.handleConfig(w, r)
 	case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/sessions/") && strings.HasSuffix(r.URL.Path, "/messages"):
 		rt.handleMessage(w, r)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func (rt *sessionSyncRuntime) handleConfig(w http.ResponseWriter, r *http.Request) {
+	rt.configCalls++
+	var body struct {
+		Definition *struct {
+			Model *struct {
+				ModelID         string `json:"model_id"`
+				ReasoningEffort string `json:"reasoning_effort"`
+			} `json:"model"`
+		} `json:"definition"`
+	}
+	rawBody, _ := io.ReadAll(r.Body)
+	rt.lastConfigBody = map[string]any{}
+	_ = json.Unmarshal(rawBody, &rt.lastConfigBody)
+	_ = json.Unmarshal(rawBody, &body)
+	if body.Definition != nil && body.Definition.Model != nil {
+		rt.lastConfigModelID = body.Definition.Model.ModelID
+		rt.lastConfigReasoningEffort = body.Definition.Model.ReasoningEffort
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"env_key_count": 1})
 }
 
 func (rt *sessionSyncRuntime) handleMessage(w http.ResponseWriter, r *http.Request) {

@@ -540,6 +540,7 @@ impl AgentRunner for RigAgentRunner {
                 }
 
                 if tool_calls.is_empty() {
+                    let _ = turn_safety.progress_reminder.observe_response(&turn_text, 0);
                     let reason = last_finish_reason.as_ref();
 
                     let is_cut_off = reason.is_some_and(|r| r.is_cut_off());
@@ -673,6 +674,7 @@ impl AgentRunner for RigAgentRunner {
                 let mut stop_after_tool_calls: Option<String> = None;
                 let mut settlements: Vec<ToolSettlement> = Vec::new();
                 let mut emitted_tool_calls: Vec<ToolCall> = Vec::new();
+                let mut progress_tool_call_count = 0usize;
                 let detector_len_before_batch = turn_safety.repeat_detector.len();
                 for call in &tool_calls {
                     total_tool_calls = total_tool_calls.saturating_add(1);
@@ -811,6 +813,7 @@ impl AgentRunner for RigAgentRunner {
                                 start_tool_call_id: start_tool_call_id.clone(),
                             });
                         }
+                        progress_tool_call_count = emitted_tool_calls.len();
                         settlements.extend(emitted_tool_calls.into_iter().map(ToolSettlement::Execute));
                     }
                 }
@@ -915,6 +918,27 @@ impl AgentRunner for RigAgentRunner {
                     }
                     messages.push(assistant);
                     break;
+                }
+                if let Some(reminder) = turn_safety
+                    .progress_reminder
+                    .observe_response(&turn_text, progress_tool_call_count)
+                {
+                    yield AgentEvent::RunEvent {
+                        event: "progress_reminder_injected".to_string(),
+                        payload: serde_json::json!({
+                            "session_id": session_id.as_str(),
+                            "turn_id": turn_id,
+                            "silent_tool_calls": reminder.silent_tool_calls,
+                        }),
+                    };
+                    let instruction = AgentMessage::system(reminder.message);
+                    if let Err(error) =
+                        append_model_message(event_repo.as_deref(), &session_id, &instruction).await
+                    {
+                        yield AgentEvent::Error { message: error.to_string() };
+                        return;
+                    }
+                    messages.push(instruction);
                 }
                 if !budget_warned
                     && cumulative_completion_tokens
@@ -1711,6 +1735,134 @@ mod tests {
         assert!(!retry_messages_text.contains("call_2"));
         assert!(!retry_messages_text.contains("call_3"));
         assert!(!retry_messages_text.contains("\"tool_calls\""));
+    }
+
+    #[tokio::test]
+    async fn silent_tool_calls_inject_progress_reminder_into_next_request() {
+        let requests: Arc<tokio::sync::Mutex<Vec<serde_json::Value>>> =
+            Arc::new(tokio::sync::Mutex::new(Vec::new()));
+        let handler_requests = requests.clone();
+        async fn silent_tool_handler(
+            axum::extract::State(requests): axum::extract::State<
+                Arc<tokio::sync::Mutex<Vec<serde_json::Value>>>,
+            >,
+            Json(body): Json<serde_json::Value>,
+        ) -> impl IntoResponse {
+            let request_number = {
+                let mut requests = requests.lock().await;
+                let request_number = requests.len() + 1;
+                requests.push(body);
+                request_number
+            };
+
+            if request_number <= 3 {
+                let arguments = serde_json::json!({
+                    "command": format!("printf progress-{request_number}")
+                })
+                .to_string();
+                let chunk = serde_json::json!({
+                    "choices": [{
+                        "delta": {
+                            "tool_calls": [{
+                                "index": 0,
+                                "id": format!("call_{request_number}"),
+                                "function": {
+                                    "name": "bash",
+                                    "arguments": arguments,
+                                }
+                            }]
+                        }
+                    }]
+                });
+                let done = serde_json::json!({
+                    "choices": [{
+                        "delta": {},
+                        "finish_reason": "tool_calls",
+                    }]
+                });
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    format!("data: {chunk}\n\ndata: {done}\n\ndata: [DONE]\n\n"),
+                )
+            } else {
+                let chunk = serde_json::json!({
+                    "choices": [{
+                        "delta": {
+                            "content": "progress acknowledged",
+                        },
+                        "finish_reason": "stop",
+                    }]
+                });
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    format!("data: {chunk}\n\ndata: [DONE]\n\n"),
+                )
+            }
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base_url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let app = Router::new()
+            .route("/chat/completions", post(silent_tool_handler))
+            .with_state(handler_requests);
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("model server");
+        });
+
+        let mut definition = test_definition();
+        definition.tools = None;
+        definition.limits.max_turns_per_session = 10;
+        let ModelConfig::OpenaiCompatible { base_url: url, .. } = &mut definition.model;
+        *url = base_url;
+        let config = ConfigStore::with_runtime_env(
+            definition,
+            HashMap::from([("TEST_API_KEY".to_string(), "test-key".to_string())]),
+        );
+        let runner = RigAgentRunner::new(config, std::env::temp_dir());
+
+        let mut stream = runner
+            .run_turn(
+                &SessionId::from("progress-reminder-session"),
+                TurnInput::text("inspect quietly"),
+                None,
+            )
+            .await
+            .expect("run turn");
+        let events = tokio::time::timeout(std::time::Duration::from_secs(20), async {
+            let mut events = Vec::new();
+            while let Some(event) = stream.next().await {
+                events.push(event);
+            }
+            events
+        })
+        .await
+        .expect("turn must terminate");
+
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::RunEvent { event, payload }
+                if event == "progress_reminder_injected"
+                    && payload["silent_tool_calls"] == serde_json::json!(3)
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::FinalMessage { text } if text == "progress acknowledged"
+        )));
+
+        let requests = requests.lock().await;
+        let fourth_request = requests.get(3).expect("fourth model request");
+        let messages = fourth_request["messages"]
+            .as_array()
+            .expect("request messages");
+        let reminder = messages.iter().find(|message| {
+            message["role"] == "system"
+                && message["content"].to_string().contains("3 tool calls")
+                && message["content"].to_string().contains("progress update")
+        });
+        assert!(
+            reminder.is_some(),
+            "next model request should include a system progress reminder: {messages:?}"
+        );
     }
 
     #[tokio::test]

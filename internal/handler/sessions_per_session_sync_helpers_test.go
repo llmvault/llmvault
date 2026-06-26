@@ -39,8 +39,11 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 		SigningKey: []byte("session-sync-signing-key"),
 		Cfg:        cfg,
 	}
-	orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, proxyToken *agentruntime.ProxyTokenResult) error {
-		return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyToken(ctx, compileDeps, sb, proxyToken)
+	orchestrator.SetAgentRuntimeConfigPusher(func(ctx context.Context, sb *model.Sandbox, push sandboxpkg.AgentRuntimeConfigPush) error {
+		if push.Agent != nil {
+			return agentruntime.PushAgentRuntimeConfigWithProxyTokenOptions(ctx, compileDeps, push.Agent, sb, push.ProxyToken, push.RuntimeOptions)
+		}
+		return agentruntime.PushAgentRuntimeConfigForSandboxWithProxyTokenOptions(ctx, compileDeps, sb, push.ProxyToken, push.RuntimeOptions)
 	})
 	h := handler.NewSessionHandler(db, enq).
 		WithRuntimeStreamKey(encKey).
@@ -61,7 +64,6 @@ func newSessionRuntimeHarness(t *testing.T, runtime *sessionSyncRuntime, createE
 		r.Post("/sessions/{id}/input-responses", h.RespondToInput)
 		r.Post("/sessions/{id}/interrupt", h.Interrupt)
 		r.Get("/sessions/{id}/events", h.ListEvents)
-		r.Get("/sessions/{id}/subagents/{childSessionID}/events", h.ListSubagentEvents)
 		r.Post("/sessions/{id}/sandbox-access", h.SandboxAccess)
 		r.Put("/sessions/{id}/participants/{userID}", h.PutParticipant)
 		r.Delete("/sessions/{id}/participants/{userID}", h.DeleteParticipant)

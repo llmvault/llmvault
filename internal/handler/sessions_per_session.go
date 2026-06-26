@@ -13,28 +13,43 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *model.Agent) (*model.Sandbox, error) {
+func (h *SessionHandler) provisionPerSessionSandbox(ctx context.Context, agent *model.Agent, modelID string, reasoningEffort string) (*model.Sandbox, error) {
 	if h == nil || h.orchestrator == nil {
 		return nil, fmt.Errorf("session sandbox provisioning is not configured")
 	}
 	if h.compileDeps.EncKey == nil {
 		return nil, fmt.Errorf("session runtime encryption key is not configured")
 	}
-	secrets, err := agentruntime.PrepareStartup(ctx, h.compileDeps, agent)
+	runtimeAgent := perSessionRuntimeAgent(agent, modelID)
+	secrets, err := agentruntime.PrepareStartup(ctx, h.compileDeps, &runtimeAgent)
 	if err != nil {
 		return nil, fmt.Errorf("prepare agent runtime startup: %w", err)
 	}
-	sb, err := h.orchestrator.CreateAgentSandbox(ctx, agent, secrets)
+	sb, err := h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, &runtimeAgent, secrets, agentruntime.RuntimeConfigOptions{
+		ModelID:         runtimeAgent.Model,
+		ReasoningEffort: reasoningEffort,
+	})
 	if err != nil {
-		h.revokePerSessionStartupToken(ctx, agent, secrets.ProxyTokenJTI)
+		h.revokePerSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
 		return nil, fmt.Errorf("create agent sandbox: %w", err)
 	}
-	if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, agent, sb.ID, secrets.ProxyTokenJTI); err != nil {
+	if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, &runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
 		h.cleanupPerSessionSandbox(ctx, sb)
-		h.revokePerSessionStartupToken(ctx, agent, secrets.ProxyTokenJTI)
+		h.revokePerSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
 		return nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
 	}
 	return sb, nil
+}
+
+func perSessionRuntimeAgent(agent *model.Agent, modelID string) model.Agent {
+	if agent == nil {
+		return model.Agent{}
+	}
+	runtimeAgent := *agent
+	if modelID = strings.TrimSpace(modelID); modelID != "" {
+		runtimeAgent.Model = modelID
+	}
+	return runtimeAgent
 }
 
 func (h *SessionHandler) cleanupFailedPerSessionCreate(ctx context.Context, sessionID uuid.UUID, sb *model.Sandbox) {

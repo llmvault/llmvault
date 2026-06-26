@@ -422,6 +422,30 @@ Primary category: Product UI
     ])
   })
 
+  it("preserves thinking chunk boundary whitespace", () => {
+    const blocks = sessionEventsToConversationBlocks([
+      event("thinking", {
+        text: "Let",
+        turn_id: "turn-thinking",
+      }),
+      event("thinking", {
+        text: " me",
+        turn_id: "turn-thinking",
+      }),
+      event("thinking", {
+        text: " now",
+        turn_id: "turn-thinking",
+      }),
+    ])
+
+    expect(blocks).toMatchObject([
+      {
+        type: "agent_work",
+        blocks: [{ type: "thinking", text: "Let me now" }],
+      },
+    ])
+  })
+
   it("keeps active pre-final work open while the turn is running", () => {
     const blocks = sessionEventsToConversationBlocks(
       [event("token", { text: "Still working", turn_id: "turn-live" })],

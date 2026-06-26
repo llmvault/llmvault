@@ -32,33 +32,51 @@ func BuildRuntimeEnv(ctx context.Context, deps CompileDeps, agent *model.Agent, 
 }
 
 func BuildAgentRuntimeConfigUpdate(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string) (ConfigUpdateRequest, *ProxyTokenResult, error) {
+	return BuildAgentRuntimeConfigUpdateWithOptions(ctx, deps, agent, sb, runtimeSecret, RuntimeConfigOptions{})
+}
+
+type RuntimeConfigOptions struct {
+	ModelID         string
+	ReasoningEffort string
+}
+
+func BuildAgentRuntimeConfigUpdateWithOptions(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, opts RuntimeConfigOptions) (ConfigUpdateRequest, *ProxyTokenResult, error) {
 	sandboxID := uuid.Nil
 	if sb != nil {
 		sandboxID = sb.ID
 	}
-	token, err := MintProxyToken(ctx, deps, agent, sandboxID)
+	runtimeAgent := agentWithRuntimeModel(agent, opts.ModelID)
+	token, err := MintProxyToken(ctx, deps, runtimeAgent, sandboxID)
 	if err != nil {
 		return ConfigUpdateRequest{}, nil, err
 	}
-	config, err := BuildAgentRuntimeConfigUpdateWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
+	config, err := BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx, deps, agent, sb, runtimeSecret, token, opts)
 	return config, token, err
 }
 
 func BuildAgentRuntimeConfigUpdateWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (ConfigUpdateRequest, error) {
-	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, agent, sb, runtimeSecret, token)
+	return BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx, deps, agent, sb, runtimeSecret, token, RuntimeConfigOptions{})
+}
+
+func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult, opts RuntimeConfigOptions) (ConfigUpdateRequest, error) {
+	runtimeAgent := agentWithRuntimeModel(agent, opts.ModelID)
+	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, runtimeAgent, sb, runtimeSecret, token)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
-	def, err := CompileWithProxyToken(ctx, deps, agent, token)
+	def, err := CompileWithProxyToken(ctx, deps, runtimeAgent, token)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
+	}
+	if effort := strings.TrimSpace(opts.ReasoningEffort); effort != "" {
+		def.Model.ReasoningEffort = &effort
 	}
 	sandboxID := uuid.Nil
 	if sb != nil {
 		sandboxID = sb.ID
 	}
 	def.OutboundChannels = ControlPlaneOutboundChannels(deps.Cfg, sandboxID)
-	workspace, err := BuildWorkspaceConfig(ctx, deps, agent)
+	workspace, err := BuildWorkspaceConfig(ctx, deps, runtimeAgent)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
 	}
@@ -67,6 +85,16 @@ func BuildAgentRuntimeConfigUpdateWithProxyToken(ctx context.Context, deps Compi
 		RuntimeEnv: env,
 		Workspace:  &workspace,
 	}, nil
+}
+
+func agentWithRuntimeModel(agent *model.Agent, modelID string) *model.Agent {
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" || agent == nil {
+		return agent
+	}
+	runtimeAgent := *agent
+	runtimeAgent.Model = modelID
+	return &runtimeAgent
 }
 
 func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent *model.Agent, sb *model.Sandbox, runtimeSecret string, token *ProxyTokenResult) (map[string]string, error) {

@@ -3,6 +3,8 @@ export interface CanvasDesignTarget {
   fileId: string
   pageId?: string
   sourceUrl: string
+  fileName?: string
+  projectName?: string
 }
 
 export interface CanvasSessionURLEntry {
@@ -17,9 +19,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SESSION_URL_REFRESH_SKEW_MS = 60_000
 
-export function canvasDesignTargets(
-  text: string
-): CanvasDesignTarget[] {
+export function canvasDesignTargets(text: string): CanvasDesignTarget[] {
   const seen = new Set<string>()
   const targets: CanvasDesignTarget[] = []
 

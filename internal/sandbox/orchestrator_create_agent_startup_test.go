@@ -59,11 +59,11 @@ func TestCreateAgentSandboxPushesStartupProxyToken(t *testing.T) {
 		APIWebhookBaseURL: "https://api.example",
 		ProxyHost:         "https://proxy.example",
 	})
-	orch.SetAgentRuntimeConfigPusher(func(_ context.Context, _ *model.Sandbox, proxyToken *agentruntime.ProxyTokenResult) error {
-		if proxyToken == nil {
+	orch.SetAgentRuntimeConfigPusher(func(_ context.Context, _ *model.Sandbox, push AgentRuntimeConfigPush) error {
+		if push.ProxyToken == nil {
 			t.Fatal("proxy token was nil")
 		}
-		pushedJTI = proxyToken.JTI
+		pushedJTI = push.ProxyToken.JTI
 		return nil
 	})
 	secrets := &agentruntime.StartupSecrets{

@@ -146,7 +146,7 @@ func (o *Orchestrator) UpgradeAgentSandboxInPlace(ctx context.Context, agent *mo
 	if err := o.waitForAgentRuntimeLive(ctx, sb); err != nil {
 		return nil, fmt.Errorf("waiting for upgraded agent runtime: %w", err)
 	}
-	if err := o.pushAgentRuntimeConfig(ctx, sb, "upgrade", startupProxyToken); err != nil {
+	if err := o.pushAgentRuntimeConfig(ctx, sb, "upgrade", AgentRuntimeConfigPush{ProxyToken: startupProxyToken}); err != nil {
 		return nil, err
 	}
 
