@@ -67,6 +67,34 @@ export interface AgentWorkConversationBlock {
   defaultExpanded?: boolean
 }
 
+export interface InputRequestConversationBlock {
+  type: "input_request"
+  key?: string
+  questionRequestId: string
+  questions: RequestUserInputQuestion[]
+  answers?: RequestUserInputAnswers
+}
+
+export interface RequestUserInputQuestion {
+  id: string
+  header: string
+  question: string
+  options: RequestUserInputOption[]
+}
+
+export interface RequestUserInputOption {
+  label: string
+  description: string
+}
+
+export type RequestUserInputAnswers = Record<
+  string,
+  {
+    answers: string[]
+    other?: string
+  }
+>
+
 export interface ThinkingConversationBlock {
   type: "thinking"
   key?: string

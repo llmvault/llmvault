@@ -9086,6 +9086,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/sessions/{id}/usage": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns model usage cost and estimated credits for one visible session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Get session usage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sessionUsageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/skills": {
             "get": {
                 "security": [
@@ -14503,10 +14567,33 @@ const docTemplate = `{
                 }
             }
         },
+        "sessionInputResponseAnswer": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "other": {
+                    "type": "string"
+                }
+            }
+        },
         "sessionInputResponseRequest": {
             "type": "object",
             "properties": {
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/sessionInputResponseAnswer"
+                    }
+                },
                 "option_id": {
+                    "type": "string"
+                },
+                "question_request_id": {
                     "type": "string"
                 },
                 "request_id": {
@@ -14713,6 +14800,17 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "sessionUsageResponse": {
+            "type": "object",
+            "properties": {
+                "cost_usd": {
+                    "type": "number"
+                },
+                "credits": {
+                    "type": "integer"
                 }
             }
         },

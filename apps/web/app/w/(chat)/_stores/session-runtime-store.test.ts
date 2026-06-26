@@ -73,8 +73,18 @@ describe("session runtime store", () => {
     useSessionRuntimeStore.getState().applyStreamFrame(
       "session-1",
       frame("question_requested", {
-        request_id: "question-1",
-        prompt: "Pick an option",
+        question_request_id: "question-1",
+        questions: [
+          {
+            id: "choice",
+            header: "Choice",
+            question: "Pick an option",
+            options: [
+              { label: "Ship", description: "Deploy now." },
+              { label: "Hold", description: "Wait." },
+            ],
+          },
+        ],
         turn_id: "turn-1",
       })
     )

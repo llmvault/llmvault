@@ -114,6 +114,29 @@ describe("session workspace store", () => {
     )
   })
 
+  it("opens preview URLs in the browser panel", () => {
+    const store = useSessionWorkspaceStore.getState()
+    const url = "https://5173-um7j159u.preview.usehivy.com/"
+
+    store.openPanelView("session-a", "terminal")
+    store.openBrowserURL("session-a", url)
+
+    const workspace = selectSessionWorkspace(
+      useSessionWorkspaceStore.getState(),
+      "session-a"
+    )
+    expect(workspace.rightPanel).toMatchObject({
+      open: true,
+      openViews: ["terminal", "browser"],
+      activeView: "browser",
+    })
+    expect(workspace.browser).toMatchObject({
+      url,
+      src: url,
+      reloadKey: 1,
+    })
+  })
+
   it("persists pending line comments in the session workspace", () => {
     useSessionWorkspaceStore.getState().addLineComment("session-a", {
       id: "comment-1",

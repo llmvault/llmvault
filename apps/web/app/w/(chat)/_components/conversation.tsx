@@ -15,6 +15,7 @@ import {
 import { ThinkingBlock } from "@/app/w/(chat)/_components/conversation-thinking"
 import { UserMessageBlock } from "@/app/w/(chat)/_components/conversation-user-message"
 import type { CanvasDesignTarget } from "@/app/w/(chat)/_lib/canvas-design-links"
+import type { PreviewBrowserTarget } from "@/app/w/(chat)/_lib/preview-browser-links"
 import {
   type ConversationBlock,
   type MediaAttachment,
@@ -23,9 +24,11 @@ import {
 export function Conversation({
   blocks,
   onOpenCanvasTarget,
+  onOpenPreviewTarget,
 }: {
   blocks: ConversationBlock[]
   onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
+  onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
 }) {
   // All attachments across the conversation form one gallery so the
   // lightbox can navigate between every shared image and video.
@@ -47,6 +50,7 @@ export function Conversation({
           block={block}
           onOpenAttachment={openAttachment}
           onOpenCanvasTarget={onOpenCanvasTarget}
+          onOpenPreviewTarget={onOpenPreviewTarget}
         />
       ))}
       <Lightbox
@@ -63,10 +67,12 @@ function Block({
   block,
   onOpenAttachment,
   onOpenCanvasTarget,
+  onOpenPreviewTarget,
 }: {
   block: ConversationBlock
   onOpenAttachment: (attachment: MediaAttachment) => void
   onOpenCanvasTarget?: (target: CanvasDesignTarget) => void
+  onOpenPreviewTarget?: (target: PreviewBrowserTarget) => void
 }) {
   switch (block.type) {
     case "assistant":
@@ -75,6 +81,7 @@ function Block({
           block={block}
           onOpenAttachment={onOpenAttachment}
           onOpenCanvasTarget={onOpenCanvasTarget}
+          onOpenPreviewTarget={onOpenPreviewTarget}
         />
       )
     case "user":
@@ -101,6 +108,7 @@ function Block({
               block={child}
               onOpenAttachment={onOpenAttachment}
               onOpenCanvasTarget={onOpenCanvasTarget}
+              onOpenPreviewTarget={onOpenPreviewTarget}
             />
           )}
         />

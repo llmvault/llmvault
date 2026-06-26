@@ -9,9 +9,7 @@ import type {
   CanvasDesignTarget,
   CanvasSessionURLEntry,
 } from "@/app/w/(chat)/_lib/canvas-design-links"
-import type {
-  AttachmentDescriptionState,
-} from "@/app/w/(chat)/_components/composer-attachments"
+import type { AttachmentDescriptionState } from "@/app/w/(chat)/_components/composer-attachments"
 import type { CodeLineComment } from "@/app/w/(chat)/_components/line-comments"
 import {
   DEFAULT_SESSION_WORKSPACE,
@@ -68,9 +66,9 @@ export interface WorkspaceRepoTreeCache {
 
 export interface SessionWorkspace {
   lastTouchedAt: number
-	  composer: {
-	    text: string
-	    effort: string
+  composer: {
+    text: string
+    effort: string
     uploads: WorkspaceUploadItem[]
     attachmentDescriptions: Record<string, AttachmentDescriptionState>
   }
@@ -119,9 +117,9 @@ interface SessionWorkspaceStoreState {
   status: SessionWorkspaceStatus
   workspaces: Record<string, SessionWorkspace>
   setScope: (scope: WorkspaceScope) => void
-	  touchWorkspace: (sessionId: string) => void
-	  setComposerText: (sessionId: string, text: string) => void
-	  setComposerEffort: (sessionId: string, effort: string) => void
+  touchWorkspace: (sessionId: string) => void
+  setComposerText: (sessionId: string, text: string) => void
+  setComposerEffort: (sessionId: string, effort: string) => void
   setComposerUploads: (
     sessionId: string,
     update: (uploads: WorkspaceUploadItem[]) => WorkspaceUploadItem[]
@@ -160,6 +158,7 @@ interface SessionWorkspaceStoreState {
   ) => void
   setBrowserURL: (sessionId: string, url: string) => void
   navigateBrowser: (sessionId: string, src: string) => void
+  openBrowserURL: (sessionId: string, url: string) => void
   reloadBrowser: (sessionId: string) => void
   openCanvasTarget: (sessionId: string, target: CanvasDesignTarget) => void
   setCanvasSessionURL: (
@@ -200,7 +199,9 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
       })
     },
     touchWorkspace(sessionId) {
-      setState((state) => updateWorkspaceState(state, sessionId, (workspace) => workspace))
+      setState((state) =>
+        updateWorkspaceState(state, sessionId, (workspace) => workspace)
+      )
     },
     setComposerText(sessionId, text) {
       setState((state) =>
@@ -210,7 +211,7 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
         }))
       )
     },
-	    setComposerEffort(sessionId, effort) {
+    setComposerEffort(sessionId, effort) {
       setState((state) =>
         updateWorkspaceState(state, sessionId, (workspace) => ({
           ...workspace,
@@ -422,6 +423,27 @@ export const useSessionWorkspaceStore = create<SessionWorkspaceStoreState>()(
           browser: {
             ...workspace.browser,
             src,
+            reloadKey: workspace.browser.reloadKey + 1,
+          },
+        }))
+      )
+    },
+    openBrowserURL(sessionId, url) {
+      setState((state) =>
+        updateWorkspaceState(state, sessionId, (workspace) => ({
+          ...workspace,
+          rightPanel: {
+            ...workspace.rightPanel,
+            open: true,
+            openViews: workspace.rightPanel.openViews.includes("browser")
+              ? workspace.rightPanel.openViews
+              : [...workspace.rightPanel.openViews, "browser"],
+            activeView: "browser",
+          },
+          browser: {
+            ...workspace.browser,
+            url,
+            src: url,
             reloadKey: workspace.browser.reloadKey + 1,
           },
         }))

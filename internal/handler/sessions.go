@@ -129,9 +129,16 @@ type sessionMutationResponse struct {
 }
 
 type sessionInputResponseRequest struct {
-	RequestID string `json:"request_id"`
-	Text      string `json:"text,omitempty"`
-	OptionID  string `json:"option_id,omitempty"`
+	RequestID         string                                `json:"request_id"`
+	QuestionRequestID string                                `json:"question_request_id,omitempty"`
+	Text              string                                `json:"text,omitempty"`
+	OptionID          string                                `json:"option_id,omitempty"`
+	Answers           map[string]sessionInputResponseAnswer `json:"answers,omitempty"`
+}
+
+type sessionInputResponseAnswer struct {
+	Answers []string `json:"answers"`
+	Other   *string  `json:"other,omitempty"`
 }
 
 type sessionDetailResponse struct {
